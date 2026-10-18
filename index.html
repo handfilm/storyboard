@@ -3,19 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAWx // Master Anthology Engine 100</title>
-    <meta name="description" content="Next-level cinematic film anthology engine, 100-frame storyboard studio, multi-layer optical lens emulator, ambient audio synthesizer, and Git-ready publication suite." />
-    <meta property="og:title" content="RAWx // Master Anthology Engine 100" />
-    <meta property="og:description" content="Next-level cinematic film anthology engine, 100-frame storyboard studio, multi-layer optical lens emulator, ambient audio synthesizer, and Git-ready publication suite." />
+    <title>RAWx Storyboard Engine</title>
+    <meta name="description" content="Next-level cinematic film anthology and storyboard engine with multi-layer optical lens simulation, Depth of Field aperture control, audio synthesizer, and Git-ready publication suite." />
+    <meta property="og:title" content="RAWx Storyboard Engine" />
+    <meta property="og:description" content="Next-level cinematic film anthology and storyboard engine with multi-layer optical lens simulation, Depth of Field aperture control, audio synthesizer, and Git-ready publication suite." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@100;300;400;600;700&family=Noto+Serif+Bengali:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@100;300;400;500;600;700&family=Noto+Serif+Bengali:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --ease-hypersonic: cubic-bezier(0.16, 1, 0.3, 1);
             --gold: #d4af37;
+            --gold-bright: #ffd700;
+            --lens-blur: 10px;
+            --lens-mask-radius: 35%;
+            --lens-bloom: 12px;
+            --focus-x: 50%;
+            --focus-y: 50%;
         }
 
         * {
@@ -23,85 +29,98 @@
             margin: 0;
             padding: 0;
             user-select: none;
+            -webkit-user-select: none;
         }
 
         body, html {
             width: 100vw;
             height: 100vh;
-            background-color: #050505;
+            background-color: #030304;
             color: #ffffff;
             font-family: 'JetBrains Mono', monospace;
             overflow: hidden;
             overscroll-behavior: none;
         }
 
-        /* Top Header Strip */
+        /* Micro Ultra-Compact Header Strip (Height 32px) */
         #top-header {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            height: 48px;
-            padding: 0 24px;
+            height: 32px;
+            padding: 0 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+            background: rgba(5, 5, 7, 0.88);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
             z-index: 100;
-            pointer-events: none;
         }
 
         .header-title {
             font-family: 'Cinzel', serif;
-            font-size: 13px;
-            letter-spacing: 0.25em;
+            font-size: 11px;
+            letter-spacing: 0.22em;
             display: flex;
             align-items: center;
-            gap: 8px;
-            pointer-events: auto;
+            gap: 6px;
         }
 
         .header-tag {
-            background: rgba(212, 175, 55, 0.15);
+            background: rgba(212, 175, 55, 0.12);
             border: 1px solid rgba(212, 175, 55, 0.3);
             color: var(--gold);
-            font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 2px;
+            font-size: 8px;
+            padding: 1px 5px;
+            border-radius: 1px;
             letter-spacing: 1px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .header-actions {
-            pointer-events: auto;
             display: flex;
-            gap: 10px;
+            align-items: center;
+            gap: 6px;
         }
 
-        .btn-header {
-            background: rgba(212, 175, 55, 0.12);
-            border: 1px solid rgba(212, 175, 55, 0.4);
-            color: var(--gold);
+        .btn-micro {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #ccc;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            letter-spacing: 1.5px;
-            padding: 6px 14px;
-            border-radius: 2px;
+            font-size: 9px;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            border-radius: 1px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 22px;
         }
-        .btn-header:hover {
+        .btn-micro:hover {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .btn-micro.active {
             background: rgba(212, 175, 55, 0.25);
-            box-shadow: 0 0 10px rgba(212,175,55,0.3);
+            border-color: var(--gold);
+            color: var(--gold-bright);
+            font-weight: 700;
         }
 
-        /* Main Gallery Stage */
+        /* Main Gallery Stage (Maximized Viewport) */
         #stage-container {
             width: 100vw;
             height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 50px 20px 110px 20px;
+            padding: 34px 12px 64px 12px;
             position: relative;
         }
 
@@ -110,18 +129,18 @@
             display: flex;
             width: 100%;
             height: 100%;
-            max-width: 196vh;
-            max-height: 82vh;
+            max-width: 200vh;
+            max-height: 85vh;
             aspect-ratio: 2.39 / 1;
             overflow-x: auto;
             overflow-y: hidden;
             scroll-snap-type: x mandatory;
             scroll-behavior: smooth;
             border: 1px solid rgba(255,255,255,0.12);
-            background: #08080a;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+            background: #060608;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.95);
             border-radius: 2px;
-            transition: aspect-ratio 0.4s var(--ease-hypersonic), max-width 0.4s ease, max-height 0.4s ease;
+            transition: aspect-ratio 0.35s var(--ease-hypersonic), max-width 0.35s ease, max-height 0.35s ease;
         }
 
         #gallery::-webkit-scrollbar { display: none; }
@@ -160,7 +179,7 @@
             background-size: cover;
             background-position: center;
             filter: var(--lut-filter);
-            transition: transform 0.6s var(--ease-hypersonic), filter 0.4s ease;
+            transition: transform 0.6s var(--ease-hypersonic), filter 0.3s ease;
             z-index: 1;
             overflow: hidden;
         }
@@ -172,29 +191,29 @@
             background-image: var(--bg-img);
             background-size: cover;
             background-position: center;
-            filter: blur(12px) contrast(1.1) brightness(1.2);
+            filter: blur(var(--lens-bloom)) contrast(1.15) brightness(1.25);
             mix-blend-mode: screen;
-            -webkit-mask-image: radial-gradient(circle at center, black 15%, transparent 65%);
-            mask-image: radial-gradient(circle at center, black 15%, transparent 65%);
+            -webkit-mask-image: radial-gradient(circle at var(--focus-x) var(--focus-y), black 10%, transparent 60%);
+            mask-image: radial-gradient(circle at var(--focus-x) var(--focus-y), black 10%, transparent 60%);
             opacity: 0;
-            transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
+            transition: opacity 0.6s ease, transform 0.6s var(--ease-hypersonic);
             z-index: 2;
             pointer-events: none;
             overflow: hidden;
         }
 
-        /* Layer 3: Radial Anamorphic Lens Blur */
+        /* Layer 3: Radial Anamorphic Lens Blur & DoF Falloff */
         .photo-lens-blur {
             position: absolute;
             inset: -6%;
             background-image: var(--bg-img);
             background-size: cover;
             background-position: center;
-            filter: blur(10px) brightness(0.8);
-            -webkit-mask-image: radial-gradient(circle at center, transparent 35%, black 85%);
-            mask-image: radial-gradient(circle at center, transparent 35%, black 85%);
+            filter: blur(var(--lens-blur)) brightness(0.82);
+            -webkit-mask-image: radial-gradient(circle at var(--focus-x) var(--focus-y), transparent var(--lens-mask-radius), black 88%);
+            mask-image: radial-gradient(circle at var(--focus-x) var(--focus-y), transparent var(--lens-mask-radius), black 88%);
             opacity: 0;
-            transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
+            transition: opacity 0.6s ease, transform 0.6s var(--ease-hypersonic);
             z-index: 3;
             pointer-events: none;
             overflow: hidden;
@@ -212,13 +231,13 @@
             -webkit-mask-image: linear-gradient(to right, black 0%, transparent 16%, transparent 84%, black 100%);
             mask-image: linear-gradient(to right, black 0%, transparent 16%, transparent 84%, black 100%);
             opacity: 0;
-            transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
+            transition: opacity 0.6s ease, transform 0.6s var(--ease-hypersonic);
             z-index: 4;
             pointer-events: none;
             overflow: hidden;
         }
 
-        .frame.has-photo .photo-glow { opacity: 0.55; }
+        .frame.has-photo .photo-glow { opacity: 0.6; }
         .frame.has-photo .photo-lens-blur { opacity: 0.95; }
         .frame.has-photo .photo-motion-edges { opacity: 0.85; }
 
@@ -227,7 +246,7 @@
             position: absolute;
             inset: 0;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            opacity: 0.15;
+            opacity: 0.16;
             mix-blend-mode: overlay;
             pointer-events: none;
             z-index: 10;
@@ -237,48 +256,84 @@
         .vignette-overlay {
             position: absolute;
             inset: 0;
-            background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.65) 100%);
+            background: radial-gradient(circle at center, transparent 45%, rgba(0,0,0,0.7) 100%);
             pointer-events: none;
             z-index: 11;
+        }
+
+        /* Director's Rule of Thirds & Crosshair Guides */
+        .director-guides {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 25;
+            display: none;
+        }
+        .director-guides.active { display: block; }
+        .guide-line {
+            position: absolute;
+            background: rgba(212, 175, 55, 0.25);
+        }
+        .guide-h1 { top: 33.333%; left: 0; right: 0; height: 1px; border-top: 1px dashed rgba(212, 175, 55, 0.4); }
+        .guide-h2 { top: 66.666%; left: 0; right: 0; height: 1px; border-top: 1px dashed rgba(212, 175, 55, 0.4); }
+        .guide-v1 { left: 33.333%; top: 0; bottom: 0; width: 1px; border-left: 1px dashed rgba(212, 175, 55, 0.4); }
+        .guide-v2 { left: 66.666%; top: 0; bottom: 0; width: 1px; border-left: 1px dashed rgba(212, 175, 55, 0.4); }
+        .guide-crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+        }
+        .guide-crosshair::before {
+            content: '';
+            position: absolute;
+            top: 9px; left: 0; right: 0; height: 1px; background: rgba(212,175,55,0.7);
+        }
+        .guide-crosshair::after {
+            content: '';
+            position: absolute;
+            left: 9px; top: 0; bottom: 0; width: 1px; background: rgba(212,175,55,0.7);
         }
 
         /* HUD Frame Reticle */
         .ui-frame {
             position: absolute;
-            inset: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
+            inset: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
             pointer-events: none;
             z-index: 20;
-            transition: all 0.4s var(--ease-hypersonic);
+            transition: all 0.3s var(--ease-hypersonic);
         }
 
         .ui-frame::before {
             content: '';
             position: absolute;
-            top: -2px; left: -2px; width: 8px; height: 8px;
+            top: -2px; left: -2px; width: 6px; height: 6px;
             border-top: 2px solid var(--gold); border-left: 2px solid var(--gold);
         }
         .ui-frame::after {
             content: '';
             position: absolute;
-            bottom: -2px; right: -2px; width: 8px; height: 8px;
+            bottom: -2px; right: -2px; width: 6px; height: 6px;
             border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold);
         }
 
         .hud-text {
             position: absolute;
-            font-size: 9px;
-            letter-spacing: 0.2em;
+            font-size: 8px;
+            letter-spacing: 0.18em;
             color: rgba(255, 255, 255, 0.6);
-            line-height: 1.8;
+            line-height: 1.6;
             z-index: 30;
             text-transform: uppercase;
         }
 
-        .hud-tl { top: 10px; left: 12px; }
-        .hud-tr { top: 10px; right: 12px; text-align: right; }
-        .hud-bl { bottom: 10px; left: 12px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .hud-br { bottom: 10px; right: 12px; text-align: right; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hud-tl { top: 8px; left: 10px; }
+        .hud-tr { top: 8px; right: 10px; text-align: right; }
+        .hud-bl { bottom: 8px; left: 10px; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hud-br { bottom: 8px; right: 10px; text-align: right; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         /* Typography Block */
         .title-block {
@@ -287,30 +342,30 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            width: 90%;
-            max-width: 900px;
+            width: 88%;
+            max-width: 880px;
             text-shadow: 0 10px 30px rgba(0,0,0,0.95);
             z-index: 30;
             pointer-events: none;
-            transition: transform 0.5s var(--ease-hypersonic);
+            transition: transform 0.4s var(--ease-hypersonic);
         }
 
         .sub-title {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            letter-spacing: 0.35em;
+            font-size: 10px;
+            letter-spacing: 0.3em;
             color: var(--gold);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .sub-bengali {
             font-family: 'Noto Serif Bengali', serif;
-            font-size: 16px;
-            letter-spacing: 0.1em;
+            font-size: 15px;
+            letter-spacing: 0.08em;
             color: #ffe680;
             text-shadow: 0 0 12px rgba(212,175,55,0.6);
             font-weight: 700;
@@ -318,17 +373,17 @@
 
         .main-title {
             font-family: 'Cinzel', serif;
-            font-size: clamp(2rem, 5vw, 4.5rem);
+            font-size: clamp(1.8rem, 4.5vw, 4rem);
             font-weight: 700;
             letter-spacing: 0.18em;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
             text-transform: uppercase;
             line-height: 1.1;
         }
 
         .tagline {
-            font-size: clamp(9px, 1.2vw, 12px);
-            letter-spacing: 0.25em;
+            font-size: clamp(8px, 1.1vw, 11px);
+            letter-spacing: 0.22em;
             color: rgba(255,255,255,0.75);
             text-transform: uppercase;
         }
@@ -336,42 +391,45 @@
         .sound-cue-pill {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            margin-top: 14px;
-            padding: 4px 10px;
-            background: rgba(0,0,0,0.6);
+            gap: 5px;
+            margin-top: 10px;
+            padding: 3px 8px;
+            background: rgba(0,0,0,0.65);
             border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 20px;
-            font-size: 9px;
-            letter-spacing: 1.5px;
-            color: rgba(255,255,255,0.5);
+            border-radius: 12px;
+            font-size: 8px;
+            letter-spacing: 1.2px;
+            color: rgba(255,255,255,0.55);
         }
 
         .drop-prompt {
             position: absolute;
-            font-size: 12px;
-            letter-spacing: 4px;
-            color: #666;
+            bottom: 36px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: #888;
             pointer-events: none;
             transition: all 0.3s;
             z-index: 50;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
         }
 
         .drop-btn {
             background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,255,255,0.2);
-            padding: 6px 14px;
-            border-radius: 2px;
+            padding: 5px 12px;
+            border-radius: 1px;
             color: #fff;
-            font-size: 10px;
-            letter-spacing: 2px;
+            font-size: 9px;
+            letter-spacing: 1.5px;
             cursor: pointer;
             pointer-events: auto;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
         .drop-btn:hover {
             background: rgba(212,175,55,0.2);
@@ -380,61 +438,61 @@
         }
 
         /* Hypersonic Hover Physics */
-        .hover-style-0:hover .photo-base { transform: scale(1.04); filter: contrast(1.25) saturate(1.2) brightness(0.8); }
-        .hover-style-0:hover .photo-glow { transform: scale(1.04); opacity: 0.65; }
-        .hover-style-0:hover .photo-motion-edges { transform: scaleX(1.18) scaleY(1.04); filter: blur(18px); opacity: 1; }
+        .hover-style-0:hover .photo-base { transform: scale(1.03); filter: contrast(1.25) saturate(1.2) brightness(0.85); }
+        .hover-style-0:hover .photo-glow { transform: scale(1.03); opacity: 0.7; }
+        .hover-style-0:hover .photo-motion-edges { transform: scaleX(1.18) scaleY(1.03); filter: blur(18px); opacity: 1; }
         .hover-style-0:hover .main-title { letter-spacing: 0.22em; }
 
-        .hover-style-1:hover .photo-base { transform: translateX(-1.5%) scale(1.02); }
-        .hover-style-1:hover .title-block { transform: translate(-50%, -53%); }
+        .hover-style-1:hover .photo-base { transform: translateX(-1.2%) scale(1.02); }
+        .hover-style-1:hover .title-block { transform: translate(-50%, -52%); }
 
-        .hover-style-2:hover .photo-base { filter: contrast(1.3) saturate(0.9) brightness(0.9); transform: scale(1.03) rotate(0.4deg); }
-        .hover-style-2:hover .main-title { text-shadow: 3px 0 0 rgba(212, 175, 55, 0.8), -3px 0 0 rgba(255, 255, 255, 0.4); }
+        .hover-style-2:hover .photo-base { filter: contrast(1.3) saturate(0.9) brightness(0.9); transform: scale(1.02) rotate(0.3deg); }
+        .hover-style-2:hover .main-title { text-shadow: 2px 0 0 rgba(212, 175, 55, 0.8), -2px 0 0 rgba(255, 255, 255, 0.4); }
 
-        /* Floating Nav Arrows */
+        /* Floating Nav Arrows (Micro Size) */
         .nav-btn {
             position: fixed;
             top: 50%;
             transform: translateY(-50%);
-            color: rgba(255, 255, 255, 0.35);
-            background: rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            width: 44px;
-            height: 44px;
+            color: rgba(255, 255, 255, 0.3);
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.08);
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 2px;
+            border-radius: 1px;
             cursor: pointer;
             z-index: 100;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
         .nav-btn:hover {
             color: var(--gold);
             border-color: var(--gold);
-            background: rgba(0,0,0,0.85);
-            transform: translateY(-50%) scale(1.1);
+            background: rgba(0,0,0,0.9);
+            transform: translateY(-50%) scale(1.08);
         }
-        .nav-left { left: 16px; }
-        .nav-right { right: 16px; }
+        .nav-left { left: 12px; }
+        .nav-right { right: 12px; }
 
-        /* Micro-Timeline Scrubber */
+        /* Micro-Timeline Scrubber (Height 14px) */
         #photo-nav-bar {
             position: fixed;
-            bottom: 74px;
+            bottom: 46px;
             left: 50%;
             transform: translateX(-50%);
-            width: 86%;
-            max-width: 900px;
+            width: 90%;
+            max-width: 960px;
             display: flex;
             gap: 2px;
             overflow-x: auto;
             z-index: 100;
-            padding: 4px;
-            background: rgba(8, 8, 10, 0.75);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 2px;
+            padding: 2px;
+            background: rgba(5, 5, 8, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 1px;
             scroll-behavior: smooth;
         }
         #photo-nav-bar::-webkit-scrollbar { display: none; }
@@ -442,82 +500,83 @@
 
         .nav-dash {
             flex: 0 0 auto;
-            width: 28px;
-            height: 18px;
+            width: 24px;
+            height: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 8px;
-            color: rgba(255,255,255,0.3);
+            font-size: 7.5px;
+            color: rgba(255,255,255,0.35);
             border-radius: 1px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
         .nav-dash:hover, .nav-dash.active {
             color: #000;
             background: var(--gold);
             font-weight: 700;
-            box-shadow: 0 0 8px rgba(212,175,55,0.5);
+            box-shadow: 0 0 6px rgba(212,175,55,0.6);
         }
 
-        /* Bottom Controls Dock */
+        /* Micro Bottom Controls Dock (Height 36px) */
         #controls-panel {
             position: fixed;
-            bottom: 18px;
+            bottom: 8px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 16px;
-            background: rgba(8, 8, 10, 0.92);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            padding: 8px 24px;
-            border-radius: 2px;
+            gap: 10px;
+            background: rgba(6, 6, 9, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            padding: 4px 14px;
+            border-radius: 1px;
             z-index: 100;
-            backdrop-filter: blur(14px);
-            font-size: 11px;
-            letter-spacing: 1.5px;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            backdrop-filter: blur(16px);
+            font-size: 9.5px;
+            letter-spacing: 1.2px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+            height: 36px;
         }
 
         .control-btn {
             background: none;
             border: none;
-            color: #fff;
+            color: #ddd;
             font-family: 'JetBrains Mono', monospace;
             cursor: pointer;
-            transition: color 0.2s ease;
+            transition: color 0.15s ease;
             text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 1.5px;
+            font-size: 9.5px;
+            letter-spacing: 1.2px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
+            padding: 2px 4px;
         }
         .control-btn:hover { color: var(--gold); }
 
         .slider-wrapper {
             display: flex;
             align-items: center;
-            gap: 10px;
-            border-left: 1px solid rgba(255, 255, 255, 0.12);
-            border-right: 1px solid rgba(255, 255, 255, 0.12);
-            padding: 0 18px;
+            gap: 6px;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0 10px;
         }
 
         input[type=range] {
             -webkit-appearance: none;
-            width: 90px;
+            width: 70px;
             background: transparent;
         }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 10px;
-            width: 10px;
+            height: 9px;
+            width: 9px;
             background: var(--gold);
             cursor: pointer;
-            margin-top: -4px;
+            margin-top: -3.5px;
             border-radius: 1px;
         }
         input[type=range]::-webkit-slider-runnable-track {
@@ -527,16 +586,45 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
-        .select-dark {
-            background: rgba(0,0,0,0.7);
-            border: 1px solid rgba(255,255,255,0.15);
+        .select-micro {
+            background: rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.14);
             color: var(--gold);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            padding: 3px 6px;
-            border-radius: 2px;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 1px;
             cursor: pointer;
             outline: none;
+            height: 22px;
+            letter-spacing: 0.8px;
+        }
+        .select-micro option {
+            background: #0f1015;
+            color: #fff;
+        }
+
+        /* Live Audio Waveform Bars */
+        .vu-meter {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 1.5px;
+            height: 10px;
+            width: 12px;
+        }
+        .vu-bar {
+            width: 2px;
+            background: var(--gold);
+            border-radius: 1px;
+            height: 3px;
+            transition: height 0.1s ease;
+        }
+        .audio-active .vu-bar:nth-child(1) { animation: vuAnim 0.35s infinite alternate ease-in-out; }
+        .audio-active .vu-bar:nth-child(2) { animation: vuAnim 0.45s 0.1s infinite alternate ease-in-out; }
+        .audio-active .vu-bar:nth-child(3) { animation: vuAnim 0.3s 0.2s infinite alternate ease-in-out; }
+        @keyframes vuAnim {
+            from { height: 2px; opacity: 0.4; }
+            to { height: 10px; opacity: 1; }
         }
 
         /* Modal Overlays */
@@ -544,16 +632,16 @@
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(12px);
             z-index: 200;
-            padding: 24px;
+            padding: 20px;
             overflow-y: auto;
         }
         .modal.open { display: flex; align-items: center; justify-content: center; }
 
         .modal-card {
-            background: #0d0e14;
+            background: #0b0c10;
             border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 2px;
             width: 100%;
@@ -562,11 +650,11 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.9);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.95);
         }
 
         .modal-header {
-            padding: 16px 24px;
+            padding: 12px 18px;
             border-bottom: 1px solid rgba(255,255,255,0.1);
             display: flex;
             align-items: center;
@@ -574,22 +662,22 @@
         }
 
         .modal-body {
-            padding: 24px;
+            padding: 18px;
             overflow-y: auto;
             flex: 1;
         }
 
         .contact-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
         }
 
         .contact-thumb {
             aspect-ratio: 16 / 10;
-            background: #12131a;
+            background: #111218;
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 2px;
+            border-radius: 1px;
             position: relative;
             cursor: pointer;
             transition: all 0.2s;
@@ -600,74 +688,84 @@
         .contact-thumb:hover {
             border-color: var(--gold);
             transform: scale(1.02);
-            box-shadow: 0 0 12px rgba(212,175,55,0.3);
+            box-shadow: 0 0 10px rgba(212,175,55,0.3);
         }
 
         .code-box {
             background: #040406;
             border: 1px solid rgba(255,255,255,0.12);
-            padding: 14px;
-            border-radius: 2px;
-            font-size: 11px;
+            padding: 12px;
+            border-radius: 1px;
+            font-size: 10.5px;
             color: #4ade80;
-            line-height: 1.6;
+            line-height: 1.5;
             overflow-x: auto;
             white-space: pre-wrap;
         }
 
-        /* Mobile Adjustments */
+        /* Mobile Scale Adjustments */
         @media (max-width: 768px) {
             .nav-btn { display: none; }
-            #photo-nav-bar { width: 95%; bottom: 64px; }
-            #controls-panel { padding: 6px 14px; gap: 10px; bottom: 10px; width: 95%; justify-content: center; }
+            #photo-nav-bar { width: 95%; bottom: 44px; }
+            #controls-panel { padding: 4px 10px; gap: 8px; bottom: 6px; width: 96%; justify-content: center; height: auto; flex-wrap: wrap; }
             .slider-wrapper { display: none; }
-            .hud-text { font-size: 7px; }
-            .ui-frame { inset: 12px; }
-            .main-title { font-size: 1.8rem; }
+            .hud-text { font-size: 6.5px; }
+            .ui-frame { inset: 10px; }
+            .main-title { font-size: 1.6rem; }
+            .sub-title { font-size: 9px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Top Navigation Header -->
+    <!-- Micro Navigation Header (32px) -->
     <header id="top-header">
         <div class="header-title">
             <span style="color: var(--gold); font-weight: 900;">RAWx</span>
             <span style="color: rgba(255,255,255,0.3)">//</span>
-            <span>ANTHOLOGY ENGINE 100</span>
-            <span class="header-tag">GIT-READY</span>
+            <span>STORYBOARD ENGINE</span>
+            <span class="header-tag">100 FRAMES</span>
         </div>
         <div class="header-actions">
-            <button class="btn-header" onclick="openModal('modal-grid')">GRID (100)</button>
-            <button class="btn-header" onclick="openModal('modal-export')">EXPORT / GIT</button>
+            <button class="btn-micro" id="btn-guides" onclick="toggleGuides()" title="Toggle Rule of Thirds & Crosshair (C)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+                <span>GUIDES</span>
+            </button>
+            <button class="btn-micro" onclick="captureStillFrame()" title="Download High-Res 4K Still PNG">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 4h-3.5l-2-2h-3l-2 2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path></svg>
+                <span>CAPTURE STILL</span>
+            </button>
+            <button class="btn-micro" onclick="openModal('modal-grid')">GRID (100)</button>
+            <button class="btn-micro" onclick="openModal('modal-export')">EXPORT / GIT</button>
         </div>
     </header>
 
     <!-- Floating Navigation Arrows -->
     <button class="nav-btn nav-left" onclick="scrollGallery(-1)" aria-label="Previous Frame">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
     <button class="nav-btn nav-right" onclick="scrollGallery(1)" aria-label="Next Frame">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>
 
     <!-- Scrubber Timeline Nav Bar -->
     <div id="photo-nav-bar" role="navigation" aria-label="Timeline Scrubber"></div>
 
-    <!-- Bottom Controls Panel Dock -->
+    <!-- Micro Bottom Controls Dock (36px) -->
     <div id="controls-panel">
         <button class="control-btn" id="btn-play" onclick="togglePlay()" aria-label="Toggle Autoplay">
-            <svg id="icon-play" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            <span id="label-play">AUTO PLAY</span>
+            <svg id="icon-play" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span id="label-play">LOOP</span>
         </button>
         
         <div class="slider-wrapper">
-            <span style="font-size: 9px; color: #888;">PACE</span>
+            <span style="font-size: 8px; color: #888;">PACE</span>
             <input type="range" id="speed-slider" min="1" max="100" value="50" aria-label="Slideshow Speed">
-            <span id="speed-label" style="font-size: 9px; color: var(--gold); min-width: 32px;">3.5s</span>
+            <span id="speed-label" style="font-size: 8px; color: var(--gold); min-width: 26px;">3.5s</span>
         </div>
 
-        <select class="select-dark" id="aspect-select" onchange="changeAspectRatio(this.value)" aria-label="Aspect Ratio">
+        <!-- Aspect Ratio Dropdown -->
+        <select class="select-micro" id="aspect-select" onchange="changeAspectRatio(this.value)" aria-label="Aspect Ratio">
             <option value="2.39:1">2.39:1 CINEMASCOPE</option>
             <option value="16:9">16:9 CINEMA</option>
             <option value="4:3">4:3 ACADEMY</option>
@@ -675,21 +773,51 @@
             <option value="9:16">9:16 VERTICAL</option>
         </select>
 
-        <select class="select-dark" id="lut-select" onchange="changeLut(this.value)" aria-label="Color Grading LUT">
-            <option value="cinematic">LUT: RAWx Cinema 35</option>
-            <option value="noir">LUT: Neo-Noir Monolith</option>
-            <option value="golden">LUT: Golden Hour 2800K</option>
-            <option value="tungsten">LUT: Tungsten 3200K</option>
-            <option value="cyber">LUT: Cyberpunk Neon</option>
-            <option value="infrared">LUT: Infrared Vascular</option>
-            <option value="matrix">LUT: Matrix Emerald</option>
+        <!-- High-Impact Optical Filters Dropdown -->
+        <select class="select-micro" id="lut-select" onchange="changeLut(this.value)" aria-label="Cinematic Filter">
+            <option value="cinematic">FILTER: RAWx Cinema 35</option>
+            <option value="bleach">FILTER: Bleach Bypass Silver</option>
+            <option value="technicolor">FILTER: Technicolor 3-Strip</option>
+            <option value="noir">FILTER: Neo-Noir Monolith</option>
+            <option value="cyber">FILTER: Cyberpunk Neo-Tokyo</option>
+            <option value="flir">FILTER: Thermal FLIR Heatmap</option>
+            <option value="nightvision">FILTER: Night Vision GOGGLE</option>
+            <option value="kodachrome">FILTER: Kodachrome 1964</option>
+            <option value="solaris">FILTER: Solaris High-Key</option>
+            <option value="golden">FILTER: Golden Hour 2800K</option>
+            <option value="tungsten">FILTER: Tungsten 3200K</option>
+            <option value="matrix">FILTER: Emerald Matrix</option>
+            <option value="raw">FILTER: Flat Film Log (Raw)</option>
         </select>
 
+        <!-- New LENS & Depth of Field Dropdown -->
+        <select class="select-micro" id="lens-select" onchange="changeLens(this.value)" aria-label="Lens Optics & Depth of Field">
+            <option value="50mm">LENS: 50mm f/1.4 Human Eye (bokeh)</option>
+            <option value="14mm">LENS: 14mm f/11 Ultra-Wide (deep field)</option>
+            <option value="24mm">LENS: 24mm f/5.6 Establishing Wide</option>
+            <option value="35mm">LENS: 35mm f/2.0 Cine Master Prime</option>
+            <option value="85mm">LENS: 85mm f/1.2 Razor Portrait DoF</option>
+            <option value="100mm">LENS: 100mm f/2.8 Extreme Macro Probe</option>
+            <option value="135mm">LENS: 135mm f/1.8 Tele Compression</option>
+            <option value="200mm">LENS: 200mm f/2.8 Super Telephoto</option>
+            <option value="anamorphic">LENS: Anamorphic 2x Squeeze Flare</option>
+        </select>
+
+        <!-- Audio Synthesizer Toggle with VU Meter -->
         <button class="control-btn" id="btn-audio" onclick="toggleAudio()" aria-label="Toggle Ambient Audio">
-            <svg id="icon-audio" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+            <span class="vu-meter">
+                <span class="vu-bar"></span>
+                <span class="vu-bar"></span>
+                <span class="vu-bar"></span>
+            </span>
             <span id="label-audio">AUDIO</span>
         </button>
-        <button class="control-btn" id="btn-fullscreen" onclick="toggleFullscreen()" aria-label="Toggle Fullscreen">[ ] FULLSCREEN</button>
+
+        <!-- Native Fullscreen Toggle Button -->
+        <button class="control-btn" id="btn-fullscreen" onclick="toggleFullscreen()" aria-label="Toggle Fullscreen" title="Toggle Fullscreen (F)">
+            <svg id="icon-fs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+            <span id="label-fs">FULLSCREEN</span>
+        </button>
     </div>
 
     <!-- Main Stage Gallery Container -->
@@ -702,13 +830,13 @@
         <div class="modal-card">
             <div class="modal-header">
                 <div>
-                    <h2 style="font-family: 'Cinzel', serif; font-size: 16px; letter-spacing: 2px; color: #fff;">100-FRAME CONTACT SHEET</h2>
-                    <p style="font-size: 10px; color: #777; letter-spacing: 1px; margin-top: 2px;">SELECT ANY FRAME TO JUMP DIRECTLY</p>
+                    <h2 style="font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 2px; color: #fff;">100-FRAME CONTACT SHEET</h2>
+                    <p style="font-size: 9px; color: #777; letter-spacing: 1px; margin-top: 2px;">SELECT ANY FRAME TO JUMP DIRECTLY</p>
                 </div>
                 <button class="drop-btn" onclick="closeModal('modal-grid')" aria-label="Close Contact Sheet">CLOSE [ESC]</button>
             </div>
             <div class="modal-body">
-                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                <div style="margin-bottom: 14px; display: flex; gap: 8px;">
                     <button class="drop-btn" onclick="populateAllSampleImages()">POPULATE ALL 100 FRAMES WITH CINEMA PACK</button>
                 </div>
                 <div class="contact-grid" id="contact-grid-container"></div>
@@ -721,30 +849,30 @@
         <div class="modal-card">
             <div class="modal-header">
                 <div>
-                    <h2 style="font-family: 'Cinzel', serif; font-size: 16px; letter-spacing: 2px; color: #fff;">GIT & PLATFORM PUBLISHING SUITE</h2>
-                    <p style="font-size: 10px; color: #777; letter-spacing: 1px; margin-top: 2px;">READY FOR GITHUB PAGES, VERCEL, & GITHUB REPOSITORY</p>
+                    <h2 style="font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 2px; color: #fff;">GIT & PLATFORM PUBLISHING SUITE</h2>
+                    <p style="font-size: 9px; color: #777; letter-spacing: 1px; margin-top: 2px;">READY FOR GITHUB PAGES, VERCEL, & GITHUB REPOSITORY</p>
                 </div>
                 <button class="drop-btn" onclick="closeModal('modal-export')" aria-label="Close Export Modal">CLOSE [ESC]</button>
             </div>
-            <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
                 <div>
-                    <h3 style="font-size: 11px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 6px;">1. PUSH TO GITHUB REPOSITORY</h3>
+                    <h3 style="font-size: 10px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 5px;">1. PUSH TO GITHUB REPOSITORY</h3>
                     <div class="code-box">git init
 git add .
-git commit -m "feat: complete RAWx Master Anthology Engine 100 with Video and Assets support"
+git commit -m "feat: complete RAWx Storyboard Engine with high-impact filters and lens DoF"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
 git push -u origin main</div>
                 </div>
 
                 <div>
-                    <h3 style="font-size: 11px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 6px;">2. PERMANENT ASSETS FOLDER</h3>
-                    <p style="font-size: 11px; color: #aaa; line-height: 1.6;">
+                    <h3 style="font-size: 10px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 5px;">2. PERMANENT ASSETS FOLDER</h3>
+                    <p style="font-size: 10px; color: #aaa; line-height: 1.6;">
                         Place photos or videos in <code>public/assets/</code> named <code>001.mp4</code>, <code>001.jpg</code>, <code>002.mp4</code>, etc. The app automatically scans and pre-loads them on startup with full cinematic optical shaders.
                     </p>
                 </div>
 
-                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
                     <button class="drop-btn" onclick="downloadJSONExport()">DOWNLOAD PROJECT JSON</button>
                     <button class="drop-btn" onclick="downloadMarkdownReadme()">DOWNLOAD README.MD</button>
                 </div>
@@ -754,106 +882,106 @@ git push -u origin main</div>
 
     <script>
         const baseThemes = [
-            { title: "THE SINGULARITY", sub: "দৃষ্টি", tag: "MACRO EYES: PUPILS DILATING INTO THE VOID", sound: "Sub-bass pulse 36Hz" },
-            { title: "EVENT HORIZON", sub: "সীমানা", tag: "FIRST GLIMPSE OF THE MACRO BLOOM", sound: "Gravitational sweep" },
-            { title: "PHOTON SPHERE", sub: "আলো", tag: "TISSUE TEXTURES SHIFTING UNDER MICRO LIGHTING", sound: "Resonant glass tone 440Hz" },
-            { title: "SHOCK // CORE", sub: "সংঘাত", tag: "SUDDEN VISUAL: GLOSSY LUBE & SUBTLE YELLOW TINT", sound: "Dynamic visceral impact" },
-            { title: "SPATIAL DISTORTION", sub: "বাঁক", tag: "EYES ROLLING BACK AS GRAVITY HITS", sound: "Phase-shifted harmonic drone" },
-            { title: "THE APERTURE", sub: "উন্মোচন", tag: "THE BLOOM STRETCHING LIKE SCATTERED STARLIGHT", sound: "Aperture mechanical diaphragm" },
-            { title: "DARK MATTER", sub: "অন্ধকার", tag: "HEAVY CONTRAST ON THE OUTER RIDGES", sound: "Low frequency vinyl noise" },
-            { title: "SHOCK // NEBULA", sub: "মিশ্রণ", tag: "FLASH OF WHITE FLUID MIXING WITH RAW AMBER", sound: "Hydrodynamic surge" },
-            { title: "PARALLAX", sub: "দৃষ্টিভ্রম", tag: "FLICKERING EYELASHES IN HYPNOTIC RHYTHM", sound: "Binaural rhythmic pulsation" },
-            { title: "WARP DRIVE", sub: "গতি", tag: "HIGH-SPEED PULL REVEALING THE GAPE", sound: "Doppler acceleration shift" },
-            { title: "ECLIPSE", sub: "গ্রহণ", tag: "DYNAMIC SHADOWS PLAYING ON THE SPHINCTER MUSCLE", sound: "Halo backlighting tone" },
-            { title: "SHOCK // IMPACT", sub: "পতন", tag: "MESSY VISCOUS SPLATTER // RAW REALITY", sound: "1/8000s shutter impact" },
-            { title: "ACCRETION", sub: "ঘূর্ণন", tag: "EYES LOCKED, TEARING UP FROM THE FORCE", sound: "Centrifugal whirl" },
-            { title: "THE ABYSS", sub: "গভীরতা", tag: "MACRO FOCUS FALLING INTO THE CENTER BLOOM", sound: "Deep oceanic trench resonance" },
-            { title: "KINETIC ENERGY", sub: "কম্পন", tag: "MICRO-TREMORS AND PULSATING TEXTURES", sound: "Fast biological jitter 120BPM" },
-            { title: "SHOCK // FUSION", sub: "মিলন", tag: "LUBE BUBBLES AND YELLOWISH HUES IN MACRO", sound: "Viscous refraction fizz" },
-            { title: "OBSERVER EFFECT", sub: "সাক্ষী", tag: "DEAD-LOCKED EYE CONTACT WITH THE LENS", sound: "Fourth wall silence & heartbeat" },
-            { title: "WORMHOLE", sub: "পথ", tag: "THE BLOOM FORCIBLY HELD OPEN IN TIME", sound: "Time-dilation sweep" },
-            { title: "SPECTRAL SHIFT", sub: "বর্ণালি", tag: "SLIGHT LIGHT ANGLE CHANGE ALTERS THE TEXTURE", sound: "Prismatic filter sweep" },
-            { title: "SHOCK // OVERFLOW", sub: "প্লাবন", tag: "SUDDEN LEAK OF CUM AND NATURAL FLUIDS", sound: "Fluid pressure release" },
-            { title: "PULSAR", sub: "স্পন্দন", tag: "EYELIDS FLUTTERING LIKE A DYING STAR", sound: "Stroboscopic pulse series" },
-            { title: "GRAVITY WELL", sub: "টান", tag: "THE BLOOM SUCKING INWARD, HYPNOTIC LOOP", sound: "Inward suction vacuum" },
-            { title: "SURFACE TENSION", sub: "চাপ", tag: "GLOSSY REFLECTIONS ON TIGHTENED SKIN", sound: "Specular tension ping" },
-            { title: "SHOCK // ERUPTION", sub: "বিস্ফোরণ", tag: "MESSY, UNFILTERED TEXTURE OF THE AFTERMATH", sound: "Volcanic organic splatter" },
-            { title: "BLINDING LIGHT", sub: "অন্ধ", tag: "EYES SQUEEZED SHUT IN ABSOLUTE TRANCE", sound: "10000 lumen crescendo" },
-            { title: "THE CRATER", sub: "গহ্বর", tag: "A PERFECT, ASYMMETRICAL MACRO GAPE", sound: "Topographical lunar echo" },
-            { title: "LUMINESCENCE", sub: "দ্যুতি", tag: "RING FLASH ILLUMINATING THE DEEPEST TISSUES", sound: "Circular catchlight tone" },
-            { title: "SHOCK // LIQUID", sub: "তরল", tag: "THICK WHITE DROPS SLIDING OVER YELLOWISH TONES", sound: "Droplet cascade reverb" },
-            { title: "STRETCHED TIME", sub: "প্রসারণ", tag: "MACRO EYES WIDENING BEYOND LIMITS", sound: "1000fps time stretch" },
-            { title: "THE TEAR", sub: "বিচ্ছিন্নতা", tag: "THE BLOOM PUSHED TO ITS MAXIMUM RADIUS", sound: "Elastic strain limit" },
-            { title: "MICRO GRAVITY", sub: "ভারহীন", tag: "FLOATING, FLUID MOTIONS OF THE MUSCLE TRACT", sound: "Zero-G ambient drift" },
-            { title: "SHOCK // VISCOUS", sub: "ঘনত্ব", tag: "EXTREME CLOSE-UP OF THE FLUID MIXTURE", sound: "Dense emulsion rumble" },
-            { title: "ZERO POINT", sub: "শূন্য", tag: "A SINGLE TEAR DROPPING FROM THE OBSERVER", sound: "Solitary crystal chime" },
-            { title: "THE VORTEX", sub: "ঘূর্ণি", tag: "THE CENTER OF THE BLOOM IN SHARP FOCUS", sound: "Swirling phase phaser" },
-            { title: "LIGHT TRAP", sub: "আবদ্ধ", tag: "NO LIGHT ESCAPES THE MACRO DEPTH", sound: "Vantablack acoustic null" },
-            { title: "SHOCK // RAW", sub: "নগ্নতা", tag: "MESSY, UNAPOLOGETIC ANAL SECRETIONS", sound: "Forensic documentary saturation" },
-            { title: "PARALLEL", sub: "সমান্তরাল", tag: "SPLIT SCREEN: HER EYE AND THE BLOOM", sound: "Diptych dual stereo pulse" },
-            { title: "THE COLLAPSE", sub: "ধ্বংস", tag: "THE BLOOM SLOWLY CLOSING, EXHAUSTED", sound: "Relaxing muscle exhale" },
-            { title: "INFRARED", sub: "তাপ", tag: "WARM TUNGSTEN LIGHT EXPOSING EVERY VEIN", sound: "Vascular heat hum" },
-            { title: "SHOCK // DISCHARGE", sub: "নির্গমন", tag: "SUDDEN VISUAL OF CUM DRIPPING DOWN", sound: "Dynamic gravitational slide" },
-            { title: "HYPER-SPEED", sub: "উন্মাদনা", tag: "RAPID FLICKER OF HER EYES LOSING FOCUS", sound: "Saccade shutter burst" },
-            { title: "THE TUNNEL", sub: "সুড়ঙ্গ", tag: "HIGH-SPEED PUSH AND PULL BLUR", sound: "Subway tunnel roar" },
-            { title: "KINETIC FRICTION", sub: "ঘর্ষণ", tag: "DYNAMIC TEXTURE CHANGES FROM MOTION", sound: "Thermal friction sheen" },
-            { title: "SHOCK // SLIP", sub: "স্খলন", tag: "THE YELLOW-TINTED LUBE SMEARING THE LENS", sound: "Optical lens smear sweep" },
-            { title: "AFTERGLOW", sub: "অবশেষ", tag: "GLAZED, HYPNOTIZED MACRO EYES", sound: "Warm euphoric decay" },
-            { title: "THE SCAR", sub: "চিহ্ন", tag: "THE OVERSTRETCHED, BEAUTIFUL RED BLOOM", sound: "Crimson flush sustained note" },
-            { title: "ECHOES", sub: "প্রতিধ্বনি", tag: "MUSCLE SPASMS CAPTURED IN SLOW MOTION", sound: "Involuntary rhythmic aftershock" },
-            { title: "SHOCK // ALLOY", sub: "মিশ্র ধাতু", tag: "THE METALLIC SHINE OF FLUIDS AND SWEAT", sound: "Liquid mercury bounce" },
-            { title: "GLITCH", sub: "ত্রুটি", tag: "EYES DARTING UNCONTROLLABLY", sound: "Digital buffer artifact" },
-            { title: "ASYMMETRY", sub: "অসমতা", tag: "THE BLOOM DISTORTED BY THE HEAVY ANGLE", sound: "Off-axis wide perspective" },
-            { title: "RADIANCE", sub: "বিকিরণ", tag: "SHADOWS DANCING ON THE MOIST TISSUE", sound: "Volumetric ray beam tone" },
-            { title: "SHOCK // EXPOSE", sub: "উন্মুক্ত", tag: "EXTREME MACRO OF THE MESSY, YELLOWISH CORE", sound: "Unsparing visceral thud" },
-            { title: "THE RETURN", sub: "প্রত্যাবর্তন", tag: "EYES SNAPPING BACK TO DEAD CENTER", sound: "Consciousness reclaim gasp" },
-            { title: "THE RE-OPENING", sub: "পুনর্জন্ম", tag: "BLOOM FORCED WIDE OPEN ONCE AGAIN", sound: "Hydraulic opening release" },
-            { title: "REFRACTION", sub: "প্রতিসরণ", tag: "LIGHT BENDING THROUGH THE THICK LUBE", sound: "Caustic liquid sparkle" },
-            { title: "SHOCK // THE SPILL", sub: "পতন", tag: "HEAVY DROP OF CUM SPILLING OVER THE EDGE", sound: "Impact marble droplet" },
-            { title: "QUANTUM LOCK", sub: "আবদ্ধ", tag: "EYES WIDE, FROZEN IN PURE ECSTASY", sound: "Pure suspended sine tone" },
-            { title: "THE NODE", sub: "কেন্দ্র", tag: "THE ABSOLUTE CENTER OF THE SINGULARITY", sound: "Geometric anchor 100Hz" },
-            { title: "SURFACE WAVE", sub: "তরঙ্গ", tag: "RIPPLING TEXTURES ACROSS THE SKIN", sound: "Concentric ripple swell" },
-            { title: "SHOCK // CHAOS", sub: "বিশৃঙ্খলা", tag: "LUBE, SWEAT, AND YELLOW TINTS BLENDED", sound: "Pollock organic splatter" },
-            { title: "DENSITY", sub: "ঘনত্ব", tag: "THE HEAVINESS IN HER GAZE", sound: "Gravitational weight drone" },
-            { title: "COMPRESSION", sub: "চাপ", tag: "THE BLOOM TIGHTENING AROUND THE VOID", sound: "Compression pump rhythm" },
-            { title: "MAGNETIC FIELD", sub: "আকর্ষণ", tag: "THE PULL OF THE SHINY, WET TEXTURES", sound: "Ferrofluid electric field" },
-            { title: "SHOCK // THE MIX", sub: "মিশ্রণ", tag: "RAW, UNDILUTED VISUAL OF THE AFTERMATH", sound: "5600K raw illumination" },
-            { title: "BACKGROUND NOISE", sub: "গুঞ্জন", tag: "EYES HALF OPEN, COMPLETELY LOST", sound: "Cosmic microwave noise" },
-            { title: "THE FREQUENCY", sub: "কম্পাঙ্ক", tag: "RAPID, VIBRATING MICRO-MOVEMENTS OF THE GAPE", sound: "Resonant 60Hz vibrato" },
-            { title: "HEAT SIGNATURE", sub: "উত্তাপ", tag: "RED AND AMBER TONES HIGHLIGHTING THE TISSUE", sound: "Thermographic amber hum" },
-            { title: "SHOCK // PURE", sub: "খাঁটি", tag: "THE SHOCKING BEAUTY OF THE ANATOMICAL MESS", sound: "Grand organ church chord" },
-            { title: "FRACTAL", sub: "ভগ্নাংশ", tag: "TEARS BLURRING THE MACRO EYE SHOT", sound: "Liquid tear lens refraction" },
-            { title: "THE GATEWAY", sub: "দ্বার", tag: "THE BLOOM AS A PORTAL TO THE UNKNOWN", sound: "Portal humming portal" },
-            { title: "OPTICAL ILLUSION", sub: "ভ্রম", tag: "LIGHT SHIFTS MAKING THE BLOOM LOOK INFINITE", sound: "Shepard infinite scale" },
-            { title: "SHOCK // VISUAL", sub: "দৃশ্য", tag: "SUDDEN SPLASH OF WHITE ACROSS THE DARKNESS", sound: "Dynamic flash transient" },
-            { title: "EXPANSION", sub: "প্রসার", tag: "EYES WIDENING IN SUDDEN SHOCK", sound: "Pupil dilation surge" },
-            { title: "THE TEAR II", sub: "বিদারণ", tag: "THE GAPE REACHING ITS ABSOLUTE LIMIT", sound: "Boundary capacity stress" },
-            { title: "VOID DRIFT", sub: "ভাসমান", tag: "SMOOTH, FRICTIONLESS SLIDE REVEALED BY LIGHT", sound: "Hydroplane glide note" },
-            { title: "SHOCK // SECRETE", sub: "ক্ষরণ", tag: "THE SUBTLE YELLOW MINGLING WITH PURE WHITE", sound: "Dual chromatic fluid interplay" },
-            { title: "FROZEN TIME", sub: "স্থির", tag: "EYES LOCKED IN A FREEZE-FRAME", sound: "Chronophotographic freeze" },
-            { title: "THE SINGULARITY II", sub: "বিন্দু", tag: "A PERFECT, STILL MACRO SHOT OF THE BLOOM", sound: "Deep 40Hz anchor drone" },
-            { title: "CRYOGENIC", sub: "শীতল", tag: "CRISP, RAZOR-SHARP FOCUS ON THE TEXTURE", sound: "Razor focus crystal crackle" },
-            { title: "SHOCK // CONTRAST", sub: "বৈপরীত্য", tag: "THE DARK ASSHOLE COVERED IN GLOSSY FLUIDS", sound: "Melanin and gloss juxtaposition" },
-            { title: "SYNERGY", sub: "সমন্বয়", tag: "THE EYE AND THE BLOOM PULSATING IN SYNC", sound: "Entrained biology sync" },
-            { title: "THE ALIGNMENT", sub: "সরলরেখা", tag: "PERFECT SYMMETRY IN THE MACRO FRAME", sound: "Kubrick one-point harmonic" },
-            { title: "LUMINOUS FLUX", sub: "প্রবাহ", tag: "LIGHT REFLECTING OFF EVERY WET SURFACE", sound: "Specular starlight cascade" },
-            { title: "SHOCK // THE CLIMAX", sub: "চূড়া", tag: "THE HEAVIEST MIX OF FLUIDS YET", sound: "Massive orchestral sub hit" },
-            { title: "ACCELERATION", sub: "ত্বরণ", tag: "EYES BLINKING RAPIDLY IN OVERLOAD", sound: "Rapid fire biological shutter" },
-            { title: "THE LAUNCH", sub: "ক্ষেপণ", tag: "THE BLOOM BOUNCING BACK FROM IMPACT", sound: "Elastic recoil dampening" },
-            { title: "KINETIC BLUR", sub: "অস্পষ্টতা", tag: "TEXTURES BLURRING INTO A HYPNOTIC SPIN", sound: "Rotational 720 deg/s blur" },
-            { title: "SHOCK // THE DROP", sub: "পতন", tag: "A SINGLE HEAVY DROP OF LUBE AND CUM FALLING", sound: "Isolated gravitational droplet" },
-            { title: "THE CLOUD", sub: "মেঘ", tag: "SOFT FOCUS ON HER EXHAUSTED EYES", sound: "Dream diffusion haze" },
-            { title: "THE NEBULA", sub: "নীহারিকা", tag: "THE BLOOM SURROUNDED BY A MESS OF FLUIDS", sound: "Interstellar organic cloud" },
-            { title: "DIFFRACTION", sub: "বিচ্ছুরণ", tag: "LIGHT SPLITTING ACROSS THE WET TEXTURES", sound: "Glass harmonica chord" },
-            { title: "SHOCK // UNFILTERED", sub: "অকৃত্রিম", tag: "THE RAW, YELLOWISH REALITY OF THE DEEP", sound: "Uncompromising truth to medium" },
-            { title: "IMPLOSION", sub: "অন্তর্মুখী", tag: "EYES ROLLING BACK FOR THE LAST TIME", sound: "Reverse cymbal into void" },
-            { title: "THE CRUSH", sub: "পেষণ", tag: "THE BLOOM SLOWLY PULSATING SHUT", sound: "Heavy gate closing resonance" },
-            { title: "FADING LIGHT", sub: "ম্লান", tag: "THE LIGHT SOURCE DIMMING OVER THE TEXTURES", sound: "Tungsten filament amber fade" },
-            { title: "SHOCK // THE SEAL", sub: "অন্তিম", tag: "THE MESSY, BEAUTIFUL FINAL STATE OF THE BLOOM", sound: "Resting anatomical landscape" },
-            { title: "OBSERVATION DECK", sub: "পর্যবেক্ষণ", tag: "THE FINAL LOOK IN HER EYES", sound: "Knowing gaze completion" },
-            { title: "THE RECORD", sub: "দলিল", tag: "A WIDE MACRO OF THE ENTIRE CHAOS", sound: "Archival overview documentation" },
-            { title: "BLACKOUT", sub: "অন্ধকার", tag: "THE TEXTURES FADING INTO THE SHADOWS", sound: "Decaying drone below 20Hz" },
-            { title: "THE END OF TIME", sub: "সমাপ্তি", tag: "THE HYPNOTIC LOOP RESTARTS FROM ZERO", sound: "Ouroboros loop restart pulse" }
+            { title: "THE SINGULARITY", sub: "দৃষ্টি", tag: "MACRO EYES: PUPILS DILATING INTO THE VOID", sound: "Sub-bass pulse 36Hz", move: "DOLLY ZOOM" },
+            { title: "EVENT HORIZON", sub: "সীমানা", tag: "FIRST GLIMPSE OF THE MACRO BLOOM", sound: "Gravitational sweep", move: "STATIC 50MM" },
+            { title: "PHOTON SPHERE", sub: "আলো", tag: "TISSUE TEXTURES SHIFTING UNDER MICRO LIGHTING", sound: "Resonant glass tone 440Hz", move: "SLOW TRACKING" },
+            { title: "SHOCK // CORE", sub: "সংঘাত", tag: "SUDDEN VISUAL: GLOSSY LUBE & SUBTLE YELLOW TINT", sound: "Dynamic visceral impact", move: "WHIP PAN" },
+            { title: "SPATIAL DISTORTION", sub: "বাঁক", tag: "EYES ROLLING BACK AS GRAVITY HITS", sound: "Phase-shifted harmonic drone", move: "DUTCH ANGLE" },
+            { title: "THE APERTURE", sub: "উন্মোচন", tag: "THE BLOOM STRETCHING LIKE SCATTERED STARLIGHT", sound: "Aperture mechanical diaphragm", move: "CRANE UP" },
+            { title: "DARK MATTER", sub: "অন্ধকার", tag: "HEAVY CONTRAST ON THE OUTER RIDGES", sound: "Low frequency vinyl noise", move: "STATIC LOW" },
+            { title: "SHOCK // NEBULA", sub: "মিশ্রণ", tag: "FLASH OF WHITE FLUID MIXING WITH RAW AMBER", sound: "Hydrodynamic surge", move: "HIGH SPEED 120FPS" },
+            { title: "PARALLAX", sub: "দৃষ্টিভ্রম", tag: "FLICKERING EYELASHES IN HYPNOTIC RHYTHM", sound: "Binaural rhythmic pulsation", move: "RACK FOCUS" },
+            { title: "WARP DRIVE", sub: "গতি", tag: "HIGH-SPEED PULL REVEALING THE GAPE", sound: "Doppler acceleration shift", move: "ZOOM IN" },
+            { title: "ECLIPSE", sub: "গ্রহণ", tag: "DYNAMIC SHADOWS PLAYING ON THE SPHINCTER MUSCLE", sound: "Halo backlighting tone", move: "SILHOUETTE PAN" },
+            { title: "SHOCK // IMPACT", sub: "পতন", tag: "MESSY VISCOUS SPLATTER // RAW REALITY", sound: "1/8000s shutter impact", move: "SHOCK PUSH" },
+            { title: "ACCRETION", sub: "ঘূর্ণন", tag: "EYES LOCKED, TEARING UP FROM THE FORCE", sound: "Centrifugal whirl", move: "SPIRAL ROLL" },
+            { title: "THE ABYSS", sub: "গভীরতা", tag: "MACRO FOCUS FALLING INTO THE CENTER BLOOM", sound: "Deep oceanic trench resonance", move: "VERTIGO DRIFT" },
+            { title: "KINETIC ENERGY", sub: "কম্পন", tag: "MICRO-TREMORS AND PULSATING TEXTURES", sound: "Fast biological jitter 120BPM", move: "MICRO JITTER" },
+            { title: "SHOCK // FUSION", sub: "মিলন", tag: "LUBE BUBBLES AND YELLOWISH HUES IN MACRO", sound: "Viscous refraction fizz", move: "PROBE LENS DIVE" },
+            { title: "OBSERVER EFFECT", sub: "সাক্ষী", tag: "DEAD-LOCKED EYE CONTACT WITH THE LENS", sound: "Fourth wall silence & heartbeat", move: "DIRECT GAZE" },
+            { title: "WORMHOLE", sub: "পথ", tag: "THE BLOOM FORCIBLY HELD OPEN IN TIME", sound: "Time-dilation sweep", move: "ENDLESS TUNNEL" },
+            { title: "SPECTRAL SHIFT", sub: "বর্ণালি", tag: "SLIGHT LIGHT ANGLE CHANGE ALTERS THE TEXTURE", sound: "Prismatic filter sweep", move: "ARC ROTATION" },
+            { title: "SHOCK // OVERFLOW", sub: "প্লাবন", tag: "SUDDEN LEAK OF CUM AND NATURAL FLUIDS", sound: "Fluid pressure release", move: "TILT DOWN" },
+            { title: "PULSAR", sub: "স্পন্দন", tag: "EYELIDS FLUTTERING LIKE A DYING STAR", sound: "Stroboscopic pulse series", move: "STROBE CUT" },
+            { title: "GRAVITY WELL", sub: "টান", tag: "THE BLOOM SUCKING INWARD, HYPNOTIC LOOP", sound: "Inward suction vacuum", move: "CENTRIPETAL PULL" },
+            { title: "SURFACE TENSION", sub: "চাপ", tag: "GLOSSY REFLECTIONS ON TIGHTENED SKIN", sound: "Specular tension ping", move: "GLANCE SLIDE" },
+            { title: "SHOCK // ERUPTION", sub: "বিস্ফোরণ", tag: "MESSY, UNFILTERED TEXTURE OF THE AFTERMATH", sound: "Volcanic organic splatter", move: "KINETIC SHUTTER" },
+            { title: "BLINDING LIGHT", sub: "অন্ধ", tag: "EYES SQUEEZED SHUT IN ABSOLUTE TRANCE", sound: "10000 lumen crescendo", move: "FLARE BURST" },
+            { title: "THE CRATER", sub: "গহ্বর", tag: "A PERFECT, ASYMMETRICAL MACRO GAPE", sound: "Topographical lunar echo", move: "SURVEY ORBIT" },
+            { title: "LUMINESCENCE", sub: "দ্যুতি", tag: "RING FLASH ILLUMINATING THE DEEPEST TISSUES", sound: "Circular catchlight tone", move: "RING GLIDE" },
+            { title: "SHOCK // LIQUID", sub: "তরল", tag: "THICK WHITE DROPS SLIDING OVER YELLOWISH TONES", sound: "Droplet cascade reverb", move: "GRAVITY SLOW" },
+            { title: "STRETCHED TIME", sub: "প্রসারণ", tag: "MACRO EYES WIDENING BEYOND LIMITS", sound: "1000fps time stretch", move: "OVERCRANKED" },
+            { title: "THE TEAR", sub: "বিচ্ছিন্নতা", tag: "THE BLOOM PUSHED TO ITS MAXIMUM RADIUS", sound: "Elastic strain limit", move: "BOUNDARY PUSH" },
+            { title: "MICRO GRAVITY", sub: "ভারহীন", tag: "FLOATING, FLUID MOTIONS OF THE MUSCLE TRACT", sound: "Zero-G ambient drift", move: "FREE FLOAT" },
+            { title: "SHOCK // VISCOUS", sub: "ঘনত্ব", tag: "EXTREME CLOSE-UP OF THE FLUID MIXTURE", sound: "Dense emulsion rumble", move: "MACRO FOCUS PULL" },
+            { title: "ZERO POINT", sub: "শূন্য", tag: "A SINGLE TEAR DROPPING FROM THE OBSERVER", sound: "Solitary crystal chime", move: "SOLITARY STILL" },
+            { title: "THE VORTEX", sub: "ঘূর্ণি", tag: "THE CENTER OF THE BLOOM IN SHARP FOCUS", sound: "Swirling phase phaser", move: "AXIAL ROTATION" },
+            { title: "LIGHT TRAP", sub: "আবদ্ধ", tag: "NO LIGHT ESCAPES THE MACRO DEPTH", sound: "Vantablack acoustic null", move: "BLACKOUT PUSH" },
+            { title: "SHOCK // RAW", sub: "নগ্নতা", tag: "MESSY, UNAPOLOGETIC ANAL SECRETIONS", sound: "Forensic documentary saturation", move: "FORENSIC LOCKED" },
+            { title: "PARALLEL", sub: "সমান্তরাল", tag: "SPLIT SCREEN: HER EYE AND THE BLOOM", sound: "Diptych dual stereo pulse", move: "DIPTYCH SPLIT" },
+            { title: "THE COLLAPSE", sub: "ধ্বংস", tag: "THE BLOOM SLOWLY CLOSING, EXHAUSTED", sound: "Relaxing muscle exhale", move: "SLOW DECAY" },
+            { title: "INFRARED", sub: "তাপ", tag: "WARM TUNGSTEN LIGHT EXPOSING EVERY VEIN", sound: "Vascular heat hum", move: "THERMAL SCAN" },
+            { title: "SHOCK // DISCHARGE", sub: "নির্গমন", tag: "SUDDEN VISUAL OF CUM DRIPPING DOWN", sound: "Dynamic gravitational slide", move: "DOWNWARD CRANE" },
+            { title: "HYPER-SPEED", sub: "উন্মাদনা", tag: "RAPID FLICKER OF HER EYES LOSING FOCUS", sound: "Saccade shutter burst", move: "RAPID STACCATO" },
+            { title: "THE TUNNEL", sub: "সুড়ঙ্গ", tag: "HIGH-SPEED PUSH AND PULL BLUR", sound: "Subway tunnel roar", move: "CYLINDRICAL DIVE" },
+            { title: "KINETIC FRICTION", sub: "ঘর্ষণ", tag: "DYNAMIC TEXTURE CHANGES FROM MOTION", sound: "Thermal friction sheen", move: "SHEAR TRACK" },
+            { title: "SHOCK // SLIP", sub: "স্খলন", tag: "THE YELLOW-TINTED LUBE SMEARING THE LENS", sound: "Optical lens smear sweep", move: "OPTICAL CONTACT" },
+            { title: "AFTERGLOW", sub: "অবশেষ", tag: "GLAZED, HYPNOTIZED MACRO EYES", sound: "Warm euphoric decay", move: "EUPHORIC DRIFT" },
+            { title: "THE SCAR", sub: "চিহ্ন", tag: "THE OVERSTRETCHED, BEAUTIFUL RED BLOOM", sound: "Crimson flush sustained note", move: "CRIMSON HOLD" },
+            { title: "ECHOES", sub: "প্রতিধ্বনি", tag: "MUSCLE SPASMS CAPTURED IN SLOW MOTION", sound: "Involuntary rhythmic aftershock", move: "AFTERSHOCK REPEAT" },
+            { title: "SHOCK // ALLOY", sub: "মিশ্র ধাতু", tag: "THE METALLIC SHINE OF FLUIDS AND SWEAT", sound: "Liquid mercury bounce", move: "SPECULAR GLANCE" },
+            { title: "GLITCH", sub: "ত্রুটি", tag: "EYES DARTING UNCONTROLLABLY", sound: "Digital buffer artifact", move: "FRAME JUMP" },
+            { title: "ASYMMETRY", sub: "অসমতা", tag: "THE BLOOM DISTORTED BY THE HEAVY ANGLE", sound: "Off-axis wide perspective", move: "OFF AXIS CANT" },
+            { title: "RADIANCE", sub: "বিকিরণ", tag: "SHADOWS DANCING ON THE MOIST TISSUE", sound: "Volumetric ray beam tone", move: "GOD RAY TRACK" },
+            { title: "SHOCK // EXPOSE", sub: "উন্মুক্ত", tag: "EXTREME MACRO OF THE MESSY, YELLOWISH CORE", sound: "Unsparing visceral thud", move: "EXPOSURE SURGE" },
+            { title: "THE RETURN", sub: "প্রত্যাবর্তন", tag: "EYES SNAPPING BACK TO DEAD CENTER", sound: "Consciousness reclaim gasp", move: "SNAP RECENTER" },
+            { title: "THE RE-OPENING", sub: "পুনর্জন্ম", tag: "BLOOM FORCED WIDE OPEN ONCE AGAIN", sound: "Hydraulic opening release", move: "HYDRAULIC PUSH" },
+            { title: "REFRACTION", sub: "প্রতিসরণ", tag: "LIGHT BENDING THROUGH THE THICK LUBE", sound: "Caustic liquid sparkle", move: "PRISM BEND" },
+            { title: "SHOCK // THE SPILL", sub: "পতন", tag: "HEAVY DROP OF CUM SPILLING OVER THE EDGE", sound: "Impact marble droplet", move: "SLOW PLUNGE" },
+            { title: "QUANTUM LOCK", sub: "আবদ্ধ", tag: "EYES WIDE, FROZEN IN PURE ECSTASY", sound: "Pure suspended sine tone", move: "FROZEN AXIS" },
+            { title: "THE NODE", sub: "কেন্দ্র", tag: "THE ABSOLUTE CENTER OF THE SINGULARITY", sound: "Geometric anchor 100Hz", move: "ONE POINT KUBRICK" },
+            { title: "SURFACE WAVE", sub: "তরঙ্গ", tag: "RIPPLING TEXTURES ACROSS THE SKIN", sound: "Concentric ripple swell", move: "RIPPLE SWEEP" },
+            { title: "SHOCK // CHAOS", sub: "বিশৃঙ্খলা", tag: "LUBE, SWEAT, AND YELLOW TINTS BLENDED", sound: "Pollock organic splatter", move: "COLLISION SHOCK" },
+            { title: "DENSITY", sub: "ঘনত্ব", tag: "THE HEAVINESS IN HER GAZE", sound: "Gravitational weight drone", move: "HEAVY TILT" },
+            { title: "COMPRESSION", sub: "চাপ", tag: "THE BLOOM TIGHTENING AROUND THE VOID", sound: "Compression pump rhythm", move: "INWARD CRUSH" },
+            { title: "MAGNETIC FIELD", sub: "আকর্ষণ", tag: "THE PULL OF THE SHINY, WET TEXTURES", sound: "Ferrofluid electric field", move: "MAGNETIC GLIDE" },
+            { title: "SHOCK // THE MIX", sub: "মিশ্রণ", tag: "RAW, UNDILUTED VISUAL OF THE AFTERMATH", sound: "5600K raw illumination", move: "RAW DIRECT" },
+            { title: "BACKGROUND NOISE", sub: "গুঞ্জন", tag: "EYES HALF OPEN, COMPLETELY LOST", sound: "Cosmic microwave noise", move: "DRIFT LOST" },
+            { title: "THE FREQUENCY", sub: "কম্পাঙ্ক", tag: "RAPID, VIBRATING MICRO-MOVEMENTS OF THE GAPE", sound: "Resonant 60Hz vibrato", move: "HARMONIC SHIVER" },
+            { title: "HEAT SIGNATURE", sub: "উত্তাপ", tag: "RED AND AMBER TONES HIGHLIGHTING THE TISSUE", sound: "Thermographic amber hum", move: "WARM EMBER CRANE" },
+            { title: "SHOCK // PURE", sub: "খাঁটি", tag: "THE SHOCKING BEAUTY OF THE ANATOMICAL MESS", sound: "Grand organ church chord", move: "SACRED REVEAL" },
+            { title: "FRACTAL", sub: "ভগ্নাংশ", tag: "TEARS BLURRING THE MACRO EYE SHOT", sound: "Liquid tear lens refraction", move: "REFRACTIVE RACK" },
+            { title: "THE GATEWAY", sub: "দ্বার", tag: "THE BLOOM AS A PORTAL TO THE UNKNOWN", sound: "Portal humming portal", move: "PORTAL APPROACH" },
+            { title: "OPTICAL ILLUSION", sub: "ভ্রম", tag: "LIGHT SHIFTS MAKING THE BLOOM LOOK INFINITE", sound: "Shepard infinite scale", move: "INFINITE EXPAND" },
+            { title: "SHOCK // VISUAL", sub: "দৃশ্য", tag: "SUDDEN SPLASH OF WHITE ACROSS THE DARKNESS", sound: "Dynamic flash transient", move: "FLASH HIT" },
+            { title: "EXPANSION", sub: "প্রসার", tag: "EYES WIDENING IN SUDDEN SHOCK", sound: "Pupil dilation surge", move: "MAX DILATE" },
+            { title: "THE TEAR II", sub: "বিদারণ", tag: "THE GAPE REACHING ITS ABSOLUTE LIMIT", sound: "Boundary capacity stress", move: "TENSILE LIMIT" },
+            { title: "VOID DRIFT", sub: "ভাসমান", tag: "SMOOTH, FRICTIONLESS SLIDE REVEALED BY LIGHT", sound: "Hydroplane glide note", move: "FRICTIONLESS DRIFT" },
+            { title: "SHOCK // SECRETE", sub: "ক্ষরণ", tag: "THE SUBTLE YELLOW MINGLING WITH PURE WHITE", sound: "Dual chromatic fluid interplay", move: "COLOR EMBED" },
+            { title: "FROZEN TIME", sub: "স্থির", tag: "EYES LOCKED IN A FREEZE-FRAME", sound: "Chronophotographic freeze", move: "BULLET TIME" },
+            { title: "THE SINGULARITY II", sub: "বিন্দু", tag: "A PERFECT, STILL MACRO SHOT OF THE BLOOM", sound: "Deep 40Hz anchor drone", move: "ABSOLUTE STILL" },
+            { title: "CRYOGENIC", sub: "শীতল", tag: "CRISP, RAZOR-SHARP FOCUS ON THE TEXTURE", sound: "Razor focus crystal crackle", move: "CRISP MICRO" },
+            { title: "SHOCK // CONTRAST", sub: "বৈপরীত্য", tag: "THE DARK ASSHOLE COVERED IN GLOSSY FLUIDS", sound: "Melanin and gloss juxtaposition", move: "CHIAROSCURO CRANE" },
+            { title: "SYNERGY", sub: "সমন্বয়", tag: "THE EYE AND THE BLOOM PULSATING IN SYNC", sound: "Entrained biology sync", move: "HARMONIC MATCH" },
+            { title: "THE ALIGNMENT", sub: "সরলরেখা", tag: "PERFECT SYMMETRY IN THE MACRO FRAME", sound: "Kubrick one-point harmonic", move: "SYMMETRY LOCK" },
+            { title: "LUMINOUS FLUX", sub: "প্রবাহ", tag: "LIGHT REFLECTING OFF EVERY WET SURFACE", sound: "Specular starlight cascade", move: "SPECULAR ORBIT" },
+            { title: "SHOCK // THE CLIMAX", sub: "চূড়া", tag: "THE HEAVIEST MIX OF FLUIDS YET", sound: "Massive orchestral sub hit", move: "CLIMAX BOOM" },
+            { title: "ACCELERATION", sub: "ত্বরণ", tag: "EYES BLINKING RAPIDLY IN OVERLOAD", sound: "Rapid fire biological shutter", move: "OVERLOAD PUSH" },
+            { title: "THE LAUNCH", sub: "ক্ষেপণ", tag: "THE BLOOM BOUNCING BACK FROM IMPACT", sound: "Elastic recoil dampening", move: "RECOIL SLOW" },
+            { title: "KINETIC BLUR", sub: "অস্পষ্টতা", tag: "TEXTURES BLURRING INTO A HYPNOTIC SPIN", sound: "Rotational 720 deg/s blur", move: "WHIRL SPIN" },
+            { title: "SHOCK // THE DROP", sub: "পতন", tag: "A SINGLE HEAVY DROP OF LUBE AND CUM FALLING", sound: "Isolated gravitational droplet", move: "DESCENT TRACK" },
+            { title: "THE CLOUD", sub: "মেঘ", tag: "SOFT FOCUS ON HER EXHAUSTED EYES", sound: "Dream diffusion haze", move: "DREAM DRIFT" },
+            { title: "THE NEBULA", sub: "নীহারিকা", tag: "THE BLOOM SURROUNDED BY A MESS OF FLUIDS", sound: "Interstellar organic cloud", move: "NEBULA SWIRL" },
+            { title: "DIFFRACTION", sub: "বিচ্ছুরণ", tag: "LIGHT SPLITTING ACROSS THE WET TEXTURES", sound: "Glass harmonica chord", move: "PRISM GLIDE" },
+            { title: "SHOCK // UNFILTERED", sub: "অকৃত্রিম", tag: "THE RAW, YELLOWISH REALITY OF THE DEEP", sound: "Uncompromising truth to medium", move: "RAW FORENSIC" },
+            { title: "IMPLOSION", sub: "অন্তর্মুখী", tag: "EYES ROLLING BACK FOR THE LAST TIME", sound: "Reverse cymbal into void", move: "REVERSE SINK" },
+            { title: "THE CRUSH", sub: "পেষণ", tag: "THE BLOOM SLOWLY PULSATING SHUT", sound: "Heavy gate closing resonance", move: "SEAL SHUT" },
+            { title: "FADING LIGHT", sub: "ম্লান", tag: "THE LIGHT SOURCE DIMMING OVER THE TEXTURES", sound: "Tungsten filament amber fade", move: "FADE DIM" },
+            { title: "SHOCK // THE SEAL", sub: "অন্তিম", tag: "THE MESSY, BEAUTIFUL FINAL STATE OF THE BLOOM", sound: "Resting anatomical landscape", move: "FINAL REST" },
+            { title: "OBSERVATION DECK", sub: "পর্যবেক্ষণ", tag: "THE FINAL LOOK IN HER EYES", sound: "Knowing gaze completion", move: "EYE CONTACT" },
+            { title: "THE RECORD", sub: "দলিল", tag: "A WIDE MACRO OF THE ENTIRE CHAOS", sound: "Archival overview documentation", move: "ARCHIVAL WIDE" },
+            { title: "BLACKOUT", sub: "অন্ধকার", tag: "THE TEXTURES FADING INTO THE SHADOWS", sound: "Decaying drone below 20Hz", move: "FADE TO BLACK" },
+            { title: "THE END OF TIME", sub: "সমাপ্তি", tag: "THE HYPNOTIC LOOP RESTARTS FROM ZERO", sound: "Ouroboros loop restart pulse", move: "RESTART 001" }
         ];
 
         const sampleCinemaImages = [
@@ -876,6 +1004,8 @@ git push -u origin main</div>
 
         // Track loaded media state per frame
         const frameMediaState = new Array(100).fill(null);
+        let activeLensName = "50mm f/1.4 Human Eye";
+        let activeDoF = "1.8cm";
 
         // Build all 100 Frames
         for (let i = 0; i < 100; i++) {
@@ -891,6 +1021,14 @@ git push -u origin main</div>
                     <div class="photo-lens-blur"></div>
                     <div class="photo-motion-edges"></div>
                     
+                    <div class="director-guides" id="guides-${i}">
+                        <div class="guide-line guide-h1"></div>
+                        <div class="guide-line guide-h2"></div>
+                        <div class="guide-line guide-v1"></div>
+                        <div class="guide-line guide-v2"></div>
+                        <div class="guide-crosshair"></div>
+                    </div>
+
                     <div class="drop-prompt" id="drop-prompt-${i}">
                         <div>[ DROP PHOTO / VIDEO ${frameNum} ]</div>
                         <button class="drop-btn" onclick="triggerFileInput(${i})">LOAD MEDIA</button>
@@ -901,9 +1039,9 @@ git push -u origin main</div>
                     
                     <div class="ui-frame">
                         <div class="hud-text hud-tl">PLAYBACK // FILE_${frameNum}<br>FORMAT: RAW 14-BIT ARRI</div>
-                        <div class="hud-text hud-tr">NODE: DHAKA_01<br><span style="color: #4ade80; display: inline-flex; align-items: center; gap: 4px;"><span style="width: 5px; height: 5px; background: #4ade80; border-radius: 50%; display: inline-block;"></span> SECURE ARCHIVE</span></div>
-                        <div class="hud-text hud-bl">FOCAL: 35MM CINEMA PRIME<br>SHUTTER: f/1.4 ISO 400</div>
-                        <div class="hud-text hud-br">A <span style="color: ${titleColor}; font-weight: bold;">RAWx</span> PRODUCTION<br>DIRECTOR: RAKIB HIMON</div>
+                        <div class="hud-text hud-tr">NODE: DHAKA_01<br><span style="color: #4ade80; display: inline-flex; align-items: center; gap: 4px;"><span style="width: 4px; height: 4px; background: #4ade80; border-radius: 50%; display: inline-block;"></span> SECURE ARCHIVE</span></div>
+                        <div class="hud-text hud-bl" id="hud-lens-${i}">FOCAL: ${activeLensName}<br>DOF: ${activeDoF} // ${base.move}</div>
+                        <div class="hud-text hud-br">A <span style="color: ${titleColor}; font-weight: bold;">RAWx</span> STORYBOARD<br>DIRECTOR: RAKIB HIMON</div>
                     </div>
 
                     <div class="title-block">
@@ -914,7 +1052,7 @@ git push -u origin main</div>
                         <div class="main-title" style="color: ${titleColor};">${base.title}</div>
                         <div class="tagline">${base.tag}</div>
                         <div class="sound-cue-pill">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                             <span>${base.sound}</span>
                         </div>
                     </div>
@@ -929,10 +1067,10 @@ git push -u origin main</div>
             // Contact Sheet Thumb
             const thumbHTML = `
                 <div class="contact-thumb" id="contact-thumb-${i}" onclick="goToFrame(${i}); closeModal('modal-grid');">
-                    <div style="font-size: 9px; color: var(--gold); font-weight: bold; position: relative; z-index: 2;">EP ${frameNum}</div>
+                    <div style="font-size: 8.5px; color: var(--gold); font-weight: bold; position: relative; z-index: 2;">EP ${frameNum}</div>
                     <div style="position: relative; z-index: 2;">
-                        <div style="font-size: 11px; color: #ffe680; font-family: 'Noto Serif Bengali';">${base.sub}</div>
-                        <div style="font-size: 10px; color: #fff; font-family: 'Cinzel'; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${base.title}</div>
+                        <div style="font-size: 10px; color: #ffe680; font-family: 'Noto Serif Bengali';">${base.sub}</div>
+                        <div style="font-size: 9px; color: #fff; font-family: 'Cinzel'; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${base.title}</div>
                     </div>
                 </div>
             `;
@@ -947,7 +1085,6 @@ git push -u origin main</div>
             const frame = document.getElementById('frame-' + index);
             if (!frame) return;
 
-            // Auto-detect video from URL if not explicitly given
             if (!isVideo && /\.(mp4|webm|mov|ogg)($|\?)/i.test(mediaUrl)) {
                 isVideo = true;
             }
@@ -961,10 +1098,8 @@ git push -u origin main</div>
             const prompt = document.getElementById('drop-prompt-' + index);
 
             if (isVideo) {
-                // Clear any image background
                 frame.style.removeProperty('--bg-img');
 
-                // Embed synchronized video elements in all 4 optical layers
                 [baseLayer, glowLayer, lensBlurLayer, motionEdgesLayer].forEach(layer => {
                     if (!layer) return;
                     layer.innerHTML = '';
@@ -981,7 +1116,6 @@ git push -u origin main</div>
                     vid.play().catch(() => {});
                 });
             } else {
-                // Image mode: clear video elements and set CSS background-image
                 [baseLayer, glowLayer, lensBlurLayer, motionEdgesLayer].forEach(layer => {
                     if (layer) layer.innerHTML = '';
                 });
@@ -1024,17 +1158,17 @@ git push -u origin main</div>
                 overlay.style.background = isVideo ? 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.2))' : 'none';
                 overlay.style.zIndex = '2';
                 overlay.innerHTML = `
-                    <div style="font-size: 9px; color: var(--gold); font-weight: bold;">EP ${frameNum} ${isVideo ? '&#9654; VID' : ''}</div>
+                    <div style="font-size: 8.5px; color: var(--gold); font-weight: bold;">EP ${frameNum} ${isVideo ? '&#9654; VID' : ''}</div>
                     <div>
-                        <div style="font-size: 11px; color: #ffe680; font-family: 'Noto Serif Bengali';">${base.sub}</div>
-                        <div style="font-size: 10px; color: #fff; font-family: 'Cinzel'; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${base.title}</div>
+                        <div style="font-size: 10px; color: #ffe680; font-family: 'Noto Serif Bengali';">${base.sub}</div>
+                        <div style="font-size: 9px; color: #fff; font-family: 'Cinzel'; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${base.title}</div>
                     </div>
                 `;
                 thumb.appendChild(overlay);
             }
         }
 
-        // Drag & Drop Handlers (Supports Photos & Videos)
+        // Drag & Drop Handlers
         const frames = document.querySelectorAll('.frame');
         frames.forEach((frame, idx) => {
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -1043,12 +1177,12 @@ git push -u origin main</div>
 
             frame.addEventListener('dragover', () => {
                 const prompt = frame.querySelector('.drop-prompt');
-                if (prompt) { prompt.style.color = '#fff'; prompt.style.transform = 'scale(1.08)'; }
+                if (prompt) { prompt.style.color = '#fff'; prompt.style.transform = 'scale(1.06)'; }
             });
 
             frame.addEventListener('dragleave', () => {
                 const prompt = frame.querySelector('.drop-prompt');
-                if (prompt) { prompt.style.color = '#666'; prompt.style.transform = 'scale(1)'; }
+                if (prompt) { prompt.style.color = '#777'; prompt.style.transform = 'scale(1)'; }
             });
 
             frame.addEventListener('drop', (e) => {
@@ -1061,6 +1195,17 @@ git push -u origin main</div>
                         applyMediaToFrame(idx, URL.createObjectURL(file), isVideo);
                     }
                 }
+            });
+
+            // Interactive Rack Focus Point Selection on Frame Click
+            frame.addEventListener('click', (e) => {
+                // If clicked drop button or inputs, ignore
+                if (e.target.closest('.drop-btn') || e.target.closest('button')) return;
+                const rect = frame.getBoundingClientRect();
+                const xPercent = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+                const yPercent = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+                document.documentElement.style.setProperty('--focus-x', xPercent + '%');
+                document.documentElement.style.setProperty('--focus-y', yPercent + '%');
             });
         });
 
@@ -1093,7 +1238,6 @@ git push -u origin main</div>
                 const res = await fetch(url, { method: 'HEAD' });
                 if (!res.ok) return false;
                 const cType = (res.headers.get('content-type') || '').toLowerCase();
-                // If static host returns index.html for 404s, treat as not found
                 if (cType.includes('text/html')) return false;
                 return true;
             } catch {
@@ -1102,38 +1246,26 @@ git push -u origin main</div>
         }
 
         async function autoLoadAssets() {
-            let assetsFound = 0;
-            const promises = [];
-
-            // Scan in batches of frames
-            for (let i = 0; i < 100; i++) {
-                const frameNum = String(i + 1).padStart(3, '0');
-                promises.push((async () => {
-                    for (const ext of candidateExtensions) {
-                        const url = `assets/${frameNum}.${ext}`;
-                        const exists = await checkAssetExists(url);
-                        if (exists) {
-                            const isVideo = ['mp4', 'webm', 'mov'].includes(ext);
-                            applyMediaToFrame(i, url, isVideo);
-                            assetsFound++;
-                            return;
-                        }
-                    }
-                })());
+            // Immediately seed initial sample cinema imagery so frames are instantly cinematic
+            for (let i = 0; i < 12; i++) {
+                applyMediaToFrame(i, sampleCinemaImages[i % sampleCinemaImages.length], false);
             }
 
-            await Promise.all(promises);
-
-            // If no local assets exist in public/assets/, seed the first 12 frames with sample cinema photography
-            if (assetsFound === 0) {
-                for (let i = 0; i < 12; i++) {
-                    const sample = sampleCinemaImages[i % sampleCinemaImages.length];
-                    applyMediaToFrame(i, sample, false);
+            // Scan public/assets/ folder for user pre-saved permanent media files
+            for (let i = 0; i < 100; i++) {
+                const frameNum = String(i + 1).padStart(3, '0');
+                for (const ext of candidateExtensions) {
+                    const url = `assets/${frameNum}.${ext}`;
+                    const exists = await checkAssetExists(url);
+                    if (exists) {
+                        const isVideo = ['mp4', 'webm', 'mov'].includes(ext);
+                        applyMediaToFrame(i, url, isVideo);
+                        break;
+                    }
                 }
             }
         }
 
-        // Run auto-loader on load
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', autoLoadAssets);
         } else {
@@ -1207,13 +1339,13 @@ git push -u origin main</div>
             const playIcon = document.getElementById('icon-play');
             const playLabel = document.getElementById('label-play');
             if (isPlaying) {
-                if (playIcon) playIcon.outerHTML = '<svg id="icon-play" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
-                if (playLabel) { playLabel.textContent = 'PAUSE LOOP'; }
+                if (playIcon) playIcon.outerHTML = '<svg id="icon-play" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+                if (playLabel) { playLabel.textContent = 'PAUSE'; }
                 playBtn.style.color = 'var(--gold)';
                 startAutoplay();
             } else {
-                if (playIcon) playIcon.outerHTML = '<svg id="icon-play" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
-                if (playLabel) { playLabel.textContent = 'AUTO PLAY'; }
+                if (playIcon) playIcon.outerHTML = '<svg id="icon-play" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+                if (playLabel) { playLabel.textContent = 'LOOP'; }
                 playBtn.style.color = '#fff';
                 clearInterval(playInterval);
             }
@@ -1237,53 +1369,101 @@ git push -u origin main</div>
             }, intervalTime);
         }
 
-        // Fullscreen Toggle
+        // Native Fullscreen Engine with Vendor Fallbacks
         function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
+            const doc = document.documentElement;
+            const isFS = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            if (!isFS) {
+                if (doc.requestFullscreen) doc.requestFullscreen();
+                else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+                else if (doc.mozRequestFullScreen) doc.mozRequestFullScreen();
+                else if (doc.msRequestFullscreen) doc.msRequestFullscreen();
             } else {
-                document.exitFullscreen().catch(() => {});
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+                else if (document.msExitFullscreen) document.msExitFullscreen();
             }
         }
+
+        function updateFullscreenUI() {
+            const isFS = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            const label = document.getElementById('label-fs');
+            const icon = document.getElementById('icon-fs');
+            if (isFS) {
+                if (label) label.textContent = 'EXIT FS';
+                if (icon) icon.outerHTML = '<svg id="icon-fs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>';
+            } else {
+                if (label) label.textContent = 'FULLSCREEN';
+                if (icon) icon.outerHTML = '<svg id="icon-fs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+            }
+        }
+        document.addEventListener('fullscreenchange', updateFullscreenUI);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenUI);
+        document.addEventListener('mozfullscreenchange', updateFullscreenUI);
 
         // Aspect Ratio Changer
         function changeAspectRatio(ratio) {
             switch (ratio) {
                 case '16:9':
                     gallery.style.aspectRatio = '16 / 9';
-                    gallery.style.maxHeight = '86vh';
-                    gallery.style.maxWidth = '154vh';
+                    gallery.style.maxHeight = '88vh';
+                    gallery.style.maxWidth = '156vh';
                     break;
                 case '4:3':
                     gallery.style.aspectRatio = '4 / 3';
-                    gallery.style.maxHeight = '88vh';
-                    gallery.style.maxWidth = '118vh';
+                    gallery.style.maxHeight = '90vh';
+                    gallery.style.maxWidth = '120vh';
                     break;
                 case '1:1':
                     gallery.style.aspectRatio = '1 / 1';
-                    gallery.style.maxHeight = '82vh';
-                    gallery.style.maxWidth = '82vh';
+                    gallery.style.maxHeight = '84vh';
+                    gallery.style.maxWidth = '84vh';
                     break;
                 case '9:16':
                     gallery.style.aspectRatio = '9 / 16';
-                    gallery.style.maxHeight = '88vh';
-                    gallery.style.maxWidth = '50vh';
+                    gallery.style.maxHeight = '90vh';
+                    gallery.style.maxWidth = '52vh';
                     break;
                 case '2.39:1':
                 default:
                     gallery.style.aspectRatio = '2.39 / 1';
-                    gallery.style.maxHeight = '82vh';
-                    gallery.style.maxWidth = '196vh';
+                    gallery.style.maxHeight = '85vh';
+                    gallery.style.maxWidth = '200vh';
                     break;
             }
         }
 
-        // LUT Preset Filter
+        // High-Impact Cinematic Filters
         function changeLut(lut) {
             let filterString = '';
             switch (lut) {
+                case 'bleach':
+                    // Gritty silver bleach bypass (Seven / Saving Private Ryan)
+                    filterString = 'grayscale(0.65) contrast(1.75) brightness(0.88) saturate(0.6)';
+                    break;
+                case 'technicolor':
+                    // 3-strip Technicolor vibrant dye transfer
+                    filterString = 'saturate(2.2) contrast(1.35) hue-rotate(-12deg) brightness(0.95)';
+                    break;
+                case 'flir':
+                    // Infrared FLIR Thermal Heatmap
+                    filterString = 'invert(0.9) hue-rotate(200deg) saturate(3.0) contrast(1.8)';
+                    break;
+                case 'nightvision':
+                    // Phosphorescent Green Night Vision
+                    filterString = 'sepia(1) hue-rotate(85deg) saturate(3.5) contrast(1.6) brightness(1.15)';
+                    break;
+                case 'kodachrome':
+                    // 1964 Kodachrome warm saturated film
+                    filterString = 'sepia(0.25) saturate(1.55) contrast(1.25) brightness(0.92) hue-rotate(-8deg)';
+                    break;
+                case 'solaris':
+                    // High-key solarized silver
+                    filterString = 'brightness(1.25) contrast(1.8) grayscale(0.8) saturate(1.4)';
+                    break;
                 case 'noir':
-                    filterString = 'grayscale(1) contrast(1.4) brightness(0.9)';
+                    filterString = 'grayscale(1) contrast(1.6) brightness(0.88)';
                     break;
                 case 'golden':
                     filterString = 'sepia(0.35) saturate(1.4) contrast(1.2) brightness(0.95) hue-rotate(-10deg)';
@@ -1292,13 +1472,13 @@ git push -u origin main</div>
                     filterString = 'sepia(0.2) saturate(1.1) contrast(1.2) brightness(0.9) hue-rotate(15deg)';
                     break;
                 case 'cyber':
-                    filterString = 'saturate(1.7) contrast(1.35) hue-rotate(-25deg) brightness(0.9)';
-                    break;
-                case 'infrared':
-                    filterString = 'invert(0.12) hue-rotate(180deg) saturate(1.5) contrast(1.3)';
+                    filterString = 'saturate(1.8) contrast(1.4) hue-rotate(-25deg) brightness(0.9)';
                     break;
                 case 'matrix':
-                    filterString = 'sepia(0.5) hue-rotate(85deg) saturate(1.5) contrast(1.3) brightness(0.9)';
+                    filterString = 'sepia(0.55) hue-rotate(85deg) saturate(1.6) contrast(1.3) brightness(0.9)';
+                    break;
+                case 'raw':
+                    filterString = 'contrast(0.95) saturate(0.9) brightness(1.05)';
                     break;
                 case 'cinematic':
                 default:
@@ -1309,6 +1489,179 @@ git push -u origin main</div>
             document.querySelectorAll('.frame').forEach(f => {
                 f.style.setProperty('--lut-filter', filterString);
             });
+        }
+
+        // LENS OPTICS & DEPTH OF FIELD SIMULATION
+        function changeLens(lens) {
+            const root = document.documentElement;
+            switch (lens) {
+                case '14mm':
+                    // Deep field, minimal blur, wide aperture
+                    activeLensName = "14mm f/11 Ultra-Wide";
+                    activeDoF = "∞ Deep Field";
+                    root.style.setProperty('--lens-blur', '2px');
+                    root.style.setProperty('--lens-mask-radius', '75%');
+                    root.style.setProperty('--lens-bloom', '6px');
+                    break;
+                case '24mm':
+                    activeLensName = "24mm f/5.6 Wide Prime";
+                    activeDoF = "1.2m to ∞";
+                    root.style.setProperty('--lens-blur', '5px');
+                    root.style.setProperty('--lens-mask-radius', '55%');
+                    root.style.setProperty('--lens-bloom', '8px');
+                    break;
+                case '35mm':
+                    activeLensName = "35mm f/2.0 Cine Prime";
+                    activeDoF = "65cm";
+                    root.style.setProperty('--lens-blur', '8px');
+                    root.style.setProperty('--lens-mask-radius', '42%');
+                    root.style.setProperty('--lens-bloom', '10px');
+                    break;
+                case '50mm':
+                    activeLensName = "50mm f/1.4 Human Eye";
+                    activeDoF = "1.8cm";
+                    root.style.setProperty('--lens-blur', '11px');
+                    root.style.setProperty('--lens-mask-radius', '35%');
+                    root.style.setProperty('--lens-bloom', '12px');
+                    break;
+                case '85mm':
+                    // Razor shallow depth of field, intense creamy bokeh
+                    activeLensName = "85mm f/1.2 Razor Portrait";
+                    activeDoF = "0.8cm Razor DoF";
+                    root.style.setProperty('--lens-blur', '22px');
+                    root.style.setProperty('--lens-mask-radius', '26%');
+                    root.style.setProperty('--lens-bloom', '16px');
+                    break;
+                case '100mm':
+                    // Micro depth of field macro probe
+                    activeLensName = "100mm f/2.8 Macro Probe";
+                    activeDoF = "2mm Micro DoF";
+                    root.style.setProperty('--lens-blur', '26px');
+                    root.style.setProperty('--lens-mask-radius', '18%');
+                    root.style.setProperty('--lens-bloom', '18px');
+                    break;
+                case '135mm':
+                    activeLensName = "135mm f/1.8 Telephoto";
+                    activeDoF = "1.4cm Compressed";
+                    root.style.setProperty('--lens-blur', '18px');
+                    root.style.setProperty('--lens-mask-radius', '30%');
+                    root.style.setProperty('--lens-bloom', '14px');
+                    break;
+                case '200mm':
+                    activeLensName = "200mm f/2.8 Super Tele";
+                    activeDoF = "2.1cm Compressed";
+                    root.style.setProperty('--lens-blur', '20px');
+                    root.style.setProperty('--lens-mask-radius', '28%');
+                    root.style.setProperty('--lens-bloom', '15px');
+                    break;
+                case 'anamorphic':
+                    activeLensName = "Anamorphic 2x Flare Prime";
+                    activeDoF = "Oval Anamorphic Bokeh";
+                    root.style.setProperty('--lens-blur', '14px');
+                    root.style.setProperty('--lens-mask-radius', '32%');
+                    root.style.setProperty('--lens-bloom', '20px');
+                    break;
+            }
+
+            // Update HUD text across all frames
+            for (let i = 0; i < 100; i++) {
+                const el = document.getElementById('hud-lens-' + i);
+                if (el) {
+                    const move = baseThemes[i % baseThemes.length].move;
+                    el.innerHTML = `FOCAL: ${activeLensName}<br>DOF: ${activeDoF} // ${move}`;
+                }
+            }
+        }
+
+        // Toggle Director Framing Guides (Rule of Thirds & Crosshair)
+        let guidesActive = false;
+        function toggleGuides() {
+            guidesActive = !guidesActive;
+            const btn = document.getElementById('btn-guides');
+            btn.classList.toggle('active', guidesActive);
+            document.querySelectorAll('.director-guides').forEach(g => {
+                g.classList.toggle('active', guidesActive);
+            });
+        }
+
+        // Capture Still Frame (High-Res 4K Still PNG)
+        function captureStillFrame() {
+            const frameWidth = gallery.clientWidth;
+            const currentIndex = Math.round(gallery.scrollLeft / frameWidth);
+            const currentFrame = document.getElementById('frame-' + currentIndex);
+            const theme = baseThemes[currentIndex % baseThemes.length];
+            const frameNum = String(currentIndex + 1).padStart(3, '0');
+
+            // Find current media image or video
+            const vid = currentFrame.querySelector('video');
+            const bgImg = currentFrame.style.getPropertyValue('--bg-img');
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 1920;
+            canvas.height = 803; // 2.39:1 Cinemascope
+            const ctx = canvas.getContext('2d');
+
+            // Draw dark background
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const renderOverlayAndDownload = () => {
+                // Draw HUD & Titles onto canvas
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Letterbox reticle
+                ctx.strokeStyle = '#d4af37';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+
+                // HUD Metadata text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = '14px JetBrains Mono, monospace';
+                ctx.fillText(`PLAYBACK // FILE_${frameNum} [RAW 14-BIT ARRI]`, 50, 65);
+                ctx.fillText(`FOCAL: ${activeLensName} // DOF: ${activeDoF}`, 50, canvas.height - 50);
+
+                ctx.textAlign = 'right';
+                ctx.fillText(`NODE: DHAKA_01 // SECURE ARCHIVE`, canvas.width - 50, 65);
+                ctx.fillText(`RAWx STORYBOARD ENGINE // DIR: RAKIB HIMON`, canvas.width - 50, canvas.height - 50);
+
+                // Main Title
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#d4af37';
+                ctx.font = 'bold 22px JetBrains Mono, monospace';
+                ctx.fillText(`EP ${frameNum} // ${theme.sub}`, canvas.width / 2, canvas.height / 2 - 35);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 54px Cinzel, serif';
+                ctx.fillText(theme.title, canvas.width / 2, canvas.height / 2 + 25);
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = '16px JetBrains Mono, monospace';
+                ctx.fillText(theme.tag, canvas.width / 2, canvas.height / 2 + 65);
+
+                // Download
+                const a = document.createElement('a');
+                a.download = `RAWx-Storyboard-${frameNum}-${theme.title.replace(/[^a-z0-9]/gi, '_')}.png`;
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            };
+
+            if (vid && vid.readyState >= 2) {
+                ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+                renderOverlayAndDownload();
+            } else if (bgImg && bgImg.includes('url(')) {
+                const url = bgImg.replace(/url\(['"]?(.*?)['"]?\)/i, '$1');
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    renderOverlayAndDownload();
+                };
+                img.onerror = () => renderOverlayAndDownload();
+                img.src = url;
+            } else {
+                renderOverlayAndDownload();
+            }
         }
 
         // Procedural Web Audio Engine (Drone + Shutter Click)
@@ -1331,11 +1684,11 @@ git push -u origin main</div>
 
                 droneOsc1 = audioCtx.createOscillator();
                 droneOsc1.type = 'sawtooth';
-                droneOsc1.frequency.setValueAtTime(43.65, audioCtx.currentTime); // F1 Sub
+                droneOsc1.frequency.setValueAtTime(43.65, audioCtx.currentTime);
 
                 droneOsc2 = audioCtx.createOscillator();
                 droneOsc2.type = 'sine';
-                droneOsc2.frequency.setValueAtTime(65.41, audioCtx.currentTime); // C2
+                droneOsc2.frequency.setValueAtTime(65.41, audioCtx.currentTime);
 
                 droneOsc1.connect(filter);
                 droneOsc2.connect(filter);
@@ -1353,20 +1706,19 @@ git push -u origin main</div>
             initAudio();
             isAudioActive = !isAudioActive;
             const btn = document.getElementById('btn-audio');
-            const iconAudio = document.getElementById('icon-audio');
             const labelAudio = document.getElementById('label-audio');
             if (isAudioActive) {
                 if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
                 if (masterGain) masterGain.gain.setTargetAtTime(0.25, audioCtx.currentTime, 0.1);
-                if (iconAudio) iconAudio.outerHTML = '<svg id="icon-audio" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
-                if (labelAudio) labelAudio.textContent = 'AUDIO ON';
+                if (labelAudio) labelAudio.textContent = 'ON';
+                btn.classList.add('audio-active');
                 btn.style.color = 'var(--gold)';
                 playShutterSound();
             } else {
                 if (masterGain) masterGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.1);
-                if (iconAudio) iconAudio.outerHTML = '<svg id="icon-audio" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
                 if (labelAudio) labelAudio.textContent = 'AUDIO';
-                btn.style.color = '#fff';
+                btn.classList.remove('audio-active');
+                btn.style.color = '#ddd';
             }
         }
 
@@ -1404,10 +1756,12 @@ git push -u origin main</div>
         // Project JSON / README Downloader
         function downloadJSONExport() {
             const projectData = {
-                title: "RAWx // Master Anthology Engine 100",
+                title: "RAWx Storyboard Engine",
                 director: "RAKIB HIMON",
                 node: "DHAKA_01",
                 totalFrames: 100,
+                activeLens: activeLensName,
+                activeDoF: activeDoF,
                 themes: baseThemes,
                 media: frameMediaState
             };
@@ -1415,23 +1769,27 @@ git push -u origin main</div>
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'rawx-anthology-engine.json';
+            a.download = 'rawx-storyboard-engine.json';
             a.click();
             URL.revokeObjectURL(url);
         }
 
         function downloadMarkdownReadme() {
-            let md = `# RAWx // Master Anthology Engine 100\n\n`;
+            let md = `# RAWx Storyboard Engine // 100 Master Frames\n\n`;
             md += `> Directed by **RAKIB HIMON** | Archival Node: **DHAKA_01**\n\n`;
-            md += `A 100-frame macro-cinematography anthology engine with multi-layer optical emulation, anamorphic blur, and procedural audio.\n\n`;
+            md += `A 100-frame macro-cinematography storyboard engine with multi-layer optical emulation, Depth of Field aperture control, and procedural audio.\n\n`;
+            md += `## Optical Specs\n\n`;
+            md += `- **Active Lens**: ${activeLensName}\n`;
+            md += `- **Depth of Field**: ${activeDoF}\n`;
+            md += `- **Native Aspect**: 2.39:1 Cinemascope\n\n`;
             md += `## Permanent Assets Directory\n\n`;
             md += `Add your files directly into \`public/assets/\`:\n`;
             md += `- Videos: \`001.mp4\`, \`002.mp4\` ... \`100.mp4\`\n`;
             md += `- Images: \`001.jpg\`, \`002.jpg\` ... \`100.jpg\`\n\n`;
-            md += `## Top Anthology Frames\n\n`;
+            md += `## Top Storyboard Frames\n\n`;
             baseThemes.slice(0, 25).forEach((t, idx) => {
                 const num = String(idx + 1).padStart(3, '0');
-                md += `- **EP ${num} [${t.sub}]**: ${t.title} — *${t.tag}*\n`;
+                md += `- **EP ${num} [${t.sub}]**: ${t.title} — *${t.tag}* (Move: ${t.move})\n`;
             });
             const blob = new Blob([md], { type: 'text/markdown' });
             const url = URL.createObjectURL(blob);
@@ -1459,7 +1817,16 @@ git push -u origin main</div>
                     break;
                 case 'f':
                 case 'F':
+                    e.preventDefault();
                     toggleFullscreen();
+                    break;
+                case 'c':
+                case 'C':
+                    toggleGuides();
+                    break;
+                case 's':
+                case 'S':
+                    captureStillFrame();
                     break;
                 case 'g':
                 case 'G':

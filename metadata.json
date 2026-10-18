@@ -1,6 +1,6 @@
 {
-  "name": "RAWx // Master Anthology Engine 100",
-  "description": "Next-level cinematic film anthology engine, 100-frame storyboard studio, multi-layer optical lens emulator, ambient audio synthesizer, and Git-ready publication suite.",
+  "name": "RAWx Storyboard Engine",
+  "description": "Next-level cinematic film anthology and storyboard engine with multi-layer optical lens simulation, Depth of Field aperture control, audio synthesizer, and Git-ready publication suite.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

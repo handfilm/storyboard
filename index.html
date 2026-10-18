@@ -1,8 +1,8 @@
-<!doctype html>
-<html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAWx // Master Anthology Engine 100</title>
     <meta name="description" content="Next-level cinematic film anthology engine, 100-frame storyboard studio, multi-layer optical lens emulator, ambient audio synthesizer, and Git-ready publication suite." />
     <meta property="og:title" content="RAWx // Master Anthology Engine 100" />
@@ -11,11 +11,1328 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=JetBrains+Mono:ital,wght@0,100;0,300;0,400;0,600;0,700;1,400&family=Noto+Serif+Bengali:wght@400;600;700;900&family=Syne:wght@500;700;800&display=swap" rel="stylesheet">
-  </head>
-  <body class="bg-[#050505] text-white overflow-hidden select-none">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@100;300;400;600;700&family=Noto+Serif+Bengali:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ease-hypersonic: cubic-bezier(0.16, 1, 0.3, 1);
+            --gold: #d4af37;
+        }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100vw;
+            height: 100vh;
+            background-color: #050505;
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
+        /* Top Header Strip */
+        #top-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .header-title {
+            font-family: 'Cinzel', serif;
+            font-size: 13px;
+            letter-spacing: 0.25em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .header-tag {
+            background: rgba(212, 175, 55, 0.15);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            color: var(--gold);
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 2px;
+            letter-spacing: 1px;
+        }
+
+        .header-actions {
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-header {
+            background: rgba(212, 175, 55, 0.12);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            color: var(--gold);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            padding: 6px 14px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-header:hover {
+            background: rgba(212, 175, 55, 0.25);
+            box-shadow: 0 0 10px rgba(212,175,55,0.3);
+        }
+
+        /* Main Gallery Stage */
+        #stage-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 50px 20px 110px 20px;
+            position: relative;
+        }
+
+        #gallery {
+            position: relative;
+            display: flex;
+            width: 100%;
+            height: 100%;
+            max-width: 196vh;
+            max-height: 82vh;
+            aspect-ratio: 2.39 / 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: #08080a;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+            border-radius: 2px;
+            transition: aspect-ratio 0.4s var(--ease-hypersonic), max-width 0.4s ease, max-height 0.4s ease;
+        }
+
+        #gallery::-webkit-scrollbar { display: none; }
+        #gallery { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .frame {
+            position: relative;
+            flex: 0 0 100%;
+            width: 100%;
+            height: 100%;
+            scroll-snap-align: start;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            --bg-img: none;
+            --lut-filter: contrast(1.15) saturate(1.1) brightness(0.85) sepia(0.15) hue-rotate(-5deg);
+        }
+
+        /* Layer 1: Base Sharp Cinematic Image */
+        .photo-base {
+            position: absolute;
+            inset: -8%;
+            background-image: var(--bg-img);
+            background-size: cover;
+            background-position: center;
+            filter: var(--lut-filter);
+            transition: transform 0.6s var(--ease-hypersonic), filter 0.4s ease;
+            z-index: 1;
+        }
+
+        /* Layer 2: Soft Skin Center Focus Bloom */
+        .photo-glow {
+            position: absolute;
+            inset: -6%;
+            background-image: var(--bg-img);
+            background-size: cover;
+            background-position: center;
+            filter: blur(12px) contrast(1.1) brightness(1.2);
+            mix-blend-mode: screen;
+            -webkit-mask-image: radial-gradient(circle at center, black 15%, transparent 65%);
+            mask-image: radial-gradient(circle at center, black 15%, transparent 65%);
+            opacity: 0;
+            transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Layer 3: Radial Anamorphic Lens Blur */
+        .photo-lens-blur {
+            position: absolute;
+            inset: -6%;
+            background-image: var(--bg-img);
+            background-size: cover;
+            background-position: center;
+            filter: blur(10px) brightness(0.8);
+            -webkit-mask-image: radial-gradient(circle at center, transparent 35%, black 85%);
+            mask-image: radial-gradient(circle at center, transparent 35%, black 85%);
+            opacity: 0;
+            transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* Layer 4: Hypersonic Motion Blur */
+        .photo-motion-edges {
+            position: absolute;
+            inset: -10%;
+            background-image: var(--bg-img);
+            background-size: cover;
+            background-position: center;
+            filter: blur(14px);
+            transform: scaleX(1.14) scaleY(1.02);
+            -webkit-mask-image: linear-gradient(to right, black 0%, transparent 16%, transparent 84%, black 100%);
+            mask-image: linear-gradient(to right, black 0%, transparent 16%, transparent 84%, black 100%);
+            opacity: 0;
+            transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .frame.has-photo .photo-glow { opacity: 0.55; }
+        .frame.has-photo .photo-lens-blur { opacity: 0.95; }
+        .frame.has-photo .photo-motion-edges { opacity: 0.85; }
+
+        /* Film Grain Shader */
+        .grain {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.15;
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Vignette */
+        .vignette-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.65) 100%);
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        /* HUD Frame Reticle */
+        .ui-frame {
+            position: absolute;
+            inset: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            pointer-events: none;
+            z-index: 20;
+            transition: all 0.4s var(--ease-hypersonic);
+        }
+
+        .ui-frame::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: -2px; width: 8px; height: 8px;
+            border-top: 2px solid var(--gold); border-left: 2px solid var(--gold);
+        }
+        .ui-frame::after {
+            content: '';
+            position: absolute;
+            bottom: -2px; right: -2px; width: 8px; height: 8px;
+            border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold);
+        }
+
+        .hud-text {
+            position: absolute;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.8;
+            z-index: 30;
+            text-transform: uppercase;
+        }
+
+        .hud-tl { top: 10px; left: 12px; }
+        .hud-tr { top: 10px; right: 12px; text-align: right; }
+        .hud-bl { bottom: 10px; left: 12px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hud-br { bottom: 10px; right: 12px; text-align: right; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Typography Block */
+        .title-block {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 90%;
+            max-width: 900px;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.95);
+            z-index: 30;
+            pointer-events: none;
+            transition: transform 0.5s var(--ease-hypersonic);
+        }
+
+        .sub-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.35em;
+            color: var(--gold);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .sub-bengali {
+            font-family: 'Noto Serif Bengali', serif;
+            font-size: 16px;
+            letter-spacing: 0.1em;
+            color: #ffe680;
+            text-shadow: 0 0 12px rgba(212,175,55,0.6);
+            font-weight: 700;
+        }
+
+        .main-title {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(2rem, 5vw, 4.5rem);
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .tagline {
+            font-size: clamp(9px, 1.2vw, 12px);
+            letter-spacing: 0.25em;
+            color: rgba(255,255,255,0.75);
+            text-transform: uppercase;
+        }
+
+        .sound-cue-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 14px;
+            padding: 4px 10px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            font-size: 9px;
+            letter-spacing: 1.5px;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .drop-prompt {
+            position: absolute;
+            font-size: 12px;
+            letter-spacing: 4px;
+            color: #666;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .drop-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 6px 14px;
+            border-radius: 2px;
+            color: #fff;
+            font-size: 10px;
+            letter-spacing: 2px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.2s;
+        }
+        .drop-btn:hover {
+            background: rgba(212,175,55,0.2);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        /* Hypersonic Hover Physics */
+        .hover-style-0:hover .photo-base { transform: scale(1.04); filter: contrast(1.25) saturate(1.2) brightness(0.8); }
+        .hover-style-0:hover .photo-glow { transform: scale(1.04); opacity: 0.65; }
+        .hover-style-0:hover .photo-motion-edges { transform: scaleX(1.18) scaleY(1.04); filter: blur(18px); opacity: 1; }
+        .hover-style-0:hover .main-title { letter-spacing: 0.22em; }
+
+        .hover-style-1:hover .photo-base { transform: translateX(-1.5%) scale(1.02); }
+        .hover-style-1:hover .title-block { transform: translate(-50%, -53%); }
+
+        .hover-style-2:hover .photo-base { filter: contrast(1.3) saturate(0.9) brightness(0.9); transform: scale(1.03) rotate(0.4deg); }
+        .hover-style-2:hover .main-title { text-shadow: 3px 0 0 rgba(212, 175, 55, 0.8), -3px 0 0 rgba(255, 255, 255, 0.4); }
+
+        /* Floating Nav Arrows */
+        .nav-btn {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 26px;
+            color: rgba(255, 255, 255, 0.25);
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.2s ease;
+        }
+        .nav-btn:hover {
+            color: var(--gold);
+            border-color: var(--gold);
+            background: rgba(0,0,0,0.85);
+            transform: translateY(-50%) scale(1.1);
+        }
+        .nav-left { left: 16px; }
+        .nav-right { right: 16px; }
+
+        /* Micro-Timeline Scrubber */
+        #photo-nav-bar {
+            position: fixed;
+            bottom: 74px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 86%;
+            max-width: 900px;
+            display: flex;
+            gap: 2px;
+            overflow-x: auto;
+            z-index: 100;
+            padding: 4px;
+            background: rgba(8, 8, 10, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 2px;
+            scroll-behavior: smooth;
+        }
+        #photo-nav-bar::-webkit-scrollbar { display: none; }
+        #photo-nav-bar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .nav-dash {
+            flex: 0 0 auto;
+            width: 28px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: rgba(255,255,255,0.3);
+            border-radius: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-dash:hover, .nav-dash.active {
+            color: #000;
+            background: var(--gold);
+            font-weight: 700;
+            box-shadow: 0 0 8px rgba(212,175,55,0.5);
+        }
+
+        /* Bottom Controls Dock */
+        #controls-panel {
+            position: fixed;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            background: rgba(8, 8, 10, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            padding: 8px 24px;
+            border-radius: 2px;
+            z-index: 100;
+            backdrop-filter: blur(14px);
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+        }
+
+        .control-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .control-btn:hover { color: var(--gold); }
+
+        .slider-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
+            border-right: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 0 18px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 90px;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 10px;
+            width: 10px;
+            background: var(--gold);
+            cursor: pointer;
+            margin-top: -4px;
+            border-radius: 1px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 2px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .select-dark {
+            background: rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: var(--gold);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 3px 6px;
+            border-radius: 2px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        /* Modal Overlays (Grid Contact Sheet & Export Modal) */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 200;
+            padding: 24px;
+            overflow-y: auto;
+        }
+        .modal.open { display: flex; align-items: center; justify-content: center; }
+
+        .modal-card {
+            background: #0d0e14;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 2px;
+            width: 100%;
+            max-width: 960px;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.9);
+        }
+
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .contact-thumb {
+            aspect-ratio: 16 / 10;
+            background: #12131a;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 2px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+        .contact-thumb:hover {
+            border-color: var(--gold);
+            transform: scale(1.02);
+            box-shadow: 0 0 12px rgba(212,175,55,0.3);
+        }
+
+        .code-box {
+            background: #040406;
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 14px;
+            border-radius: 2px;
+            font-size: 11px;
+            color: #4ade80;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .nav-btn { display: none; }
+            #photo-nav-bar { width: 95%; bottom: 64px; }
+            #controls-panel { padding: 6px 14px; gap: 10px; bottom: 10px; width: 95%; justify-content: center; }
+            .slider-wrapper { display: none; }
+            .hud-text { font-size: 7px; }
+            .ui-frame { inset: 12px; }
+            .main-title { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Header -->
+    <header id="top-header">
+        <div class="header-title">
+            <span style="color: var(--gold); font-weight: 900;">RAWx</span>
+            <span style="color: rgba(255,255,255,0.3)">//</span>
+            <span>ANTHOLOGY ENGINE 100</span>
+            <span class="header-tag">GIT-READY</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn-header" onclick="openModal('modal-grid')">GRID (100)</button>
+            <button class="btn-header" onclick="openModal('modal-export')">EXPORT / GIT</button>
+        </div>
+    </header>
+
+    <!-- Floating Navigation Arrows -->
+    <button class="nav-btn nav-left" onclick="scrollGallery(-1)" aria-label="Previous Frame">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <button class="nav-btn nav-right" onclick="scrollGallery(1)" aria-label="Next Frame">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+
+    <!-- Scrubber Timeline Nav Bar -->
+    <div id="photo-nav-bar" role="navigation" aria-label="Timeline Scrubber"></div>
+
+    <!-- Bottom Controls Panel Dock -->
+    <div id="controls-panel">
+        <button class="control-btn" id="btn-play" onclick="togglePlay()" aria-label="Toggle Autoplay">
+            <svg id="icon-play" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span id="label-play">AUTO PLAY</span>
+        </button>
+        
+        <div class="slider-wrapper">
+            <span style="font-size: 9px; color: #888;">PACE</span>
+            <input type="range" id="speed-slider" min="1" max="100" value="50" aria-label="Slideshow Speed">
+            <span id="speed-label" style="font-size: 9px; color: var(--gold); min-width: 32px;">3.5s</span>
+        </div>
+
+        <select class="select-dark" id="aspect-select" onchange="changeAspectRatio(this.value)" aria-label="Aspect Ratio">
+            <option value="2.39:1">2.39:1 CINEMASCOPE</option>
+            <option value="16:9">16:9 CINEMA</option>
+            <option value="4:3">4:3 ACADEMY</option>
+            <option value="1:1">1:1 SQUARE</option>
+            <option value="9:16">9:16 VERTICAL</option>
+        </select>
+
+        <select class="select-dark" id="lut-select" onchange="changeLut(this.value)" aria-label="Color Grading LUT">
+            <option value="cinematic">LUT: RAWx Cinema 35</option>
+            <option value="noir">LUT: Neo-Noir Monolith</option>
+            <option value="golden">LUT: Golden Hour 2800K</option>
+            <option value="tungsten">LUT: Tungsten 3200K</option>
+            <option value="cyber">LUT: Cyberpunk Neon</option>
+            <option value="infrared">LUT: Infrared Vascular</option>
+            <option value="matrix">LUT: Matrix Emerald</option>
+        </select>
+
+        <button class="control-btn" id="btn-audio" onclick="toggleAudio()" aria-label="Toggle Ambient Audio">
+            <svg id="icon-audio" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+            <span id="label-audio">AUDIO</span>
+        </button>
+        <button class="control-btn" id="btn-fullscreen" onclick="toggleFullscreen()" aria-label="Toggle Fullscreen">[ ] FULLSCREEN</button>
+    </div>
+
+    <!-- Main Stage Gallery Container -->
+    <main id="stage-container">
+        <div id="gallery"></div>
+    </main>
+
+    <!-- Modal 1: 100-Frame Contact Sheet Grid -->
+    <div class="modal" id="modal-grid" onclick="closeModalOnBackdrop(event, 'modal-grid')">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h2 style="font-family: 'Cinzel', serif; font-size: 16px; letter-spacing: 2px; color: #fff;">100-FRAME CONTACT SHEET</h2>
+                    <p style="font-size: 10px; color: #777; letter-spacing: 1px; margin-top: 2px;">SELECT ANY FRAME TO JUMP DIRECTLY</p>
+                </div>
+                <button class="drop-btn" onclick="closeModal('modal-grid')" aria-label="Close Contact Sheet">CLOSE [ESC]</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                    <button class="drop-btn" onclick="populateAllSampleImages()">POPULATE ALL 100 FRAMES WITH CINEMA PACK</button>
+                </div>
+                <div class="contact-grid" id="contact-grid-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Git & Platform Export Modal -->
+    <div class="modal" id="modal-export" onclick="closeModalOnBackdrop(event, 'modal-export')">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h2 style="font-family: 'Cinzel', serif; font-size: 16px; letter-spacing: 2px; color: #fff;">GIT & PLATFORM PUBLISHING SUITE</h2>
+                    <p style="font-size: 10px; color: #777; letter-spacing: 1px; margin-top: 2px;">READY FOR GITHUB PAGES, VERCEL, & GITHUB REPOSITORY</p>
+                </div>
+                <button class="drop-btn" onclick="closeModal('modal-export')" aria-label="Close Export Modal">CLOSE [ESC]</button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <h3 style="font-size: 11px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 6px;">1. PUSH TO GITHUB REPOSITORY</h3>
+                    <div class="code-box">git init
+git add .
+git commit -m "feat: complete RAWx Master Anthology Engine 100"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
+git push -u origin main</div>
+                </div>
+
+                <div>
+                    <h3 style="font-size: 11px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 6px;">2. GITHUB PAGES DEPLOYMENT</h3>
+                    <p style="font-size: 11px; color: #aaa; line-height: 1.6;">
+                        This repository is configured for pure static hosting. When pushed to GitHub, go to <strong>Settings &gt; Pages</strong> and set Source to <strong>GitHub Actions</strong> (or Deploy from a branch: main). All assets and relative links run with zero bundler errors.
+                    </p>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                    <button class="drop-btn" onclick="downloadJSONExport()">DOWNLOAD PROJECT JSON</button>
+                    <button class="drop-btn" onclick="downloadMarkdownReadme()">DOWNLOAD README.MD</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const baseThemes = [
+            { title: "THE SINGULARITY", sub: "দৃষ্টি", tag: "MACRO EYES: PUPILS DILATING INTO THE VOID", sound: "Sub-bass pulse 36Hz" },
+            { title: "EVENT HORIZON", sub: "সীমানা", tag: "FIRST GLIMPSE OF THE MACRO BLOOM", sound: "Gravitational sweep" },
+            { title: "PHOTON SPHERE", sub: "আলো", tag: "TISSUE TEXTURES SHIFTING UNDER MICRO LIGHTING", sound: "Resonant glass tone 440Hz" },
+            { title: "SHOCK // CORE", sub: "সংঘাত", tag: "SUDDEN VISUAL: GLOSSY LUBE & SUBTLE YELLOW TINT", sound: "Dynamic visceral impact" },
+            { title: "SPATIAL DISTORTION", sub: "বাঁক", tag: "EYES ROLLING BACK AS GRAVITY HITS", sound: "Phase-shifted harmonic drone" },
+            { title: "THE APERTURE", sub: "উন্মোচন", tag: "THE BLOOM STRETCHING LIKE SCATTERED STARLIGHT", sound: "Aperture mechanical diaphragm" },
+            { title: "DARK MATTER", sub: "অন্ধকার", tag: "HEAVY CONTRAST ON THE OUTER RIDGES", sound: "Low frequency vinyl noise" },
+            { title: "SHOCK // NEBULA", sub: "মিশ্রণ", tag: "FLASH OF WHITE FLUID MIXING WITH RAW AMBER", sound: "Hydrodynamic surge" },
+            { title: "PARALLAX", sub: "দৃষ্টিভ্রম", tag: "FLICKERING EYELASHES IN HYPNOTIC RHYTHM", sound: "Binaural rhythmic pulsation" },
+            { title: "WARP DRIVE", sub: "গতি", tag: "HIGH-SPEED PULL REVEALING THE GAPE", sound: "Doppler acceleration shift" },
+            { title: "ECLIPSE", sub: "গ্রহণ", tag: "DYNAMIC SHADOWS PLAYING ON THE SPHINCTER MUSCLE", sound: "Halo backlighting tone" },
+            { title: "SHOCK // IMPACT", sub: "পতন", tag: "MESSY VISCOUS SPLATTER // RAW REALITY", sound: "1/8000s shutter impact" },
+            { title: "ACCRETION", sub: "ঘূর্ণন", tag: "EYES LOCKED, TEARING UP FROM THE FORCE", sound: "Centrifugal whirl" },
+            { title: "THE ABYSS", sub: "গভীরতা", tag: "MACRO FOCUS FALLING INTO THE CENTER BLOOM", sound: "Deep oceanic trench resonance" },
+            { title: "KINETIC ENERGY", sub: "কম্পন", tag: "MICRO-TREMORS AND PULSATING TEXTURES", sound: "Fast biological jitter 120BPM" },
+            { title: "SHOCK // FUSION", sub: "মিলন", tag: "LUBE BUBBLES AND YELLOWISH HUES IN MACRO", sound: "Viscous refraction fizz" },
+            { title: "OBSERVER EFFECT", sub: "সাক্ষী", tag: "DEAD-LOCKED EYE CONTACT WITH THE LENS", sound: "Fourth wall silence & heartbeat" },
+            { title: "WORMHOLE", sub: "পথ", tag: "THE BLOOM FORCIBLY HELD OPEN IN TIME", sound: "Time-dilation sweep" },
+            { title: "SPECTRAL SHIFT", sub: "বর্ণালি", tag: "SLIGHT LIGHT ANGLE CHANGE ALTERS THE TEXTURE", sound: "Prismatic filter sweep" },
+            { title: "SHOCK // OVERFLOW", sub: "প্লাবন", tag: "SUDDEN LEAK OF CUM AND NATURAL FLUIDS", sound: "Fluid pressure release" },
+            { title: "PULSAR", sub: "স্পন্দন", tag: "EYELIDS FLUTTERING LIKE A DYING STAR", sound: "Stroboscopic pulse series" },
+            { title: "GRAVITY WELL", sub: "টান", tag: "THE BLOOM SUCKING INWARD, HYPNOTIC LOOP", sound: "Inward suction vacuum" },
+            { title: "SURFACE TENSION", sub: "চাপ", tag: "GLOSSY REFLECTIONS ON TIGHTENED SKIN", sound: "Specular tension ping" },
+            { title: "SHOCK // ERUPTION", sub: "বিস্ফোরণ", tag: "MESSY, UNFILTERED TEXTURE OF THE AFTERMATH", sound: "Volcanic organic splatter" },
+            { title: "BLINDING LIGHT", sub: "অন্ধ", tag: "EYES SQUEEZED SHUT IN ABSOLUTE TRANCE", sound: "10000 lumen crescendo" },
+            { title: "THE CRATER", sub: "গহ্বর", tag: "A PERFECT, ASYMMETRICAL MACRO GAPE", sound: "Topographical lunar echo" },
+            { title: "LUMINESCENCE", sub: "দ্যুতি", tag: "RING FLASH ILLUMINATING THE DEEPEST TISSUES", sound: "Circular catchlight tone" },
+            { title: "SHOCK // LIQUID", sub: "তরল", tag: "THICK WHITE DROPS SLIDING OVER YELLOWISH TONES", sound: "Droplet cascade reverb" },
+            { title: "STRETCHED TIME", sub: "প্রসারণ", tag: "MACRO EYES WIDENING BEYOND LIMITS", sound: "1000fps time stretch" },
+            { title: "THE TEAR", sub: "বিচ্ছিন্নতা", tag: "THE BLOOM PUSHED TO ITS MAXIMUM RADIUS", sound: "Elastic strain limit" },
+            { title: "MICRO GRAVITY", sub: "ভারহীন", tag: "FLOATING, FLUID MOTIONS OF THE MUSCLE TRACT", sound: "Zero-G ambient drift" },
+            { title: "SHOCK // VISCOUS", sub: "ঘনত্ব", tag: "EXTREME CLOSE-UP OF THE FLUID MIXTURE", sound: "Dense emulsion rumble" },
+            { title: "ZERO POINT", sub: "শূন্য", tag: "A SINGLE TEAR DROPPING FROM THE OBSERVER", sound: "Solitary crystal chime" },
+            { title: "THE VORTEX", sub: "ঘূর্ণি", tag: "THE CENTER OF THE BLOOM IN SHARP FOCUS", sound: "Swirling phase phaser" },
+            { title: "LIGHT TRAP", sub: "আবদ্ধ", tag: "NO LIGHT ESCAPES THE MACRO DEPTH", sound: "Vantablack acoustic null" },
+            { title: "SHOCK // RAW", sub: "নগ্নতা", tag: "MESSY, UNAPOLOGETIC ANAL SECRETIONS", sound: "Forensic documentary saturation" },
+            { title: "PARALLEL", sub: "সমান্তরাল", tag: "SPLIT SCREEN: HER EYE AND THE BLOOM", sound: "Diptych dual stereo pulse" },
+            { title: "THE COLLAPSE", sub: "ধ্বংস", tag: "THE BLOOM SLOWLY CLOSING, EXHAUSTED", sound: "Relaxing muscle exhale" },
+            { title: "INFRARED", sub: "তাপ", tag: "WARM TUNGSTEN LIGHT EXPOSING EVERY VEIN", sound: "Vascular heat hum" },
+            { title: "SHOCK // DISCHARGE", sub: "নির্গমন", tag: "SUDDEN VISUAL OF CUM DRIPPING DOWN", sound: "Dynamic gravitational slide" },
+            { title: "HYPER-SPEED", sub: "উন্মাদনা", tag: "RAPID FLICKER OF HER EYES LOSING FOCUS", sound: "Saccade shutter burst" },
+            { title: "THE TUNNEL", sub: "সুড়ঙ্গ", tag: "HIGH-SPEED PUSH AND PULL BLUR", sound: "Subway tunnel roar" },
+            { title: "KINETIC FRICTION", sub: "ঘর্ষণ", tag: "DYNAMIC TEXTURE CHANGES FROM MOTION", sound: "Thermal friction sheen" },
+            { title: "SHOCK // SLIP", sub: "স্খলন", tag: "THE YELLOW-TINTED LUBE SMEARING THE LENS", sound: "Optical lens smear sweep" },
+            { title: "AFTERGLOW", sub: "অবশেষ", tag: "GLAZED, HYPNOTIZED MACRO EYES", sound: "Warm euphoric decay" },
+            { title: "THE SCAR", sub: "চিহ্ন", tag: "THE OVERSTRETCHED, BEAUTIFUL RED BLOOM", sound: "Crimson flush sustained note" },
+            { title: "ECHOES", sub: "প্রতিধ্বনি", tag: "MUSCLE SPASMS CAPTURED IN SLOW MOTION", sound: "Involuntary rhythmic aftershock" },
+            { title: "SHOCK // ALLOY", sub: "মিশ্র ধাতু", tag: "THE METALLIC SHINE OF FLUIDS AND SWEAT", sound: "Liquid mercury bounce" },
+            { title: "GLITCH", sub: "ত্রুটি", tag: "EYES DARTING UNCONTROLLABLY", sound: "Digital buffer artifact" },
+            { title: "ASYMMETRY", sub: "অসমতা", tag: "THE BLOOM DISTORTED BY THE HEAVY ANGLE", sound: "Off-axis wide perspective" },
+            { title: "RADIANCE", sub: "বিকিরণ", tag: "SHADOWS DANCING ON THE MOIST TISSUE", sound: "Volumetric ray beam tone" },
+            { title: "SHOCK // EXPOSE", sub: "উন্মুক্ত", tag: "EXTREME MACRO OF THE MESSY, YELLOWISH CORE", sound: "Unsparing visceral thud" },
+            { title: "THE RETURN", sub: "প্রত্যাবর্তন", tag: "EYES SNAPPING BACK TO DEAD CENTER", sound: "Consciousness reclaim gasp" },
+            { title: "THE RE-OPENING", sub: "পুনর্জন্ম", tag: "BLOOM FORCED WIDE OPEN ONCE AGAIN", sound: "Hydraulic opening release" },
+            { title: "REFRACTION", sub: "প্রতিসরণ", tag: "LIGHT BENDING THROUGH THE THICK LUBE", sound: "Caustic liquid sparkle" },
+            { title: "SHOCK // THE SPILL", sub: "পতন", tag: "HEAVY DROP OF CUM SPILLING OVER THE EDGE", sound: "Impact marble droplet" },
+            { title: "QUANTUM LOCK", sub: "আবদ্ধ", tag: "EYES WIDE, FROZEN IN PURE ECSTASY", sound: "Pure suspended sine tone" },
+            { title: "THE NODE", sub: "কেন্দ্র", tag: "THE ABSOLUTE CENTER OF THE SINGULARITY", sound: "Geometric anchor 100Hz" },
+            { title: "SURFACE WAVE", sub: "তরঙ্গ", tag: "RIPPLING TEXTURES ACROSS THE SKIN", sound: "Concentric ripple swell" },
+            { title: "SHOCK // CHAOS", sub: "বিশৃঙ্খলা", tag: "LUBE, SWEAT, AND YELLOW TINTS BLENDED", sound: "Pollock organic splatter" },
+            { title: "DENSITY", sub: "ঘনত্ব", tag: "THE HEAVINESS IN HER GAZE", sound: "Gravitational weight drone" },
+            { title: "COMPRESSION", sub: "চাপ", tag: "THE BLOOM TIGHTENING AROUND THE VOID", sound: "Compression pump rhythm" },
+            { title: "MAGNETIC FIELD", sub: "আকর্ষণ", tag: "THE PULL OF THE SHINY, WET TEXTURES", sound: "Ferrofluid electric field" },
+            { title: "SHOCK // THE MIX", sub: "মিশ্রণ", tag: "RAW, UNDILUTED VISUAL OF THE AFTERMATH", sound: "5600K raw illumination" },
+            { title: "BACKGROUND NOISE", sub: "গুঞ্জন", tag: "EYES HALF OPEN, COMPLETELY LOST", sound: "Cosmic microwave noise" },
+            { title: "THE FREQUENCY", sub: "কম্পাঙ্ক", tag: "RAPID, VIBRATING MICRO-MOVEMENTS OF THE GAPE", sound: "Resonant 60Hz vibrato" },
+            { title: "HEAT SIGNATURE", sub: "উত্তাপ", tag: "RED AND AMBER TONES HIGHLIGHTING THE TISSUE", sound: "Thermographic amber hum" },
+            { title: "SHOCK // PURE", sub: "খাঁটি", tag: "THE SHOCKING BEAUTY OF THE ANATOMICAL MESS", sound: "Grand organ church chord" },
+            { title: "FRACTAL", sub: "ভগ্নাংশ", tag: "TEARS BLURRING THE MACRO EYE SHOT", sound: "Liquid tear lens refraction" },
+            { title: "THE GATEWAY", sub: "দ্বার", tag: "THE BLOOM AS A PORTAL TO THE UNKNOWN", sound: "Portal humming portal" },
+            { title: "OPTICAL ILLUSION", sub: "ভ্রম", tag: "LIGHT SHIFTS MAKING THE BLOOM LOOK INFINITE", sound: "Shepard infinite scale" },
+            { title: "SHOCK // VISUAL", sub: "দৃশ্য", tag: "SUDDEN SPLASH OF WHITE ACROSS THE DARKNESS", sound: "Dynamic flash transient" },
+            { title: "EXPANSION", sub: "প্রসার", tag: "EYES WIDENING IN SUDDEN SHOCK", sound: "Pupil dilation surge" },
+            { title: "THE TEAR II", sub: "বিদারণ", tag: "THE GAPE REACHING ITS ABSOLUTE LIMIT", sound: "Boundary capacity stress" },
+            { title: "VOID DRIFT", sub: "ভাসমান", tag: "SMOOTH, FRICTIONLESS SLIDE REVEALED BY LIGHT", sound: "Hydroplane glide note" },
+            { title: "SHOCK // SECRETE", sub: "ক্ষরণ", tag: "THE SUBTLE YELLOW MINGLING WITH PURE WHITE", sound: "Dual chromatic fluid interplay" },
+            { title: "FROZEN TIME", sub: "স্থির", tag: "EYES LOCKED IN A FREEZE-FRAME", sound: "Chronophotographic freeze" },
+            { title: "THE SINGULARITY II", sub: "বিন্দু", tag: "A PERFECT, STILL MACRO SHOT OF THE BLOOM", sound: "Deep 40Hz anchor drone" },
+            { title: "CRYOGENIC", sub: "শীতল", tag: "CRISP, RAZOR-SHARP FOCUS ON THE TEXTURE", sound: "Razor focus crystal crackle" },
+            { title: "SHOCK // CONTRAST", sub: "বৈপরীত্য", tag: "THE DARK ASSHOLE COVERED IN GLOSSY FLUIDS", sound: "Melanin and gloss juxtaposition" },
+            { title: "SYNERGY", sub: "সমন্বয়", tag: "THE EYE AND THE BLOOM PULSATING IN SYNC", sound: "Entrained biology sync" },
+            { title: "THE ALIGNMENT", sub: "সরলরেখা", tag: "PERFECT SYMMETRY IN THE MACRO FRAME", sound: "Kubrick one-point harmonic" },
+            { title: "LUMINOUS FLUX", sub: "প্রবাহ", tag: "LIGHT REFLECTING OFF EVERY WET SURFACE", sound: "Specular starlight cascade" },
+            { title: "SHOCK // THE CLIMAX", sub: "চূড়া", tag: "THE HEAVIEST MIX OF FLUIDS YET", sound: "Massive orchestral sub hit" },
+            { title: "ACCELERATION", sub: "ত্বরণ", tag: "EYES BLINKING RAPIDLY IN OVERLOAD", sound: "Rapid fire biological shutter" },
+            { title: "THE LAUNCH", sub: "ক্ষেপণ", tag: "THE BLOOM BOUNCING BACK FROM IMPACT", sound: "Elastic recoil dampening" },
+            { title: "KINETIC BLUR", sub: "অস্পষ্টতা", tag: "TEXTURES BLURRING INTO A HYPNOTIC SPIN", sound: "Rotational 720 deg/s blur" },
+            { title: "SHOCK // THE DROP", sub: "পতন", tag: "A SINGLE HEAVY DROP OF LUBE AND CUM FALLING", sound: "Isolated gravitational droplet" },
+            { title: "THE CLOUD", sub: "মেঘ", tag: "SOFT FOCUS ON HER EXHAUSTED EYES", sound: "Dream diffusion haze" },
+            { title: "THE NEBULA", sub: "নীহারিকা", tag: "THE BLOOM SURROUNDED BY A MESS OF FLUIDS", sound: "Interstellar organic cloud" },
+            { title: "DIFFRACTION", sub: "বিচ্ছুরণ", tag: "LIGHT SPLITTING ACROSS THE WET TEXTURES", sound: "Glass harmonica chord" },
+            { title: "SHOCK // UNFILTERED", sub: "অকৃত্রিম", tag: "THE RAW, YELLOWISH REALITY OF THE DEEP", sound: "Uncompromising truth to medium" },
+            { title: "IMPLOSION", sub: "অন্তর্মুখী", tag: "EYES ROLLING BACK FOR THE LAST TIME", sound: "Reverse cymbal into void" },
+            { title: "THE CRUSH", sub: "পেষণ", tag: "THE BLOOM SLOWLY PULSATING SHUT", sound: "Heavy gate closing resonance" },
+            { title: "FADING LIGHT", sub: "ম্লান", tag: "THE LIGHT SOURCE DIMMING OVER THE TEXTURES", sound: "Tungsten filament amber fade" },
+            { title: "SHOCK // THE SEAL", sub: "অন্তিম", tag: "THE MESSY, BEAUTIFUL FINAL STATE OF THE BLOOM", sound: "Resting anatomical landscape" },
+            { title: "OBSERVATION DECK", sub: "পর্যবেক্ষণ", tag: "THE FINAL LOOK IN HER EYES", sound: "Knowing gaze completion" },
+            { title: "THE RECORD", sub: "দলিল", tag: "A WIDE MACRO OF THE ENTIRE CHAOS", sound: "Archival overview documentation" },
+            { title: "BLACKOUT", sub: "অন্ধকার", tag: "THE TEXTURES FADING INTO THE SHADOWS", sound: "Decaying drone below 20Hz" },
+            { title: "THE END OF TIME", sub: "সমাপ্তি", tag: "THE HYPNOTIC LOOP RESTARTS FROM ZERO", sound: "Ouroboros loop restart pulse" }
+        ];
+
+        const sampleCinemaImages = [
+            "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1519638399535-1b036603ac77?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1920&q=80",
+            "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1920&q=80"
+        ];
+
+        const colorPalette = ["#ffffff", "#d4af37", "#ff4b4b", "#4b9eff", "#00ffcc", "#ff8c00", "#e0e0e0"];
+        const gallery = document.getElementById('gallery');
+        const navBar = document.getElementById('photo-nav-bar');
+        const contactGrid = document.getElementById('contact-grid-container');
+
+        // Render all 100 Frames
+        for (let i = 0; i < 100; i++) {
+            const base = baseThemes[i % baseThemes.length];
+            const titleColor = colorPalette[i % colorPalette.length];
+            const frameNum = String(i + 1).padStart(3, '0');
+            const hoverClass = "hover-style-" + (i % 3);
+            const defaultImg = i < 12 ? sampleCinemaImages[i % sampleCinemaImages.length] : "";
+
+            const frameHTML = `
+                <div class="frame ${hoverClass} ${defaultImg ? 'has-photo' : ''}" id="frame-${i}" style="${defaultImg ? "--bg-img: url('" + defaultImg + "');" : ""}">
+                    <div class="photo-base"></div>
+                    <div class="photo-glow"></div>
+                    <div class="photo-lens-blur"></div>
+                    <div class="photo-motion-edges"></div>
+                    
+                    <div class="drop-prompt" style="${defaultImg ? 'display: none;' : ''}">
+                        <div>[ DROP PHOTO ${frameNum} ]</div>
+                        <button class="drop-btn" onclick="triggerFileInput(${i})">LOAD PHOTO</button>
+                    </div>
+                    
+                    <div class="grain"></div>
+                    <div class="vignette-overlay"></div>
+                    
+                    <div class="ui-frame">
+                        <div class="hud-text hud-tl">PLAYBACK // FILE_${frameNum}<br>FORMAT: RAW 14-BIT ARRI</div>
+                        <div class="hud-text hud-tr">NODE: DHAKA_01<br><span style="color: #4ade80; display: inline-flex; align-items: center; gap: 4px;"><span style="width: 5px; height: 5px; background: #4ade80; border-radius: 50%; display: inline-block;"></span> SECURE ARCHIVE</span></div>
+                        <div class="hud-text hud-bl">FOCAL: 35MM CINEMA PRIME<br>SHUTTER: f/1.4 ISO 400</div>
+                        <div class="hud-text hud-br">A <span style="color: ${titleColor}; font-weight: bold;">RAWx</span> PRODUCTION<br>DIRECTOR: RAKIB HIMON</div>
+                    </div>
+
+                    <div class="title-block">
+                        <div class="sub-title">
+                            <span>EP ${frameNum} //</span>
+                            <span class="sub-bengali">${base.sub}</span>
+                        </div>
+                        <div class="main-title" style="color: ${titleColor};">${base.title}</div>
+                        <div class="tagline">${base.tag}</div>
+                        <div class="sound-cue-pill">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                            <span>${base.sound}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            gallery.insertAdjacentHTML('beforeend', frameHTML);
+
+            // Nav bar scrubber item
+            const navDashHTML = `<div class="nav-dash" id="nav-dash-${i}" onclick="goToFrame(${i})" title="EP ${frameNum}: ${base.title}">${frameNum}</div>`;
+            navBar.insertAdjacentHTML('beforeend', navDashHTML);
+
+            // Contact Sheet Thumb
+            const thumbHTML = `
+                <div class="contact-thumb" id="contact-thumb-${i}" onclick="goToFrame(${i}); closeModal('modal-grid');" style="${defaultImg ? "background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.85)), url('" + defaultImg + "');" : ""}">
+                    <div style="font-size: 9px; color: var(--gold); font-weight: bold;">EP ${frameNum}</div>
+                    <div>
+                        <div style="font-size: 11px; color: #ffe680; font-family: 'Noto Serif Bengali';">${base.sub}</div>
+                        <div style="font-size: 10px; color: #fff; font-family: 'Cinzel'; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${base.title}</div>
+                    </div>
+                </div>
+            `;
+            contactGrid.insertAdjacentHTML('beforeend', thumbHTML);
+        }
+
+        // Active State Initialization
+        document.getElementById('nav-dash-0').classList.add('active');
+
+        // Drag & Drop handlers
+        const frames = document.querySelectorAll('.frame');
+        frames.forEach((frame, idx) => {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                frame.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+
+            frame.addEventListener('dragover', () => {
+                const prompt = frame.querySelector('.drop-prompt');
+                if (prompt) { prompt.style.color = '#fff'; prompt.style.transform = 'scale(1.08)'; }
+            });
+
+            frame.addEventListener('dragleave', () => {
+                const prompt = frame.querySelector('.drop-prompt');
+                if (prompt) { prompt.style.color = '#666'; prompt.style.transform = 'scale(1)'; }
+            });
+
+            frame.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type.startsWith('image/')) {
+                    applyImageToFrame(idx, URL.createObjectURL(files[0]));
+                }
+            });
+        });
+
+        // Hidden input for photo load
+        const hiddenFileInput = document.createElement('input');
+        hiddenFileInput.type = 'file';
+        hiddenFileInput.accept = 'image/*';
+        hiddenFileInput.style.display = 'none';
+        document.body.appendChild(hiddenFileInput);
+
+        let activeTargetIndex = 0;
+        function triggerFileInput(index) {
+            activeTargetIndex = index;
+            hiddenFileInput.click();
+        }
+
+        hiddenFileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                applyImageToFrame(activeTargetIndex, URL.createObjectURL(e.target.files[0]));
+            }
+        });
+
+        function applyImageToFrame(index, imgUrl) {
+            const frame = document.getElementById('frame-' + index);
+            if (!frame) return;
+            frame.style.setProperty('--bg-img', "url('" + imgUrl + "')");
+            frame.classList.add('has-photo');
+            const prompt = frame.querySelector('.drop-prompt');
+            if (prompt) prompt.style.display = 'none';
+
+            const thumb = document.getElementById('contact-thumb-' + index);
+            if (thumb) {
+                thumb.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.85)), url('" + imgUrl + "')";
+            }
+        }
+
+        function populateAllSampleImages() {
+            for (let i = 0; i < 100; i++) {
+                const img = sampleCinemaImages[i % sampleCinemaImages.length];
+                applyImageToFrame(i, img);
+            }
+            closeModal('modal-grid');
+        }
+
+        // Navigation
+        function scrollGallery(direction) {
+            const frameWidth = gallery.clientWidth;
+            gallery.scrollBy({ left: direction * frameWidth, behavior: 'smooth' });
+            playShutterSound();
+        }
+
+        function goToFrame(index) {
+            const frameWidth = gallery.clientWidth;
+            gallery.scrollTo({ left: index * frameWidth, behavior: 'smooth' });
+            playShutterSound();
+        }
+
+        gallery.addEventListener('scroll', () => {
+            const frameWidth = gallery.clientWidth;
+            if (frameWidth <= 0) return;
+            const currentIndex = Math.round(gallery.scrollLeft / frameWidth);
+            
+            document.querySelectorAll('.nav-dash').forEach((dash, idx) => {
+                if (idx === currentIndex) {
+                    dash.classList.add('active');
+                    dash.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                } else {
+                    dash.classList.remove('active');
+                }
+            });
+        });
+
+        // Wheel Support
+        gallery.addEventListener('wheel', (evt) => {
+            evt.preventDefault();
+            gallery.scrollLeft += evt.deltaY;
+        });
+
+        // Autoplay Loop
+        let isPlaying = false;
+        let playInterval;
+        const speedSlider = document.getElementById('speed-slider');
+        const speedLabel = document.getElementById('speed-label');
+        const playBtn = document.getElementById('btn-play');
+
+        function updateSpeedLabel() {
+            const val = Number(speedSlider.value);
+            const seconds = (12 - (val - 1) * (11.4 / 99)).toFixed(1);
+            speedLabel.textContent = seconds + 's';
+        }
+
+        speedSlider.addEventListener('input', () => {
+            updateSpeedLabel();
+            if (isPlaying) startAutoplay();
+        });
+        updateSpeedLabel();
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const playIcon = document.getElementById('icon-play');
+            const playLabel = document.getElementById('label-play');
+            if (isPlaying) {
+                if (playIcon) playIcon.outerHTML = '<svg id="icon-play" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+                if (playLabel) { playLabel.textContent = 'PAUSE LOOP'; }
+                playBtn.style.color = 'var(--gold)';
+                startAutoplay();
+            } else {
+                if (playIcon) playIcon.outerHTML = '<svg id="icon-play" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+                if (playLabel) { playLabel.textContent = 'AUTO PLAY'; }
+                playBtn.style.color = '#fff';
+                clearInterval(playInterval);
+            }
+        }
+
+        function startAutoplay() {
+            clearInterval(playInterval);
+            const val = Number(speedSlider.value);
+            const intervalTime = Math.round(12000 - (val - 1) * (11400 / 99));
+
+            playInterval = setInterval(() => {
+                const frameWidth = gallery.clientWidth;
+                const maxScroll = gallery.scrollWidth - frameWidth;
+                
+                if (gallery.scrollLeft >= maxScroll - 10) {
+                    gallery.scrollTo({ left: 0, behavior: 'smooth' });
+                } else {
+                    gallery.scrollBy({ left: frameWidth, behavior: 'smooth' });
+                }
+                playShutterSound();
+            }, intervalTime);
+        }
+
+        // Fullscreen Toggle
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        // Aspect Ratio Changer
+        function changeAspectRatio(ratio) {
+            switch (ratio) {
+                case '16:9':
+                    gallery.style.aspectRatio = '16 / 9';
+                    gallery.style.maxHeight = '86vh';
+                    gallery.style.maxWidth = '154vh';
+                    break;
+                case '4:3':
+                    gallery.style.aspectRatio = '4 / 3';
+                    gallery.style.maxHeight = '88vh';
+                    gallery.style.maxWidth = '118vh';
+                    break;
+                case '1:1':
+                    gallery.style.aspectRatio = '1 / 1';
+                    gallery.style.maxHeight = '82vh';
+                    gallery.style.maxWidth = '82vh';
+                    break;
+                case '9:16':
+                    gallery.style.aspectRatio = '9 / 16';
+                    gallery.style.maxHeight = '88vh';
+                    gallery.style.maxWidth = '50vh';
+                    break;
+                case '2.39:1':
+                default:
+                    gallery.style.aspectRatio = '2.39 / 1';
+                    gallery.style.maxHeight = '82vh';
+                    gallery.style.maxWidth = '196vh';
+                    break;
+            }
+        }
+
+        // LUT Preset Filter
+        function changeLut(lut) {
+            let filterString = '';
+            switch (lut) {
+                case 'noir':
+                    filterString = 'grayscale(1) contrast(1.4) brightness(0.9)';
+                    break;
+                case 'golden':
+                    filterString = 'sepia(0.35) saturate(1.4) contrast(1.2) brightness(0.95) hue-rotate(-10deg)';
+                    break;
+                case 'tungsten':
+                    filterString = 'sepia(0.2) saturate(1.1) contrast(1.2) brightness(0.9) hue-rotate(15deg)';
+                    break;
+                case 'cyber':
+                    filterString = 'saturate(1.7) contrast(1.35) hue-rotate(-25deg) brightness(0.9)';
+                    break;
+                case 'infrared':
+                    filterString = 'invert(0.12) hue-rotate(180deg) saturate(1.5) contrast(1.3)';
+                    break;
+                case 'matrix':
+                    filterString = 'sepia(0.5) hue-rotate(85deg) saturate(1.5) contrast(1.3) brightness(0.9)';
+                    break;
+                case 'cinematic':
+                default:
+                    filterString = 'contrast(1.15) saturate(1.1) brightness(0.85) sepia(0.15) hue-rotate(-5deg)';
+                    break;
+            }
+
+            document.querySelectorAll('.frame').forEach(f => {
+                f.style.setProperty('--lut-filter', filterString);
+            });
+        }
+
+        // Procedural Web Audio Engine (Drone + Shutter Click)
+        let audioCtx = null;
+        let isAudioActive = false;
+        let droneOsc1 = null, droneOsc2 = null, masterGain = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                const AudioConstructor = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioConstructor();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(120, audioCtx.currentTime);
+                filter.Q.setValueAtTime(3.0, audioCtx.currentTime);
+
+                droneOsc1 = audioCtx.createOscillator();
+                droneOsc1.type = 'sawtooth';
+                droneOsc1.frequency.setValueAtTime(43.65, audioCtx.currentTime); // F1 Sub
+
+                droneOsc2 = audioCtx.createOscillator();
+                droneOsc2.type = 'sine';
+                droneOsc2.frequency.setValueAtTime(65.41, audioCtx.currentTime); // C2
+
+                droneOsc1.connect(filter);
+                droneOsc2.connect(filter);
+                filter.connect(masterGain);
+                masterGain.connect(audioCtx.destination);
+
+                droneOsc1.start();
+                droneOsc2.start();
+            } catch (e) {
+                console.warn('Audio not initialized', e);
+            }
+        }
+
+        function toggleAudio() {
+            initAudio();
+            isAudioActive = !isAudioActive;
+            const btn = document.getElementById('btn-audio');
+            const iconAudio = document.getElementById('icon-audio');
+            const labelAudio = document.getElementById('label-audio');
+            if (isAudioActive) {
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                if (masterGain) masterGain.gain.setTargetAtTime(0.25, audioCtx.currentTime, 0.1);
+                if (iconAudio) iconAudio.outerHTML = '<svg id="icon-audio" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+                if (labelAudio) labelAudio.textContent = 'AUDIO ON';
+                btn.style.color = 'var(--gold)';
+                playShutterSound();
+            } else {
+                if (masterGain) masterGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.1);
+                if (iconAudio) iconAudio.outerHTML = '<svg id="icon-audio" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+                if (labelAudio) labelAudio.textContent = 'AUDIO';
+                btn.style.color = '#fff';
+            }
+        }
+
+        function playShutterSound() {
+            if (!isAudioActive || !audioCtx || audioCtx.state === 'suspended') return;
+            try {
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(750, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.07);
+            } catch (err) {}
+        }
+
+        // Modal Controls
+        function openModal(id) {
+            document.getElementById(id).classList.add('open');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('open');
+        }
+        function closeModalOnBackdrop(e, id) {
+            if (e.target.id === id) closeModal(id);
+        }
+
+        // Project JSON / README Downloader
+        function downloadJSONExport() {
+            const projectData = {
+                title: "RAWx // Master Anthology Engine 100",
+                director: "RAKIB HIMON",
+                node: "DHAKA_01",
+                totalFrames: 100,
+                themes: baseThemes
+            };
+            const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rawx-anthology-engine.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadMarkdownReadme() {
+            let md = `# RAWx // Master Anthology Engine 100\n\n`;
+            md += `> Directed by **RAKIB HIMON** | Archival Node: **DHAKA_01**\n\n`;
+            md += `A 100-frame macro-cinematography anthology engine with multi-layer optical emulation, anamorphic blur, and procedural audio.\n\n`;
+            md += `## Top Anthology Frames\n\n`;
+            baseThemes.slice(0, 20).forEach((t, idx) => {
+                const num = String(idx + 1).padStart(3, '0');
+                md += `- **EP ${num} [${t.sub}]**: ${t.title} — *${t.tag}*\n`;
+            });
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'README.md';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowRight':
+                case 'l':
+                    scrollGallery(1);
+                    break;
+                case 'ArrowLeft':
+                case 'j':
+                    scrollGallery(-1);
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'f':
+                case 'F':
+                    toggleFullscreen();
+                    break;
+                case 'g':
+                case 'G':
+                    const gridModal = document.getElementById('modal-grid');
+                    if (gridModal.classList.contains('open')) closeModal('modal-grid');
+                    else openModal('modal-grid');
+                    break;
+                case 'm':
+                case 'M':
+                    toggleAudio();
+                    break;
+                case 'Escape':
+                    closeModal('modal-grid');
+                    closeModal('modal-export');
+                    break;
+            }
+        });
+
+        // Touch Swipe
+        let touchStartX = 0;
+        window.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        window.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 40) {
+                if (diff > 0) scrollGallery(1);
+                else scrollGallery(-1);
+            }
+        }, { passive: true });
+    </script>
+</body>
+</html>

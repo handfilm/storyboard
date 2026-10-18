@@ -2,5 +2,7 @@
   "name": "RAWx // Master Anthology Engine 100",
   "description": "Next-level cinematic film anthology engine, 100-frame storyboard studio, multi-layer optical lens emulator, ambient audio synthesizer, and Git-ready publication suite.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

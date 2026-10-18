@@ -141,7 +141,18 @@
             --lut-filter: contrast(1.15) saturate(1.1) brightness(0.85) sepia(0.15) hue-rotate(-5deg);
         }
 
-        /* Layer 1: Base Sharp Cinematic Image */
+        /* Video element inside optical layers */
+        .media-video {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        /* Layer 1: Base Sharp Cinematic Image/Video */
         .photo-base {
             position: absolute;
             inset: -8%;
@@ -151,9 +162,10 @@
             filter: var(--lut-filter);
             transition: transform 0.6s var(--ease-hypersonic), filter 0.4s ease;
             z-index: 1;
+            overflow: hidden;
         }
 
-        /* Layer 2: Soft Skin Center Focus Bloom */
+        /* Layer 2: Soft Skin Center Focus Bloom (Orton Effect) */
         .photo-glow {
             position: absolute;
             inset: -6%;
@@ -168,6 +180,7 @@
             transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
             z-index: 2;
             pointer-events: none;
+            overflow: hidden;
         }
 
         /* Layer 3: Radial Anamorphic Lens Blur */
@@ -184,6 +197,7 @@
             transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
             z-index: 3;
             pointer-events: none;
+            overflow: hidden;
         }
 
         /* Layer 4: Hypersonic Motion Blur */
@@ -201,6 +215,7 @@
             transition: opacity 0.8s ease, transform 0.6s var(--ease-hypersonic);
             z-index: 4;
             pointer-events: none;
+            overflow: hidden;
         }
 
         .frame.has-photo .photo-glow { opacity: 0.55; }
@@ -381,8 +396,7 @@
             position: fixed;
             top: 50%;
             transform: translateY(-50%);
-            font-size: 26px;
-            color: rgba(255, 255, 255, 0.25);
+            color: rgba(255, 255, 255, 0.35);
             background: rgba(0,0,0,0.5);
             border: 1px solid rgba(255,255,255,0.1);
             width: 44px;
@@ -525,7 +539,7 @@
             outline: none;
         }
 
-        /* Modal Overlays (Grid Contact Sheet & Export Modal) */
+        /* Modal Overlays */
         .modal {
             display: none;
             position: fixed;
@@ -576,13 +590,10 @@
             background: #12131a;
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 2px;
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            position: relative;
             cursor: pointer;
             transition: all 0.2s;
-            position: relative;
+            overflow: hidden;
             background-size: cover;
             background-position: center;
         }
@@ -720,16 +731,16 @@
                     <h3 style="font-size: 11px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 6px;">1. PUSH TO GITHUB REPOSITORY</h3>
                     <div class="code-box">git init
 git add .
-git commit -m "feat: complete RAWx Master Anthology Engine 100"
+git commit -m "feat: complete RAWx Master Anthology Engine 100 with Video and Assets support"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
 git push -u origin main</div>
                 </div>
 
                 <div>
-                    <h3 style="font-size: 11px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 6px;">2. GITHUB PAGES DEPLOYMENT</h3>
+                    <h3 style="font-size: 11px; color: var(--gold); letter-spacing: 1.5px; margin-bottom: 6px;">2. PERMANENT ASSETS FOLDER</h3>
                     <p style="font-size: 11px; color: #aaa; line-height: 1.6;">
-                        This repository is configured for pure static hosting. When pushed to GitHub, go to <strong>Settings &gt; Pages</strong> and set Source to <strong>GitHub Actions</strong> (or Deploy from a branch: main). All assets and relative links run with zero bundler errors.
+                        Place photos or videos in <code>public/assets/</code> named <code>001.mp4</code>, <code>001.jpg</code>, <code>002.mp4</code>, etc. The app automatically scans and pre-loads them on startup with full cinematic optical shaders.
                     </p>
                 </div>
 
@@ -863,24 +874,26 @@ git push -u origin main</div>
         const navBar = document.getElementById('photo-nav-bar');
         const contactGrid = document.getElementById('contact-grid-container');
 
-        // Render all 100 Frames
+        // Track loaded media state per frame
+        const frameMediaState = new Array(100).fill(null);
+
+        // Build all 100 Frames
         for (let i = 0; i < 100; i++) {
             const base = baseThemes[i % baseThemes.length];
             const titleColor = colorPalette[i % colorPalette.length];
             const frameNum = String(i + 1).padStart(3, '0');
             const hoverClass = "hover-style-" + (i % 3);
-            const defaultImg = i < 12 ? sampleCinemaImages[i % sampleCinemaImages.length] : "";
 
             const frameHTML = `
-                <div class="frame ${hoverClass} ${defaultImg ? 'has-photo' : ''}" id="frame-${i}" style="${defaultImg ? "--bg-img: url('" + defaultImg + "');" : ""}">
+                <div class="frame ${hoverClass}" id="frame-${i}">
                     <div class="photo-base"></div>
                     <div class="photo-glow"></div>
                     <div class="photo-lens-blur"></div>
                     <div class="photo-motion-edges"></div>
                     
-                    <div class="drop-prompt" style="${defaultImg ? 'display: none;' : ''}">
-                        <div>[ DROP PHOTO ${frameNum} ]</div>
-                        <button class="drop-btn" onclick="triggerFileInput(${i})">LOAD PHOTO</button>
+                    <div class="drop-prompt" id="drop-prompt-${i}">
+                        <div>[ DROP PHOTO / VIDEO ${frameNum} ]</div>
+                        <button class="drop-btn" onclick="triggerFileInput(${i})">LOAD MEDIA</button>
                     </div>
                     
                     <div class="grain"></div>
@@ -909,15 +922,15 @@ git push -u origin main</div>
             `;
             gallery.insertAdjacentHTML('beforeend', frameHTML);
 
-            // Nav bar scrubber item
+            // Scrubber timeline dash
             const navDashHTML = `<div class="nav-dash" id="nav-dash-${i}" onclick="goToFrame(${i})" title="EP ${frameNum}: ${base.title}">${frameNum}</div>`;
             navBar.insertAdjacentHTML('beforeend', navDashHTML);
 
             // Contact Sheet Thumb
             const thumbHTML = `
-                <div class="contact-thumb" id="contact-thumb-${i}" onclick="goToFrame(${i}); closeModal('modal-grid');" style="${defaultImg ? "background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.85)), url('" + defaultImg + "');" : ""}">
-                    <div style="font-size: 9px; color: var(--gold); font-weight: bold;">EP ${frameNum}</div>
-                    <div>
+                <div class="contact-thumb" id="contact-thumb-${i}" onclick="goToFrame(${i}); closeModal('modal-grid');">
+                    <div style="font-size: 9px; color: var(--gold); font-weight: bold; position: relative; z-index: 2;">EP ${frameNum}</div>
+                    <div style="position: relative; z-index: 2;">
                         <div style="font-size: 11px; color: #ffe680; font-family: 'Noto Serif Bengali';">${base.sub}</div>
                         <div style="font-size: 10px; color: #fff; font-family: 'Cinzel'; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${base.title}</div>
                     </div>
@@ -926,10 +939,102 @@ git push -u origin main</div>
             contactGrid.insertAdjacentHTML('beforeend', thumbHTML);
         }
 
-        // Active State Initialization
+        // Active state
         document.getElementById('nav-dash-0').classList.add('active');
 
-        // Drag & Drop handlers
+        // Apply Media (Image or Video) to a Frame with 4-Layer Optical Effects
+        function applyMediaToFrame(index, mediaUrl, isVideo = false) {
+            const frame = document.getElementById('frame-' + index);
+            if (!frame) return;
+
+            // Auto-detect video from URL if not explicitly given
+            if (!isVideo && /\.(mp4|webm|mov|ogg)($|\?)/i.test(mediaUrl)) {
+                isVideo = true;
+            }
+
+            frameMediaState[index] = { url: mediaUrl, isVideo };
+
+            const baseLayer = frame.querySelector('.photo-base');
+            const glowLayer = frame.querySelector('.photo-glow');
+            const lensBlurLayer = frame.querySelector('.photo-lens-blur');
+            const motionEdgesLayer = frame.querySelector('.photo-motion-edges');
+            const prompt = document.getElementById('drop-prompt-' + index);
+
+            if (isVideo) {
+                // Clear any image background
+                frame.style.removeProperty('--bg-img');
+
+                // Embed synchronized video elements in all 4 optical layers
+                [baseLayer, glowLayer, lensBlurLayer, motionEdgesLayer].forEach(layer => {
+                    if (!layer) return;
+                    layer.innerHTML = '';
+                    const vid = document.createElement('video');
+                    vid.className = 'media-video';
+                    vid.src = mediaUrl;
+                    vid.autoplay = true;
+                    vid.loop = true;
+                    vid.muted = true;
+                    vid.playsInline = true;
+                    vid.setAttribute('playsinline', '');
+                    vid.setAttribute('webkit-playsinline', '');
+                    layer.appendChild(vid);
+                    vid.play().catch(() => {});
+                });
+            } else {
+                // Image mode: clear video elements and set CSS background-image
+                [baseLayer, glowLayer, lensBlurLayer, motionEdgesLayer].forEach(layer => {
+                    if (layer) layer.innerHTML = '';
+                });
+                frame.style.setProperty('--bg-img', "url('" + mediaUrl + "')");
+            }
+
+            frame.classList.add('has-photo');
+            if (prompt) prompt.style.display = 'none';
+
+            // Update Contact Sheet Thumbnail
+            const thumb = document.getElementById('contact-thumb-' + index);
+            if (thumb) {
+                const base = baseThemes[index % baseThemes.length];
+                const frameNum = String(index + 1).padStart(3, '0');
+                thumb.innerHTML = '';
+
+                if (isVideo) {
+                    thumb.style.backgroundImage = 'none';
+                    const thumbVid = document.createElement('video');
+                    thumbVid.className = 'media-video';
+                    thumbVid.src = mediaUrl;
+                    thumbVid.autoplay = true;
+                    thumbVid.loop = true;
+                    thumbVid.muted = true;
+                    thumbVid.playsInline = true;
+                    thumbVid.setAttribute('playsinline', '');
+                    thumb.appendChild(thumbVid);
+                    thumbVid.play().catch(() => {});
+                } else {
+                    thumb.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.85)), url('" + mediaUrl + "')";
+                }
+
+                const overlay = document.createElement('div');
+                overlay.style.position = 'absolute';
+                overlay.style.inset = '0';
+                overlay.style.padding = '8px';
+                overlay.style.display = 'flex';
+                overlay.style.flexDirection = 'column';
+                overlay.style.justifyContent = 'space-between';
+                overlay.style.background = isVideo ? 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.2))' : 'none';
+                overlay.style.zIndex = '2';
+                overlay.innerHTML = `
+                    <div style="font-size: 9px; color: var(--gold); font-weight: bold;">EP ${frameNum} ${isVideo ? '&#9654; VID' : ''}</div>
+                    <div>
+                        <div style="font-size: 11px; color: #ffe680; font-family: 'Noto Serif Bengali';">${base.sub}</div>
+                        <div style="font-size: 10px; color: #fff; font-family: 'Cinzel'; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${base.title}</div>
+                    </div>
+                `;
+                thumb.appendChild(overlay);
+            }
+        }
+
+        // Drag & Drop Handlers (Supports Photos & Videos)
         const frames = document.querySelectorAll('.frame');
         frames.forEach((frame, idx) => {
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -948,16 +1053,21 @@ git push -u origin main</div>
 
             frame.addEventListener('drop', (e) => {
                 const files = e.dataTransfer.files;
-                if (files.length > 0 && files[0].type.startsWith('image/')) {
-                    applyImageToFrame(idx, URL.createObjectURL(files[0]));
+                if (files.length > 0) {
+                    const file = files[0];
+                    const isVideo = file.type.startsWith('video/');
+                    const isImage = file.type.startsWith('image/');
+                    if (isVideo || isImage) {
+                        applyMediaToFrame(idx, URL.createObjectURL(file), isVideo);
+                    }
                 }
             });
         });
 
-        // Hidden input for photo load
+        // Hidden input for photo / video load
         const hiddenFileInput = document.createElement('input');
         hiddenFileInput.type = 'file';
-        hiddenFileInput.accept = 'image/*';
+        hiddenFileInput.accept = 'image/*,video/*';
         hiddenFileInput.style.display = 'none';
         document.body.appendChild(hiddenFileInput);
 
@@ -969,28 +1079,72 @@ git push -u origin main</div>
 
         hiddenFileInput.addEventListener('change', (e) => {
             if (e.target.files && e.target.files[0]) {
-                applyImageToFrame(activeTargetIndex, URL.createObjectURL(e.target.files[0]));
+                const file = e.target.files[0];
+                const isVideo = file.type.startsWith('video/');
+                applyMediaToFrame(activeTargetIndex, URL.createObjectURL(file), isVideo);
             }
         });
 
-        function applyImageToFrame(index, imgUrl) {
-            const frame = document.getElementById('frame-' + index);
-            if (!frame) return;
-            frame.style.setProperty('--bg-img', "url('" + imgUrl + "')");
-            frame.classList.add('has-photo');
-            const prompt = frame.querySelector('.drop-prompt');
-            if (prompt) prompt.style.display = 'none';
+        // Smart Permanent Pre-saved Assets Loader (public/assets/ folder)
+        const candidateExtensions = ['mp4', 'webm', 'mov', 'jpg', 'jpeg', 'png', 'webp'];
 
-            const thumb = document.getElementById('contact-thumb-' + index);
-            if (thumb) {
-                thumb.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.85)), url('" + imgUrl + "')";
+        async function checkAssetExists(url) {
+            try {
+                const res = await fetch(url, { method: 'HEAD' });
+                if (!res.ok) return false;
+                const cType = (res.headers.get('content-type') || '').toLowerCase();
+                // If static host returns index.html for 404s, treat as not found
+                if (cType.includes('text/html')) return false;
+                return true;
+            } catch {
+                return false;
             }
         }
 
+        async function autoLoadAssets() {
+            let assetsFound = 0;
+            const promises = [];
+
+            // Scan in batches of frames
+            for (let i = 0; i < 100; i++) {
+                const frameNum = String(i + 1).padStart(3, '0');
+                promises.push((async () => {
+                    for (const ext of candidateExtensions) {
+                        const url = `assets/${frameNum}.${ext}`;
+                        const exists = await checkAssetExists(url);
+                        if (exists) {
+                            const isVideo = ['mp4', 'webm', 'mov'].includes(ext);
+                            applyMediaToFrame(i, url, isVideo);
+                            assetsFound++;
+                            return;
+                        }
+                    }
+                })());
+            }
+
+            await Promise.all(promises);
+
+            // If no local assets exist in public/assets/, seed the first 12 frames with sample cinema photography
+            if (assetsFound === 0) {
+                for (let i = 0; i < 12; i++) {
+                    const sample = sampleCinemaImages[i % sampleCinemaImages.length];
+                    applyMediaToFrame(i, sample, false);
+                }
+            }
+        }
+
+        // Run auto-loader on load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', autoLoadAssets);
+        } else {
+            autoLoadAssets();
+        }
+
+        // 1-Click Populate All 100 Frames with Sample Cinema Pack
         function populateAllSampleImages() {
             for (let i = 0; i < 100; i++) {
                 const img = sampleCinemaImages[i % sampleCinemaImages.length];
-                applyImageToFrame(i, img);
+                applyMediaToFrame(i, img, false);
             }
             closeModal('modal-grid');
         }
@@ -1254,7 +1408,8 @@ git push -u origin main</div>
                 director: "RAKIB HIMON",
                 node: "DHAKA_01",
                 totalFrames: 100,
-                themes: baseThemes
+                themes: baseThemes,
+                media: frameMediaState
             };
             const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1269,8 +1424,12 @@ git push -u origin main</div>
             let md = `# RAWx // Master Anthology Engine 100\n\n`;
             md += `> Directed by **RAKIB HIMON** | Archival Node: **DHAKA_01**\n\n`;
             md += `A 100-frame macro-cinematography anthology engine with multi-layer optical emulation, anamorphic blur, and procedural audio.\n\n`;
+            md += `## Permanent Assets Directory\n\n`;
+            md += `Add your files directly into \`public/assets/\`:\n`;
+            md += `- Videos: \`001.mp4\`, \`002.mp4\` ... \`100.mp4\`\n`;
+            md += `- Images: \`001.jpg\`, \`002.jpg\` ... \`100.jpg\`\n\n`;
             md += `## Top Anthology Frames\n\n`;
-            baseThemes.slice(0, 20).forEach((t, idx) => {
+            baseThemes.slice(0, 25).forEach((t, idx) => {
                 const num = String(idx + 1).padStart(3, '0');
                 md += `- **EP ${num} [${t.sub}]**: ${t.title} — *${t.tag}*\n`;
             });

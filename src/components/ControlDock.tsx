@@ -1,4 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+/**
+ * @file /src/components/ControlDock.tsx
+ * @description Resizable bottom dock with virtualized auto-centering scrubber,
+ * "Go to shot" direct jump input, micro transport, optical LUT/Lens selectors,
+ * Pan Y, Liquify (W), Guides (C), Still Capture (S), Audio, and Zen mode.
+ */
+
+import React, { useRef, useEffect, useState } from 'react';
 import { AnthologyFrame, AspectRatio, LutPreset, ViewMode } from '../types/anthology';
 import { calculateSlideshowInterval } from '../utils/engine';
 import { lutPresetsList } from '../data/frames';
@@ -11,13 +18,14 @@ import {
   Sliders, 
   Volume2, 
   VolumeX, 
-  Share2, 
-  Eye, 
-  EyeOff, 
   ChevronLeft, 
   ChevronRight,
-  Ratio,
-  Sparkles
+  Sparkles,
+  Camera,
+  Grid,
+  MoveVertical,
+  Crosshair,
+  Maximize
 } from 'lucide-react';
 
 interface ControlDockProps {
@@ -31,6 +39,9 @@ interface ControlDockProps {
   isFullscreen: boolean;
   isAudioMuted: boolean;
   audioVolume: number;
+  isPanActive?: boolean;
+  panOffsetPercent?: number;
+  showGuides?: boolean;
   onPrev: () => void;
   onNext: () => void;
   onSelectFrame: (index: number) => void;
@@ -45,6 +56,11 @@ interface ControlDockProps {
   onOpenPublishModal: () => void;
   onChangeAspectRatio: (ratio: AspectRatio) => void;
   onChangeLut: (lut: LutPreset) => void;
+  onTogglePan?: () => void;
+  onOpenLiquify?: () => void;
+  onToggleGuides?: () => void;
+  onCaptureStill?: () => void;
+  onToggleZen?: () => void;
 }
 
 export const ControlDock: React.FC<ControlDockProps> = ({
@@ -58,6 +74,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   isFullscreen,
   isAudioMuted,
   audioVolume,
+  isPanActive = false,
+  panOffsetPercent = 50,
+  showGuides = false,
   onPrev,
   onNext,
   onSelectFrame,
@@ -71,9 +90,15 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onOpenInspector,
   onOpenPublishModal,
   onChangeAspectRatio,
-  onChangeLut
+  onChangeLut,
+  onTogglePan,
+  onOpenLiquify,
+  onToggleGuides,
+  onCaptureStill,
+  onToggleZen
 }) => {
   const navBarRef = useRef<HTMLDivElement>(null);
+  const [jumpInput, setJumpInput] = useState('');
   const currentFrame = frames[currentIndex];
 
   const intervalSeconds = (calculateSlideshowInterval(speed) / 1000).toFixed(1);
@@ -88,23 +113,33 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     }
   }, [currentIndex]);
 
+  const handleJumpSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const parsed = parseInt(jumpInput, 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= frames.length) {
+      onSelectFrame(parsed - 1);
+      setJumpInput('');
+    }
+  };
+
   const ratios: AspectRatio[] = ['2.39:1', '16:9', '4:3', '1:1', '9:16'];
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 sm:pb-3 px-3">
-      {/* 100-Frame Micro Timeline Scrubber Bar */}
-      <div className="w-full max-w-5xl mb-2 sm:mb-2.5 pointer-events-auto flex items-center gap-2">
+    <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4">
+      {/* 100-Frame Micro Timeline Scrubber Bar with Go-to-shot Input */}
+      <div className="w-full max-w-5xl mb-1.5 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
         <button
           onClick={onPrev}
-          aria-label="Previous Frame"
-          className="p-1 rounded-xs bg-black/80 hover:bg-black border border-white/10 hover:border-amber-400 text-white/60 hover:text-amber-400 backdrop-blur-md cursor-pointer transition-colors"
+          aria-label="Previous Frame (J)"
+          className="p-1 rounded-[1px] bg-black/85 hover:bg-black border border-white/10 hover:border-[#D4AF37] text-white/60 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shrink-0"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
 
+        {/* Scrollable Virtualized Shot Strip */}
         <div
           ref={navBarRef}
-          className="flex-1 flex gap-[3px] overflow-x-auto py-1.5 px-2 bg-black/75 backdrop-blur-md border border-white/15 rounded-xs no-scrollbar shadow-xl"
+          className="flex-1 flex gap-[2px] overflow-x-auto py-1 px-1.5 bg-[#070709]/90 backdrop-blur-md border border-white/15 rounded-[1px] no-scrollbar shadow-xl"
         >
           {frames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -114,13 +149,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <button
                 key={frame.id}
                 onClick={() => onSelectFrame(idx)}
-                aria-label={`Frame ${frame.epNumber}: ${frame.title}`}
+                aria-label={`Shot ${frame.epNumber}: ${frame.title}`}
                 title={`EP ${frame.epNumber}: ${frame.title} (${frame.bengaliTitle})`}
-                className={`flex-shrink-0 h-5 px-1 rounded-[2px] flex items-center justify-center font-mono-tech text-[8px] transition-all cursor-pointer ${
+                className={`shrink-0 h-5 px-1 rounded-[1px] flex items-center justify-center font-mono-tech text-[8px] transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(212,175,55,0.6)] scale-105 z-10'
+                    ? 'bg-[#D4AF37] text-black font-bold shadow-[0_0_8px_rgba(212,175,55,0.7)] scale-105 z-10'
                     : hasPhoto
-                    ? 'bg-white/15 hover:bg-white/30 text-white/80 border-b border-amber-400/50'
+                    ? 'bg-white/15 hover:bg-white/30 text-white/90 border-b border-[#D4AF37]/50'
                     : 'bg-white/5 hover:bg-white/15 text-white/40'
                 }`}
               >
@@ -132,74 +167,108 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
         <button
           onClick={onNext}
-          aria-label="Next Frame"
-          className="p-1 rounded-xs bg-black/80 hover:bg-black border border-white/10 hover:border-amber-400 text-white/60 hover:text-amber-400 backdrop-blur-md cursor-pointer transition-colors"
+          aria-label="Next Frame (L)"
+          className="p-1 rounded-[1px] bg-black/85 hover:bg-black border border-white/10 hover:border-[#D4AF37] text-white/60 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shrink-0"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
+
+        {/* Go To Shot input */}
+        <form onSubmit={handleJumpSubmit} className="hidden sm:flex items-center shrink-0">
+          <input
+            type="text"
+            value={jumpInput}
+            onChange={(e) => setJumpInput(e.target.value)}
+            onBlur={() => handleJumpSubmit()}
+            placeholder={`# ${currentFrame?.epNumber || '001'}`}
+            className="w-16 bg-black/80 border border-white/15 focus:border-[#D4AF37] text-white text-[9px] font-mono-tech px-1.5 py-0.5 rounded-[1px] text-center outline-none"
+            title="Type shot number and press Enter to jump directly"
+          />
+        </form>
       </div>
 
-      {/* Main Control Panel Dock */}
-      <div className="w-full max-w-5xl pointer-events-auto bg-[#0a0a0c]/90 backdrop-blur-xl border border-white/15 rounded-xs shadow-2xl p-2 sm:px-4 sm:py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono-tech">
+      {/* Main Control Panel Dock (Clutter-free and non-overlapping) */}
+      <div className="w-full max-w-5xl pointer-events-auto bg-[#08080B]/95 backdrop-blur-xl border border-white/15 rounded-[2px] shadow-2xl p-1.5 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
         
-        {/* Left Section: Autoplay, Frame counter & Speed */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        {/* Left: Transport, Pace & Shot Counter */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={onTogglePlay}
-            aria-label={isPlaying ? "Pause Autoplay" : "Start Autoplay"}
-            className={`px-3 py-1.5 rounded-xs border font-medium flex items-center gap-2 tracking-wider transition-colors cursor-pointer ${
+            aria-label={isPlaying ? "Pause Loop" : "Play Loop"}
+            className={`px-2.5 py-1 rounded-[1px] border font-semibold flex items-center gap-1.5 tracking-wider transition-colors cursor-pointer text-[9px] sm:text-[10px] ${
               isPlaying
-                ? 'border-amber-400 bg-amber-500/20 text-amber-300 shadow-[0_0_12px_rgba(212,175,55,0.3)]'
-                : 'border-white/20 bg-white/5 text-white hover:border-amber-400 hover:text-amber-300'
+                ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                : 'border-white/20 bg-white/5 text-white hover:border-[#D4AF37] hover:text-[#FFE066]'
             }`}
           >
             {isPlaying ? (
               <>
-                <Pause className="w-3.5 h-3.5 fill-current" />
-                <span className="hidden sm:inline">PAUSE LOOP</span>
+                <Pause className="w-3 h-3 fill-current" />
+                <span className="hidden sm:inline">PAUSE</span>
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span className="hidden sm:inline">AUTO PLAY</span>
+                <Play className="w-3 h-3 fill-current" />
+                <span className="hidden sm:inline">LOOP</span>
               </>
             )}
           </button>
 
-          {/* Speed slider with real second indicator */}
-          <div className="hidden md:flex items-center gap-2 border-l border-white/10 pl-3">
-            <span className="text-[10px] text-white/40 uppercase">PACE</span>
+          {/* Pace slider */}
+          <div className="hidden md:flex items-center gap-1.5 border-l border-white/10 pl-2">
+            <span className="text-[8px] text-white/40 uppercase">PACE</span>
             <input
               type="range"
               min="1"
               max="100"
               value={speed}
               onChange={(e) => onSpeedChange(Number(e.target.value))}
-              aria-label="Slideshow Speed"
-              className="w-16 sm:w-20 accent-amber-400 cursor-pointer h-1 bg-white/20 rounded"
+              className="w-16 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded"
+              title={`Slideshow interval: ${intervalSeconds}s`}
             />
-            <span className="text-[10px] text-amber-400 min-w-[32px]">{intervalSeconds}s</span>
+            <span className="text-[8.5px] text-[#D4AF37] min-w-[28px]">{intervalSeconds}s</span>
           </div>
 
-          {/* Current Frame Indicator */}
-          <div className="hidden lg:flex items-center gap-1.5 text-white/50 text-[11px] border-l border-white/10 pl-3">
-            <span className="text-white font-bold">{currentFrame?.epNumber}</span>
-            <span>/ 100</span>
-          </div>
+          {/* Pan Y Tool Button */}
+          {onTogglePan && (
+            <button
+              onClick={onTogglePan}
+              className={`px-2 py-1 rounded-[1px] border text-[8.5px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors ${
+                isPanActive
+                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] font-bold'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+              }`}
+              title="Interactive Vertical Alignment Pan Tool (P / Y)"
+            >
+              <MoveVertical className="w-2.5 h-2.5 text-[#D4AF37]" />
+              <span className="hidden sm:inline">PAN</span>
+              <span className="text-[8px] opacity-75">{panOffsetPercent}%</span>
+            </button>
+          )}
+
+          {/* Canvas Liquify Studio Button (W) */}
+          {onOpenLiquify && (
+            <button
+              onClick={onOpenLiquify}
+              className="px-2 py-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-[#FFE066] text-[8.5px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors"
+              title="HTML5 Canvas Liquify & Mesh Warp Studio (W)"
+            >
+              <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" />
+              <span className="hidden sm:inline">WARP</span>
+            </button>
+          )}
         </div>
 
-        {/* Center Section: Aspect Ratio & LUT quick switch */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Aspect Ratio Selector */}
-          <div className="flex items-center bg-black/60 border border-white/10 rounded-xs p-0.5">
+        {/* Center: Aspect Ratio & Filter Selector */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center bg-black/70 border border-white/10 rounded-[1px] p-0.5">
             {ratios.map(r => (
               <button
                 key={r}
                 onClick={() => onChangeAspectRatio(r)}
-                aria-label={`Aspect ratio ${r}`}
-                className={`px-1.5 py-0.5 text-[9px] rounded-[2px] transition-colors cursor-pointer ${
+                className={`px-1.5 py-0.5 text-[8.5px] rounded-[1px] transition-colors cursor-pointer ${
                   aspectRatio === r
-                    ? 'bg-amber-400 text-black font-bold'
+                    ? 'bg-[#D4AF37] text-black font-bold'
                     : 'text-white/50 hover:text-white'
                 }`}
               >
@@ -212,91 +281,87 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <select
             value={currentFrame?.lutFilter || 'cinematic'}
             onChange={(e) => onChangeLut(e.target.value as LutPreset)}
-            aria-label="LUT Filter Preset"
-            className="hidden sm:block px-2 py-1 bg-black/60 border border-white/15 rounded-xs text-[10px] text-amber-300 font-mono-tech focus:outline-none focus:border-amber-400 cursor-pointer"
+            className="hidden sm:block px-2 py-0.5 bg-black/80 border border-white/15 rounded-[1px] text-[9px] text-[#FFE066] font-mono-tech outline-none cursor-pointer"
           >
             {lutPresetsList.map(l => (
-              <option key={l.id} value={l.id} className="bg-[#121216] text-white">
+              <option key={l.id} value={l.id} className="bg-[#101014] text-white">
                 {l.label}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Right Section: View Toggles, Audio, Inspector, Git & Fullscreen */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Audio Synthesizer Toggle */}
+        {/* Right: Camera Guides, Audio, Still Capture, Grid, Fullscreen */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Rule of Thirds Guides */}
+          {onToggleGuides && (
+            <button
+              onClick={onToggleGuides}
+              className={`p-1 rounded-[1px] border cursor-pointer transition-colors ${
+                showGuides
+                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066]'
+                  : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+              }`}
+              title="Toggle Rule of Thirds & Crosshair Guides (C)"
+            >
+              <Crosshair className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Still Frame Capture */}
+          {onCaptureStill && (
+            <button
+              onClick={onCaptureStill}
+              className="p-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer"
+              title="Capture High-Res Cinema Still PNG (S)"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Audio Synthesizer */}
           <button
             onClick={onToggleAudio}
-            aria-label={isAudioMuted ? "Enable Ambient Audio" : "Mute Ambient Audio"}
-            className={`p-1.5 rounded-xs border transition-colors cursor-pointer ${
+            className={`p-1 rounded-[1px] border cursor-pointer transition-colors ${
               !isAudioMuted
-                ? 'border-amber-400 bg-amber-500/20 text-amber-300'
-                : 'border-white/15 text-white/50 hover:text-white hover:border-white/30'
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                : 'bg-white/5 border-white/10 text-white/40 hover:text-white'
             }`}
-            title={isAudioMuted ? "Unmute Ambient Drone & Shutter" : "Mute Audio"}
+            title={isAudioMuted ? "Unmute Procedural Audio Synth (M)" : "Mute Audio (M)"}
           >
-            {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {isAudioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
 
-          {/* HUD Overlay Toggle */}
-          <button
-            onClick={onToggleHud}
-            aria-label={showHud ? "Hide HUD Telemetry" : "Show HUD Telemetry"}
-            className={`p-1.5 rounded-xs border transition-colors cursor-pointer ${
-              showHud
-                ? 'border-white/20 text-white/80'
-                : 'border-white/10 text-white/30 hover:text-white'
-            }`}
-            title="Toggle HUD Telemetry (H)"
-          >
-            {showHud ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
-
-          {/* 100-Frame Grid Contact Sheet Toggle */}
+          {/* 100-Frame Grid */}
           <button
             onClick={onToggleViewMode}
-            aria-label="Toggle 100-Frame Contact Sheet"
-            className={`px-2.5 py-1.5 rounded-xs border flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`px-2 py-1 rounded-[1px] border flex items-center gap-1 cursor-pointer transition-colors text-[9px] ${
               viewMode === 'grid'
-                ? 'border-amber-400 bg-amber-500/20 text-amber-300 font-bold'
-                : 'border-white/15 text-white/70 hover:text-white hover:border-white/30'
+                ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
+                : 'bg-white/5 border-white/10 text-white/70 hover:text-white'
             }`}
-            title="100-Frame Grid Overview (G)"
+            title="100-Frame Contact Sheet (G)"
           >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="hidden sm:inline text-[10px]">GRID</span>
+            <LayoutGrid className="w-3 h-3" />
+            <span className="hidden sm:inline">GRID</span>
           </button>
 
           {/* Director Inspector */}
           <button
             onClick={onOpenInspector}
-            aria-label="Open Director Studio Inspector"
-            className="p-1.5 rounded-xs border border-white/15 hover:border-amber-400 text-white/70 hover:text-amber-300 transition-colors cursor-pointer"
-            title="Director Inspector & Optical Sliders (E)"
+            className="p-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer"
+            title="Director Optical Inspector (E)"
           >
-            <Sliders className="w-4 h-4" />
+            <Sliders className="w-3.5 h-3.5" />
           </button>
 
-          {/* Publish & Git Suite */}
-          <button
-            onClick={onOpenPublishModal}
-            aria-label="Publish & Git Export Suite"
-            className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 rounded-xs flex items-center gap-1.5 font-bold cursor-pointer transition-all"
-            title="Export for Git & Publishing"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-[10px]">PUBLISH & GIT</span>
-          </button>
-
-          {/* Fullscreen Toggle */}
+          {/* Fullscreen */}
           <button
             onClick={onToggleFullscreen}
-            aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            className="p-1.5 rounded-xs border border-white/15 hover:border-white/40 text-white/70 hover:text-white transition-colors cursor-pointer"
-            title="Toggle Fullscreen (F)"
+            className="p-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white cursor-pointer"
+            title="Toggle Cinema Fullscreen (F)"
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>

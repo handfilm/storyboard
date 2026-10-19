@@ -168,3 +168,71 @@ test('generateCSVExport formats table headers and rows', () => {
   assert.ok(csv.includes('"001","THE SINGULARITY","দৃষ্টি"'));
   assert.ok(csv.includes('"002","EVENT HORIZON","সীমানা"'));
 });
+
+test('featureFlags manager initializes and toggles values safely', async () => {
+  const { featureFlags } = await import('../core/featureFlags.ts');
+  assert.equal(featureFlags.get('enableBoardMode'), true);
+  assert.equal(featureFlags.get('enableCutMode'), true);
+  
+  featureFlags.set('enableScriptNotebook', true);
+  assert.equal(featureFlags.get('enableScriptNotebook'), true);
+  
+  featureFlags.set('enableScriptNotebook', false);
+  assert.equal(featureFlags.get('enableScriptNotebook'), false);
+});
+
+test('featureRegistry indexes all studio capabilities with diagnostic handlers', async () => {
+  const { featureRegistry } = await import('../core/featureRegistry.ts');
+  const allFeatures = featureRegistry.getAll();
+  assert.ok(allFeatures.length >= 10, 'Expected at least 10 core features registered');
+
+  const stageFeature = featureRegistry.get('stage-view');
+  assert.ok(stageFeature);
+  assert.equal(stageFeature?.module, 'STAGE');
+
+  const queryResults = featureRegistry.search('pan');
+  assert.ok(queryResults.some(f => f.id === 'vertical-pan'));
+
+  const selfTestResult = await stageFeature!.selfTest();
+  assert.equal(selfTestResult.ok, true);
+});
+
+test('selfTestEngine 1000-shot stress benchmark passes under 250ms budget', async () => {
+  const { selfTestEngine } = await import('../core/selfTest.ts');
+  const report = await selfTestEngine.runStressTest(1000, 5000);
+  assert.equal(report.shotCount, 1000);
+  assert.equal(report.benchmarkPassed, true);
+  assert.ok(report.elapsedMs < 250, `Expected stress run < 250ms, got ${report.elapsedMs}ms`);
+  assert.ok(report.memoryEstimateMB > 0);
+});
+
+test('DEFAULT_COMPONENT_VISIBILITY enforces exact 12/13 initial active components', async () => {
+  const { DEFAULT_COMPONENT_VISIBILITY } = await import('../components/ComponentsMatrixPopover.tsx');
+  const totalKeys = Object.keys(DEFAULT_COMPONENT_VISIBILITY).length;
+  const activeKeys = Object.values(DEFAULT_COMPONENT_VISIBILITY).filter(Boolean).length;
+
+  assert.equal(totalKeys, 13, 'Expected exactly 13 component layers');
+  assert.equal(activeKeys, 12, 'Expected exactly 12 active components initially (guides off by default)');
+  assert.equal(DEFAULT_COMPONENT_VISIBILITY.guides, false);
+  assert.equal(DEFAULT_COMPONENT_VISIBILITY.reticles, true);
+  assert.equal(DEFAULT_COMPONENT_VISIBILITY.titleBn, true);
+  assert.equal(DEFAULT_COMPONENT_VISIBILITY.titleEn, true);
+});
+
+test('ThemeManager applies design tokens and density settings accurately', async () => {
+  const { themeManager, THEMES } = await import('../core/theme.ts');
+  const initial = themeManager.getSettings();
+  assert.ok(initial.theme);
+
+  themeManager.setTheme('warm-film');
+  assert.equal(themeManager.getSettings().theme, 'warm-film');
+  assert.equal(THEMES['warm-film'].colors.bg, '#080605');
+
+  themeManager.setDensity('spacious');
+  assert.equal(themeManager.getSettings().density, 'spacious');
+
+  // Reset back to RAWx Gold
+  themeManager.setTheme('rawx-gold');
+  themeManager.setDensity('compact');
+});
+

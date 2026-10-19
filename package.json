@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "rawx-storyboard-engine",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,8 @@
     "start": "tsx server.ts",
     "preview": "vite preview --port=3000 --host=0.0.0.0",
     "clean": "rm -rf dist",
-    "lint": "echo 'Static HTML build check passed'"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/utils/engine.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -1,19 +1,40 @@
+/**
+ * @file /src/App.tsx
+ * @description Master Studio Shell & Layout Controller for RAWx Storyboard Engine.
+ * Features unified CSS Grid shell: TopBar, Collapsible LeftRail, MainWorkspace,
+ * Contextual Inspector, Resizable BottomDock, Command Palette, Components Matrix (12/13),
+ * Theme Settings, and Self-Test Diagnostics.
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnthologyFrame, AnthologyProject, AspectRatio, LutPreset, ViewMode } from './types/anthology';
 import { generateInitialFrames, samplePacks } from './data/frames';
-import { OpticalFrame } from './components/OpticalFrame';
+import { WorkspaceMode, themeManager } from './core/theme';
+import { featureFlags } from './core/featureFlags';
+import { TopBar } from './components/TopBar';
+import { LeftRail, StudioModuleId } from './components/LeftRail';
+import { MainWorkspace } from './components/MainWorkspace';
 import { ControlDock } from './components/ControlDock';
-import { GridView } from './components/GridView';
 import { DirectorInspector } from './components/DirectorInspector';
 import { PublishModal } from './components/PublishModal';
+import { CommandPalette } from './components/CommandPalette';
+import { ShortcutsModal } from './components/ShortcutsModal';
+import { SelfTestModal } from './components/SelfTestModal';
+import { CanvasLiquifyModal } from './components/CanvasLiquifyModal';
+import { 
+  ComponentsMatrixPopover, 
+  ComponentVisibility, 
+  loadSavedComponentVisibility, 
+  saveComponentVisibility 
+} from './components/ComponentsMatrixPopover';
+import { ThemeSettingsModal } from './components/ThemeSettingsModal';
 import { audioEngine } from './utils/audioEngine';
 import { calculateSlideshowInterval } from './utils/engine';
-import { ChevronLeft, ChevronRight, Sliders, Film } from 'lucide-react';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
     title: "RAWx // Master Anthology Engine 100",
-    director: "RAKIB HIMON",
+    director: "Rakib Himon",
     nodeLocation: "DHAKA_01",
     aspectRatio: "2.39:1",
     frames: generateInitialFrames(),
@@ -22,16 +43,34 @@ export default function App() {
   }));
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<ViewMode>('stage');
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('STAGE');
+  const [activeModule, setActiveModule] = useState<StudioModuleId>('BOARD');
+  const [isProMode, setIsProMode] = useState(false);
+  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(50);
   const [showHud, setShowHud] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('2.39:1');
+  const [fitMode, setFitMode] = useState<'cover' | 'contain' | 'fill'>('cover');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [audioVolume, setAudioVolume] = useState(0.4);
+
+  // New Studio State & Preserved Optical Controls
+  const [isPanActive, setIsPanActive] = useState(false);
+  const [panOffsets, setPanOffsets] = useState<Record<number, number>>({});
+  const [showGuides, setShowGuides] = useState(false);
+  const [componentsVisibility, setComponentsVisibility] = useState<ComponentVisibility>(loadSavedComponentVisibility);
+
+  // Modals and popovers state
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isSelfTestOpen, setIsSelfTestOpen] = useState(false);
+  const [isLiquifyOpen, setIsLiquifyOpen] = useState(false);
+  const [isComponentsOpen, setIsComponentsOpen] = useState(false);
+  const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false);
 
   const touchStartXRef = useRef<number | null>(null);
 
@@ -85,11 +124,87 @@ export default function App() {
     }
   };
 
+  // 4K Cinema Still Capture
+  const handleCaptureStill = () => {
+    const frame = project.frames[currentIndex];
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const renderOverlay = () => {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#D4AF37';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = '14px JetBrains Mono, monospace';
+      ctx.fillText(`PLAYBACK // FILE_${frame.epNumber} [RAW 14-BIT ARRI]`, 50, 65);
+      ctx.fillText(`FOCAL: ${frame.cameraSpec.focalLength} // ${frame.cameraSpec.aperture}`, 50, canvas.height - 50);
+
+      ctx.textAlign = 'right';
+      ctx.fillText(`NODE: ${project.nodeLocation} // SECURE ARCHIVE`, canvas.width - 50, 65);
+      ctx.fillText(`A RAWx Storyboard // Director: ${project.director}`, canvas.width - 50, canvas.height - 50);
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFE066';
+      ctx.font = 'bold 64px Noto Serif Bengali, serif';
+      ctx.fillText(frame.bengaliTitle, canvas.width / 2, canvas.height / 2 - 10);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 36px Cinzel, serif';
+      ctx.fillText(frame.title, canvas.width / 2, canvas.height / 2 + 40);
+
+      ctx.fillStyle = '#FFE066';
+      ctx.font = '18px Noto Serif Bengali, serif';
+      ctx.fillText(frame.tagline, canvas.width / 2, canvas.height / 2 + 75);
+
+      const a = document.createElement('a');
+      a.download = `RAWx-Still-${frame.epNumber}-${frame.title.replace(/[^a-z0-9]/gi, '_')}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    };
+
+    if (frame.imageUrl) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        renderOverlay();
+      };
+      img.onerror = () => renderOverlay();
+      img.src = frame.imageUrl;
+    } else {
+      renderOverlay();
+    }
+  };
+
   // Keyboard Navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      // Global Command Palette (Ctrl+K or Ctrl+F)
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'f')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+        return;
+      }
+
+      // Shortcuts Cheat Sheet (Shift+/)
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setIsShortcutsOpen(prev => !prev);
         return;
       }
 
@@ -116,7 +231,34 @@ export default function App() {
         case 'g':
         case 'G':
           e.preventDefault();
-          setViewMode(m => m === 'grid' ? 'stage' : 'grid');
+          setWorkspaceMode(m => m === 'BOARD' ? 'STAGE' : 'BOARD');
+          break;
+        case 'v':
+        case 'V':
+          e.preventDefault();
+          setIsComponentsOpen(prev => !prev);
+          break;
+        case 'w':
+        case 'W':
+          e.preventDefault();
+          setIsLiquifyOpen(true);
+          break;
+        case 'p':
+        case 'P':
+        case 'y':
+        case 'Y':
+          e.preventDefault();
+          setIsPanActive(prev => !prev);
+          break;
+        case 'c':
+        case 'C':
+          e.preventDefault();
+          setShowGuides(prev => !prev);
+          break;
+        case 's':
+        case 'S':
+          e.preventDefault();
+          handleCaptureStill();
           break;
         case 'm':
         case 'M':
@@ -136,14 +278,20 @@ export default function App() {
         case 'Escape':
           setIsInspectorOpen(false);
           setIsPublishModalOpen(false);
-          if (viewMode === 'grid') setViewMode('stage');
+          setIsCommandPaletteOpen(false);
+          setIsShortcutsOpen(false);
+          setIsSelfTestOpen(false);
+          setIsLiquifyOpen(false);
+          setIsComponentsOpen(false);
+          setIsThemeSettingsOpen(false);
+          if (workspaceMode !== 'STAGE') setWorkspaceMode('STAGE');
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextFrame, prevFrame, isAudioMuted, audioVolume, viewMode]);
+  }, [nextFrame, prevFrame, isAudioMuted, audioVolume, workspaceMode, currentIndex, project]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -156,16 +304,12 @@ export default function App() {
     const diff = touchStartXRef.current - touchEndX;
 
     if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        nextFrame();
-      } else {
-        prevFrame();
-      }
+      if (diff > 0) nextFrame();
+      else prevFrame();
     }
     touchStartXRef.current = null;
   };
 
-  // Update a single frame
   const handleUpdateFrame = (updated: AnthologyFrame) => {
     setProject(prev => ({
       ...prev,
@@ -173,7 +317,6 @@ export default function App() {
     }));
   };
 
-  // Upload an image to the current frame
   const handleUploadImage = (file: File) => {
     const url = URL.createObjectURL(file);
     const current = project.frames[currentIndex];
@@ -183,7 +326,6 @@ export default function App() {
     });
   };
 
-  // Quick preset sample for single frame
   const handleQuickSampleImage = () => {
     const allPresets = [...samplePacks.cosmicMacro, ...samplePacks.cyberNoir, ...samplePacks.liquidGold];
     const picked = allPresets[currentIndex % allPresets.length];
@@ -194,7 +336,6 @@ export default function App() {
     });
   };
 
-  // Populate all frames with curated high-definition packs
   const handlePopulateAllFrames = () => {
     const allPresets = [...samplePacks.cosmicMacro, ...samplePacks.cyberNoir, ...samplePacks.liquidGold];
     setProject(prev => ({
@@ -207,88 +348,113 @@ export default function App() {
   };
 
   const currentFrame = project.frames[currentIndex];
+  const currentPan = panOffsets[currentIndex] ?? 50;
+
+  const handleCommandExecution = (commandId: string) => {
+    switch (commandId) {
+      case 'workspace.stage': setWorkspaceMode('STAGE'); break;
+      case 'workspace.board': setWorkspaceMode('BOARD'); break;
+      case 'workspace.cut': setWorkspaceMode('CUT'); break;
+      case 'tools.pan': setIsPanActive(p => !p); break;
+      case 'tools.liquify': setIsLiquifyOpen(true); break;
+      case 'view.toggleGuides': setShowGuides(g => !g); break;
+      case 'view.componentMatrix': setIsComponentsOpen(true); break;
+      case 'export.captureStill': handleCaptureStill(); break;
+      case 'system.selfTest': setIsSelfTestOpen(true); break;
+      case 'system.shortcuts': setIsShortcutsOpen(true); break;
+      case 'sound.toggleAudio': toggleAudio(); break;
+      case 'view.toggleFullscreen': toggleFullscreen(); break;
+    }
+  };
+
+  const activeCompCount = Object.values(componentsVisibility).filter(Boolean).length;
+  const componentsBadgeText = `${activeCompCount}/13 ON`;
 
   return (
     <div
-      className="relative w-screen h-screen bg-[#050505] text-white overflow-hidden select-none"
+      className="relative w-screen h-screen bg-[#050505] text-[#EDEDED] overflow-hidden select-none flex flex-col font-mono-tech"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Top Header Strip */}
-      <header className="fixed top-0 inset-x-0 z-30 h-12 px-4 sm:px-6 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-3 pointer-events-auto">
-          <div className="font-cinzel text-xs sm:text-sm font-bold tracking-[0.25em] text-white flex items-center gap-2">
-            <span className="text-amber-400 font-extrabold">RAWx</span>
-            <span className="text-white/40">//</span>
-            <span className="hidden sm:inline">ANTHOLOGY ENGINE 100</span>
-          </div>
-          <span className="px-1.5 py-0.5 rounded-[2px] bg-white/10 text-[9px] font-mono-tech text-amber-300">
-            v1.0 GIT-READY
-          </span>
-        </div>
+      {/* Unified Studio TopBar */}
+      <TopBar
+        projectTitle={project.title}
+        onUpdateTitle={(title) => setProject(p => ({ ...p, title }))}
+        activeMode={workspaceMode}
+        onSelectMode={(mode) => setWorkspaceMode(mode)}
+        isProMode={isProMode}
+        onToggleProMode={() => setIsProMode(p => !p)}
+        componentsBadgeText={componentsBadgeText}
+        onToggleComponentsPopover={() => setIsComponentsOpen(p => !p)}
+        onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenSelfTest={() => setIsSelfTestOpen(true)}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenPublishModal={() => setIsPublishModalOpen(true)}
+      />
 
-        <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
-          <button
-            onClick={() => setIsPublishModalOpen(true)}
-            className="px-2.5 py-1 rounded-xs bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-mono-tech text-[10px] sm:text-xs tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span>EXPORT / GIT</span>
-          </button>
-        </div>
-      </header>
+      {/* Main Studio Body: LeftRail + MainWorkspace */}
+      <div className="flex-1 w-full flex overflow-hidden relative">
+        <LeftRail
+          activeModule={activeModule}
+          onSelectModule={(mod) => {
+            setActiveModule(mod);
+            if (mod === 'BOARD') setWorkspaceMode('BOARD');
+            else if (mod === 'EDIT/CUT') setWorkspaceMode('CUT');
+            else if (mod === 'SETTINGS') setIsThemeSettingsOpen(true);
+            else if (mod === 'EXPORT') setIsPublishModalOpen(true);
+            else setWorkspaceMode('STAGE');
+          }}
+          isCollapsed={isRailCollapsed}
+          onToggleCollapse={() => setIsRailCollapsed(c => !c)}
+          isProMode={isProMode}
+        />
 
-      {/* Main View Area */}
-      {viewMode === 'stage' ? (
-        <main className="w-full h-full flex items-center justify-center pt-8 pb-24">
-          <OpticalFrame
+        <MainWorkspace
+          activeMode={workspaceMode}
+          currentFrame={currentFrame}
+          frames={project.frames}
+          currentIndex={currentIndex}
+          aspectRatio={aspectRatio}
+          directorName={project.director}
+          nodeLocation={project.nodeLocation}
+          showHud={showHud}
+          isAutoplay={isPlaying}
+          isPanActive={isPanActive}
+          panOffsetPercent={currentPan}
+          showGuides={showGuides}
+          fitMode={fitMode}
+          componentsVisibility={componentsVisibility}
+          onPrevFrame={prevFrame}
+          onNextFrame={nextFrame}
+          onSelectFrame={(idx) => {
+            goToFrame(idx);
+            setWorkspaceMode('STAGE');
+          }}
+          onUploadImage={handleUploadImage}
+          onOpenInspector={() => setIsInspectorOpen(true)}
+          onQuickSampleImage={handleQuickSampleImage}
+          onPopulateAllFrames={handlePopulateAllFrames}
+          onPanChange={(newPercent) => {
+            setPanOffsets(prev => ({ ...prev, [currentIndex]: newPercent }));
+          }}
+        />
+
+        {/* Director Inspector Sidebar Drawer */}
+        {isInspectorOpen && (
+          <DirectorInspector
             frame={currentFrame}
-            aspectRatio={aspectRatio}
-            directorName={project.director}
-            nodeLocation={project.nodeLocation}
-            showHud={showHud}
-            isAutoplay={isPlaying}
-            onUploadImage={handleUploadImage}
-            onOpenInspector={() => setIsInspectorOpen(true)}
-            onQuickSampleImage={handleQuickSampleImage}
+            onUpdateFrame={handleUpdateFrame}
+            onClose={() => setIsInspectorOpen(false)}
           />
+        )}
+      </div>
 
-          {/* Floating Left & Right Navigation Arrows on Tablet & Desktop */}
-          <button
-            onClick={prevFrame}
-            aria-label="Previous Frame"
-            className="hidden sm:flex fixed left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-xs bg-black/40 hover:bg-black/90 border border-white/10 hover:border-amber-400 text-white/40 hover:text-amber-400 backdrop-blur-md cursor-pointer transition-all duration-300 hover:scale-110 items-center justify-center"
-          >
-            <ChevronLeft className="w-5 h-5 sm:w-7 sm:h-7" />
-          </button>
-
-          <button
-            onClick={nextFrame}
-            aria-label="Next Frame"
-            className="hidden sm:flex fixed right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-xs bg-black/40 hover:bg-black/90 border border-white/10 hover:border-amber-400 text-white/40 hover:text-amber-400 backdrop-blur-md cursor-pointer transition-all duration-300 hover:scale-110 items-center justify-center"
-          >
-            <ChevronRight className="w-5 h-5 sm:w-7 sm:h-7" />
-          </button>
-        </main>
-      ) : (
-        <main className="w-full h-full pt-14 pb-24">
-          <GridView
-            frames={project.frames}
-            currentFrameIndex={currentIndex}
-            onSelectFrame={(idx) => {
-              goToFrame(idx);
-              setViewMode('stage');
-            }}
-            onPopulateSamplePack={handlePopulateAllFrames}
-          />
-        </main>
-      )}
-
-      {/* Bottom Control Dock & Micro Scrubber */}
+      {/* Resizable Bottom Control Dock */}
       <ControlDock
         frames={project.frames}
         currentIndex={currentIndex}
-        viewMode={viewMode}
+        viewMode={workspaceMode === 'BOARD' ? 'grid' : 'stage'}
         isPlaying={isPlaying}
         speed={speed}
         showHud={showHud}
@@ -296,6 +462,9 @@ export default function App() {
         isFullscreen={isFullscreen}
         isAudioMuted={isAudioMuted}
         audioVolume={audioVolume}
+        isPanActive={isPanActive}
+        panOffsetPercent={currentPan}
+        showGuides={showGuides}
         onPrev={prevFrame}
         onNext={nextFrame}
         onSelectFrame={goToFrame}
@@ -305,28 +474,69 @@ export default function App() {
         onToggleFullscreen={toggleFullscreen}
         onToggleAudio={toggleAudio}
         onVolumeChange={setAudioVolume}
-        onToggleViewMode={() => setViewMode(m => m === 'grid' ? 'stage' : 'grid')}
+        onToggleViewMode={() => setWorkspaceMode(m => m === 'BOARD' ? 'STAGE' : 'BOARD')}
         onOpenInspector={() => setIsInspectorOpen(o => !o)}
         onOpenPublishModal={() => setIsPublishModalOpen(true)}
         onChangeAspectRatio={setAspectRatio}
         onChangeLut={(lut: LutPreset) => {
+          handleUpdateFrame({ ...currentFrame, lutFilter: lut });
+        }}
+        onTogglePan={() => setIsPanActive(p => !p)}
+        onOpenLiquify={() => setIsLiquifyOpen(true)}
+        onToggleGuides={() => setShowGuides(g => !g)}
+        onCaptureStill={handleCaptureStill}
+      />
+
+      {/* Components Matrix Popover (12/13) */}
+      <ComponentsMatrixPopover
+        isOpen={isComponentsOpen}
+        onClose={() => setIsComponentsOpen(false)}
+        visibility={componentsVisibility}
+        onChange={(next) => {
+          setComponentsVisibility(next);
+          saveComponentVisibility(next);
+        }}
+      />
+
+      {/* Global Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onExecuteCommand={handleCommandExecution}
+      />
+
+      {/* Shortcuts Modal (Shift+/) */}
+      <ShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+      />
+
+      {/* Self-Test Diagnostics Modal */}
+      <SelfTestModal
+        isOpen={isSelfTestOpen}
+        onClose={() => setIsSelfTestOpen(false)}
+      />
+
+      {/* Theme Settings Modal */}
+      <ThemeSettingsModal
+        isOpen={isThemeSettingsOpen}
+        onClose={() => setIsThemeSettingsOpen(false)}
+      />
+
+      {/* Canvas Liquify & Mesh Warp Studio (W) */}
+      <CanvasLiquifyModal
+        isOpen={isLiquifyOpen}
+        frame={currentFrame}
+        onClose={() => setIsLiquifyOpen(false)}
+        onApplyWarp={(warpedUrl) => {
           handleUpdateFrame({
             ...currentFrame,
-            lutFilter: lut
+            imageUrl: warpedUrl
           });
         }}
       />
 
-      {/* Director Inspector Sidebar Drawer */}
-      {isInspectorOpen && (
-        <DirectorInspector
-          frame={currentFrame}
-          onUpdateFrame={handleUpdateFrame}
-          onClose={() => setIsInspectorOpen(false)}
-        />
-      )}
-
-      {/* Git & Platform Publishing Modal */}
+      {/* Publish & Git Modal */}
       {isPublishModalOpen && (
         <PublishModal
           project={project}

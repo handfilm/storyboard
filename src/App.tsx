@@ -88,23 +88,39 @@ export default function App() {
   const touchStartXRef = useRef<number | null>(null);
 
   const applyProjectV1ToState = useCallback((p: ProjectV1) => {
-    setActiveProjectId(p.id);
+    if (!p) return;
+    const safeShots = Array.isArray(p.shots) && p.shots.length > 0 ? p.shots : [];
+    const baseFrames = generateInitialFrames();
+    
+    // Guarantee full 100 frames
+    const rawFrames = safeShots.length > 0
+      ? safeShots.map((shot, idx) => convertShotV1ToFrame(shot, idx))
+      : baseFrames;
+    
+    const frames = rawFrames.length >= 100
+      ? rawFrames
+      : [
+          ...rawFrames,
+          ...baseFrames.slice(rawFrames.length)
+        ];
+
+    setActiveProjectId(p.id || 'default-project');
     setProject({
-      title: p.meta.title,
-      director: p.meta.director,
-      nodeLocation: p.meta.nodeLocation,
-      aspectRatio: p.settings.aspectRatio,
-      frames: p.shots.map((shot, idx) => convertShotV1ToFrame(shot, idx)),
-      createdAt: p.meta.createdAt,
-      version: p.meta.version
+      title: p.meta?.title || "RAWx // Master Anthology Engine 100",
+      director: p.meta?.director || "Rakib Himon",
+      nodeLocation: p.meta?.nodeLocation || "DHAKA_01",
+      aspectRatio: p.settings?.aspectRatio || "2.39:1",
+      frames,
+      createdAt: p.meta?.createdAt || new Date().toISOString(),
+      version: p.meta?.version || "1.0.0"
     });
-    setAspectRatio(p.settings.aspectRatio);
-    setFitMode(p.settings.fitMode);
-    if (p.settings.componentsVisibility) {
+    setAspectRatio(p.settings?.aspectRatio || '2.39:1');
+    setFitMode(p.settings?.fitMode || 'cover');
+    if (p.settings?.componentsVisibility) {
       setComponentsVisibility(p.settings.componentsVisibility);
     }
     const loadedOffsets: Record<number, number> = {};
-    p.shots.forEach((s, idx) => {
+    safeShots.forEach((s, idx) => {
       if (typeof s.panY === 'number') {
         loadedOffsets[idx] = s.panY;
       }
@@ -463,7 +479,11 @@ export default function App() {
     }));
   };
 
-  const currentFrame = project.frames[currentIndex];
+  const currentFrame = (project.frames && project.frames[currentIndex]) 
+    ? project.frames[currentIndex] 
+    : (project.frames && project.frames[0]) 
+    ? project.frames[0] 
+    : generateInitialFrames()[0];
   const currentPan = panOffsets[currentIndex] ?? 50;
 
   const handleCommandExecution = (commandId: string) => {

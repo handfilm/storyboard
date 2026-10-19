@@ -21,9 +21,9 @@ export const GridView: React.FC<GridViewProps> = ({
 
   const filtered = filterFrames(frames, searchQuery, selectedTag);
 
-  // Extract top tags
-  const allTags = Array.from(new Set(frames.flatMap(f => f.tags))).slice(0, 10);
-  const populatedCount = frames.filter(f => Boolean(f.imageUrl)).length;
+  // Extract top tags safely
+  const allTags = Array.from(new Set((frames || []).flatMap(f => Array.isArray(f?.tags) ? f.tags : []))).slice(0, 10);
+  const populatedCount = (frames || []).filter(f => Boolean(f?.imageUrl)).length;
 
   return (
     <div className="w-full h-full flex flex-col bg-[#070709] p-4 sm:p-8 overflow-y-auto z-40">

@@ -374,4 +374,36 @@ test('rawx-project.v1 schema validation and non-destructive migration', async ()
   assert.ok(isValidProjectV1(duplicate));
 });
 
+test('Permanent Black Screen & Corruption Resilience: handles incomplete legacy shots, missing tags, and empty frames without throwing', async () => {
+  const { convertFrameToShotV1, convertShotV1ToFrame, migrateToProjectV1 } = await import('./projectMigration.ts');
+  const { getLutFilterCSS, filterFrames } = await import('./engine.ts');
+
+  // 1. Incomplete shot with missing tags, cameraSpec, and adjustments
+  const corruptedShot: any = {
+    id: 'shot-corrupted',
+    panY: 50
+  };
+
+  const safeFrame = convertShotV1ToFrame(corruptedShot, 0);
+  assert.ok(safeFrame);
+  assert.equal(safeFrame.id, 0);
+  assert.equal(safeFrame.epNumber, '001');
+  assert.ok(safeFrame.cameraSpec.focalLength);
+  assert.ok(Array.isArray(safeFrame.tags));
+
+  // 2. getLutFilterCSS on undefined adjustments
+  const filterCss = getLutFilterCSS(undefined, undefined);
+  assert.ok(filterCss.includes('contrast'));
+  assert.ok(!filterCss.includes('NaN'));
+
+  // 3. filterFrames on corrupted frames array
+  const filtered = filterFrames([safeFrame, null as any, {} as any], 'singularity');
+  assert.ok(Array.isArray(filtered));
+
+  // 4. migrateToProjectV1 on empty legacy project
+  const emptyMigrated = migrateToProjectV1({ frames: [] as any } as any);
+  assert.equal(emptyMigrated.shots.length, 100, 'Empty project must default to all 100 shots');
+});
+
+
 

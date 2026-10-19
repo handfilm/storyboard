@@ -106,7 +106,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   return (
     <main className="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden">
       <OpticalFrame
-        frame={currentFrame}
+        frame={currentFrame || frames[currentIndex] || frames[0]}
         aspectRatio={aspectRatio}
         directorName={directorName}
         nodeLocation={nodeLocation}

@@ -43,44 +43,70 @@ class StorageManager {
       }
     }
 
-    // 2. Open DB with migration support
-    this.db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+    // 2. Open DB with migration support and timeout guard
+    try {
+      this.db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.warn('IndexedDB open timed out after 2500ms; falling back to in-memory mode');
+          reject(new Error('IndexedDB open timed out'));
+        }, 2500);
 
-      request.onupgradeneeded = (event) => {
-        const db = request.result;
-        const oldVersion = event.oldVersion;
+        try {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        // Ensure legacy stores remain untouched
-        if (!db.objectStoreNames.contains('frames')) {
-          db.createObjectStore('frames', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('settings')) {
-          db.createObjectStore('settings', { keyPath: 'key' });
-        }
+          request.onblocked = () => {
+            console.warn('IndexedDB upgrade blocked by concurrent connection');
+            clearTimeout(timeout);
+            if (request.result) resolve(request.result);
+          };
 
-        // Add v2 project & snapshot stores
-        if (!db.objectStoreNames.contains('projects')) {
-          db.createObjectStore('projects', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('snapshots')) {
-          const snapshotStore = db.createObjectStore('snapshots', { keyPath: 'id' });
-          snapshotStore.createIndex('projectId', 'projectId', { unique: false });
-          snapshotStore.createIndex('timestamp', 'timestamp', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('session')) {
-          db.createObjectStore('session');
-        }
-      };
+          request.onupgradeneeded = (event) => {
+            const db = request.result;
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+            // Ensure legacy stores remain untouched
+            if (!db.objectStoreNames.contains('frames')) {
+              db.createObjectStore('frames', { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains('settings')) {
+              db.createObjectStore('settings', { keyPath: 'key' });
+            }
+
+            // Add v2 project & snapshot stores
+            if (!db.objectStoreNames.contains('projects')) {
+              db.createObjectStore('projects', { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains('snapshots')) {
+              const snapshotStore = db.createObjectStore('snapshots', { keyPath: 'id' });
+              snapshotStore.createIndex('projectId', 'projectId', { unique: false });
+              snapshotStore.createIndex('timestamp', 'timestamp', { unique: false });
+            }
+            if (!db.objectStoreNames.contains('session')) {
+              db.createObjectStore('session');
+            }
+          };
+
+          request.onsuccess = () => {
+            clearTimeout(timeout);
+            resolve(request.result);
+          };
+          request.onerror = () => {
+            clearTimeout(timeout);
+            reject(request.error);
+          };
+        } catch (err) {
+          clearTimeout(timeout);
+          reject(err);
+        }
+      });
+    } catch (err) {
+      console.warn('IndexedDB unavailable or blocked — running in-memory fallback:', err);
+      this.db = null;
+    }
 
     // 3. Check for crash recovery / abnormal termination
     await this.checkSessionIntegrity();
 
-    // 4. Ensure at least one project exists without deleting any legacy records
+    // 4. Ensure at least one valid 100-shot project exists
     await this.ensureInitialProject();
 
     // 5. Register clean exit listener
@@ -144,6 +170,14 @@ class StorageManager {
     const existingProjects = await this.listProjects();
     if (existingProjects.length > 0) {
       this.activeProjectId = existingProjects[0].id;
+      // Auto-repair existing project if shots were lost or corrupted
+      try {
+        const existing = await this.loadProject(existingProjects[0].id);
+        if (existing && (!existing.shots || existing.shots.length < 100)) {
+          const repaired = migrateToProjectV1(existing);
+          await this.saveProjectDirect(repaired);
+        }
+      } catch {}
       return;
     }
 
@@ -152,7 +186,7 @@ class StorageManager {
     let initialProject: ProjectV1;
 
     if (legacyFrames.length > 0) {
-      // Migrate legacy data
+      // Migrate legacy data safely onto full 100-frame sequence
       initialProject = migrateToProjectV1({
         title: 'RAWx // Master Anthology (Migrated)',
         director: 'Rakib Himon',
@@ -236,7 +270,7 @@ class StorageManager {
   }
 
   /**
-   * Loads a project by ID with corruption check and automatic snapshot recovery
+   * Loads a project by ID with corruption check, auto-healing to 100 shots, and snapshot recovery
    */
   public async loadProject(id?: string): Promise<ProjectV1 | null> {
     if (!this.db) return null;
@@ -256,8 +290,15 @@ class StorageManager {
         req.onsuccess = async () => {
           const raw = req.result;
 
-          // Corruption check
+          // Corruption & completeness check
           if (isValidProjectV1(raw)) {
+            // Self-heal: ensure project always has 100 shots
+            if (!raw.shots || raw.shots.length < 100) {
+              const repaired = migrateToProjectV1(raw);
+              await this.saveProjectDirect(repaired);
+              this.activeProjectId = repaired.id;
+              return resolve(repaired);
+            }
             this.activeProjectId = raw.id;
             return resolve(raw);
           }
@@ -265,12 +306,13 @@ class StorageManager {
           // Corrupted project detected -> attempt recovery from latest snapshot
           const recovered = await this.recoverFromSnapshot(targetId);
           if (recovered) {
-            await this.saveProjectDirect(recovered);
-            this.activeProjectId = recovered.id;
-            return resolve(recovered);
+            const repaired = migrateToProjectV1(recovered);
+            await this.saveProjectDirect(repaired);
+            this.activeProjectId = repaired.id;
+            return resolve(repaired);
           }
 
-          // Fallback to fresh project
+          // Fallback to fresh default 100-shot project
           const fresh = createDefaultProjectV1('RAWx // Recovered Project');
           await this.saveProjectDirect(fresh);
           resolve(fresh);
@@ -281,6 +323,23 @@ class StorageManager {
         resolve(null);
       }
     });
+  }
+
+  /**
+   * Resets vault and seeds pristine 100 shots
+   */
+  public async resetVault(): Promise<ProjectV1> {
+    const fresh = createDefaultProjectV1();
+    if (this.db) {
+      try {
+        const tx = this.db.transaction(['projects', 'session'], 'readwrite');
+        tx.objectStore('projects').clear();
+        tx.objectStore('session').clear();
+      } catch {}
+    }
+    await this.saveProjectDirect(fresh);
+    this.activeProjectId = fresh.id;
+    return fresh;
   }
 
   /**

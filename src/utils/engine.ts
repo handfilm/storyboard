@@ -14,10 +14,11 @@ export function calculateSlideshowInterval(speedSliderValue: number): number {
 /**
  * Generates the CSS filter string corresponding to the LUT preset and user adjustments
  */
-export function getLutFilterCSS(preset: LutPreset, adj: FrameAdjustments): string {
-  const b = adj.brightness / 100;
-  const c = adj.contrast / 100;
-  const s = adj.saturation / 100;
+export function getLutFilterCSS(preset?: LutPreset, adj?: Partial<FrameAdjustments>): string {
+  const safeAdj = { brightness: 100, contrast: 100, saturation: 100, ...adj };
+  const b = (typeof safeAdj.brightness === 'number' && !isNaN(safeAdj.brightness) ? safeAdj.brightness : 100) / 100;
+  const c = (typeof safeAdj.contrast === 'number' && !isNaN(safeAdj.contrast) ? safeAdj.contrast : 100) / 100;
+  const s = (typeof safeAdj.saturation === 'number' && !isNaN(safeAdj.saturation) ? safeAdj.saturation : 100) / 100;
 
   switch (preset) {
     case 'noir':
@@ -46,19 +47,29 @@ export function getLutFilterCSS(preset: LutPreset, adj: FrameAdjustments): strin
  * Filters frames by title, Bengali subtitle, episode number, tag, or camera spec
  */
 export function filterFrames(frames: AnthologyFrame[], query: string, activeTag?: string): AnthologyFrame[] {
-  const q = query.trim().toLowerCase();
+  if (!Array.isArray(frames)) return [];
+  const q = (query || '').trim().toLowerCase();
   return frames.filter(frame => {
-    const matchesTag = !activeTag || frame.tags.includes(activeTag);
+    if (!frame) return false;
+    const tags = Array.isArray(frame.tags) ? frame.tags : [];
+    const matchesTag = !activeTag || tags.includes(activeTag);
     if (!matchesTag) return false;
     if (!q) return true;
 
+    const title = (frame.title || '').toLowerCase();
+    const bengaliTitle = (frame.bengaliTitle || '').toLowerCase();
+    const epNumber = (frame.epNumber || '').toLowerCase();
+    const tagline = (frame.tagline || '').toLowerCase();
+    const directorNotes = (frame.directorNotes || '').toLowerCase();
+    const focalLength = (frame.cameraSpec?.focalLength || '').toLowerCase();
+
     return (
-      frame.title.toLowerCase().includes(q) ||
-      frame.bengaliTitle.toLowerCase().includes(q) ||
-      frame.epNumber.includes(q) ||
-      frame.tagline.toLowerCase().includes(q) ||
-      frame.directorNotes.toLowerCase().includes(q) ||
-      frame.cameraSpec.focalLength.toLowerCase().includes(q)
+      title.includes(q) ||
+      bengaliTitle.includes(q) ||
+      epNumber.includes(q) ||
+      tagline.includes(q) ||
+      directorNotes.includes(q) ||
+      focalLength.includes(q)
     );
   });
 }

@@ -101,7 +101,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 }) => {
   const navBarRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
-  const currentFrame = frames[currentIndex];
+  const safeFrames = Array.isArray(frames) && frames.length > 0 ? frames : [];
+  const currentFrame = safeFrames[currentIndex] || safeFrames[0];
 
   const intervalSeconds = (calculateSlideshowInterval(speed) / 1000).toFixed(1);
   const shotTc = calculateShotTimecode(currentIndex, 60, DEFAULT_FPS);
@@ -145,16 +146,19 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           ref={navBarRef}
           className="flex-1 flex gap-[6px] overflow-x-auto py-1 px-2 bg-[#070709]/90 backdrop-blur-md border border-white/15 rounded-[1px] no-scrollbar shadow-xl scroll-smooth"
         >
-          {frames.map((frame, idx) => {
+          {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
-            const hasPhoto = Boolean(frame.imageUrl);
+            const hasPhoto = Boolean(frame?.imageUrl);
+            const epNum = frame?.epNumber || String(idx + 1).padStart(3, '0');
+            const epTitle = frame?.title || `SHOT ${epNum}`;
+            const epBn = frame?.bengaliTitle || '';
 
             return (
               <button
-                key={frame.id}
+                key={frame?.id ?? idx}
                 onClick={() => onSelectFrame(idx)}
-                aria-label={`Shot ${frame.epNumber}: ${frame.title}`}
-                title={`EP ${frame.epNumber}: ${frame.title} (${frame.bengaliTitle})`}
+                aria-label={`Shot ${epNum}: ${epTitle}`}
+                title={`EP ${epNum}: ${epTitle} ${epBn ? `(${epBn})` : ''}`}
                 className={`shrink-0 min-w-[34px] sm:min-w-[38px] h-6 px-1.5 rounded-[2px] flex items-center justify-center font-mono-tech text-[8.5px] transition-all cursor-pointer ${
                   isActive
                     ? 'bg-[#D4AF37] text-black font-black shadow-[0_0_10px_rgba(212,175,55,0.7)] border border-[#FFE066] ring-1 ring-[#D4AF37]/60 scale-100 z-10'
@@ -163,7 +167,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     : 'bg-white/5 hover:bg-white/15 text-white/40'
                 }`}
               >
-                {frame.epNumber}
+                {epNum}
               </button>
             );
           })}

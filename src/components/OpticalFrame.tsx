@@ -15,6 +15,7 @@ import { AnthologyFrame, AspectRatio } from '../types/anthology';
 import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
 import { calculateShotTimecode } from '../utils/timecode';
+import { generateInitialFrames } from '../data/frames';
 import { Upload, Image as ImageIcon, Sliders, Sparkles, Volume2, MoveVertical } from 'lucide-react';
 
 interface OpticalFrameProps {
@@ -52,6 +53,25 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   onQuickSampleImage,
   onPanChange
 }) => {
+  const safeFrame: AnthologyFrame = frame || generateInitialFrames()[0];
+  const safeAdjustments = safeFrame.adjustments || {
+    brightness: 100,
+    contrast: 115,
+    saturation: 110,
+    bloom: 55,
+    grain: 15,
+    motionBlur: 70,
+    vignette: 40
+  };
+  const safeCamera = safeFrame.cameraSpec || {
+    focalLength: "35mm High-Speed Master",
+    aperture: "f/1.4",
+    shutter: "1/48s 180°",
+    iso: "ISO 400",
+    sensor: "Full-Frame 36x24 Cine Sensor",
+    format: "RAW 14-BIT ARRI"
+  };
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPanningDrag, setIsPanningDrag] = useState(false);
@@ -61,8 +81,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const filterCSS = getLutFilterCSS(frame.lutFilter, frame.adjustments);
-  const hasPhoto = Boolean(frame.imageUrl);
+  const filterCSS = getLutFilterCSS(safeFrame.lutFilter || 'cinematic', safeAdjustments);
+  const hasPhoto = Boolean(safeFrame.imageUrl);
 
   // Subtle interactive 3D perspective tilt (disabled during pan drag)
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -208,7 +228,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               isAutoplay ? 'scale-105 transition-transform duration-[6000ms]' : 'scale-100'
             }`}
             style={{
-              backgroundImage: `url(${frame.imageUrl})`,
+              backgroundImage: `url(${safeFrame.imageUrl})`,
               backgroundSize: bgSizeStyle,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: `center ${panOffsetPercent}%`,
@@ -247,12 +267,12 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           <div
             className="absolute -inset-[6%] bg-center mix-blend-screen pointer-events-none z-[2] transition-opacity duration-700"
             style={{
-              backgroundImage: `url(${frame.imageUrl})`,
+              backgroundImage: `url(${safeFrame.imageUrl})`,
               backgroundSize: bgSizeStyle,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: `center ${panOffsetPercent}%`,
-              filter: `blur(${Math.max(6, frame.adjustments.bloom * 0.2)}px) brightness(1.2) contrast(1.1)`,
-              opacity: (frame.adjustments.bloom / 100) * 0.7,
+              filter: `blur(${Math.max(6, safeAdjustments.bloom * 0.2)}px) brightness(1.2) contrast(1.1)`,
+              opacity: (safeAdjustments.bloom / 100) * 0.7,
               maskImage: 'radial-gradient(circle at center, black 15%, transparent 65%)',
               WebkitMaskImage: 'radial-gradient(circle at center, black 15%, transparent 65%)'
             }}
@@ -264,7 +284,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           <div
             className="absolute -inset-[6%] bg-center pointer-events-none z-[3] transition-opacity duration-700"
             style={{
-              backgroundImage: `url(${frame.imageUrl})`,
+              backgroundImage: `url(${safeFrame.imageUrl})`,
               backgroundSize: bgSizeStyle,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: `center ${panOffsetPercent}%`,
@@ -280,14 +300,14 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         {showGrain && (
           <div
             className="absolute inset-0 film-grain z-[10] pointer-events-none"
-            style={{ opacity: frame.adjustments.grain / 100 }}
+            style={{ opacity: safeAdjustments.grain / 100 }}
           />
         )}
         {showVignette && (
           <div
             className="absolute inset-0 pointer-events-none z-[11]"
             style={{
-              background: `radial-gradient(circle at center, transparent ${100 - frame.adjustments.vignette}%, rgba(0,0,0,${(frame.adjustments.vignette / 100) * 0.85}) 100%)`
+              background: `radial-gradient(circle at center, transparent ${Math.max(0, 100 - safeAdjustments.vignette)}%, rgba(0,0,0,${(safeAdjustments.vignette / 100) * 0.85}) 100%)`
             }}
           />
         )}
@@ -318,7 +338,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
             </div>
             <div className="text-center">
               <p className="font-mono-tech text-[10px] sm:text-xs tracking-[0.25em] text-white/70 uppercase mb-1">
-                [ DROP MEDIA {frame.epNumber} // OR CLICK TO LOAD ]
+                [ DROP MEDIA {safeFrame.epNumber} // OR CLICK TO LOAD ]
               </p>
               <p className="text-[9px] text-white/40 tracking-wider">
                 SUPPORTS RAW, JPG, PNG, WEBP • DRAG & DROP ANYWHERE
@@ -360,12 +380,12 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 <div className="flex items-center justify-center gap-2 mb-1 sm:mb-2">
                   {showBadge && (
                     <span className="font-mono-tech text-[9px] sm:text-xs tracking-[0.3em] text-[#D4AF37] font-semibold uppercase drop-shadow-md">
-                      EP {frame.epNumber} //
+                      EP {safeFrame.epNumber} //
                     </span>
                   )}
                   {showTitleBn && (
                     <span className="font-bengali text-xs sm:text-base md:text-lg tracking-widest text-[#FFE066] drop-shadow-lg font-bold">
-                      {frame.bengaliTitle}
+                      {safeFrame.bengaliTitle}
                     </span>
                   )}
                 </div>
@@ -376,26 +396,26 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 <h1
                   className="font-cinzel text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-[0.16em] uppercase transition-all duration-300 leading-tight"
                   style={{
-                    color: frame.colorAccent,
-                    textShadow: `0 8px 30px rgba(0,0,0,0.95), 0 2px 10px ${frame.colorAccent}40`
+                    color: safeFrame.colorAccent || '#D4AF37',
+                    textShadow: `0 8px 30px rgba(0,0,0,0.95), 0 2px 10px ${safeFrame.colorAccent || '#D4AF37'}40`
                   }}
                 >
-                  {frame.title}
+                  {safeFrame.title}
                 </h1>
               )}
 
               {/* Curatorial Tagline */}
               {showTagline && (
                 <p className="font-mono-tech text-[9px] sm:text-xs md:text-sm tracking-[0.2em] text-white/80 mt-1.5 sm:mt-3 max-w-xl mx-auto drop-shadow-md uppercase">
-                  {frame.tagline}
+                  {safeFrame.tagline}
                 </p>
               )}
 
               {/* Sound Cue notification */}
-              {showCaption && frame.soundCue && (
+              {showCaption && safeFrame.soundCue && (
                 <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[8.5px] font-mono-tech text-white/60 tracking-wider">
                   <Volume2 className="w-2.5 h-2.5 text-[#D4AF37]" />
-                  <span>{frame.soundCue}</span>
+                  <span>{safeFrame.soundCue}</span>
                 </div>
               )}
             </div>
@@ -417,8 +437,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           <div className="absolute inset-3 sm:inset-5 md:inset-7 pointer-events-none z-[35]">
             {/* Top Left: File & Timecode & Bitrate */}
             <div className="hud-tl absolute top-0 left-0 font-mono-tech text-[8px] sm:text-[9.5px] tracking-[0.18em] text-white/70 leading-relaxed uppercase">
-              <div>PLAYBACK // FILE_{frame.epNumber} <span className="text-[#D4AF37] font-semibold ml-1">[{calculateShotTimecode(frame.id, 60, 24).start}]</span></div>
-              <div className="text-white/40">FORMAT: {frame.cameraSpec.format} // ASPECT: {aspectRatio}</div>
+              <div>PLAYBACK // FILE_{safeFrame.epNumber} <span className="text-[#D4AF37] font-semibold ml-1">[{calculateShotTimecode(safeFrame.id, 60, 24).start}]</span></div>
+              <div className="text-white/40">FORMAT: {safeCamera.format} // ASPECT: {aspectRatio}</div>
             </div>
 
             {/* Top Right: Node Archive */}
@@ -432,16 +452,16 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
             {/* Bottom Left: Camera Optics Spec */}
             <div className="absolute bottom-0 left-0 font-mono-tech text-[7.5px] sm:text-[9.5px] tracking-[0.15em] text-white/70 leading-tight uppercase max-w-[45%]">
-              <div className="truncate">FOCAL: {frame.cameraSpec.focalLength}</div>
+              <div className="truncate">FOCAL: {safeCamera.focalLength}</div>
               <div className="text-white/40 truncate">
-                DOF: {frame.cameraSpec.aperture} // ISO {frame.cameraSpec.iso}
+                DOF: {safeCamera.aperture} // ISO {safeCamera.iso}
               </div>
             </div>
 
             {/* Bottom Right: Preserved Exact Credit Line */}
             <div className="absolute bottom-0 right-0 font-mono-tech text-[7.5px] sm:text-[9.5px] tracking-[0.15em] text-white/70 text-right leading-tight uppercase max-w-[45%]">
               <div className="truncate">
-                A <span style={{ color: frame.colorAccent }} className="font-bold">RAWx</span> Storyboard
+                A <span style={{ color: safeFrame.colorAccent || '#D4AF37' }} className="font-bold">RAWx</span> Storyboard
               </div>
               <div className="text-white/40 truncate">
                 Director: {directorName || 'Rakib Himon'}

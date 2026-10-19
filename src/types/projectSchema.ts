@@ -129,10 +129,12 @@ export interface StorageQuotaInfo {
  */
 export function isValidProjectV1(obj: any): obj is ProjectV1 {
   if (!obj || typeof obj !== 'object') return false;
-  if (obj.schemaVersion !== CURRENT_PROJECT_SCHEMA_VERSION) return false;
+  if (obj.schemaVersion !== CURRENT_PROJECT_VERSION_ALIAS && obj.schemaVersion !== CURRENT_PROJECT_SCHEMA_VERSION) return false;
   if (!obj.id || typeof obj.id !== 'string') return false;
   if (!obj.meta || typeof obj.meta.title !== 'string') return false;
-  if (!Array.isArray(obj.shots)) return false;
+  if (!Array.isArray(obj.shots) || obj.shots.length === 0) return false;
   if (!obj.settings || typeof obj.settings.aspectRatio !== 'string') return false;
   return true;
 }
+const CURRENT_PROJECT_VERSION_ALIAS = 'rawx-project.v1';
+

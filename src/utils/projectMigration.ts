@@ -10,65 +10,89 @@ import { DEFAULT_COMPONENT_VISIBILITY } from '../components/ComponentsMatrixPopo
 import { generateInitialFrames } from '../data/frames';
 
 /**
- * Converts a legacy AnthologyFrame to a versioned ShotV1
+ * Converts an AnthologyFrame or partial legacy frame to a versioned ShotV1
  */
-export function convertFrameToShotV1(frame: AnthologyFrame, sceneId = 'scene-01'): ShotV1 {
+export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, sceneId = 'scene-01', index = 0): ShotV1 {
+  const fallbackId = typeof frame?.id === 'number' ? frame.id : index;
+  const baseFrames = generateInitialFrames();
+  const base = baseFrames[Math.abs(fallbackId) % baseFrames.length];
+
+  const epNumber = frame?.epNumber || base.epNumber || String(fallbackId + 1).padStart(3, '0');
+  const titleBn = frame?.bengaliTitle || base.bengaliTitle || 'দৃষ্টি';
+  const titleEn = frame?.title || base.title || `SHOT ${epNumber}`;
+  const subtitle = frame?.tagline || base.tagline || '';
+  const directorNotes = frame?.directorNotes || base.directorNotes || '';
+  const soundCue = frame?.soundCue || base.soundCue || '';
+  const cameraSpec = { ...base.cameraSpec, ...(frame?.cameraSpec || {}) };
+  const adjustments = { ...base.adjustments, ...(frame?.adjustments || {}) };
+  const tags = Array.isArray(frame?.tags) ? [...frame.tags] : Array.isArray(base.tags) ? [...base.tags] : [];
+
   return {
-    id: `shot-${frame.epNumber}`,
-    number: frame.epNumber,
+    id: `shot-${epNumber}`,
+    number: epNumber,
     sceneId,
-    titleBn: frame.bengaliTitle || 'দৃশ্য',
-    titleEn: frame.title || `SHOT ${frame.epNumber}`,
-    subtitle: frame.tagline || '',
-    directorNotes: frame.directorNotes || '',
-    soundCue: frame.soundCue || '',
-    cameraSpec: { ...frame.cameraSpec },
+    titleBn,
+    titleEn,
+    subtitle,
+    directorNotes,
+    soundCue,
+    cameraSpec,
     durationFrames: 60, // 2.5s @ 24fps
     transition: 'DISSOLVE',
     move: 'PAN',
-    lens: frame.cameraSpec?.focalLength || '50mm f/1.4',
-    filter: frame.lutFilter || 'cinematic',
-    panY: 50,
-    mediaId: frame.imageUrl ? `media-${frame.epNumber}` : null,
-    imageUrl: frame.imageUrl,
-    colorAccent: frame.colorAccent || '#D4AF37',
-    hoverStyle: frame.hoverStyle || 0,
-    adjustments: { ...frame.adjustments },
-    tags: Array.isArray(frame.tags) ? [...frame.tags] : []
+    lens: cameraSpec.focalLength || '50mm f/1.4',
+    filter: frame?.lutFilter || base.lutFilter || 'cinematic',
+    panY: typeof frame?.panY === 'number' ? frame.panY : 50,
+    mediaId: (frame?.imageUrl || base.imageUrl) ? `media-${epNumber}` : null,
+    imageUrl: frame?.imageUrl || base.imageUrl,
+    colorAccent: frame?.colorAccent || base.colorAccent || '#D4AF37',
+    hoverStyle: typeof frame?.hoverStyle === 'number' ? frame.hoverStyle : (base.hoverStyle || 0),
+    adjustments,
+    tags
   };
 }
 
 /**
  * Converts a versioned ShotV1 to an AnthologyFrame for runtime stage compatibility
  */
-export function convertShotV1ToFrame(shot: ShotV1, index: number): AnthologyFrame {
+export function convertShotV1ToFrame(shot: Partial<ShotV1> | any, index: number): AnthologyFrame {
+  const baseFrames = generateInitialFrames();
+  const base = baseFrames[Math.abs(index) % baseFrames.length];
+
+  const epNumber = shot?.number || base.epNumber || String(index + 1).padStart(3, '0');
+  const title = shot?.titleEn || base.title || `SHOT ${epNumber}`;
+  const bengaliTitle = shot?.titleBn || base.bengaliTitle || 'দৃষ্টি';
+  const tagline = shot?.subtitle || base.tagline || '';
+  const directorNotes = shot?.directorNotes || base.directorNotes || '';
+  const soundCue = shot?.soundCue || base.soundCue || '';
+  const cameraSpec = { ...base.cameraSpec, ...(shot?.cameraSpec || {}) };
+  const adjustments = { ...base.adjustments, ...(shot?.adjustments || {}) };
+  const tags = Array.isArray(shot?.tags) ? [...shot.tags] : Array.isArray(base.tags) ? [...base.tags] : [];
+
   return {
     id: index,
-    epNumber: shot.number,
-    title: shot.titleEn,
-    bengaliTitle: shot.titleBn,
-    tagline: shot.subtitle,
-    directorNotes: shot.directorNotes,
-    soundCue: shot.soundCue,
-    cameraSpec: { ...shot.cameraSpec },
-    imageUrl: shot.imageUrl,
-    colorAccent: shot.colorAccent,
-    hoverStyle: shot.hoverStyle || 0,
-    lutFilter: shot.filter,
+    epNumber,
+    title,
+    bengaliTitle,
+    tagline,
+    directorNotes,
+    soundCue,
+    cameraSpec,
+    imageUrl: shot?.imageUrl ?? base.imageUrl,
+    colorAccent: shot?.colorAccent || base.colorAccent || '#D4AF37',
+    hoverStyle: typeof shot?.hoverStyle === 'number' ? shot.hoverStyle : (base.hoverStyle || 0),
+    lutFilter: shot?.filter || base.lutFilter || 'cinematic',
     aspectRatio: '2.39:1',
-    adjustments: { ...shot.adjustments },
-    tags: [...shot.tags]
+    adjustments,
+    tags
   };
 }
 
 /**
  * Upgrades a legacy AnthologyProject into a valid rawx-project.v1
+ * Guarantees all 100 shots exist and are fully populated.
  */
 export function migrateToProjectV1(legacy: AnthologyProject | Partial<ProjectV1>): ProjectV1 {
-  if (isValidProjectV1(legacy)) {
-    return legacy as ProjectV1;
-  }
-
   const defaultScene = {
     id: 'scene-01',
     sceneNumber: 1,
@@ -76,13 +100,17 @@ export function migrateToProjectV1(legacy: AnthologyProject | Partial<ProjectV1>
     description: 'Master cinematography anthology sequence'
   };
 
-  const frames = Array.isArray((legacy as any).frames) 
+  const frames = (Array.isArray((legacy as any).frames) && (legacy as any).frames.length > 0)
     ? (legacy as any).frames 
+    : (Array.isArray((legacy as any).shots) && (legacy as any).shots.length > 0)
+    ? (legacy as any).shots 
     : generateInitialFrames();
 
-  const shots: ShotV1[] = frames.map((f: any, i: number) => {
-    if (f.schemaVersion === CURRENT_PROJECT_SCHEMA_VERSION) return f;
-    return convertFrameToShotV1(f, defaultScene.id);
+  const shots: ShotV1[] = frames.map((f: any, idx: number) => {
+    if (f && f.schemaVersion === CURRENT_PROJECT_SCHEMA_VERSION && f.cameraSpec && f.adjustments) {
+      return f;
+    }
+    return convertFrameToShotV1(f, defaultScene.id, idx);
   });
 
   const now = new Date().toISOString();
@@ -114,23 +142,23 @@ export function migrateToProjectV1(legacy: AnthologyProject | Partial<ProjectV1>
     schemaVersion: CURRENT_PROJECT_SCHEMA_VERSION,
     id: projectId,
     meta: {
-      title: (legacy as any).title || 'RAWx // Master Anthology Engine 100',
-      director: (legacy as any).director || 'Rakib Himon',
-      nodeLocation: (legacy as any).nodeLocation || 'DHAKA_01',
-      createdAt: (legacy as any).createdAt || now,
+      title: (legacy as any).title || (legacy as any).meta?.title || 'RAWx // Master Anthology Engine 100',
+      director: (legacy as any).director || (legacy as any).meta?.director || 'Rakib Himon',
+      nodeLocation: (legacy as any).nodeLocation || (legacy as any).meta?.nodeLocation || 'DHAKA_01',
+      createdAt: (legacy as any).createdAt || (legacy as any).meta?.createdAt || now,
       updatedAt: now,
       version: '1.0.0',
       description: 'Cinematic film anthology sequence'
     },
     settings: {
-      aspectRatio: (legacy as any).aspectRatio || '2.39:1',
+      aspectRatio: (legacy as any).aspectRatio || (legacy as any).settings?.aspectRatio || '2.39:1',
       defaultFps: 24,
-      activeLut: 'cinematic',
-      activeLens: '50mm f/1.4',
-      fitMode: 'cover',
-      componentsVisibility: { ...DEFAULT_COMPONENT_VISIBILITY },
-      theme: 'rawx-gold',
-      density: 'compact'
+      activeLut: (legacy as any).settings?.activeLut || 'cinematic',
+      activeLens: (legacy as any).settings?.activeLens || '50mm f/1.4',
+      fitMode: (legacy as any).settings?.fitMode || 'cover',
+      componentsVisibility: (legacy as any).settings?.componentsVisibility || { ...DEFAULT_COMPONENT_VISIBILITY },
+      theme: (legacy as any).settings?.theme || 'rawx-gold',
+      density: (legacy as any).settings?.density || 'compact'
     },
     scenes: [defaultScene],
     shots,

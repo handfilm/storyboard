@@ -236,3 +236,142 @@ test('ThemeManager applies design tokens and density settings accurately', async
   themeManager.setDensity('compact');
 });
 
+test('Safety Net IDB backup exporter loads and returns payload structure', async () => {
+  const { exportFullIdbBackup } = await import('./backup.ts');
+  assert.ok(typeof exportFullIdbBackup === 'function');
+  // In Node.js environment without browser DOM / indexedDB, should handle gracefully
+  const res = await exportFullIdbBackup();
+  assert.equal(typeof res.success, 'boolean');
+});
+
+test('SMPTE Timecode calculation formats HH:MM:SS:FF accurately', async () => {
+  const { framesToTimecode, timecodeToFrames, isValidTimecode, calculateShotTimecode } = await import('./timecode.ts');
+
+  // 0 frames = 00:00:00:00
+  assert.equal(framesToTimecode(0, 24), '00:00:00:00');
+
+  // 24 frames @ 24fps = 1 second
+  assert.equal(framesToTimecode(24, 24), '00:00:01:00');
+
+  // 1440 frames @ 24fps = 1 minute
+  assert.equal(framesToTimecode(1440, 24), '00:01:00:00');
+
+  // 86400 frames @ 24fps = 1 hour
+  assert.equal(framesToTimecode(86400, 24), '01:00:00:00');
+
+  // Round trip parsing
+  const tc = '00:01:30:12';
+  const frames = timecodeToFrames(tc, 24);
+  assert.ok(frames !== null);
+  assert.equal(framesToTimecode(frames!, 24), tc);
+
+  // Invalid timecode checks (rejecting mangled strings like 16:94:31:19:16)
+  assert.equal(isValidTimecode('16:94:31:19:16', 24), false);
+  assert.equal(isValidTimecode('00:00:00:25', 24), false); // 25 frames exceeds 24fps
+
+  // Shot 0 starts at 00:00:00:00, shot 1 starts at 00:00:02:12 (60 frames)
+  const shot0 = calculateShotTimecode(0, 60, 24);
+  assert.equal(shot0.start, '00:00:00:00');
+  const shot1 = calculateShotTimecode(1, 60, 24);
+  assert.equal(shot1.start, '00:00:02:12');
+});
+
+test('rawx-project.v1 schema validation and non-destructive migration', async () => {
+  const { isValidProjectV1, CURRENT_PROJECT_SCHEMA_VERSION } = await import('../types/projectSchema.ts');
+  const { 
+    createDefaultProjectV1, 
+    migrateToProjectV1, 
+    convertFrameToShotV1, 
+    convertShotV1ToFrame,
+    duplicateProjectV1 
+  } = await import('./projectMigration.ts');
+
+  // 1. Valid default project
+  const project = createDefaultProjectV1('Master Test Anthology');
+  assert.equal(project.schemaVersion, CURRENT_PROJECT_SCHEMA_VERSION);
+  assert.equal(project.meta.title, 'Master Test Anthology');
+  assert.equal(project.shots.length, 100);
+  assert.ok(isValidProjectV1(project));
+
+  // 2. Reject invalid schemas
+  assert.equal(isValidProjectV1(null), false);
+  assert.equal(isValidProjectV1({}), false);
+  assert.equal(isValidProjectV1({ schemaVersion: 'rawx-project.v0' }), false);
+  assert.equal(isValidProjectV1({ schemaVersion: 'rawx-project.v1', id: '123' }), false); // missing meta & shots
+
+  // 3. Migrate legacy anthology format
+  const legacyProject = {
+    title: 'Legacy Film 1999',
+    director: 'Master Director',
+    nodeLocation: 'DHAKA_NORTH',
+    aspectRatio: '16:9' as const,
+    frames: [
+      {
+        id: 0,
+        epNumber: '001',
+        title: 'FIRST LIGHT',
+        bengaliTitle: 'প্রথম আলো',
+        tagline: 'The dawn begins',
+        directorNotes: 'Wide establishing',
+        cameraSpec: {
+          focalLength: '35mm',
+          aperture: 'f/2.0',
+          shutter: '1/48',
+          iso: '800',
+          sensor: 'Super 35',
+          format: 'ProRes 4444'
+        },
+        imageUrl: 'https://example.com/test.jpg',
+        colorAccent: '#D4AF37',
+        hoverStyle: 1,
+        soundCue: 'WIND // 24Hz',
+        lutFilter: 'cinematic' as const,
+        aspectRatio: '16:9' as const,
+        adjustments: {
+          brightness: 100,
+          contrast: 100,
+          saturation: 100,
+          bloom: 10,
+          grain: 5,
+          motionBlur: 0,
+          vignette: 10
+        },
+        tags: ['intro', 'dawn']
+      }
+    ],
+    createdAt: '2026-01-01T00:00:00Z',
+    version: '1.0.0'
+  };
+
+  const migrated = migrateToProjectV1(legacyProject);
+  assert.equal(migrated.schemaVersion, 'rawx-project.v1');
+  assert.equal(migrated.meta.title, 'Legacy Film 1999');
+  assert.equal(migrated.shots.length, 1);
+  assert.equal(migrated.shots[0].number, '001');
+  assert.equal(migrated.shots[0].titleBn, 'প্রথম আলো');
+  assert.equal(migrated.shots[0].titleEn, 'FIRST LIGHT');
+  assert.ok(isValidProjectV1(migrated));
+
+  // 4. Bidirectional bijection: Frame -> ShotV1 -> Frame
+  const originalFrame = legacyProject.frames[0];
+  const shot = convertFrameToShotV1(originalFrame);
+  assert.equal(shot.number, originalFrame.epNumber);
+  assert.equal(shot.titleBn, originalFrame.bengaliTitle);
+  assert.equal(shot.titleEn, originalFrame.title);
+  assert.equal(shot.soundCue, originalFrame.soundCue);
+
+  const backToFrame = convertShotV1ToFrame(shot, 0);
+  assert.equal(backToFrame.epNumber, originalFrame.epNumber);
+  assert.equal(backToFrame.title, originalFrame.title);
+  assert.equal(backToFrame.bengaliTitle, originalFrame.bengaliTitle);
+  assert.equal(backToFrame.soundCue, originalFrame.soundCue);
+
+  // 5. Project duplication
+  const duplicate = duplicateProjectV1(project, 'Duplicated Anthology');
+  assert.notEqual(duplicate.id, project.id);
+  assert.equal(duplicate.meta.title, 'Duplicated Anthology');
+  assert.equal(duplicate.shots.length, project.shots.length);
+  assert.ok(isValidProjectV1(duplicate));
+});
+
+

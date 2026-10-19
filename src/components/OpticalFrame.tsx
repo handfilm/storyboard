@@ -14,6 +14,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AnthologyFrame, AspectRatio } from '../types/anthology';
 import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
+import { calculateShotTimecode } from '../utils/timecode';
 import { Upload, Image as ImageIcon, Sliders, Sparkles, Volume2, MoveVertical } from 'lucide-react';
 
 interface OpticalFrameProps {
@@ -414,10 +415,10 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         {/* Responsive HUD Telemetry (Slot System) */}
         {showHudData && (
           <div className="absolute inset-3 sm:inset-5 md:inset-7 pointer-events-none z-[35]">
-            {/* Top Left: File & Bitrate */}
+            {/* Top Left: File & Timecode & Bitrate */}
             <div className="hud-tl absolute top-0 left-0 font-mono-tech text-[8px] sm:text-[9.5px] tracking-[0.18em] text-white/70 leading-relaxed uppercase">
-              <div>PLAYBACK // FILE_{frame.epNumber}</div>
-              <div className="text-white/40">FORMAT: {frame.cameraSpec.format}</div>
+              <div>PLAYBACK // FILE_{frame.epNumber} <span className="text-[#D4AF37] font-semibold ml-1">[{calculateShotTimecode(frame.id, 60, 24).start}]</span></div>
+              <div className="text-white/40">FORMAT: {frame.cameraSpec.format} // ASPECT: {aspectRatio}</div>
             </div>
 
             {/* Top Right: Node Archive */}

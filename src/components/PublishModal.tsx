@@ -15,8 +15,11 @@ import {
   Globe, 
   FileText, 
   FileSpreadsheet,
-  Layers
+  Layers,
+  HardDriveDownload,
+  ShieldCheck
 } from 'lucide-react';
+import { exportFullIdbBackup } from '../utils/backup';
 
 interface PublishModalProps {
   project: AnthologyProject;
@@ -289,6 +292,35 @@ git push -u origin main`;
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Safety Net: Full IDB Safety Backup */}
+              <div className="p-4 bg-gradient-to-r from-[#D4AF37]/10 via-black/40 to-[#D4AF37]/5 border border-[#D4AF37]/40 rounded-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xs bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#FFE066] shrink-0 mt-0.5 sm:mt-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-cinzel text-xs font-bold text-[#FFE066] uppercase tracking-wider">
+                        Full Database Safety Backup (IndexedDB + Storage)
+                      </h4>
+                      <span className="px-1.5 py-0.2 rounded-xs bg-emerald-500/20 text-emerald-300 font-mono-tech text-[8.5px]">
+                        SAFETY NET
+                      </span>
+                    </div>
+                    <p className="font-mono-tech text-[11px] text-white/60 mt-0.5">
+                      Exports every IndexedDB object store, 100 frames, pan offsets, and local preferences to a single portable JSON file.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => exportFullIdbBackup()}
+                  className="px-4 py-2 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-mono-tech text-xs font-bold rounded-xs flex items-center gap-2 cursor-pointer transition-colors shrink-0 shadow-lg"
+                >
+                  <HardDriveDownload className="w-3.5 h-3.5 text-black" />
+                  Export full backup
+                </button>
               </div>
 
               {/* Import Existing Project */}

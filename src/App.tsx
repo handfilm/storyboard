@@ -30,6 +30,12 @@ import {
 import { ThemeSettingsModal } from './components/ThemeSettingsModal';
 import { audioEngine } from './utils/audioEngine';
 import { calculateSlideshowInterval } from './utils/engine';
+import { exportFullIdbBackup } from './utils/backup';
+import { storageManager, SaveState } from './core/storage';
+import { ProjectV1 } from './types/projectSchema';
+import { migrateToProjectV1, convertShotV1ToFrame } from './utils/projectMigration';
+import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
+import { ProjectManagerModal } from './components/ProjectManagerModal';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -71,8 +77,118 @@ export default function App() {
   const [isLiquifyOpen, setIsLiquifyOpen] = useState(false);
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false);
+  const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false);
+
+  // M2 Persistence Core State
+  const [activeProjectId, setActiveProjectId] = useState<string>('default-project');
+  const [saveState, setSaveState] = useState<SaveState>('saved');
+  const [crashRecoveredProject, setCrashRecoveredProject] = useState<ProjectV1 | null>(null);
+  const [isStorageInitialized, setIsStorageInitialized] = useState(false);
 
   const touchStartXRef = useRef<number | null>(null);
+
+  const applyProjectV1ToState = useCallback((p: ProjectV1) => {
+    setActiveProjectId(p.id);
+    setProject({
+      title: p.meta.title,
+      director: p.meta.director,
+      nodeLocation: p.meta.nodeLocation,
+      aspectRatio: p.settings.aspectRatio,
+      frames: p.shots.map((shot, idx) => convertShotV1ToFrame(shot, idx)),
+      createdAt: p.meta.createdAt,
+      version: p.meta.version
+    });
+    setAspectRatio(p.settings.aspectRatio);
+    setFitMode(p.settings.fitMode);
+    if (p.settings.componentsVisibility) {
+      setComponentsVisibility(p.settings.componentsVisibility);
+    }
+    const loadedOffsets: Record<number, number> = {};
+    p.shots.forEach((s, idx) => {
+      if (typeof s.panY === 'number') {
+        loadedOffsets[idx] = s.panY;
+      }
+    });
+    setPanOffsets(loadedOffsets);
+  }, []);
+
+  // Initialize Storage Core & Check Crash Status on Mount
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribe = storageManager.onSaveStateChange((st) => {
+      if (isMounted) setSaveState(st);
+    });
+
+    const initPersistence = async () => {
+      await storageManager.init();
+      if (!isMounted) return;
+
+      const crash = storageManager.getCrashRecovery();
+      if (crash.hasCrash && crash.recoveredProject) {
+        setCrashRecoveredProject(crash.recoveredProject);
+      }
+
+      const loaded = await storageManager.loadProject();
+      if (loaded && isMounted) {
+        applyProjectV1ToState(loaded);
+      }
+      setIsStorageInitialized(true);
+    };
+
+    initPersistence();
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [applyProjectV1ToState]);
+
+  // Debounced 800ms Autosave to IndexedDB
+  useEffect(() => {
+    if (!isStorageInitialized) return;
+
+    const v1 = migrateToProjectV1({
+      id: activeProjectId,
+      title: project.title,
+      director: project.director,
+      nodeLocation: project.nodeLocation,
+      aspectRatio: aspectRatio,
+      frames: project.frames.map((f, i) => ({
+        ...f,
+        adjustments: f.adjustments
+      })),
+      createdAt: project.createdAt,
+      version: project.version
+    });
+
+    v1.settings.fitMode = fitMode;
+    v1.settings.componentsVisibility = componentsVisibility;
+    v1.shots.forEach((s, i) => {
+      s.panY = panOffsets[i] ?? 50;
+    });
+
+    storageManager.saveProjectDebounced(v1);
+  }, [project, panOffsets, aspectRatio, fitMode, componentsVisibility, isStorageInitialized, activeProjectId]);
+
+  const handleSwitchProject = async (id: string) => {
+    const loaded = await storageManager.loadProject(id);
+    if (loaded) {
+      applyProjectV1ToState(loaded);
+      setCurrentIndex(0);
+    }
+  };
+
+  const handleRestoreCrash = async (recovered: ProjectV1) => {
+    applyProjectV1ToState(recovered);
+    await storageManager.dismissCrashRecovery();
+    setCrashRecoveredProject(null);
+    storageManager.saveProjectDebounced(recovered);
+  };
+
+  const handleDismissCrash = async () => {
+    await storageManager.dismissCrashRecovery();
+    setCrashRecoveredProject(null);
+  };
 
   // Navigate to frame with audio feedback
   const goToFrame = useCallback((index: number) => {
@@ -362,6 +478,8 @@ export default function App() {
       case 'export.captureStill': handleCaptureStill(); break;
       case 'system.selfTest': setIsSelfTestOpen(true); break;
       case 'system.shortcuts': setIsShortcutsOpen(true); break;
+      case 'system.exportBackup': exportFullIdbBackup(); break;
+      case 'system.projectManager': setIsProjectManagerOpen(true); break;
       case 'sound.toggleAudio': toggleAudio(); break;
       case 'view.toggleFullscreen': toggleFullscreen(); break;
     }
@@ -376,6 +494,15 @@ export default function App() {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Crash Recovery Notification Banner */}
+      {crashRecoveredProject && (
+        <CrashRecoveryBanner
+          recoveredProject={crashRecoveredProject}
+          onRestore={handleRestoreCrash}
+          onDismiss={handleDismissCrash}
+        />
+      )}
+
       {/* Unified Studio TopBar */}
       <TopBar
         projectTitle={project.title}
@@ -391,6 +518,8 @@ export default function App() {
         onOpenSelfTest={() => setIsSelfTestOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenPublishModal={() => setIsPublishModalOpen(true)}
+        onOpenProjectManager={() => setIsProjectManagerOpen(true)}
+        saveState={saveState}
       />
 
       {/* Main Studio Body: LeftRail + MainWorkspace */}
@@ -547,6 +676,17 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Multi-Project Vault Manager Modal */}
+      <ProjectManagerModal
+        isOpen={isProjectManagerOpen}
+        activeProjectId={activeProjectId}
+        onClose={() => setIsProjectManagerOpen(false)}
+        onSwitchProject={handleSwitchProject}
+        onProjectUpdated={() => {
+          handleSwitchProject(activeProjectId);
+        }}
+      />
     </div>
   );
 }

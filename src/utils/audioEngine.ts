@@ -20,6 +20,7 @@ class CinematicAudioEngine {
     if (this.ctx) return;
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
       this.ctx = new AudioCtx();
       
       this.masterGain = this.ctx.createGain();
@@ -38,7 +39,7 @@ class CinematicAudioEngine {
 
       this.startDrone();
     } catch {
-      // AudioContext not available in some environments
+      // AudioContext unavailable or restricted in this environment - fail silent
     }
   }
 
@@ -100,12 +101,18 @@ class CinematicAudioEngine {
     }
 
     if (this.ctx.state === 'suspended' && !muted) {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {
+        // Handled: Browser blocked autoplay before user gesture
+      });
     }
 
     if (this.masterGain && this.ctx) {
-      const targetGain = muted ? 0.0001 : this.volume;
-      this.masterGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.1);
+      try {
+        const targetGain = muted ? 0.0001 : this.volume;
+        this.masterGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.1);
+      } catch {
+        // Gain ramp fail silent
+      }
     }
   }
 

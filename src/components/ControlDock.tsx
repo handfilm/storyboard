@@ -8,6 +8,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { AnthologyFrame, AspectRatio, LutPreset, ViewMode } from '../types/anthology';
 import { calculateSlideshowInterval } from '../utils/engine';
+import { calculateShotTimecode, DEFAULT_FPS } from '../utils/timecode';
 import { lutPresetsList } from '../data/frames';
 import { 
   Play, 
@@ -25,7 +26,8 @@ import {
   Grid,
   MoveVertical,
   Crosshair,
-  Maximize
+  Maximize,
+  Clock
 } from 'lucide-react';
 
 interface ControlDockProps {
@@ -102,6 +104,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const currentFrame = frames[currentIndex];
 
   const intervalSeconds = (calculateSlideshowInterval(speed) / 1000).toFixed(1);
+  const shotTc = calculateShotTimecode(currentIndex, 60, DEFAULT_FPS);
 
   // Auto-scroll the micro-timeline so current frame is centered
   useEffect(() => {
@@ -131,15 +134,16 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         <button
           onClick={onPrev}
           aria-label="Previous Frame (J)"
+          title="Previous Frame (J / Left Arrow)"
           className="p-1 rounded-[1px] bg-black/85 hover:bg-black border border-white/10 hover:border-[#D4AF37] text-white/60 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shrink-0"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
 
-        {/* Scrollable Virtualized Shot Strip */}
+        {/* Scrollable Virtualized Shot Strip with 6px gaps & non-overlapping chips */}
         <div
           ref={navBarRef}
-          className="flex-1 flex gap-[2px] overflow-x-auto py-1 px-1.5 bg-[#070709]/90 backdrop-blur-md border border-white/15 rounded-[1px] no-scrollbar shadow-xl"
+          className="flex-1 flex gap-[6px] overflow-x-auto py-1 px-2 bg-[#070709]/90 backdrop-blur-md border border-white/15 rounded-[1px] no-scrollbar shadow-xl scroll-smooth"
         >
           {frames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -151,11 +155,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onClick={() => onSelectFrame(idx)}
                 aria-label={`Shot ${frame.epNumber}: ${frame.title}`}
                 title={`EP ${frame.epNumber}: ${frame.title} (${frame.bengaliTitle})`}
-                className={`shrink-0 h-5 px-1 rounded-[1px] flex items-center justify-center font-mono-tech text-[8px] transition-all cursor-pointer ${
+                className={`shrink-0 min-w-[34px] sm:min-w-[38px] h-6 px-1.5 rounded-[2px] flex items-center justify-center font-mono-tech text-[8.5px] transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-[#D4AF37] text-black font-bold shadow-[0_0_8px_rgba(212,175,55,0.7)] scale-105 z-10'
+                    ? 'bg-[#D4AF37] text-black font-black shadow-[0_0_10px_rgba(212,175,55,0.7)] border border-[#FFE066] ring-1 ring-[#D4AF37]/60 scale-100 z-10'
                     : hasPhoto
-                    ? 'bg-white/15 hover:bg-white/30 text-white/90 border-b border-[#D4AF37]/50'
+                    ? 'bg-white/15 hover:bg-white/30 text-white border-b-2 border-[#D4AF37]/70'
                     : 'bg-white/5 hover:bg-white/15 text-white/40'
                 }`}
               >
@@ -168,6 +172,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         <button
           onClick={onNext}
           aria-label="Next Frame (L)"
+          title="Next Frame (L / Right Arrow)"
           className="p-1 rounded-[1px] bg-black/85 hover:bg-black border border-white/10 hover:border-[#D4AF37] text-white/60 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shrink-0"
         >
           <ChevronRight className="w-3.5 h-3.5" />
@@ -182,20 +187,20 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onBlur={() => handleJumpSubmit()}
             placeholder={`# ${currentFrame?.epNumber || '001'}`}
             className="w-16 bg-black/80 border border-white/15 focus:border-[#D4AF37] text-white text-[9px] font-mono-tech px-1.5 py-0.5 rounded-[1px] text-center outline-none"
-            title="Type shot number and press Enter to jump directly"
+            title="Type shot number (1-100) and press Enter to jump directly"
           />
         </form>
       </div>
 
-      {/* Main Control Panel Dock (Clutter-free and non-overlapping) */}
+      {/* Main Control Panel Dock (Clutter-free, non-wrapping single-line controls) */}
       <div className="w-full max-w-5xl pointer-events-auto bg-[#08080B]/95 backdrop-blur-xl border border-white/15 rounded-[2px] shadow-2xl p-1.5 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
         
-        {/* Left: Transport, Pace & Shot Counter */}
+        {/* Left: Transport, Timecode, Pace & Tools */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={onTogglePlay}
             aria-label={isPlaying ? "Pause Loop" : "Play Loop"}
-            className={`px-2.5 py-1 rounded-[1px] border font-semibold flex items-center gap-1.5 tracking-wider transition-colors cursor-pointer text-[9px] sm:text-[10px] ${
+            className={`px-2.5 py-1 rounded-[1px] border font-semibold flex items-center gap-1.5 tracking-wider transition-colors cursor-pointer text-[9px] sm:text-[10px] shrink-0 ${
               isPlaying
                 ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
                 : 'border-white/20 bg-white/5 text-white hover:border-[#D4AF37] hover:text-[#FFE066]'
@@ -214,26 +219,37 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             )}
           </button>
 
-          {/* Pace slider */}
-          <div className="hidden md:flex items-center gap-1.5 border-l border-white/10 pl-2">
-            <span className="text-[8px] text-white/40 uppercase">PACE</span>
+          {/* Valid SMPTE Timecode Display (HH:MM:SS:FF) */}
+          <div 
+            className="flex items-center gap-1.5 px-2 py-1 rounded-[1px] bg-black/90 border border-white/15 text-[8.5px] font-mono-tech shrink-0 whitespace-nowrap"
+            title="Sequence Timecode (HH:MM:SS:FF) at 24 FPS"
+          >
+            <Clock className="w-2.5 h-2.5 text-[#D4AF37]" />
+            <span className="text-[7.5px] text-white/40 font-semibold uppercase">TC</span>
+            <span className="text-[#D4AF37] font-bold tracking-wider">{shotTc.start}</span>
+            <span className="text-[7px] text-white/40 border-l border-white/15 pl-1">24F</span>
+          </div>
+
+          {/* Pace slider - Strictly single-line (never wraps into 3 lines) */}
+          <div className="hidden md:flex items-center gap-1.5 border-l border-white/10 pl-2 shrink-0 whitespace-nowrap flex-nowrap">
+            <span className="text-[8px] text-white/40 uppercase tracking-wider shrink-0">PACE</span>
             <input
               type="range"
               min="1"
               max="100"
               value={speed}
               onChange={(e) => onSpeedChange(Number(e.target.value))}
-              className="w-16 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded"
+              className="w-14 sm:w-16 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded shrink-0"
               title={`Slideshow interval: ${intervalSeconds}s`}
             />
-            <span className="text-[8.5px] text-[#D4AF37] min-w-[28px]">{intervalSeconds}s</span>
+            <span className="text-[8.5px] text-[#D4AF37] min-w-[28px] shrink-0 font-medium">{intervalSeconds}s</span>
           </div>
 
           {/* Pan Y Tool Button */}
           {onTogglePan && (
             <button
               onClick={onTogglePan}
-              className={`px-2 py-1 rounded-[1px] border text-[8.5px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors ${
+              className={`px-2 py-1 rounded-[1px] border text-[8.5px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors shrink-0 whitespace-nowrap ${
                 isPanActive
                   ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] font-bold'
                   : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
@@ -250,7 +266,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           {onOpenLiquify && (
             <button
               onClick={onOpenLiquify}
-              className="px-2 py-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-[#FFE066] text-[8.5px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors"
+              className="px-2 py-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-[#FFE066] text-[8.5px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors shrink-0 whitespace-nowrap"
               title="HTML5 Canvas Liquify & Mesh Warp Studio (W)"
             >
               <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" />
@@ -259,9 +275,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           )}
         </div>
 
-        {/* Center: Aspect Ratio & Filter Selector */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center bg-black/70 border border-white/10 rounded-[1px] p-0.5">
+        {/* Center: Aspect Ratio & Filter Selector - Isolated from Timecode */}
+        <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+          <div className="flex items-center bg-black/80 border border-white/15 rounded-[1px] p-0.5 shrink-0">
+            <span className="text-[7.5px] text-white/40 px-1 hidden lg:inline tracking-widest uppercase">ASPECT</span>
             {ratios.map(r => (
               <button
                 key={r}

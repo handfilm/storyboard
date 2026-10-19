@@ -22,6 +22,7 @@ export const db = initializeFirestore(app, {
 // Strictly authorized studio users (can be extended by admin)
 export const AUTHORIZED_EMAILS = [
   'handfilm.ai@gmail.com',
+  'handfilm.mvfx@gmail.com',
   // Any user with studio access
 ];
 

@@ -187,3 +187,11 @@ export function generateCSVExport(frames: AnthologyFrame[]): string {
 export function generateProjectJSON(project: AnthologyProject): string {
   return JSON.stringify(project, null, 2);
 }
+
+/**
+ * Converts Western digits string (0-9) to Bengali numerals (০-৯)
+ */
+export function toBengaliNumerals(numStr: string | number): string {
+  const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  return String(numStr).replace(/[0-9]/g, (d) => bengaliDigits[Number(d)]);
+}

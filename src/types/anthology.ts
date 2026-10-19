@@ -1,6 +1,12 @@
 export type LutPreset = 
   | 'cinematic' 
+  | 'bleach'
+  | 'technicolor'
   | 'noir' 
+  | 'flir'
+  | 'nightvision'
+  | 'kodachrome'
+  | 'solaris'
   | 'golden' 
   | 'tungsten' 
   | 'cyberpunk' 
@@ -11,7 +17,7 @@ export type LutPreset =
 
 export type AspectRatio = '2.39:1' | '16:9' | '4:3' | '1:1' | '9:16';
 
-export type ViewMode = 'stage' | 'grid' | 'screenplay' | 'export';
+export type ViewMode = 'stage' | 'grid' | 'screenplay' | 'export' | 'brutalist-manager';
 
 export interface CameraSpec {
   focalLength: string;
@@ -37,10 +43,13 @@ export interface AnthologyFrame {
   epNumber: string;
   title: string;
   bengaliTitle: string;
+  bengaliDesc?: string;
+  cameraMove?: string;
   tagline: string;
   directorNotes: string;
   cameraSpec: CameraSpec;
   imageUrl?: string;
+  isVideo?: boolean;
   colorAccent: string;
   hoverStyle: number;
   soundCue: string;
@@ -48,6 +57,10 @@ export interface AnthologyFrame {
   aspectRatio: AspectRatio;
   adjustments: FrameAdjustments;
   tags: string[];
+  activeLens?: string;
+  dof?: string;
+  voiceoverDirective?: any;
+  omniDecisions?: any;
 }
 
 export interface AnthologyProject {
@@ -58,4 +71,17 @@ export interface AnthologyProject {
   frames: AnthologyFrame[];
   createdAt: string;
   version: string;
+  playbackSpeed?: number;
+  activeFilter?: LutPreset;
+  activeLens?: string;
+  lastUpdatedBy?: string;
+}
+
+export interface CollaboratorPresence {
+  userId: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  activeFrame: number;
+  lastSeen?: any;
 }

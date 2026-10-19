@@ -1,0 +1,34 @@
+{
+  "$schema": "https://firebase.google.com/schemas/firestore-blueprint.json",
+  "entities": {
+    "storyboards": {
+      "description": "Shared real-time cinematic storyboard state with all 100 frames and optical configuration",
+      "fields": {
+        "frames": { "type": "map", "description": "Array or map of 100 frame metadata, media assets, and audio cues" },
+        "playbackSpeed": { "type": "number", "description": "Pace duration in seconds" },
+        "aspectRatio": { "type": "string", "description": "Screen aspect ratio e.g. 16:9 or 2.39:1" },
+        "activeFilter": { "type": "string", "description": "Color grading LUT identifier" },
+        "activeLens": { "type": "string", "description": "Optical lens and depth of field profile" },
+        "updatedAt": { "type": "timestamp", "description": "Last synced timestamp" },
+        "updatedBy": { "type": "string", "description": "User identifier who made the last change" }
+      }
+    },
+    "presence": {
+      "description": "Real-time user collaboration presence and active viewport cursor",
+      "fields": {
+        "userId": { "type": "string", "description": "Authenticated user UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "activeFrame": { "type": "number", "description": "Currently viewed or edited frame index" },
+        "lastSeen": { "type": "timestamp", "description": "Heartbeat timestamp" }
+      }
+    },
+    "users": {
+      "description": "User profiles and permissions for strictly authorized studio crew",
+      "fields": {
+        "email": { "type": "string", "description": "User email" },
+        "role": { "type": "string", "description": "Permission role e.g. director, editor" },
+        "createdAt": { "type": "timestamp", "description": "Account registration time" }
+      }
+    }
+  }
+}

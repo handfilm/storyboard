@@ -170,7 +170,7 @@
             height: 100%;
             background-image: var(--bg-img);
             background-size: var(--fit-mode);
-            background-position: center center;
+            background-position: center var(--bg-pos-y, 50%);
             background-repeat: no-repeat;
             filter: var(--lut-filter);
             transition: filter 0.3s ease;
@@ -185,7 +185,7 @@
             width: 100%;
             height: 100%;
             object-fit: var(--fit-mode);
-            object-position: center center;
+            object-position: center var(--bg-pos-y, 50%);
             display: block;
             pointer-events: none;
             will-change: transform;
@@ -211,7 +211,7 @@
             height: 100%;
             background-image: var(--bg-img);
             background-size: var(--fit-mode);
-            background-position: center center;
+            background-position: center var(--bg-pos-y, 50%);
             background-repeat: no-repeat;
             filter: blur(var(--lens-bloom)) contrast(1.15) brightness(1.2);
             mix-blend-mode: screen;
@@ -232,7 +232,7 @@
             height: 100%;
             background-image: var(--bg-img);
             background-size: var(--fit-mode);
-            background-position: center center;
+            background-position: center var(--bg-pos-y, 50%);
             background-repeat: no-repeat;
             filter: blur(var(--lens-blur)) brightness(0.85);
             -webkit-mask-image: radial-gradient(circle at var(--focus-x) var(--focus-y), transparent var(--lens-mask-radius), black 86%);
@@ -252,7 +252,7 @@
             height: 100%;
             background-image: var(--bg-img);
             background-size: var(--fit-mode);
-            background-position: center center;
+            background-position: center var(--bg-pos-y, 50%);
             background-repeat: no-repeat;
             filter: blur(14px);
             transform: scaleX(1.12);
@@ -776,21 +776,509 @@
             white-space: pre-wrap;
         }
 
+        /* Component Visibility Dynamic Classes */
+        body.hide-all-titles .title-block { display: none !important; }
+        body.hide-bn-title .main-bengali-title { display: none !important; }
+        body.hide-en-title .sub-english-title { display: none !important; }
+        body.hide-caption .bengali-caption { display: none !important; }
+        body.hide-badge .bengali-ep-badge { display: none !important; }
+        body.hide-tagline .tagline, body.hide-tagline .sound-cue-pill { display: none !important; }
+
+        body.hide-hud-data .hud-text { display: none !important; }
+        body.hide-reticle .ui-frame { border-color: transparent !important; }
+        body.hide-reticle .ui-frame::before, body.hide-reticle .ui-frame::after { display: none !important; }
+
+        body.hide-scrubber #photo-nav-bar { display: none !important; }
+        body.hide-nav-arrows .nav-btn { display: none !important; }
+        body.hide-drop-prompt .drop-prompt { display: none !important; }
+
+        body.hide-grain .grain { display: none !important; }
+        body.hide-vignette .vignette-overlay { display: none !important; }
+        body.hide-glow .photo-glow { display: none !important; }
+        body.hide-lens-blur .photo-lens-blur { display: none !important; }
+        body.hide-motion-edges .photo-motion-edges { display: none !important; }
+
+        /* Cinema Zen Clean Mode */
+        body.zen-cinema-mode #top-header,
+        body.zen-cinema-mode #controls-panel,
+        body.zen-cinema-mode #photo-nav-bar,
+        body.zen-cinema-mode .nav-btn,
+        body.zen-cinema-mode .hud-text,
+        body.zen-cinema-mode .ui-frame,
+        body.zen-cinema-mode .drop-prompt {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        #zen-exit-pill {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.88);
+            border: 1px solid var(--gold);
+            color: var(--gold-bright);
+            font-size: 8.5px;
+            letter-spacing: 1.5px;
+            padding: 4px 14px;
+            border-radius: 20px;
+            z-index: 999;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+            font-family: 'JetBrains Mono', monospace;
+            backdrop-filter: blur(8px);
+        }
+        body.zen-cinema-mode #zen-exit-pill { display: flex; align-items: center; gap: 6px; }
+
+        /* Floating Component Matrix Dropdown */
+        #component-matrix-popover {
+            position: fixed;
+            top: 36px;
+            right: 14px;
+            width: 480px;
+            max-width: calc(100vw - 28px);
+            background: rgba(8, 8, 12, 0.98);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(212, 175, 55, 0.12);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-radius: 2px;
+            z-index: 160;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            animation: matrixPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #component-matrix-popover.open { display: flex; }
+        @keyframes matrixPopIn {
+            from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .matrix-header {
+            padding: 8px 14px;
+            background: rgba(212, 175, 55, 0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .matrix-title {
+            font-family: 'Cinzel', 'Noto Serif Bengali', 'Anek Bangla', sans-serif;
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .matrix-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .btn-preset {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #ccc;
+            font-size: 8px;
+            letter-spacing: 0.8px;
+            padding: 3px 7px;
+            border-radius: 1px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .btn-preset:hover {
+            border-color: var(--gold);
+            color: var(--gold-bright);
+            background: rgba(212, 175, 55, 0.2);
+        }
+        .matrix-body {
+            padding: 10px 14px;
+            max-height: 65vh;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .matrix-col {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .matrix-section-title {
+            font-size: 8.5px;
+            letter-spacing: 1.5px;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 3px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            font-family: 'Cinzel', 'Noto Serif Bengali', 'Anek Bangla', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 1px;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            user-select: none;
+        }
+        .toggle-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(212, 175, 55, 0.35);
+        }
+        .toggle-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+        .toggle-label-en {
+            font-size: 8.5px;
+            color: #ddd;
+            letter-spacing: 0.5px;
+        }
+        .toggle-label-bn {
+            font-size: 7.5px;
+            color: var(--gold);
+            opacity: 0.85;
+            font-family: 'Anek Bangla', 'Noto Serif Bengali', sans-serif;
+        }
+        .switch-mini {
+            position: relative;
+            width: 24px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .switch-mini::after {
+            content: '';
+            position: absolute;
+            top: 1px;
+            left: 2px;
+            width: 10px;
+            height: 10px;
+            background: #777;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .toggle-item.active .switch-mini {
+            background: rgba(212, 175, 55, 0.45);
+        }
+        .toggle-item.active .switch-mini::after {
+            left: 12px;
+            background: var(--gold-bright);
+            box-shadow: 0 0 5px var(--gold);
+        }
+
+        /* Dock Popover Menu for Quick Toggle Buttons */
+        .dock-menu-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .dock-popover-menu {
+            position: absolute;
+            bottom: 38px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(7, 7, 11, 0.98);
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.95);
+            border-radius: 1px;
+            padding: 4px;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 185px;
+            z-index: 130;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            animation: matrixPopIn 0.15s ease-out;
+        }
+        .dock-popover-menu.open { display: flex; }
+        .dock-menu-item {
+            padding: 5px 8px;
+            font-size: 8px;
+            letter-spacing: 0.8px;
+            color: #ccc;
+            cursor: pointer;
+            border-radius: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: none;
+            border: none;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.1s ease;
+            white-space: nowrap;
+        }
+        .dock-menu-item:hover {
+            color: var(--gold);
+            background: rgba(212, 175, 55, 0.15);
+        }
+        .dock-menu-item.active {
+            color: var(--gold-bright);
+            font-weight: 700;
+            background: rgba(212, 175, 55, 0.2);
+        }
+        .badge-mini {
+            background: rgba(212, 175, 55, 0.2);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            color: var(--gold-bright);
+            font-size: 7px;
+            padding: 1px 4px;
+            border-radius: 1px;
+            letter-spacing: 0.5px;
+        }
+
         /* Mobile Scale Adjustments */
         @media (max-width: 768px) {
             .nav-btn { display: none; }
             #photo-nav-bar { width: 95%; bottom: 42px; }
-            #controls-panel { padding: 4px 8px; gap: 6px; bottom: 4px; width: 96%; justify-content: center; height: auto; flex-wrap: wrap; }
+            #controls-panel { padding: 4px 8px; gap: 5px; bottom: 4px; width: 96%; justify-content: center; height: auto; flex-wrap: wrap; }
             .slider-wrapper { display: none; }
             .hud-text { font-size: 6.5px; }
             .ui-frame { inset: 8px; }
             .main-bengali-title { font-size: 2.3rem; }
             .sub-english-title { font-size: 1.0rem; }
             .bengali-caption { font-size: 11px; }
+            #component-matrix-popover { right: 50%; transform: translateX(50%); width: 94vw; }
+            .matrix-body { grid-template-columns: 1fr; max-height: 55vh; }
+            .liquify-studio-body { flex-direction: column; }
+            .liquify-toolbar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.1); max-height: 180px; }
+        }
+
+        /* Panning Tool & HUD */
+        .frame.panning-active {
+            cursor: ns-resize !important;
+            user-select: none;
+        }
+        #pan-hud-pill {
+            position: fixed;
+            top: 48px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(9, 9, 13, 0.95);
+            border: 1px solid var(--gold);
+            color: var(--gold-bright);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8.5px;
+            letter-spacing: 1px;
+            padding: 4px 14px;
+            border-radius: 1px;
+            z-index: 120;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(212, 175, 55, 0.2);
+            backdrop-filter: blur(12px);
+            pointer-events: none;
+        }
+        #pan-hud-pill.active { display: flex; }
+        .pan-indicator-track {
+            width: 50px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pan-indicator-fill {
+            height: 100%;
+            background: var(--gold);
+            width: 50%;
+            transition: width 0.05s ease;
+        }
+
+        /* Video Optical Center-Focus & Edge Blur Shader Overlays */
+        .video-edge-blur {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 3;
+            backdrop-filter: blur(var(--lens-blur, 10px));
+            -webkit-backdrop-filter: blur(var(--lens-blur, 10px));
+            -webkit-mask-image: radial-gradient(circle at var(--focus-x, 50%) var(--focus-y, 50%), transparent var(--lens-mask-radius, 28%), black 82%);
+            mask-image: radial-gradient(circle at var(--focus-x, 50%) var(--focus-y, 50%), transparent var(--lens-mask-radius, 28%), black 82%);
+            opacity: 0.9;
+        }
+        .video-motion-edges {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 4;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            -webkit-mask-image: linear-gradient(to right, black 0%, transparent 15%, transparent 85%, black 100%);
+            mask-image: linear-gradient(to right, black 0%, transparent 15%, transparent 85%, black 100%);
+            opacity: 0.85;
+        }
+
+        /* Canvas-Based Liquify & Warp Studio */
+        #modal-liquify .modal-card {
+            width: 95vw;
+            max-width: 1400px;
+            height: 92vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
+        }
+        .liquify-studio-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            background: #060608;
+            position: relative;
+        }
+        .liquify-toolbar {
+            width: 250px;
+            background: rgba(10, 10, 15, 0.98);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .liquify-canvas-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: radial-gradient(circle at center, #121218 0%, #050507 100%);
+            overflow: hidden;
+            cursor: crosshair;
+            padding: 16px;
+        }
+        #liquify-canvas {
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(212, 175, 55, 0.3);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            image-rendering: high-quality;
+            display: block;
+        }
+        .warp-tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .warp-tool-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #ccc;
+            padding: 6px 8px;
+            font-size: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            border-radius: 1px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.15s ease;
+        }
+        .warp-tool-btn:hover {
+            color: var(--gold);
+            border-color: rgba(212, 175, 55, 0.4);
+            background: rgba(212, 175, 55, 0.1);
+        }
+        .warp-tool-btn.active {
+            color: var(--gold-bright);
+            border-color: var(--gold);
+            background: rgba(212, 175, 55, 0.22);
+            font-weight: 700;
+        }
+        .warp-control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .warp-control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 8px;
+            color: #888;
+            letter-spacing: 0.8px;
+        }
+        .warp-control-label span:last-child {
+            color: var(--gold);
+            font-weight: bold;
+        }
+        .warp-slider {
+            width: 100%;
+            accent-color: var(--gold);
+            height: 4px;
+            cursor: pointer;
+        }
+        .liquify-cursor-brush {
+            position: absolute;
+            border: 1px solid var(--gold);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            display: none;
+            box-shadow: 0 0 8px rgba(212, 175, 55, 0.4), inset 0 0 8px rgba(212, 175, 55, 0.2);
+            z-index: 100;
+        }
+        .warp-ratio-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .warp-ratio-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #aaa;
+            font-size: 7.5px;
+            padding: 3px 6px;
+            border-radius: 1px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .warp-ratio-chip.active {
+            border-color: var(--gold);
+            color: var(--gold-bright);
+            background: rgba(212, 175, 55, 0.2);
         }
     </style>
 </head>
 <body>
+
+    <!-- Zen Cinema Exit Pill -->
+    <div id="zen-exit-pill" onclick="toggleZenMode()" title="Exit Clean Cinema Mode (Z / ESC)">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <span>EXIT CLEAN CINEMA [ESC / Z]</span>
+    </div>
+
+    <!-- Floating Vertical Pan HUD Indicator -->
+    <div id="pan-hud-pill">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+        <span id="pan-hud-text">PAN Y: 50%</span>
+        <div class="pan-indicator-track">
+            <div class="pan-indicator-fill" id="pan-indicator-fill" style="width: 50%;"></div>
+        </div>
+        <span style="font-size: 7px; color: #888;">[DRAG TO ALIGN / DBL-CLK RESET]</span>
+    </div>
 
     <!-- Micro Navigation Header (32px) -->
     <header id="top-header">
@@ -801,6 +1289,24 @@
             <span class="header-tag">১০০ পর্ব</span>
         </div>
         <div class="header-actions">
+            <!-- Components Matrix Master Dropdown -->
+            <button class="btn-micro" id="btn-comp-matrix" onclick="toggleComponentMatrixPopover(event)" title="Component Visibility Matrix (V)">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>COMPONENTS</span>
+                <span class="badge-mini" id="comp-count-badge">ALL ON</span>
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <!-- Vertical Alignment Pan Tool Toggle -->
+            <button class="btn-micro" id="btn-pan" onclick="togglePanTool()" title="Interactive Vertical Alignment Pan Tool (P)">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                <span>PAN Y</span>
+                <span class="badge-mini" id="pan-badge">50%</span>
+            </button>
+            <!-- Canvas Liquify & Warp Studio Trigger -->
+            <button class="btn-micro" id="btn-warp" onclick="openLiquifyModal()" title="HTML5 Canvas Liquify & Mesh Warp Studio (W)">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                <span>LIQUIFY</span>
+            </button>
             <!-- Fit Mode Toggle -->
             <button class="btn-micro" id="btn-fit" onclick="toggleFitMode()" title="Toggle Screen Fit / Center Crop">
                 <span>FIT: CROP MIDDLE</span>
@@ -815,8 +1321,161 @@
             </button>
             <button class="btn-micro" onclick="openModal('modal-grid')">GRID (100)</button>
             <button class="btn-micro" onclick="openModal('modal-export')">EXPORT / GIT</button>
+            <!-- IndexedDB Vault Status Badge -->
+            <div id="vault-status-badge" class="badge-mini" title="Non-Destructive IndexedDB Local Storage: Auto-Saving All Media, Offsets & Settings" style="display: inline-flex; align-items: center; gap: 4px; color: #4ade80; border-color: rgba(74,222,128,0.4); cursor: help;">
+                <span style="width: 4px; height: 4px; background: #4ade80; border-radius: 50%; box-shadow: 0 0 6px #4ade80;"></span>
+                <span>IDB VAULT</span>
+            </div>
         </div>
     </header>
+
+    <!-- Component Matrix Popover Panel -->
+    <div id="component-matrix-popover" onclick="event.stopPropagation()">
+        <div class="matrix-header">
+            <div class="matrix-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>DISPLAY & COMPONENT MATRIX // <span style="font-family: 'Anek Bangla', 'Noto Serif Bengali', sans-serif;">উপাদান প্রদর্শন</span></span>
+            </div>
+            <button class="drop-btn" style="padding: 2px 6px; font-size: 8px;" onclick="closeComponentMatrixPopover()">CLOSE [ESC]</button>
+        </div>
+        
+        <!-- One-Click Director Presets -->
+        <div class="matrix-presets">
+            <span style="font-size: 7.5px; color: #888; align-self: center; margin-right: 2px;">PRESETS:</span>
+            <button class="btn-preset" onclick="applyVisibilityPreset('director')">🎬 DIRECTOR CUT</button>
+            <button class="btn-preset" onclick="applyVisibilityPreset('clean')">🖼️ CLEAN PLATE</button>
+            <button class="btn-preset" onclick="applyVisibilityPreset('subtitles')">💬 SUBTITLES ONLY</button>
+            <button class="btn-preset" onclick="applyVisibilityPreset('dp')">📐 TECHNICAL DP</button>
+            <button class="btn-preset" onclick="applyVisibilityPreset('minimal')">⚡ MINIMALIST</button>
+        </div>
+
+        <div class="matrix-body">
+            <!-- Column 1: Titles & Narrative -->
+            <div class="matrix-col">
+                <div class="matrix-section-title">
+                    <span>TITLES & NARRATIVE // <span style="font-family: 'Anek Bangla', 'Noto Serif Bengali', sans-serif;">শিরোনাম</span></span>
+                    <button class="btn-preset" style="padding: 1px 4px; font-size: 7px;" onclick="toggleAllCategory('titles')">TOGGLE</button>
+                </div>
+                
+                <div class="toggle-item active" id="toggle-opt-titlesAll" onclick="toggleComponent('titlesAll')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">All Titles Master [T]</span>
+                        <span class="toggle-label-bn">সকল শিরোনাম ও টেক্সট</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-titleBn" onclick="toggleComponent('titleBn')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Main Bengali Word</span>
+                        <span class="toggle-label-bn">প্রধান বাংলা শিরোনাম (Pulsing Glow)</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-titleEn" onclick="toggleComponent('titleEn')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">English Subtitle</span>
+                        <span class="toggle-label-bn">ইংরেজি টাইটেল</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-caption" onclick="toggleComponent('caption')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Bengali Narrative Caption</span>
+                        <span class="toggle-label-bn">বর্ণনামূলক সাবটাইটেল</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-badge" onclick="toggleComponent('badge')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Episode Badge (EP 001)</span>
+                        <span class="toggle-label-bn">পর্ব ব্যাজ ও নম্বর</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-tagline" onclick="toggleComponent('tagline')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Tagline & Sound Cue</span>
+                        <span class="toggle-label-bn">সাউন্ড কিউ ও ডিরেক্টর নোট</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+            </div>
+
+            <!-- Column 2: Camera HUD & Optics -->
+            <div class="matrix-col">
+                <div class="matrix-section-title">
+                    <span>CAMERA HUD & FRAMING // <span style="font-family: 'Anek Bangla', 'Noto Serif Bengali', sans-serif;">ক্যামেরা</span></span>
+                    <button class="btn-preset" style="padding: 1px 4px; font-size: 7px;" onclick="toggleAllCategory('hud')">TOGGLE</button>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-hudData" onclick="toggleComponent('hudData')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Arri RAW Corner Telemetry [H]</span>
+                        <span class="toggle-label-bn">ক্যামেরা মেটাডাটা (TL/TR/BL/BR)</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-reticles" onclick="toggleComponent('reticles')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Viewfinder Framing Box</span>
+                        <span class="toggle-label-bn">ভিউফাইন্ডার গোল্ডেন ফ্রেম</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item" id="toggle-opt-guides" onclick="toggleComponent('guides')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Rule of Thirds Grid [C]</span>
+                        <span class="toggle-label-bn">রুল অব থার্ডস ও ক্রসহেয়ার</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="matrix-section-title" style="margin-top: 8px;">
+                    <span>OPTICAL POST FX // <span style="font-family: 'Anek Bangla', 'Noto Serif Bengali', sans-serif;">অপটিক্যাল শেডার</span></span>
+                    <button class="btn-preset" style="padding: 1px 4px; font-size: 7px;" onclick="toggleAllCategory('fx')">TOGGLE</button>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-grain" onclick="toggleComponent('grain')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">35mm Analog Film Grain</span>
+                        <span class="toggle-label-bn">৩৫মিমি ফিল্ম গ্রেইন</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-vignette" onclick="toggleComponent('vignette')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Cinema Vignette Rolloff</span>
+                        <span class="toggle-label-bn">সিনেমা ভিনিয়েট ওভারলে</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-bloom" onclick="toggleComponent('bloom')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Orton Highlight Bloom</span>
+                        <span class="toggle-label-bn">হাইলাইট গ্লো ও ব্লুম</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+
+                <div class="toggle-item active" id="toggle-opt-lensBlur" onclick="toggleComponent('lensBlur')">
+                    <div class="toggle-item-left">
+                        <span class="toggle-label-en">Lens Blur & Depth of Field</span>
+                        <span class="toggle-label-bn">ডেপথ অব ফিল্ড অ্যাপারচার ব্লার</span>
+                    </div>
+                    <div class="switch-mini"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Floating Navigation Arrows -->
     <button class="nav-btn nav-left" onclick="scrollGallery(-1)" aria-label="Previous Frame">
@@ -847,6 +1506,7 @@
             <option value="16:9">16:9 SCREEN FIT</option>
             <option value="2.39:1">2.39:1 CINEMASCOPE</option>
             <option value="4:3">4:3 ACADEMY</option>
+            <option value="4:5">4:5 PORTRAIT</option>
             <option value="1:1">1:1 SQUARE</option>
             <option value="9:16">9:16 VERTICAL</option>
         </select>
@@ -881,6 +1541,87 @@
             <option value="anamorphic">LENS: Anamorphic 2x Squeeze Flare</option>
         </select>
 
+        <!-- Toggle Menu 1: Titles & Captions Picker -->
+        <div class="dock-menu-container">
+            <button class="control-btn" id="btn-dock-titles" onclick="toggleTitlesMenu(event)" title="Toggle Titles & Captions (T)">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+                <span id="label-dock-titles">TITLES: ALL</span>
+                <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="dock-popover-menu" id="dock-menu-titles" onclick="event.stopPropagation()">
+                <button class="dock-menu-item active" id="opt-titles-all" onclick="setTitlesMode('all')">
+                    <span>ALL TITLES & NARRATIVE</span>
+                    <span class="badge-mini">ON</span>
+                </button>
+                <button class="dock-menu-item" id="opt-titles-bn" onclick="setTitlesMode('bn-only')">
+                    <span>MAIN BANGLA WORD ONLY</span>
+                    <span class="badge-mini">বাংলা</span>
+                </button>
+                <button class="dock-menu-item" id="opt-titles-sub" onclick="setTitlesMode('sub-only')">
+                    <span>SUBTITLES & CAPTIONS ONLY</span>
+                    <span class="badge-mini">SUB</span>
+                </button>
+                <button class="dock-menu-item" id="opt-titles-off" onclick="setTitlesMode('off')">
+                    <span>HIDE ALL TITLES (CLEAN)</span>
+                    <span class="badge-mini">OFF</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Toggle Menu 2: Camera HUD & Telemetry Picker -->
+        <div class="dock-menu-container">
+            <button class="control-btn" id="btn-dock-hud" onclick="toggleHudMenu(event)" title="Toggle HUD & Telemetry (H)">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg>
+                <span id="label-dock-hud">HUD: ON</span>
+                <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="dock-popover-menu" id="dock-menu-hud" onclick="event.stopPropagation()">
+                <button class="dock-menu-item active" id="opt-hud-full" onclick="setHudMode('full')">
+                    <span>FULL ARRI RAW HUD</span>
+                    <span class="badge-mini">ALL</span>
+                </button>
+                <button class="dock-menu-item" id="opt-hud-reticles" onclick="setHudMode('reticles')">
+                    <span>FRAMING RETICLES ONLY</span>
+                    <span class="badge-mini">BOX</span>
+                </button>
+                <button class="dock-menu-item" id="opt-hud-guides" onclick="setHudMode('guides')">
+                    <span>RULE OF THIRDS GUIDES</span>
+                    <span class="badge-mini">GRID</span>
+                </button>
+                <button class="dock-menu-item" id="opt-hud-off" onclick="setHudMode('off')">
+                    <span>CLEAN FRAME (NO HUD)</span>
+                    <span class="badge-mini">OFF</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Toggle Menu 3: Optics & Shaders FX Picker -->
+        <div class="dock-menu-container">
+            <button class="control-btn" id="btn-dock-optics" onclick="toggleOpticsMenu(event)" title="Toggle Optical FX (X)">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                <span id="label-dock-optics">OPTICS: ON</span>
+                <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="dock-popover-menu" id="dock-menu-optics" onclick="event.stopPropagation()">
+                <button class="dock-menu-item active" id="opt-optics-all" onclick="setOpticsMode('all')">
+                    <span>ALL OPTICS (GRAIN+BLOOM+DOF)</span>
+                    <span class="badge-mini">FULL</span>
+                </button>
+                <button class="dock-menu-item" id="opt-optics-bloom" onclick="setOpticsMode('bloom-dof')">
+                    <span>BLOOM & DOF ONLY</span>
+                    <span class="badge-mini">LENS</span>
+                </button>
+                <button class="dock-menu-item" id="opt-optics-grain" onclick="setOpticsMode('grain-only')">
+                    <span>35MM FILM GRAIN ONLY</span>
+                    <span class="badge-mini">35MM</span>
+                </button>
+                <button class="dock-menu-item" id="opt-optics-off" onclick="setOpticsMode('off')">
+                    <span>FLAT / CLEAN SHADERS</span>
+                    <span class="badge-mini">RAW</span>
+                </button>
+            </div>
+        </div>
+
         <!-- Audio Synthesizer Toggle with VU Meter -->
         <button class="control-btn" id="btn-audio" onclick="toggleAudio()" aria-label="Toggle Ambient Audio">
             <span class="vu-meter">
@@ -895,6 +1636,12 @@
         <button class="control-btn" id="btn-fullscreen" onclick="toggleFullscreen()" aria-label="Toggle Fullscreen" title="Toggle Fullscreen (F)">
             <svg id="icon-fs" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
             <span id="label-fs">FULLSCREEN</span>
+        </button>
+
+        <!-- Clean Cinema Zen Mode Button -->
+        <button class="control-btn" id="btn-zen" onclick="toggleZenMode()" title="Toggle Clean Cinema Mode (Z)" style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: 6px;">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span>ZEN</span>
         </button>
     </div>
 
@@ -950,9 +1697,111 @@ git push -u origin main</div>
                     </p>
                 </div>
 
-                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <div style="display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
                     <button class="drop-btn" onclick="downloadJSONExport()">DOWNLOAD PROJECT JSON</button>
                     <button class="drop-btn" onclick="downloadMarkdownReadme()">DOWNLOAD README.MD</button>
+                    <button class="drop-btn" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171;" onclick="clearVaultDatabase()">CLEAR IDB VAULT (RESET ALL)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: HTML5 Canvas Liquify & Mesh Warp Studio -->
+    <div class="modal" id="modal-liquify" onclick="closeModalOnBackdrop(event, 'modal-liquify')">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                    <div>
+                        <h2 style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 2px; color: #fff;">
+                            LIQUIFY & MESH WARP STUDIO // <span style="font-family: 'Noto Serif Bengali', serif; color: var(--gold);">ফ্রেম লিকুইফাই এডিটর</span>
+                        </h2>
+                        <p style="font-size: 8.5px; color: #888; letter-spacing: 1px; margin-top: 1px;" id="liquify-frame-target-label">
+                            EDITING ACTIVE FRAME #001 — REAL-TIME DISPLACEMENT RETOUCHING
+                        </p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="drop-btn" onclick="applyLiquifyToCurrentFrame()" style="background: rgba(212, 175, 55, 0.2); border-color: var(--gold); color: var(--gold-bright); font-weight: bold;">
+                        ✓ APPLY TO VAULT
+                    </button>
+                    <button class="drop-btn" onclick="exportLiquifyCanvasPNG()">EXPORT PNG</button>
+                    <button class="drop-btn" onclick="closeModal('modal-liquify')">CLOSE [ESC]</button>
+                </div>
+            </div>
+            
+            <div class="liquify-studio-body">
+                <!-- Left Tools Sidebar -->
+                <div class="liquify-toolbar">
+                    <div class="warp-control-group">
+                        <span style="font-size: 7.5px; color: #666; letter-spacing: 1px;">WARP BRUSH MODE</span>
+                        <div class="warp-tool-grid">
+                            <button class="warp-tool-btn active" id="tool-warp-push" onclick="setWarpTool('push')">
+                                <span>🖐️ PUSH</span>
+                            </button>
+                            <button class="warp-tool-btn" id="tool-warp-bloat" onclick="setWarpTool('bloat')">
+                                <span>⭕ BLOAT</span>
+                            </button>
+                            <button class="warp-tool-btn" id="tool-warp-pinch" onclick="setWarpTool('pinch')">
+                                <span>🤏 PINCH</span>
+                            </button>
+                            <button class="warp-tool-btn" id="tool-warp-restore" onclick="setWarpTool('restore')">
+                                <span>🔄 RESTORE</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="warp-control-group">
+                        <div class="warp-control-label">
+                            <span>BRUSH RADIUS</span>
+                            <span id="label-brush-radius">65px</span>
+                        </div>
+                        <input type="range" class="warp-slider" id="slider-brush-radius" min="15" max="220" value="65" oninput="updateBrushParams()">
+                    </div>
+
+                    <div class="warp-control-group">
+                        <div class="warp-control-label">
+                            <span>WARP INTENSITY</span>
+                            <span id="label-brush-strength">35%</span>
+                        </div>
+                        <input type="range" class="warp-slider" id="slider-brush-strength" min="5" max="95" value="35" oninput="updateBrushParams()">
+                    </div>
+
+                    <div class="warp-control-group">
+                        <div class="warp-control-label">
+                            <span>MESH WIREFRAME</span>
+                            <span id="label-mesh-state">OFF</span>
+                        </div>
+                        <button class="warp-tool-btn" id="btn-toggle-mesh" onclick="toggleMeshWireframe()" style="justify-content: center;">
+                            TOGGLE GRID OVERLAY
+                        </button>
+                    </div>
+
+                    <div class="warp-control-group">
+                        <span style="font-size: 7.5px; color: #666; letter-spacing: 1px;">CROP & FRAMING APERTURE</span>
+                        <div class="warp-ratio-row">
+                            <button class="warp-ratio-chip active" id="chip-ratio-16-9" onclick="setLiquifyFraming('16:9')">16:9</button>
+                            <button class="warp-ratio-chip" id="chip-ratio-1-1" onclick="setLiquifyFraming('1:1')">1:1</button>
+                            <button class="warp-ratio-chip" id="chip-ratio-4-5" onclick="setLiquifyFraming('4:5')">4:5</button>
+                            <button class="warp-ratio-chip" id="chip-ratio-239-1" onclick="setLiquifyFraming('2.39:1')">2.39:1</button>
+                            <button class="warp-ratio-chip" id="chip-ratio-9-16" onclick="setLiquifyFraming('9:16')">9:16</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px;">
+                        <button class="drop-btn" onclick="undoLiquifyStroke()" id="btn-liquify-undo">
+                            ↺ UNDO STROKE [Ctrl+Z]
+                        </button>
+                        <button class="drop-btn" onclick="resetLiquifyOriginal()" style="border-color: rgba(255, 100, 100, 0.4); color: #f87171;">
+                            ⚠ REVERT TO ORIGINAL
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas Workspace -->
+                <div class="liquify-canvas-wrap" id="liquify-canvas-wrap">
+                    <canvas id="liquify-canvas"></canvas>
+                    <div class="liquify-cursor-brush" id="liquify-cursor-brush"></div>
                 </div>
             </div>
         </div>
@@ -1086,9 +1935,274 @@ git push -u origin main</div>
         const contactGrid = document.getElementById('contact-grid-container');
 
         const frameMediaState = new Array(100).fill(null);
+        const framePanOffsets = new Array(100).fill(50); // 0% (top) to 100% (bottom)
+        let isPanToolActive = false;
+        let isDraggingPan = false;
+        let panStartY = 0;
+        let panStartOffset = 50;
+        let panHudTimer = null;
+        let isCoverMode = true;
+
         let activeLensName = "50mm f/1.4 Human Eye";
         let activeDoF = "1.8cm";
         let currentActiveFrameIndex = 0;
+
+        // Component Visibility Global State
+        const defaultComponentVisibility = {
+            titlesAll: true,
+            titleBn: true,
+            titleEn: true,
+            caption: true,
+            badge: true,
+            tagline: true,
+            hudData: true,
+            reticles: true,
+            guides: false,
+            grain: true,
+            vignette: true,
+            bloom: true,
+            lensBlur: true
+        };
+        let componentVisibility = { ...defaultComponentVisibility };
+        try {
+            const savedVis = localStorage.getItem('rawx_components_v1');
+            if (savedVis) {
+                componentVisibility = { ...defaultComponentVisibility, ...JSON.parse(savedVis) };
+            }
+        } catch (e) {
+            console.warn('Could not read saved visibility preferences', e);
+        }
+
+        function setFramePan(frameIdx, percent, showHud = true) {
+            const clamped = Math.max(0, Math.min(100, Math.round(percent * 10) / 10));
+            framePanOffsets[frameIdx] = clamped;
+            const frame = document.getElementById('frame-' + frameIdx);
+            if (frame) {
+                frame.style.setProperty('--bg-pos-y', clamped + '%');
+                const vid = frame.querySelector('.media-video');
+                if (vid) vid.style.objectPosition = `center ${clamped}%`;
+            }
+            if (frameIdx === currentActiveFrameIndex) {
+                const badge = document.getElementById('pan-badge');
+                if (badge) badge.textContent = clamped + '%';
+                if (showHud) {
+                    showPanHud(clamped);
+                }
+            }
+            if (typeof RawxVaultDB !== 'undefined' && RawxVaultDB.saveFrameStateDebounced) {
+                RawxVaultDB.saveFrameStateDebounced(frameIdx);
+            }
+        }
+
+        function showPanHud(percent) {
+            const pill = document.getElementById('pan-hud-pill');
+            const txt = document.getElementById('pan-hud-text');
+            const fill = document.getElementById('pan-indicator-fill');
+            if (pill && txt && fill) {
+                txt.textContent = `PAN Y: ${percent}%`;
+                fill.style.width = `${percent}%`;
+                pill.classList.add('active');
+                clearTimeout(panHudTimer);
+                panHudTimer = setTimeout(() => {
+                    pill.classList.remove('active');
+                }, 1400);
+            }
+        }
+
+        function togglePanTool() {
+            isPanToolActive = !isPanToolActive;
+            const btn = document.getElementById('btn-pan');
+            if (btn) btn.classList.toggle('active', isPanToolActive);
+            const activeFrame = document.getElementById('frame-' + currentActiveFrameIndex);
+            if (activeFrame) activeFrame.classList.toggle('panning-active', isPanToolActive);
+            showPanHud(framePanOffsets[currentActiveFrameIndex] || 50);
+            playShutterSound();
+        }
+
+        // Non-Destructive IndexedDB Storage Engine (Defined early so any function can safely access it)
+        const RawxVaultDB = {
+            dbName: 'RAWxVault100_DB',
+            dbVersion: 1,
+            db: null,
+            _saveTimers: {},
+
+            async init() {
+                return new Promise((resolve) => {
+                    if (!window.indexedDB) {
+                        console.warn('IndexedDB unavailable, falling back to localStorage');
+                        resolve(null);
+                        return;
+                    }
+                    const request = indexedDB.open(this.dbName, this.dbVersion);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('frames')) {
+                            db.createObjectStore('frames', { keyPath: 'id' });
+                        }
+                        if (!db.objectStoreNames.contains('settings')) {
+                            db.createObjectStore('settings', { keyPath: 'key' });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        this.updateBadge('SYNCED');
+                        resolve(this.db);
+                    };
+                    request.onerror = (e) => {
+                        console.warn('IndexedDB open error:', e);
+                        resolve(null);
+                    };
+                });
+            },
+
+            async saveFrameState(index, partialData = {}) {
+                if (!this.db) return;
+                try {
+                    const tx = this.db.transaction('frames', 'readwrite');
+                    const store = tx.objectStore('frames');
+                    const existingReq = store.get(index);
+                    existingReq.onsuccess = () => {
+                        const existing = existingReq.result || { id: index };
+                        const updated = {
+                            ...existing,
+                            id: index,
+                            panY: framePanOffsets[index] !== undefined ? framePanOffsets[index] : 50,
+                            updatedAt: Date.now(),
+                            ...partialData
+                        };
+                        store.put(updated);
+                        this.flashBadge('SAVED');
+                    };
+                } catch (e) {
+                    console.warn('Could not save frame to IDB:', e);
+                }
+            },
+
+            saveFrameStateDebounced(index) {
+                clearTimeout(this._saveTimers[index]);
+                this._saveTimers[index] = setTimeout(() => {
+                    this.saveFrameState(index);
+                }, 300);
+            },
+
+            async saveSettings(settings = {}) {
+                if (!this.db) return;
+                try {
+                    const tx = this.db.transaction('settings', 'readwrite');
+                    const store = tx.objectStore('settings');
+                    const payload = {
+                        key: 'director_vault_config',
+                        lut: document.getElementById('lut-select')?.value,
+                        lens: document.getElementById('lens-select')?.value,
+                        aspect: document.getElementById('aspect-select')?.value,
+                        pace: document.getElementById('speed-slider')?.value,
+                        visibility: componentVisibility,
+                        fitMode: isCoverMode ? 'cover' : 'contain',
+                        updatedAt: Date.now(),
+                        ...settings
+                    };
+                    store.put(payload);
+                    this.flashBadge('SAVED');
+                } catch (e) {
+                    console.warn('Could not save settings to IDB:', e);
+                }
+            },
+
+            saveSettingsDebounced() {
+                clearTimeout(this._settingsTimer);
+                this._settingsTimer = setTimeout(() => {
+                    this.saveSettings();
+                }, 400);
+            },
+
+            async restoreVault() {
+                if (!this.db) return;
+                try {
+                    // 1. Restore Settings
+                    const txSet = this.db.transaction('settings', 'readonly');
+                    const setStore = txSet.objectStore('settings');
+                    const setReq = setStore.get('director_vault_config');
+                    setReq.onsuccess = () => {
+                        const s = setReq.result;
+                        if (s) {
+                            if (s.lut) {
+                                const sel = document.getElementById('lut-select');
+                                if (sel) { sel.value = s.lut; changeLut(s.lut); }
+                            }
+                            if (s.lens) {
+                                const sel = document.getElementById('lens-select');
+                                if (sel) { sel.value = s.lens; changeLens(s.lens); }
+                            }
+                            if (s.aspect) {
+                                const sel = document.getElementById('aspect-select');
+                                if (sel) { sel.value = s.aspect; changeAspectRatio(s.aspect); }
+                            }
+                            if (s.pace) {
+                                const slider = document.getElementById('speed-slider');
+                                if (slider) { slider.value = s.pace; updateSpeedLabel(); }
+                            }
+                        }
+                    };
+
+                    // 2. Restore all 100 Frames
+                    const txFrames = this.db.transaction('frames', 'readonly');
+                    const frameStore = txFrames.objectStore('frames');
+                    const allReq = frameStore.getAll();
+                    allReq.onsuccess = () => {
+                        const items = allReq.result || [];
+                        items.forEach(item => {
+                            if (item.panY !== undefined) {
+                                setFramePan(item.id, item.panY, false);
+                            }
+                            if (item.mediaData) {
+                                applyMediaToFrame(item.id, item.mediaData, item.isVideo || false);
+                            }
+                        });
+                        if (items.length > 0) {
+                            this.flashBadge(`RESTORED (${items.length})`);
+                        }
+                    };
+                } catch (e) {
+                    console.warn('Could not restore from IDB:', e);
+                }
+            },
+
+            updateBadge(text) {
+                const b = document.getElementById('vault-status-badge');
+                if (b) {
+                    b.innerHTML = `<span style="width: 4px; height: 4px; background: #4ade80; border-radius: 50%; box-shadow: 0 0 6px #4ade80;"></span><span>IDB ${text}</span>`;
+                }
+            },
+
+            flashBadge(text) {
+                this.updateBadge(text);
+                const b = document.getElementById('vault-status-badge');
+                if (b) {
+                    b.style.borderColor = 'var(--gold)';
+                    setTimeout(() => {
+                        b.style.borderColor = 'rgba(74,222,128,0.4)';
+                        this.updateBadge('SYNCED');
+                    }, 1800);
+                }
+            },
+
+            async clearAll() {
+                if (!this.db) return;
+                const tx = this.db.transaction(['frames', 'settings'], 'readwrite');
+                tx.objectStore('frames').clear();
+                tx.objectStore('settings').clear();
+                tx.oncomplete = () => {
+                    localStorage.removeItem('rawx_components_v1');
+                    window.location.reload();
+                };
+            }
+        };
+
+        function clearVaultDatabase() {
+            if (confirm("Reset and clear all saved Vault media, pan offsets, and settings from IndexedDB?")) {
+                RawxVaultDB.clearAll();
+            }
+        }
 
         // Build all 100 Frames
         for (let i = 0; i < 100; i++) {
@@ -1183,6 +2297,7 @@ git push -u origin main</div>
             const lensBlurLayer = frame.querySelector('.photo-lens-blur');
             const motionEdgesLayer = frame.querySelector('.photo-motion-edges');
             const prompt = document.getElementById('drop-prompt-' + index);
+            const panPercent = framePanOffsets[index] !== undefined ? framePanOffsets[index] : 50;
 
             if (isVideo) {
                 // Clear background images
@@ -1203,6 +2318,10 @@ git push -u origin main</div>
                 vid.setAttribute('webkit-playsinline', '');
                 vid.preload = 'auto';
 
+                const rateVal = parseFloat((0.25 + (Number(document.getElementById('speed-slider')?.value || 50) - 1) * (2.75 / 99)).toFixed(2));
+                vid.playbackRate = rateVal;
+                vid.style.objectPosition = `center ${panPercent}%`;
+
                 // Enforce 10-Second Video Loop limit
                 vid.addEventListener('timeupdate', () => {
                     if (vid.currentTime >= 10.0) {
@@ -1217,18 +2336,32 @@ git push -u origin main</div>
                 });
 
                 baseLayer.appendChild(vid);
+
+                // Optical Center-Focus & Edge Blur Overlays for video frames
+                const vBlur = document.createElement('div');
+                vBlur.className = 'video-edge-blur';
+                const vMotion = document.createElement('div');
+                vMotion.className = 'video-motion-edges';
+                baseLayer.appendChild(vBlur);
+                baseLayer.appendChild(vMotion);
+
                 if (index === currentActiveFrameIndex) vid.play().catch(() => {});
             } else {
-                // Image mode: set background-image centered from middle
+                // Image mode: set background-image centered from middle with dynamic vertical pan
                 baseLayer.innerHTML = '';
                 if (glowLayer) glowLayer.innerHTML = '';
                 if (lensBlurLayer) lensBlurLayer.innerHTML = '';
                 if (motionEdgesLayer) motionEdgesLayer.innerHTML = '';
                 frame.style.setProperty('--bg-img', "url('" + mediaUrl + "')");
+                frame.style.setProperty('--bg-pos-y', panPercent + '%');
             }
 
             frame.classList.add('has-photo');
             if (prompt) prompt.style.display = 'none';
+
+            if (typeof RawxVaultDB !== 'undefined' && mediaUrl && !mediaUrl.startsWith('data:image/svg')) {
+                RawxVaultDB.saveFrameStateDebounced(index);
+            }
 
             // Update Contact Sheet Thumbnail
             const thumb = document.getElementById('contact-thumb-' + index);
@@ -1333,7 +2466,6 @@ git push -u origin main</div>
         });
 
         // Toggle Fit Mode (Center Crop / Contain)
-        let isCoverMode = true;
         function toggleFitMode() {
             isCoverMode = !isCoverMode;
             const root = document.documentElement;
@@ -1406,6 +2538,7 @@ git push -u origin main</div>
             document.querySelectorAll('.frame').forEach((frame, idx) => {
                 if (idx === newActiveIndex) {
                     frame.classList.add('active');
+                    if (typeof isPanToolActive !== 'undefined' && isPanToolActive) frame.classList.add('panning-active');
                     const vid = frame.querySelector('video');
                     if (vid) {
                         vid.currentTime = 0;
@@ -1413,12 +2546,17 @@ git push -u origin main</div>
                     }
                 } else {
                     frame.classList.remove('active');
+                    frame.classList.remove('panning-active');
                     const vid = frame.querySelector('video');
                     if (vid && !vid.paused) {
                         vid.pause();
                     }
                 }
             });
+            const panBadge = document.getElementById('pan-badge');
+            if (panBadge && typeof framePanOffsets !== 'undefined') {
+                panBadge.textContent = (framePanOffsets[newActiveIndex] || 50) + '%';
+            }
         }
 
         // Navigation (Fast slider response)
@@ -1475,7 +2613,13 @@ git push -u origin main</div>
         function updateSpeedLabel() {
             const val = Number(speedSlider.value);
             const seconds = (12 - (val - 1) * (11.4 / 99)).toFixed(1);
-            speedLabel.textContent = seconds + 's';
+            const rate = (0.25 + (val - 1) * (2.75 / 99)).toFixed(2);
+            speedLabel.textContent = `${seconds}s // ${rate}x`;
+            // Real-time speed-ramping across all HTML5 video elements (0.25x to 3.0x)
+            document.querySelectorAll('.media-video').forEach(vid => {
+                vid.playbackRate = parseFloat(rate);
+            });
+            if (typeof RawxVaultDB !== 'undefined') RawxVaultDB.saveSettingsDebounced();
         }
 
         speedSlider.addEventListener('input', () => {
@@ -1570,6 +2714,11 @@ git push -u origin main</div>
                     gallery.style.maxHeight = '88vh';
                     gallery.style.maxWidth = '118vh';
                     break;
+                case '4:5':
+                    gallery.style.aspectRatio = '4 / 5';
+                    gallery.style.maxHeight = '88vh';
+                    gallery.style.maxWidth = '70vh';
+                    break;
                 case '1:1':
                     gallery.style.aspectRatio = '1 / 1';
                     gallery.style.maxHeight = '84vh';
@@ -1581,6 +2730,7 @@ git push -u origin main</div>
                     gallery.style.maxWidth = '52vh';
                     break;
             }
+            if (typeof RawxVaultDB !== 'undefined') RawxVaultDB.saveSettingsDebounced();
         }
 
         // High-Impact Cinematic Filters
@@ -1712,15 +2862,386 @@ git push -u origin main</div>
             }
         }
 
-        // Toggle Director Framing Guides
-        let guidesActive = false;
-        function toggleGuides() {
-            guidesActive = !guidesActive;
-            const btn = document.getElementById('btn-guides');
-            btn.classList.toggle('active', guidesActive);
+        // ==========================================
+        // COMPONENT VISIBILITY & MATRIX ENGINE
+        // ==========================================
+        function saveVisibilityState() {
+            try {
+                localStorage.setItem('rawx_components_v1', JSON.stringify(componentVisibility));
+            } catch (e) {}
+        }
+
+        function applyVisibilityToDOM() {
+            const b = document.body;
+            b.classList.toggle('hide-all-titles', !componentVisibility.titlesAll);
+            b.classList.toggle('hide-bn-title', !componentVisibility.titleBn);
+            b.classList.toggle('hide-en-title', !componentVisibility.titleEn);
+            b.classList.toggle('hide-caption', !componentVisibility.caption);
+            b.classList.toggle('hide-badge', !componentVisibility.badge);
+            b.classList.toggle('hide-tagline', !componentVisibility.tagline);
+
+            b.classList.toggle('hide-hud-data', !componentVisibility.hudData);
+            b.classList.toggle('hide-reticle', !componentVisibility.reticles);
+
             document.querySelectorAll('.director-guides').forEach(g => {
-                g.classList.toggle('active', guidesActive);
+                g.classList.toggle('active', !!componentVisibility.guides);
             });
+            const btnGuides = document.getElementById('btn-guides');
+            if (btnGuides) btnGuides.classList.toggle('active', !!componentVisibility.guides);
+
+            b.classList.toggle('hide-grain', !componentVisibility.grain);
+            b.classList.toggle('hide-vignette', !componentVisibility.vignette);
+            b.classList.toggle('hide-glow', !componentVisibility.bloom);
+            b.classList.toggle('hide-lens-blur', !componentVisibility.lensBlur);
+
+            for (const key in componentVisibility) {
+                const el = document.getElementById('toggle-opt-' + key);
+                if (el) {
+                    el.classList.toggle('active', !!componentVisibility[key]);
+                }
+            }
+
+            const badge = document.getElementById('comp-count-badge');
+            if (badge) {
+                const activeCount = Object.values(componentVisibility).filter(Boolean).length;
+                const totalCount = Object.keys(componentVisibility).length;
+                if (activeCount === totalCount) {
+                    badge.textContent = 'ALL ON';
+                } else if (activeCount === 0) {
+                    badge.textContent = 'ALL OFF';
+                } else {
+                    badge.textContent = `${activeCount}/${totalCount}`;
+                }
+            }
+
+            updateDockMenuIndicators();
+            saveVisibilityState();
+        }
+
+        function toggleComponent(key) {
+            componentVisibility[key] = !componentVisibility[key];
+            if (['titleBn', 'titleEn', 'caption', 'badge', 'tagline'].includes(key) && componentVisibility[key]) {
+                componentVisibility.titlesAll = true;
+            }
+            applyVisibilityToDOM();
+            playShutterSound();
+        }
+
+        function toggleAllCategory(cat) {
+            if (cat === 'titles') {
+                const next = !componentVisibility.titlesAll;
+                componentVisibility.titlesAll = next;
+                componentVisibility.titleBn = next;
+                componentVisibility.titleEn = next;
+                componentVisibility.caption = next;
+                componentVisibility.badge = next;
+                componentVisibility.tagline = next;
+            } else if (cat === 'hud') {
+                const next = !(componentVisibility.hudData && componentVisibility.reticles);
+                componentVisibility.hudData = next;
+                componentVisibility.reticles = next;
+                componentVisibility.guides = next;
+            } else if (cat === 'fx') {
+                const next = !(componentVisibility.grain && componentVisibility.bloom);
+                componentVisibility.grain = next;
+                componentVisibility.vignette = next;
+                componentVisibility.bloom = next;
+                componentVisibility.lensBlur = next;
+            }
+            applyVisibilityToDOM();
+            playShutterSound();
+        }
+
+        function applyVisibilityPreset(preset) {
+            if (preset === 'director') {
+                componentVisibility.titlesAll = true;
+                componentVisibility.titleBn = true;
+                componentVisibility.titleEn = true;
+                componentVisibility.caption = true;
+                componentVisibility.badge = true;
+                componentVisibility.tagline = true;
+                componentVisibility.hudData = true;
+                componentVisibility.reticles = true;
+                componentVisibility.guides = false;
+                componentVisibility.grain = true;
+                componentVisibility.vignette = true;
+                componentVisibility.bloom = true;
+                componentVisibility.lensBlur = true;
+            } else if (preset === 'clean') {
+                componentVisibility.titlesAll = false;
+                componentVisibility.titleBn = false;
+                componentVisibility.titleEn = false;
+                componentVisibility.caption = false;
+                componentVisibility.badge = false;
+                componentVisibility.tagline = false;
+                componentVisibility.hudData = false;
+                componentVisibility.reticles = false;
+                componentVisibility.guides = false;
+                componentVisibility.grain = true;
+                componentVisibility.vignette = true;
+                componentVisibility.bloom = true;
+                componentVisibility.lensBlur = true;
+            } else if (preset === 'subtitles') {
+                componentVisibility.titlesAll = true;
+                componentVisibility.titleBn = false;
+                componentVisibility.titleEn = true;
+                componentVisibility.caption = true;
+                componentVisibility.badge = false;
+                componentVisibility.tagline = false;
+                componentVisibility.hudData = false;
+                componentVisibility.reticles = false;
+                componentVisibility.guides = false;
+                componentVisibility.grain = true;
+                componentVisibility.vignette = true;
+                componentVisibility.bloom = true;
+                componentVisibility.lensBlur = true;
+            } else if (preset === 'dp') {
+                componentVisibility.titlesAll = false;
+                componentVisibility.titleBn = false;
+                componentVisibility.titleEn = false;
+                componentVisibility.caption = false;
+                componentVisibility.badge = false;
+                componentVisibility.tagline = false;
+                componentVisibility.hudData = true;
+                componentVisibility.reticles = true;
+                componentVisibility.guides = true;
+                componentVisibility.grain = true;
+                componentVisibility.vignette = true;
+                componentVisibility.bloom = true;
+                componentVisibility.lensBlur = true;
+            } else if (preset === 'minimal') {
+                componentVisibility.titlesAll = true;
+                componentVisibility.titleBn = true;
+                componentVisibility.titleEn = false;
+                componentVisibility.caption = false;
+                componentVisibility.badge = false;
+                componentVisibility.tagline = false;
+                componentVisibility.hudData = false;
+                componentVisibility.reticles = false;
+                componentVisibility.guides = false;
+            }
+            applyVisibilityToDOM();
+            playShutterSound();
+        }
+
+        // Toggle Director Framing Guides
+        function toggleGuides() {
+            componentVisibility.guides = !componentVisibility.guides;
+            applyVisibilityToDOM();
+            playShutterSound();
+        }
+
+        // Dock Popover Menus Controllers
+        function closeAllDockMenus() {
+            document.querySelectorAll('.dock-popover-menu').forEach(m => m.classList.remove('open'));
+        }
+
+        function toggleTitlesMenu(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('dock-menu-titles');
+            const isOpen = menu.classList.contains('open');
+            closeAllDockMenus();
+            closeComponentMatrixPopover();
+            if (!isOpen) menu.classList.add('open');
+        }
+
+        function toggleHudMenu(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('dock-menu-hud');
+            const isOpen = menu.classList.contains('open');
+            closeAllDockMenus();
+            closeComponentMatrixPopover();
+            if (!isOpen) menu.classList.add('open');
+        }
+
+        function toggleOpticsMenu(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('dock-menu-optics');
+            const isOpen = menu.classList.contains('open');
+            closeAllDockMenus();
+            closeComponentMatrixPopover();
+            if (!isOpen) menu.classList.add('open');
+        }
+
+        function setTitlesMode(mode) {
+            if (mode === 'all') {
+                componentVisibility.titlesAll = true;
+                componentVisibility.titleBn = true;
+                componentVisibility.titleEn = true;
+                componentVisibility.caption = true;
+                componentVisibility.badge = true;
+                componentVisibility.tagline = true;
+            } else if (mode === 'bn-only') {
+                componentVisibility.titlesAll = true;
+                componentVisibility.titleBn = true;
+                componentVisibility.titleEn = false;
+                componentVisibility.caption = false;
+                componentVisibility.badge = false;
+                componentVisibility.tagline = false;
+            } else if (mode === 'sub-only') {
+                componentVisibility.titlesAll = true;
+                componentVisibility.titleBn = false;
+                componentVisibility.titleEn = true;
+                componentVisibility.caption = true;
+                componentVisibility.badge = false;
+                componentVisibility.tagline = false;
+            } else if (mode === 'off') {
+                componentVisibility.titlesAll = false;
+            }
+            applyVisibilityToDOM();
+            closeAllDockMenus();
+            playShutterSound();
+        }
+
+        function setHudMode(mode) {
+            if (mode === 'full') {
+                componentVisibility.hudData = true;
+                componentVisibility.reticles = true;
+                componentVisibility.guides = false;
+            } else if (mode === 'reticles') {
+                componentVisibility.hudData = false;
+                componentVisibility.reticles = true;
+                componentVisibility.guides = false;
+            } else if (mode === 'guides') {
+                componentVisibility.hudData = false;
+                componentVisibility.reticles = false;
+                componentVisibility.guides = true;
+            } else if (mode === 'off') {
+                componentVisibility.hudData = false;
+                componentVisibility.reticles = false;
+                componentVisibility.guides = false;
+            }
+            applyVisibilityToDOM();
+            closeAllDockMenus();
+            playShutterSound();
+        }
+
+        function setOpticsMode(mode) {
+            if (mode === 'all') {
+                componentVisibility.grain = true;
+                componentVisibility.vignette = true;
+                componentVisibility.bloom = true;
+                componentVisibility.lensBlur = true;
+            } else if (mode === 'bloom-dof') {
+                componentVisibility.grain = false;
+                componentVisibility.vignette = false;
+                componentVisibility.bloom = true;
+                componentVisibility.lensBlur = true;
+            } else if (mode === 'grain-only') {
+                componentVisibility.grain = true;
+                componentVisibility.vignette = false;
+                componentVisibility.bloom = false;
+                componentVisibility.lensBlur = false;
+            } else if (mode === 'off') {
+                componentVisibility.grain = false;
+                componentVisibility.vignette = false;
+                componentVisibility.bloom = false;
+                componentVisibility.lensBlur = false;
+            }
+            applyVisibilityToDOM();
+            closeAllDockMenus();
+            playShutterSound();
+        }
+
+        function updateDockMenuIndicators() {
+            const lblTitles = document.getElementById('label-dock-titles');
+            if (lblTitles) {
+                if (!componentVisibility.titlesAll) {
+                    lblTitles.textContent = 'TITLES: OFF';
+                } else if (componentVisibility.titleBn && !componentVisibility.caption && !componentVisibility.titleEn) {
+                    lblTitles.textContent = 'TITLES: বাংলা';
+                } else if (!componentVisibility.titleBn && (componentVisibility.caption || componentVisibility.titleEn)) {
+                    lblTitles.textContent = 'TITLES: SUB';
+                } else {
+                    lblTitles.textContent = 'TITLES: ALL';
+                }
+            }
+
+            const lblHud = document.getElementById('label-dock-hud');
+            if (lblHud) {
+                if (componentVisibility.hudData && componentVisibility.reticles) {
+                    lblHud.textContent = 'HUD: RAW';
+                } else if (componentVisibility.reticles) {
+                    lblHud.textContent = 'HUD: RETICLE';
+                } else if (componentVisibility.guides) {
+                    lblHud.textContent = 'HUD: GUIDES';
+                } else {
+                    lblHud.textContent = 'HUD: OFF';
+                }
+            }
+
+            const lblOptics = document.getElementById('label-dock-optics');
+            if (lblOptics) {
+                if (componentVisibility.grain && componentVisibility.bloom) {
+                    lblOptics.textContent = 'OPTICS: ALL';
+                } else if (componentVisibility.bloom || componentVisibility.lensBlur) {
+                    lblOptics.textContent = 'OPTICS: LENS';
+                } else if (componentVisibility.grain) {
+                    lblOptics.textContent = 'OPTICS: 35MM';
+                } else {
+                    lblOptics.textContent = 'OPTICS: RAW';
+                }
+            }
+
+            const tAll = document.getElementById('opt-titles-all');
+            const tBn = document.getElementById('opt-titles-bn');
+            const tSub = document.getElementById('opt-titles-sub');
+            const tOff = document.getElementById('opt-titles-off');
+            if (tAll) tAll.classList.toggle('active', componentVisibility.titlesAll && componentVisibility.titleBn && componentVisibility.caption);
+            if (tBn) tBn.classList.toggle('active', componentVisibility.titlesAll && componentVisibility.titleBn && !componentVisibility.caption && !componentVisibility.titleEn);
+            if (tSub) tSub.classList.toggle('active', componentVisibility.titlesAll && !componentVisibility.titleBn && (componentVisibility.caption || componentVisibility.titleEn));
+            if (tOff) tOff.classList.toggle('active', !componentVisibility.titlesAll);
+
+            const hFull = document.getElementById('opt-hud-full');
+            const hRet = document.getElementById('opt-hud-reticles');
+            const hGui = document.getElementById('opt-hud-guides');
+            const hOff = document.getElementById('opt-hud-off');
+            if (hFull) hFull.classList.toggle('active', componentVisibility.hudData && componentVisibility.reticles);
+            if (hRet) hRet.classList.toggle('active', !componentVisibility.hudData && componentVisibility.reticles);
+            if (hGui) hGui.classList.toggle('active', componentVisibility.guides);
+            if (hOff) hOff.classList.toggle('active', !componentVisibility.hudData && !componentVisibility.reticles && !componentVisibility.guides);
+
+            const oAll = document.getElementById('opt-optics-all');
+            const oBloom = document.getElementById('opt-optics-bloom');
+            const oGrn = document.getElementById('opt-optics-grain');
+            const oOff = document.getElementById('opt-optics-off');
+            if (oAll) oAll.classList.toggle('active', componentVisibility.grain && componentVisibility.bloom && componentVisibility.lensBlur);
+            if (oBloom) oBloom.classList.toggle('active', !componentVisibility.grain && componentVisibility.bloom);
+            if (oGrn) oGrn.classList.toggle('active', componentVisibility.grain && !componentVisibility.bloom);
+            if (oOff) oOff.classList.toggle('active', !componentVisibility.grain && !componentVisibility.bloom && !componentVisibility.lensBlur);
+        }
+
+        function toggleComponentMatrixPopover(e) {
+            if (e) e.stopPropagation();
+            const popover = document.getElementById('component-matrix-popover');
+            const isOpen = popover.classList.contains('open');
+            closeAllDockMenus();
+            if (isOpen) {
+                closeComponentMatrixPopover();
+            } else {
+                popover.classList.add('open');
+                document.getElementById('btn-comp-matrix').classList.add('active');
+            }
+        }
+
+        function closeComponentMatrixPopover() {
+            const popover = document.getElementById('component-matrix-popover');
+            if (popover) popover.classList.remove('open');
+            const btn = document.getElementById('btn-comp-matrix');
+            if (btn) btn.classList.remove('active');
+        }
+
+        let isZenMode = false;
+        function toggleZenMode() {
+            isZenMode = !isZenMode;
+            document.body.classList.toggle('zen-cinema-mode', isZenMode);
+            const btnZen = document.getElementById('btn-zen');
+            if (btnZen) {
+                btnZen.style.color = isZenMode ? 'var(--gold)' : '#ddd';
+            }
+            closeAllDockMenus();
+            closeComponentMatrixPopover();
+            playShutterSound();
         }
 
         // Capture Still Frame (High-Res PNG with Bangla & English Typography)
@@ -1940,8 +3461,430 @@ git push -u origin main</div>
             URL.revokeObjectURL(url);
         }
 
+        function setupFramePanningListeners() {
+            // Drag on stage gallery to pan vertically
+            gallery.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                if (e.target.closest('button, input, select, .drop-prompt, .bengali-caption, .main-bengali-title')) return;
+                isDraggingPan = true;
+                panStartY = e.clientY;
+                panStartOffset = framePanOffsets[currentActiveFrameIndex] || 50;
+                document.body.style.cursor = 'ns-resize';
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDraggingPan) return;
+                const deltaY = e.clientY - panStartY;
+                const newOffset = panStartOffset - (deltaY * 0.25);
+                setFramePan(currentActiveFrameIndex, newOffset, true);
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDraggingPan) {
+                    isDraggingPan = false;
+                    document.body.style.cursor = '';
+                }
+            });
+
+            // Double click resets to 50%
+            gallery.addEventListener('dblclick', (e) => {
+                if (e.target.closest('button, input, select, .drop-prompt')) return;
+                setFramePan(currentActiveFrameIndex, 50, true);
+                playShutterSound();
+            });
+
+            // Touch support for vertical pan
+            let touchPanStartY = 0;
+            let isTouchPanning = false;
+            gallery.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1 && !e.target.closest('button, input, select, .drop-prompt')) {
+                    touchPanStartY = e.touches[0].clientY;
+                    panStartOffset = framePanOffsets[currentActiveFrameIndex] || 50;
+                    isTouchPanning = true;
+                }
+            }, { passive: true });
+
+            gallery.addEventListener('touchmove', (e) => {
+                if (!isTouchPanning || e.touches.length !== 1) return;
+                const deltaY = e.touches[0].clientY - touchPanStartY;
+                if (Math.abs(deltaY) > 8) {
+                    const newOffset = panStartOffset - (deltaY * 0.25);
+                    setFramePan(currentActiveFrameIndex, newOffset, true);
+                }
+            }, { passive: true });
+
+            gallery.addEventListener('touchend', () => {
+                isTouchPanning = false;
+            }, { passive: true });
+        }
+
+        // ==========================================
+        // CANVAS LIQUIFY & MESH WARP ENGINE
+        // ==========================================
+        let liquifyCanvas = null;
+        let liquifyCtx = null;
+        let liquifyTool = 'push';
+        let brushRadius = 65;
+        let brushStrength = 0.35;
+        let isShowMesh = false;
+        let isWarpDragging = false;
+        let lastWarpX = 0;
+        let lastWarpY = 0;
+        let liquifyUndoStack = [];
+        let originalImageData = null;
+        let currentWarpImageData = null;
+        let liquifyTargetFrame = 0;
+
+        function openLiquifyModal() {
+            liquifyTargetFrame = currentActiveFrameIndex;
+            const targetLabel = document.getElementById('liquify-frame-target-label');
+            const frameNum = String(liquifyTargetFrame + 1).padStart(3, '0');
+            const bnNum = toBengaliNumerals(frameNum);
+            if (targetLabel) {
+                targetLabel.textContent = `EDITING ACTIVE FRAME #EP ${frameNum} // পর্ব ${bnNum} — REAL-TIME DISPLACEMENT RETOUCHING`;
+            }
+            openModal('modal-liquify');
+            initLiquifyCanvas();
+        }
+
+        function initLiquifyCanvas() {
+            liquifyCanvas = document.getElementById('liquify-canvas');
+            if (!liquifyCanvas) return;
+            liquifyCtx = liquifyCanvas.getContext('2d', { willReadFrequently: true });
+            const frame = document.getElementById('frame-' + liquifyTargetFrame);
+            const vid = frame ? frame.querySelector('video') : null;
+            const bgImg = frame ? frame.style.getPropertyValue('--bg-img') : '';
+
+            liquifyCanvas.width = 1280;
+            liquifyCanvas.height = 720;
+
+            const finishInitCanvas = () => {
+                originalImageData = liquifyCtx.getImageData(0, 0, liquifyCanvas.width, liquifyCanvas.height);
+                currentWarpImageData = liquifyCtx.getImageData(0, 0, liquifyCanvas.width, liquifyCanvas.height);
+                liquifyUndoStack = [new ImageData(new Uint8ClampedArray(originalImageData.data), originalImageData.width, originalImageData.height)];
+                renderWarpCanvas();
+            };
+
+            const drawFallback = () => {
+                const sampleImg = sampleCinemaImages[liquifyTargetFrame % sampleCinemaImages.length];
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    liquifyCtx.drawImage(img, 0, 0, liquifyCanvas.width, liquifyCanvas.height);
+                    finishInitCanvas();
+                };
+                img.onerror = () => {
+                    liquifyCtx.fillStyle = '#111';
+                    liquifyCtx.fillRect(0, 0, liquifyCanvas.width, liquifyCanvas.height);
+                    liquifyCtx.fillStyle = '#ffe066';
+                    liquifyCtx.font = 'bold 36px Cinzel';
+                    liquifyCtx.textAlign = 'center';
+                    liquifyCtx.fillText("RAWx CINEMA FRAME", liquifyCanvas.width / 2, liquifyCanvas.height / 2);
+                    finishInitCanvas();
+                };
+                img.src = sampleImg;
+            };
+
+            if (vid && vid.readyState >= 2) {
+                liquifyCtx.drawImage(vid, 0, 0, liquifyCanvas.width, liquifyCanvas.height);
+                finishInitCanvas();
+            } else if (bgImg && bgImg !== 'none') {
+                const cleanUrl = bgImg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    liquifyCtx.drawImage(img, 0, 0, liquifyCanvas.width, liquifyCanvas.height);
+                    finishInitCanvas();
+                };
+                img.onerror = () => {
+                    drawFallback();
+                };
+                img.src = cleanUrl;
+            } else {
+                drawFallback();
+            }
+
+            setupLiquifyCanvasInteractions();
+        }
+
+        function setWarpTool(tool) {
+            liquifyTool = tool;
+            document.querySelectorAll('.warp-tool-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.getElementById('tool-warp-' + tool);
+            if (activeBtn) activeBtn.classList.add('active');
+            playShutterSound();
+        }
+
+        function updateBrushParams() {
+            const radSlider = document.getElementById('slider-brush-radius');
+            const strSlider = document.getElementById('slider-brush-strength');
+            if (radSlider) {
+                brushRadius = parseInt(radSlider.value);
+                document.getElementById('label-brush-radius').textContent = brushRadius + 'px';
+            }
+            if (strSlider) {
+                brushStrength = parseInt(strSlider.value) / 100;
+                document.getElementById('label-brush-strength').textContent = Math.round(brushStrength * 100) + '%';
+            }
+        }
+
+        function toggleMeshWireframe() {
+            isShowMesh = !isShowMesh;
+            const btn = document.getElementById('btn-toggle-mesh');
+            const lbl = document.getElementById('label-mesh-state');
+            if (btn) btn.classList.toggle('active', isShowMesh);
+            if (lbl) lbl.textContent = isShowMesh ? 'ON' : 'OFF';
+            renderWarpCanvas();
+            playShutterSound();
+        }
+
+        let isWarpInteractionsAttached = false;
+        function setupLiquifyCanvasInteractions() {
+            if (isWarpInteractionsAttached) return;
+            isWarpInteractionsAttached = true;
+
+            const wrap = document.getElementById('liquify-canvas-wrap');
+            const brushCursor = document.getElementById('liquify-cursor-brush');
+
+            const getCanvasCoords = (e) => {
+                const rect = liquifyCanvas.getBoundingClientRect();
+                const scaleX = liquifyCanvas.width / rect.width;
+                const scaleY = liquifyCanvas.height / rect.height;
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                return {
+                    x: (clientX - rect.left) * scaleX,
+                    y: (clientY - rect.top) * scaleY,
+                    viewX: clientX - wrap.getBoundingClientRect().left,
+                    viewY: clientY - wrap.getBoundingClientRect().top,
+                    viewRadius: brushRadius * (rect.width / liquifyCanvas.width)
+                };
+            };
+
+            wrap.addEventListener('mousemove', (e) => {
+                if (!liquifyCanvas) return;
+                const coords = getCanvasCoords(e);
+                if (brushCursor) {
+                    brushCursor.style.display = 'block';
+                    brushCursor.style.left = coords.viewX + 'px';
+                    brushCursor.style.top = coords.viewY + 'px';
+                    brushCursor.style.width = (coords.viewRadius * 2) + 'px';
+                    brushCursor.style.height = (coords.viewRadius * 2) + 'px';
+                }
+                if (isWarpDragging) {
+                    applyWarpStroke(coords.x, coords.y);
+                    lastWarpX = coords.x;
+                    lastWarpY = coords.y;
+                }
+            });
+
+            wrap.addEventListener('mouseleave', () => {
+                if (brushCursor) brushCursor.style.display = 'none';
+                if (isWarpDragging) isWarpDragging = false;
+            });
+
+            wrap.addEventListener('mousedown', (e) => {
+                if (e.button !== 0 || !currentWarpImageData) return;
+                isWarpDragging = true;
+                const coords = getCanvasCoords(e);
+                lastWarpX = coords.x;
+                lastWarpY = coords.y;
+                if (liquifyUndoStack.length > 15) liquifyUndoStack.shift();
+                liquifyUndoStack.push(new ImageData(new Uint8ClampedArray(currentWarpImageData.data), currentWarpImageData.width, currentWarpImageData.height));
+            });
+
+            window.addEventListener('mouseup', () => {
+                isWarpDragging = false;
+            });
+
+            wrap.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1 && currentWarpImageData) {
+                    isWarpDragging = true;
+                    const coords = getCanvasCoords(e);
+                    lastWarpX = coords.x;
+                    lastWarpY = coords.y;
+                    if (liquifyUndoStack.length > 15) liquifyUndoStack.shift();
+                    liquifyUndoStack.push(new ImageData(new Uint8ClampedArray(currentWarpImageData.data), currentWarpImageData.width, currentWarpImageData.height));
+                }
+            }, { passive: true });
+
+            wrap.addEventListener('touchmove', (e) => {
+                if (isWarpDragging && e.touches.length === 1) {
+                    const coords = getCanvasCoords(e);
+                    applyWarpStroke(coords.x, coords.y);
+                    lastWarpX = coords.x;
+                    lastWarpY = coords.y;
+                }
+            }, { passive: true });
+
+            wrap.addEventListener('touchend', () => {
+                isWarpDragging = false;
+            }, { passive: true });
+        }
+
+        function applyWarpStroke(curX, curY) {
+            if (!currentWarpImageData) return;
+            const w = currentWarpImageData.width;
+            const h = currentWarpImageData.height;
+            const srcData = currentWarpImageData.data;
+            const dst = new Uint8ClampedArray(srcData);
+
+            const dx = (curX - lastWarpX);
+            const dy = (curY - lastWarpY);
+            const distMoved = Math.sqrt(dx * dx + dy * dy);
+            if (distMoved === 0 && liquifyTool === 'push') return;
+
+            const r = brushRadius;
+            const rSq = r * r;
+            const minX = Math.max(0, Math.floor(curX - r));
+            const maxX = Math.min(w - 1, Math.ceil(curX + r));
+            const minY = Math.max(0, Math.floor(curY - r));
+            const maxY = Math.min(h - 1, Math.ceil(curY + r));
+
+            for (let py = minY; py <= maxY; py++) {
+                for (let px = minX; px <= maxX; px++) {
+                    const offX = px - curX;
+                    const offY = py - curY;
+                    const dSq = offX * offX + offY * offY;
+                    if (dSq >= rSq) continue;
+
+                    const d = Math.sqrt(dSq);
+                    const norm = 1 - (dSq / rSq);
+                    const falloff = norm * norm;
+                    const factor = falloff * brushStrength;
+
+                    let sampleX = px;
+                    let sampleY = py;
+
+                    if (liquifyTool === 'push') {
+                        sampleX = px - dx * factor;
+                        sampleY = py - dy * factor;
+                    } else if (liquifyTool === 'bloat') {
+                        sampleX = px - (offX / (d + 0.001)) * factor * 14;
+                        sampleY = py - (offY / (d + 0.001)) * factor * 14;
+                    } else if (liquifyTool === 'pinch') {
+                        sampleX = px + (offX / (d + 0.001)) * factor * 14;
+                        sampleY = py + (offY / (d + 0.001)) * factor * 14;
+                    } else if (liquifyTool === 'restore') {
+                        if (originalImageData) {
+                            const pIdx = (py * w + px) * 4;
+                            const orig = originalImageData.data;
+                            const blend = factor;
+                            dst[pIdx] = Math.round(srcData[pIdx] * (1 - blend) + orig[pIdx] * blend);
+                            dst[pIdx + 1] = Math.round(srcData[pIdx + 1] * (1 - blend) + orig[pIdx + 1] * blend);
+                            dst[pIdx + 2] = Math.round(srcData[pIdx + 2] * (1 - blend) + orig[pIdx + 2] * blend);
+                            dst[pIdx + 3] = 255;
+                            continue;
+                        }
+                    }
+
+                    const x0 = Math.max(0, Math.min(w - 1, Math.floor(sampleX)));
+                    const x1 = Math.max(0, Math.min(w - 1, x0 + 1));
+                    const y0 = Math.max(0, Math.min(h - 1, Math.floor(sampleY)));
+                    const y1 = Math.max(0, Math.min(h - 1, y0 + 1));
+                    const fx = sampleX - Math.floor(sampleX);
+                    const fy = sampleY - Math.floor(sampleY);
+
+                    const i00 = (y0 * w + x0) * 4;
+                    const i10 = (y0 * w + x1) * 4;
+                    const i01 = (y1 * w + x0) * 4;
+                    const i11 = (y1 * w + x1) * 4;
+                    const destIdx = (py * w + px) * 4;
+
+                    for (let c = 0; c < 3; c++) {
+                        const top = srcData[i00 + c] * (1 - fx) + srcData[i10 + c] * fx;
+                        const bot = srcData[i01 + c] * (1 - fx) + srcData[i11 + c] * fx;
+                        dst[destIdx + c] = Math.round(top * (1 - fy) + bot * fy);
+                    }
+                    dst[destIdx + 3] = 255;
+                }
+            }
+
+            currentWarpImageData.data.set(dst);
+            renderWarpCanvas();
+        }
+
+        function renderWarpCanvas() {
+            if (!liquifyCtx || !currentWarpImageData) return;
+            liquifyCtx.putImageData(currentWarpImageData, 0, 0);
+
+            if (isShowMesh) {
+                liquifyCtx.save();
+                liquifyCtx.strokeStyle = 'rgba(212, 175, 55, 0.45)';
+                liquifyCtx.lineWidth = 1;
+                const gridSize = 40;
+                for (let x = 0; x < liquifyCanvas.width; x += gridSize) {
+                    liquifyCtx.beginPath();
+                    liquifyCtx.moveTo(x, 0);
+                    liquifyCtx.lineTo(x, liquifyCanvas.height);
+                    liquifyCtx.stroke();
+                }
+                for (let y = 0; y < liquifyCanvas.height; y += gridSize) {
+                    liquifyCtx.beginPath();
+                    liquifyCtx.moveTo(0, y);
+                    liquifyCtx.lineTo(liquifyCanvas.width, y);
+                    liquifyCtx.stroke();
+                }
+                liquifyCtx.restore();
+            }
+        }
+
+        function undoLiquifyStroke() {
+            if (liquifyUndoStack.length > 1) {
+                currentWarpImageData = liquifyUndoStack.pop();
+                renderWarpCanvas();
+                playShutterSound();
+            }
+        }
+
+        function resetLiquifyOriginal() {
+            if (originalImageData) {
+                currentWarpImageData = new ImageData(new Uint8ClampedArray(originalImageData.data), originalImageData.width, originalImageData.height);
+                liquifyUndoStack = [new ImageData(new Uint8ClampedArray(originalImageData.data), originalImageData.width, originalImageData.height)];
+                renderWarpCanvas();
+                playShutterSound();
+            }
+        }
+
+        function setLiquifyFraming(aspect) {
+            document.querySelectorAll('.warp-ratio-chip').forEach(c => c.classList.remove('active'));
+            const chipId = 'chip-ratio-' + aspect.replace(':', '-').replace('.', '');
+            const activeChip = document.getElementById(chipId);
+            if (activeChip) activeChip.classList.add('active');
+
+            if (aspect === '16:9') liquifyCanvas.style.aspectRatio = '16 / 9';
+            else if (aspect === '1:1') liquifyCanvas.style.aspectRatio = '1 / 1';
+            else if (aspect === '4:5') liquifyCanvas.style.aspectRatio = '4 / 5';
+            else if (aspect === '2.39:1') liquifyCanvas.style.aspectRatio = '2.39 / 1';
+            else if (aspect === '9:16') liquifyCanvas.style.aspectRatio = '9 / 16';
+        }
+
+        function applyLiquifyToCurrentFrame() {
+            if (!liquifyCanvas) return;
+            const dataUrl = liquifyCanvas.toDataURL('image/jpeg', 0.95);
+            applyMediaToFrame(liquifyTargetFrame, dataUrl, false);
+            RawxVaultDB.saveFrameState(liquifyTargetFrame, {
+                mediaData: dataUrl,
+                isVideo: false,
+                liquifyApplied: true
+            });
+            closeModal('modal-liquify');
+            playShutterSound();
+        }
+
+        function exportLiquifyCanvasPNG() {
+            if (!liquifyCanvas) return;
+            const link = document.createElement('a');
+            link.download = `RAWx_Warp_Frame_${String(liquifyTargetFrame + 1).padStart(3, '0')}.png`;
+            link.href = liquifyCanvas.toDataURL('image/png');
+            link.click();
+        }
+
         // Keyboard Controls
         window.addEventListener('keydown', (e) => {
+            // Ignore if active in input/select
+            if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
             switch (e.key) {
                 case 'ArrowRight':
                 case 'l':
@@ -1964,6 +3907,61 @@ git push -u origin main</div>
                 case 'C':
                     toggleGuides();
                     break;
+                case 'p':
+                case 'P':
+                    togglePanTool();
+                    break;
+                case 'w':
+                case 'W':
+                    openLiquifyModal();
+                    break;
+                case 't':
+                case 'T':
+                    // Cycle titles: All -> Bangla Only -> Subtitles Only -> Off
+                    if (!componentVisibility.titlesAll) {
+                        setTitlesMode('all');
+                    } else if (componentVisibility.titleBn && componentVisibility.caption) {
+                        setTitlesMode('bn-only');
+                    } else if (componentVisibility.titleBn && !componentVisibility.caption) {
+                        setTitlesMode('sub-only');
+                    } else {
+                        setTitlesMode('off');
+                    }
+                    break;
+                case 'h':
+                case 'H':
+                    // Cycle HUD: Full -> Reticles -> Guides -> Off
+                    if (componentVisibility.hudData && componentVisibility.reticles) {
+                        setHudMode('reticles');
+                    } else if (componentVisibility.reticles) {
+                        setHudMode('guides');
+                    } else if (componentVisibility.guides) {
+                        setHudMode('off');
+                    } else {
+                        setHudMode('full');
+                    }
+                    break;
+                case 'x':
+                case 'X':
+                    // Cycle Optics: All -> Bloom/Lens -> 35mm Grain -> Off
+                    if (componentVisibility.grain && componentVisibility.bloom) {
+                        setOpticsMode('bloom-dof');
+                    } else if (componentVisibility.bloom) {
+                        setOpticsMode('grain-only');
+                    } else if (componentVisibility.grain) {
+                        setOpticsMode('off');
+                    } else {
+                        setOpticsMode('all');
+                    }
+                    break;
+                case 'v':
+                case 'V':
+                    toggleComponentMatrixPopover();
+                    break;
+                case 'z':
+                case 'Z':
+                    toggleZenMode();
+                    break;
                 case 's':
                 case 'S':
                     captureStillFrame();
@@ -1979,11 +3977,42 @@ git push -u origin main</div>
                     toggleAudio();
                     break;
                 case 'Escape':
+                    if (isZenMode) {
+                        toggleZenMode();
+                        break;
+                    }
+                    closeComponentMatrixPopover();
+                    closeAllDockMenus();
                     closeModal('modal-grid');
                     closeModal('modal-export');
+                    closeModal('modal-liquify');
                     break;
             }
         });
+
+        // Outside Click Listener to close Popover Menus
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('#component-matrix-popover') && !e.target.closest('#btn-comp-matrix')) {
+                closeComponentMatrixPopover();
+            }
+            if (!e.target.closest('.dock-menu-container')) {
+                closeAllDockMenus();
+            }
+        });
+
+        // Initialize visibility and vault state on page load
+        const initPageVault = async () => {
+            applyVisibilityToDOM();
+            setupFramePanningListeners();
+            await RawxVaultDB.init();
+            await RawxVaultDB.restoreVault();
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPageVault);
+        } else {
+            initPageVault();
+        }
 
         // Touch Swipe
         let touchStartX = 0;

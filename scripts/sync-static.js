@@ -20,14 +20,21 @@ if (fs.existsSync(distAssets)) {
   console.log('[SYNC] Successfully mirrored dist/assets -> ./assets');
 }
 
-// 2. Sync dist/index.html to docs/index.html for GitHub Pages "docs" folder mode
+// 2. Sync dist/index.html and dist/assets to docs/ for GitHub Pages "docs" folder mode
 if (fs.existsSync(distHtml)) {
   const docsDir = path.join(rootDir, 'docs');
+  const docsAssets = path.join(docsDir, 'assets');
   if (!fs.existsSync(docsDir)) {
     fs.mkdirSync(docsDir, { recursive: true });
   }
   fs.copyFileSync(distHtml, docsHtml);
-  console.log('[SYNC] Successfully mirrored dist/index.html -> ./docs/index.html');
+  if (!fs.existsSync(docsAssets)) {
+    fs.mkdirSync(docsAssets, { recursive: true });
+  }
+  if (fs.existsSync(distAssets)) {
+    fs.cpSync(distAssets, docsAssets, { recursive: true });
+  }
+  console.log('[SYNC] Successfully mirrored dist/index.html and dist/assets -> ./docs');
 }
 
 // 3. Ensure CNAME and .nojekyll in dist

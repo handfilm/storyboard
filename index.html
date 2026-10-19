@@ -43,6 +43,28 @@
             overflow: hidden;
         }
     </style>
+    <script>
+      // Fallback for static hosting if root index.html is served directly on GitHub Pages without Vite dev server
+      window.addEventListener('error', function(event) {
+        if (event && event.target && event.target.tagName === 'SCRIPT' && event.target.src && event.target.src.indexOf('main.tsx') !== -1) {
+          if (!document.getElementById('rawx-fallback-bundle')) {
+            console.warn('[RAWx] Static deployment detected without Vite dev server. Loading compiled bundle ./assets/index.js');
+            var css = document.createElement('link');
+            css.rel = 'stylesheet';
+            css.crossOrigin = 'anonymous';
+            css.href = './assets/index.css';
+            document.head.appendChild(css);
+
+            var js = document.createElement('script');
+            js.id = 'rawx-fallback-bundle';
+            js.type = 'module';
+            js.crossOrigin = 'anonymous';
+            js.src = './assets/index.js';
+            document.body.appendChild(js);
+          }
+        }
+      }, true);
+    </script>
 </head>
 <body>
     <div id="root"></div>

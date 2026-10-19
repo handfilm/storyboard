@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@600;700;800&family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@100;300;400;500;600;700&family=Noto+Serif+Bengali:wght@500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./assets/index.css" id="compiled-theme">
     <style>
         :root {
             --ease-hypersonic: cubic-bezier(0.16, 1, 0.3, 1);
@@ -46,6 +47,32 @@
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+        // Safe runner for both local Vite development and static GitHub Pages
+        const isVite = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' || 
+                       window.location.port === '3000' ||
+                       window.location.hostname.endsWith('.run.app');
+
+        if (isVite) {
+            import('/src/main.tsx').catch(function(err) {
+                console.warn('[RAWx] Vite module import failed; loading production bundle:', err);
+                loadBundle();
+            });
+        } else {
+            loadBundle();
+        }
+
+        function loadBundle() {
+            if (!document.getElementById('compiled-bundle-js')) {
+                const s = document.createElement('script');
+                s.id = 'compiled-bundle-js';
+                s.type = 'module';
+                s.crossOrigin = 'anonymous';
+                s.src = './assets/index.js';
+                document.body.appendChild(s);
+            }
+        }
+    </script>
 </body>
 </html>

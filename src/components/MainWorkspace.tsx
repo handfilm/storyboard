@@ -27,6 +27,7 @@ interface MainWorkspaceProps {
   activeMode: WorkspaceMode;
   activeModule?: StudioModuleId;
   onReturnToStage?: () => void;
+  onToggleTitles?: () => void;
   currentFrame: AnthologyFrame;
   frames: AnthologyFrame[];
   currentIndex: number;
@@ -61,6 +62,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   activeMode,
   activeModule,
   onReturnToStage,
+  onToggleTitles,
   currentFrame,
   frames,
   currentIndex,
@@ -189,6 +191,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         onOpenSettings={onOpenSettings}
         titleAnimation={titleAnimation}
         onCycleTitleAnimation={onCycleTitleAnimation}
+        onToggleTitles={onToggleTitles}
       />
 
       {/* Floating Left & Right Navigation Arrows */}

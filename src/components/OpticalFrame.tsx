@@ -39,6 +39,7 @@ import {
   Cpu,
   Film,
   Disc,
+  Type,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -67,7 +68,93 @@ interface OpticalFrameProps {
   titleAnimation?: TitleAnimationStyle;
   onSelectTitleAnimation?: (anim: TitleAnimationStyle) => void;
   onCycleTitleAnimation?: () => void;
+  onToggleTitles?: () => void;
 }
+
+// Real-Time Optical Physics & Depth of Field (DOF) Calculator
+const calculateRealtimeDOF = (
+  focalLengthStr: string,
+  apertureStr: string,
+  subjectDistMeters: number = 1.8,
+  sensorWidthMm: number = 36.0,
+  sensorHeightMm: number = 24.0
+) => {
+  const fMatch = focalLengthStr.match(/(\d+(\.\d+)?)/);
+  const f = fMatch ? parseFloat(fMatch[1]) : 35; // mm
+
+  const aMatch = apertureStr.match(/(\d+(\.\d+)?)/);
+  const N = aMatch ? parseFloat(aMatch[1]) : 1.4; // f-number
+
+  // Circle of confusion for cinema full-frame 36x24mm (0.018mm standard)
+  const c = 0.018; // mm
+  const s = subjectDistMeters * 1000; // mm
+
+  // Hyperfocal distance H = (f^2 / (N * c)) + f in mm
+  const H = (f * f) / (N * c) + f;
+  const H_meters = H / 1000;
+
+  // Near focus limit Dn = s * (H - f) / (H + s - 2f)
+  const Dn_mm = (s * (H - f)) / (H + s - 2 * f);
+  const Dn_meters = Math.max(0.1, Dn_mm / 1000);
+
+  // Far focus limit Df = s * (H - f) / (H - s)
+  let Df_meters = Infinity;
+  let isInfinity = false;
+  if (s >= (H - f)) {
+    Df_meters = Infinity;
+    isInfinity = true;
+  } else {
+    const Df_mm = (s * (H - f)) / (H - s);
+    Df_meters = Df_mm / 1000;
+  }
+
+  // Total Depth of Field delta = Df - Dn
+  let dofFormatted = '';
+  let dofMm = 0;
+  if (isInfinity) {
+    dofFormatted = 'INFINITE (Hyperfocal to ∞)';
+  } else {
+    dofMm = (Df_meters - Dn_meters) * 1000;
+    if (dofMm < 10) {
+      dofFormatted = `${dofMm.toFixed(1)} mm Razor Slice`;
+    } else if (dofMm < 100) {
+      dofFormatted = `${(dofMm / 10).toFixed(1)} cm Thin Volume`;
+    } else {
+      dofFormatted = `${(dofMm / 1000).toFixed(2)} m Total Depth`;
+    }
+  }
+
+  // Entrance pupil diameter = f / N
+  const pupilDiameterMm = f / N;
+
+  // Horizontal and Vertical Field of View in degrees
+  const hFov = 2 * Math.atan(sensorWidthMm / (2 * f)) * (180 / Math.PI);
+  const vFov = 2 * Math.atan(sensorHeightMm / (2 * f)) * (180 / Math.PI);
+
+  // Airy disk diffraction diameter ~ 1.342 * N um
+  const airyDiskUm = 1.342 * N;
+
+  // Magnification m = f / (s - f)
+  const magnification = (s > f) ? (f / (s - f)) : 0.05;
+
+  return {
+    f,
+    N,
+    c,
+    subjectDistMeters,
+    H_meters,
+    Dn_meters,
+    Df_meters,
+    isInfinity,
+    dofFormatted,
+    dofMm,
+    pupilDiameterMm,
+    hFov,
+    vFov,
+    airyDiskUm,
+    magnification
+  };
+};
 
 export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   frame,
@@ -92,7 +179,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   onOpenSettings,
   titleAnimation,
   onSelectTitleAnimation,
-  onCycleTitleAnimation
+  onCycleTitleAnimation,
+  onToggleTitles
 }) => {
   const safeFrame: AnthologyFrame = frame || generateInitialFrames()[0];
   const [localAnimStyle, setLocalAnimStyle] = useState<TitleAnimationStyle>(

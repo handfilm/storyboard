@@ -16,6 +16,7 @@ import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
 import { calculateShotTimecode } from '../utils/timecode';
 import { generateInitialFrames } from '../data/frames';
+import { TechnicalJargonOverlay } from './TechnicalJargonOverlay';
 import { 
   Upload, 
   Image as ImageIcon, 
@@ -227,6 +228,10 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   const [activeCorner, setActiveCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
   const [pinnedCorner, setPinnedCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
 
+  // Technical Jargon Real-Time Overlay State (Appears in corners on stage hover)
+  const [isStageHovered, setIsStageHovered] = useState(false);
+  const [isJargonPinned, setIsJargonPinned] = useState(false);
+
   // Center Telemetry & Animation Dock State (Clean stage by default)
   const [isCenterHovered, setIsCenterHovered] = useState(false);
   const [isCenterPinned, setIsCenterPinned] = useState(false);
@@ -404,7 +409,11 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
       <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={() => setIsStageHovered(true)}
+        onMouseLeave={() => {
+          setIsStageHovered(false);
+          handleMouseLeave();
+        }}
         onMouseDown={handlePanMouseDown}
         onTouchStart={handlePanTouchStart}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -414,7 +423,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           transform: `perspective(1000px) rotateX(${-mousePos.y * 0.35}deg) rotateY(${mousePos.x * 0.35}deg)`,
           transition: isPanningDrag ? 'none' : 'transform 0.4s var(--ease-hypersonic)'
         }}
-        className={`relative ${getAspectRatioClasses()} bg-[#060608] border border-white/10 rounded-[2px] shadow-[0_20px_70px_rgba(0,0,0,0.95)] overflow-hidden transition-all ${
+        className={`relative ${getAspectRatioClasses()} bg-[#060608] border border-white/10 rounded-[2px] shadow-[0_20px_70px_rgba(0,0,0,0.95)] overflow-hidden transition-all group ${
           isPanActive ? 'cursor-ns-resize ring-1 ring-[#D4AF37]/50' : ''
         }`}
       >
@@ -576,6 +585,21 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
             </div>
           </div>
         )}
+
+        {/* Real-Time 'technical-jargon' overlay appearing in Stage corners on hover */}
+        <TechnicalJargonOverlay
+          focalLength={safeCamera.focalLength || '35mm'}
+          aperture={safeCamera.aperture || 'T1.2'}
+          lensName={safeFrame.activeLens || safeCamera.format || 'Zeiss Supreme Prime 35mm T1.5'}
+          aspectRatio={aspectRatio}
+          shotNumber={safeFrame.epNumber}
+          timecode={calculateShotTimecode(safeFrame.id, 60, 24).start}
+          isStageHovered={isStageHovered}
+          isPinned={isJargonPinned}
+          onTogglePin={() => setIsJargonPinned(p => !p)}
+          showTitles={showMasterTitles}
+          onToggleTitles={onToggleTitles}
+        />
 
         {/* Video Transport Controls Bar */}
         {hasPhoto && isVideo && (
@@ -1394,16 +1418,30 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           </div>
         )}
 
-        {/* Quick Edit Trigger on Frame Hover */}
-        {hasPhoto && (
-          <div className="absolute top-3 right-36 sm:right-40 z-[40] flex items-center gap-1.5 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity">
+        {/* Quick Edit & Title Toggle Trigger on Frame Hover */}
+        <div className="absolute top-3 right-32 sm:right-36 z-[40] flex items-center gap-1.5 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity">
+          {onToggleTitles && (
             <button
-              onClick={onOpenInspector}
-              className="p-1.5 rounded-[1px] bg-black/80 hover:bg-black border border-white/20 text-white hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shadow-lg"
-              title="Open Director Optical Inspector (E)"
+              onClick={onToggleTitles}
+              className={`px-2 py-1 rounded-[1px] border text-[9px] font-mono-tech backdrop-blur-md cursor-pointer transition-all shadow-lg flex items-center gap-1 ${
+                showMasterTitles
+                  ? 'bg-black/90 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                  : 'bg-black/70 border-white/20 text-white/40 hover:text-white'
+              }`}
+              title="Toggle Titles (Hotkey: T)"
             >
-              <Sliders className="w-3.5 h-3.5" />
+              <Type className="w-3 h-3" />
+              <span className="font-bold hidden sm:inline">TITLES: {showMasterTitles ? 'ON' : 'OFF'}</span>
             </button>
+          )}
+          <button
+            onClick={onOpenInspector}
+            className="p-1.5 rounded-[1px] bg-black/80 hover:bg-black border border-white/20 text-white hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shadow-lg"
+            title="Open Director Optical Inspector (E)"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+          </button>
+          {hasPhoto && (
             <button
               onClick={() => fileInputRef.current?.click()}
               className="p-1.5 rounded-[1px] bg-black/80 hover:bg-black border border-white/20 text-white hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shadow-lg"
@@ -1411,8 +1449,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
             >
               <Upload className="w-3.5 h-3.5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

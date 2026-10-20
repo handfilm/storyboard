@@ -26,7 +26,8 @@ import {
   Crosshair, 
   Clock,
   SlidersHorizontal,
-  ChevronUp
+  ChevronUp,
+  Type
 } from 'lucide-react';
 
 interface ControlDockProps {
@@ -43,6 +44,8 @@ interface ControlDockProps {
   isPanActive?: boolean;
   panOffsetPercent?: number;
   showGuides?: boolean;
+  onToggleTitles?: () => void;
+  showTitles?: boolean;
   onPrev: () => void;
   onNext: () => void;
   onSelectFrame: (index: number) => void;
@@ -94,7 +97,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onTogglePan,
   onOpenLiquify,
   onToggleGuides,
-  onCaptureStill
+  onCaptureStill,
+  onToggleTitles,
+  showTitles = true
 }) => {
   const navBarRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
@@ -165,6 +170,21 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 title="Toggle Rule of Thirds Guides (C)"
               >
                 <Crosshair className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {onToggleTitles && (
+              <button
+                onClick={onToggleTitles}
+                className={`px-2 py-1 rounded border text-[9px] cursor-pointer transition-colors flex items-center gap-1 ${
+                  showTitles
+                    ? 'bg-[#E5A919]/25 border-[#E5A919] text-[#FFE066] shadow-[0_0_8px_rgba(229,169,25,0.4)]'
+                    : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+                }`}
+                title="Toggle Master Titles Overlay (Hotkey: T)"
+              >
+                <Type className="w-3.5 h-3.5" />
+                <span className="text-[8.5px] font-bold">TITLES: {showTitles ? 'ON' : 'OFF'}</span>
               </button>
             )}
 

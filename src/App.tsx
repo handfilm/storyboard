@@ -372,6 +372,16 @@ export default function App() {
     }
   };
 
+  // Title Toggle Handler
+  const handleToggleTitles = useCallback(() => {
+    setComponentsVisibility(prev => {
+      const next = { ...prev, titlesAll: !prev.titlesAll };
+      saveComponentVisibility(next);
+      return next;
+    });
+    useStudioStore.getState().setVisibilityItem('titlesAll', !componentsVisibility.titlesAll);
+  }, [componentsVisibility.titlesAll]);
+
   // Keyboard Navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -441,6 +451,11 @@ export default function App() {
           e.preventDefault();
           setShowGuides(prev => !prev);
           break;
+        case 't':
+        case 'T':
+          e.preventDefault();
+          handleToggleTitles();
+          break;
         case 's':
         case 'S':
           e.preventDefault();
@@ -477,7 +492,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextFrame, prevFrame, isAudioMuted, audioVolume, workspaceMode, currentIndex, project]);
+  }, [nextFrame, prevFrame, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -673,6 +688,8 @@ export default function App() {
         onOpenProjectManager={() => setIsProjectManagerOpen(true)}
         onOpenAnimatic={() => setIsAnimaticOpen(true)}
         onToggleFullscreen={toggleFullscreen}
+        onToggleTitles={handleToggleTitles}
+        showTitles={componentsVisibility.titlesAll}
         saveState={saveState}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -774,6 +791,7 @@ export default function App() {
           onOpenGrid={() => setWorkspaceMode('BOARD')}
           onOpenSettings={() => setIsThemeSettingsOpen(true)}
           titleAnimation={titleAnimation}
+          onToggleTitles={handleToggleTitles}
           onCycleTitleAnimation={() => {
             const anims: ('flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter')[] = ['flare', 'kinetic', 'glitch', 'breathe', 'typewriter'];
             const next = anims[(anims.indexOf(titleAnimation) + 1) % anims.length];
@@ -806,6 +824,8 @@ export default function App() {
         isPanActive={isPanActive}
         panOffsetPercent={currentPan}
         showGuides={showGuides}
+        onToggleTitles={handleToggleTitles}
+        showTitles={componentsVisibility.titlesAll}
         onPrev={prevFrame}
         onNext={nextFrame}
         onSelectFrame={goToFrame}

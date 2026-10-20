@@ -8,7 +8,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStudioStore } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
 import { toBengaliNumerals } from '../../utils/engine';
-import { Sliders, Crop, Volume2, VolumeX, Upload, MoveVertical, Play, Pause, Video, Pin, PinOff, X, Sparkles } from 'lucide-react';
+import { Sliders, Crop, Volume2, VolumeX, Upload, MoveVertical, Play, Pause, Video, Pin, PinOff, X, Sparkles, Type } from 'lucide-react';
+import { TechnicalJargonOverlay } from '../../components/TechnicalJargonOverlay';
 
 const sampleCinemaImages = [
   "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
@@ -38,7 +39,8 @@ export const CinemaStage: React.FC = () => {
     fitMode,
     activeLut,
     activeLens,
-    updateShot
+    updateShot,
+    setVisibilityItem
   } = useStudioStore();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -54,6 +56,10 @@ export const CinemaStage: React.FC = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+
+  // Technical Jargon Overlay State (Appears in corners on stage hover)
+  const [isStageHovered, setIsStageHovered] = useState(false);
+  const [isJargonPinned, setIsJargonPinned] = useState(false);
 
   // 4-Corner Interactive Micro-HUD State
   const [activeCorner, setActiveCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
@@ -183,6 +189,8 @@ export const CinemaStage: React.FC = () => {
       <div 
         style={getAspectStyle()}
         onMouseDown={handleMouseDown}
+        onMouseEnter={() => setIsStageHovered(true)}
+        onMouseLeave={() => setIsStageHovered(false)}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleStageDrop}
@@ -269,6 +277,21 @@ export const CinemaStage: React.FC = () => {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 border border-[#FFE066]/60 rounded-full" />
           </div>
         )}
+
+        {/* Real-Time 'technical-jargon' overlay appearing in Stage corners on hover */}
+        <TechnicalJargonOverlay
+          focalLength="35mm"
+          aperture="T1.2"
+          lensName={activeLens || 'Zeiss Supreme Prime 35mm T1.5'}
+          aspectRatio={aspectRatio}
+          shotNumber={epNumStr}
+          timecode="00:00:00:00"
+          isStageHovered={isStageHovered}
+          isPinned={isJargonPinned}
+          onTogglePin={() => setIsJargonPinned(p => !p)}
+          showTitles={visibility.titlesAll}
+          onToggleTitles={() => setVisibilityItem('titlesAll', !visibility.titlesAll)}
+        />
 
         {/* ========================================================================= */}
         {/* 4-CORNER NANO HUD SYSTEM: Animated Subtle Bullets & Short Smart Names      */}
@@ -773,8 +796,23 @@ export const CinemaStage: React.FC = () => {
           </div>
         )}
 
-        {/* Floating Quick Media Upload Trigger */}
-        <div className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Floating Quick Media Upload & Title Toggle Trigger */}
+        <div className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setVisibilityItem('titlesAll', !visibility.titlesAll);
+            }}
+            className={`px-2.5 py-1 border rounded text-[10px] font-mono flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer transition-colors ${
+              visibility.titlesAll
+                ? 'bg-black/90 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                : 'bg-black/70 border-white/20 text-white/50 hover:text-white'
+            }`}
+            title="Toggle Master Titles (Hotkey: T)"
+          >
+            <Type className="w-3 h-3" />
+            <span>TITLES: {visibility.titlesAll ? 'ON' : 'OFF'}</span>
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();

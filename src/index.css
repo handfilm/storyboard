@@ -311,3 +311,96 @@
   transition-duration: 0.1s;
 }
 
+/* ========================================================================= */
+/* LENS HUD & STRESS HEATMAP ANIMATIONS                                      */
+/* ========================================================================= */
+@keyframes hudRadarSweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes hudPulseGlow {
+  0%, 100% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.4));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 16px rgba(212, 175, 55, 0.85)) drop-shadow(0 0 24px rgba(255, 75, 75, 0.4));
+  }
+}
+
+@keyframes hudReticleBreathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes hudChromaticShift {
+  0%, 100% {
+    filter: drop-shadow(-1.5px 0 0 rgba(255, 0, 80, 0.75)) drop-shadow(1.5px 0 0 rgba(0, 240, 255, 0.75));
+  }
+  50% {
+    filter: drop-shadow(-2.5px -1px 0 rgba(255, 0, 80, 0.9)) drop-shadow(2.5px 1px 0 rgba(0, 240, 255, 0.9));
+  }
+}
+
+@keyframes hudShimmerBar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes hudStressWave {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.96);
+    opacity: 0.4;
+  }
+}
+
+.animate-hud-radar {
+  animation: hudRadarSweep 8s linear infinite;
+  transform-origin: center center;
+}
+
+.animate-hud-pulse {
+  animation: hudPulseGlow 3s ease-in-out infinite;
+}
+
+.animate-reticle-breathe {
+  animation: hudReticleBreathe 2.4s ease-in-out infinite;
+}
+
+.animate-chromatic-shift {
+  animation: hudChromaticShift 2.5s ease-in-out infinite;
+}
+
+.animate-shimmer-bar {
+  animation: hudShimmerBar 2.2s infinite ease-in-out;
+}
+
+.animate-stress-wave {
+  animation: hudStressWave 4s ease-in-out infinite;
+}
+
+

@@ -32,7 +32,8 @@ import {
   HardDriveDownload,
   Download,
   SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  Type
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -54,6 +55,8 @@ interface TopBarProps {
   onOpenProjectManager?: () => void;
   onOpenAnimatic?: () => void;
   onToggleFullscreen?: () => void;
+  onToggleTitles?: () => void;
+  showTitles?: boolean;
   saveState?: SaveState;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -80,6 +83,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenProjectManager,
   onOpenAnimatic,
   onToggleFullscreen,
+  onToggleTitles,
+  showTitles = true,
   saveState = 'saved',
   onUndo,
   onRedo,
@@ -286,6 +291,24 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white cursor-pointer transition-colors"
           >
             <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Quick Title Toggle Button */}
+        {onToggleTitles && (
+          <button
+            onClick={onToggleTitles}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-mono transition-all cursor-pointer shadow-sm ${
+              showTitles
+                ? 'bg-[#181824] border-[#D4AF37]/60 text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
+                : 'bg-white/5 border-white/10 text-white/40 hover:text-white/80 hover:border-white/30'
+            }`}
+            title="Toggle Master Titles Overlay (Hotkey: T)"
+          >
+            <Type className={`w-3.5 h-3.5 ${showTitles ? 'text-[#D4AF37]' : 'text-white/40'}`} />
+            <span className="font-bold tracking-wider hidden md:inline">
+              TITLES: {showTitles ? 'ON' : 'OFF'}
+            </span>
           </button>
         )}
 

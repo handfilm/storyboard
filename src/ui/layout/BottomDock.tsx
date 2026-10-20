@@ -125,9 +125,9 @@ export const BottomDock: React.FC = () => {
               <button
                 key={i}
                 onClick={() => setActiveShotIndex(i)}
-                className={`flex-shrink-0 px-1.5 py-0.5 text-[9px] font-mono rounded-xs border transition-colors ${
+                className={`nav-dash flex-shrink-0 px-1.5 py-0.5 text-[9px] font-mono rounded-xs border cursor-pointer ${
                   isActive
-                    ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
+                    ? 'nav-dash-active bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
                     : 'bg-[#121212] text-[#8A8A8A] border-white/5 hover:text-[#EDEDED] hover:border-[#D4AF37]/40'
                 }`}
                 title={`Shot ${num}`}

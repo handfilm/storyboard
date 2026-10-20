@@ -15,6 +15,7 @@ import { SaveState } from '../core/storage';
 import { exportFullIdbBackup } from '../utils/backup';
 import {
   Film,
+  Home,
   RotateCcw,
   RotateCw,
   Maximize2,
@@ -39,6 +40,8 @@ interface TopBarProps {
   onUpdateTitle: (title: string) => void;
   activeMode: WorkspaceMode;
   onSelectMode: (mode: WorkspaceMode) => void;
+  onGoHome?: () => void;
+  activeModule?: string;
   isProMode: boolean;
   onToggleProMode: () => void;
   componentsBadgeText?: string;
@@ -63,6 +66,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onUpdateTitle,
   activeMode,
   onSelectMode,
+  onGoHome,
+  activeModule,
   isProMode,
   onToggleProMode,
   componentsBadgeText = '12/13 ON',
@@ -122,6 +127,16 @@ export const TopBar: React.FC<TopBarProps> = ({
         <span className="font-semibold text-xs sm:text-sm text-white tracking-tight shrink-0 hidden sm:inline">
           RAWx Storyboard Studio
         </span>
+
+        {/* Home / Return to Stage Quick Button */}
+        <button
+          onClick={onGoHome || (() => onSelectMode('STAGE'))}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#161622] hover:bg-[#E5A919]/25 hover:border-[#E5A919]/60 border border-white/10 text-white/80 hover:text-[#FFE066] text-xs font-mono transition-all cursor-pointer shadow-sm group shrink-0"
+          title="STAGE (HOME) — Return to Cinematic Viewport"
+        >
+          <Home className="w-3.5 h-3.5 text-[#E5A919] group-hover:scale-110 transition-transform" />
+          <span className="font-bold tracking-wider text-[11px] hidden sm:inline">HOME</span>
+        </button>
 
         {/* Tool / Edit Segmented Pill from screenshot */}
         <div className="hidden md:flex items-center bg-[#15151c] p-0.5 rounded-full border border-white/10 text-[11px] shrink-0">
@@ -204,15 +219,21 @@ export const TopBar: React.FC<TopBarProps> = ({
       {/* Center: Primary Mode Switcher (STAGE | BOARD | CUT) */}
       <div className="flex items-center bg-[#121218]/90 p-1 rounded-full border border-white/10 shrink-0 mx-1 shadow-inner">
         <button
-          onClick={() => onSelectMode('STAGE')}
+          onClick={() => {
+            if (onGoHome) {
+              onGoHome();
+            } else {
+              onSelectMode('STAGE');
+            }
+          }}
           className={`px-3.5 sm:px-4 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-            activeMode === 'STAGE'
+            activeMode === 'STAGE' && (!activeModule || activeModule === 'PLAYER')
               ? 'bg-[#E5A919] text-black shadow-[0_0_12px_rgba(229,169,25,0.45)]'
-              : 'text-white/70 hover:text-white'
+              : 'text-white/70 hover:text-white hover:bg-white/10'
           }`}
-          title="Cinematic Hero Stage View"
+          title="STAGE (HOME) — Return to Cinematic Viewport"
         >
-          <Film className="w-3 h-3" />
+          <Home className="w-3 h-3" />
           <span>STAGE</span>
         </button>
 

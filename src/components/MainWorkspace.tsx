@@ -12,7 +12,7 @@ import { OpticalFrame } from './OpticalFrame';
 import { BoardStudio } from '../features/board/BoardStudio';
 import { CutStudio } from '../features/cut/CutStudio';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import { MediaStudio } from '../features/media/MediaStudio';
 import { StoryNotebook } from '../features/story/StoryNotebook';
 import { TextStudio } from '../features/text/TextStudio';
@@ -26,6 +26,7 @@ import { StudioModuleId } from './LeftRail';
 interface MainWorkspaceProps {
   activeMode: WorkspaceMode;
   activeModule?: StudioModuleId;
+  onReturnToStage?: () => void;
   currentFrame: AnthologyFrame;
   frames: AnthologyFrame[];
   currentIndex: number;
@@ -59,6 +60,7 @@ interface MainWorkspaceProps {
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   activeMode,
   activeModule,
+  onReturnToStage,
   currentFrame,
   frames,
   currentIndex,
@@ -108,59 +110,54 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
   // 3. Specialized Studio Modules when in STAGE Mode
   if (activeMode === 'STAGE' && activeModule && activeModule !== 'PLAYER') {
-    if (activeModule === 'MEDIA') {
+    const renderModule = () => {
+      switch (activeModule) {
+        case 'MEDIA': return <MediaStudio />;
+        case 'STORY': return <StoryNotebook />;
+        case 'TEXT': return <TextStudio />;
+        case 'SOUND': return <SoundStudio />;
+        case 'PRODUCTION': return <ProductionStudio />;
+        case 'REVIEW': return <ReviewStudio />;
+        case 'LIBRARY': return <LibraryStudio />;
+        case 'AI': return <AiStudio />;
+        default: return null;
+      }
+    };
+
+    const moduleView = renderModule();
+    if (moduleView) {
       return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <MediaStudio />
-        </main>
-      );
-    }
-    if (activeModule === 'STORY') {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <StoryNotebook />
-        </main>
-      );
-    }
-    if (activeModule === 'TEXT') {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <TextStudio />
-        </main>
-      );
-    }
-    if (activeModule === 'SOUND') {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <SoundStudio />
-        </main>
-      );
-    }
-    if (activeModule === 'PRODUCTION') {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <ProductionStudio />
-        </main>
-      );
-    }
-    if (activeModule === 'REVIEW') {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <ReviewStudio />
-        </main>
-      );
-    }
-    if (activeModule === 'LIBRARY') {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <LibraryStudio />
-        </main>
-      );
-    }
-    if (activeModule === 'AI') {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden">
-          <AiStudio />
+        <main className="flex-1 w-full h-full overflow-hidden flex flex-col bg-[#050508]">
+          {/* Top Quick-Return to Stage Navigation Bar */}
+          <div className="h-9 bg-[#090A0F]/95 border-b border-white/10 px-4 flex items-center justify-between text-xs font-mono shrink-0 select-none z-20 shadow-md">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onReturnToStage}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E5A919] hover:bg-[#FFE066] text-black text-[11px] font-bold tracking-wider transition-all cursor-pointer shadow-[0_0_12px_rgba(229,169,25,0.4)]"
+                title="Return to Cinema Stage (Home)"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>← STAGE (HOME)</span>
+              </button>
+              <span className="text-white/20">|</span>
+              <span className="text-[#FFE066] text-[11px] uppercase font-bold tracking-wider">
+                {activeModule} MODULE ACTIVE
+              </span>
+            </div>
+
+            <button
+              onClick={onReturnToStage}
+              className="px-2.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-white/70 hover:text-white text-[10.5px] transition-colors cursor-pointer flex items-center gap-1.5 border border-white/10"
+              title="Close module and return to viewport"
+            >
+              <span>Back to Viewport</span>
+              <span>✕</span>
+            </button>
+          </div>
+
+          <div className="flex-1 w-full h-full overflow-hidden">
+            {moduleView}
+          </div>
         </main>
       );
     }

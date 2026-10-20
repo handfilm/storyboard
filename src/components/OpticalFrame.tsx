@@ -144,6 +144,9 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   const [isCenterPinned, setIsCenterPinned] = useState(false);
   const showCenterExpanded = isCenterHovered || isCenterPinned;
 
+  // Title Scale State: 'cover' spans the whole word, 'ultra' is massive, 'standard' is compact
+  const [titleScale, setTitleScale] = useState<'cover' | 'ultra' | 'standard'>('cover');
+
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1039,11 +1042,17 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         {/* Center Slot: Super Animated Titles & Bengali Kinetic Typography */}
         {showMasterTitles && (
           <div className="absolute inset-0 z-[30] pointer-events-none flex flex-col items-center justify-center text-center px-4 sm:px-8 py-8">
-            <div className="max-w-3xl flex flex-col items-center">
-              {/* Massive Glowing Bengali Headline */}
+            <div className="max-w-5xl w-full flex flex-col items-center">
+              {/* Massive Glowing Bengali Headline (Sized to cover the full word) */}
               {showTitleBn && (
                 <h1
-                  className={`font-['Noto_Serif_Bengali'] text-5xl sm:text-7xl md:text-8xl font-black tracking-wide leading-none transition-all duration-300 ${
+                  className={`font-['Noto_Serif_Bengali'] ${
+                    titleScale === 'ultra'
+                      ? 'text-7xl sm:text-9xl md:text-[9.5rem] lg:text-[11rem] xl:text-[12rem] tracking-wider'
+                      : titleScale === 'standard'
+                      ? 'text-5xl sm:text-7xl md:text-8xl tracking-wide'
+                      : 'text-6xl sm:text-8xl md:text-9xl lg:text-[7.5rem] xl:text-[8.75rem] 2xl:text-[10rem] tracking-wide sm:tracking-wider'
+                  } font-black leading-[1.05] transition-all duration-300 w-full text-center select-none ${
                     activeAnim === 'flare'
                       ? 'super-title-flare super-title-breathe'
                       : activeAnim === 'kinetic'
@@ -1058,10 +1067,10 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                       ? 'super-title-neon text-cyan-200'
                       : activeAnim === 'cinema-fade'
                       ? 'super-title-cinema-fade text-[#FFE066]'
-                      : 'text-[#FFE066] drop-shadow-[0_0_30px_rgba(212,175,55,0.7)]'
+                      : 'text-[#FFE066]'
                   }`}
                   style={{
-                    filter: activeAnim === 'flare' ? undefined : 'drop-shadow(0 0 25px rgba(212,175,55,0.8))'
+                    filter: activeAnim === 'flare' ? undefined : 'drop-shadow(0 0 35px rgba(212,175,55,0.85)) drop-shadow(0 4px 15px rgba(0,0,0,0.9))'
                   }}
                 >
                   {safeFrame.bengaliTitle || 'সূচনা'}
@@ -1252,6 +1261,29 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                               }`}
                             >
                               {style.replace('-fade', '')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Interactive Bangla Title Size Selector */}
+                      <div className="mt-2.5 pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-1 text-[8px] font-mono-tech">
+                        <span className="text-white/40 uppercase tracking-widest">
+                          BANGLA TITLE SIZE:
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {(['cover', 'ultra', 'standard'] as const).map(scale => (
+                            <button
+                              key={scale}
+                              type="button"
+                              onClick={() => setTitleScale(scale)}
+                              className={`px-2 py-0.5 rounded-full text-[7.5px] uppercase font-mono-tech transition-all cursor-pointer ${
+                                titleScale === scale
+                                  ? 'bg-[#E5A919] text-black font-black shadow-[0_0_8px_rgba(229,169,25,0.6)]'
+                                  : 'text-white/60 hover:text-white hover:bg-white/10'
+                              }`}
+                            >
+                              {scale === 'cover' ? 'COVER WORD (DEFAULT)' : scale === 'ultra' ? 'ULTRA 120PX' : 'COMPACT'}
                             </button>
                           ))}
                         </div>

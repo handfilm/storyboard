@@ -57,6 +57,7 @@ export const TextStudio: React.FC = () => {
   const [titleBn, setTitleBn] = useState(currentShot.bengaliTitle || currentTheme.sub);
   const [caption, setCaption] = useState(currentShot.bengaliDesc || currentShot.tagline || currentTheme.tag);
   const [fontSize, setFontSize] = useState(36);
+  const [fontSizeBn, setFontSizeBn] = useState(56);
   const [textColor, setTextColor] = useState('#FFE066');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
   const [animationStyle, setAnimationStyle] = useState<TitleAnimationStyle>(
@@ -196,7 +197,7 @@ export const TextStudio: React.FC = () => {
               </div>
 
               <div 
-                className={`font-serif text-2xl text-[#FFE066] tracking-wider transition-all duration-300 ${
+                className={`font-serif text-[#FFE066] font-bold tracking-wide sm:tracking-wider leading-none transition-all duration-300 ${
                   animationStyle === 'flare' ? 'super-title-flare super-title-breathe' :
                   animationStyle === 'kinetic' ? 'super-title-kinetic' :
                   animationStyle === 'glitch' ? 'super-title-glitch' :
@@ -207,7 +208,8 @@ export const TextStudio: React.FC = () => {
                 }`}
                 style={{
                   fontFamily: 'Noto Serif Bengali, serif',
-                  textShadow: animationStyle === 'flare' ? undefined : '0 0 15px rgba(255,224,102,0.6)'
+                  fontSize: `${fontSizeBn}px`,
+                  textShadow: animationStyle === 'flare' ? undefined : '0 0 25px rgba(255,224,102,0.8), 0 4px 12px rgba(0,0,0,0.9)'
                 }}
               >
                 {titleBn}
@@ -296,7 +298,7 @@ export const TextStudio: React.FC = () => {
 
           <div>
             <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>FONT SIZE</span>
+              <span>ENGLISH FONT SIZE</span>
               <span className="text-[#FFE066]">{fontSize}px</span>
             </div>
             <input
@@ -307,6 +309,44 @@ export const TextStudio: React.FC = () => {
               onChange={(e) => setFontSize(Number(e.target.value))}
               className="w-full accent-[#D4AF37] mt-1"
             />
+          </div>
+
+          <div>
+            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
+              <span>BANGLA TITLE SIZE (FULL WORD)</span>
+              <span className="text-[#FFE066] font-bold">{fontSizeBn}px</span>
+            </div>
+            <input
+              type="range"
+              min="24"
+              max="96"
+              value={fontSizeBn}
+              onChange={(e) => setFontSizeBn(Number(e.target.value))}
+              className="w-full accent-[#D4AF37] mt-1"
+            />
+            <div className="flex gap-1.5 mt-1">
+              <button
+                type="button"
+                onClick={() => setFontSizeBn(36)}
+                className={`px-2 py-0.5 rounded text-[8.5px] font-mono ${fontSizeBn === 36 ? 'bg-[#FFE066] text-black font-bold' : 'bg-white/5 text-white/60 hover:text-white'}`}
+              >
+                COMPACT (36)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSizeBn(56)}
+                className={`px-2 py-0.5 rounded text-[8.5px] font-mono ${fontSizeBn === 56 ? 'bg-[#FFE066] text-black font-bold' : 'bg-white/5 text-white/60 hover:text-white'}`}
+              >
+                COVER WORD (56)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSizeBn(76)}
+                className={`px-2 py-0.5 rounded text-[8.5px] font-mono ${fontSizeBn === 76 ? 'bg-[#FFE066] text-black font-bold' : 'bg-white/5 text-white/60 hover:text-white'}`}
+              >
+                MASSIVE (76)
+              </button>
+            </div>
           </div>
 
           <div>

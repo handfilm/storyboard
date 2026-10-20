@@ -588,10 +588,10 @@ export const CinemaStage: React.FC = () => {
               </div>
             )}
 
-            {/* Glowing Main Bengali Title */}
+            {/* Glowing Main Bengali Title (Sized to cover the whole word) */}
             {visibility.titleBn && (
               <h1 
-                className="text-4xl sm:text-6xl font-['Noto_Serif_Bengali'] font-bold drop-shadow-[0_0_20px_rgba(212,175,55,0.7)]"
+                className="text-6xl sm:text-8xl md:text-9xl lg:text-[7.5rem] xl:text-[8.75rem] 2xl:text-[10rem] font-['Noto_Serif_Bengali'] font-black leading-[1.05] tracking-wide sm:tracking-wider w-full text-center drop-shadow-[0_0_35px_rgba(212,175,55,0.85)]"
                 style={{ color: titleColor }}
               >
                 {currentShot.bengaliTitle || currentTheme.sub}

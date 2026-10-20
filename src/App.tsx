@@ -56,7 +56,7 @@ export default function App() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('STAGE');
-  const [activeModule, setActiveModule] = useState<StudioModuleId>('BOARD');
+  const [activeModule, setActiveModule] = useState<StudioModuleId>('PLAYER');
   const [isProMode, setIsProMode] = useState(false);
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -618,6 +618,19 @@ export default function App() {
   const totalCompCount = Object.keys(componentsVisibility).length;
   const componentsBadgeText = `${activeCompCount}/${totalCompCount} ON`;
 
+  // Central Stage / Home Navigation Handler: Returns immediately to Hero Viewport from ANY module
+  const handleGoHome = () => {
+    setWorkspaceMode('STAGE');
+    setActiveModule('PLAYER');
+    setIsDrawerOpen(false);
+    setIsAnimaticOpen(false);
+    setIsInspectorOpen(false);
+    setIsPublishModalOpen(false);
+    setIsThemeSettingsOpen(false);
+    setIsLiquifyOpen(false);
+    useStudioStore.getState().setActiveModule('PLAYER');
+  };
+
   return (
     <div
       className="relative w-screen h-screen bg-[#050505] text-[#EDEDED] overflow-hidden select-none flex flex-col font-mono-tech"
@@ -638,9 +651,15 @@ export default function App() {
         projectTitle={project.title}
         onUpdateTitle={(title) => setProject(p => ({ ...p, title }))}
         activeMode={workspaceMode}
+        activeModule={activeModule}
+        onGoHome={handleGoHome}
         onSelectMode={(mode) => {
-          setWorkspaceMode(mode);
-          if (mode !== 'STAGE') setIsDrawerOpen(false);
+          if (mode === 'STAGE') {
+            handleGoHome();
+          } else {
+            setWorkspaceMode(mode);
+            setIsDrawerOpen(false);
+          }
         }}
         isProMode={isProMode}
         onToggleProMode={() => setIsProMode(p => !p)}
@@ -666,7 +685,9 @@ export default function App() {
         <LeftRail
           activeModule={activeModule}
           onSelectModule={(mod) => {
-            if (mod === 'BOARD') {
+            if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
+              handleGoHome();
+            } else if (mod === 'BOARD') {
               setWorkspaceMode('BOARD');
               setIsDrawerOpen(false);
             } else if (mod === 'EDIT/CUT') {
@@ -678,8 +699,6 @@ export default function App() {
               setIsPublishModalOpen(true);
             } else if (mod === 'LIQUIFY') {
               setIsLiquifyOpen(true);
-            } else if (mod === 'PLAYER') {
-              setIsAnimaticOpen(true);
             } else if (mod === 'OPTICS') {
               setActiveModule('OPTICS');
               setWorkspaceMode('STAGE');
@@ -716,6 +735,7 @@ export default function App() {
         <MainWorkspace
           activeMode={workspaceMode}
           activeModule={activeModule}
+          onReturnToStage={handleGoHome}
           currentFrame={currentFrame}
           frames={project.frames}
           currentIndex={currentIndex}

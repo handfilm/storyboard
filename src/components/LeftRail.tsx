@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { 
+  Home,
   LayoutGrid, 
   Image as ImageIcon, 
   User, 
@@ -69,6 +70,19 @@ export const LeftRail: React.FC<LeftRailProps> = ({
       {/* Primary Slim Outer Strip */}
       <div className="w-12 sm:w-13 h-full bg-[#030305] border-r border-white/10 flex flex-col items-center justify-between py-2 shrink-0">
         <div className="flex flex-col items-center gap-1.5 overflow-y-auto no-scrollbar w-full px-1">
+          {/* Top Primary Home / Stage Button */}
+          <button
+            onClick={() => onSelectModule('PLAYER')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'PLAYER'
+                ? 'bg-[#E5A919] text-black font-bold shadow-[0_0_12px_rgba(229,169,25,0.45)]'
+                : 'text-white/70 hover:text-white hover:bg-white/10'
+            }`}
+            title="STAGE (HOME) — Return to Cinematic Viewport"
+          >
+            <Home className="w-4 h-4" />
+          </button>
+
           {/* Top Primary Categories */}
           <button
             onClick={() => onSelectModule('BOARD')}
@@ -92,18 +106,6 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             title="4K Media Library & Ingestion (MEDIA)"
           >
             <ImageIcon className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => onSelectModule('PLAYER')}
-            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
-              activeModule === 'PLAYER'
-                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
-            title="Character & Previs Stage"
-          >
-            <User className="w-4 h-4" />
           </button>
 
           <button

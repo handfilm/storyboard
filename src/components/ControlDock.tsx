@@ -250,6 +250,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         {/* Center: Scrollable Continuous Shot Chips from screenshot */}
         <div 
           ref={navBarRef}
+          id="photo-nav-bar"
           className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-2 scroll-smooth"
         >
           {safeFrames.map((frame, idx) => {
@@ -259,9 +260,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <button
                 key={frame?.id ?? idx}
                 onClick={() => onSelectFrame(idx)}
-                className={`shrink-0 px-2.5 py-1 rounded-full font-mono-tech text-[10px] transition-all cursor-pointer flex items-center gap-1 ${
+                className={`nav-dash shrink-0 px-2.5 py-1 rounded-full font-mono-tech text-[10px] cursor-pointer flex items-center gap-1 ${
                   isActive
-                    ? 'bg-[#E5A919] text-black font-black shadow-[0_0_10px_rgba(229,169,25,0.6)] scale-105 z-10'
+                    ? 'nav-dash-active bg-[#E5A919] text-black font-black shadow-[0_0_10px_rgba(229,169,25,0.6)] z-10'
                     : 'bg-white/5 hover:bg-white/15 text-white/60 hover:text-white'
                 }`}
               >

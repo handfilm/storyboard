@@ -21,6 +21,9 @@ import { CommandPalette } from './components/CommandPalette';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { SelfTestModal } from './components/SelfTestModal';
 import { CanvasLiquifyModal } from './components/CanvasLiquifyModal';
+import { VideoScopesModal } from './components/VideoScopesModal';
+import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
+import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
   ComponentVisibility, 
@@ -80,6 +83,8 @@ export default function App() {
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false);
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false);
+  const [isVideoScopesOpen, setIsVideoScopesOpen] = useState(false);
+  const [isAnimaticOpen, setIsAnimaticOpen] = useState(false);
 
   // M2 Persistence Core State
   const [activeProjectId, setActiveProjectId] = useState<string>('default-project');
@@ -556,6 +561,33 @@ export default function App() {
       case 'system.projectManager': setIsProjectManagerOpen(true); break;
       case 'sound.toggleAudio': toggleAudio(); break;
       case 'view.toggleFullscreen': toggleFullscreen(); break;
+      case 'tools.scopes': setIsVideoScopesOpen(true); break;
+      case 'tools.animatic': setIsAnimaticOpen(true); break;
+      case 'hollywood.otio': {
+        const content = exportToOTIO(project);
+        triggerFileDownload(`${project.title || 'project'}.otio`, content, 'application/json');
+        break;
+      }
+      case 'hollywood.edl': {
+        const content = exportToCMX3600EDL(project);
+        triggerFileDownload(`${project.title || 'project'}.edl`, content, 'text/plain');
+        break;
+      }
+      case 'hollywood.fountain': {
+        const content = exportToFountainScreenplay(project);
+        triggerFileDownload(`${project.title || 'project'}.fountain`, content, 'text/plain');
+        break;
+      }
+      case 'hollywood.srt': {
+        const content = exportToSRT(project);
+        triggerFileDownload(`${project.title || 'project'}.srt`, content, 'text/plain');
+        break;
+      }
+      case 'hollywood.csv': {
+        const content = exportToCSVShotList(project);
+        triggerFileDownload(`${project.title || 'project'}-shotlist.csv`, content, 'text/csv');
+        break;
+      }
     }
   };
 
@@ -761,6 +793,27 @@ export default function App() {
         onProjectUpdated={() => {
           handleSwitchProject(activeProjectId);
         }}
+      />
+
+      {/* Hardware Video Scopes Modal (IRE Waveform, RGB Parade, Vectorscope) */}
+      <VideoScopesModal
+        isOpen={isVideoScopesOpen}
+        onClose={() => setIsVideoScopesOpen(false)}
+        currentFrame={currentFrame}
+      />
+
+      {/* Precision Animatic Cinema Player Modal */}
+      <AnimaticPlayerModal
+        isOpen={isAnimaticOpen}
+        onClose={() => setIsAnimaticOpen(false)}
+        frames={project.frames}
+        currentIndex={currentIndex}
+        onSelectFrame={(idx) => {
+          goToFrame(idx);
+          setWorkspaceMode('STAGE');
+        }}
+        projectTitle={project.title}
+        aspectRatio={aspectRatio}
       />
     </div>
   );

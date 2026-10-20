@@ -5,6 +5,13 @@ import {
   generateProjectJSON, 
   generateCSVExport 
 } from '../utils/engine';
+import {
+  exportToOTIO,
+  exportToCMX3600EDL,
+  exportToFountain,
+  exportToSRT,
+  triggerFileDownload
+} from '../data/hollywoodExporters';
 import { 
   X, 
   Github, 
@@ -17,7 +24,10 @@ import {
   FileSpreadsheet,
   Layers,
   HardDriveDownload,
-  ShieldCheck
+  ShieldCheck,
+  Film,
+  Clapperboard,
+  Sliders
 } from 'lucide-react';
 import { exportFullIdbBackup } from '../utils/backup';
 
@@ -46,15 +56,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   };
 
   const handleDownloadFile = (content: string, filename: string, type: string) => {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerFileDownload(content, filename, type);
   };
 
   const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,10 +105,10 @@ git push -u origin main`;
             </div>
             <div>
               <h2 className="font-cinzel text-lg font-bold text-white tracking-widest uppercase">
-                Git & Platform Publishing Suite
+                Git & Hollywood Interchange Suite
               </h2>
               <p className="font-mono-tech text-xs text-white/50 tracking-wider">
-                PREPARE REPOSITORY • EXPORT DATASETS • DEPLOY TO PRODUCTION
+                PREPARE REPOSITORY • OTIO / EDL / FOUNTAIN / SRT • CLOUD DEPLOY
               </p>
             </div>
           </div>
@@ -125,7 +127,7 @@ git push -u origin main`;
           {[
             { id: 'git', label: 'Git Push Setup', icon: Terminal },
             { id: 'readme', label: 'GitHub README.md', icon: FileText },
-            { id: 'export', label: 'Export Data (JSON/CSV)', icon: Download },
+            { id: 'export', label: 'Hollywood Exporters', icon: Clapperboard },
             { id: 'deploy', label: 'Deploy to Cloud', icon: Globe },
           ].map(tab => {
             const Icon = tab.icon;
@@ -232,65 +234,113 @@ git push -u origin main`;
             </div>
           )}
 
-          {/* TAB 3: EXPORT DATA */}
+          {/* TAB 3: HOLLYWOOD EXPORTERS */}
           {activeTab === 'export' && (
             <div className="space-y-6">
               <div>
                 <h3 className="font-cinzel text-sm font-bold text-amber-300 uppercase tracking-wider mb-1">
-                  Export Anthology Datasets
+                  Hollywood Interchange Formats
                 </h3>
                 <p className="font-mono-tech text-xs text-white/60">
-                  Export all 100 frames with camera specs, tags, Bengali titles, and optical parameters.
+                  Export to industry-standard NLE and screenplay formats (DaVinci Resolve, Premiere, Avid, Final Draft).
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* JSON Export */}
-                <div className="p-4 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1. OpenTimelineIO (.otio) */}
+                <div className="p-3.5 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
                   <div>
-                    <div className="w-8 h-8 rounded-xs bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <h4 className="font-cinzel text-sm font-bold text-white uppercase tracking-wider">
-                      Full Anthology JSON
-                    </h4>
-                    <p className="font-mono-tech text-xs text-white/50 mt-1">
-                      Complete project schema with all 100 frames and optical presets.
-                    </p>
+                    <span className="text-[10px] text-[#00FFCC] font-bold">NLE TIMELINE</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">OpenTimelineIO (.otio)</h4>
+                    <p className="font-mono-tech text-[10px] text-white/50 mt-1">Universal timeline interchange for DaVinci Resolve & Premiere.</p>
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => handleDownloadFile(jsonContent, 'rawx-anthology-100.json', 'application/json')}
-                      className="flex-1 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-xs text-xs font-mono-tech text-amber-300 flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download JSON
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDownloadFile(exportToOTIO(project), `${project.title.replace(/\s+/g, '_')}.otio`, 'application/json')}
+                    className="mt-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/40 text-[#FFE066] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .otio</span>
+                  </button>
                 </div>
 
-                {/* CSV Export */}
-                <div className="p-4 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
+                {/* 2. CMX 3600 EDL */}
+                <div className="p-3.5 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
                   <div>
-                    <div className="w-8 h-8 rounded-xs bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
-                      <FileSpreadsheet className="w-4 h-4" />
-                    </div>
-                    <h4 className="font-cinzel text-sm font-bold text-white uppercase tracking-wider">
-                      Production Shot List CSV
-                    </h4>
-                    <p className="font-mono-tech text-xs text-white/50 mt-1">
-                      Tabular format for Excel, Google Sheets, or production call sheets.
-                    </p>
+                    <span className="text-[10px] text-amber-400 font-bold">EDIT DECISION LIST</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">CMX 3600 EDL (.edl)</h4>
+                    <p className="font-mono-tech text-[10px] text-white/50 mt-1">Standard edit sequence for Avid Media Composer & post houses.</p>
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => handleDownloadFile(csvContent, 'rawx-shotlist.csv', 'text/csv')}
-                      className="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-xs text-xs font-mono-tech text-emerald-300 flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download CSV
-                    </button>
+                  <button
+                    onClick={() => handleDownloadFile(exportToCMX3600EDL(project), `${project.title.replace(/\s+/g, '_')}.edl`, 'text/plain')}
+                    className="mt-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/40 text-[#FFE066] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .edl</span>
+                  </button>
+                </div>
+
+                {/* 3. Fountain Screenplay */}
+                <div className="p-3.5 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-emerald-400 font-bold">SCREENPLAY</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">Fountain Script (.fountain)</h4>
+                    <p className="font-mono-tech text-[10px] text-white/50 mt-1">Plaintext script format for Highland, Fade In, and Final Draft.</p>
                   </div>
+                  <button
+                    onClick={() => handleDownloadFile(exportToFountain(project), `${project.title.replace(/\s+/g, '_')}.fountain`, 'text/plain')}
+                    className="mt-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/40 text-[#FFE066] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .fountain</span>
+                  </button>
+                </div>
+
+                {/* 4. SubRip Subtitles */}
+                <div className="p-3.5 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-purple-400 font-bold">SUBTITLES</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">Bilingual SRT (.srt)</h4>
+                    <p className="font-mono-tech text-[10px] text-white/50 mt-1">Timed Bengali and English subtitles with timecodes.</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadFile(exportToSRT(project), `${project.title.replace(/\s+/g, '_')}.srt`, 'text/plain')}
+                    className="mt-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/40 text-[#FFE066] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .srt</span>
+                  </button>
+                </div>
+
+                {/* 5. CSV Shot List */}
+                <div className="p-3.5 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-blue-400 font-bold">PRODUCTION SPREADSHEET</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">Shot List CSV (.csv)</h4>
+                    <p className="font-mono-tech text-[10px] text-white/50 mt-1">Camera lenses, T-stops, and notes for Excel or Google Sheets.</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadFile(csvContent, 'rawx-shotlist.csv', 'text/csv')}
+                    className="mt-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/40 text-[#FFE066] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .csv</span>
+                  </button>
+                </div>
+
+                {/* 6. Full Anthology JSON */}
+                <div className="p-3.5 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-[#FFE066] font-bold">NATIVE ARCHIVE</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">Full Project JSON</h4>
+                    <p className="font-mono-tech text-[10px] text-white/50 mt-1">Complete RAWx engine database schema and frame parameters.</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadFile(jsonContent, 'rawx-anthology-100.json', 'application/json')}
+                    className="mt-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/40 text-[#FFE066] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .json</span>
+                  </button>
                 </div>
               </div>
 

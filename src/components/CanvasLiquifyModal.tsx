@@ -1,13 +1,12 @@
 /**
  * @file /src/components/CanvasLiquifyModal.tsx
- * @description HTML5 Canvas Liquify & Mesh Warp Studio (Push, Bloat, Pinch, Restore,
- * Brush radius/strength, Undo stack, Wireframe mesh, Apply to frame, Export PNG).
- * Preserved core studio capability.
+ * @description HTML5 Canvas Liquify & Mesh Warp Studio (Push, Bloat, Pinch, Restore)
+ * plus Photo Crop Suite (16:9, 1:1, 4:5 aspect presets) and Horizon Straightening angle slider (-45° to +45°).
  */
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AnthologyFrame } from '../types/anthology';
-import { X, Check, Undo2, RotateCcw, Download, Grid, Sparkles } from 'lucide-react';
+import { X, Check, Undo2, RotateCcw, Download, Grid, Sparkles, Crop, Compass, Move } from 'lucide-react';
 
 interface CanvasLiquifyModalProps {
   isOpen: boolean;
@@ -26,12 +25,18 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [activeTab, setActiveTab] = useState<'warp' | 'crop'>('warp');
   const [activeTool, setActiveTool] = useState<WarpTool>('push');
   const [brushRadius, setBrushRadius] = useState(65);
   const [brushStrength, setBrushStrength] = useState(35);
   const [showMesh, setShowMesh] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100, visible: false });
+
+  // Crop & Horizon Straightening states
+  const [cropAspect, setCropAspect] = useState<'16:9' | '1:1' | '4:5' | 'free'>('16:9');
+  const [straightenAngle, setStraightenAngle] = useState<number>(0); // -45 to +45 deg
 
   const originalDataRef = useRef<ImageData | null>(null);
   const currentDataRef = useRef<ImageData | null>(null);
@@ -58,7 +63,6 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
       drawCanvas();
     };
     img.onerror = () => {
-      // Fallback cinema canvas background
       ctx.fillStyle = '#08080C';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#D4AF37';
@@ -81,10 +85,19 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Apply Horizon Straightening Rotation if set
+    if (straightenAngle !== 0) {
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((straightenAngle * Math.PI) / 180);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
+    }
+
     ctx.putImageData(currentDataRef.current, 0, 0);
 
     if (showMesh) {
-      ctx.save();
       ctx.strokeStyle = 'rgba(212, 175, 55, 0.45)';
       ctx.lineWidth = 1;
       const gridSize = 40;
@@ -100,13 +113,44 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
         ctx.lineTo(canvas.width, y);
         ctx.stroke();
       }
-      ctx.restore();
     }
+
+    // Draw Crop Frame Overlay if in crop tab
+    if (activeTab === 'crop') {
+      ctx.strokeStyle = '#FFE066';
+      ctx.lineWidth = 2;
+      let cropW = canvas.width;
+      let cropH = canvas.height;
+
+      if (cropAspect === '1:1') {
+        cropW = Math.min(canvas.width, canvas.height) * 0.85;
+        cropH = cropW;
+      } else if (cropAspect === '4:5') {
+        cropH = canvas.height * 0.9;
+        cropW = (cropH * 4) / 5;
+      } else if (cropAspect === '16:9') {
+        cropW = canvas.width * 0.9;
+        cropH = (cropW * 9) / 16;
+      }
+
+      const cx = (canvas.width - cropW) / 2;
+      const cy = (canvas.height - cropH) / 2;
+
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, 0, canvas.width, cy);
+      ctx.fillRect(0, cy + cropH, canvas.width, canvas.height - (cy + cropH));
+      ctx.fillRect(0, cy, cx, cropH);
+      ctx.fillRect(cx + cropW, cy, canvas.width - (cx + cropW), cropH);
+
+      ctx.strokeRect(cx, cy, cropW, cropH);
+    }
+
+    ctx.restore();
   };
 
   useEffect(() => {
     drawCanvas();
-  }, [showMesh]);
+  }, [showMesh, straightenAngle, activeTab, cropAspect]);
 
   const applyWarp = (currentX: number, currentY: number) => {
     const canvas = canvasRef.current;
@@ -178,6 +222,7 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (activeTab !== 'warp') return;
     if (e.button !== 0 || !canvasRef.current || !currentDataRef.current) return;
     setIsDragging(true);
     const rect = canvasRef.current.getBoundingClientRect();
@@ -207,7 +252,7 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
       visible: true
     });
 
-    if (isDragging) {
+    if (isDragging && activeTab === 'warp') {
       applyWarp(x, y);
       lastMouseRef.current = { x, y };
     }
@@ -231,6 +276,7 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
       originalDataRef.current.width,
       originalDataRef.current.height
     );
+    setStraightenAngle(0);
     drawCanvas();
   };
 
@@ -265,13 +311,33 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#D4AF37]" />
             <h2 className="font-cinzel text-xs sm:text-sm font-bold tracking-[0.2em] text-white">
-              LIQUIFY & MESH WARP STUDIO
+              PHOTO & LIQUIFY WARP SUITE
             </h2>
             <span className="px-2 py-0.5 rounded-[1px] bg-[#D4AF37]/20 text-[8.5px] font-mono-tech text-[#FFE066]">
               EP {frame.epNumber} // {frame.bengaliTitle}
             </span>
           </div>
+
           <div className="flex items-center gap-2">
+            <div className="flex bg-black/60 p-0.5 rounded border border-white/15 text-[10px]">
+              <button
+                onClick={() => setActiveTab('warp')}
+                className={`px-3 py-1 rounded-[1px] uppercase transition-colors cursor-pointer ${
+                  activeTab === 'warp' ? 'bg-[#D4AF37] text-black font-bold' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                LIQUIFY BRUSH
+              </button>
+              <button
+                onClick={() => setActiveTab('crop')}
+                className={`px-3 py-1 rounded-[1px] uppercase transition-colors cursor-pointer ${
+                  activeTab === 'crop' ? 'bg-[#D4AF37] text-black font-bold' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                CROP & STRAIGHTEN
+              </button>
+            </div>
+
             <button
               onClick={handleApplyToFrame}
               className="px-3 py-1 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold text-[10px] font-mono-tech rounded-[1px] flex items-center gap-1 cursor-pointer transition-colors"
@@ -295,70 +361,113 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
         {/* Studio Workspace */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-[#050507]">
           {/* Left Toolbar */}
-          <div className="w-full md:w-60 bg-[#08080C] border-b md:border-b-0 md:border-r border-white/10 p-3 flex flex-col gap-3 font-mono-tech shrink-0">
-            <div>
-              <span className="text-[8px] text-white/40 uppercase tracking-wider">Warp Brush Mode</span>
-              <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                {(['push', 'bloat', 'pinch', 'restore'] as WarpTool[]).map((tool) => (
-                  <button
-                    key={tool}
-                    onClick={() => setActiveTool(tool)}
-                    className={`px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-[1px] border cursor-pointer transition-all ${
-                      activeTool === tool
-                        ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#FFE066] font-bold'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
-                    }`}
-                  >
-                    {tool === 'push' && '🖐️ PUSH'}
-                    {tool === 'bloat' && '⭕ BLOAT'}
-                    {tool === 'pinch' && '🤏 PINCH'}
-                    {tool === 'restore' && '🔄 RESTORE'}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="w-full md:w-64 bg-[#08080C] border-b md:border-b-0 md:border-r border-white/10 p-3 flex flex-col gap-3 font-mono-tech shrink-0">
+            {activeTab === 'warp' ? (
+              <>
+                <div>
+                  <span className="text-[8px] text-white/40 uppercase tracking-wider">Warp Brush Mode</span>
+                  <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                    {(['push', 'bloat', 'pinch', 'restore'] as WarpTool[]).map((tool) => (
+                      <button
+                        key={tool}
+                        onClick={() => setActiveTool(tool)}
+                        className={`px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-[1px] border cursor-pointer transition-all ${
+                          activeTool === tool
+                            ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#FFE066] font-bold'
+                            : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+                        }`}
+                      >
+                        {tool === 'push' && '🖐️ PUSH'}
+                        {tool === 'bloat' && '⭕ BLOAT'}
+                        {tool === 'pinch' && '🤏 PINCH'}
+                        {tool === 'restore' && '🔄 RESTORE'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div>
-              <div className="flex items-center justify-between text-[8px] text-white/40 uppercase">
-                <span>Brush Radius</span>
-                <span className="text-[#FFE066]">{brushRadius}px</span>
-              </div>
-              <input
-                type="range"
-                min="15"
-                max="200"
-                value={brushRadius}
-                onChange={e => setBrushRadius(Number(e.target.value))}
-                className="w-full mt-1 accent-[#D4AF37] cursor-pointer"
-              />
-            </div>
+                <div>
+                  <div className="flex items-center justify-between text-[8px] text-white/40 uppercase">
+                    <span>Brush Radius</span>
+                    <span className="text-[#FFE066]">{brushRadius}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="15"
+                    max="200"
+                    value={brushRadius}
+                    onChange={e => setBrushRadius(Number(e.target.value))}
+                    className="w-full mt-1 accent-[#D4AF37] cursor-pointer"
+                  />
+                </div>
 
-            <div>
-              <div className="flex items-center justify-between text-[8px] text-white/40 uppercase">
-                <span>Warp Intensity</span>
-                <span className="text-[#FFE066]">{brushStrength}%</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="95"
-                value={brushStrength}
-                onChange={e => setBrushStrength(Number(e.target.value))}
-                className="w-full mt-1 accent-[#D4AF37] cursor-pointer"
-              />
-            </div>
+                <div>
+                  <div className="flex items-center justify-between text-[8px] text-white/40 uppercase">
+                    <span>Warp Pressure</span>
+                    <span className="text-[#FFE066]">{brushStrength}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="95"
+                    value={brushStrength}
+                    onChange={e => setBrushStrength(Number(e.target.value))}
+                    className="w-full mt-1 accent-[#D4AF37] cursor-pointer"
+                  />
+                </div>
 
-            <button
-              onClick={() => setShowMesh(!showMesh)}
-              className={`px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-[1px] border flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                showMesh
-                  ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#FFE066] font-bold'
-                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
-              }`}
-            >
-              <Grid className="w-3 h-3" />
-              <span>{showMesh ? 'HIDE GRID MESH' : 'SHOW GRID MESH'}</span>
-            </button>
+                <button
+                  onClick={() => setShowMesh(!showMesh)}
+                  className={`px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-[1px] border flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                    showMesh
+                      ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#FFE066] font-bold'
+                      : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+                  }`}
+                >
+                  <Grid className="w-3 h-3" />
+                  <span>{showMesh ? 'HIDE GRID MESH' : 'SHOW GRID MESH'}</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="text-[8px] text-white/40 uppercase tracking-wider">Crop Aspect Preset</span>
+                  <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                    {(['16:9', '1:1', '4:5', 'free'] as const).map(ratio => (
+                      <button
+                        key={ratio}
+                        onClick={() => setCropAspect(ratio)}
+                        className={`px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-[1px] border cursor-pointer ${
+                          cropAspect === ratio ? 'bg-[#D4AF37] text-black font-bold' : 'bg-white/5 text-white/60'
+                        }`}
+                      >
+                        {ratio}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-[8px] text-white/40 uppercase">
+                    <span>Horizon Straightening</span>
+                    <span className="text-[#FFE066]">{straightenAngle}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-45"
+                    max="45"
+                    value={straightenAngle}
+                    onChange={e => setStraightenAngle(Number(e.target.value))}
+                    className="w-full mt-1 accent-[#D4AF37] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-white/30 mt-0.5">
+                    <span>-45°</span>
+                    <button onClick={() => setStraightenAngle(0)} className="hover:text-[#FFE066]">0° (RESET)</button>
+                    <span>+45°</span>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="mt-auto flex flex-col gap-1.5 pt-3 border-t border-white/10">
               <button
@@ -395,7 +504,7 @@ export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = ({
                 }}
                 className="block max-w-full max-h-[75vh] object-contain cursor-crosshair"
               />
-              {cursorPos.visible && (
+              {cursorPos.visible && activeTab === 'warp' && (
                 <div
                   className="absolute pointer-events-none rounded-full border border-[#D4AF37] -translate-x-1/2 -translate-y-1/2"
                   style={{

@@ -15,7 +15,7 @@ export type LutPreset =
   | 'matrix'
   | 'raw';
 
-export type AspectRatio = '2.39:1' | '16:9' | '4:3' | '1:1' | '9:16';
+export type AspectRatio = '2.39:1' | '16:9' | '4:3' | '1:1' | '9:16' | '4:5';
 
 export type ViewMode = 'stage' | 'grid' | 'screenplay' | 'export' | 'brutalist-manager';
 

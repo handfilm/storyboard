@@ -9,6 +9,7 @@ import { immer } from 'zustand/middleware/immer';
 import { StudioProject, Shot, MediaItem } from './schemas';
 import { HistoryManager } from './history';
 import { eventBus } from './eventBus';
+import { generateInitialFrames } from '../data/frames';
 
 export type StudioModule =
   | 'STORY'
@@ -148,6 +149,45 @@ const defaultVisibility: ComponentVisibility = {
   lensBlur: true
 };
 
+export function createDefaultStoreShots(): Shot[] {
+  const baseFrames = generateInitialFrames();
+  return baseFrames.map((bf, i) => ({
+    id: i,
+    epNumber: bf.epNumber,
+    title: bf.title,
+    bengaliTitle: bf.bengaliTitle,
+    tagline: bf.tagline,
+    directorNotes: bf.directorNotes,
+    soundCue: bf.soundCue,
+    cameraSpec: bf.cameraSpec,
+    imageUrl: bf.imageUrl,
+    isVideo: Boolean(
+      bf.isVideo ||
+      (bf.imageUrl && (
+        bf.imageUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(bf.imageUrl)
+      ))
+    ),
+    panY: 50,
+    colorAccent: bf.colorAccent,
+    hoverStyle: bf.hoverStyle,
+    lutFilter: bf.lutFilter,
+    aspectRatio: '16:9',
+    adjustments: {
+      ...bf.adjustments,
+      halations: 0,
+      anamorphicStreak: 0
+    },
+    durationSeconds: 4.0,
+    shotType: 'MS',
+    status: 'planned',
+    tags: bf.tags,
+    activeLens: '50mm f/1.4 Human Eye',
+    dof: '1.8cm',
+    updatedAt: Date.now()
+  }));
+}
+
 export const useStudioStore = create<StudioState>()(
   immer((set, get) => ({
     project: {
@@ -160,7 +200,7 @@ export const useStudioStore = create<StudioState>()(
       activeFilter: 'cinematic',
       activeLens: '50mm f/1.4 Human Eye',
       playbackSpeed: 50,
-      shots: [],
+      shots: createDefaultStoreShots(),
       mediaPool: [],
       scriptText: '',
       createdAt: new Date().toISOString(),
@@ -394,12 +434,21 @@ export const useStudioStore = create<StudioState>()(
 
     updateShot: (index: number, partial: Partial<Shot>) => {
       set((state) => {
+        if (!state.project.shots || state.project.shots.length === 0) {
+          state.project.shots = createDefaultStoreShots();
+        }
+        while (state.project.shots.length <= index) {
+          const i = state.project.shots.length;
+          const defaults = createDefaultStoreShots();
+          state.project.shots.push(defaults[i % defaults.length]);
+        }
         const shot = state.project.shots[index];
         if (shot) {
           Object.assign(shot, partial);
           shot.updatedAt = Date.now();
         }
       });
+      eventBus.emit('shot:updated', { index, partial });
     },
 
     addMediaItem: (item: MediaItem) => {

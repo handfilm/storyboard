@@ -36,6 +36,8 @@ import { ProjectV1 } from './types/projectSchema';
 import { migrateToProjectV1, convertShotV1ToFrame } from './utils/projectMigration';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
+import { useStudioStore } from './core/store';
+import { eventBus } from './core/eventBus';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -126,6 +128,48 @@ export default function App() {
       }
     });
     setPanOffsets(loadedOffsets);
+
+    // Sync all loaded shots to useStudioStore so CinemaStage, BoardStudio, MediaStudio are in lockstep
+    try {
+      const store = useStudioStore.getState();
+      safeShots.forEach((s, idx) => {
+        store.updateShot(idx, {
+          imageUrl: s.imageUrl,
+          isVideo: s.isVideo,
+          panY: typeof s.panY === 'number' ? s.panY : 50,
+          title: s.titleEn,
+          bengaliTitle: s.titleBn,
+          tagline: s.subtitle,
+          directorNotes: s.directorNotes,
+          soundCue: s.soundCue,
+          tags: s.tags
+        });
+      });
+    } catch {
+      // safe fallback
+    }
+  }, []);
+
+  // Listen to shot updates from MediaStudio, CinemaStage, and BoardStudio
+  useEffect(() => {
+    const unsub = eventBus.on('shot:updated', ({ index, partial }: { index: number; partial: any }) => {
+      setProject(prev => {
+        const nextFrames = [...prev.frames];
+        if (nextFrames[index]) {
+          nextFrames[index] = {
+            ...nextFrames[index],
+            imageUrl: partial.imageUrl !== undefined ? partial.imageUrl : nextFrames[index].imageUrl,
+            isVideo: partial.isVideo !== undefined ? partial.isVideo : nextFrames[index].isVideo,
+            title: partial.title !== undefined ? partial.title : nextFrames[index].title,
+            bengaliTitle: partial.bengaliTitle !== undefined ? partial.bengaliTitle : nextFrames[index].bengaliTitle,
+            tagline: partial.tagline !== undefined ? partial.tagline : nextFrames[index].tagline
+          };
+        }
+        return { ...prev, frames: nextFrames };
+      });
+    });
+
+    return () => unsub();
   }, []);
 
   // Initialize Storage Core & Check Crash Status on Mount
@@ -450,12 +494,22 @@ export default function App() {
   };
 
   const handleUploadImage = (file: File) => {
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
     const url = URL.createObjectURL(file);
     const current = project.frames[currentIndex];
     handleUpdateFrame({
       ...current,
-      imageUrl: url
+      imageUrl: url,
+      isVideo: isVideo
     });
+    try {
+      useStudioStore.getState().updateShot(currentIndex, {
+        imageUrl: url,
+        isVideo: isVideo
+      });
+    } catch {
+      // safe fallback
+    }
   };
 
   const handleQuickSampleImage = () => {

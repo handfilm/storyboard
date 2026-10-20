@@ -8,7 +8,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStudioStore } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
 import { toBengaliNumerals } from '../../utils/engine';
-import { Sliders, Crop, Volume2, Upload, MoveVertical } from 'lucide-react';
+import { Sliders, Crop, Volume2, VolumeX, Upload, MoveVertical, Play, Pause, Video } from 'lucide-react';
 
 const sampleCinemaImages = [
   "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
@@ -29,6 +29,7 @@ export const CinemaStage: React.FC = () => {
   const {
     activeShotIndex,
     project,
+    isPlaying,
     isPanToolActive,
     setShotPanY,
     isGuidesActive,
@@ -46,6 +47,14 @@ export const CinemaStage: React.FC = () => {
   const [hudFeedback, setHudFeedback] = useState<number | null>(null);
   const hudTimerRef = useRef<any>(null);
 
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+
   const currentShot = project.shots[activeShotIndex] || {};
   const currentTheme = baseThemesData[activeShotIndex % baseThemesData.length];
   const epNumStr = String(activeShotIndex + 1).padStart(3, '0');
@@ -54,7 +63,54 @@ export const CinemaStage: React.FC = () => {
 
   const panY = currentShot.panY !== undefined ? currentShot.panY : 50;
   const imageUrl = currentShot.imageUrl || sampleCinemaImages[activeShotIndex % sampleCinemaImages.length];
-  const isVideo = currentShot.isVideo || false;
+  const isVideo = Boolean(
+    currentShot.isVideo !== undefined
+      ? currentShot.isVideo
+      : (imageUrl && (
+          imageUrl.startsWith('data:video') ||
+          /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(imageUrl)
+        ))
+  );
+
+  // Synchronize video element playback with timeline isPlaying
+  useEffect(() => {
+    if (videoRef.current && isVideo) {
+      if (isPlaying) {
+        videoRef.current.play().then(() => setIsVideoPlaying(true)).catch(() => {});
+      } else {
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      }
+    }
+  }, [isPlaying, isVideo, activeShotIndex, imageUrl]);
+
+  const handleVideoTimeUpdate = () => {
+    if (videoRef.current) {
+      setVideoCurrentTime(videoRef.current.currentTime);
+      setVideoDuration(videoRef.current.duration || 0);
+    }
+  };
+
+  const handleStageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(file.name);
+      const url = URL.createObjectURL(file);
+      updateShot(activeShotIndex, { imageUrl: url, isVideo: isVid });
+    }
+  };
+
+  const handleStageFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(file.name);
+      const url = URL.createObjectURL(file);
+      updateShot(activeShotIndex, { imageUrl: url, isVideo: isVid });
+    }
+    e.target.value = '';
+  };
 
   // Drag interaction for Vertical Panning
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -118,6 +174,9 @@ export const CinemaStage: React.FC = () => {
       <div 
         style={getAspectStyle()}
         onMouseDown={handleMouseDown}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleStageDrop}
         className={`relative w-full shadow-2xl overflow-hidden border border-[#D4AF37]/20 rounded-xs group ${
           isPanToolActive ? 'cursor-ns-resize' : ''
         }`}
@@ -125,13 +184,22 @@ export const CinemaStage: React.FC = () => {
         {/* Base Media Layer */}
         {isVideo ? (
           <video
+            key={imageUrl}
+            ref={videoRef}
             src={imageUrl}
             autoPlay
             loop
-            muted
+            muted={isVideoMuted}
             playsInline
+            preload="auto"
+            onTimeUpdate={handleVideoTimeUpdate}
+            onPlay={() => setIsVideoPlaying(true)}
+            onPause={() => setIsVideoPlaying(false)}
             className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: `center ${panY}%` }}
+            style={{
+              objectPosition: `center ${panY}%`,
+              objectFit: fitMode === 'contain' ? 'contain' : 'cover'
+            }}
           />
         ) : (
           <div 
@@ -259,6 +327,104 @@ export const CinemaStage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Video Transport Controls Bar */}
+        {isVideo && (
+          <div className="absolute bottom-3 left-4 right-4 z-40 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded border border-[#D4AF37]/30 flex items-center gap-3 opacity-90 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (videoRef.current) {
+                  if (videoRef.current.paused) {
+                    videoRef.current.play().catch(() => {});
+                  } else {
+                    videoRef.current.pause();
+                  }
+                }
+              }}
+              className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors"
+              title={isVideoPlaying ? "Pause Video" : "Play Video"}
+            >
+              {isVideoPlaying ? <Pause className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Play className="w-3.5 h-3.5 text-[#D4AF37]" />}
+            </button>
+            <div 
+              className="flex-1 h-1.5 bg-white/20 rounded cursor-pointer relative overflow-hidden"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (videoRef.current && videoRef.current.duration) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pos = (e.clientX - rect.left) / rect.width;
+                  videoRef.current.currentTime = pos * videoRef.current.duration;
+                }
+              }}
+            >
+              <div className="h-full bg-[#D4AF37]" style={{ width: `${videoDuration ? (videoCurrentTime / videoDuration) * 100 : 0}%` }} />
+            </div>
+            <span className="text-[9px] font-mono text-[#8A8A8A]">
+              {Math.floor(videoCurrentTime)}s / {Math.floor(videoDuration)}s
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (videoRef.current) {
+                  videoRef.current.muted = !videoRef.current.muted;
+                  setIsVideoMuted(videoRef.current.muted);
+                }
+              }}
+              className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors"
+              title={isVideoMuted ? "Unmute Video" : "Mute Video"}
+            >
+              {isVideoMuted ? <VolumeX className="w-3.5 h-3.5 text-white/60" /> : <Volume2 className="w-3.5 h-3.5 text-[#D4AF37]" />}
+            </button>
+            <span className="text-[9px] font-mono text-[#FFE066] flex items-center gap-1 border-l border-white/10 pl-2">
+              <Video className="w-3 h-3 text-[#D4AF37]" />
+              4K VIDEO
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              className="px-2 py-0.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#D4AF37]/40 text-[9px] text-[#D4AF37] rounded flex items-center gap-1 ml-1 cursor-pointer"
+            >
+              <Upload className="w-2.5 h-2.5" />
+              Replace
+            </button>
+          </div>
+        )}
+
+        {/* Floating Quick Media Upload Trigger */}
+        <div className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
+            className="px-2.5 py-1 bg-black/85 hover:bg-black border border-[#D4AF37]/50 rounded text-[10px] font-mono text-[#FFE066] flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer transition-colors"
+            title="Upload 4K Video or Image onto this Shot"
+          >
+            <Upload className="w-3 h-3 text-[#D4AF37]" />
+            Upload Video / Image
+          </button>
+        </div>
+
+        {/* Drag Over Overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-50 bg-[#D4AF37]/10 border-2 border-dashed border-[#D4AF37] flex flex-col items-center justify-center gap-2 pointer-events-none backdrop-blur-xs">
+            <Upload className="w-8 h-8 text-[#FFE066] animate-bounce" />
+            <span className="text-xs font-mono text-[#FFE066] font-bold tracking-wider">
+              DROP 4K VIDEO OR IMAGE TO ATTACH TO SHOT #{activeShotIndex + 1}
+            </span>
+          </div>
+        )}
+
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleStageFileInput}
+          accept="image/*,video/*,.mp4,.webm,.mov,.ogg,.m4v"
+          className="hidden"
+        />
       </div>
     </div>
   );

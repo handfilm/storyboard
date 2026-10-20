@@ -64,7 +64,7 @@ export const ShotSchema = z.object({
   tagline: z.string().default(''),
   directorNotes: z.string().default(''),
   soundCue: z.string().default('Sub-bass pulse 36Hz'),
-  cameraSpec: CameraSpecSchema.default({}),
+  cameraSpec: CameraSpecSchema.default(() => CameraSpecSchema.parse({})),
   imageUrl: z.string().optional(),
   isVideo: z.boolean().default(false),
   panY: z.number().min(0).max(100).default(50),
@@ -72,7 +72,7 @@ export const ShotSchema = z.object({
   hoverStyle: z.number().default(0),
   lutFilter: LutPresetEnum.default('cinematic'),
   aspectRatio: AspectRatioEnum.default('16:9'),
-  adjustments: FrameAdjustmentsSchema.default({}),
+  adjustments: FrameAdjustmentsSchema.default(() => FrameAdjustmentsSchema.parse({})),
   durationSeconds: z.number().default(4.0),
   shotType: z.string().default('MS'), // ELS, LS, MS, MCU, CU, ECU, OTS, POV
   status: z.enum(['planned', 'in-progress', 'approved', 'cut']).default('planned'),

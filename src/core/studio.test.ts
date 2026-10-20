@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { toBengaliNumerals } from '../utils/engine';
-import { isFeatureEnabled, getAllFeatureFlags, setFeatureFlag } from './featureFlags';
+import { featureFlags } from './featureFlags';
 import { HistoryManager } from './history';
 import { parseFountainScript } from '../data/fountainIO';
 
@@ -17,14 +17,13 @@ test('toBengaliNumerals converts ASCII digits into authentic Bengali digits', ()
 });
 
 test('Feature flags allow runtime reading and progressive overrides', () => {
-  const flags = getAllFeatureFlags();
-  assert.equal(flags.enableCleanGridShell, true);
-  assert.equal(flags.enableMultiViewBoard, true);
+  const flags = featureFlags.getAll();
+  assert.equal(typeof flags.enableBoardMode, 'boolean');
 
-  setFeatureFlag('enablePrevis3DStudio', false);
-  assert.equal(isFeatureEnabled('enablePrevis3DStudio'), false);
-  setFeatureFlag('enablePrevis3DStudio', true);
-  assert.equal(isFeatureEnabled('enablePrevis3DStudio'), true);
+  featureFlags.set('enableBoardMode', false);
+  assert.equal(featureFlags.get('enableBoardMode'), false);
+  featureFlags.set('enableBoardMode', true);
+  assert.equal(featureFlags.get('enableBoardMode'), true);
 });
 
 test('HistoryManager correctly tracks past states and manages undo/redo stack', () => {
@@ -32,8 +31,8 @@ test('HistoryManager correctly tracks past states and manages undo/redo stack', 
   assert.equal(history.canUndo(), false);
   assert.equal(history.canRedo(), false);
 
-  history.push(1);
-  history.push(2);
+  history.push(1, 'Set to 1');
+  history.push(2, 'Set to 2');
   assert.equal(history.canUndo(), true);
 
   const prev1 = history.undo();

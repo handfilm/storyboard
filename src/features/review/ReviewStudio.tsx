@@ -40,6 +40,14 @@ export const ReviewStudio: React.FC = () => {
 
   const currentShot = project.shots[activeShotIndex] || {};
   const imageUrl = currentShot.imageUrl || 'https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80';
+  const isVideo = Boolean(
+    currentShot.isVideo ||
+    (imageUrl && (
+      imageUrl.startsWith('data:video') ||
+      imageUrl.startsWith('blob:') ||
+      /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(imageUrl)
+    ))
+  );
 
   const [comments, setComments] = useState<CommentPin[]>([
     {
@@ -103,7 +111,8 @@ export const ReviewStudio: React.FC = () => {
 
   const handleStatusChange = (status: typeof approvalStatus) => {
     setApprovalStatus(status);
-    updateShot(activeShotIndex, { status });
+    const mappedStatus = status === 'Approved' ? 'approved' : status === 'Draft' ? 'planned' : status === 'Re-shoot' ? 'cut' : 'in-progress';
+    updateShot(activeShotIndex, { status: mappedStatus });
   };
 
   return (
@@ -154,11 +163,22 @@ export const ReviewStudio: React.FC = () => {
             onClick={handleFrameClick}
             className="w-full max-w-4xl aspect-video bg-black rounded border border-[#D4AF37]/30 relative overflow-hidden shadow-2xl cursor-crosshair"
           >
-            <img
-              src={imageUrl}
-              alt="Review Shot"
-              className="w-full h-full object-cover"
-            />
+            {isVideo ? (
+              <video
+                src={imageUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={imageUrl}
+                alt="Review Shot"
+                className="w-full h-full object-cover"
+              />
+            )}
 
             {/* Render Pinned Comments */}
             {shotComments.map((pin, idx) => (

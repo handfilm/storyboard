@@ -11,9 +11,19 @@ import { OpticalFrame } from './OpticalFrame';
 import { GridView } from './GridView';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
 import { ChevronLeft, ChevronRight, Scissors } from 'lucide-react';
+import { MediaStudio } from '../features/media/MediaStudio';
+import { StoryNotebook } from '../features/story/StoryNotebook';
+import { TextStudio } from '../features/text/TextStudio';
+import { SoundStudio } from '../features/sound/SoundStudio';
+import { ProductionStudio } from '../features/production/ProductionStudio';
+import { ReviewStudio } from '../features/review/ReviewStudio';
+import { LibraryStudio } from '../features/library/LibraryStudio';
+import { AiStudio } from '../features/ai/AiStudio';
+import { StudioModuleId } from './LeftRail';
 
 interface MainWorkspaceProps {
   activeMode: WorkspaceMode;
+  activeModule?: StudioModuleId;
   currentFrame: AnthologyFrame;
   frames: AnthologyFrame[];
   currentIndex: number;
@@ -39,6 +49,7 @@ interface MainWorkspaceProps {
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   activeMode,
+  activeModule,
   currentFrame,
   frames,
   currentIndex,
@@ -100,6 +111,66 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         </div>
       </main>
     );
+  }
+
+  // Active Specialized Studio Modules
+  if (activeMode === 'STAGE' && activeModule && activeModule !== 'PLAYER') {
+    if (activeModule === 'MEDIA') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <MediaStudio />
+        </main>
+      );
+    }
+    if (activeModule === 'STORY') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <StoryNotebook />
+        </main>
+      );
+    }
+    if (activeModule === 'TEXT') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <TextStudio />
+        </main>
+      );
+    }
+    if (activeModule === 'SOUND') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <SoundStudio />
+        </main>
+      );
+    }
+    if (activeModule === 'PRODUCTION') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <ProductionStudio />
+        </main>
+      );
+    }
+    if (activeModule === 'REVIEW') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <ReviewStudio />
+        </main>
+      );
+    }
+    if (activeModule === 'LIBRARY') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <LibraryStudio />
+        </main>
+      );
+    }
+    if (activeModule === 'AI') {
+      return (
+        <main className="flex-1 w-full h-full overflow-hidden">
+          <AiStudio />
+        </main>
+      );
+    }
   }
 
   // Default Primary Hero Mode: STAGE

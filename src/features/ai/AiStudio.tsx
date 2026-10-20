@@ -70,10 +70,9 @@ export const AiStudio: React.FC = () => {
   const handleApplyToShot = () => {
     updateShot(activeShotIndex, {
       shotType: 'MCU',
-      cameraMovement: cameraSuggestion.movement,
-      lighting: cameraSuggestion.lighting
+      cameraMove: cameraSuggestion.movement,
+      directorNotes: `Lighting: ${cameraSuggestion.lighting}`
     });
-    alert(`Applied AI camera suggestions to Shot #${activeShotIndex + 1}!`);
   };
 
   return (

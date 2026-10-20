@@ -21,7 +21,11 @@ import {
   Trash2, 
   Star,
   Layers,
-  HardDrive
+  HardDrive,
+  Play,
+  Pause,
+  X,
+  Maximize2
 } from 'lucide-react';
 
 interface MediaAsset {
@@ -50,9 +54,22 @@ const defaultAssets: MediaAsset[] = [
     sharpness: 94,
     dominantColor: '#d4af37',
     assignedShotId: 0,
-    isHeroTake: true,
+    isHeroTake: false,
     takeLabel: 'A',
     createdAt: Date.now() - 3600000
+  },
+  {
+    id: 'm-vid-01',
+    name: 'cyberpunk_flight_4k_cinema.mp4',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    type: 'video',
+    size: 15400000,
+    sharpness: 98,
+    dominantColor: '#d4af37',
+    assignedShotId: 0,
+    isHeroTake: true,
+    takeLabel: 'A',
+    createdAt: Date.now() - 3400000
   },
   {
     id: 'm-02',
@@ -63,9 +80,22 @@ const defaultAssets: MediaAsset[] = [
     sharpness: 88,
     dominantColor: '#ff4b4b',
     assignedShotId: 1,
-    isHeroTake: true,
+    isHeroTake: false,
     takeLabel: 'A',
     createdAt: Date.now() - 3200000
+  },
+  {
+    id: 'm-vid-02',
+    name: 'space_station_docking_sequence.mp4',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    type: 'video',
+    size: 22100000,
+    sharpness: 95,
+    dominantColor: '#4b9eff',
+    assignedShotId: 1,
+    isHeroTake: true,
+    takeLabel: 'B',
+    createdAt: Date.now() - 3000000
   },
   {
     id: 'm-03',
@@ -122,6 +152,7 @@ export const MediaStudio: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isIngesting, setIsIngesting] = useState(false);
   const [ingestProgress, setIngestProgress] = useState(0);
+  const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -142,12 +173,12 @@ export const MediaStudio: React.FC = () => {
     setIsIngesting(true);
     setIngestProgress(20);
 
-    // Simulate chunked worker ingest
+    // Process all incoming files (images, 4K videos, audio)
     setTimeout(() => {
       setIngestProgress(60);
       const newAssets: MediaAsset[] = Array.from(files).map((file, idx) => {
-        const isVid = file.type.startsWith('video');
-        const isAud = file.type.startsWith('audio');
+        const isVid = file.type.startsWith('video') || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(file.name);
+        const isAud = file.type.startsWith('audio') || /\.(mp3|wav|aac|ogg|m4a|flac)$/i.test(file.name);
         const url = URL.createObjectURL(file);
 
         return {
@@ -170,12 +201,14 @@ export const MediaStudio: React.FC = () => {
         setAssets(prev => [...newAssets, ...prev]);
         setIsIngesting(false);
         setIngestProgress(0);
-        // Update active shot with first uploaded image
-        if (newAssets[0] && newAssets[0].type === 'image') {
-          updateShot(activeShotIndex, { imageUrl: newAssets[0].url });
+        // Automatically attach the first uploaded video or image to the active shot
+        if (newAssets[0]) {
+          const isVid = newAssets[0].type === 'video';
+          updateShot(activeShotIndex, { imageUrl: newAssets[0].url, isVideo: isVid });
         }
       }, 400);
     }, 500);
+    e.target.value = '';
   };
 
   const handleSetHeroTake = (asset: MediaAsset) => {
@@ -186,13 +219,15 @@ export const MediaStudio: React.FC = () => {
       return a;
     }));
 
-    if (asset.assignedShotId !== undefined && asset.type === 'image') {
-      updateShot(asset.assignedShotId, { imageUrl: asset.url });
+    if (asset.assignedShotId !== undefined) {
+      const isVid = asset.type === 'video';
+      updateShot(asset.assignedShotId, { imageUrl: asset.url, isVideo: isVid });
     }
   };
 
   const handleAssignToActiveShot = (asset: MediaAsset) => {
-    updateShot(activeShotIndex, { imageUrl: asset.url });
+    const isVid = asset.type === 'video';
+    updateShot(activeShotIndex, { imageUrl: asset.url, isVideo: isVid });
     setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, assignedShotId: activeShotIndex, isHeroTake: true } : a));
   };
 
@@ -206,7 +241,7 @@ export const MediaStudio: React.FC = () => {
             ref={fileInputRef}
             onChange={handleFileUpload}
             multiple
-            accept="image/*,video/*,audio/*"
+            accept="image/*,video/*,audio/*,.mp4,.webm,.mov,.ogg,.m4v,.mkv"
             className="hidden"
           />
           <button
@@ -306,7 +341,22 @@ export const MediaStudio: React.FC = () => {
                       />
                     )}
                     {asset.type === 'video' && (
-                      <video src={asset.url} className="w-full h-full object-cover" />
+                      <>
+                        <video 
+                          src={asset.url} 
+                          className="w-full h-full object-cover" 
+                          muted 
+                          playsInline 
+                          loop 
+                          preload="metadata"
+                          onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
+                          onMouseLeave={(e) => { e.currentTarget.pause(); }}
+                        />
+                        <div className="absolute bottom-1 right-1 px-1 bg-black/85 rounded border border-[#D4AF37]/30 text-[9px] text-[#FFE066] flex items-center gap-1 z-10 pointer-events-none">
+                          <Video className="w-2.5 h-2.5 text-[#D4AF37]" />
+                          4K VIDEO
+                        </div>
+                      </>
                     )}
                     {asset.type === 'audio' && (
                       <Music className="w-8 h-8 text-[#D4AF37]" />
@@ -325,7 +375,7 @@ export const MediaStudio: React.FC = () => {
                     </div>
 
                     {/* Quick Assign Overlay */}
-                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity p-2">
+                    <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1.5 transition-opacity p-2">
                       <button
                         onClick={() => handleAssignToActiveShot(asset)}
                         className="px-2.5 py-1 bg-[#D4AF37] text-black font-bold rounded text-xs hover:bg-[#FFE066] transition-colors w-full text-center"
@@ -334,9 +384,19 @@ export const MediaStudio: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleSetHeroTake(asset)}
-                        className="px-2 py-0.5 bg-[#121212] border border-[#D4AF37]/40 text-[#EDEDED] rounded text-[10px] hover:border-[#D4AF37] transition-colors"
+                        className="px-2 py-0.5 bg-[#121212] border border-[#D4AF37]/40 text-[#EDEDED] rounded text-[10px] hover:border-[#D4AF37] transition-colors w-full text-center"
                       >
                         MARK AS HERO TAKE
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAsset(asset);
+                        }}
+                        className="px-2 py-0.5 bg-black/60 border border-white/20 text-white rounded text-[10px] hover:border-[#D4AF37] flex items-center justify-center gap-1 w-full text-center transition-colors"
+                      >
+                        <Maximize2 className="w-2.5 h-2.5" />
+                        PREVIEW
                       </button>
                     </div>
                   </div>
@@ -395,6 +455,86 @@ export const MediaStudio: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Full Media Preview Modal */}
+      {selectedAsset && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
+          onClick={() => setSelectedAsset(null)}
+        >
+          <div 
+            className="w-full max-w-4xl bg-[#0d0d0f] border border-[#D4AF37]/40 rounded shadow-2xl flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="h-12 bg-[#121216] border-b border-white/10 px-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {selectedAsset.type === 'video' ? <Video className="w-4 h-4 text-[#D4AF37]" /> : <ImageIcon className="w-4 h-4 text-[#D4AF37]" />}
+                <span className="font-bold text-white text-sm truncate max-w-md">{selectedAsset.name}</span>
+              </div>
+              <button 
+                onClick={() => setSelectedAsset(null)}
+                className="p-1 text-white/60 hover:text-white hover:bg-white/10 rounded transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Media Canvas Stage */}
+            <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
+              {selectedAsset.type === 'video' ? (
+                <video 
+                  src={selectedAsset.url} 
+                  controls 
+                  autoPlay 
+                  loop 
+                  className="w-full h-full object-contain" 
+                />
+              ) : selectedAsset.type === 'image' ? (
+                <img 
+                  src={selectedAsset.url} 
+                  alt={selectedAsset.name} 
+                  className="w-full h-full object-contain" 
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <Music className="w-16 h-16 text-[#D4AF37]" />
+                  <audio src={selectedAsset.url} controls autoPlay className="mt-4" />
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="p-4 bg-[#121216] border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3 text-[#8A8A8A]">
+                <span>TYPE: <strong className="text-white">{selectedAsset.type.toUpperCase()}</strong></span>
+                <span>SIZE: <strong className="text-white">{(selectedAsset.size / (1024 * 1024)).toFixed(1)} MB</strong></span>
+                <span>SHARPNESS: <strong className="text-[#FFE066]">{selectedAsset.sharpness}%</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleSetHeroTake(selectedAsset);
+                  }}
+                  className="px-3 py-1.5 bg-[#1f1f24] hover:bg-[#2c2c34] border border-[#D4AF37]/30 text-[#FFE066] rounded flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Star className="w-3.5 h-3.5" />
+                  Mark as Hero Take
+                </button>
+                <button
+                  onClick={() => {
+                    handleAssignToActiveShot(selectedAsset);
+                    setSelectedAsset(null);
+                  }}
+                  className="px-4 py-1.5 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold rounded flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  Attach to Shot #{activeShotIndex + 1}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { useStudioStore } from '../../core/store';
 import { parseFountainScript } from '../../data/fountainIO';
+import { toBengaliNumerals } from '../../utils/engine';
 import { 
   BookOpen, 
   Sparkles, 

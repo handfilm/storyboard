@@ -45,6 +45,12 @@ export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, scene
     panY: typeof frame?.panY === 'number' ? frame.panY : 50,
     mediaId: (frame?.imageUrl || base.imageUrl) ? `media-${epNumber}` : null,
     imageUrl: frame?.imageUrl || base.imageUrl,
+    isVideo: typeof frame?.isVideo === 'boolean' ? frame.isVideo : (
+      frame?.imageUrl ? (
+        frame.imageUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(frame.imageUrl)
+      ) : false
+    ),
     colorAccent: frame?.colorAccent || base.colorAccent || '#D4AF37',
     hoverStyle: typeof frame?.hoverStyle === 'number' ? frame.hoverStyle : (base.hoverStyle || 0),
     adjustments,
@@ -79,6 +85,12 @@ export function convertShotV1ToFrame(shot: Partial<ShotV1> | any, index: number)
     soundCue,
     cameraSpec,
     imageUrl: shot?.imageUrl ?? base.imageUrl,
+    isVideo: typeof shot?.isVideo === 'boolean' ? shot.isVideo : (
+      shot?.imageUrl ? (
+        shot.imageUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(shot.imageUrl)
+      ) : false
+    ),
     colorAccent: shot?.colorAccent || base.colorAccent || '#D4AF37',
     hoverStyle: typeof shot?.hoverStyle === 'number' ? shot.hoverStyle : (base.hoverStyle || 0),
     lutFilter: shot?.filter || base.lutFilter || 'cinematic',

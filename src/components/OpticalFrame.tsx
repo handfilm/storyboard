@@ -16,7 +16,7 @@ import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
 import { calculateShotTimecode } from '../utils/timecode';
 import { generateInitialFrames } from '../data/frames';
-import { Upload, Image as ImageIcon, Sliders, Sparkles, Volume2, MoveVertical } from 'lucide-react';
+import { Upload, Image as ImageIcon, Sliders, Sparkles, Volume2, VolumeX, MoveVertical, Play, Pause, Video } from 'lucide-react';
 
 interface OpticalFrameProps {
   frame: AnthologyFrame;
@@ -80,6 +80,40 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const [videoProgress, setVideoProgress] = useState(0);
+
+  const [videoError, setVideoError] = useState(false);
+
+  const isVideo = Boolean(
+    safeFrame.isVideo !== undefined
+      ? safeFrame.isVideo
+      : (safeFrame.imageUrl && (
+          safeFrame.imageUrl.startsWith('data:video') ||
+          /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(safeFrame.imageUrl)
+        ))
+  );
+
+  useEffect(() => {
+    setVideoError(false);
+    if (videoRef.current && isVideo) {
+      if (isAutoplay) {
+        videoRef.current.play().then(() => setIsVideoPlaying(true)).catch(() => {});
+      } else {
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      }
+    }
+  }, [isAutoplay, isVideo, safeFrame.id, safeFrame.imageUrl]);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      setVideoProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
+    }
+  };
 
   const filterCSS = getLutFilterCSS(safeFrame.lutFilter || 'cinematic', safeAdjustments);
   const hasPhoto = Boolean(safeFrame.imageUrl);
@@ -149,12 +183,16 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
     };
   }, [isPanningDrag, onPanChange]);
 
+  const isMediaFile = (file: File) => {
+    return file.type.startsWith('image/') || file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('image/')) {
+      if (isMediaFile(file)) {
         onUploadImage(file);
       }
     }
@@ -164,6 +202,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
     if (e.target.files && e.target.files[0]) {
       onUploadImage(e.target.files[0]);
     }
+    e.target.value = '';
   };
 
   // Aspect ratio container classes
@@ -223,19 +262,59 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
       >
         {/* Layer 1: Base Sharp Media Layer */}
         {hasPhoto ? (
-          <div
-            className={`absolute -inset-[6%] transition-transform duration-700 ease-out z-[1] ${
-              isAutoplay ? 'scale-105 transition-transform duration-[6000ms]' : 'scale-100'
-            }`}
-            style={{
-              backgroundImage: `url(${safeFrame.imageUrl})`,
-              backgroundSize: bgSizeStyle,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: `center ${panOffsetPercent}%`,
-              filter: filterCSS,
-              transform: `translate(${mousePos.x * 0.5}px, ${mousePos.y * 0.5}px)`
-            }}
-          />
+          isVideo ? (
+            videoError ? (
+              <div className="absolute inset-0 z-[1] flex flex-col items-center justify-center p-4 bg-[#0a0a0d] text-center border border-red-500/20">
+                <Video className="w-8 h-8 text-[#D4AF37] mb-2 opacity-60" />
+                <p className="font-mono text-xs text-[#FFE066] font-bold">VIDEO FORMAT NOTICE</p>
+                <p className="text-[10px] text-white/60 max-w-xs mt-1">
+                  Unable to decode this video stream. Please ensure the video is an MP4 (H.264), WebM, or MOV file.
+                </p>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-3 px-3 py-1 bg-[#D4AF37] text-black font-bold text-[10px] rounded hover:bg-[#FFE066] transition-colors"
+                >
+                  REPLACE VIDEO
+                </button>
+              </div>
+            ) : (
+              <video
+                key={safeFrame.imageUrl}
+                ref={videoRef}
+                src={safeFrame.imageUrl}
+                autoPlay
+                loop
+                muted={isVideoMuted}
+                playsInline
+                preload="auto"
+                onTimeUpdate={handleTimeUpdate}
+                onPlay={() => setIsVideoPlaying(true)}
+                onPause={() => setIsVideoPlaying(false)}
+                onError={() => setVideoError(true)}
+                className="absolute -inset-[6%] w-[112%] h-[112%] transition-transform duration-700 ease-out z-[1]"
+                style={{
+                  objectFit: bgSizeStyle === 'contain' ? 'contain' : bgSizeStyle === '100% 100%' ? 'fill' : 'cover',
+                  objectPosition: `center ${panOffsetPercent}%`,
+                  filter: filterCSS,
+                  transform: `translate(${mousePos.x * 0.5}px, ${mousePos.y * 0.5}px)`
+                }}
+              />
+            )
+          ) : (
+            <div
+              className={`absolute -inset-[6%] transition-transform duration-700 ease-out z-[1] ${
+                isAutoplay ? 'scale-105 transition-transform duration-[6000ms]' : 'scale-100'
+              }`}
+              style={{
+                backgroundImage: `url(${safeFrame.imageUrl})`,
+                backgroundSize: bgSizeStyle,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: `center ${panOffsetPercent}%`,
+                filter: filterCSS,
+                transform: `translate(${mousePos.x * 0.5}px, ${mousePos.y * 0.5}px)`
+              }}
+            />
+          )
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#0c0d12] via-[#08080a] to-[#040405] z-[1] flex items-center justify-center">
             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px]" />
@@ -263,7 +342,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         )}
 
         {/* Layer 2: Soft Focus Bloom */}
-        {hasPhoto && showBloom && (
+        {hasPhoto && !isVideo && showBloom && (
           <div
             className="absolute -inset-[6%] bg-center mix-blend-screen pointer-events-none z-[2] transition-opacity duration-700"
             style={{
@@ -280,7 +359,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         )}
 
         {/* Layer 3: Radial Anamorphic Lens Blur & Falloff */}
-        {hasPhoto && showLensBlur && (
+        {hasPhoto && !isVideo && showLensBlur && (
           <div
             className="absolute -inset-[6%] bg-center pointer-events-none z-[3] transition-opacity duration-700"
             style={{
@@ -326,6 +405,58 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           </div>
         )}
 
+        {/* Video Transport Controls Bar */}
+        {hasPhoto && isVideo && (
+          <div className="absolute bottom-2 left-4 right-4 z-40 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded border border-[#D4AF37]/30 flex items-center gap-3 opacity-90 hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (videoRef.current) {
+                  if (videoRef.current.paused) {
+                    videoRef.current.play().catch(() => {});
+                  } else {
+                    videoRef.current.pause();
+                  }
+                }
+              }}
+              className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors"
+              title={isVideoPlaying ? "Pause Video" : "Play Video"}
+            >
+              {isVideoPlaying ? <Pause className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Play className="w-3.5 h-3.5 text-[#D4AF37]" />}
+            </button>
+            <div 
+              className="flex-1 h-1.5 bg-white/20 rounded cursor-pointer relative overflow-hidden"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (videoRef.current && videoRef.current.duration) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pos = (e.clientX - rect.left) / rect.width;
+                  videoRef.current.currentTime = pos * videoRef.current.duration;
+                }
+              }}
+            >
+              <div className="h-full bg-[#D4AF37]" style={{ width: `${videoProgress}%` }} />
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (videoRef.current) {
+                  videoRef.current.muted = !videoRef.current.muted;
+                  setIsVideoMuted(videoRef.current.muted);
+                }
+              }}
+              className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors"
+              title={isVideoMuted ? "Unmute Video" : "Mute Video"}
+            >
+              {isVideoMuted ? <VolumeX className="w-3.5 h-3.5 text-white/60" /> : <Volume2 className="w-3.5 h-3.5 text-[#D4AF37]" />}
+            </button>
+            <span className="text-[9px] font-mono text-[#FFE066] flex items-center gap-1 border-l border-white/10 pl-2">
+              <Video className="w-3 h-3 text-[#D4AF37]" />
+              4K VIDEO
+            </span>
+          </div>
+        )}
+
         {/* Drop Media Prompt */}
         {!hasPhoto && (
           <div
@@ -341,7 +472,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 [ DROP MEDIA {safeFrame.epNumber} // OR CLICK TO LOAD ]
               </p>
               <p className="text-[9px] text-white/40 tracking-wider">
-                SUPPORTS RAW, JPG, PNG, WEBP • DRAG & DROP ANYWHERE
+                SUPPORTS 4K MP4, WEBM, MOV, JPG, PNG, WEBP • DRAG & DROP ANYWHERE
               </p>
             </div>
             <div className="flex items-center gap-2 mt-1">
@@ -349,8 +480,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 onClick={() => fileInputRef.current?.click()}
                 className="px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-[1px] text-[10px] font-mono-tech text-white flex items-center gap-1.5 cursor-pointer"
               >
-                <ImageIcon className="w-3 h-3 text-[#D4AF37]" />
-                Upload File
+                <Upload className="w-3 h-3 text-[#D4AF37]" />
+                Upload Media (Video / Image)
               </button>
               <button
                 onClick={onQuickSampleImage}
@@ -367,7 +498,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           type="file"
           ref={fileInputRef}
           onChange={handleFileInput}
-          accept="image/*"
+          accept="image/*,video/*,.mp4,.webm,.mov,.ogg,.m4v"
           className="hidden"
         />
 

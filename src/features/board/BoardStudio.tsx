@@ -25,7 +25,9 @@ import {
   SlidersHorizontal,
   CheckSquare,
   Sparkles,
-  MoveVertical
+  MoveVertical,
+  Video,
+  Upload
 } from 'lucide-react';
 
 const sampleCinemaImages = [
@@ -64,20 +66,70 @@ export const BoardStudio: React.FC = () => {
     return Array.from({ length: totalShots }).map((_, idx) => {
       const stored = project.shots[idx] || {};
       const theme = baseThemesData[idx % baseThemesData.length];
+      const imgUrl = stored.imageUrl || sampleCinemaImages[idx % sampleCinemaImages.length];
+      const isVid = Boolean(
+        stored.isVideo !== undefined
+          ? stored.isVideo
+          : (stored.imageUrl && (
+              stored.imageUrl.startsWith('data:video') ||
+              /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(stored.imageUrl)
+            ))
+      );
+
       return {
         id: idx,
         number: idx + 1,
-        titleEn: stored.titleEn || theme.en,
-        titleBn: stored.titleBn || theme.bn,
-        caption: stored.caption || theme.caption,
-        imageUrl: stored.imageUrl || sampleCinemaImages[idx % sampleCinemaImages.length],
+        titleEn: stored.title || theme.title,
+        titleBn: stored.bengaliTitle || theme.sub,
+        caption: stored.bengaliDesc || stored.tagline || theme.tag,
+        imageUrl: imgUrl,
+        isVideo: isVid,
         panY: stored.panY !== undefined ? stored.panY : 50,
         shotType: stored.shotType || (idx % 4 === 0 ? 'WIDE' : idx % 4 === 1 ? 'MCU' : idx % 4 === 2 ? 'CU' : 'POV'),
-        duration: stored.duration || 2.5,
-        status: stored.status || (idx % 3 === 0 ? 'Approved' : idx % 3 === 1 ? 'In Progress' : 'Draft')
+        duration: stored.durationSeconds || 2.5,
+        status: stored.status || (idx % 3 === 0 ? 'approved' : idx % 3 === 1 ? 'in-progress' : 'planned')
       };
     });
   }, [project.shots, totalShots]);
+
+  const handleShotDrop = (shotId: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(file.name);
+      const url = URL.createObjectURL(file);
+      updateShot(shotId, { imageUrl: url, isVideo: isVid });
+    }
+  };
+
+  const renderShotMedia = (shot: any, className: string = "w-full h-full object-cover", style?: React.CSSProperties) => {
+    if (shot.isVideo) {
+      return (
+        <video
+          key={shot.imageUrl}
+          src={shot.imageUrl}
+          muted
+          playsInline
+          loop
+          preload="metadata"
+          onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
+          onMouseLeave={(e) => { e.currentTarget.pause(); }}
+          className={className}
+          style={style}
+        />
+      );
+    }
+    return (
+      <img
+        src={shot.imageUrl}
+        alt={shot.titleEn}
+        className={className}
+        style={style}
+        loading="lazy"
+      />
+    );
+  };
 
   const filteredShots = useMemo(() => {
     if (!searchQuery.trim()) return shotsList;
@@ -109,9 +161,10 @@ export const BoardStudio: React.FC = () => {
     e.stopPropagation();
     const target = shotsList[idx];
     updateShot(idx + 1, {
-      titleEn: `${target.titleEn} (COPY)`,
-      titleBn: target.titleBn,
+      title: `${target.titleEn} (COPY)`,
+      bengaliTitle: target.titleBn,
       imageUrl: target.imageUrl,
+      isVideo: target.isVideo,
       panY: target.panY
     });
   };
@@ -267,7 +320,7 @@ export const BoardStudio: React.FC = () => {
             </button>
             <button
               onClick={() => {
-                selectedShots.forEach(idx => updateShot(idx, { status: 'Approved' }));
+                selectedShots.forEach(idx => updateShot(idx, { status: 'approved' }));
                 setSelectedShots([]);
               }}
               className="px-2 py-0.5 bg-[#D4AF37] text-black font-bold rounded text-[11px]"
@@ -339,16 +392,43 @@ export const BoardStudio: React.FC = () => {
                   </div>
 
                   {/* Thumbnail with Pan Y Offset */}
-                  <div className="relative aspect-video bg-black overflow-hidden">
-                    <img
-                      src={shot.imageUrl}
-                      alt={shot.titleEn}
-                      className="w-full h-full object-cover transition-transform duration-150"
-                      style={{
-                        objectPosition: `center ${shot.panY}%`
-                      }}
-                      loading="lazy"
-                    />
+                  <div 
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleShotDrop(shot.id, e)}
+                    className="relative aspect-video bg-black overflow-hidden group/thumb"
+                  >
+                    {renderShotMedia(shot, "w-full h-full object-cover transition-transform duration-150", { objectPosition: `center ${shot.panY}%` })}
+
+                    {/* Video Indicator */}
+                    {shot.isVideo && (
+                      <div className="absolute top-1 left-1 px-1 bg-black/85 rounded border border-[#D4AF37]/30 text-[8px] text-[#FFE066] flex items-center gap-0.5 z-10 pointer-events-none">
+                        <Video className="w-2.5 h-2.5 text-[#D4AF37]" />
+                        4K VIDEO
+                      </div>
+                    )}
+
+                    {/* Quick Media Upload Button on Hover */}
+                    <label 
+                      onClick={(e) => e.stopPropagation()} 
+                      className="absolute top-1 right-1 p-1 bg-black/85 hover:bg-black border border-white/20 text-white hover:text-[#FFE066] rounded cursor-pointer opacity-0 group-hover/thumb:opacity-100 transition-opacity z-20"
+                      title="Upload 4K Video or Image to Shot"
+                    >
+                      <Upload className="w-2.5 h-2.5" />
+                      <input 
+                        type="file" 
+                        accept="image/*,video/*,.mp4,.webm,.mov,.ogg,.m4v"
+                        className="hidden" 
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(file.name);
+                            const url = URL.createObjectURL(file);
+                            updateShot(shot.id, { imageUrl: url, isVideo: isVid });
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
 
                     {/* Pan Y Indicator */}
                     <div className="absolute bottom-1 right-1 px-1 bg-black/80 rounded border border-[#D4AF37]/20 text-[9px] text-[#8A8A8A] flex items-center gap-0.5">
@@ -382,6 +462,8 @@ export const BoardStudio: React.FC = () => {
               <div
                 key={shot.id}
                 onClick={() => setActiveShotIndex(shot.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleShotDrop(shot.id, e)}
                 className={`flex items-center gap-4 p-2 bg-[#0B0B0B] border rounded hover:border-[#D4AF37]/60 cursor-pointer ${
                   activeShotIndex === shot.id ? 'border-[#FFE066] bg-[#121212]' : 'border-[#D4AF37]/20'
                 }`}
@@ -389,13 +471,14 @@ export const BoardStudio: React.FC = () => {
                 <div className="w-12 text-center font-bold text-[#FFE066] text-xs">
                   #{String(shot.number).padStart(3, '0')}
                 </div>
-                <div className="w-28 aspect-video bg-black rounded overflow-hidden shrink-0">
-                  <img
-                    src={shot.imageUrl}
-                    alt={shot.titleEn}
-                    className="w-full h-full object-cover"
-                    style={{ objectPosition: `center ${shot.panY}%` }}
-                  />
+                <div className="w-28 aspect-video bg-black rounded overflow-hidden shrink-0 relative">
+                  {renderShotMedia(shot, "w-full h-full object-cover", { objectPosition: `center ${shot.panY}%` })}
+                  {shot.isVideo && (
+                    <div className="absolute bottom-0.5 right-0.5 px-1 bg-black/85 border border-[#D4AF37]/40 rounded text-[8px] text-[#FFE066] flex items-center gap-0.5">
+                      <Video className="w-2 h-2 text-[#D4AF37]" />
+                      VIDEO
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
                   <div>
@@ -451,13 +534,14 @@ export const BoardStudio: React.FC = () => {
                       ))}
                     </div>
 
-                    <div className="aspect-video bg-black">
-                      <img
-                        src={shot.imageUrl}
-                        alt={shot.titleEn}
-                        className="w-full h-full object-cover"
-                        style={{ objectPosition: `center ${shot.panY}%` }}
-                      />
+                    <div className="aspect-video bg-black relative">
+                      {renderShotMedia(shot, "w-full h-full object-cover", { objectPosition: `center ${shot.panY}%` })}
+                      {shot.isVideo && (
+                        <div className="absolute top-1 left-1 px-1 bg-black/85 rounded border border-[#D4AF37]/30 text-[8px] text-[#FFE066] flex items-center gap-0.5 z-10 pointer-events-none">
+                          <Video className="w-2.5 h-2.5 text-[#D4AF37]" />
+                          4K
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-2 text-xs">
@@ -488,6 +572,8 @@ export const BoardStudio: React.FC = () => {
               <div
                 key={shot.id}
                 onClick={() => setActiveShotIndex(shot.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleShotDrop(shot.id, e)}
                 className="relative bg-[#121212] border border-[#D4AF37]/30 rounded-lg p-3 shadow-xl hover:-translate-y-1 transition-transform cursor-pointer"
               >
                 {/* Pin Head */}
@@ -496,13 +582,14 @@ export const BoardStudio: React.FC = () => {
                   <span>SCENE #{shot.number}</span>
                   <span className="text-[10px] text-[#8A8A8A]">{shot.status}</span>
                 </div>
-                <div className="aspect-video bg-black rounded overflow-hidden my-2 border border-[#D4AF37]/10">
-                  <img
-                    src={shot.imageUrl}
-                    alt={shot.titleEn}
-                    className="w-full h-full object-cover"
-                    style={{ objectPosition: `center ${shot.panY}%` }}
-                  />
+                <div className="aspect-video bg-black rounded overflow-hidden my-2 border border-[#D4AF37]/10 relative">
+                  {renderShotMedia(shot, "w-full h-full object-cover", { objectPosition: `center ${shot.panY}%` })}
+                  {shot.isVideo && (
+                    <div className="absolute top-1 left-1 px-1 bg-black/85 rounded border border-[#D4AF37]/30 text-[8px] text-[#FFE066] flex items-center gap-0.5 z-10 pointer-events-none">
+                      <Video className="w-2.5 h-2.5 text-[#D4AF37]" />
+                      4K VIDEO
+                    </div>
+                  )}
                 </div>
                 <div className="font-bold text-xs text-[#EDEDED]">{shot.titleEn}</div>
                 <div className="text-[11px] text-[#FFE066] font-serif">{shot.titleBn}</div>
@@ -530,15 +617,17 @@ export const BoardStudio: React.FC = () => {
                       <div
                         key={shot.id}
                         onClick={() => setActiveShotIndex(shot.id)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => handleShotDrop(shot.id, e)}
                         className="p-2 bg-[#121212] border border-[#D4AF37]/20 rounded hover:border-[#D4AF37]/60 cursor-pointer flex gap-2"
                       >
-                        <div className="w-16 aspect-video bg-black rounded overflow-hidden shrink-0">
-                          <img
-                            src={shot.imageUrl}
-                            alt={shot.titleEn}
-                            className="w-full h-full object-cover"
-                            style={{ objectPosition: `center ${shot.panY}%` }}
-                          />
+                        <div className="w-16 aspect-video bg-black rounded overflow-hidden shrink-0 relative">
+                          {renderShotMedia(shot, "w-full h-full object-cover", { objectPosition: `center ${shot.panY}%` })}
+                          {shot.isVideo && (
+                            <div className="absolute bottom-0.5 right-0.5 px-0.5 bg-black/80 rounded text-[7px] text-[#FFE066]">
+                              <Video className="w-2 h-2 text-[#D4AF37]" />
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 overflow-hidden">
                           <div className="text-[11px] font-bold text-[#EDEDED] truncate">#{shot.number} {shot.titleEn}</div>
@@ -565,10 +654,17 @@ export const BoardStudio: React.FC = () => {
                   <div
                     key={shot.id}
                     onClick={() => setActiveShotIndex(shot.id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleShotDrop(shot.id, e)}
                     className="p-2 bg-[#121212] border border-[#D4AF37]/20 rounded hover:border-[#D4AF37] cursor-pointer text-center"
                   >
-                    <div className="aspect-video bg-black rounded overflow-hidden mb-1">
-                      <img src={shot.imageUrl} alt={shot.titleEn} className="w-full h-full object-cover" />
+                    <div className="aspect-video bg-black rounded overflow-hidden mb-1 relative">
+                      {renderShotMedia(shot, "w-full h-full object-cover")}
+                      {shot.isVideo && (
+                        <div className="absolute top-0.5 left-0.5 px-0.5 bg-black/80 rounded text-[6px] text-[#FFE066]">
+                          VID
+                        </div>
+                      )}
                     </div>
                     <div className="text-[10px] font-bold text-[#FFE066]">#{shot.number}</div>
                     <div className="text-[9px] text-[#8A8A8A] truncate">{shot.titleEn}</div>

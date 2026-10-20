@@ -41,6 +41,14 @@ export const ColorStudio: React.FC = () => {
 
   const currentShot = project.shots[activeShotIndex] || {};
   const imageUrl = currentShot.imageUrl || 'https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80';
+  const isVideo = Boolean(
+    currentShot.isVideo ||
+    (imageUrl && (
+      imageUrl.startsWith('data:video') ||
+      imageUrl.startsWith('blob:') ||
+      /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(imageUrl)
+    ))
+  );
 
   // Color wheel states
   const [lift, setLift] = useState({ r: 0, g: 0, b: 0, master: 0 });
@@ -70,9 +78,8 @@ export const ColorStudio: React.FC = () => {
   const handleApplyToAll = () => {
     const total = Math.max(100, project.shots.length);
     for (let i = 0; i < total; i++) {
-      updateShot(i, { filterLut: activeLut });
+      updateShot(i, { lutFilter: activeLut as any });
     }
-    alert(`Applied LUT "${activeLut.toUpperCase()}" to all ${total} frames!`);
   };
 
   return (
@@ -115,16 +122,31 @@ export const ColorStudio: React.FC = () => {
         {/* Viewport Canvas with Graded Image */}
         <div className="flex-1 bg-[#030304] flex items-center justify-center p-6 relative overflow-hidden">
           <div className="w-full max-w-4xl aspect-video bg-black rounded border border-[#D4AF37]/30 relative overflow-hidden shadow-2xl flex items-center justify-center">
-            {/* Graded Image */}
-            <img
-              src={imageUrl}
-              alt="Grade Preview"
-              className="w-full h-full object-cover"
-              style={{
-                filter: `contrast(${100 + gain.master}%) brightness(${100 + gamma.master}%) saturate(${110 + gain.r}%) sepia(${halation * 0.4}%)`,
-                boxShadow: `inset 0 0 ${vignette * 3}px rgba(0,0,0,0.9)`
-              }}
-            />
+            {/* Graded Media (Video or Image) */}
+            {isVideo ? (
+              <video
+                src={imageUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+                style={{
+                  filter: `contrast(${100 + gain.master}%) brightness(${100 + gamma.master}%) saturate(${110 + gain.r}%) sepia(${halation * 0.4}%)`,
+                  boxShadow: `inset 0 0 ${vignette * 3}px rgba(0,0,0,0.9)`
+                }}
+              />
+            ) : (
+              <img
+                src={imageUrl}
+                alt="Grade Preview"
+                className="w-full h-full object-cover"
+                style={{
+                  filter: `contrast(${100 + gain.master}%) brightness(${100 + gamma.master}%) saturate(${110 + gain.r}%) sepia(${halation * 0.4}%)`,
+                  boxShadow: `inset 0 0 ${vignette * 3}px rgba(0,0,0,0.9)`
+                }}
+              />
+            )}
 
             {/* Split Screen Slider */}
             {isSplitMode && (
@@ -133,12 +155,24 @@ export const ColorStudio: React.FC = () => {
                   className="absolute inset-y-0 left-0 overflow-hidden border-r-2 border-[#FFE066] shadow-2xl"
                   style={{ width: `${splitPosition}%` }}
                 >
-                  <img
-                    src={imageUrl}
-                    alt="Ungraded Original"
-                    className="w-full h-full object-cover max-w-none"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
+                  {isVideo ? (
+                    <video
+                      src={imageUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover max-w-none"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <img
+                      src={imageUrl}
+                      alt="Ungraded Original"
+                      className="w-full h-full object-cover max-w-none"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  )}
                   <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/80 rounded border border-[#8A8A8A] text-[9px] text-[#8A8A8A]">
                     ORIGINAL
                   </div>

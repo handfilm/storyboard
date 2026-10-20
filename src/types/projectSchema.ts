@@ -30,6 +30,7 @@ export interface ShotV1 {
   panY: number; // 0 to 100, default 50
   mediaId: string | null;
   imageUrl?: string;
+  isVideo?: boolean;
   colorAccent: string;
   hoverStyle?: number;
   adjustments: FrameAdjustments;

@@ -41,10 +41,18 @@ export const TextStudio: React.FC = () => {
 
   const currentShot = project.shots[activeShotIndex] || {};
   const currentTheme = baseThemesData[activeShotIndex % baseThemesData.length];
+  const isVideo = Boolean(
+    currentShot.isVideo ||
+    (currentShot.imageUrl && (
+      currentShot.imageUrl.startsWith('data:video') ||
+      currentShot.imageUrl.startsWith('blob:') ||
+      /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(currentShot.imageUrl)
+    ))
+  );
 
-  const [titleEn, setTitleEn] = useState(currentShot.titleEn || currentTheme.en);
-  const [titleBn, setTitleBn] = useState(currentShot.titleBn || currentTheme.bn);
-  const [caption, setCaption] = useState(currentShot.caption || currentTheme.caption);
+  const [titleEn, setTitleEn] = useState(currentShot.title || currentTheme.title);
+  const [titleBn, setTitleBn] = useState(currentShot.bengaliTitle || currentTheme.sub);
+  const [caption, setCaption] = useState(currentShot.bengaliDesc || currentShot.tagline || currentTheme.tag);
   const [fontSize, setFontSize] = useState(36);
   const [textColor, setTextColor] = useState('#FFE066');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
@@ -52,9 +60,9 @@ export const TextStudio: React.FC = () => {
 
   const handleApplyChanges = () => {
     updateShot(activeShotIndex, {
-      titleEn,
-      titleBn,
-      caption
+      title: titleEn,
+      bengaliTitle: titleBn,
+      tagline: caption
     });
   };
 
@@ -71,14 +79,14 @@ export const TextStudio: React.FC = () => {
     for (let i = 0; i < total; i++) {
       const shot = project.shots[i] || {};
       const theme = baseThemesData[i % baseThemesData.length];
-      const duration = shot.duration || 2.5;
+      const duration = shot.durationSeconds || 2.5;
       const startTimeStr = formatSRTTime(currentTime);
       currentTime += duration;
       const endTimeStr = formatSRTTime(currentTime);
 
-      const en = shot.titleEn || theme.en;
-      const bn = shot.titleBn || theme.bn;
-      const cap = shot.caption || theme.caption;
+      const en = shot.title || theme.title;
+      const bn = shot.bengaliTitle || theme.sub;
+      const cap = shot.bengaliDesc || shot.tagline || theme.tag;
 
       srtContent += `${i + 1}\n${startTimeStr} --> ${endTimeStr}\n${bn} // ${en}\n${cap}\n\n`;
     }
@@ -132,12 +140,23 @@ export const TextStudio: React.FC = () => {
         {/* Live Preview Display */}
         <div className="flex-1 bg-[#030304] flex items-center justify-center p-6 relative">
           <div className="w-full max-w-4xl aspect-video bg-black rounded border border-[#D4AF37]/30 relative flex flex-col items-center justify-center p-8 shadow-2xl overflow-hidden">
-            {/* Background Shot Image */}
-            <img
-              src={currentShot.imageUrl || 'https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80'}
-              alt="Background"
-              className="absolute inset-0 w-full h-full object-cover opacity-40 blur-[1px]"
-            />
+            {/* Background Shot Media (Video or Image) */}
+            {isVideo ? (
+              <video
+                src={currentShot.imageUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover opacity-40 blur-[1px]"
+              />
+            ) : (
+              <img
+                src={currentShot.imageUrl || 'https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80'}
+                alt="Background"
+                className="absolute inset-0 w-full h-full object-cover opacity-40 blur-[1px]"
+              />
+            )}
 
             {/* Title Lockup Preview */}
             <div className="relative z-10 text-center flex flex-col items-center gap-3 max-w-2xl">

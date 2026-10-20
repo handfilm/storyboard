@@ -38,6 +38,8 @@ export interface FrameAdjustments {
   vignette: number;   // 0 to 100
 }
 
+export type TitleAnimationStyle = 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'neon' | 'cinema-fade' | 'fade';
+
 export interface AnthologyFrame {
   id: number;
   epNumber: string;
@@ -59,7 +61,7 @@ export interface AnthologyFrame {
   tags: string[];
   activeLens?: string;
   dof?: string;
-  titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'fade';
+  titleAnimation?: TitleAnimationStyle;
   voiceoverDirective?: any;
   omniDecisions?: any;
 }

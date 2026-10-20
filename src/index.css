@@ -186,3 +186,112 @@
 .super-caption-wave {
   animation: captionWave 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Additional Super Title & Caption Animations */
+@keyframes typewriterReveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes neonCyberPulse {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(0, 255, 204, 0.8), 0 0 25px rgba(0, 255, 204, 0.4), 0 0 50px rgba(0, 255, 204, 0.2);
+    color: #e6ffff;
+  }
+  50% {
+    text-shadow: 0 0 18px rgba(0, 255, 204, 1), 0 0 40px rgba(0, 255, 204, 0.7), 0 0 80px rgba(0, 255, 204, 0.4);
+    color: #ffffff;
+  }
+}
+
+@keyframes cinemaFadeIn {
+  0% {
+    opacity: 0;
+    filter: blur(16px);
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: scale(1);
+  }
+}
+
+@keyframes captionFlareShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.super-title-typewriter {
+  animation: typewriterReveal 1.2s steps(28, end) forwards;
+  position: relative;
+}
+
+.super-title-neon {
+  animation: neonCyberPulse 2.4s ease-in-out infinite;
+}
+
+.super-title-cinema-fade {
+  animation: cinemaFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Super Caption Animations */
+.super-caption-flare {
+  background: linear-gradient(
+    90deg,
+    #ffe066 0%,
+    #ffffff 50%,
+    #ffe066 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: captionFlareShimmer 3.5s ease-in-out infinite;
+}
+
+.super-caption-glitch {
+  animation: titleGlitchSurge 3.2s infinite ease-in-out;
+}
+
+.super-caption-breathe {
+  animation: celluloidAuraBreathe 4s ease-in-out infinite;
+}
+
+.super-caption-typewriter {
+  animation: typewriterReveal 1.4s steps(35, end) forwards;
+}
+
+/* Photo Nav Bar & Nav-Dash Smooth Scaling Animation */
+.nav-dash {
+  position: relative;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background-color 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+              color 0.2s ease;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+
+#photo-nav-bar .nav-dash:hover,
+.nav-dash:hover {
+  transform: scale(1.28) translateY(-2px);
+  z-index: 30;
+  box-shadow: 0 8px 24px rgba(229, 169, 25, 0.5), 0 0 12px rgba(229, 169, 25, 0.3);
+}
+
+#photo-nav-bar .nav-dash:active,
+.nav-dash:active {
+  transform: scale(1.1) translateY(0);
+}
+

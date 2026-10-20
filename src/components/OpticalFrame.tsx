@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { AnthologyFrame, AspectRatio } from '../types/anthology';
+import { AnthologyFrame, AspectRatio, TitleAnimationStyle } from '../types/anthology';
 import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
 import { calculateShotTimecode } from '../utils/timecode';
@@ -39,7 +39,8 @@ interface OpticalFrameProps {
   onOpenSliders?: () => void;
   onOpenGrid?: () => void;
   onOpenSettings?: () => void;
-  titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter';
+  titleAnimation?: TitleAnimationStyle;
+  onSelectTitleAnimation?: (anim: TitleAnimationStyle) => void;
   onCycleTitleAnimation?: () => void;
 }
 
@@ -65,20 +66,23 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   onOpenGrid,
   onOpenSettings,
   titleAnimation,
+  onSelectTitleAnimation,
   onCycleTitleAnimation
 }) => {
   const safeFrame: AnthologyFrame = frame || generateInitialFrames()[0];
-  const [localAnimStyle, setLocalAnimStyle] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>(
+  const [localAnimStyle, setLocalAnimStyle] = useState<TitleAnimationStyle>(
     (titleAnimation as any) || (safeFrame.titleAnimation as any) || 'flare'
   );
 
   const activeAnim = titleAnimation || localAnimStyle;
   const cycleAnim = () => {
-    if (onCycleTitleAnimation) {
+    const styles: TitleAnimationStyle[] = ['flare', 'kinetic', 'glitch', 'breathe', 'typewriter', 'neon', 'cinema-fade'];
+    const next = styles[(styles.indexOf(activeAnim) + 1) % styles.length];
+    if (onSelectTitleAnimation) {
+      onSelectTitleAnimation(next);
+    } else if (onCycleTitleAnimation) {
       onCycleTitleAnimation();
     } else {
-      const styles: ('flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter')[] = ['flare', 'kinetic', 'glitch', 'breathe', 'typewriter'];
-      const next = styles[(styles.indexOf(localAnimStyle) + 1) % styles.length];
       setLocalAnimStyle(next);
     }
   };
@@ -631,6 +635,12 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                       ? 'super-title-glitch text-[#FFE066]'
                       : activeAnim === 'breathe'
                       ? 'super-title-breathe text-[#FFE066]'
+                      : activeAnim === 'typewriter'
+                      ? 'super-title-typewriter text-[#FFE066]'
+                      : activeAnim === 'neon'
+                      ? 'super-title-neon text-cyan-200'
+                      : activeAnim === 'cinema-fade'
+                      ? 'super-title-cinema-fade text-[#FFE066]'
                       : 'text-[#FFE066] drop-shadow-[0_0_30px_rgba(212,175,55,0.7)]'
                   }`}
                   style={{
@@ -644,9 +654,25 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               {/* English Cinzel Main Title */}
               {showTitleEn && (
                 <h2
-                  className="font-cinzel text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.25em] text-[#EDEDED] mt-2 sm:mt-3 uppercase drop-shadow-2xl"
+                  className={`font-cinzel text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.25em] mt-2 sm:mt-3 uppercase drop-shadow-2xl transition-all duration-300 ${
+                    activeAnim === 'flare'
+                      ? 'super-title-flare'
+                      : activeAnim === 'kinetic'
+                      ? 'super-title-kinetic text-[#EDEDED]'
+                      : activeAnim === 'glitch'
+                      ? 'super-title-glitch text-[#EDEDED]'
+                      : activeAnim === 'breathe'
+                      ? 'super-title-breathe text-[#EDEDED]'
+                      : activeAnim === 'typewriter'
+                      ? 'super-title-typewriter text-[#EDEDED]'
+                      : activeAnim === 'neon'
+                      ? 'super-title-neon text-cyan-100'
+                      : activeAnim === 'cinema-fade'
+                      ? 'super-title-cinema-fade text-[#EDEDED]'
+                      : 'text-[#EDEDED]'
+                  }`}
                   style={{
-                    textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 0 15px rgba(212,175,55,0.3)'
+                    textShadow: activeAnim === 'flare' ? undefined : '0 4px 20px rgba(0,0,0,0.9), 0 0 15px rgba(212,175,55,0.3)'
                   }}
                 >
                   {safeFrame.title || 'THE SINGULARITY'}
@@ -655,7 +681,9 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
               {/* Telemetry Subtitle Tagline */}
               {showTagline && (
-                <p className="font-mono-tech text-[10px] sm:text-xs tracking-[0.24em] text-[#D4AF37] font-semibold mt-1.5 uppercase drop-shadow-md">
+                <p className={`font-mono-tech text-[10px] sm:text-xs tracking-[0.24em] font-semibold mt-1.5 uppercase drop-shadow-md transition-all duration-300 ${
+                  activeAnim === 'neon' ? 'super-title-neon text-cyan-300' : 'text-[#D4AF37]'
+                }`}>
                   SC01-SH{safeFrame.epNumber} // {safeFrame.tagline || 'THE FIRST GAZE INTO THE UNKNOWN'}
                 </p>
               )}
@@ -663,7 +691,23 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               {/* Futuristic Glassmorphic Telemetry Card with Poetic Dialogue & 4-Column Specs */}
               {showCaption && (
                 <div className="mt-4 w-full max-w-xl bg-[#090A0F]/85 border border-white/10 hover:border-[#D4AF37]/40 rounded-lg p-3 sm:p-4 backdrop-blur-xl shadow-2xl transition-all pointer-events-auto">
-                  <p className="font-['Noto_Serif_Bengali'] italic text-xs sm:text-sm text-[#FFE066] drop-shadow text-center leading-relaxed">
+                  <p className={`font-['Noto_Serif_Bengali'] italic text-xs sm:text-sm drop-shadow text-center leading-relaxed transition-all duration-300 ${
+                    activeAnim === 'flare'
+                      ? 'super-caption-flare text-[#FFE066]'
+                      : activeAnim === 'kinetic'
+                      ? 'super-caption-wave text-[#FFE066]'
+                      : activeAnim === 'glitch'
+                      ? 'super-caption-glitch text-[#FFE066]'
+                      : activeAnim === 'breathe'
+                      ? 'super-caption-breathe text-[#FFE066]'
+                      : activeAnim === 'typewriter'
+                      ? 'super-caption-typewriter text-[#FFE066]'
+                      : activeAnim === 'neon'
+                      ? 'super-title-neon text-cyan-200'
+                      : activeAnim === 'cinema-fade'
+                      ? 'super-caption-wave text-[#FFE066]'
+                      : 'text-[#FFE066]'
+                  }`}>
                     "{safeFrame.bengaliDesc || safeFrame.tagline || 'আমরা কি আলো পেরিয়ে এলাম? (Did we cross the light?)'}"
                   </p>
                   <div className="grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-white/10 text-center font-mono-tech text-[9px] sm:text-[10px]">
@@ -687,16 +731,37 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 </div>
               )}
 
-              {/* Live Super Title Animation Cycle Switcher */}
-              <div className="mt-2.5 flex items-center gap-2 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Futuristic Live Super Title Animation Control Dock */}
+              <div className="mt-3 flex items-center gap-1.5 pointer-events-auto bg-black/85 backdrop-blur-xl p-1 rounded-full border border-white/15 shadow-2xl transition-all">
                 <button
                   onClick={cycleAnim}
-                  className="px-2.5 py-0.5 rounded-full bg-black/80 hover:bg-black border border-[#D4AF37]/50 text-[#FFE066] text-[8px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors shadow-lg"
-                  title="Click to switch Super Title Animation (Flare, Kinetic, Glitch, Breathe)"
+                  className="px-2.5 py-0.5 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black text-[8.5px] font-mono-tech font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-[0_0_8px_rgba(229,169,25,0.4)]"
+                  title="Click to cycle next animation style"
                 >
-                  <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" />
-                  <span>ANIMATION: {activeAnim.toUpperCase()} (CLICK TO CYCLE)</span>
+                  <Sparkles className="w-2.5 h-2.5 fill-current" />
+                  <span>ANIMATION: {activeAnim.toUpperCase()}</span>
                 </button>
+                <div className="hidden sm:flex items-center gap-1 border-l border-white/15 pl-1.5">
+                  {(['flare', 'kinetic', 'glitch', 'breathe', 'typewriter', 'neon', 'cinema-fade'] as const).map(style => (
+                    <button
+                      key={style}
+                      onClick={() => {
+                        if (onSelectTitleAnimation) {
+                          onSelectTitleAnimation(style);
+                        } else {
+                          setLocalAnimStyle(style);
+                        }
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[8px] font-mono-tech uppercase transition-all cursor-pointer ${
+                        activeAnim === style
+                          ? 'bg-[#E5A919] text-black font-black shadow-[0_0_8px_rgba(229,169,25,0.7)]'
+                          : 'text-white/60 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {style.replace('-fade', '')}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

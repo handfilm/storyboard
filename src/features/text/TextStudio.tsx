@@ -9,6 +9,8 @@ import React, { useState } from 'react';
 import { useStudioStore } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
 import { toBengaliNumerals } from '../../utils/engine';
+import { TitleAnimationStyle } from '../../types/anthology';
+import { eventBus } from '../../core/events';
 import { 
   Type, 
   AlignLeft, 
@@ -19,7 +21,8 @@ import {
   Download, 
   Upload, 
   Eye, 
-  RefreshCw 
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 
 const titlePresets = [
@@ -56,13 +59,25 @@ export const TextStudio: React.FC = () => {
   const [fontSize, setFontSize] = useState(36);
   const [textColor, setTextColor] = useState('#FFE066');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
-  const [animationStyle, setAnimationStyle] = useState<'static' | 'fade' | 'typewriter' | 'karaoke'>('fade');
+  const [animationStyle, setAnimationStyle] = useState<TitleAnimationStyle>(
+    (currentShot.titleAnimation as any) || 'flare'
+  );
 
   const handleApplyChanges = () => {
     updateShot(activeShotIndex, {
       title: titleEn,
       bengaliTitle: titleBn,
-      tagline: caption
+      tagline: caption,
+      titleAnimation: animationStyle
+    });
+    eventBus.emit('shot:updated', {
+      index: activeShotIndex,
+      partial: {
+        title: titleEn,
+        bengaliTitle: titleBn,
+        tagline: caption,
+        titleAnimation: animationStyle
+      }
     });
   };
 
@@ -161,35 +176,60 @@ export const TextStudio: React.FC = () => {
             {/* Title Lockup Preview */}
             <div className="relative z-10 text-center flex flex-col items-center gap-3 max-w-2xl">
               <div 
-                className="font-bold tracking-widest uppercase transition-all duration-200"
+                className={`font-bold tracking-widest uppercase transition-all duration-300 ${
+                  animationStyle === 'flare' ? 'super-title-flare' :
+                  animationStyle === 'kinetic' ? 'super-title-kinetic' :
+                  animationStyle === 'glitch' ? 'super-title-glitch' :
+                  animationStyle === 'breathe' ? 'super-title-breathe' :
+                  animationStyle === 'typewriter' ? 'super-title-typewriter' :
+                  animationStyle === 'neon' ? 'super-title-neon' :
+                  animationStyle === 'cinema-fade' ? 'super-title-cinema-fade' : ''
+                }`}
                 style={{
                   fontFamily: selectedFont,
                   fontSize: `${fontSize}px`,
-                  color: textColor,
-                  textShadow: '0 0 25px rgba(212,175,55,0.7), 0 4px 12px rgba(0,0,0,0.9)'
+                  color: animationStyle === 'flare' ? undefined : textColor,
+                  textShadow: animationStyle === 'flare' ? undefined : '0 0 25px rgba(212,175,55,0.7), 0 4px 12px rgba(0,0,0,0.9)'
                 }}
               >
                 {titleEn}
               </div>
 
               <div 
-                className="font-serif text-2xl text-[#FFE066] tracking-wider transition-all"
+                className={`font-serif text-2xl text-[#FFE066] tracking-wider transition-all duration-300 ${
+                  animationStyle === 'flare' ? 'super-title-flare super-title-breathe' :
+                  animationStyle === 'kinetic' ? 'super-title-kinetic' :
+                  animationStyle === 'glitch' ? 'super-title-glitch' :
+                  animationStyle === 'breathe' ? 'super-title-breathe' :
+                  animationStyle === 'typewriter' ? 'super-title-typewriter' :
+                  animationStyle === 'neon' ? 'super-title-neon' :
+                  animationStyle === 'cinema-fade' ? 'super-title-cinema-fade' : ''
+                }`}
                 style={{
                   fontFamily: 'Noto Serif Bengali, serif',
-                  textShadow: '0 0 15px rgba(255,224,102,0.6)'
+                  textShadow: animationStyle === 'flare' ? undefined : '0 0 15px rgba(255,224,102,0.6)'
                 }}
               >
                 {titleBn}
               </div>
 
-              <div className="mt-4 px-4 py-1.5 bg-black/70 rounded-full border border-[#D4AF37]/30 text-xs text-[#EDEDED] font-mono tracking-wide max-w-lg">
+              <div className={`mt-4 px-4 py-1.5 bg-black/70 rounded-full border border-[#D4AF37]/30 text-xs font-mono tracking-wide max-w-lg transition-all ${
+                animationStyle === 'flare' ? 'super-caption-flare text-[#FFE066]' :
+                animationStyle === 'kinetic' ? 'super-caption-wave text-[#EDEDED]' :
+                animationStyle === 'glitch' ? 'super-caption-glitch text-[#EDEDED]' :
+                animationStyle === 'breathe' ? 'super-caption-breathe text-[#EDEDED]' :
+                animationStyle === 'typewriter' ? 'super-caption-typewriter text-[#EDEDED]' :
+                animationStyle === 'neon' ? 'super-title-neon text-cyan-200' :
+                animationStyle === 'cinema-fade' ? 'super-caption-wave text-[#EDEDED]' : 'text-[#EDEDED]'
+              }`}>
                 {caption}
               </div>
             </div>
 
             {/* HUD Meta Overlay */}
-            <div className="absolute top-4 left-4 text-[10px] text-[#8A8A8A] font-mono">
-              RAWx KINETIC ENGINE // STYLE: {animationStyle.toUpperCase()}
+            <div className="absolute top-4 left-4 text-[10px] text-[#8A8A8A] font-mono flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-[#D4AF37] animate-pulse" />
+              <span>RAWx SUPER ENGINE // STYLE: <span className="text-[#FFE066] font-bold">{animationStyle.toUpperCase()}</span></span>
             </div>
             <div className="absolute bottom-4 right-4 text-[10px] text-[#D4AF37] font-mono">
               EP {String(activeShotIndex + 1).padStart(3, '0')} // পর্ব {toBengaliNumerals(String(activeShotIndex + 1).padStart(3, '0'))}
@@ -270,19 +310,33 @@ export const TextStudio: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-[10px] text-[#8A8A8A] uppercase">Kinetic Animation</label>
-            <div className="grid grid-cols-2 gap-1.5 mt-1">
-              {(['static', 'fade', 'typewriter', 'karaoke'] as const).map(style => (
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] text-[#8A8A8A] uppercase flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#D4AF37]" />
+                Super Title Animation
+              </label>
+              <span className="text-[9px] text-[#FFE066] font-bold uppercase">{animationStyle}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { id: 'flare', label: 'Anamorphic Flare' },
+                { id: 'kinetic', label: 'Kinetic Snap' },
+                { id: 'glitch', label: 'Cyber Glitch' },
+                { id: 'breathe', label: 'Aura Breathe' },
+                { id: 'typewriter', label: 'Typewriter' },
+                { id: 'neon', label: 'Cyber Neon' },
+                { id: 'cinema-fade', label: 'Cinema Dissolve' }
+              ].map(opt => (
                 <button
-                  key={style}
-                  onClick={() => setAnimationStyle(style)}
-                  className={`p-1.5 rounded border text-[11px] capitalize ${
-                    animationStyle === style 
-                      ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#FFE066]' 
-                      : 'border-[#D4AF37]/10 bg-[#121212] text-[#8A8A8A]'
+                  key={opt.id}
+                  onClick={() => setAnimationStyle(opt.id as any)}
+                  className={`p-1.5 rounded border text-[10px] text-left transition-all cursor-pointer ${
+                    animationStyle === opt.id 
+                      ? 'border-[#D4AF37] bg-[#D4AF37]/25 text-[#FFE066] font-bold shadow-[0_0_8px_rgba(212,175,55,0.4)]' 
+                      : 'border-[#D4AF37]/15 bg-[#121212] text-[#8A8A8A] hover:text-white hover:border-[#D4AF37]/40'
                   }`}
                 >
-                  {style}
+                  {opt.label}
                 </button>
               ))}
             </div>

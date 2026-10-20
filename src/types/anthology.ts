@@ -59,6 +59,7 @@ export interface AnthologyFrame {
   tags: string[];
   activeLens?: string;
   dof?: string;
+  titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'fade';
   voiceoverDirective?: any;
   omniDecisions?: any;
 }

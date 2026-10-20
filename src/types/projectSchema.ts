@@ -33,6 +33,7 @@ export interface ShotV1 {
   isVideo?: boolean;
   colorAccent: string;
   hoverStyle?: number;
+  titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'fade';
   adjustments: FrameAdjustments;
   tags: string[];
 }

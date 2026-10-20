@@ -47,6 +47,13 @@ interface MainWorkspaceProps {
   onQuickSampleImage: () => void;
   onPopulateAllFrames: () => void;
   onPanChange: (newPercent: number) => void;
+  onOpenAnimatic?: () => void;
+  onOpenLens?: () => void;
+  onOpenSliders?: () => void;
+  onOpenGrid?: () => void;
+  onOpenSettings?: () => void;
+  titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter';
+  onCycleTitleAnimation?: () => void;
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
@@ -72,7 +79,14 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onOpenInspector,
   onQuickSampleImage,
   onPopulateAllFrames,
-  onPanChange
+  onPanChange,
+  onOpenAnimatic,
+  onOpenLens,
+  onOpenSliders,
+  onOpenGrid,
+  onOpenSettings,
+  titleAnimation,
+  onCycleTitleAnimation
 }) => {
   // 1. BOARD VIEW: 7 Storyboard Engines (Grid, Row Sheet, Filmstrip, Corkboard, Kanban, Timeline, Outline)
   if (activeMode === 'BOARD') {
@@ -171,6 +185,13 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         onOpenInspector={onOpenInspector}
         onQuickSampleImage={onQuickSampleImage}
         onPanChange={onPanChange}
+        onOpenAnimatic={onOpenAnimatic}
+        onOpenLens={onOpenLens}
+        onOpenSliders={onOpenSliders}
+        onOpenGrid={onOpenGrid}
+        onOpenSettings={onOpenSettings}
+        titleAnimation={titleAnimation}
+        onCycleTitleAnimation={onCycleTitleAnimation}
       />
 
       {/* Floating Left & Right Navigation Arrows */}

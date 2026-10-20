@@ -23,6 +23,7 @@ import { SelfTestModal } from './components/SelfTestModal';
 import { CanvasLiquifyModal } from './components/CanvasLiquifyModal';
 import { VideoScopesModal } from './components/VideoScopesModal';
 import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
+import { StudioDrawer } from './components/StudioDrawer';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
@@ -85,6 +86,10 @@ export default function App() {
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false);
   const [isVideoScopesOpen, setIsVideoScopesOpen] = useState(false);
   const [isAnimaticOpen, setIsAnimaticOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [titleAnimation, setTitleAnimation] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>('flare');
+  const [historyStack, setHistoryStack] = useState<AnthologyProject[]>([]);
+  const [redoStack, setRedoStack] = useState<AnthologyProject[]>([]);
 
   // M2 Persistence Core State
   const [activeProjectId, setActiveProjectId] = useState<string>('default-project');
@@ -491,7 +496,25 @@ export default function App() {
     touchStartXRef.current = null;
   };
 
+  const handleUndo = useCallback(() => {
+    if (historyStack.length === 0) return;
+    const prev = historyStack[historyStack.length - 1];
+    setRedoStack(r => [...r, project]);
+    setHistoryStack(h => h.slice(0, -1));
+    setProject(prev);
+  }, [historyStack, project]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setHistoryStack(h => [...h, project]);
+    setRedoStack(r => r.slice(0, -1));
+    setProject(next);
+  }, [redoStack, project]);
+
   const handleUpdateFrame = (updated: AnthologyFrame) => {
+    setHistoryStack(h => [...h.slice(-15), project]);
+    setRedoStack([]);
     setProject(prev => ({
       ...prev,
       frames: prev.frames.map(f => f.id === updated.id ? updated : f)
@@ -615,7 +638,10 @@ export default function App() {
         projectTitle={project.title}
         onUpdateTitle={(title) => setProject(p => ({ ...p, title }))}
         activeMode={workspaceMode}
-        onSelectMode={(mode) => setWorkspaceMode(mode)}
+        onSelectMode={(mode) => {
+          setWorkspaceMode(mode);
+          if (mode !== 'STAGE') setIsDrawerOpen(false);
+        }}
         isProMode={isProMode}
         onToggleProMode={() => setIsProMode(p => !p)}
         componentsBadgeText={componentsBadgeText}
@@ -626,28 +652,70 @@ export default function App() {
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenPublishModal={() => setIsPublishModalOpen(true)}
         onOpenProjectManager={() => setIsProjectManagerOpen(true)}
+        onOpenAnimatic={() => setIsAnimaticOpen(true)}
+        onToggleFullscreen={toggleFullscreen}
         saveState={saveState}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={historyStack.length > 0}
+        canRedo={redoStack.length > 0}
       />
 
-      {/* Main Studio Body: LeftRail + MainWorkspace */}
+      {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
       <div className="flex-1 w-full flex overflow-hidden relative">
         <LeftRail
           activeModule={activeModule}
           onSelectModule={(mod) => {
-            setActiveModule(mod);
-            if (mod === 'BOARD') setWorkspaceMode('BOARD');
-            else if (mod === 'EDIT/CUT') setWorkspaceMode('CUT');
-            else if (mod === 'SETTINGS') setIsThemeSettingsOpen(true);
-            else if (mod === 'EXPORT') setIsPublishModalOpen(true);
-            else setWorkspaceMode('STAGE');
+            if (mod === 'BOARD') {
+              setWorkspaceMode('BOARD');
+              setIsDrawerOpen(false);
+            } else if (mod === 'EDIT/CUT') {
+              setWorkspaceMode('CUT');
+              setIsDrawerOpen(false);
+            } else if (mod === 'SETTINGS') {
+              setIsThemeSettingsOpen(true);
+            } else if (mod === 'EXPORT') {
+              setIsPublishModalOpen(true);
+            } else if (mod === 'LIQUIFY') {
+              setIsLiquifyOpen(true);
+            } else if (mod === 'PLAYER') {
+              setIsAnimaticOpen(true);
+            } else if (mod === 'OPTICS') {
+              setActiveModule('OPTICS');
+              setWorkspaceMode('STAGE');
+              setIsDrawerOpen(true);
+            } else {
+              // Functional modules: STORY, MEDIA, TEXT, SOUND, PRODUCTION, REVIEW, LIBRARY, AI
+              if (activeModule === mod && isDrawerOpen && workspaceMode === 'STAGE') {
+                setIsDrawerOpen(false);
+              } else {
+                setActiveModule(mod);
+                setWorkspaceMode('STAGE');
+                setIsDrawerOpen(true);
+              }
+            }
           }}
           isCollapsed={isRailCollapsed}
           onToggleCollapse={() => setIsRailCollapsed(c => !c)}
           isProMode={isProMode}
         />
 
+        {/* Functional Studio Drawer in STAGE Mode */}
+        {workspaceMode === 'STAGE' && isDrawerOpen && (
+          <StudioDrawer
+            isOpen={isDrawerOpen}
+            activeModule={activeModule}
+            currentFrame={currentFrame}
+            onUpdateFrame={handleUpdateFrame}
+            onClose={() => setIsDrawerOpen(false)}
+            onOpenAnimatic={() => setIsAnimaticOpen(true)}
+            onOpenLiquify={() => setIsLiquifyOpen(true)}
+          />
+        )}
+
         <MainWorkspace
           activeMode={workspaceMode}
+          activeModule={activeModule}
           currentFrame={currentFrame}
           frames={project.frames}
           currentIndex={currentIndex}
@@ -674,10 +742,27 @@ export default function App() {
           onPanChange={(newPercent) => {
             setPanOffsets(prev => ({ ...prev, [currentIndex]: newPercent }));
           }}
+          onOpenAnimatic={() => setIsAnimaticOpen(true)}
+          onOpenLens={() => {
+            setActiveModule('OPTICS');
+            setIsDrawerOpen(true);
+          }}
+          onOpenSliders={() => {
+            setActiveModule('OPTICS');
+            setIsDrawerOpen(true);
+          }}
+          onOpenGrid={() => setWorkspaceMode('BOARD')}
+          onOpenSettings={() => setIsThemeSettingsOpen(true)}
+          titleAnimation={titleAnimation}
+          onCycleTitleAnimation={() => {
+            const anims: ('flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter')[] = ['flare', 'kinetic', 'glitch', 'breathe', 'typewriter'];
+            const next = anims[(anims.indexOf(titleAnimation) + 1) % anims.length];
+            setTitleAnimation(next);
+          }}
         />
 
         {/* Director Inspector Sidebar Drawer */}
-        {isInspectorOpen && (
+        {isInspectorOpen && !isDrawerOpen && (
           <DirectorInspector
             frame={currentFrame}
             onUpdateFrame={handleUpdateFrame}

@@ -53,6 +53,7 @@ export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, scene
     ),
     colorAccent: frame?.colorAccent || base.colorAccent || '#D4AF37',
     hoverStyle: typeof frame?.hoverStyle === 'number' ? frame.hoverStyle : (base.hoverStyle || 0),
+    titleAnimation: frame?.titleAnimation || 'flare',
     adjustments,
     tags
   };
@@ -93,6 +94,7 @@ export function convertShotV1ToFrame(shot: Partial<ShotV1> | any, index: number)
     ),
     colorAccent: shot?.colorAccent || base.colorAccent || '#D4AF37',
     hoverStyle: typeof shot?.hoverStyle === 'number' ? shot.hoverStyle : (base.hoverStyle || 0),
+    titleAnimation: shot?.titleAnimation || 'flare',
     lutFilter: shot?.filter || base.lutFilter || 'cinematic',
     aspectRatio: '2.39:1',
     adjustments,

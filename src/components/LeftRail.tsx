@@ -1,26 +1,35 @@
 /**
  * @file /src/components/LeftRail.tsx
- * @description Collapsible left studio navigation rail with module shortcuts:
- * STORY, MEDIA, BOARD, TEXT, EDIT/CUT, SOUND, PLAYER, PRODUCTION, REVIEW, EXPORT, LIBRARY, AI, SETTINGS.
+ * @description Futuristic Dual-Column Studio Navigation Rail (Inspired by Google Flow).
+ * Provides quick 1-tap access to STORY, MEDIA, TITLES, SOUND, PLAYER, PRODUCTION,
+ * REVIEW, LIBRARY, AI, BOARD, and CUT with glowing active indicator cards.
  */
 
 import React from 'react';
 import { 
-  BookOpen, 
-  Image as ImageIcon, 
   LayoutGrid, 
+  Image as ImageIcon, 
+  User, 
+  Clapperboard, 
+  Upload, 
+  Folder, 
+  Sparkles, 
+  Trash2, 
+  Wand2, 
+  Film, 
+  ChevronRight, 
+  ChevronLeft, 
+  BookOpen, 
   Type, 
-  Scissors, 
+  Sliders, 
   Volume2, 
   PlaySquare, 
-  Clapperboard, 
-  MessageSquare, 
-  FolderDown, 
-  Library, 
-  Sparkles, 
+  ClipboardList, 
+  PenTool, 
+  Download, 
+  Crop, 
   Settings,
-  ChevronLeft,
-  ChevronRight
+  Scissors
 } from 'lucide-react';
 
 export type StudioModuleId = 
@@ -36,7 +45,9 @@ export type StudioModuleId =
   | 'EXPORT' 
   | 'LIBRARY' 
   | 'AI' 
-  | 'SETTINGS';
+  | 'SETTINGS'
+  | 'OPTICS'
+  | 'LIQUIFY';
 
 interface LeftRailProps {
   activeModule: StudioModuleId;
@@ -46,29 +57,6 @@ interface LeftRailProps {
   isProMode: boolean;
 }
 
-interface RailItem {
-  id: StudioModuleId;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  proOnly?: boolean;
-}
-
-const RAIL_ITEMS: RailItem[] = [
-  { id: 'BOARD', label: 'Board', icon: LayoutGrid },
-  { id: 'EDIT/CUT', label: 'Cut Edit', icon: Scissors },
-  { id: 'STORY', label: 'Story', icon: BookOpen },
-  { id: 'MEDIA', label: 'Media', icon: ImageIcon },
-  { id: 'TEXT', label: 'Titles', icon: Type },
-  { id: 'SOUND', label: 'Sound', icon: Volume2 },
-  { id: 'PLAYER', label: 'Player', icon: PlaySquare },
-  { id: 'PRODUCTION', label: 'Production', icon: Clapperboard, proOnly: true },
-  { id: 'REVIEW', label: 'Review', icon: MessageSquare, proOnly: true },
-  { id: 'LIBRARY', label: 'Library', icon: Library },
-  { id: 'AI', label: 'AI Studio', icon: Sparkles },
-  { id: 'EXPORT', label: 'Export', icon: FolderDown },
-  { id: 'SETTINGS', label: 'Settings', icon: Settings },
-];
-
 export const LeftRail: React.FC<LeftRailProps> = ({
   activeModule,
   onSelectModule,
@@ -76,54 +64,291 @@ export const LeftRail: React.FC<LeftRailProps> = ({
   onToggleCollapse,
   isProMode
 }) => {
-  const visibleItems = RAIL_ITEMS.filter(item => !item.proOnly || isProMode);
-
   return (
-    <aside 
-      className={`h-full bg-[#08080A]/95 border-r border-white/10 flex flex-col justify-between select-none z-30 transition-all duration-200 shrink-0 ${
-        isCollapsed ? 'w-11' : 'w-14 sm:w-16'
-      }`}
-    >
-      {/* Top Module Icons */}
-      <div className="flex flex-col items-center py-2 gap-1 overflow-y-auto no-scrollbar">
-        {visibleItems.map(item => {
-          const Icon = item.icon;
-          const isActive = activeModule === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onSelectModule(item.id)}
-              title={`${item.label} (${item.id})`}
-              className={`w-9 h-9 sm:w-11 sm:h-11 rounded-[2px] flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all relative ${
-                isActive 
-                  ? 'bg-[#D4AF37]/20 text-[#FFE066] border border-[#D4AF37]/50 shadow-[0_0_10px_rgba(212,175,55,0.25)]' 
-                  : 'text-white/50 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
-            >
-              <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-              {!isCollapsed && (
-                <span className="text-[7.5px] font-mono-tech tracking-wider uppercase truncate max-w-[48px]">
-                  {item.label}
-                </span>
-              )}
-              {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#D4AF37] rounded-r"></span>
-              )}
-            </button>
-          );
-        })}
+    <aside className="h-full flex select-none z-30 shrink-0 bg-[#050508] border-r border-white/10 font-mono-tech">
+      {/* Primary Slim Outer Strip */}
+      <div className="w-12 sm:w-13 h-full bg-[#030305] border-r border-white/10 flex flex-col items-center justify-between py-2 shrink-0">
+        <div className="flex flex-col items-center gap-1.5 overflow-y-auto no-scrollbar w-full px-1">
+          {/* Top Primary Categories */}
+          <button
+            onClick={() => onSelectModule('BOARD')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'BOARD'
+                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+            title="Storyboard Engines (BOARD)"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('MEDIA')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'MEDIA'
+                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+            title="4K Media Library & Ingestion (MEDIA)"
+          >
+            <ImageIcon className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('PLAYER')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'PLAYER'
+                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+            title="Character & Previs Stage"
+          >
+            <User className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('PRODUCTION')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'PRODUCTION'
+                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+            title="Production Call Sheets & Clapper"
+          >
+            <Clapperboard className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('MEDIA')}
+            className="w-9 h-9 rounded-[4px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+            title="Ingest Media Asset"
+          >
+            <Upload className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('LIBRARY')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'LIBRARY'
+                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+            title="Project Vault & Folders"
+          >
+            <Folder className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('AI')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'AI'
+                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+            title="Flow AI & Multimodal Director"
+          >
+            <Sparkles className="w-4 h-4 text-[#FFE066]" />
+          </button>
+        </div>
+
+        {/* Bottom Apps & Logo */}
+        <div className="flex flex-col items-center gap-2 pt-2 border-t border-white/10 w-full px-1">
+          <div 
+            className="w-7 h-7 rounded-[5px] bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center shadow-[0_0_10px_rgba(34,197,94,0.4)] cursor-pointer"
+            title="RAWx Storyboard Studio"
+          >
+            <Film className="w-3.5 h-3.5 text-black font-black" />
+          </div>
+
+          <button
+            onClick={() => onSelectModule('AI')}
+            className="w-9 h-9 rounded-[4px] flex items-center justify-center text-white/50 hover:text-[#FFE066] hover:bg-white/5 cursor-pointer transition-colors"
+            title="Creative Magic Prompt"
+          >
+            <Wand2 className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('EDIT/CUT')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'EDIT/CUT'
+                ? 'bg-[#D4AF37]/20 border border-[#D4AF37] text-[#FFE066]'
+                : 'text-white/50 hover:text-white hover:bg-white/5'
+            }`}
+            title="CapCut Multi-Track Video Editor"
+          >
+            <Film className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Bottom Rail Collapse Toggle */}
-      <div className="p-1 border-t border-white/10 flex items-center justify-center">
-        <button
-          onClick={onToggleCollapse}
-          title={isCollapsed ? 'Expand Rail' : 'Collapse Rail'}
-          className="p-1.5 text-white/40 hover:text-[#FFE066] cursor-pointer rounded hover:bg-white/5 transition-colors"
-        >
-          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-        </button>
-      </div>
+      {/* Secondary Sub-Tools Strip (Matches Google Flow layout) */}
+      {!isCollapsed && (
+        <div className="w-12 sm:w-13 h-full bg-[#08080C]/90 flex flex-col justify-between py-2 border-r border-white/10">
+          <div className="flex flex-col items-center gap-1 overflow-y-auto no-scrollbar w-full px-1">
+            {/* Collapse toggle header with gold dot */}
+            <button
+              onClick={onToggleCollapse}
+              className="w-9 h-6 flex items-center justify-center gap-1 text-white/40 hover:text-[#FFE066] cursor-pointer"
+              title="Collapse Tools Rail"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E5A919]" />
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Sub-tools list */}
+            <button
+              onClick={() => onSelectModule('STORY')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'STORY'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066] shadow-[0_0_8px_rgba(229,169,25,0.4)]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Story & Screenplay Notebook"
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('LIBRARY')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'LIBRARY'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Folder Vault & Presets"
+            >
+              <Folder className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('BOARD')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'BOARD'
+                  ? 'border-2 border-[#E5A919] text-[#E5A919] bg-[#E5A919]/20 shadow-[0_0_12px_rgba(229,169,25,0.5)]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="100-Shot Storyboard Grid"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('TEXT')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'TEXT'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066] shadow-[0_0_8px_rgba(229,169,25,0.4)]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Super Titles & Kinetic Typography"
+            >
+              <Type className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('OPTICS')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'OPTICS'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Optical Sliders & Lens Inspector"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('SOUND')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'SOUND'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Web Audio Synthesizer & 43.6Hz Sub Drone"
+            >
+              <Volume2 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('PLAYER')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'PLAYER'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Animatic Player & Previs"
+            >
+              <PlaySquare className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('PRODUCTION')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'PRODUCTION'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Screenplay Breakdown & Call Sheets"
+            >
+              <ClipboardList className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('REVIEW')}
+              className={`w-9 h-9 rounded-[3px] flex items-center justify-center cursor-pointer transition-all ${
+                activeModule === 'REVIEW'
+                  ? 'bg-[#E5A919]/25 border border-[#E5A919] text-[#FFE066]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Review & Annotations"
+            >
+              <PenTool className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('EXPORT')}
+              className="w-9 h-9 rounded-[3px] flex items-center justify-center text-white/60 hover:text-[#FFE066] hover:bg-white/5 cursor-pointer transition-colors"
+              title="Export Hollywood Interchange (OTIO, EDL, Fountain, SRT, CSV)"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('LIQUIFY')}
+              className="w-9 h-9 rounded-[3px] flex items-center justify-center text-white/60 hover:text-[#FFE066] hover:bg-white/5 cursor-pointer transition-colors"
+              title="Crop & Liquify Mesh Warp"
+            >
+              <Crop className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('AI')}
+              className="w-9 h-9 rounded-[3px] flex items-center justify-center text-[#FFE066]/80 hover:text-[#FFE066] hover:bg-white/5 cursor-pointer transition-colors"
+              title="Gemini Flow AI Studio"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onSelectModule('EDIT/CUT')}
+              className="w-9 h-9 rounded-[3px] flex items-center justify-center text-white/60 hover:text-[#FFE066] hover:bg-white/5 cursor-pointer transition-colors"
+              title="Multi-Track Sequence Editor"
+            >
+              <Scissors className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex flex-col items-center gap-1 border-t border-white/10 pt-2 px-1">
+            <button
+              onClick={() => onSelectModule('SETTINGS')}
+              className="w-9 h-9 rounded-[3px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+              title="Settings & Appearance"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 };

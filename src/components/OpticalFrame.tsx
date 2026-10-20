@@ -16,7 +16,7 @@ import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
 import { calculateShotTimecode } from '../utils/timecode';
 import { generateInitialFrames } from '../data/frames';
-import { Upload, Image as ImageIcon, Sliders, Sparkles, Volume2, VolumeX, MoveVertical, Play, Pause, Video } from 'lucide-react';
+import { Upload, Image as ImageIcon, Sliders, Sparkles, Volume2, VolumeX, MoveVertical, Play, Pause, Video, Aperture, LayoutGrid, Settings } from 'lucide-react';
 
 interface OpticalFrameProps {
   frame: AnthologyFrame;
@@ -34,6 +34,13 @@ interface OpticalFrameProps {
   onOpenInspector: () => void;
   onQuickSampleImage: () => void;
   onPanChange?: (newPercent: number) => void;
+  onOpenAnimatic?: () => void;
+  onOpenLens?: () => void;
+  onOpenSliders?: () => void;
+  onOpenGrid?: () => void;
+  onOpenSettings?: () => void;
+  titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter';
+  onCycleTitleAnimation?: () => void;
 }
 
 export const OpticalFrame: React.FC<OpticalFrameProps> = ({
@@ -51,9 +58,30 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   onUploadImage,
   onOpenInspector,
   onQuickSampleImage,
-  onPanChange
+  onPanChange,
+  onOpenAnimatic,
+  onOpenLens,
+  onOpenSliders,
+  onOpenGrid,
+  onOpenSettings,
+  titleAnimation,
+  onCycleTitleAnimation
 }) => {
   const safeFrame: AnthologyFrame = frame || generateInitialFrames()[0];
+  const [localAnimStyle, setLocalAnimStyle] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>(
+    (titleAnimation as any) || (safeFrame.titleAnimation as any) || 'flare'
+  );
+
+  const activeAnim = titleAnimation || localAnimStyle;
+  const cycleAnim = () => {
+    if (onCycleTitleAnimation) {
+      onCycleTitleAnimation();
+    } else {
+      const styles: ('flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter')[] = ['flare', 'kinetic', 'glitch', 'breathe', 'typewriter'];
+      const next = styles[(styles.indexOf(localAnimStyle) + 1) % styles.length];
+      setLocalAnimStyle(next);
+    }
+  };
   const safeAdjustments = safeFrame.adjustments || {
     brightness: 100,
     contrast: 115,
@@ -517,53 +545,159 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           className="hidden"
         />
 
-        {/* Center Slot: Cinematic Title & Bengali Typography (Safe Overlay) */}
-        {showMasterTitles && (
-          <div className="absolute inset-0 z-[30] pointer-events-none flex flex-col items-center justify-center text-center px-4 sm:px-8 py-10">
-            <div className="max-w-3xl flex flex-col items-center">
-              {/* Bengali Subtitle / Episode label */}
-              {(showBadge || showTitleBn) && (
-                <div className="flex items-center justify-center gap-2 mb-1 sm:mb-2">
-                  {showBadge && (
-                    <span className="font-mono-tech text-[9px] sm:text-xs tracking-[0.3em] text-[#D4AF37] font-semibold uppercase drop-shadow-md">
-                      EP {safeFrame.epNumber} //
-                    </span>
-                  )}
-                  {showTitleBn && (
-                    <span className="font-bengali text-xs sm:text-base md:text-lg tracking-widest text-[#FFE066] drop-shadow-lg font-bold">
-                      {safeFrame.bengaliTitle}
-                    </span>
-                  )}
-                </div>
-              )}
+        {/* Futuristic Floating Monitor Top Bar HUD (Matches Google Flow Cinema Monitor) */}
+        <div className="absolute top-3 inset-x-3 sm:top-4 sm:inset-x-5 z-40 flex items-center justify-between pointer-events-none">
+          {/* Top-Left: Episode/Shot Badge */}
+          <div className="flex items-center gap-2 px-3 py-1 bg-[#090A0F]/85 backdrop-blur-xl border border-white/10 rounded-full font-mono-tech text-[9.5px] sm:text-[10px] text-white/90 shadow-xl pointer-events-auto">
+            <span className="w-2 h-2 rounded-full bg-[#E5A919] shadow-[0_0_8px_#E5A919] animate-pulse" />
+            <span className="font-bold text-white tracking-wider">SC01-SH{safeFrame.epNumber}</span>
+            <span className="text-white/30">|</span>
+            <span className="text-white/70">{safeFrame.tags?.[0] || 'MS'} • 3.5S</span>
+          </div>
 
-              {/* Epic Cinzel Main Title */}
-              {showTitleEn && (
+          {/* Top-Center: Floating Optical Bar */}
+          <div className="hidden sm:flex items-center gap-1 p-1 bg-[#0E0E14]/90 backdrop-blur-2xl border border-white/15 rounded-full shadow-2xl pointer-events-auto">
+            {onOpenLens && (
+              <button
+                onClick={onOpenLens}
+                className="px-2.5 py-1 rounded-full text-white/70 hover:text-white hover:bg-white/10 text-[9.5px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Select Lens & Optics"
+              >
+                <Aperture className="w-3 h-3 text-[#E5A919]" />
+                <span className="hidden md:inline">LENS</span>
+              </button>
+            )}
+            {onOpenAnimatic && (
+              <button
+                onClick={onOpenAnimatic}
+                className="px-3 py-1 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black font-bold text-[9.5px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors shadow-[0_0_10px_rgba(229,169,25,0.4)]"
+                title="Launch Animatic Cinema Player"
+              >
+                <Play className="w-3 h-3 fill-current" />
+                <span>ANIMATIC</span>
+              </button>
+            )}
+            {onOpenSliders && (
+              <button
+                onClick={onOpenSliders}
+                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+                title="Optical Sliders & Adjustments"
+              >
+                <Sliders className="w-3.5 h-3.5 text-white/80" />
+              </button>
+            )}
+            {onOpenGrid && (
+              <button
+                onClick={onOpenGrid}
+                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+                title="Toggle Contact Sheet Grid"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-white/80" />
+              </button>
+            )}
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+                title="Studio Theme & Settings"
+              >
+                <Settings className="w-3.5 h-3.5 text-white/80" />
+              </button>
+            )}
+          </div>
+
+          {/* Top-Right: Camera Spec Badge */}
+          <div className="flex items-center gap-2 px-3 py-1 bg-[#090A0F]/85 backdrop-blur-xl border border-white/10 rounded-full font-mono-tech text-[9.5px] sm:text-[10px] text-white/90 shadow-xl pointer-events-auto">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+            <span className="text-white/90 font-medium tracking-wider">
+              {safeCamera.focalLength ? safeCamera.focalLength.split(' ')[0] : '28MM'} • {safeCamera.aperture || 'T1.4'}
+            </span>
+          </div>
+        </div>
+
+        {/* Center Slot: Super Animated Titles & Bengali Kinetic Typography */}
+        {showMasterTitles && (
+          <div className="absolute inset-0 z-[30] pointer-events-none flex flex-col items-center justify-center text-center px-4 sm:px-8 py-8">
+            <div className="max-w-3xl flex flex-col items-center">
+              {/* Massive Glowing Bengali Headline */}
+              {showTitleBn && (
                 <h1
-                  className="font-cinzel text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-[0.16em] uppercase transition-all duration-300 leading-tight"
+                  className={`font-['Noto_Serif_Bengali'] text-5xl sm:text-7xl md:text-8xl font-black tracking-wide leading-none transition-all duration-300 ${
+                    activeAnim === 'flare'
+                      ? 'super-title-flare super-title-breathe'
+                      : activeAnim === 'kinetic'
+                      ? 'super-title-kinetic text-[#FFE066]'
+                      : activeAnim === 'glitch'
+                      ? 'super-title-glitch text-[#FFE066]'
+                      : activeAnim === 'breathe'
+                      ? 'super-title-breathe text-[#FFE066]'
+                      : 'text-[#FFE066] drop-shadow-[0_0_30px_rgba(212,175,55,0.7)]'
+                  }`}
                   style={{
-                    color: safeFrame.colorAccent || '#D4AF37',
-                    textShadow: `0 8px 30px rgba(0,0,0,0.95), 0 2px 10px ${safeFrame.colorAccent || '#D4AF37'}40`
+                    filter: activeAnim === 'flare' ? undefined : 'drop-shadow(0 0 25px rgba(212,175,55,0.8))'
                   }}
                 >
-                  {safeFrame.title}
+                  {safeFrame.bengaliTitle || 'সূচনা'}
                 </h1>
               )}
 
-              {/* Curatorial Tagline */}
+              {/* English Cinzel Main Title */}
+              {showTitleEn && (
+                <h2
+                  className="font-cinzel text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.25em] text-[#EDEDED] mt-2 sm:mt-3 uppercase drop-shadow-2xl"
+                  style={{
+                    textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 0 15px rgba(212,175,55,0.3)'
+                  }}
+                >
+                  {safeFrame.title || 'THE SINGULARITY'}
+                </h2>
+              )}
+
+              {/* Telemetry Subtitle Tagline */}
               {showTagline && (
-                <p className="font-mono-tech text-[9px] sm:text-xs md:text-sm tracking-[0.2em] text-white/80 mt-1.5 sm:mt-3 max-w-xl mx-auto drop-shadow-md uppercase">
-                  {safeFrame.tagline}
+                <p className="font-mono-tech text-[10px] sm:text-xs tracking-[0.24em] text-[#D4AF37] font-semibold mt-1.5 uppercase drop-shadow-md">
+                  SC01-SH{safeFrame.epNumber} // {safeFrame.tagline || 'THE FIRST GAZE INTO THE UNKNOWN'}
                 </p>
               )}
 
-              {/* Sound Cue notification */}
-              {showCaption && safeFrame.soundCue && (
-                <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[8.5px] font-mono-tech text-white/60 tracking-wider">
-                  <Volume2 className="w-2.5 h-2.5 text-[#D4AF37]" />
-                  <span>{safeFrame.soundCue}</span>
+              {/* Futuristic Glassmorphic Telemetry Card with Poetic Dialogue & 4-Column Specs */}
+              {showCaption && (
+                <div className="mt-4 w-full max-w-xl bg-[#090A0F]/85 border border-white/10 hover:border-[#D4AF37]/40 rounded-lg p-3 sm:p-4 backdrop-blur-xl shadow-2xl transition-all pointer-events-auto">
+                  <p className="font-['Noto_Serif_Bengali'] italic text-xs sm:text-sm text-[#FFE066] drop-shadow text-center leading-relaxed">
+                    "{safeFrame.bengaliDesc || safeFrame.tagline || 'আমরা কি আলো পেরিয়ে এলাম? (Did we cross the light?)'}"
+                  </p>
+                  <div className="grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-white/10 text-center font-mono-tech text-[9px] sm:text-[10px]">
+                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
+                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">LENS</span>
+                      <span className="text-white font-medium">{safeCamera.focalLength ? safeCamera.focalLength.split(' ')[0] : '28mm'}</span>
+                    </div>
+                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
+                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">T-STOP</span>
+                      <span className="text-white font-medium">{safeCamera.aperture || 'T1.4'}</span>
+                    </div>
+                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
+                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">SHOT</span>
+                      <span className="text-white font-medium">{safeFrame.tags?.[0] || 'MS'}</span>
+                    </div>
+                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
+                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">MOOD</span>
+                      <span className="text-[#FFE066] font-bold">{safeFrame.tags?.[1] || 'Silence'}</span>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Live Super Title Animation Cycle Switcher */}
+              <div className="mt-2.5 flex items-center gap-2 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={cycleAnim}
+                  className="px-2.5 py-0.5 rounded-full bg-black/80 hover:bg-black border border-[#D4AF37]/50 text-[#FFE066] text-[8px] font-mono-tech flex items-center gap-1 cursor-pointer transition-colors shadow-lg"
+                  title="Click to switch Super Title Animation (Flare, Kinetic, Glitch, Breathe)"
+                >
+                  <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" />
+                  <span>ANIMATION: {activeAnim.toUpperCase()} (CLICK TO CYCLE)</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

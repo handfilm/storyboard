@@ -64,3 +64,19 @@
 .transition-hypersonic {
   transition-timing-function: var(--ease-hypersonic);
 }
+
+/* Optical Post FX: Edge Motion Blur Effect */
+.photo-motion-edges {
+  position: absolute;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  pointer-events: none;
+  filter: blur(var(--motion-blur-px, 14px)) contrast(1.2) saturate(1.15);
+  transform: scale(1.05);
+  mask-image: radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.45) 60%, black 95%);
+  -webkit-mask-image: radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.45) 60%, black 95%);
+  backdrop-filter: blur(calc(var(--motion-blur-px, 14px) * 0.7)) contrast(1.1);
+  -webkit-backdrop-filter: blur(calc(var(--motion-blur-px, 14px) * 0.7)) contrast(1.1);
+  mix-blend-mode: screen;
+}

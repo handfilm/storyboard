@@ -237,6 +237,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   const showVignette = componentsVisibility.vignette;
   const showBloom = componentsVisibility.bloom;
   const showLensBlur = componentsVisibility.lensBlur;
+  const showMotionBlur = componentsVisibility.motionBlur;
 
   const bgSizeStyle = fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? '100% 100%' : 'cover';
 
@@ -371,6 +372,20 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               opacity: 0.95,
               maskImage: 'radial-gradient(circle at center, transparent 35%, black 85%)',
               WebkitMaskImage: 'radial-gradient(circle at center, transparent 35%, black 85%)'
+            }}
+          />
+        )}
+
+        {/* Layer: Optical Post FX Edge Motion Blur (photo-motion-edges) */}
+        {hasPhoto && showMotionBlur && (
+          <div
+            className="photo-motion-edges z-[4] pointer-events-none transition-opacity duration-500"
+            style={{
+              backgroundImage: !isVideo ? `url(${safeFrame.imageUrl})` : undefined,
+              backgroundSize: bgSizeStyle,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: `center ${panOffsetPercent}%`,
+              opacity: Math.max(0.2, (safeAdjustments.motionBlur ?? 70) / 100)
             }}
           />
         )}

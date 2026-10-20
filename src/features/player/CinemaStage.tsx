@@ -213,6 +213,20 @@ export const CinemaStage: React.FC = () => {
           />
         )}
 
+        {/* Optical Post FX: Edge Motion Blur (photo-motion-edges) */}
+        {visibility.motionBlur && (
+          <div
+            className="photo-motion-edges z-[3] pointer-events-none"
+            style={{
+              backgroundImage: !isVideo ? `url('${imageUrl}')` : undefined,
+              backgroundPosition: `center ${panY}%`,
+              backgroundSize: fitMode === 'contain' ? 'contain' : 'cover',
+              backgroundRepeat: 'no-repeat',
+              opacity: 0.75
+            }}
+          />
+        )}
+
         {/* Optical Center Focus & Edge Blur Shader Vignette */}
         {visibility.vignette && (
           <div 

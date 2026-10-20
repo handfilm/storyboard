@@ -56,6 +56,7 @@ export interface ComponentVisibility {
   vignette: boolean;
   bloom: boolean;
   lensBlur: boolean;
+  motionBlur: boolean;
 }
 
 export interface StudioState {
@@ -146,7 +147,8 @@ const defaultVisibility: ComponentVisibility = {
   grain: true,
   vignette: true,
   bloom: true,
-  lensBlur: true
+  lensBlur: true,
+  motionBlur: true
 };
 
 export function createDefaultStoreShots(): Shot[] {

@@ -33,6 +33,7 @@ export interface ComponentVisibility {
   vignette: boolean;
   bloom: boolean;
   lensBlur: boolean;
+  motionBlur: boolean;
 }
 
 export const DEFAULT_COMPONENT_VISIBILITY: ComponentVisibility = {
@@ -44,11 +45,12 @@ export const DEFAULT_COMPONENT_VISIBILITY: ComponentVisibility = {
   tagline: true,
   hudData: true,
   reticles: true,
-  guides: false, // 12 of 13 active by default
+  guides: false, // guides off by default
   grain: true,
   vignette: true,
   bloom: true,
   lensBlur: true,
+  motionBlur: true,
 };
 
 const STORAGE_KEY = 'rawx_components_v1';
@@ -85,7 +87,7 @@ interface ComponentsMatrixPopoverProps {
 interface ComponentRow {
   key: keyof ComponentVisibility;
   label: string;
-  category: 'Typography' | 'HUD & Framing' | 'Optics & Shaders';
+  category: 'Typography' | 'HUD & Framing' | 'Optical Post FX';
   desc: string;
 }
 
@@ -101,11 +103,12 @@ const COMPONENT_ROWS: ComponentRow[] = [
   { key: 'hudData', label: 'HUD Telemetry Data', category: 'HUD & Framing', desc: 'Focal, aperture, node, archive readout' },
   { key: 'reticles', label: 'Corner Reticle Brackets', category: 'HUD & Framing', desc: 'Gold optical corner targeting brackets' },
   { key: 'guides', label: 'Rule of Thirds & Crosshair', category: 'HUD & Framing', desc: 'Composition 3x3 grid & center marker' },
-  // Optics & Shaders
-  { key: 'grain', label: '35mm Film Grain', category: 'Optics & Shaders', desc: 'Dynamic procedural ISO 800 grain' },
-  { key: 'vignette', label: 'Optical Falloff Vignette', category: 'Optics & Shaders', desc: 'Edge falloff radial gradient' },
-  { key: 'bloom', label: 'Center Focus Skin Bloom', category: 'Optics & Shaders', desc: 'Center softness & highlight halation' },
-  { key: 'lensBlur', label: 'Anamorphic Lens Blur', category: 'Optics & Shaders', desc: 'Edge radial anamorphic lens blur' },
+  // Optical Post FX
+  { key: 'grain', label: '35mm Film Grain', category: 'Optical Post FX', desc: 'Dynamic procedural ISO 800 grain' },
+  { key: 'vignette', label: 'Optical Falloff Vignette', category: 'Optical Post FX', desc: 'Edge falloff radial gradient' },
+  { key: 'bloom', label: 'Center Focus Skin Bloom', category: 'Optical Post FX', desc: 'Center softness & highlight halation' },
+  { key: 'lensBlur', label: 'Anamorphic Lens Blur', category: 'Optical Post FX', desc: 'Edge radial anamorphic lens blur' },
+  { key: 'motionBlur', label: 'Hypersonic Motion Blur', category: 'Optical Post FX', desc: 'photo-motion-edges optical edge shutter blur' },
 ];
 
 export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = ({
@@ -154,6 +157,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       vignette: val,
       bloom: val,
       lensBlur: val,
+      motionBlur: val,
     };
     onChange(next);
     saveComponentVisibility(next);
@@ -207,15 +211,15 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
         <button
           onClick={handleSetDefault1213}
           className="px-2 py-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D4AF37] text-white/80 hover:text-[#FFE066] cursor-pointer shrink-0"
-          title="Restore standard 12/13 display configuration"
+          title="Restore standard display configuration"
         >
-          12/13 DEFAULT
+          DEFAULT PRESET
         </button>
         <button
           onClick={() => handleSetAll(true)}
           className="px-2 py-1 rounded-[1px] bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D4AF37] text-white/80 hover:text-[#FFE066] cursor-pointer shrink-0"
         >
-          ALL ON (13/13)
+          ALL ON ({totalCount}/{totalCount})
         </button>
         <button
           onClick={handleZenClean}
@@ -228,7 +232,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
 
       {/* Rows List */}
       <div className="max-h-[360px] overflow-y-auto p-2 no-scrollbar flex flex-col gap-1">
-        {(['Typography', 'HUD & Framing', 'Optics & Shaders'] as const).map(cat => {
+        {(['Typography', 'HUD & Framing', 'Optical Post FX'] as const).map(cat => {
           const rowsInCat = COMPONENT_ROWS.filter(r => r.category === cat);
           return (
             <div key={cat} className="mb-1.5">

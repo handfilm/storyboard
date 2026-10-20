@@ -560,7 +560,8 @@ export default function App() {
   };
 
   const activeCompCount = Object.values(componentsVisibility).filter(Boolean).length;
-  const componentsBadgeText = `${activeCompCount}/13 ON`;
+  const totalCompCount = Object.keys(componentsVisibility).length;
+  const componentsBadgeText = `${activeCompCount}/${totalCompCount} ON`;
 
   return (
     <div

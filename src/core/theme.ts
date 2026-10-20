@@ -6,7 +6,7 @@
 
 export type ThemeId = 'rawx-gold' | 'warm-film' | 'cold-steel' | 'paper-light' | 'high-contrast';
 export type DensityMode = 'compact' | 'comfortable' | 'spacious';
-export type WorkspaceMode = 'STAGE' | 'BOARD' | 'CUT';
+export type WorkspaceMode = 'STAGE' | 'BLOOM' | 'BOARD' | 'CUT';
 
 export interface ThemeColors {
   bg: string;

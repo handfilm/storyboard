@@ -22,6 +22,7 @@ import { ReviewStudio } from '../features/review/ReviewStudio';
 import { LibraryStudio } from '../features/library/LibraryStudio';
 import { AiStudio } from '../features/ai/AiStudio';
 import { StudioModuleId } from './LeftRail';
+import { BloomInteractiveCanvas } from './stage/BloomInteractiveCanvas';
 
 interface MainWorkspaceProps {
   activeMode: WorkspaceMode;
@@ -56,6 +57,8 @@ interface MainWorkspaceProps {
   onOpenSettings?: () => void;
   titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter';
   onCycleTitleAnimation?: () => void;
+  onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
+  onUpdateFrame?: (frame: AnthologyFrame) => void;
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({

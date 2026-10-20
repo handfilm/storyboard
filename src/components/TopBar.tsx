@@ -33,7 +33,8 @@ import {
   Download,
   SlidersHorizontal,
   ChevronDown,
-  Type
+  Type,
+  Cloud
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -62,6 +63,7 @@ interface TopBarProps {
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  onOpenR2Automation?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -89,7 +91,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onUndo,
   onRedo,
   canUndo = false,
-  canRedo = false
+  canRedo = false,
+  onOpenR2Automation
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(projectTitle);
@@ -240,6 +243,19 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           <Home className="w-3 h-3" />
           <span>STAGE</span>
+        </button>
+
+        <button
+          onClick={() => onSelectMode('BLOOM')}
+          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeMode === 'BLOOM'
+              ? 'bg-rose-500 text-black shadow-[0_0_12px_rgba(244,63,94,0.55)]'
+              : 'text-white/70 hover:text-white hover:bg-white/10'
+          }`}
+          title="Bloom Interactive Canvas (Fluid Stage & Magnetic Snap Sequencer)"
+        >
+          <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+          <span>BLOOM</span>
         </button>
 
         <button
@@ -433,6 +449,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <FolderOpen className="w-3 h-3 text-[#D4AF37]" />
                   <span>Project Vault Manager</span>
+                </button>
+              )}
+
+              {onOpenR2Automation && (
+                <button
+                  onClick={() => { onOpenR2Automation(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-rose-400 hover:text-rose-300 flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Cloud className="w-3 h-3 text-rose-500" />
+                    <span>R2 & Automation Engine</span>
+                  </div>
+                  <span className="text-[8px] bg-rose-950/60 border border-rose-500/40 text-rose-300 px-1 py-0.2 rounded font-bold">
+                    CF R2
+                  </span>
                 </button>
               )}
 

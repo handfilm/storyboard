@@ -10,7 +10,7 @@ import { useStudioStore } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
 import { toBengaliNumerals } from '../../utils/engine';
 import { TitleAnimationStyle } from '../../types/anthology';
-import { eventBus } from '../../core/events';
+import { eventBus } from '../../core/eventBus';
 import { 
   Type, 
   AlignLeft, 

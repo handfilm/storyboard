@@ -79,6 +79,7 @@ export const ShotSchema = z.object({
   tags: z.array(z.string()).default([]),
   activeLens: z.string().default('50mm f/1.4 Human Eye'),
   dof: z.string().default('1.8cm'),
+  titleAnimation: z.string().optional(),
   liquifyData: z.string().optional(),
   updatedAt: z.number().default(() => Date.now())
 });

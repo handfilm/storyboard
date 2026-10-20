@@ -16,7 +16,32 @@ import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
 import { calculateShotTimecode } from '../utils/timecode';
 import { generateInitialFrames } from '../data/frames';
-import { Upload, Image as ImageIcon, Sliders, Sparkles, Volume2, VolumeX, MoveVertical, Play, Pause, Video, Aperture, LayoutGrid, Settings } from 'lucide-react';
+import { 
+  Upload, 
+  Image as ImageIcon, 
+  Sliders, 
+  Sparkles, 
+  Volume2, 
+  VolumeX, 
+  MoveVertical, 
+  Play, 
+  Pause, 
+  Video, 
+  Aperture, 
+  LayoutGrid, 
+  Settings,
+  Pin,
+  PinOff,
+  Info,
+  Check,
+  X,
+  Shield,
+  Cpu,
+  Film,
+  Disc,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 
 interface OpticalFrameProps {
   frame: AnthologyFrame;
@@ -109,6 +134,15 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   const [isPanningDrag, setIsPanningDrag] = useState(false);
   const panStartYRef = useRef<number>(0);
   const panStartOffsetRef = useRef<number>(50);
+
+  // 4-Corner Interactive Micro-HUD State
+  const [activeCorner, setActiveCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
+  const [pinnedCorner, setPinnedCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
+
+  // Center Telemetry & Animation Dock State (Clean stage by default)
+  const [isCenterHovered, setIsCenterHovered] = useState(false);
+  const [isCenterPinned, setIsCenterPinned] = useState(false);
+  const showCenterExpanded = isCenterHovered || isCenterPinned;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -549,18 +583,9 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           className="hidden"
         />
 
-        {/* Futuristic Floating Monitor Top Bar HUD (Matches Google Flow Cinema Monitor) */}
-        <div className="absolute top-3 inset-x-3 sm:top-4 sm:inset-x-5 z-40 flex items-center justify-between pointer-events-none">
-          {/* Top-Left: Episode/Shot Badge */}
-          <div className="flex items-center gap-2 px-3 py-1 bg-[#090A0F]/85 backdrop-blur-xl border border-white/10 rounded-full font-mono-tech text-[9.5px] sm:text-[10px] text-white/90 shadow-xl pointer-events-auto">
-            <span className="w-2 h-2 rounded-full bg-[#E5A919] shadow-[0_0_8px_#E5A919] animate-pulse" />
-            <span className="font-bold text-white tracking-wider">SC01-SH{safeFrame.epNumber}</span>
-            <span className="text-white/30">|</span>
-            <span className="text-white/70">{safeFrame.tags?.[0] || 'MS'} • 3.5S</span>
-          </div>
-
-          {/* Top-Center: Floating Optical Bar */}
-          <div className="hidden sm:flex items-center gap-1 p-1 bg-[#0E0E14]/90 backdrop-blur-2xl border border-white/15 rounded-full shadow-2xl pointer-events-auto">
+        {/* Top-Center: Floating Optical Bar */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 sm:top-4 z-40 pointer-events-auto">
+          <div className="hidden sm:flex items-center gap-1 p-1 bg-[#0E0E14]/90 backdrop-blur-2xl border border-white/15 rounded-full shadow-2xl">
             {onOpenLens && (
               <button
                 onClick={onOpenLens}
@@ -609,15 +634,407 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               </button>
             )}
           </div>
-
-          {/* Top-Right: Camera Spec Badge */}
-          <div className="flex items-center gap-2 px-3 py-1 bg-[#090A0F]/85 backdrop-blur-xl border border-white/10 rounded-full font-mono-tech text-[9.5px] sm:text-[10px] text-white/90 shadow-xl pointer-events-auto">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
-            <span className="text-white/90 font-medium tracking-wider">
-              {safeCamera.focalLength ? safeCamera.focalLength.split(' ')[0] : '28MM'} • {safeCamera.aperture || 'T1.4'}
-            </span>
-          </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* 4-CORNER NANO HUD SYSTEM: Animated Subtle Bullets & Short Smart Names      */}
+        {/* Hover / Tap reveals deep technical specs for Director, DP, Sensor & DOF    */}
+        {/* ========================================================================= */}
+        {showHudData && (
+          <>
+            {/* CORNER 1: TOP-LEFT (Playback, Take, Sensor & Timecode) */}
+            <div 
+              className="absolute top-3 left-3 sm:top-4 sm:left-4 z-40 pointer-events-auto"
+              onMouseEnter={() => setActiveCorner('tl')}
+              onMouseLeave={() => setActiveCorner(null)}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPinnedCorner(p => p === 'tl' ? null : 'tl');
+                }}
+                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono-tech text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                  (activeCorner === 'tl' || pinnedCorner === 'tl')
+                    ? 'bg-[#12131A] border-[#D4AF37] text-white shadow-[0_0_15px_rgba(212,175,55,0.35)]'
+                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-[#D4AF37]/50 text-white/80'
+                }`}
+                title="Click to pin or hover for playback & sensor telemetry"
+              >
+                {/* Animated Subtle Bullet */}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E5A919] shadow-[0_0_8px_#E5A919]" />
+                </span>
+                {/* Short Smart Name */}
+                <span className="font-bold tracking-wider text-[#FFE066]">REC // SH{safeFrame.epNumber}</span>
+                {pinnedCorner === 'tl' && <Pin className="w-2.5 h-2.5 text-[#E5A919]" />}
+              </button>
+
+              {/* Huge Details Popover */}
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className={`absolute top-full left-0 mt-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-[#D4AF37]/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-top-left z-50 text-left font-mono-tech ${
+                  (activeCorner === 'tl' || pinnedCorner === 'tl')
+                    ? 'opacity-100 scale-100 pointer-events-auto'
+                    : 'opacity-0 scale-95 pointer-events-none'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#E5A919] shadow-[0_0_8px_#E5A919] animate-pulse" />
+                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">PLAYBACK TELEMETRY & SENSOR CORE</span>
+                  </div>
+                  <button 
+                    onClick={() => setPinnedCorner(p => p === 'tl' ? null : 'tl')}
+                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    title={pinnedCorner === 'tl' ? "Unpin details" : "Pin details"}
+                  >
+                    {pinnedCorner === 'tl' ? <PinOff className="w-3 h-3 text-[#E5A919]" /> : <Pin className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[8.5px] leading-tight">
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">SHOT / TAKE</span>
+                    <span className="text-[#FFE066] font-bold text-[9.5px]">SC01-SH{safeFrame.epNumber} // TAKE 04</span>
+                  </div>
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">TIMECODE (SMPTE)</span>
+                    <span className="text-white font-mono font-bold text-[9.5px]">{calculateShotTimecode(safeFrame.id, 60, 24).start}</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 space-y-1.5 text-[8px] text-white/70 border-t border-white/5 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">SENSOR ARCHITECTURE:</span>
+                    <span className="text-white font-medium">ARRI ALEV III Large Format CMOS</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">STREAM & FORMAT:</span>
+                    <span className="text-[#FFE066] font-semibold">{safeCamera.format || 'RAW 14-BIT ARRI'} (1.8 Gbps)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">COLOR PIPELINE:</span>
+                    <span className="text-white font-medium">ARRIRAW LogC4 // ACEScg 1.3 Wide Gamut</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">ASPECT & GATE:</span>
+                    <span className="text-white font-medium">{aspectRatio} Cinema Scope (Full LF Aperture)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">ROTARY SHUTTER:</span>
+                    <span className="text-white font-medium">172.8° Shutter Angle • 1/50.0s @ 24.000 FPS</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">AUDIO TIMECODE:</span>
+                    <span className="text-emerald-400 font-medium">Genlock Quad-BNC 32-bit Float 48kHz Synced</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[7.5px] text-white/50">
+                  <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    BUFFER: 100% HEALTHY • 0 DROPS
+                  </span>
+                  <span className="text-white/30">CLICK CHIP TO PIN</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CORNER 2: TOP-RIGHT (Cluster Node, Cloud Vault & Checksums) */}
+            <div 
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 z-40 pointer-events-auto"
+              onMouseEnter={() => setActiveCorner('tr')}
+              onMouseLeave={() => setActiveCorner(null)}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPinnedCorner(p => p === 'tr' ? null : 'tr');
+                }}
+                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono-tech text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                  (activeCorner === 'tr' || pinnedCorner === 'tr')
+                    ? 'bg-[#12131A] border-emerald-400 text-white shadow-[0_0_15px_rgba(52,211,153,0.35)]'
+                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-emerald-400/50 text-white/80'
+                }`}
+                title="Click to pin or hover for cloud node archive details"
+              >
+                {/* Animated Subtle Bullet */}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                </span>
+                {/* Short Smart Name */}
+                <span className="font-bold tracking-wider text-emerald-300">NODE // {nodeLocation}</span>
+                {pinnedCorner === 'tr' && <Pin className="w-2.5 h-2.5 text-emerald-400" />}
+              </button>
+
+              {/* Huge Details Popover */}
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className={`absolute top-full right-0 mt-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-emerald-500/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-top-right z-50 text-left font-mono-tech ${
+                  (activeCorner === 'tr' || pinnedCorner === 'tr')
+                    ? 'opacity-100 scale-100 pointer-events-auto'
+                    : 'opacity-0 scale-95 pointer-events-none'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
+                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">SECURE ARCHIVE & CLUSTER TELEMETRY</span>
+                  </div>
+                  <button 
+                    onClick={() => setPinnedCorner(p => p === 'tr' ? null : 'tr')}
+                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    title={pinnedCorner === 'tr' ? "Unpin details" : "Pin details"}
+                  >
+                    {pinnedCorner === 'tr' ? <PinOff className="w-3 h-3 text-emerald-400" /> : <Pin className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[8.5px] leading-tight">
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">EDGE CLUSTER</span>
+                    <span className="text-emerald-300 font-bold text-[9.5px]">{nodeLocation} (Primary Gateway)</span>
+                  </div>
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">VAULT PROTOCOL</span>
+                    <span className="text-white font-mono font-bold text-[9.5px]">AES-GCM-256 ENCRYPTED</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 space-y-1.5 text-[8px] text-white/70 border-t border-white/5 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">NETWORK PIPELINE:</span>
+                    <span className="text-white font-medium">10GbE Fiber Direct-to-Disk Array</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">CRYPTO CHECKSUM:</span>
+                    <span className="text-emerald-400 font-mono">SHA-256: 0x8F9B...D2E1 Validated</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">REAL-TIME PROXY:</span>
+                    <span className="text-white font-medium">ProRes 422 HQ Real-time 10-Bit HLS</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">SCRATCH STORAGE:</span>
+                    <span className="text-white font-medium">Tier 0 NVMe High-IOPS Cinema Array</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">STATE PERSISTENCE:</span>
+                    <span className="text-[#FFE066] font-medium">Continuous Micro-Checkpoint Active</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[7.5px] text-white/50">
+                  <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    VAULT: SECURE & VERIFIED
+                  </span>
+                  <span className="text-white/30">CLICK CHIP TO PIN</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CORNER 3: BOTTOM-LEFT (Optics, Depth of Field Calculator & Transmission) */}
+            <div 
+              className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-40 pointer-events-auto"
+              onMouseEnter={() => setActiveCorner('bl')}
+              onMouseLeave={() => setActiveCorner(null)}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPinnedCorner(p => p === 'bl' ? null : 'bl');
+                }}
+                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono-tech text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                  (activeCorner === 'bl' || pinnedCorner === 'bl')
+                    ? 'bg-[#12131A] border-[#D4AF37] text-white shadow-[0_0_15px_rgba(212,175,55,0.35)]'
+                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-[#D4AF37]/50 text-white/80'
+                }`}
+                title="Click to pin or hover for optical DOF and ray-trace calculator"
+              >
+                {/* Animated Subtle Bullet */}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37] shadow-[0_0_8px_#d4af37]" />
+                </span>
+                {/* Short Smart Name */}
+                <span className="font-bold tracking-wider text-[#FFE066]">DOF // {safeCamera.aperture || 'T1.2'}</span>
+                {pinnedCorner === 'bl' && <Pin className="w-2.5 h-2.5 text-[#E5A919]" />}
+              </button>
+
+              {/* Huge Details Popover with Deep DOF Jargon */}
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className={`absolute bottom-full left-0 mb-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-[#D4AF37]/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-bottom-left z-50 text-left font-mono-tech ${
+                  (activeCorner === 'bl' || pinnedCorner === 'bl')
+                    ? 'opacity-100 scale-100 pointer-events-auto'
+                    : 'opacity-0 scale-95 pointer-events-none'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#d4af37] animate-pulse" />
+                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">OPTICAL BENCH & DEPTH OF FIELD CALCULATOR</span>
+                  </div>
+                  <button 
+                    onClick={() => setPinnedCorner(p => p === 'bl' ? null : 'bl')}
+                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    title={pinnedCorner === 'bl' ? "Unpin details" : "Pin details"}
+                  >
+                    {pinnedCorner === 'bl' ? <PinOff className="w-3 h-3 text-[#E5A919]" /> : <Pin className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[8.5px] leading-tight">
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">PRIMARY GLASS</span>
+                    <span className="text-[#FFE066] font-bold text-[9.5px] truncate block">{safeCamera.focalLength || '18mm Cinema Master'}</span>
+                  </div>
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">CALCULATED DOF SLICE</span>
+                    <span className="text-white font-mono font-bold text-[9.5px]">1.8cm Razor Plane (CoC 0.015mm)</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 space-y-1.5 text-[8px] text-white/70 border-t border-white/5 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">IRIS TRANSMISSION:</span>
+                    <span className="text-white font-medium">{safeCamera.aperture || 'T1.2'} Calibrated (Geometric f/1.18)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">CIRCLE OF CONFUSION:</span>
+                    <span className="text-white font-medium">CoC: 0.015mm (Super35/LF Cinema Criterion)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">FOCUS PLANES:</span>
+                    <span className="text-[#FFE066] font-medium">Near: 0.341m | Far: 0.359m (Volume: 18mm Razor)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">HYPERFOCAL DISTANCE:</span>
+                    <span className="text-white font-medium">H = 2.45m @ T1.2 (Subject Distance: 0.35m)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">IRIS ARCHITECTURE:</span>
+                    <span className="text-white font-medium">11 Curved Blades • Oval Anamorphic Bokeh</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">PHOTOMETRIC SENSITIVITY:</span>
+                    <span className="text-emerald-400 font-medium">{safeCamera.iso || 'ISO 200'} Native Base • -1.2 EV Push Pull</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[7.5px] text-white/50">
+                  <span className="flex items-center gap-1.5 text-[#FFE066] font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />
+                    DOF PLANE: ULTRA RAZOR FOCUS
+                  </span>
+                  <span className="text-white/30">CLICK CHIP TO PIN</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CORNER 4: BOTTOM-RIGHT (Writer, Director, DP, Sound & Production) */}
+            <div 
+              className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-40 pointer-events-auto"
+              onMouseEnter={() => setActiveCorner('br')}
+              onMouseLeave={() => setActiveCorner(null)}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPinnedCorner(p => p === 'br' ? null : 'br');
+                }}
+                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono-tech text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                  (activeCorner === 'br' || pinnedCorner === 'br')
+                    ? 'bg-[#12131A] border-purple-400 text-white shadow-[0_0_15px_rgba(192,132,252,0.35)]'
+                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-purple-400/50 text-white/80'
+                }`}
+                title="Click to pin or hover for director and screenplay credits"
+              >
+                {/* Animated Subtle Bullet */}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-400 shadow-[0_0_8px_#c084fc]" />
+                </span>
+                {/* Short Smart Name */}
+                <span className="font-bold tracking-wider text-purple-300">CREW // DIR</span>
+                {pinnedCorner === 'br' && <Pin className="w-2.5 h-2.5 text-purple-400" />}
+              </button>
+
+              {/* Huge Details Popover with Deep Writer & Director Jargon */}
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className={`absolute bottom-full right-0 mb-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-purple-500/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-bottom-right z-50 text-left font-mono-tech ${
+                  (activeCorner === 'br' || pinnedCorner === 'br')
+                    ? 'opacity-100 scale-100 pointer-events-auto'
+                    : 'opacity-0 scale-95 pointer-events-none'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_#c084fc] animate-pulse" />
+                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">DIRECTOR SLATE & WRITERS GUILD</span>
+                  </div>
+                  <button 
+                    onClick={() => setPinnedCorner(p => p === 'br' ? null : 'br')}
+                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    title={pinnedCorner === 'br' ? "Unpin details" : "Pin details"}
+                  >
+                    {pinnedCorner === 'br' ? <PinOff className="w-3 h-3 text-purple-400" /> : <Pin className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[8.5px] leading-tight">
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">DIRECTOR</span>
+                    <span className="text-purple-300 font-bold text-[9.5px] truncate block">{directorName || 'Rakib Himon'}</span>
+                  </div>
+                  <div className="bg-black/60 p-2 rounded border border-white/5">
+                    <span className="text-white/40 block text-[7px] tracking-wider uppercase">SCREENPLAY / WRITER</span>
+                    <span className="text-white font-mono font-bold text-[9.5px] truncate block">{directorName || 'Rakib Himon'} & Guild</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 space-y-1.5 text-[8px] text-white/70 border-t border-white/5 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">DIR. OF PHOTOGRAPHY:</span>
+                    <span className="text-white font-medium">Anamorphic Rigging & Optics Division</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">PRODUCTION DESIGN:</span>
+                    <span className="text-white font-medium">Bengali Neo-Futurism Atelier / CineArt Dhaka</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">COLOR SCIENCE:</span>
+                    <span className="text-[#FFE066] font-medium">ACES 2065-1 Film Timing (Kodak 5219 Print)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">ACOUSTIC DESIGN:</span>
+                    <span className="text-white font-medium">36Hz Infrasonic Sub-Bass Suite + Spatial Cue</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 uppercase">PRODUCTION SLATE:</span>
+                    <span className="text-white font-medium">Day 03 // Scene 01 // Master Setup Alpha</span>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[7.5px] text-white/50">
+                  <span className="flex items-center gap-1.5 text-purple-300 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                    A RAWx MASTER STORYBOARD
+                  </span>
+                  <span className="text-white/30">CLICK CHIP TO PIN</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Center Slot: Super Animated Titles & Bengali Kinetic Typography */}
         {showMasterTitles && (
@@ -688,81 +1105,161 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 </p>
               )}
 
-              {/* Futuristic Glassmorphic Telemetry Card with Poetic Dialogue & 4-Column Specs */}
-              {showCaption && (
-                <div className="mt-4 w-full max-w-xl bg-[#090A0F]/85 border border-white/10 hover:border-[#D4AF37]/40 rounded-lg p-3 sm:p-4 backdrop-blur-xl shadow-2xl transition-all pointer-events-auto">
-                  <p className={`font-['Noto_Serif_Bengali'] italic text-xs sm:text-sm drop-shadow text-center leading-relaxed transition-all duration-300 ${
-                    activeAnim === 'flare'
-                      ? 'super-caption-flare text-[#FFE066]'
-                      : activeAnim === 'kinetic'
-                      ? 'super-caption-wave text-[#FFE066]'
-                      : activeAnim === 'glitch'
-                      ? 'super-caption-glitch text-[#FFE066]'
-                      : activeAnim === 'breathe'
-                      ? 'super-caption-breathe text-[#FFE066]'
-                      : activeAnim === 'typewriter'
-                      ? 'super-caption-typewriter text-[#FFE066]'
-                      : activeAnim === 'neon'
-                      ? 'super-title-neon text-cyan-200'
-                      : activeAnim === 'cinema-fade'
-                      ? 'super-caption-wave text-[#FFE066]'
-                      : 'text-[#FFE066]'
-                  }`}>
-                    "{safeFrame.bengaliDesc || safeFrame.tagline || 'আমরা কি আলো পেরিয়ে এলাম? (Did we cross the light?)'}"
-                  </p>
-                  <div className="grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-white/10 text-center font-mono-tech text-[9px] sm:text-[10px]">
-                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
-                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">LENS</span>
-                      <span className="text-white font-medium">{safeCamera.focalLength ? safeCamera.focalLength.split(' ')[0] : '28mm'}</span>
+              {/* ========================================================================= */}
+              {/* INTERACTIVE BELOW-TITLE TELEMETRY & ANIMATION DOCK (Hover or Tap)          */}
+              {/* Clean stage by default; expands with huge technical jargon & animation bar */}
+              {/* ========================================================================= */}
+              {showMasterTitles && (
+                <div 
+                  className="mt-3.5 pointer-events-auto flex flex-col items-center max-w-2xl w-full"
+                  onMouseEnter={() => setIsCenterHovered(true)}
+                  onMouseLeave={() => setIsCenterHovered(false)}
+                >
+                  {/* Clean Resting Trigger Pill (Subtle & Elegant) */}
+                  {!showCenterExpanded ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsCenterPinned(true);
+                      }}
+                      className="group px-3.5 py-1.5 bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 backdrop-blur-xl border border-white/10 hover:border-[#D4AF37]/50 rounded-full font-mono-tech text-[9px] sm:text-[10px] text-white/80 hover:text-white flex items-center gap-2 cursor-pointer transition-all duration-300 shadow-2xl select-none"
+                      title="Hover or tap to reveal full shot dialogue, technical jargon & animations"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E5A919] shadow-[0_0_8px_#E5A919]" />
+                      </span>
+                      <span className="font-bold text-[#FFE066] tracking-wider">SC01-SH{safeFrame.epNumber}</span>
+                      <span className="text-white/30">•</span>
+                      <span className="text-white/70 tracking-widest uppercase">SHOT TELEMETRY & ANIMATION DOCK</span>
+                      <span className="text-[7.5px] px-1.5 py-0.5 rounded bg-white/10 text-white/60 group-hover:text-[#FFE066] group-hover:bg-[#D4AF37]/20 transition-colors uppercase">
+                        HOVER / TAP
+                      </span>
+                    </button>
+                  ) : (
+                    /* Expanded Luxurious Glassmorphic Telemetry Drawer */
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full bg-[#07080C]/95 backdrop-blur-2xl border border-[#D4AF37]/40 rounded-xl p-3.5 sm:p-4 shadow-[0_20px_60px_rgba(0,0,0,0.95)] animate-fadeIn transition-all duration-300 text-left font-mono-tech"
+                    >
+                      {/* Top Header of Drawer */}
+                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[#E5A919] shadow-[0_0_8px_#E5A919] animate-pulse" />
+                          <span className="text-[10px] font-bold text-white tracking-wider uppercase">
+                            SC01-SH{safeFrame.epNumber} // DIRECTOR'S NOTE & SHOT TELEMETRY
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setIsCenterPinned(p => !p)}
+                            className={`px-2 py-0.5 rounded text-[8.5px] font-mono-tech flex items-center gap-1 transition-colors cursor-pointer ${
+                              isCenterPinned
+                                ? 'bg-[#D4AF37] text-black font-bold shadow-[0_0_8px_rgba(212,175,55,0.5)]'
+                                : 'bg-white/10 text-white/70 hover:text-white hover:bg-white/20'
+                            }`}
+                            title={isCenterPinned ? "Unpin dock" : "Pin dock open"}
+                          >
+                            {isCenterPinned ? <PinOff className="w-2.5 h-2.5" /> : <Pin className="w-2.5 h-2.5" />}
+                            <span>{isCenterPinned ? 'PINNED' : 'PIN DOCK'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCenterPinned(false);
+                              setIsCenterHovered(false);
+                            }}
+                            className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            title="Collapse dock"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Poetic Narrative & Dialogue Section */}
+                      {showCaption && (
+                        <div className="mb-3 px-3 py-2 rounded bg-black/60 border border-white/5 text-center">
+                          <p className="font-['Noto_Serif_Bengali'] italic text-xs sm:text-sm text-[#FFE066] leading-relaxed drop-shadow">
+                            "{safeFrame.bengaliDesc || safeFrame.tagline || 'আমরা কি আলো পেরিয়ে এলাম? (Did we cross the light?)'}"
+                          </p>
+                          <div className="mt-1 flex items-center justify-center gap-2 text-[8px] text-white/50 uppercase tracking-widest">
+                            <span>WRITER: {directorName || 'Rakib Himon'}</span>
+                            <span>•</span>
+                            <span>DIRECTOR: {directorName || 'Rakib Himon'}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 6-Column High-Tech Telemetry Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-[8.5px]">
+                        <div className="bg-black/60 p-2 rounded border border-white/5">
+                          <span className="text-white/40 block text-[7px] tracking-wider uppercase">LENS / GLASS</span>
+                          <span className="text-white font-medium truncate block">{safeCamera.focalLength ? safeCamera.focalLength.split(' ')[0] : '18mm'} Cine</span>
+                        </div>
+                        <div className="bg-black/60 p-2 rounded border border-white/5">
+                          <span className="text-white/40 block text-[7px] tracking-wider uppercase">T-STOP / IRIS</span>
+                          <span className="text-white font-medium">{safeCamera.aperture || 'T1.2'} (11-Blades)</span>
+                        </div>
+                        <div className="bg-black/60 p-2 rounded border border-white/5">
+                          <span className="text-white/40 block text-[7px] tracking-wider uppercase">DOF CALC</span>
+                          <span className="text-[#FFE066] font-bold">1.8cm Slice</span>
+                        </div>
+                        <div className="bg-black/60 p-2 rounded border border-white/5">
+                          <span className="text-white/40 block text-[7px] tracking-wider uppercase">WRITER / DIR</span>
+                          <span className="text-purple-300 font-medium truncate block">{directorName ? directorName.split(' ')[0] : 'Himon'}</span>
+                        </div>
+                        <div className="bg-black/60 p-2 rounded border border-white/5">
+                          <span className="text-white/40 block text-[7px] tracking-wider uppercase">COLOR / MOOD</span>
+                          <span className="text-[#FFE066] font-bold truncate block">{safeFrame.tags?.[1] || 'Cosmic Void'}</span>
+                        </div>
+                        <div className="bg-black/60 p-2 rounded border border-white/5">
+                          <span className="text-white/40 block text-[7px] tracking-wider uppercase">FORMAT / CODEC</span>
+                          <span className="text-emerald-400 font-mono font-medium truncate block">RAW 14-BIT</span>
+                        </div>
+                      </div>
+
+                      {/* Live Super Title Animation Dock Bar */}
+                      <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={cycleAnim}
+                          className="px-2.5 py-1 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black text-[8.5px] font-mono-tech font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-[0_0_8px_rgba(229,169,25,0.4)]"
+                          title="Click to cycle next animation style"
+                        >
+                          <Sparkles className="w-2.5 h-2.5 fill-current" />
+                          <span>ANIMATION: {activeAnim.toUpperCase()}</span>
+                        </button>
+
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {(['flare', 'kinetic', 'glitch', 'breathe', 'typewriter', 'neon', 'cinema-fade'] as const).map(style => (
+                            <button
+                              key={style}
+                              type="button"
+                              onClick={() => {
+                                if (onSelectTitleAnimation) {
+                                  onSelectTitleAnimation(style);
+                                } else {
+                                  setLocalAnimStyle(style);
+                                }
+                              }}
+                              className={`px-2 py-0.5 rounded-full text-[8px] font-mono-tech uppercase transition-all cursor-pointer ${
+                                activeAnim === style
+                                  ? 'bg-[#E5A919] text-black font-black shadow-[0_0_8px_rgba(229,169,25,0.7)]'
+                                  : 'text-white/60 hover:text-white hover:bg-white/10'
+                              }`}
+                            >
+                              {style.replace('-fade', '')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
-                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">T-STOP</span>
-                      <span className="text-white font-medium">{safeCamera.aperture || 'T1.4'}</span>
-                    </div>
-                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
-                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">SHOT</span>
-                      <span className="text-white font-medium">{safeFrame.tags?.[0] || 'MS'}</span>
-                    </div>
-                    <div className="bg-black/60 p-1.5 rounded-[2px] border border-white/5">
-                      <span className="text-white/40 block text-[7.5px] tracking-wider uppercase">MOOD</span>
-                      <span className="text-[#FFE066] font-bold">{safeFrame.tags?.[1] || 'Silence'}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
-
-              {/* Futuristic Live Super Title Animation Control Dock */}
-              <div className="mt-3 flex items-center gap-1.5 pointer-events-auto bg-black/85 backdrop-blur-xl p-1 rounded-full border border-white/15 shadow-2xl transition-all">
-                <button
-                  onClick={cycleAnim}
-                  className="px-2.5 py-0.5 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black text-[8.5px] font-mono-tech font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-[0_0_8px_rgba(229,169,25,0.4)]"
-                  title="Click to cycle next animation style"
-                >
-                  <Sparkles className="w-2.5 h-2.5 fill-current" />
-                  <span>ANIMATION: {activeAnim.toUpperCase()}</span>
-                </button>
-                <div className="hidden sm:flex items-center gap-1 border-l border-white/15 pl-1.5">
-                  {(['flare', 'kinetic', 'glitch', 'breathe', 'typewriter', 'neon', 'cinema-fade'] as const).map(style => (
-                    <button
-                      key={style}
-                      onClick={() => {
-                        if (onSelectTitleAnimation) {
-                          onSelectTitleAnimation(style);
-                        } else {
-                          setLocalAnimStyle(style);
-                        }
-                      }}
-                      className={`px-2 py-0.5 rounded-full text-[8px] font-mono-tech uppercase transition-all cursor-pointer ${
-                        activeAnim === style
-                          ? 'bg-[#E5A919] text-black font-black shadow-[0_0_8px_rgba(229,169,25,0.7)]'
-                          : 'text-white/60 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      {style.replace('-fade', '')}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -777,47 +1274,9 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           </div>
         )}
 
-        {/* Responsive HUD Telemetry (Slot System) */}
-        {showHudData && (
-          <div className="absolute inset-3 sm:inset-5 md:inset-7 pointer-events-none z-[35]">
-            {/* Top Left: File & Timecode & Bitrate */}
-            <div className="hud-tl absolute top-0 left-0 font-mono-tech text-[8px] sm:text-[9.5px] tracking-[0.18em] text-white/70 leading-relaxed uppercase">
-              <div>PLAYBACK // FILE_{safeFrame.epNumber} <span className="text-[#D4AF37] font-semibold ml-1">[{calculateShotTimecode(safeFrame.id, 60, 24).start}]</span></div>
-              <div className="text-white/40">FORMAT: {safeCamera.format} // ASPECT: {aspectRatio}</div>
-            </div>
-
-            {/* Top Right: Node Archive */}
-            <div className="absolute top-0 right-0 font-mono-tech text-[8px] sm:text-[9.5px] tracking-[0.18em] text-white/70 text-right leading-relaxed uppercase">
-              <div>NODE: {nodeLocation}</div>
-              <div className="text-emerald-400 flex items-center justify-end gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                SECURE ARCHIVE
-              </div>
-            </div>
-
-            {/* Bottom Left: Camera Optics Spec */}
-            <div className="absolute bottom-0 left-0 font-mono-tech text-[7.5px] sm:text-[9.5px] tracking-[0.15em] text-white/70 leading-tight uppercase max-w-[45%]">
-              <div className="truncate">FOCAL: {safeCamera.focalLength}</div>
-              <div className="text-white/40 truncate">
-                DOF: {safeCamera.aperture} // ISO {safeCamera.iso}
-              </div>
-            </div>
-
-            {/* Bottom Right: Preserved Exact Credit Line */}
-            <div className="absolute bottom-0 right-0 font-mono-tech text-[7.5px] sm:text-[9.5px] tracking-[0.15em] text-white/70 text-right leading-tight uppercase max-w-[45%]">
-              <div className="truncate">
-                A <span style={{ color: safeFrame.colorAccent || '#D4AF37' }} className="font-bold">RAWx</span> Storyboard
-              </div>
-              <div className="text-white/40 truncate">
-                Director: {directorName || 'Rakib Himon'}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Quick Edit Trigger on Frame Hover */}
         {hasPhoto && (
-          <div className="absolute top-3 right-3 z-[40] flex items-center gap-1.5 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity">
+          <div className="absolute top-3 right-36 sm:right-40 z-[40] flex items-center gap-1.5 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity">
             <button
               onClick={onOpenInspector}
               className="p-1.5 rounded-[1px] bg-black/80 hover:bg-black border border-white/20 text-white hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-colors shadow-lg"

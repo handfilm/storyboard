@@ -15,8 +15,9 @@ import { AnthologyFrame, AspectRatio, TitleAnimationStyle } from '../types/antho
 import { getLutFilterCSS } from '../utils/engine';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from './ComponentsMatrixPopover';
 import { calculateShotTimecode } from '../utils/timecode';
-import { generateInitialFrames } from '../data/frames';
 import { TechnicalJargonOverlay } from './TechnicalJargonOverlay';
+import { getSlideTitleLayout } from './player/OpticalMonitor';
+import { generateInitialFrames } from '../data/frames';
 import { 
   Upload, 
   Image as ImageIcon, 
@@ -239,6 +240,11 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
   // Title Scale State: 'cover' spans the whole word, 'ultra' is massive, 'standard' is compact
   const [titleScale, setTitleScale] = useState<'cover' | 'ultra' | 'standard'>('cover');
+
+  // Curated Storytelling Title Layout for this frame
+  const frameIdx = (safeFrame.id ? Number(safeFrame.id) - 1 : (safeFrame.epNumber ? Number(safeFrame.epNumber) - 1 : 0)) || 0;
+  const titleLayout = getSlideTitleLayout(frameIdx);
+  const isSideOrSplit = titleLayout.variant !== 'center-low';
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1103,20 +1109,35 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           </>
         )}
 
-        {/* Center Slot: Super Animated Titles & Bengali Kinetic Typography */}
+        {/* Cinema Stage Slot: Super Animated Titles with Curated Storytelling Positioning */}
         {showMasterTitles && (
-          <div className="absolute inset-0 z-[30] pointer-events-none flex flex-col items-center justify-center text-center px-4 sm:px-8 py-8">
-            <div className="max-w-5xl w-full flex flex-col items-center">
+          <div className="absolute inset-0 z-[30] pointer-events-none p-4 sm:p-8 overflow-hidden select-none">
+            {/* Primary Storytelling Title Container (Choreographed per-slide layout) */}
+            <div className={`absolute ${titleLayout.titleContainerClass} flex flex-col ${
+              titleLayout.titleAlign === 'left' ? 'items-start text-left' :
+              titleLayout.titleAlign === 'right' ? 'items-end text-right' :
+              'items-center text-center'
+            } transition-all duration-300 pointer-events-none max-w-4xl`}>
               {/* Massive Glowing Bengali Headline with Anek Bangla & Metallic Gold */}
               {showTitleBn && (
                 <h1
                   className={`font-anek ${
-                    titleScale === 'ultra'
+                    isSideOrSplit
+                      ? titleScale === 'ultra'
+                        ? 'text-5xl sm:text-7xl md:text-8xl'
+                        : titleScale === 'standard'
+                        ? 'text-3xl sm:text-5xl md:text-6xl'
+                        : 'text-4xl sm:text-6xl md:text-7xl'
+                      : titleScale === 'ultra'
                       ? 'text-7xl sm:text-9xl md:text-[9.5rem] lg:text-[11rem] xl:text-[12rem] tracking-wider'
                       : titleScale === 'standard'
                       ? 'text-5xl sm:text-7xl md:text-8xl tracking-wide'
                       : 'text-6xl sm:text-8xl md:text-9xl lg:text-[7.5rem] xl:text-[8.75rem] 2xl:text-[10rem] tracking-wide sm:tracking-wider'
-                  } font-black leading-[1.05] transition-all duration-300 w-full text-center select-none text-metallic-gold drop-shadow-[0_0_35px_rgba(234,179,8,0.45)] ${
+                  } font-black leading-[1.05] transition-all duration-300 w-full ${
+                    titleLayout.titleAlign === 'left' ? 'text-left' :
+                    titleLayout.titleAlign === 'right' ? 'text-right' :
+                    'text-center'
+                  } select-none text-metallic-gold drop-shadow-[0_0_35px_rgba(234,179,8,0.45)] ${
                     activeAnim === 'flare'
                       ? 'super-title-flare super-title-breathe'
                       : activeAnim === 'kinetic'
@@ -1144,7 +1165,15 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               {/* English Cinzel Main Title */}
               {showTitleEn && (
                 <h2
-                  className={`font-cinzel text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.2em] mt-2 sm:mt-3 uppercase drop-shadow-2xl transition-all duration-300 ${
+                  className={`font-cinzel ${
+                    isSideOrSplit
+                      ? 'text-base sm:text-xl md:text-2xl font-bold tracking-[0.2em] mt-1.5 sm:mt-2'
+                      : 'text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.2em] mt-2 sm:mt-3'
+                  } uppercase drop-shadow-2xl transition-all duration-300 ${
+                    titleLayout.titleAlign === 'left' ? 'text-left' :
+                    titleLayout.titleAlign === 'right' ? 'text-right' :
+                    'text-center'
+                  } ${
                     activeAnim === 'flare'
                       ? 'super-title-flare'
                       : activeAnim === 'kinetic'
@@ -1169,13 +1198,22 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 </h2>
               )}
 
-              {/* Telemetry Subtitle Tagline */}
+              {/* Telemetry Subtitle Tagline & Layout Archetype indicator */}
               {showTagline && (
-                <p className={`font-mono-tech text-[10px] sm:text-xs tracking-[0.2em] font-semibold mt-1.5 uppercase drop-shadow-md transition-all duration-300 ${
-                  activeAnim === 'neon' ? 'super-title-neon text-cyan-300' : 'text-[#d4af37]'
+                <div className={`mt-1.5 flex items-center gap-2 flex-wrap ${
+                  titleLayout.titleAlign === 'left' ? 'justify-start' :
+                  titleLayout.titleAlign === 'right' ? 'justify-end' :
+                  'justify-center'
                 }`}>
-                  SC01-SH{safeFrame.epNumber} // {safeFrame.tagline || 'THE FIRST GAZE INTO THE UNKNOWN'}
-                </p>
+                  <p className={`font-mono-tech text-[10px] sm:text-xs tracking-[0.2em] font-semibold uppercase drop-shadow-md transition-all duration-300 ${
+                    activeAnim === 'neon' ? 'super-title-neon text-cyan-300' : 'text-[#d4af37]'
+                  }`}>
+                    SC01-SH{safeFrame.epNumber} // {safeFrame.tagline || 'THE FIRST GAZE INTO THE UNKNOWN'}
+                  </p>
+                  <span className="text-[7.5px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300/80 font-mono-tech tracking-wider uppercase">
+                    {titleLayout.name}
+                  </span>
+                </div>
               )}
 
               {/* ========================================================================= */}
@@ -1184,7 +1222,11 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               {/* ========================================================================= */}
               {showMasterTitles && (
                 <div 
-                  className="mt-3.5 pointer-events-auto flex flex-col items-center max-w-2xl w-full"
+                  className={`mt-3.5 pointer-events-auto flex flex-col ${
+                    titleLayout.titleAlign === 'left' ? 'items-start' :
+                    titleLayout.titleAlign === 'right' ? 'items-end' :
+                    'items-center'
+                  } max-w-2xl w-full`}
                   onMouseEnter={() => setIsCenterHovered(true)}
                   onMouseLeave={() => setIsCenterHovered(false)}
                 >
@@ -1357,6 +1399,32 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Dedicated Asymmetric Split Caption & Subtitle in Opposing Corner */}
+            {titleLayout.hasSplitCaption && showCaption && (
+              <div 
+                className={`${titleLayout.captionContainerClass} pointer-events-auto bg-[#07080C]/90 backdrop-blur-xl px-4 py-3 border border-[#d4af37]/40 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85)] transition-all duration-300 max-w-sm sm:max-w-md select-none`}
+              >
+                <div className="flex items-center gap-1.5 mb-1.5 text-[8px] font-mono-tech text-[#d4af37] tracking-widest uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#eab308] animate-pulse" />
+                  <span>SC01-SH{safeFrame.epNumber} // DIALOGUE & SUBTITLE</span>
+                </div>
+                <p className="font-anek italic font-bold text-xs sm:text-sm text-[#fbbf24] leading-relaxed drop-shadow">
+                  "{safeFrame.bengaliDesc || safeFrame.tagline || 'আমরা কি আলো পেরিয়ে এলাম?'}"
+                </p>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[8px] font-mono-tech text-white/60">
+                  <span className="text-zinc-400">DIR: {directorName || 'Rakib Himon'}</span>
+                  {safeFrame.soundCue ? (
+                    <span className="text-[#38BDF8] flex items-center gap-1">
+                      <Volume2 className="w-2.5 h-2.5" />
+                      <span>{safeFrame.soundCue}</span>
+                    </span>
+                  ) : safeFrame.tags?.[0] ? (
+                    <span className="text-[#FFE066]">{safeFrame.tags[0]}</span>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

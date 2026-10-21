@@ -3,31 +3,133 @@
  * @description Dedicated Broadcast-Grade Optical Monitor Panel for RAWx Storyboard Studio.
  * 
  * Architectural & NLE Specifications:
- * - 2.39:1 Cinema aspect ratio playback canvas with zero-latency video/image rendering.
- * - Sub-Frame Precision: rVFC (requestVideoFrameCallback) for rock-solid frame sync.
- * - Fast-Seek Optimization: video.fastSeek() to eliminate scrub stalls during high-speed navigation.
- * - Variable Playback Speed & Pitch Preservation: 0.5x, 1.0x, 1.5x, 2.0x with preservesPitch: true.
- * - Double-Buffering & Pre-Hydration: Pre-loads next slide 1.5s prior to sequence boundary.
- * - Rapid 15s Ingestion Pipeline: Drag-and-drop media ingestion directly into IndexedDB blob store.
- * - Auto-pairs incoming media with high-impact bilingual title overlays and audio cues.
- * - Permanent Visibility: High-contrast tactical transport controls in Google Flow aesthetic (#0E0E12, #F5A623).
- * - Instant Decision Hotkeys: Space (audition), J/K/L (shuttle), Left/Right (1/24s nudge), Shift+Del (purge).
+ * - Dual-Mode Engine Integration:
+ *   - Mode A: 'HERO_GLOBAL' (12.000s sequence clock across 100 slides)
+ *   - Mode B: 'SOLO_INSPECTOR' (locked into isolated 12.0s window with sub-frame scrubbing)
+ * - Professional JKL Transport:
+ *   - J: 2x Reverse Playback
+ *   - K: Stop / Pause
+ *   - L: 1x / 2x Forward Playback
+ *   - ← / →: Step ±1 Frame (41.666ms / 1/24s)
+ *   - I / O: Set Sub-Clip In/Out Markers with strict loop bounding
+ * - Double-Buffering & Pre-Hydration Pipeline:
+ *   - Pre-hydrates incoming slide video 1.5s prior to sequence boundary for 0ms latency.
+ * - Sub-Frame Precision:
+ *   - rVFC (requestVideoFrameCallback) and video.fastSeek() for hardware-level sync.
+ * - Monospace Telemetry HUD:
+ *   - Exact Timecode (00:00:12:00), Frame Index (F001 / 288), Locked FPS (24.0 fps locked), JKL Velocity.
+ * - Creative Dynamic Title Storytelling:
+ *   - Curated layout rhythm alternating 6 narrative positions across slides (center-low, asymmetric split,
+ *     bottom-left, top-right split, middle-right, bottom-right editorial).
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { SlideDraft, AspectRatioType } from '../../types/project';
 import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../../types/editor';
 import { r2StorageService } from '../../services/r2StorageService';
 import { studioDraftDb } from '../../services/db';
 import { TactileTransport } from '../controls/TactileTransport';
+import { useVideoPlaybackEngine, JklVelocity } from '../../hooks/useVideoPlaybackEngine';
+import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcuts';
 import { 
   Film, 
   Upload, 
   Trash2,
   Sparkles,
   Layers,
-  ArrowDownCircle
+  ArrowDownCircle,
+  Clock,
+  Maximize2,
+  Minimize2,
+  Bookmark,
+  Activity,
+  Repeat,
+  Volume2,
+  VolumeX,
+  Gauge
 } from 'lucide-react';
+
+export type TitleLayoutVariant =
+  | 'center-low'
+  | 'asymmetric-split'
+  | 'bottom-left'
+  | 'top-right-split'
+  | 'middle-right'
+  | 'bottom-right';
+
+export interface TitleLayoutConfig {
+  variant: TitleLayoutVariant;
+  name: string;
+  titleContainerClass: string;
+  captionContainerClass: string;
+  titleAlign: 'left' | 'center' | 'right';
+  hasSplitCaption: boolean;
+}
+
+/**
+ * Curated Narrative Title Layout Engine
+ * Every title is a story: choreographs positioning across the 100-shot anthology.
+ */
+export function getSlideTitleLayout(slideIndex: number): TitleLayoutConfig {
+  const mod = Math.abs(slideIndex) % 6;
+  switch (mod) {
+    case 0:
+      return {
+        variant: 'center-low',
+        name: 'Center Hero',
+        titleContainerClass: 'bottom-12 sm:bottom-16 left-1/2 -translate-x-1/2 text-center max-w-3xl',
+        captionContainerClass: 'mt-2.5 flex flex-col items-center text-center',
+        titleAlign: 'center',
+        hasSplitCaption: false
+      };
+    case 1:
+      return {
+        variant: 'asymmetric-split',
+        name: 'Top-Left Title // Bottom-Right Caption',
+        titleContainerClass: 'top-8 sm:top-12 left-6 sm:left-10 text-left max-w-lg',
+        captionContainerClass: 'absolute bottom-8 sm:bottom-12 right-6 sm:right-10 text-right max-w-md',
+        titleAlign: 'left',
+        hasSplitCaption: true
+      };
+    case 2:
+      return {
+        variant: 'bottom-left',
+        name: 'Widescreen Lower-Third',
+        titleContainerClass: 'bottom-8 sm:bottom-12 left-6 sm:left-10 text-left max-w-xl',
+        captionContainerClass: 'mt-2 text-left',
+        titleAlign: 'left',
+        hasSplitCaption: false
+      };
+    case 3:
+      return {
+        variant: 'top-right-split',
+        name: 'Top-Right Title // Bottom-Left Caption',
+        titleContainerClass: 'top-8 sm:top-12 right-6 sm:right-10 text-right max-w-lg',
+        captionContainerClass: 'absolute bottom-8 sm:bottom-12 left-6 sm:left-10 text-left max-w-md',
+        titleAlign: 'right',
+        hasSplitCaption: true
+      };
+    case 4:
+      return {
+        variant: 'middle-right',
+        name: 'Middle-Right Anchor',
+        titleContainerClass: 'top-1/2 -translate-y-1/2 right-6 sm:right-12 text-right max-w-md',
+        captionContainerClass: 'mt-2.5 text-right',
+        titleAlign: 'right',
+        hasSplitCaption: false
+      };
+    case 5:
+    default:
+      return {
+        variant: 'bottom-right',
+        name: 'Bottom-Right Editorial',
+        titleContainerClass: 'bottom-8 sm:bottom-12 right-6 sm:right-10 text-right max-w-xl',
+        captionContainerClass: 'mt-2 text-right',
+        titleAlign: 'right',
+        hasSplitCaption: false
+      };
+  }
+}
 
 interface OpticalMonitorProps {
   currentSlide?: SlideDraft;
@@ -85,20 +187,72 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const prebufferVideoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isMuted, setIsMuted] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [localSpeed, setLocalSpeed] = useState<number>(playbackSpeed);
-  const [syncedFrameSec, setSyncedFrameSec] = useState<number>(slideTimeSec);
+  const [isMuted, setIsMuted] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
+  const [showTitles, setShowTitles] = useState<boolean>(true);
 
-  const currentSpeed = onChangePlaybackSpeed ? playbackSpeed : localSpeed;
-  const handleSpeedChange = (speed: number) => {
-    if (onChangePlaybackSpeed) {
-      onChangePlaybackSpeed(speed);
-    } else {
-      setLocalSpeed(speed);
+  // Hook 1: Professional Video Playback Engine
+  const engine = useVideoPlaybackEngine({
+    totalSlides,
+    initialSlideIndex: currentIndex,
+    initialMode: playbackMode,
+    fps: 24,
+    onSlideChange: (idx) => {
+      // Trigger slide change in parent if available
+    },
+    onTimeUpdate: (sSec, gSec) => {
+      onScrubSlideTime(sSec);
     }
-  };
+  });
+
+  // Attach active video element to engine
+  useEffect(() => {
+    engine.attachVideoElement(videoRef.current);
+  }, [engine, currentSlide?.remoteUrl]);
+
+  // Hook 2: Global Keyboard Shortcuts (Space, J/K/L, Arrows, I/O)
+  useGlobalKeyboardShortcuts({
+    playbackMode,
+    onTogglePlay: () => {
+      onTogglePlay();
+      engine.togglePlay();
+    },
+    onNextSlide: () => {
+      engine.nextSlide();
+    },
+    onPrevSlide: () => {
+      engine.prevSlide();
+    },
+    onStepFrame: (fwd) => {
+      onStepFrame(fwd);
+      engine.stepFrame(fwd);
+    },
+    onShuttleReverse: () => {
+      engine.handleShuttleReverse();
+    },
+    onShuttleStop: () => {
+      engine.handleShuttleStop();
+    },
+    onShuttleForward: () => {
+      engine.handleShuttleForward();
+    },
+    onSetInPoint: () => {
+      engine.setInPoint();
+    },
+    onSetOutPoint: () => {
+      engine.setOutPoint();
+    },
+    onClearInOutPoints: () => {
+      engine.clearInOutPoints();
+    },
+    onToggleFullscreen: () => {
+      toggleFullscreen();
+    },
+    onToggleTitles: () => {
+      setShowTitles((t) => !t);
+    }
+  });
 
   const isVideo = Boolean(
     currentSlide?.isVideo ||
@@ -118,258 +272,129 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     ? r2StorageService.getStreamUrl(nextSlide.remoteUrl, nextIsVideo)
     : '';
 
-  // =========================================================================
-  // SUB-FRAME PRECISION: requestVideoFrameCallback (rVFC) Frame Synchronization
-  // =========================================================================
+  // Double-buffering pre-hydration pipeline (1.5s prior to 12.0s boundary)
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !isVideo) return;
-
-    let rVfcId: number | null = null;
-    let isMounted = true;
-
-    const onVideoFrame = (now: DOMHighResTimeStamp, metadata: any) => {
-      if (!isMounted) return;
-      if (metadata && typeof metadata.mediaTime === 'number' && video.duration) {
-        // Map native video mediaTime into 12.0s slide space
-        const mappedSec = (metadata.mediaTime / video.duration) * SLIDE_DURATION_SEC;
-        setSyncedFrameSec(mappedSec);
-      }
-      if ('requestVideoFrameCallback' in video && typeof (video as any).requestVideoFrameCallback === 'function') {
-        rVfcId = (video as any).requestVideoFrameCallback(onVideoFrame);
-      }
-    };
-
-    if ('requestVideoFrameCallback' in video && typeof (video as any).requestVideoFrameCallback === 'function') {
-      rVfcId = (video as any).requestVideoFrameCallback(onVideoFrame);
-    }
-
-    return () => {
-      isMounted = false;
-      if (rVfcId !== null && 'cancelVideoFrameCallback' in video && typeof (video as any).cancelVideoFrameCallback === 'function') {
-        (video as any).cancelVideoFrameCallback(rVfcId);
-      }
-    };
-  }, [isVideo, mediaUrl]);
-
-  // Fallback sync when video is not active
-  useEffect(() => {
-    if (!isVideo) {
-      setSyncedFrameSec(slideTimeSec);
-    }
-  }, [slideTimeSec, isVideo]);
-
-  // =========================================================================
-  // VARIABLE SPEED & PITCH PRESERVATION (NLE Audio Engine Standard)
-  // =========================================================================
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    try {
-      video.playbackRate = currentSpeed;
-      video.preservesPitch = true;
-      (video as any).mozPreservesPitch = true;
-      (video as any).webkitPreservesPitch = true;
-    } catch {
-      // safe fallback
-    }
-  }, [currentSpeed, isVideo, mediaUrl]);
-
-  // =========================================================================
-  // FAST-SEEK OPTIMIZATION & PLAY/PAUSE SYNCHRONIZATION
-  // =========================================================================
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video && isVideo) {
-      if (isPlaying) {
-        video.play().catch(() => {});
-      } else {
-        video.pause();
-      }
-    }
-  }, [isPlaying, isVideo, currentIndex]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video && isVideo && video.duration) {
-      const targetTime = (slideTimeSec / SLIDE_DURATION_SEC) * video.duration;
-      if (Math.abs(video.currentTime - targetTime) > 0.08) {
-        if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-          try {
-            (video as any).fastSeek(targetTime);
-          } catch {
-            video.currentTime = targetTime;
-          }
-        } else {
-          video.currentTime = targetTime;
-        }
-      }
-    }
-  }, [slideTimeSec, isVideo]);
-
-  // =========================================================================
-  // DOUBLE-BUFFERING / PRE-HYDRATION PIPELINE (0ms Latency Cut Transitions)
-  // Pre-hydrates next slide 1.5 seconds before current slide ends in sequence mode
-  // =========================================================================
-  useEffect(() => {
-    if (playbackMode === 'sequence' && slideTimeSec >= 10.5 && nextMediaUrl) {
+    if (playbackMode === 'sequence' && (slideTimeSec >= 10.5 || engine.shouldPrehydrate) && nextMediaUrl) {
       if (nextIsVideo && prebufferVideoRef.current) {
         if (prebufferVideoRef.current.src !== nextMediaUrl) {
           prebufferVideoRef.current.src = nextMediaUrl;
           prebufferVideoRef.current.load();
         }
       } else if (!nextIsVideo) {
-        // Pre-cache still image
         const preImg = new Image();
         preImg.src = nextMediaUrl;
       }
     }
-  }, [playbackMode, slideTimeSec, nextMediaUrl, nextIsVideo]);
+  }, [playbackMode, slideTimeSec, engine.shouldPrehydrate, nextMediaUrl, nextIsVideo]);
 
-  // =========================================================================
-  // RAPID DRAG-AND-DROP INGESTION PIPELINE
-  // Direct mapping to IndexedDB rawx_storyboard_studio_db with automatic titles
-  // =========================================================================
+  // Clean up ObjectURLs on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaUrl && mediaUrl.startsWith('blob:')) {
+        studioDraftDb.revokeTrackedUrl(mediaUrl);
+      }
+    };
+  }, [mediaUrl]);
+
+  // Fullscreen controller
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  // Format SMPTE Timecode
+  const formatSMPTE = (sec: number) => {
+    const totalFrames = Math.max(0, Math.floor(sec * 24));
+    const ff = String(totalFrames % 24).padStart(2, '0');
+    const ss = String(Math.floor(sec) % 60).padStart(2, '0');
+    const mm = String(Math.floor(sec / 60) % 60).padStart(2, '0');
+    const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
+    return `${hh}:${mm}:${ss}:${ff}`;
+  };
+
+  const currentFrameInSlide = Math.min(288, Math.max(1, Math.floor(slideTimeSec * 24) + 1));
+  const titleLayout = useMemo(() => getSlideTitleLayout(currentIndex), [currentIndex]);
+
+  // Drag & drop ingestion
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDraggingOver(true);
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDraggingOver(false);
     }
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDraggingOver(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
-
-      // 1. Ingest directly into IndexedDB media_blobs store
-      const blobKey = `media_shot_${currentIndex + 1}_${Date.now()}`;
-      try {
-        await studioDraftDb.putMediaBlob(blobKey, file, file.type, file.name);
-      } catch (err) {
-        console.warn('[OpticalMonitor] Direct blob write error:', err);
-      }
-
-      // 2. Trigger parent upload pipeline
-      if (onUploadMedia) {
-        onUploadMedia(file);
-      }
+    if (e.dataTransfer.files && e.dataTransfer.files[0] && onUploadMedia) {
+      onUploadMedia(e.dataTransfer.files[0]);
     }
-  }, [currentIndex, onUploadMedia]);
+  }, [onUploadMedia]);
 
-  // Fullscreen tracking
-  useEffect(() => {
-    const handleFs = () => setIsFullscreen(Boolean(document.fullscreenElement));
-    document.addEventListener('fullscreenchange', handleFs);
-    return () => document.removeEventListener('fullscreenchange', handleFs);
-  }, []);
-
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
-  };
-
-  // 4K Cinema Slate Still Export
-  const handleCaptureStill = () => {
-    if (onCaptureStill) {
-      onCaptureStill();
-      return;
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = 1920;
-    canvas.height = 1080;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = '#0E0E12';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const finish = () => {
-      ctx.fillStyle = '#EDEDED';
-      ctx.font = 'bold 36px Cinzel, serif';
-      ctx.fillText(currentSlide?.titleEn || `FRAME ${String(currentIndex + 1).padStart(3, '0')}`, 60, canvas.height - 80);
-
-      ctx.fillStyle = '#F5A623';
-      ctx.font = '24px Noto Serif Bengali, serif';
-      ctx.fillText(currentSlide?.titleBn || '', 60, canvas.height - 40);
-
-      ctx.font = 'bold 16px "JetBrains Mono", monospace';
-      ctx.fillStyle = '#D97706';
-      ctx.fillText(`SH${String(currentIndex + 1).padStart(3, '0')} // 12.0s // 2.39:1 CINEMA`, canvas.width - 450, canvas.height - 50);
-
-      const a = document.createElement('a');
-      a.download = `OPTICAL_SH${String(currentIndex + 1).padStart(3, '0')}_12S.png`;
-      a.href = canvas.toDataURL('image/png');
-      a.click();
-    };
-
-    if (mediaUrl) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        finish();
-      };
-      img.onerror = () => finish();
-      img.src = mediaUrl;
-    } else {
-      finish();
-    }
-  };
-
-  // Aspect ratio styling
   const getAspectClass = () => {
     switch (aspectRatio) {
-      case '2.39:1': return 'aspect-[2.39/1] max-w-[94vw] max-h-[72vh]';
-      case '16:9': return 'aspect-[16/9] max-w-[90vw] max-h-[76vh]';
-      case '4:3': return 'aspect-[4/3] max-w-[78vw] max-h-[78vh]';
-      case '1:1': return 'aspect-square max-w-[70vw] max-h-[70vh]';
-      case '9:16': return 'aspect-[9/16] max-w-[46vw] max-h-[80vh]';
-      default: return 'aspect-[2.39/1] max-w-[94vw] max-h-[72vh]';
+      case '2.39:1': return 'aspect-[2.39/1] max-h-[76vh]';
+      case '16:9': return 'aspect-[16/9] max-h-[82vh]';
+      case '4:3': return 'aspect-[4/3] max-h-[84vh]';
+      case '1:1': return 'aspect-square max-h-[78vh]';
+      case '9:16': return 'aspect-[9/16] max-h-[88vh]';
+      default: return 'aspect-[2.39/1] max-h-[76vh]';
     }
   };
 
-  const currentFrameInSlide = Math.min(SLIDE_TOTAL_FRAMES_24FPS, Math.max(1, Math.floor(syncedFrameSec * 24) + 1));
+  // Telemetry velocity label
+  const velocityBadge = useMemo(() => {
+    switch (engine.jklVelocity) {
+      case -2: return { label: 'J 2x REV', color: 'text-amber-400 bg-amber-950/70 border-amber-500/50' };
+      case -1: return { label: 'J 1x REV', color: 'text-amber-400 bg-amber-950/70 border-amber-500/50' };
+      case 0: return { label: 'K PAUSED', color: 'text-zinc-400 bg-zinc-900 border-zinc-700' };
+      case 1: return { label: 'L 1x FWD', color: 'text-emerald-400 bg-emerald-950/70 border-emerald-500/50' };
+      case 2: return { label: 'L 2x FWD', color: 'text-emerald-300 bg-emerald-950/90 border-emerald-400' };
+    }
+  }, [engine.jklVelocity]);
 
   return (
     <div 
       ref={containerRef}
-      className={`relative w-full h-full flex flex-col items-center justify-between p-2.5 sm:p-4 bg-[#09090D] select-none overflow-hidden ${className}`}
+      className={`w-full h-full flex flex-col justify-between overflow-hidden select-none font-mono ${className} ${
+        isFullscreen ? 'fixed inset-0 z-50 bg-black p-4' : ''
+      }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Hidden Double-Buffering Pre-Hydration Element */}
-      {nextIsVideo && (
-        <video
-          ref={prebufferVideoRef}
-          className="hidden"
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-        />
-      )}
+      {/* Invisible Secondary Pre-Buffer Video Element for Double-Buffering */}
+      <video
+        ref={prebufferVideoRef}
+        className="hidden"
+        preload="auto"
+        muted
+        playsInline
+      />
 
-      {/* Primary Cinema Playback Canvas (Sub-Frame Synchronized, Zero Scale Distortion) */}
+      {/* Primary Cinema Playback Canvas */}
       <div className="flex-1 w-full flex items-center justify-center min-h-0 relative">
         <div className={`relative ${getAspectClass()} w-full bg-[#0E0E12] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center transition-colors duration-150 ease-out`}>
+          
           {/* Active Media Display */}
           {mediaUrl ? (
             isVideo ? (
@@ -377,10 +402,10 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
                 ref={videoRef}
                 src={mediaUrl}
                 muted={isMuted}
-                loop={isLooping}
+                loop={isLooping && !engine.inOutRange.isActive}
                 playsInline
                 preload="auto"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover pointer-events-none"
                 style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
               />
             ) : (
@@ -399,7 +424,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
                 NO ASSET ATTACHED // SHOT {String(currentIndex + 1).padStart(3, '0')}
               </p>
               <p className="font-mono text-[10.5px] text-white/40 mt-1 max-w-sm">
-                Drag and drop raw 4K video or stills directly onto this slot for instant 15s IndexedDB ingestion.
+                Drag and drop raw 4K video or stills directly onto this slot for instant IndexedDB ingestion.
               </p>
               <button
                 type="button"
@@ -412,7 +437,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
             </div>
           )}
 
-          {/* Hidden File Input for Manual Trigger */}
+          {/* Hidden File Input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -438,67 +463,163 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
             </div>
           )}
 
-          {/* Tactical Static Corner Badge: Top Left (Zero Hover Popovers) */}
-          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623]" />
-            <span>SH{String(currentIndex + 1).padStart(3, '0')}</span>
+          {/* ========================================================================= */}
+          {/* BROADCAST TELEMETRY HUD OVERLAY (Always Visible & Non-Intrusive)          */}
+          {/* ========================================================================= */}
+          
+          {/* Top Left: Scene ID, Frame Telemetry, SMPTE Timecode */}
+          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1.5 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md z-20">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] animate-pulse" />
+            <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
             <span className="text-white/20">|</span>
-            <span className="text-[#F5A623]">12.000s</span>
-            <span className="text-white/20">|</span>
-            <span className="text-white/60">F{String(currentFrameInSlide).padStart(3, '0')}/288</span>
-          </div>
-
-          {/* Tactical Static Corner Badge: Top Right */}
-          <div className="absolute top-3 right-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md">
-            <span className="text-white/40">OPTICAL</span>
-            <span className="text-[#F5A623]">{aspectRatio} CINEMA</span>
-            <span className="text-white/20">|</span>
-            <span className={playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#F5A623]'}>
-              {playbackMode === 'sequence' ? 'ANIMATIC' : 'SOLO'}
+            <span className="text-white font-bold tabular-nums">
+              {formatSMPTE(slideTimeSec)}
             </span>
+            <span className="text-white/20">|</span>
+            <span className="text-white/60 tabular-nums">
+              F{String(currentFrameInSlide).padStart(3, '0')}/288
+            </span>
+            <span className="text-white/20">|</span>
+            <span className="text-emerald-400 text-[9px]">24.0 FPS LOCKED</span>
           </div>
 
-          {/* Scene Title Caption: Bilingual Overlays */}
-          {(currentSlide?.titleEn || currentSlide?.titleBn) && (
-            <div className="absolute bottom-3 left-4 max-w-lg bg-[#0E0E12]/90 backdrop-blur-md px-3.5 py-2 border border-[#1C1C24] rounded-xl shadow-lg">
-              {currentSlide.titleBn && (
-                <p className="text-[#F5A623] text-sm font-serif font-bold tracking-wide">
-                  {currentSlide.titleBn}
-                </p>
+          {/* Top Right: Transport Velocity & NLE Status */}
+          <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
+            {/* JKL Velocity Badge */}
+            <div className={`px-2.5 py-1 rounded-full border text-[9.5px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md ${velocityBadge.color}`}>
+              <Activity className="w-3 h-3" />
+              <span>{velocityBadge.label}</span>
+            </div>
+
+            {/* In/Out Marker Badge if set */}
+            {engine.inOutRange.isActive && engine.inOutRange.inSec !== null && engine.inOutRange.outSec !== null && (
+              <div className="px-2.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 text-[9px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md">
+                <Bookmark className="w-2.5 h-2.5 text-cyan-400" />
+                <span>IN {engine.inOutRange.inSec.toFixed(2)}s ─ OUT {engine.inOutRange.outSec.toFixed(2)}s</span>
+              </div>
+            )}
+
+            {/* Mode & Aspect Capsule */}
+            <div className="bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1.5 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md">
+              <span className="text-[#F5A623]">{aspectRatio}</span>
+              <span className="text-white/20">|</span>
+              <span className={playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#F5A623]'}>
+                {playbackMode === 'sequence' ? 'HERO GLOBAL' : 'SOLO INSPECTOR'}
+              </span>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* CREATIVE DYNAMIC PER-SLIDE TITLE STORYTELLING OVERLAY                     */}
+          {/* Choreographed positions: Center, Asymmetric Top-Left, Lower-Third, Right  */}
+          {/* ========================================================================= */}
+          {showTitles && (currentSlide?.titleEn || currentSlide?.titleBn) && (
+            <div className="absolute inset-0 pointer-events-none p-6 sm:p-10 flex flex-col justify-between z-10">
+              
+              {/* Primary Title Container (Positioned via Curated Layout Archetype) */}
+              <div className={`absolute ${titleLayout.titleContainerClass} transition-all duration-300`}>
+                
+                {/* Bengali Glowing Title (Anek Bangla / Metallic Gold) */}
+                {currentSlide.titleBn && (
+                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-[#ffe58f] via-[#d4af37] to-[#eab308] drop-shadow-[0_0_25px_rgba(234,179,8,0.5)]">
+                    {currentSlide.titleBn}
+                  </h1>
+                )}
+
+                {/* English Subtitle (Cinzel tracking uppercase) */}
+                {currentSlide.titleEn && (
+                  <h2 className="text-xs sm:text-sm md:text-base font-mono font-bold tracking-[0.25em] text-[#EDEDED] uppercase mt-1 drop-shadow-md">
+                    {currentSlide.titleEn}
+                  </h2>
+                )}
+
+                {/* Unified Captions (for non-split archetypes) */}
+                {!titleLayout.hasSplitCaption && (currentSlide.directorNotes || currentSlide.soundCue) && (
+                  <div className={titleLayout.captionContainerClass}>
+                    {currentSlide.directorNotes && (
+                      <p className="text-[10.5px] sm:text-xs text-white/70 font-mono drop-shadow">
+                        DIR: {currentSlide.directorNotes}
+                      </p>
+                    )}
+                    {currentSlide.soundCue && (
+                      <span className="text-[9.5px] text-[#38BDF8] font-mono mt-0.5 drop-shadow flex items-center gap-1">
+                        <Volume2 className="w-3 h-3" />
+                        <span>{currentSlide.soundCue}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Asymmetric Split Caption (for Top-Left / Top-Right split archetypes) */}
+              {titleLayout.hasSplitCaption && (currentSlide.directorNotes || currentSlide.soundCue) && (
+                <div className={`${titleLayout.captionContainerClass} bg-[#0E0E12]/85 backdrop-blur-md px-3.5 py-2 border border-[#1C1C24] rounded-xl shadow-xl transition-all duration-300`}>
+                  {currentSlide.directorNotes && (
+                    <p className="text-xs text-[#EDEDED] font-mono leading-relaxed">
+                      {currentSlide.directorNotes}
+                    </p>
+                  )}
+                  {currentSlide.soundCue && (
+                    <p className="text-[10px] text-[#38BDF8] font-mono mt-1 flex items-center justify-end gap-1">
+                      <Volume2 className="w-3 h-3" />
+                      <span>{currentSlide.soundCue}</span>
+                    </p>
+                  )}
+                </div>
               )}
-              {currentSlide.titleEn && (
-                <p className="text-[#EDEDED] text-xs font-mono font-semibold tracking-wider uppercase mt-0.5">
-                  {currentSlide.titleEn}
-                </p>
-              )}
+
             </div>
           )}
+
+          {/* Bottom Left Quick Telemetry Indicator: Layout Archetype Name */}
+          <div className="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-black/60 border border-white/10 text-[8.5px] font-mono text-zinc-400 pointer-events-none z-20">
+            LAYOUT: <span className="text-[#F5A623] font-bold uppercase">{titleLayout.name}</span>
+          </div>
+
         </div>
       </div>
 
       {/* Permanently Visible Tactical Pill Transport Dock ("Google Flow" Aesthetic) */}
       <TactileTransport
         isPlaying={isPlaying}
-        onTogglePlay={onTogglePlay}
+        onTogglePlay={() => {
+          onTogglePlay();
+          engine.togglePlay();
+        }}
         playbackMode={playbackMode}
-        onSelectPlaybackMode={onSelectPlaybackMode}
+        onSelectPlaybackMode={(mode) => {
+          onSelectPlaybackMode(mode);
+          engine.setPlaybackMode(mode);
+        }}
         isLooping={isLooping}
-        onToggleLoop={onToggleLoop}
-        onStepFrame={onStepFrame}
-        playbackSpeed={currentSpeed}
-        onChangePlaybackSpeed={handleSpeedChange}
+        onToggleLoop={() => {
+          onToggleLoop();
+          engine.setIsLooping(!isLooping);
+        }}
+        onStepFrame={(fwd) => {
+          onStepFrame(fwd);
+          engine.stepFrame(fwd);
+        }}
+        playbackSpeed={playbackSpeed}
+        onChangePlaybackSpeed={onChangePlaybackSpeed || (() => {})}
         isMuted={isMuted}
         onToggleMute={() => setIsMuted(m => !m)}
         slideTimeSec={slideTimeSec}
         currentIndex={currentIndex}
         totalSlides={totalSlides}
-        onScrubSlideTime={onScrubSlideTime}
-        onScrubGlobalTime={onScrubGlobalTime}
+        onScrubSlideTime={(t) => {
+          onScrubSlideTime(t);
+          engine.scrubSlideTime(t);
+        }}
+        onScrubGlobalTime={(gt) => {
+          onScrubGlobalTime?.(gt);
+          engine.scrubGlobalTime(gt);
+        }}
         aspectRatio={aspectRatio}
         onChangeAspectRatio={onChangeAspectRatio}
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
-        onCaptureStill={handleCaptureStill}
+        onCaptureStill={onCaptureStill}
         onPurgeMedia={onPurgeMedia}
         hasMedia={Boolean(mediaUrl)}
         className="mt-3 shrink-0"

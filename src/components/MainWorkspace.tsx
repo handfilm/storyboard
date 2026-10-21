@@ -89,6 +89,7 @@ interface MainWorkspaceProps {
   onPurgeMedia?: () => void;
   projectTitle?: string;
   onOpenExportTimeline?: () => void;
+  onOpenExportRange?: () => void;
   isSnapToBeat?: boolean;
   onToggleSnapToBeat?: () => void;
   onLoadAudioFile?: (file: File) => void;
@@ -151,6 +152,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onPurgeMedia,
   projectTitle = 'RAWx Storyboard Studio',
   onOpenExportTimeline,
+  onOpenExportRange,
   isSnapToBeat = false,
   onToggleSnapToBeat,
   onLoadAudioFile,
@@ -447,6 +449,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onPurgeMedia={onPurgeMedia}
               projectTitle={projectTitle}
               onOpenExportTimeline={onOpenExportTimeline}
+              onOpenExportRange={onOpenExportRange}
               isSnapToBeat={isSnapToBeat}
               onToggleSnapToBeat={onToggleSnapToBeat}
               onLoadAudioFile={onLoadAudioFile}

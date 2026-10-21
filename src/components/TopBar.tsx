@@ -37,7 +37,8 @@ import {
   Type,
   Cloud,
   Globe,
-  ExternalLink
+  ExternalLink,
+  Video
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -68,6 +69,7 @@ interface TopBarProps {
   canRedo?: boolean;
   onOpenR2Automation?: () => void;
   onOpenExportTimeline?: () => void;
+  onOpenExportRange?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -97,7 +99,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   canUndo = false,
   canRedo = false,
   onOpenR2Automation,
-  onOpenExportTimeline
+  onOpenExportTimeline,
+  onOpenExportRange
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(projectTitle);
@@ -373,6 +376,20 @@ export const TopBar: React.FC<TopBarProps> = ({
             <Film className="w-3.5 h-3.5 text-[#eab308]" />
             <span className="hidden sm:inline">EXPORT</span>
             <span>NLE XML</span>
+          </button>
+        )}
+
+        {/* Dedicated Client-Side MP4 Video Exporter Button */}
+        {onOpenExportRange && (
+          <button
+            type="button"
+            onClick={onOpenExportRange}
+            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
+            title="Export Frame Range to MP4 Video (100% In-Browser WebCodecs)"
+          >
+            <Video className="w-3.5 h-3.5 text-[#eab308]" />
+            <span className="hidden sm:inline">EXPORT</span>
+            <span>RANGE MP4</span>
           </button>
         )}
 

@@ -26,6 +26,7 @@ import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
 import { StudioDrawer } from './components/StudioDrawer';
 import { R2AutomationModal } from './components/R2AutomationModal';
 import { ExportTimelineModal } from './components/ExportTimelineModal';
+import { ExportModal } from './components/modals/ExportModal';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
@@ -98,6 +99,7 @@ export default function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isR2AutomationOpen, setIsR2AutomationOpen] = useState(false);
   const [isExportTimelineOpen, setIsExportTimelineOpen] = useState(false);
+  const [isExportRangeOpen, setIsExportRangeOpen] = useState(false);
   const [isSnapToBeat, setIsSnapToBeat] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState(120);
   const [titleAnimation, setTitleAnimation] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>('flare');
@@ -854,7 +856,11 @@ export default function App() {
         case 'e':
         case 'E':
           e.preventDefault();
-          setIsInspectorOpen(o => !o);
+          if (e.shiftKey) {
+            setIsExportRangeOpen(prev => !prev);
+          } else {
+            setIsInspectorOpen(o => !o);
+          }
           break;
         case 'Escape':
           setIsInspectorOpen(false);
@@ -865,6 +871,8 @@ export default function App() {
           setIsLiquifyOpen(false);
           setIsComponentsOpen(false);
           setIsThemeSettingsOpen(false);
+          setIsExportTimelineOpen(false);
+          setIsExportRangeOpen(false);
           if (workspaceMode !== 'STAGE') setWorkspaceMode('STAGE');
           break;
       }
@@ -930,6 +938,8 @@ export default function App() {
       case 'view.toggleGuides': setShowGuides(g => !g); break;
       case 'view.componentMatrix': setIsComponentsOpen(true); break;
       case 'export.captureStill': handleCaptureStill(); break;
+      case 'export.mp4': setIsExportRangeOpen(true); break;
+      case 'export.nle': setIsExportTimelineOpen(true); break;
       case 'system.selfTest': setIsSelfTestOpen(true); break;
       case 'system.shortcuts': setIsShortcutsOpen(true); break;
       case 'system.exportBackup': exportFullIdbBackup(); break;
@@ -1034,6 +1044,7 @@ export default function App() {
         canRedo={redoStack.length > 0}
         onOpenR2Automation={() => setIsR2AutomationOpen(true)}
         onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
+        onOpenExportRange={() => setIsExportRangeOpen(true)}
       />
 
       {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
@@ -1229,6 +1240,7 @@ export default function App() {
           }}
           projectTitle={project.title}
           onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
+          onOpenExportRange={() => setIsExportRangeOpen(true)}
           isSnapToBeat={isSnapToBeat}
           onToggleSnapToBeat={handleToggleSnapToBeat}
           onLoadAudioFile={handleLoadAudioFile}
@@ -1391,6 +1403,17 @@ export default function App() {
         project={project}
         isOpen={isExportTimelineOpen}
         onClose={() => setIsExportTimelineOpen(false)}
+      />
+
+      {/* 100% Client-Side Frame-Range MP4 Video Exporter */}
+      <ExportModal
+        isOpen={isExportRangeOpen}
+        onClose={() => setIsExportRangeOpen(false)}
+        frames={project.frames}
+        currentIndex={currentIndex}
+        projectTitle={project.title}
+        directorName={project.director}
+        aspectRatio={aspectRatio}
       />
     </div>
   );

@@ -121,7 +121,7 @@ export function generatePremiereCapCutXml(
 
     const focalLength = frame.cameraSpec?.focalLength || '35mm';
     const aperture = frame.cameraSpec?.aperture || 'T2.0';
-    const directorNotes = frame.directorNotes || frame.tag || '';
+    const directorNotes = frame.directorNotes || frame.tagline || (frame.tags && frame.tags[0]) || '';
     const soundCue = frame.soundCue || 'Ambient Sub-drone 43.6Hz';
 
     // Markers inside clip
@@ -333,7 +333,7 @@ export function generateFcpXml(
     const assetId = `asset-sh${shotNum}`;
 
     const markerXml = includeMarkers ? `
-        <marker start="0s" duration="${frameDurationStr}" value="${escapeXml(`[${frame.bengaliTitle || 'দৃষ্টি'}] ${frame.title}`)}" note="${escapeXml(frame.directorNotes || frame.tag || '')}" />
+        <marker start="0s" duration="${frameDurationStr}" value="${escapeXml(`[${frame.bengaliTitle || 'দৃষ্টি'}] ${frame.title}`)}" note="${escapeXml(frame.directorNotes || frame.tagline || '')}" />
         <chapter-marker start="0s" duration="${frameDurationStr}" value="${escapeXml(`Shot ${shotStr}`)}" posterOffset="0s" />` : '';
 
     return `      <asset-clip name="${escapeXml(clipName)}" ref="${assetId}" offset="${offsetStr}" duration="${durationStr}" start="0s" format="${formatId}">

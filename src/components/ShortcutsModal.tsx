@@ -43,6 +43,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     category: 'Audio, Still & Export',
     items: [
+      { key: 'Shift + E', description: 'Export Custom Frame Range to MP4 Video (WebCodecs)' },
       { key: 'M', description: 'Toggle Audio Track / Mute' },
       { key: 'S', description: 'Capture 4K High-Res Cinema Still PNG' },
       { key: 'F', description: 'Toggle Native Cinema Fullscreen' },

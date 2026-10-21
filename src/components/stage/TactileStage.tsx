@@ -73,6 +73,7 @@ interface TactileStageProps {
   onPurgeMedia?: () => void;
   projectTitle?: string;
   onOpenExportTimeline?: () => void;
+  onOpenExportRange?: () => void;
   isSnapToBeat?: boolean;
   onToggleSnapToBeat?: () => void;
   onLoadAudioFile?: (file: File) => void;
@@ -111,6 +112,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onPurgeMedia,
   projectTitle = 'RAWx Storyboard Studio',
   onOpenExportTimeline,
+  onOpenExportRange,
   isSnapToBeat = false,
   onToggleSnapToBeat,
   onLoadAudioFile,
@@ -327,6 +329,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onPurgeMedia={onPurgeMedia}
           hasMedia={Boolean(activeFrame.imageUrl)}
           onOpenExportTimeline={onOpenExportTimeline}
+          onOpenExportRange={onOpenExportRange}
           isSnapToBeat={isSnapToBeat}
           onToggleSnapToBeat={onToggleSnapToBeat}
           onLoadAudioFile={onLoadAudioFile}

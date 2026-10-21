@@ -29,7 +29,8 @@ import {
   Gauge,
   Music,
   Film,
-  Sparkles
+  Sparkles,
+  Video
 } from 'lucide-react';
 import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../../types/editor';
 import { AspectRatioType } from '../../types/project';
@@ -61,6 +62,7 @@ export interface TactileTransportProps {
   hasMedia?: boolean;
   className?: string;
   onOpenExportTimeline?: () => void;
+  onOpenExportRange?: () => void;
   isSnapToBeat?: boolean;
   onToggleSnapToBeat?: () => void;
   beatMarkers?: BeatMarker[];
@@ -94,6 +96,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
   hasMedia = false,
   className = '',
   onOpenExportTimeline,
+  onOpenExportRange,
   isSnapToBeat = false,
   onToggleSnapToBeat,
   beatMarkers,
@@ -273,6 +276,20 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             <Repeat className="w-3.5 h-3.5" />
             <span>LOOP</span>
           </button>
+
+          {/* Export Range MP4 Option next to main playback controls */}
+          {onOpenExportRange && (
+            <button
+              type="button"
+              onClick={onOpenExportRange}
+              className="px-3 py-1.5 rounded-full bg-gradient-to-r from-[#d4af37]/25 via-[#eab308]/30 to-[#fbbf24]/25 hover:brightness-110 border border-[#d4af37] text-[#fbbf24] hover:text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] shadow-[0_0_12px_rgba(234,179,8,0.25)]"
+              title="Export Custom Frame Range to MP4 Video (WebCodecs H.264)"
+            >
+              <Video className="w-3.5 h-3.5 text-[#eab308]" />
+              <span className="hidden sm:inline">EXPORT</span>
+              <span>RANGE MP4</span>
+            </button>
+          )}
 
           {/* Speed Pills: 0.5x, 1.0x, 1.5x, 2.0x (Pitch-Preserved) */}
           <div className="flex items-center bg-[#070709] p-0.5 rounded-full border border-[#272732]">

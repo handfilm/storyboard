@@ -93,9 +93,35 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onOpenGrid,
   onOpenSettings,
   titleAnimation,
-  onCycleTitleAnimation
+  onCycleTitleAnimation,
+  onReorderFrames,
+  onUpdateFrame
 }) => {
-  // 1. BOARD VIEW: 7 Storyboard Engines (Grid, Row Sheet, Filmstrip, Corkboard, Kanban, Timeline, Outline)
+  // 1. BLOOM VIEW: Bloom Interactive Canvas (Fluid Stage & Magnetic Snap Sequencer)
+  if (activeMode === 'BLOOM') {
+    return (
+      <main className="flex-1 w-full h-full overflow-hidden bg-[#0b0b0f]">
+        <BloomInteractiveCanvas
+          frames={frames}
+          currentIndex={currentIndex}
+          aspectRatio={aspectRatio}
+          directorName={directorName}
+          nodeLocation={nodeLocation}
+          showHud={showHud}
+          isAutoplay={isAutoplay}
+          componentsVisibility={componentsVisibility}
+          onSelectFrame={onSelectFrame}
+          onReorderFrames={onReorderFrames || (() => {})}
+          onUpdateFrame={onUpdateFrame}
+          onOpenInspector={onOpenInspector}
+          onOpenAnimatic={onOpenAnimatic}
+          onToggleTitles={onToggleTitles}
+        />
+      </main>
+    );
+  }
+
+  // 2. BOARD VIEW: 7 Storyboard Engines (Grid, Row Sheet, Filmstrip, Corkboard, Kanban, Timeline, Outline)
   if (activeMode === 'BOARD') {
     return (
       <main className="flex-1 w-full h-full overflow-hidden">
@@ -104,7 +130,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
     );
   }
 
-  // 2. CUT VIEW: CapCut / Premiere-Style Multi-Track Sequence Editor
+  // 3. CUT VIEW: CapCut / Premiere-Style Multi-Track Sequence Editor
   if (activeMode === 'CUT') {
     return (
       <main className="flex-1 w-full h-full overflow-hidden">

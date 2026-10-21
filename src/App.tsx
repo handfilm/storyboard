@@ -24,6 +24,7 @@ import { CanvasLiquifyModal } from './components/CanvasLiquifyModal';
 import { VideoScopesModal } from './components/VideoScopesModal';
 import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
 import { StudioDrawer } from './components/StudioDrawer';
+import { R2AutomationModal } from './components/R2AutomationModal';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
@@ -87,6 +88,7 @@ export default function App() {
   const [isVideoScopesOpen, setIsVideoScopesOpen] = useState(false);
   const [isAnimaticOpen, setIsAnimaticOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isR2AutomationOpen, setIsR2AutomationOpen] = useState(false);
   const [titleAnimation, setTitleAnimation] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>('flare');
   const [historyStack, setHistoryStack] = useState<AnthologyProject[]>([]);
   const [redoStack, setRedoStack] = useState<AnthologyProject[]>([]);
@@ -695,6 +697,7 @@ export default function App() {
         onRedo={handleRedo}
         canUndo={historyStack.length > 0}
         canRedo={redoStack.length > 0}
+        onOpenR2Automation={() => setIsR2AutomationOpen(true)}
       />
 
       {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
@@ -704,12 +707,17 @@ export default function App() {
           onSelectModule={(mod) => {
             if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
               handleGoHome();
+            } else if (mod === 'BLOOM') {
+              setWorkspaceMode('BLOOM');
+              setIsDrawerOpen(false);
             } else if (mod === 'BOARD') {
               setWorkspaceMode('BOARD');
               setIsDrawerOpen(false);
             } else if (mod === 'EDIT/CUT') {
               setWorkspaceMode('CUT');
               setIsDrawerOpen(false);
+            } else if (mod === 'R2_STORAGE') {
+              setIsR2AutomationOpen(true);
             } else if (mod === 'SETTINGS') {
               setIsThemeSettingsOpen(true);
             } else if (mod === 'EXPORT') {
@@ -797,6 +805,13 @@ export default function App() {
             const next = anims[(anims.indexOf(titleAnimation) + 1) % anims.length];
             setTitleAnimation(next);
           }}
+          onReorderFrames={(newFrames) => {
+            setProject(prev => ({
+              ...prev,
+              frames: newFrames
+            }));
+          }}
+          onUpdateFrame={handleUpdateFrame}
         />
 
         {/* Director Inspector Sidebar Drawer */}
@@ -939,6 +954,13 @@ export default function App() {
         }}
         projectTitle={project.title}
         aspectRatio={aspectRatio}
+      />
+
+      {/* Cloudflare R2 Streaming Engine & Automation Webhook Dashboard */}
+      <R2AutomationModal
+        isOpen={isR2AutomationOpen}
+        onClose={() => setIsR2AutomationOpen(false)}
+        project={project}
       />
     </div>
   );

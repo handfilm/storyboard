@@ -30,13 +30,15 @@ import {
   Download, 
   Crop, 
   Settings,
-  Scissors
+  Scissors,
+  Cloud
 } from 'lucide-react';
 
 export type StudioModuleId = 
   | 'STORY' 
   | 'MEDIA' 
   | 'BOARD' 
+  | 'BLOOM'
   | 'TEXT' 
   | 'EDIT/CUT' 
   | 'SOUND' 
@@ -48,7 +50,8 @@ export type StudioModuleId =
   | 'AI' 
   | 'SETTINGS'
   | 'OPTICS'
-  | 'LIQUIFY';
+  | 'LIQUIFY'
+  | 'R2_STORAGE';
 
 interface LeftRailProps {
   activeModule: StudioModuleId;
@@ -81,6 +84,19 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             title="STAGE (HOME) — Return to Cinematic Viewport"
           >
             <Home className="w-4 h-4" />
+          </button>
+
+          {/* Bloom Interactive Canvas Sequencer */}
+          <button
+            onClick={() => onSelectModule('BLOOM')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'BLOOM'
+                ? 'bg-rose-500 text-black font-bold shadow-[0_0_12px_rgba(244,63,94,0.55)]'
+                : 'text-rose-400/80 hover:text-rose-300 hover:bg-rose-950/20'
+            }`}
+            title="BLOOM Interactive Canvas (Fluid Stage & Magnetic Snap Sequencer)"
+          >
+            <Sparkles className="w-4 h-4" />
           </button>
 
           {/* Top Primary Categories */}
@@ -180,6 +196,18 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             title="CapCut Multi-Track Video Editor"
           >
             <Film className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onSelectModule('R2_STORAGE')}
+            className={`w-9 h-9 rounded-[4px] flex items-center justify-center cursor-pointer transition-all ${
+              activeModule === 'R2_STORAGE'
+                ? 'bg-rose-950/60 border border-rose-500 text-rose-300'
+                : 'text-white/50 hover:text-rose-400 hover:bg-white/5'
+            }`}
+            title="Cloudflare R2 Zero-Egress Storage & Automation Engine"
+          >
+            <Cloud className="w-4 h-4" />
           </button>
         </div>
       </div>

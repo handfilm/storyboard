@@ -694,58 +694,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           className="hidden"
         />
 
-        {/* Top-Center: Floating Optical Bar */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 sm:top-4 z-40 pointer-events-auto">
-          <div className="hidden sm:flex items-center gap-1 p-1 bg-[#0E0E14]/90 backdrop-blur-2xl border border-white/15 rounded-full shadow-2xl">
-            {onOpenLens && (
-              <button
-                onClick={onOpenLens}
-                className="px-2.5 py-1 rounded-full text-white/70 hover:text-white hover:bg-white/10 text-[9.5px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors"
-                title="Select Lens & Optics"
-              >
-                <Aperture className="w-3 h-3 text-[#E5A919]" />
-                <span className="hidden md:inline">LENS</span>
-              </button>
-            )}
-            {onOpenAnimatic && (
-              <button
-                onClick={onOpenAnimatic}
-                className="px-3 py-1 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black font-bold text-[9.5px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors shadow-[0_0_10px_rgba(229,169,25,0.4)]"
-                title="Launch Animatic Cinema Player"
-              >
-                <Play className="w-3 h-3 fill-current" />
-                <span>ANIMATIC</span>
-              </button>
-            )}
-            {onOpenSliders && (
-              <button
-                onClick={onOpenSliders}
-                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
-                title="Optical Sliders & Adjustments"
-              >
-                <Sliders className="w-3.5 h-3.5 text-white/80" />
-              </button>
-            )}
-            {onOpenGrid && (
-              <button
-                onClick={onOpenGrid}
-                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
-                title="Toggle Contact Sheet Grid"
-              >
-                <LayoutGrid className="w-3.5 h-3.5 text-white/80" />
-              </button>
-            )}
-            {onOpenSettings && (
-              <button
-                onClick={onOpenSettings}
-                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
-                title="Studio Theme & Settings"
-              >
-                <Settings className="w-3.5 h-3.5 text-white/80" />
-              </button>
-            )}
-          </div>
-        </div>
+
 
         {/* ========================================================================= */}
         {/* 4-CORNER NANO HUD SYSTEM: Animated Subtle Bullets & Short Smart Names      */}

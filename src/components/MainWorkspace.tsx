@@ -19,7 +19,7 @@ import { TimelineSequencer } from './sequencer/TimelineSequencer';
 import { BoardStudio } from '../features/board/BoardStudio';
 import { CutStudio } from '../features/cut/CutStudio';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
-import { ChevronLeft, ChevronRight, Home, Film, SlidersHorizontal, Layers, Play, SplitSquareVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home, Film, SlidersHorizontal, Layers, Play, SplitSquareVertical, Sparkles } from 'lucide-react';
 import { MediaStudio } from '../features/media/MediaStudio';
 import { StoryNotebook } from '../features/story/StoryNotebook';
 import { TextStudio } from '../features/text/TextStudio';
@@ -30,6 +30,7 @@ import { LibraryStudio } from '../features/library/LibraryStudio';
 import { AiStudio } from '../features/ai/AiStudio';
 import { StudioModuleId } from './LeftRail';
 import { BloomInteractiveCanvas } from './stage/BloomInteractiveCanvas';
+import { TactileStage } from './stage/TactileStage';
 import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode, SLIDE_DURATION_SEC } from '../types/editor';
 
@@ -71,8 +72,8 @@ interface MainWorkspaceProps {
   // Dual-Panel Engine & Dual-Mode Playback
   playbackMode?: PlaybackMode;
   slideTimeSec?: number;
-  activeDualPanel?: 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
-  onChangeDualPanel?: (panel: 'SEQUENCER' | 'OPTICAL' | 'SPLIT') => void;
+  activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
+  onChangeDualPanel?: (panel: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT') => void;
   onSelectPlaybackMode?: (mode: PlaybackMode) => void;
   onTogglePlay?: () => void;
   onStepFrame?: (forward: boolean) => void;
@@ -83,6 +84,9 @@ interface MainWorkspaceProps {
   onDuplicateSlide?: (index: number) => void;
   onDeleteSlide?: (index: number) => void;
   onUpdateSlide?: (index: number, partial: Partial<SlideDraft>) => void;
+  playbackSpeed?: number;
+  onChangePlaybackSpeed?: (speed: number) => void;
+  onPurgeMedia?: () => void;
   projectTitle?: string;
 }
 
@@ -123,7 +127,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onUpdateFrame,
   playbackMode = 'sequence',
   slideTimeSec = 0,
-  activeDualPanel = 'SPLIT',
+  activeDualPanel = 'TACTILE_STAGE',
   onChangeDualPanel,
   onSelectPlaybackMode,
   onTogglePlay,
@@ -135,13 +139,16 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onDuplicateSlide,
   onDeleteSlide,
   onUpdateSlide,
-  projectTitle = 'RAWx // Master Anthology Engine'
+  playbackSpeed = 1.0,
+  onChangePlaybackSpeed,
+  onPurgeMedia,
+  projectTitle = 'RAWx Storyboard Studio'
 }) => {
   // Local dual-panel view selection if not externally controlled
-  const [localDualPanel, setLocalDualPanel] = useState<'SEQUENCER' | 'OPTICAL' | 'SPLIT'>(activeDualPanel || 'SPLIT');
-  const currentPanel = onChangeDualPanel ? (activeDualPanel || 'SPLIT') : localDualPanel;
+  const [localDualPanel, setLocalDualPanel] = useState<'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT'>(activeDualPanel || 'TACTILE_STAGE');
+  const currentPanel = onChangeDualPanel ? (activeDualPanel || 'TACTILE_STAGE') : localDualPanel;
 
-  const handleSelectPanel = (panel: 'SEQUENCER' | 'OPTICAL' | 'SPLIT') => {
+  const handleSelectPanel = (panel: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT') => {
     if (onChangeDualPanel) {
       onChangeDualPanel(panel);
     } else {
@@ -190,13 +197,14 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
     }
   };
 
-  // 1. BLOOM VIEW
+  // 1. BLOOM VIEW (Consolidated with Tactile Cinema Stage)
   if (activeMode === 'BLOOM') {
     return (
-      <main className="flex-1 w-full h-full overflow-hidden bg-[#0b0b0f]">
-        <BloomInteractiveCanvas
+      <main className="flex-1 w-full h-full overflow-hidden bg-[#07070A]">
+        <TactileStage
           frames={frames}
           currentIndex={currentIndex}
+          currentFrame={currentFrame}
           aspectRatio={aspectRatio}
           directorName={directorName}
           nodeLocation={nodeLocation}
@@ -204,11 +212,24 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           isAutoplay={isAutoplay}
           componentsVisibility={componentsVisibility}
           onSelectFrame={onSelectFrame}
-          onReorderFrames={onReorderFrames || (() => {})}
           onUpdateFrame={onUpdateFrame}
-          onOpenInspector={onOpenInspector}
+          onReorderFrames={onReorderFrames}
+          onUploadImage={onUploadImage}
           onOpenAnimatic={onOpenAnimatic}
+          onOpenInspector={onOpenInspector}
           onToggleTitles={onToggleTitles}
+          showTitles={true}
+          playbackMode={playbackMode}
+          onSelectPlaybackMode={onSelectPlaybackMode}
+          slideTimeSec={slideTimeSec}
+          onTogglePlay={onTogglePlay}
+          onStepFrame={onStepFrame}
+          onScrubSlideTime={onScrubSlideTime}
+          onScrubGlobalTime={onScrubGlobalTime}
+          playbackSpeed={playbackSpeed}
+          onChangePlaybackSpeed={onChangePlaybackSpeed}
+          onPurgeMedia={onPurgeMedia}
+          projectTitle={projectTitle}
         />
       </main>
     );
@@ -288,17 +309,32 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
   // 5. Default Hero STAGE Mode with Dual-Panel Workflow
   return (
-    <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
-      {/* Top Dual-Panel Navigation Header (Dark-Brutalist, High-Contrast) */}
-      <div className="h-9 bg-[#0E0E14] border-b border-[#22222E] px-4 flex items-center justify-between z-20 select-none shrink-0">
+    <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#09090D] font-mono">
+      {/* Top Dual-Panel Navigation Header (Google Flow Tactical Aesthetic) */}
+      <div className="h-9 bg-[#0E0E12] border-b border-[#1C1C24] px-4 flex items-center justify-between z-20 select-none shrink-0">
         <div className="flex items-center gap-3">
-          {/* Dual Panel Switcher: [12.0S SEQUENCER] | [OPTICAL MONITOR] | [DUAL STUDIO SPLIT] */}
-          <div className="flex items-center bg-[#15151F] p-0.5 rounded border border-[#2B2B38] text-[10.5px]">
+          {/* Dual Panel Switcher: [TACTILE STAGE] | [DUAL STUDIO SPLIT] | [OPTICAL MONITOR] | [12.0S SEQUENCER] */}
+          <div className="flex items-center bg-[#14141B] p-0.5 rounded-full border border-[#23232E] text-[10.5px]">
             <button
+              type="button"
+              onClick={() => handleSelectPanel('TACTILE_STAGE')}
+              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
+                currentPanel === 'TACTILE_STAGE'
+                  ? 'bg-[#F5A623] text-black shadow-sm'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="Consolidated Tactical Stage: Glowing Bloom Viewport + 100-Shot Sequence Runner"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>TACTILE STAGE</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleSelectPanel('SPLIT')}
-              className={`px-3 py-1 rounded font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
                 currentPanel === 'SPLIT'
-                  ? 'bg-[#E5A919] text-black shadow-sm'
+                  ? 'bg-[#F5A623] text-black shadow-sm'
                   : 'text-white/60 hover:text-white'
               }`}
               title="Dual-Panel Workflow: 2.39:1 Cinema Optical Monitor on top, 12.0s Sequencer below"
@@ -308,10 +344,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => handleSelectPanel('OPTICAL')}
-              className={`px-3 py-1 rounded font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
                 currentPanel === 'OPTICAL'
-                  ? 'bg-[#E5A919] text-black shadow-sm'
+                  ? 'bg-[#F5A623] text-black shadow-sm'
                   : 'text-white/60 hover:text-white'
               }`}
               title="Optical Monitor: 2.39:1 Cinema canvas with permanent high-contrast transport controls"
@@ -321,10 +358,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => handleSelectPanel('SEQUENCER')}
-              className={`px-3 py-1 rounded font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
                 currentPanel === 'SEQUENCER'
-                  ? 'bg-[#E5A919] text-black shadow-sm'
+                  ? 'bg-[#F5A623] text-black shadow-sm'
                   : 'text-white/60 hover:text-white'
               }`}
               title="12.0s Sequencer: Card order, scene labels, text cues, and asset bindings"
@@ -336,18 +374,18 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
           <span className="text-white/20">|</span>
 
-          {/* Mode Tag Indicator */}
-          <div className="flex items-center gap-2 text-[10px] text-white/50">
+          {/* Mode Tag Indicator Pill */}
+          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#14141B] border border-[#23232E] text-[10px]">
             <span className="text-white/40">MODE:</span>
-            <span className={`font-bold ${playbackMode === 'sequence' ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {playbackMode === 'sequence' ? 'SEQUENCE (ANIMATIC 12.0s)' : 'SOLO SCRUB (ISOLATED 12.0s)'}
+            <span className={`font-bold ${playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#F5A623]'}`}>
+              {playbackMode === 'sequence' ? 'ANIMATIC 12.0s' : 'SOLO SCRUB 12.0s'}
             </span>
           </div>
         </div>
 
-        {/* Right Timing Spec */}
-        <div className="flex items-center gap-3 text-[10px] text-white/60">
-          <span className="text-[#FFE066] font-bold">12.000s ALLOCATION</span>
+        {/* Right Timing Spec Pill */}
+        <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#14141B] border border-[#23232E] text-[10px] text-white/60">
+          <span className="text-[#F5A623] font-bold">12.000s ALLOCATION</span>
           <span>•</span>
           <span>288 FRAMES @ 24FPS</span>
         </div>
@@ -355,13 +393,50 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
       {/* Main Viewport Content based on active panel */}
       <div className="flex-1 w-full relative flex flex-col overflow-hidden">
+        {/* VIEW 0: TACTILE STAGE (Consolidated Primary View: Glowing Bloom Stage + 100-Shot Sequence Runner) */}
+        {currentPanel === 'TACTILE_STAGE' && (
+          <div className="w-full h-full flex flex-col overflow-hidden">
+            <TactileStage
+              frames={frames}
+              currentIndex={currentIndex}
+              currentFrame={currentFrame}
+              aspectRatio={aspectRatio}
+              directorName={directorName}
+              nodeLocation={nodeLocation}
+              showHud={showHud}
+              isAutoplay={isAutoplay}
+              componentsVisibility={componentsVisibility}
+              onSelectFrame={onSelectFrame}
+              onUpdateFrame={onUpdateFrame}
+              onReorderFrames={onReorderFrames}
+              onUploadImage={onUploadImage}
+              onOpenAnimatic={onOpenAnimatic}
+              onOpenInspector={onOpenInspector}
+              onToggleTitles={onToggleTitles}
+              showTitles={true}
+              playbackMode={playbackMode}
+              onSelectPlaybackMode={onSelectPlaybackMode}
+              slideTimeSec={slideTimeSec}
+              onTogglePlay={onTogglePlay}
+              onStepFrame={onStepFrame}
+              onScrubSlideTime={onScrubSlideTime}
+              onScrubGlobalTime={onScrubGlobalTime}
+              playbackSpeed={playbackSpeed}
+              onChangePlaybackSpeed={onChangePlaybackSpeed}
+              onPurgeMedia={onPurgeMedia}
+              projectTitle={projectTitle}
+            />
+          </div>
+        )}
+
         {/* VIEW 1: DUAL STUDIO SPLIT (Top: Optical Monitor, Bottom: Timeline Sequencer) */}
         {currentPanel === 'SPLIT' && (
           <div className="w-full h-full flex flex-col overflow-hidden">
             {/* Top: 2.39:1 Optical Monitor Canvas */}
-            <div className="flex-1 min-h-[340px] w-full flex items-center justify-center overflow-hidden border-b border-[#20202A] p-2">
+            <div className="flex-1 min-h-[340px] w-full flex items-center justify-center overflow-hidden border-b border-[#1C1C24] p-2">
               <OpticalMonitor
                 currentSlide={slides[currentIndex]}
+                nextSlide={slides[(currentIndex + 1) % slides.length]}
                 currentIndex={currentIndex}
                 totalSlides={slides.length}
                 aspectRatio={aspectRatio as AspectRatioType}
@@ -369,13 +444,17 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 isPlaying={isAutoplay}
                 isLooping={isLooping}
                 slideTimeSec={slideTimeSec}
+                playbackSpeed={playbackSpeed}
+                onChangePlaybackSpeed={onChangePlaybackSpeed}
                 onTogglePlay={onTogglePlay || (() => {})}
                 onToggleLoop={() => setIsLooping(l => !l)}
                 onStepFrame={onStepFrame || (() => {})}
                 onScrubSlideTime={onScrubSlideTime || (() => {})}
+                onScrubGlobalTime={onScrubGlobalTime}
                 onSelectPlaybackMode={onSelectPlaybackMode || (() => {})}
                 onChangeAspectRatio={onChangeAspectRatio || (() => {})}
                 onUploadMedia={onUploadImage}
+                onPurgeMedia={onPurgeMedia}
                 projectTitle={projectTitle}
               />
             </div>
@@ -426,6 +505,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           <div className="w-full h-full flex flex-col items-center justify-center p-3 overflow-hidden">
             <OpticalMonitor
               currentSlide={slides[currentIndex]}
+              nextSlide={slides[(currentIndex + 1) % slides.length]}
               currentIndex={currentIndex}
               totalSlides={slides.length}
               aspectRatio={aspectRatio as AspectRatioType}
@@ -433,13 +513,17 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               isPlaying={isAutoplay}
               isLooping={isLooping}
               slideTimeSec={slideTimeSec}
+              playbackSpeed={playbackSpeed}
+              onChangePlaybackSpeed={onChangePlaybackSpeed}
               onTogglePlay={onTogglePlay || (() => {})}
               onToggleLoop={() => setIsLooping(l => !l)}
               onStepFrame={onStepFrame || (() => {})}
               onScrubSlideTime={onScrubSlideTime || (() => {})}
+              onScrubGlobalTime={onScrubGlobalTime}
               onSelectPlaybackMode={onSelectPlaybackMode || (() => {})}
               onChangeAspectRatio={onChangeAspectRatio || (() => {})}
               onUploadMedia={onUploadImage}
+              onPurgeMedia={onPurgeMedia}
               projectTitle={projectTitle}
             />
           </div>

@@ -133,39 +133,40 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2.5 px-3 sm:px-6">
       {/* Secondary Tools Drawer (Expanded on Click) */}
       {isToolsExpanded && (
-        <div className="w-full max-w-5xl mb-2 pointer-events-auto bg-[#0A0A0F]/95 backdrop-blur-2xl border border-white/15 rounded-xl shadow-2xl p-2 flex flex-wrap items-center justify-between gap-2 font-mono-tech text-xs animate-in slide-in-from-bottom duration-150">
+        <div className="w-full max-w-5xl mb-2 pointer-events-auto bg-[#0E0E12]/95 backdrop-blur-2xl border border-[#1C1C24] rounded-2xl shadow-2xl p-2.5 flex flex-wrap items-center justify-between gap-2 font-mono-tech text-xs animate-in slide-in-from-bottom duration-150">
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-white/50 uppercase">LUT:</span>
+            <span className="text-[9px] text-white/50 uppercase font-bold">LUT:</span>
             <select
               value={currentFrame?.lutFilter || 'cinematic'}
               onChange={(e) => onChangeLut(e.target.value as LutPreset)}
-              className="px-2 py-0.5 bg-black/80 border border-white/15 rounded text-[9.5px] text-[#FFE066] font-mono-tech outline-none cursor-pointer"
+              className="px-2.5 py-1 bg-[#14141B] border border-[#23232E] rounded-full text-[9.5px] text-[#F5A623] font-mono-tech outline-none cursor-pointer"
             >
               {lutPresetsList.map(l => (
-                <option key={l.id} value={l.id} className="bg-[#101014] text-white">
+                <option key={l.id} value={l.id} className="bg-[#12121A] text-white">
                   {l.label}
                 </option>
               ))}
             </select>
 
-            <span className="text-[9px] text-white/50 uppercase ml-2">PACE:</span>
+            <span className="text-[9px] text-white/50 uppercase ml-2 font-bold">PACE:</span>
             <input
               type="range"
               min="1"
               max="100"
               value={speed}
               onChange={(e) => onSpeedChange(Number(e.target.value))}
-              className="w-16 accent-[#E5A919] cursor-pointer h-1 bg-white/20 rounded"
+              className="w-16 accent-[#F5A623] cursor-pointer h-1.5 bg-[#1C1C26] rounded-full"
             />
-            <span className="text-[9px] text-[#FFE066]">{intervalSeconds}s</span>
+            <span className="text-[9px] text-[#F5A623] font-bold">{intervalSeconds}s</span>
           </div>
 
           <div className="flex items-center gap-1.5">
             {onToggleGuides && (
               <button
+                type="button"
                 onClick={onToggleGuides}
-                className={`p-1.5 rounded border text-[9px] cursor-pointer transition-colors ${
-                  showGuides ? 'bg-[#E5A919]/25 border-[#E5A919] text-[#FFE066]' : 'bg-white/5 border-white/10 text-white/50'
+                className={`p-1.5 rounded-full border text-[9px] cursor-pointer transition-colors active:scale-[0.98] ${
+                  showGuides ? 'bg-[#F5A623]/25 border-[#F5A623] text-[#F5A623]' : 'bg-[#14141B] border-[#23232E] text-white/50'
                 }`}
                 title="Toggle Rule of Thirds Guides (C)"
               >
@@ -175,11 +176,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
             {onToggleTitles && (
               <button
+                type="button"
                 onClick={onToggleTitles}
-                className={`px-2 py-1 rounded border text-[9px] cursor-pointer transition-colors flex items-center gap-1 ${
+                className={`px-3 py-1 rounded-full border text-[9px] cursor-pointer transition-colors active:scale-[0.98] flex items-center gap-1 ${
                   showTitles
-                    ? 'bg-[#E5A919]/25 border-[#E5A919] text-[#FFE066] shadow-[0_0_8px_rgba(229,169,25,0.4)]'
-                    : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+                    ? 'bg-[#F5A623]/25 border-[#F5A623] text-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                    : 'bg-[#14141B] border-[#23232E] text-white/50 hover:text-white'
                 }`}
                 title="Toggle Master Titles Overlay (Hotkey: T)"
               >
@@ -190,8 +192,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
             {onCaptureStill && (
               <button
+                type="button"
                 onClick={onCaptureStill}
-                className="p-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer"
+                className="p-1.5 rounded-full bg-[#14141B] hover:bg-[#1C1C26] border border-[#23232E] text-white/70 hover:text-[#F5A623] cursor-pointer active:scale-[0.98]"
                 title="Capture Still PNG (S)"
               >
                 <Camera className="w-3.5 h-3.5" />
@@ -199,9 +202,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             )}
 
             <button
+              type="button"
               onClick={onToggleAudio}
-              className={`p-1.5 rounded border cursor-pointer transition-colors ${
-                !isAudioMuted ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-white/5 border-white/10 text-white/40'
+              className={`p-1.5 rounded-full border cursor-pointer transition-colors active:scale-[0.98] ${
+                !isAudioMuted ? 'bg-[#F5A623]/20 border-[#F5A623]/60 text-[#F5A623]' : 'bg-[#14141B] border-[#23232E] text-white/40'
               }`}
               title={isAudioMuted ? "Unmute Audio (M)" : "Mute Audio (M)"}
             >
@@ -209,9 +213,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={onToggleViewMode}
-              className={`px-2.5 py-1 rounded border flex items-center gap-1 cursor-pointer transition-colors text-[9.5px] ${
-                viewMode === 'grid' ? 'bg-[#E5A919] text-black font-bold border-[#E5A919]' : 'bg-white/5 border-white/10 text-white/70'
+              className={`px-3 py-1 rounded-full border flex items-center gap-1 cursor-pointer transition-colors text-[9.5px] active:scale-[0.98] ${
+                viewMode === 'grid' ? 'bg-[#F5A623] text-black font-bold border-[#F5A623]' : 'bg-[#14141B] border-[#23232E] text-white/70'
               }`}
             >
               <LayoutGrid className="w-3 h-3" />
@@ -221,13 +226,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
       )}
 
-      {/* Main Single-Bar Floating Transport matching Google Flow screenshot */}
-      <div className="w-full max-w-6xl pointer-events-auto bg-[#07070B]/90 backdrop-blur-2xl border border-white/10 hover:border-white/20 rounded-full px-2.5 sm:px-4 py-1.5 flex items-center justify-between gap-2 sm:gap-3 shadow-2xl transition-all">
+      {/* Main Single-Bar Floating Transport matching Google Flow tactical aesthetic */}
+      <div className="w-full max-w-6xl pointer-events-auto bg-[#0E0E12]/95 backdrop-blur-2xl border border-[#1C1C24] rounded-full px-2.5 sm:px-4 py-1.5 flex items-center justify-between gap-2 sm:gap-3 shadow-2xl transition-all">
         {/* Left: Previous, Gold [PLAY] button, Next, and Timecode */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
+            type="button"
             onClick={onPrev}
-            className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-[0.98]"
             title="Previous Shot (J / Left Arrow)"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -235,9 +241,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
           {/* High-Contrast Gold [PLAY] button */}
           <button
+            type="button"
             onClick={onTogglePlay}
-            className="px-4 py-1.5 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black font-black text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out shadow-sm"
-            title={isPlaying ? "Pause Sequence (Space)" : "Play Sequence (Space)"}
+            className="px-4 py-1.5 rounded-full bg-[#F5A623] hover:bg-[#D97706] text-black font-black text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] shadow-sm"
+            title={isPlaying ? "Pause Sequence (Space / K)" : "Play Sequence (Space / L)"}
           >
             {isPlaying ? (
               <>
@@ -253,21 +260,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={onNext}
-            className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-[0.98]"
             title="Next Shot (L / Right Arrow)"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
 
-          {/* Timecode in Gold font from screenshot */}
-          <div className="flex items-center gap-1 pl-1 text-xs font-mono-tech font-bold text-[#E5A919] tracking-wider whitespace-nowrap">
+          {/* Timecode in Gold font */}
+          <div className="flex items-center gap-1 pl-1 text-xs font-mono-tech font-bold text-[#F5A623] tracking-wider whitespace-nowrap">
             <span className="text-white/40 text-[9px] font-medium mr-0.5">TC</span>
             <span>{shotTc.start || '00:00:01:00'}</span>
           </div>
         </div>
 
-        {/* Center: Scrollable Continuous Shot Chips from screenshot */}
+        {/* Center: Scrollable Continuous Shot Chips */}
         <div 
           ref={navBarRef}
           id="photo-nav-bar"
@@ -279,11 +287,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             return (
               <button
                 key={frame?.id ?? idx}
+                type="button"
                 onClick={() => onSelectFrame(idx)}
-                className={`nav-dash shrink-0 px-2.5 py-1 rounded-full font-mono-tech text-[10px] cursor-pointer flex items-center gap-1 ${
+                className={`nav-dash shrink-0 px-2.5 py-1 rounded-full font-mono-tech text-[10px] cursor-pointer flex items-center gap-1 transition-colors duration-150 active:scale-[0.98] ${
                   isActive
-                    ? 'nav-dash-active bg-[#E5A919] text-black font-black shadow-[0_0_10px_rgba(229,169,25,0.6)] z-10'
-                    : 'bg-white/5 hover:bg-white/15 text-white/60 hover:text-white'
+                    ? 'nav-dash-active bg-[#F5A623] text-black font-black shadow-[0_0_10px_rgba(245,166,35,0.6)] z-10'
+                    : 'bg-[#14141B] hover:bg-[#1C1C26] text-white/60 hover:text-white border border-[#23232E]'
                 }`}
               >
                 {isActive && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
@@ -296,16 +305,17 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         {/* Right: Total Shot Count & Tools Expander */}
         <div className="flex items-center gap-2 shrink-0 pr-1">
           <div className="flex items-center gap-1 font-mono-tech text-xs font-bold">
-            <span className="text-[#E5A919]">{String(currentIndex + 1).padStart(3, '0')}</span>
+            <span className="text-[#F5A623]">{String(currentIndex + 1).padStart(3, '0')}</span>
             <span className="text-white/30">/</span>
             <span className="text-white/60">{frames.length || 100}</span>
           </div>
 
           {/* Toggle Secondary Tools */}
           <button
+            type="button"
             onClick={() => setIsToolsExpanded(p => !p)}
-            className={`p-1.5 rounded-full cursor-pointer transition-colors ${
-              isToolsExpanded ? 'bg-[#E5A919] text-black' : 'text-white/40 hover:text-white hover:bg-white/10'
+            className={`p-1.5 rounded-full cursor-pointer transition-colors active:scale-[0.98] ${
+              isToolsExpanded ? 'bg-[#F5A623] text-black' : 'text-white/40 hover:text-white hover:bg-white/10'
             }`}
             title="Toggle Extended Optical Controls"
           >

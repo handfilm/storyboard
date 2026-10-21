@@ -123,13 +123,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   return (
-    <header className="h-12 w-full bg-[#050508]/98 border-b border-white/10 px-3 sm:px-4 flex items-center justify-between select-none z-50 backdrop-blur-2xl relative font-sans">
+    <header className="h-12 w-full bg-[#0E0E12] border-b border-[#1C1C24] px-3 sm:px-4 flex items-center justify-between select-none z-50 backdrop-blur-2xl relative font-sans">
       {/* Left: Branding, Tool/Edit Pill & Project Diamond */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
         {/* Green App Logo Badge from screenshot */}
         <div 
           onClick={onOpenProjectManager}
-          className="w-7 h-7 rounded-[6px] bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 flex items-center justify-center shadow-[0_0_12px_rgba(34,197,94,0.35)] shrink-0 cursor-pointer hover:scale-105 transition-transform"
+          className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 flex items-center justify-center shadow-[0_0_12px_rgba(34,197,94,0.35)] shrink-0 cursor-pointer active:scale-[0.98] transition-transform"
           title="RAWx Storyboard Studio — Click for Project Vault"
         >
           <Film className="w-3.5 h-3.5 text-black font-black" />
@@ -142,30 +142,33 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Home / Return to Stage Quick Button */}
         <button
+          type="button"
           onClick={onGoHome || (() => onSelectMode('STAGE'))}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#161622] hover:bg-[#E5A919]/25 hover:border-[#E5A919]/60 border border-white/10 text-white/80 hover:text-[#FFE066] text-xs font-mono transition-all cursor-pointer shadow-sm group shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#14141B] hover:bg-[#F5A623]/25 hover:border-[#F5A623]/60 border border-[#23232E] text-white/80 hover:text-[#F5A623] text-xs font-mono transition-colors duration-150 ease-out active:scale-[0.98] cursor-pointer shadow-sm group shrink-0"
           title="STAGE (HOME) — Return to Cinematic Viewport"
         >
-          <Home className="w-3.5 h-3.5 text-[#E5A919] group-hover:scale-110 transition-transform" />
+          <Home className="w-3.5 h-3.5 text-[#F5A623]" />
           <span className="font-bold tracking-wider text-[11px] hidden sm:inline">HOME</span>
         </button>
 
-        {/* Tool / Edit Segmented Pill from screenshot */}
-        <div className="hidden md:flex items-center bg-[#15151c] p-0.5 rounded-full border border-white/10 text-[11px] shrink-0">
+        {/* Tool / Edit Segmented Pill */}
+        <div className="hidden md:flex items-center bg-[#14141B] p-0.5 rounded-full border border-[#23232E] text-[11px] shrink-0">
           <button
+            type="button"
             onClick={() => setActiveTabPill('Tool')}
-            className={`px-3 py-0.5 rounded-full font-medium transition-all cursor-pointer ${
+            className={`px-3 py-0.5 rounded-full font-medium transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
               activeTabPill === 'Tool' ? 'bg-[#272733] text-white shadow-sm' : 'text-white/50 hover:text-white'
             }`}
           >
             Tool
           </button>
           <button
+            type="button"
             onClick={() => {
               setActiveTabPill('Edit');
               onSelectMode('CUT');
             }}
-            className={`px-3 py-0.5 rounded-full font-medium transition-all cursor-pointer ${
+            className={`px-3 py-0.5 rounded-full font-medium transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
               activeTabPill === 'Edit' ? 'bg-[#272733] text-white shadow-sm' : 'text-white/50 hover:text-white'
             }`}
           >
@@ -228,9 +231,10 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Center: Primary Mode Switcher (STAGE | BOARD | CUT) */}
-      <div className="flex items-center bg-[#121218]/90 p-1 rounded-full border border-white/10 shrink-0 mx-1 shadow-inner">
+      {/* Center: Primary Mode Switcher (STAGE | BLOOM | BOARD | CUT) */}
+      <div className="flex items-center bg-[#14141B] p-0.5 rounded-full border border-[#23232E] shrink-0 mx-1 shadow-inner">
         <button
+          type="button"
           onClick={() => {
             if (onGoHome) {
               onGoHome();
@@ -238,9 +242,9 @@ export const TopBar: React.FC<TopBarProps> = ({
               onSelectMode('STAGE');
             }
           }}
-          className={`px-3.5 sm:px-4 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-3.5 sm:px-4 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'STAGE' && (!activeModule || activeModule === 'PLAYER')
-              ? 'bg-[#E5A919] text-black shadow-[0_0_12px_rgba(229,169,25,0.45)]'
+              ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.45)]'
               : 'text-white/70 hover:text-white hover:bg-white/10'
           }`}
           title="STAGE (HOME) — Return to Cinematic Viewport"
@@ -250,8 +254,9 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => onSelectMode('BLOOM')}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'BLOOM'
               ? 'bg-rose-500 text-black shadow-[0_0_12px_rgba(244,63,94,0.55)]'
               : 'text-white/70 hover:text-white hover:bg-white/10'
@@ -263,10 +268,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => onSelectMode('BOARD')}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'BOARD'
-              ? 'bg-[#E5A919] text-black font-bold shadow-[0_0_12px_rgba(229,169,25,0.45)]'
+              ? 'bg-[#F5A623] text-black font-bold shadow-[0_0_12px_rgba(245,166,35,0.45)]'
               : 'text-white/70 hover:text-white'
           }`}
           title="100-Shot Storyboard Grid"
@@ -276,10 +282,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => onSelectMode('CUT')}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'CUT'
-              ? 'bg-[#E5A919] text-black font-bold shadow-[0_0_12px_rgba(229,169,25,0.45)]'
+              ? 'bg-[#F5A623] text-black font-bold shadow-[0_0_12px_rgba(245,166,35,0.45)]'
               : 'text-white/70 hover:text-white'
           }`}
           title="CapCut Multi-Track Sequence Editor"
@@ -289,15 +296,16 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
       </div>
 
-      {/* Right: Actions matching screenshot */}
+      {/* Right: Actions matching tactical aesthetic */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Undo Button */}
         {onUndo && (
           <button
+            type="button"
             onClick={onUndo}
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
-            className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white disabled:opacity-30 cursor-pointer transition-colors"
+            className="p-1.5 rounded-full bg-[#14141B] hover:bg-[#1C1C26] text-white/60 hover:text-white border border-[#23232E] disabled:opacity-30 cursor-pointer transition-colors active:scale-[0.98]"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -306,9 +314,10 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Fullscreen Button */}
         {onToggleFullscreen && (
           <button
+            type="button"
             onClick={onToggleFullscreen}
             title="Toggle Cinema Fullscreen (F)"
-            className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white cursor-pointer transition-colors"
+            className="p-1.5 rounded-full bg-[#14141B] hover:bg-[#1C1C26] text-white/60 hover:text-white border border-[#23232E] cursor-pointer transition-colors active:scale-[0.98]"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -317,25 +326,27 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Quick Title Toggle Button */}
         {onToggleTitles && (
           <button
+            type="button"
             onClick={onToggleTitles}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-mono transition-all cursor-pointer shadow-sm ${
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10.5px] font-mono transition-colors duration-150 ease-out cursor-pointer shadow-sm active:scale-[0.98] ${
               showTitles
-                ? 'bg-[#181824] border-[#D4AF37]/60 text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
-                : 'bg-white/5 border-white/10 text-white/40 hover:text-white/80 hover:border-white/30'
+                ? 'bg-[#181824] border-[#F5A623]/60 text-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.3)]'
+                : 'bg-[#14141B] border-[#23232E] text-white/40 hover:text-white/80'
             }`}
             title="Toggle Master Titles Overlay (Hotkey: T)"
           >
-            <Type className={`w-3.5 h-3.5 ${showTitles ? 'text-[#D4AF37]' : 'text-white/40'}`} />
+            <Type className={`w-3.5 h-3.5 ${showTitles ? 'text-[#F5A623]' : 'text-white/40'}`} />
             <span className="font-bold tracking-wider hidden md:inline">
               TITLES: {showTitles ? 'ON' : 'OFF'}
             </span>
           </button>
         )}
 
-        {/* Dedicated Gold [▶ ANIMATIC] Button from screenshot */}
+        {/* Dedicated Gold [▶ ANIMATIC] Button */}
         <button
+          type="button"
           onClick={onOpenAnimatic}
-          className="px-3 sm:px-3.5 py-1 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(229,169,25,0.4)] hover:scale-102"
+          className="px-3.5 py-1 rounded-full bg-[#F5A623] hover:bg-[#D97706] text-black font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out shadow-[0_0_12px_rgba(245,166,35,0.4)] active:scale-[0.98]"
           title="Launch Animatic Cinema Player"
         >
           <Play className="w-3 h-3 fill-current" />
@@ -377,6 +388,66 @@ export const TopBar: React.FC<TopBarProps> = ({
           )}
         </button>
 
+        {/* Active Hands & Head Ecosystem Links Pill Cluster */}
+        <div className="hidden lg:flex items-center gap-1 bg-[#12121A] p-0.5 rounded-full border border-[#23232E] shrink-0 shadow-sm">
+          <a
+            href="https://hub.handsandhead.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            title="Hands & Head Hub — https://hub.handsandhead.com"
+          >
+            <span>HUB</span>
+            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+          </a>
+
+          <a
+            href="https://vault.handsandhead.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            title="Hands & Head Vault — https://vault.handsandhead.com"
+          >
+            <span>VAULT</span>
+            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+          </a>
+
+          <a
+            href="https://bloom-app.handsandhead.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-rose-500/20 border border-transparent hover:border-rose-500/60 text-white/80 hover:text-rose-400 text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            title="Bloom App — https://bloom-app.handsandhead.com"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <span>BLOOM</span>
+            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+          </a>
+
+          <a
+            href="https://xvideos-r2.handsandhead.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            title="R2 Stream — https://xvideos-r2.handsandhead.com"
+          >
+            <span className="text-[#F5A623]">R2</span>
+            <span>STREAM</span>
+            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+          </a>
+
+          <a
+            href="https://picseed.handsandhead.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            title="Picseed CDN — https://picseed.handsandhead.com"
+          >
+            <span>PICSEED</span>
+            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+          </a>
+        </div>
+
         {/* Cross-App Federation Dock Button & Dropdown */}
         <div className="relative">
           <button
@@ -386,7 +457,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 ? 'bg-[#E5A919]/25 border-[#E5A919] text-[#FFE066] shadow-[0_0_8px_rgba(229,169,25,0.3)]' 
                 : 'bg-[#14141B] hover:bg-[#1D1D26] border-white/10 text-white/70 hover:text-white'
             }`}
-            title="Hands & Head Federation Ecosystem (hub, vault, bloom, xvideos-r2)"
+            title="Hands & Head Federation Ecosystem (hub, vault, bloom, xvideos-r2, picseed)"
           >
             <Globe className="w-3.5 h-3.5 text-[#E5A919]" />
             <span className="hidden xl:inline font-bold">ECOSYSTEM</span>

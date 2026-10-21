@@ -18,15 +18,14 @@ interface ShortcutGroup {
 
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    category: 'Stage & Navigation',
+    category: 'NLE Playback & Transport',
     items: [
-      { key: '→ / L', description: 'Next Frame / Episode' },
-      { key: '← / J', description: 'Previous Frame / Episode' },
-      { key: 'Space', description: 'Toggle Autoplay Loop' },
+      { key: 'Space', description: 'Instant Loop Audition (Play / Pause)' },
+      { key: 'J / K / L', description: 'NLE Shuttle (Rewind / Pause / Forward)' },
+      { key: '← / →', description: 'Frame-by-Frame Nudge (1/24s @ 41.66ms)' },
+      { key: 'Shift + Del', description: 'Instant Media Purge (Zero-Loss Cleanup)' },
       { key: 'G', description: 'Toggle 100-Frame Contact Sheet' },
-      { key: 'Alt+1', description: 'Switch to STAGE Mode (Hero)' },
-      { key: 'Alt+2', description: 'Switch to BOARD Mode' },
-      { key: 'Alt+3', description: 'Switch to CUT Mode' },
+      { key: 'Alt+1 / 2 / 3', description: 'Switch STAGE / BOARD / CUT Modes' },
     ]
   },
   {
@@ -44,7 +43,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     category: 'Audio, Still & Export',
     items: [
-      { key: 'M', description: 'Toggle Procedural Web Audio Synth' },
+      { key: 'M', description: 'Toggle Audio Track / Mute' },
       { key: 'S', description: 'Capture 4K High-Res Cinema Still PNG' },
       { key: 'F', description: 'Toggle Native Cinema Fullscreen' },
       { key: 'Z', description: 'Toggle Clean Cinema Zen Mode' },

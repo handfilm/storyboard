@@ -72,8 +72,9 @@ export default function App() {
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [audioVolume, setAudioVolume] = useState(0.4);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('sequence');
-  const [activeDualPanel, setActiveDualPanel] = useState<'SPLIT' | 'OPTICAL' | 'SEQUENCER'>('SPLIT');
+  const [activeDualPanel, setActiveDualPanel] = useState<'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER'>('TACTILE_STAGE');
   const [slideTimeSec, setSlideTimeSec] = useState<number>(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
 
   // New Studio State & Preserved Optical Controls
   const [isPanActive, setIsPanActive] = useState(false);
@@ -210,7 +211,7 @@ export default function App() {
         if (typeof session.activeSlideIndex === 'number') setCurrentIndex(session.activeSlideIndex);
         if (session.playbackMode) setPlaybackMode(session.playbackMode);
         if (session.activeDualPanel || session.activePanel) {
-          setActiveDualPanel(session.activeDualPanel || session.activePanel || 'SPLIT');
+          setActiveDualPanel((session.activeDualPanel || session.activePanel) as any || 'TACTILE_STAGE');
         }
       }
 
@@ -461,7 +462,7 @@ export default function App() {
 
     const tick = (now: number) => {
       if (lastTimestampRef.current !== null) {
-        const deltaSec = (now - lastTimestampRef.current) / 1000;
+        const deltaSec = ((now - lastTimestampRef.current) / 1000) * playbackSpeed;
         const safeDelta = Math.min(deltaSec, 0.5);
 
         setSlideTimeSec(prevTime => {
@@ -495,7 +496,7 @@ export default function App() {
         animFrameRef.current = null;
       }
     };
-  }, [isPlaying, playbackMode, project.frames.length]);
+  }, [isPlaying, playbackMode, project.frames.length, playbackSpeed]);
 
   // Fullscreen event listener
   useEffect(() => {
@@ -597,11 +598,116 @@ export default function App() {
     useStudioStore.getState().setVisibilityItem('titlesAll', !componentsVisibility.titlesAll);
   }, [componentsVisibility.titlesAll]);
 
-  // Keyboard Navigation
+  const handleUndo = useCallback(() => {
+    if (historyStack.length === 0) return;
+    const prev = historyStack[historyStack.length - 1];
+    setRedoStack(r => [...r, project]);
+    setHistoryStack(h => h.slice(0, -1));
+    setProject(prev);
+  }, [historyStack, project]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setHistoryStack(h => [...h, project]);
+    setRedoStack(r => r.slice(0, -1));
+    setProject(next);
+  }, [redoStack, project]);
+
+  const handleUpdateFrame = useCallback((updated: AnthologyFrame) => {
+    setHistoryStack(h => [...h.slice(-15), project]);
+    setRedoStack([]);
+    setProject(prev => ({
+      ...prev,
+      frames: prev.frames.map(f => f.id === updated.id ? updated : f)
+    }));
+  }, [project]);
+
+  // Rapid Ingestion Pipeline: Direct IndexedDB Storage + High-Impact Overlays
+  const handleUploadImage = useCallback(async (file: File) => {
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
+    const blobKey = `media_shot_${currentIndex + 1}_${Date.now()}`;
+    
+    // 1. Direct write to IndexedDB media_blobs store
+    try {
+      await studioDraftDb.putMediaBlob(blobKey, file, file.type, file.name);
+    } catch (err) {
+      console.warn('[App] Direct blob write to IndexedDB:', err);
+    }
+
+    // 2. Tracked Object URL with zero memory leaks
+    const current = project.frames[currentIndex];
+    if (current?.imageUrl && current.imageUrl.startsWith('blob:')) {
+      studioDraftDb.revokeTrackedUrl(current.imageUrl);
+    }
+    const url = studioDraftDb.createTrackedUrl(file);
+
+    // 3. Auto-pair with default high-impact bilingual title overlays and audio cue
+    const shotNum = String(currentIndex + 1).padStart(3, '0');
+    const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
+      ? `SH${shotNum} // KINETIC FLOW`
+      : current.title;
+    const titleBn = (!current.bengaliTitle || current.bengaliTitle.includes('নতুন ফ্রেম'))
+      ? `দৃশ্য ${shotNum} // গতিশীল দৃষ্টিভঙ্গি`
+      : current.bengaliTitle;
+    const soundCue = current.soundCue || 'Cinematic Tension Bass // 24fps Stem';
+
+    handleUpdateFrame({
+      ...current,
+      imageUrl: url,
+      isVideo: isVideo,
+      title: titleEn,
+      bengaliTitle: titleBn,
+      soundCue: soundCue
+    });
+
+    try {
+      useStudioStore.getState().updateShot(currentIndex, {
+        imageUrl: url,
+        isVideo: isVideo,
+        title: titleEn,
+        bengaliTitle: titleBn,
+        soundCue: soundCue
+      });
+    } catch {
+      // safe fallback
+    }
+  }, [currentIndex, project.frames, handleUpdateFrame]);
+
+  // Instant Decision Purge (Shift + Delete): zero-loss RAM cleanup
+  const handlePurgeMedia = useCallback(() => {
+    const current = project.frames[currentIndex];
+    if (!current) return;
+    if (current.imageUrl && current.imageUrl.startsWith('blob:')) {
+      studioDraftDb.revokeTrackedUrl(current.imageUrl);
+    }
+    handleUpdateFrame({
+      ...current,
+      imageUrl: '',
+      isVideo: false
+    });
+    try {
+      useStudioStore.getState().updateShot(currentIndex, {
+        imageUrl: '',
+        isVideo: false
+      });
+    } catch {
+      // safe fallback
+    }
+  }, [currentIndex, project.frames, handleUpdateFrame]);
+
+  // Keyboard Navigation: NLE Shuttle, 1/24s Nudge, Loop Audition & Instant Purge
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      // Shift + Delete or Shift + Backspace: Purge slot media instantly if clip lacks impact
+      if (e.shiftKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        handlePurgeMedia();
         return;
       }
 
@@ -620,20 +726,43 @@ export default function App() {
       }
 
       switch (e.key) {
+        // Left / Right Arrow: Frame-by-frame nudge (1/24s = 41.666ms)
         case 'ArrowRight':
-        case 'l':
           e.preventDefault();
-          nextFrame();
+          handleStepFrame(true);
           break;
         case 'ArrowLeft':
-        case 'j':
           e.preventDefault();
-          prevFrame();
+          handleStepFrame(false);
           break;
+
+        // J / K / L: Standard NLE Playback Shuttle (Rewind / Pause / Forward)
+        case 'j':
+        case 'J':
+          e.preventDefault();
+          handleStepFrame(false);
+          break;
+        case 'k':
+        case 'K':
+          e.preventDefault();
+          setIsPlaying(false);
+          break;
+        case 'l':
+        case 'L':
+          e.preventDefault();
+          if (!isPlaying) {
+            setIsPlaying(true);
+          } else {
+            handleStepFrame(true);
+          }
+          break;
+
+        // Space: Instant loop audition
         case ' ':
           e.preventDefault();
           setIsPlaying(p => !p);
           break;
+
         case 'f':
         case 'F':
           e.preventDefault();
@@ -707,7 +836,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextFrame, prevFrame, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles]);
+  }, [nextFrame, prevFrame, handleStepFrame, isPlaying, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -726,49 +855,6 @@ export default function App() {
     touchStartXRef.current = null;
   };
 
-  const handleUndo = useCallback(() => {
-    if (historyStack.length === 0) return;
-    const prev = historyStack[historyStack.length - 1];
-    setRedoStack(r => [...r, project]);
-    setHistoryStack(h => h.slice(0, -1));
-    setProject(prev);
-  }, [historyStack, project]);
-
-  const handleRedo = useCallback(() => {
-    if (redoStack.length === 0) return;
-    const next = redoStack[redoStack.length - 1];
-    setHistoryStack(h => [...h, project]);
-    setRedoStack(r => r.slice(0, -1));
-    setProject(next);
-  }, [redoStack, project]);
-
-  const handleUpdateFrame = (updated: AnthologyFrame) => {
-    setHistoryStack(h => [...h.slice(-15), project]);
-    setRedoStack([]);
-    setProject(prev => ({
-      ...prev,
-      frames: prev.frames.map(f => f.id === updated.id ? updated : f)
-    }));
-  };
-
-  const handleUploadImage = (file: File) => {
-    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
-    const url = URL.createObjectURL(file);
-    const current = project.frames[currentIndex];
-    handleUpdateFrame({
-      ...current,
-      imageUrl: url,
-      isVideo: isVideo
-    });
-    try {
-      useStudioStore.getState().updateShot(currentIndex, {
-        imageUrl: url,
-        isVideo: isVideo
-      });
-    } catch {
-      // safe fallback
-    }
-  };
 
   const handleQuickSampleImage = () => {
     const allPresets = [...samplePacks.cosmicMacro, ...samplePacks.cyberNoir, ...samplePacks.liquidGold];
@@ -1034,6 +1120,9 @@ export default function App() {
           onStepFrame={handleStepFrame}
           onScrubSlideTime={handleScrubSlideTime}
           onScrubGlobalTime={handleScrubGlobalTime}
+          playbackSpeed={playbackSpeed}
+          onChangePlaybackSpeed={setPlaybackSpeed}
+          onPurgeMedia={handlePurgeMedia}
           onChangeAspectRatio={(r) => setAspectRatio(r)}
           onAddSlide={() => {
             const newId = project.frames.length + 1;
@@ -1093,6 +1182,10 @@ export default function App() {
           }}
           onDeleteSlide={(idx) => {
             if (project.frames.length <= 1) return;
+            const target = project.frames[idx];
+            if (target?.imageUrl && target.imageUrl.startsWith('blob:')) {
+              studioDraftDb.revokeTrackedUrl(target.imageUrl);
+            }
             const nextFrames = project.frames.filter((_, i) => i !== idx);
             setProject(p => ({ ...p, frames: nextFrames }));
             setCurrentIndex(prev => Math.min(nextFrames.length - 1, prev));

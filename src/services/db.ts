@@ -124,6 +124,19 @@ class StudioDraftDbService {
   }
 
   /**
+   * Revokes a specific Object URL if tracked, preventing RAM leaks on media delete
+   */
+  public revokeTrackedUrl(url: string): void {
+    if (!url) return;
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore
+    }
+    this.activeObjectUrls.delete(url);
+  }
+
+  /**
    * Revokes all tracked Object URLs to free memory on draft switch or unmount
    */
   public revokeAllTrackedUrls(): void {
@@ -262,7 +275,7 @@ class StudioDraftDbService {
   }
 
   /**
-   * Debounced (400ms) autosave cycle for zero-loss real-time drafting
+   * Debounced (300ms) autosave cycle for zero-loss real-time drafting
    */
   public queueAutosave(draft: ProjectDraft, metaOverride?: Partial<ProjectMeta>, onSaved?: () => void): void {
     if (this.autosaveTimer) {
@@ -275,7 +288,7 @@ class StudioDraftDbService {
       } catch (err) {
         console.error('[DraftDB] Debounced autosave failed:', err);
       }
-    }, 400); // Debounced 400ms cycle
+    }, 300); // Debounced 300ms cycle
   }
 
   /**
@@ -483,8 +496,8 @@ class StudioDraftDbService {
     activeProjectId: string;
     activeSlideIndex: number;
     playbackMode: 'sequence' | 'solo';
-    activeDualPanel?: 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
-    activePanel?: 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
+    activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
+    activePanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
   }): void {
     if (typeof window === 'undefined') return;
     try {
@@ -498,8 +511,8 @@ class StudioDraftDbService {
     activeProjectId: string;
     activeSlideIndex: number;
     playbackMode: 'sequence' | 'solo';
-    activeDualPanel?: 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
-    activePanel?: 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
+    activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
+    activePanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
   } | null {
     if (typeof window === 'undefined') return null;
     try {

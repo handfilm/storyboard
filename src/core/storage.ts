@@ -250,7 +250,7 @@ class StorageManager {
   }
 
   /**
-   * 800ms debounced auto-save with UI state notifications ('saving' | 'saved' | 'error')
+   * 300ms debounced auto-save with UI state notifications ('saving' | 'saved' | 'error')
    */
   public saveProjectDebounced(project: ProjectV1): void {
     this.notifySaveState('saving');
@@ -266,7 +266,7 @@ class StorageManager {
       } catch (err) {
         this.notifySaveState('error');
       }
-    }, 800);
+    }, 300);
   }
 
   /**

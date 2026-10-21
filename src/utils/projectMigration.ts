@@ -85,7 +85,10 @@ export function convertShotV1ToFrame(shot: Partial<ShotV1> | any, index: number)
     directorNotes,
     soundCue,
     cameraSpec,
-    imageUrl: shot?.imageUrl ?? base.imageUrl,
+    imageUrl: (
+      shot?.imageUrl && 
+      !shot.imageUrl.includes('photo-1507499739999-097706ad8914')
+    ) ? shot.imageUrl : base.imageUrl,
     isVideo: typeof shot?.isVideo === 'boolean' ? shot.isVideo : (
       shot?.imageUrl ? (
         shot.imageUrl.startsWith('data:video') ||

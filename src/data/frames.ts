@@ -125,28 +125,41 @@ export const lutPresetsList: Array<{ id: LutPreset; label: string; desc: string 
   { id: 'raw', label: 'Flat Film Raw Log', desc: 'Maximum latitude flat profile for neutral grading' }
 ];
 
-// Curated high quality cinematic sample packs for instant 1-click loading!
+// Curated high quality cinematic sample packs using bundled 4K master plates
+export const localCinematicPlates = [
+  "/assets/aistudio/image_332d00ec.png",
+  "/assets/aistudio/image_5ea6c84c.png",
+  "/assets/aistudio/image_7e972830.png",
+  "/assets/aistudio/image_a4619b66.png",
+  "/assets/aistudio/image_b3398899.png",
+  "/assets/aistudio/image_b98e020f.png",
+  "/assets/aistudio/image_bdefbc06.png",
+  "/assets/aistudio/image_c26145a7.png",
+  "/assets/aistudio/image_5cf780a3.png"
+];
+
 export const samplePacks = {
   cosmicMacro: [
-    "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1519638399535-1b036603ac77?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80"
+    "/assets/aistudio/image_332d00ec.png",
+    "/assets/aistudio/image_5ea6c84c.png",
+    "/assets/aistudio/image_7e972830.png",
+    "/assets/aistudio/image_a4619b66.png",
+    "/assets/aistudio/image_b3398899.png",
+    "/assets/aistudio/image_b98e020f.png",
+    "/assets/aistudio/image_bdefbc06.png",
+    "/assets/aistudio/image_c26145a7.png",
+    "/assets/aistudio/image_5cf780a3.png"
   ],
   cyberNoir: [
-    "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=1920&q=80"
+    "/assets/aistudio/image_a4619b66.png",
+    "/assets/aistudio/image_7e972830.png",
+    "/assets/aistudio/image_b3398899.png",
+    "/assets/aistudio/image_332d00ec.png"
   ],
   liquidGold: [
-    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=1920&q=80"
+    "/assets/aistudio/image_5ea6c84c.png",
+    "/assets/aistudio/image_bdefbc06.png",
+    "/assets/aistudio/image_c26145a7.png"
   ]
 };
 
@@ -162,9 +175,8 @@ export function generateInitialFrames(): AnthologyFrame[] {
     const focalLength = focalOptions[i % focalOptions.length];
     const shutter = shutterOptions[i % shutterOptions.length];
 
-    // Seed first 8 frames with sample high-res cinematic images so the app is instantly gorgeous
-    const sampleImg = samplePacks.cosmicMacro[i % samplePacks.cosmicMacro.length];
-    const defaultImage = i < 12 ? sampleImg : undefined;
+    // Seed every slide with a 4K cinema master plate from the bundled assets
+    const defaultImage = localCinematicPlates[i % localCinematicPlates.length];
 
     return {
       id: i,

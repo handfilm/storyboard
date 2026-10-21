@@ -59,6 +59,7 @@ export interface AnthologyFrame {
   aspectRatio: AspectRatio;
   adjustments: FrameAdjustments;
   tags: string[];
+  panY?: number;
   activeLens?: string;
   dof?: string;
   titleAnimation?: TitleAnimationStyle;

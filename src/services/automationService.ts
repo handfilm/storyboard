@@ -92,6 +92,10 @@ class AutomationService {
   /**
    * Dispatches automated webhook triggers to configured pipelines (Make.com / Drive API).
    */
+  public async triggerEvent(event: WebhookTriggerEvent, payload: any): Promise<WebhookExecutionLog[]> {
+    return this.dispatchEvent(event, payload);
+  }
+
   public async dispatchEvent(event: WebhookTriggerEvent, payload: any): Promise<WebhookExecutionLog[]> {
     const matchingPipelines = this.pipelines.filter(p => p.enabled && p.triggerEvents.includes(event));
     const results: WebhookExecutionLog[] = [];

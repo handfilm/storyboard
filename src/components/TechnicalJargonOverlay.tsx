@@ -216,8 +216,8 @@ export const TechnicalJargonOverlay: React.FC<TechnicalJargonOverlayProps> = ({
     };
   }, [f, N, subjectDistanceMeters]);
 
-  // Visibility: Visible when stage is hovered or when pinned
-  const isVisible = isStageHovered || effectivePinned;
+  // Visibility: Only visible when explicitly pinned by user (zero unwanted hover popup)
+  const isVisible = effectivePinned;
 
   return (
     <div 

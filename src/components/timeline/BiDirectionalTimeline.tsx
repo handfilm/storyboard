@@ -94,11 +94,13 @@ export const BiDirectionalTimeline: React.FC<BiDirectionalTimelineProps> = ({
     webAudioDspService.setEq(low, mid, high);
   };
 
-  // Convert AnthologyFrames into V1 Timeline Clips with zero desync
+  // Convert AnthologyFrames into V1 Timeline Clips with zero desync (strict 12.0s slides)
+  const SLIDE_DURATION_SEC = 12.0;
+
   const timelineClips: TimelineClip[] = useMemo(() => {
     let cursor = 0;
     return frames.map((f, i) => {
-      const clipDuration = 4.0; // Default 4 seconds per storyboard frame
+      const clipDuration = SLIDE_DURATION_SEC; // Strictly 12.0s per slide
       const clip: TimelineClip = {
         id: `clip_${f.id}_${i}`,
         trackId: 'V1',
@@ -129,13 +131,13 @@ export const BiDirectionalTimeline: React.FC<BiDirectionalTimelineProps> = ({
   }, [frames]);
 
   const totalDurationSec = useMemo(() => {
-    return Math.max(30, frames.length * 4.0);
+    return Math.max(30, frames.length * SLIDE_DURATION_SEC);
   }, [frames.length]);
 
   // Synchronize playhead with currentIndex
   useEffect(() => {
     if (!isScrubbing) {
-      setPlayheadTimeSec(currentIndex * 4.0);
+      setPlayheadTimeSec(currentIndex * SLIDE_DURATION_SEC);
     }
   }, [currentIndex, isScrubbing]);
 
@@ -153,7 +155,7 @@ export const BiDirectionalTimeline: React.FC<BiDirectionalTimelineProps> = ({
     setPlayheadTimeSec(newTime);
 
     // Map time to shot index
-    const shotIdx = Math.min(frames.length - 1, Math.floor(newTime / 4.0));
+    const shotIdx = Math.min(frames.length - 1, Math.floor(newTime / SLIDE_DURATION_SEC));
     if (shotIdx !== currentIndex) {
       onSelectFrame(shotIdx);
     }

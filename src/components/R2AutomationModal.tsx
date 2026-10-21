@@ -97,7 +97,7 @@ export const R2AutomationModal: React.FC<R2AutomationModalProps> = ({
         totalSize: 45000000
       });
       setR2Stats(r2StorageService.getStats());
-      setByteRangeTestResult(`HTTP 206 Partial Content OK! Streamed ${Math.round(buffer.byteLength / 1024)} KB slice without buffering full 45MB file.`);
+      setByteRangeTestResult(`HTTP 206 Partial Content OK! Streamed ${Math.round(buffer.data.byteLength / 1024)} KB slice without buffering full 45MB file.`);
     } catch {
       setByteRangeTestResult('Stream simulation executed via local worker proxy fallback.');
     }
@@ -115,7 +115,7 @@ export const R2AutomationModal: React.FC<R2AutomationModalProps> = ({
         metadata: {
           aspectRatio: '2.39:1',
           lutFilter: project.frames[0]?.lutFilter || 'cinema-kodak-5219',
-          focalLength: project.frames[0]?.focalLength || 35
+          focalLength: project.frames[0]?.cameraSpec?.focalLength || '35mm'
         }
       });
       setLogs([...automationService.getLogs()]);

@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import { WorkspaceMode } from '../core/theme';
 import { SaveState } from '../core/storage';
 import { exportFullIdbBackup } from '../utils/backup';
+import { FEDERATION_APPS } from '../types/editor';
 import {
   Film,
   Home,
@@ -34,7 +35,9 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Type,
-  Cloud
+  Cloud,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -99,6 +102,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [activeTabPill, setActiveTabPill] = useState<'Tool' | 'Edit'>('Tool');
   const [isLiked, setIsLiked] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isFederationDockOpen, setIsFederationDockOpen] = useState(false);
   const [shareFeedback, setShareFeedback] = useState(false);
 
   const handleTitleSubmit = () => {
@@ -372,6 +376,64 @@ export const TopBar: React.FC<TopBarProps> = ({
             </span>
           )}
         </button>
+
+        {/* Cross-App Federation Dock Button & Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setIsFederationDockOpen(prev => !prev)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-mono transition-all cursor-pointer ${
+              isFederationDockOpen 
+                ? 'bg-[#E5A919]/25 border-[#E5A919] text-[#FFE066] shadow-[0_0_8px_rgba(229,169,25,0.3)]' 
+                : 'bg-[#14141B] hover:bg-[#1D1D26] border-white/10 text-white/70 hover:text-white'
+            }`}
+            title="Hands & Head Federation Ecosystem (hub, vault, bloom, xvideos-r2)"
+          >
+            <Globe className="w-3.5 h-3.5 text-[#E5A919]" />
+            <span className="hidden xl:inline font-bold">ECOSYSTEM</span>
+            <ChevronDown className="w-3 h-3 text-white/40" />
+          </button>
+
+          {isFederationDockOpen && (
+            <div 
+              className="absolute right-0 top-full mt-2 w-72 bg-[#0E0E14] border border-[#2D2D3B] rounded-lg shadow-2xl p-2 z-50 font-mono text-xs backdrop-blur-2xl animate-in fade-in duration-150"
+              onMouseLeave={() => setIsFederationDockOpen(false)}
+            >
+              <div className="px-2 py-1 border-b border-white/10 mb-1 flex items-center justify-between">
+                <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Hands & Head Federation</span>
+                <span className="text-[9px] text-[#E5A919]">ACTIVE DRAFT SAFE</span>
+              </div>
+              <div className="space-y-1">
+                {FEDERATION_APPS.map(app => (
+                  <a
+                    key={app.id}
+                    href={app.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-start justify-between p-2 rounded hover:bg-white/5 transition-colors ${
+                      app.badge === 'ACTIVE' ? 'bg-[#181822] border border-[#E5A919]/30' : ''
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5 font-bold text-[#E6E6E6] text-[11px]">
+                        <span>{app.name}</span>
+                        {app.badge && (
+                          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-mono ${
+                            app.badge === 'ACTIVE' ? 'bg-[#E5A919] text-black font-black' : 'bg-rose-500/20 text-rose-300'
+                          }`}>
+                            {app.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[9.5px] text-white/40 mt-0.5">{app.description}</p>
+                      <span className="text-[9px] text-white/30">{app.subdomain}.handsandhead.com</span>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-white/30 shrink-0 mt-1" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* More Tools Dropdown */}
         <div className="relative">

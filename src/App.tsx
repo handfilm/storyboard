@@ -43,6 +43,9 @@ import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
+import { studioDraftDb } from './services/db';
+import { PlaybackMode } from './types/editor';
+import { SlideDraft, AspectRatioType, ProjectDraft } from './types/project';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -68,6 +71,9 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [audioVolume, setAudioVolume] = useState(0.4);
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('sequence');
+  const [activeDualPanel, setActiveDualPanel] = useState<'SPLIT' | 'OPTICAL' | 'SEQUENCER'>('SPLIT');
+  const [slideTimeSec, setSlideTimeSec] = useState<number>(0);
 
   // New Studio State & Preserved Optical Controls
   const [isPanActive, setIsPanActive] = useState(false);
@@ -192,17 +198,33 @@ export default function App() {
     });
 
     const initPersistence = async () => {
+      // 1. Lock browser storage against OS eviction via navigator.storage.persist()
+      await studioDraftDb.ensureStoragePersistence();
       await storageManager.init();
       if (!isMounted) return;
+
+      // 2. Restore active session preferences (zero-loss refresh guard)
+      const session = studioDraftDb.getActiveSession();
+      if (session && isMounted) {
+        if (session.activeProjectId) setActiveProjectId(session.activeProjectId);
+        if (typeof session.activeSlideIndex === 'number') setCurrentIndex(session.activeSlideIndex);
+        if (session.playbackMode) setPlaybackMode(session.playbackMode);
+        if (session.activeDualPanel || session.activePanel) {
+          setActiveDualPanel(session.activeDualPanel || session.activePanel || 'SPLIT');
+        }
+      }
 
       const crash = storageManager.getCrashRecovery();
       if (crash.hasCrash && crash.recoveredProject) {
         setCrashRecoveredProject(crash.recoveredProject);
       }
 
-      const loaded = await storageManager.loadProject();
+      const loaded = await storageManager.loadProject(session?.activeProjectId || undefined);
       if (loaded && isMounted) {
         applyProjectV1ToState(loaded);
+        if (session && typeof session.activeSlideIndex === 'number') {
+          setCurrentIndex(session.activeSlideIndex);
+        }
       }
       setIsStorageInitialized(true);
     };
@@ -215,10 +237,21 @@ export default function App() {
     };
   }, [applyProjectV1ToState]);
 
-  // Debounced 800ms Autosave to IndexedDB
+  // Persist Active Session to LocalStorage for zero-loss reload
+  useEffect(() => {
+    studioDraftDb.saveActiveSession({
+      activeProjectId,
+      activeSlideIndex: currentIndex,
+      playbackMode,
+      activeDualPanel
+    });
+  }, [activeProjectId, currentIndex, playbackMode, activeDualPanel]);
+
+  // Debounced (400ms) Autosave to studioDraftDb (rawx_storyboard_studio_db v4) & legacy sync
   useEffect(() => {
     if (!isStorageInitialized) return;
 
+    // 1. Legacy ProjectV1 format
     const v1 = migrateToProjectV1({
       id: activeProjectId,
       title: project.title,
@@ -240,13 +273,102 @@ export default function App() {
     });
 
     storageManager.saveProjectDebounced(v1);
-  }, [project, panOffsets, aspectRatio, fitMode, componentsVisibility, isStorageInitialized, activeProjectId]);
+
+    // 2. CapCut-Style Local Project Draft (v4) with strict 12.0s slides
+    const slideDrafts: SlideDraft[] = project.frames.map((f, i) => ({
+      id: `slide_${f.id ?? i}`,
+      orderIndex: i,
+      duration: 12.0, // Strictly 12.0s per slide
+      remoteUrl: f.imageUrl,
+      titleBn: f.bengaliTitle,
+      titleEn: f.title,
+      tagline: f.tagline,
+      directorNotes: f.directorNotes,
+      soundCue: f.soundCue,
+      aspectRatio: aspectRatio as AspectRatioType,
+      colorAccent: f.colorAccent,
+      lutFilter: f.lutFilter,
+      isVideo: f.isVideo,
+      panY: panOffsets[i] ?? 50
+    }));
+
+    const draft: ProjectDraft = {
+      projectId: activeProjectId,
+      activeSlideIndex: currentIndex,
+      slides: slideDrafts,
+      config: {
+        aspectRatio: aspectRatio as AspectRatioType,
+        fps: 24,
+        playbackMode,
+        loop: true,
+        masterVolume: audioVolume,
+        isMuted: isAudioMuted
+      },
+      updatedAt: Date.now()
+    };
+
+    studioDraftDb.queueAutosave(draft, {
+      title: project.title,
+      director: project.director,
+      aspectRatio: aspectRatio as AspectRatioType
+    });
+  }, [project, panOffsets, aspectRatio, fitMode, componentsVisibility, isStorageInitialized, activeProjectId, currentIndex, playbackMode, audioVolume, isAudioMuted]);
 
   const handleSwitchProject = async (id: string) => {
-    const loaded = await storageManager.loadProject(id);
-    if (loaded) {
-      applyProjectV1ToState(loaded);
-      setCurrentIndex(0);
+    // Clean up Object URLs with URL.revokeObjectURL() on draft switch to eliminate leaks
+    studioDraftDb.revokeAllTrackedUrls();
+
+    const loadedDraft = await studioDraftDb.getProjectDraft(id);
+    if (loadedDraft) {
+      setActiveProjectId(id);
+      setCurrentIndex(loadedDraft.activeSlideIndex || 0);
+      setAspectRatio(loadedDraft.config.aspectRatio || '2.39:1');
+      if (loadedDraft.slides && loadedDraft.slides.length > 0) {
+        setProject(prev => ({
+          ...prev,
+          title: loadedDraft.projectId,
+          frames: loadedDraft.slides.map((s, idx) => ({
+            id: idx + 1,
+            epNumber: String(idx + 1).padStart(3, '0'),
+            title: s.titleEn || `Shot ${idx + 1}`,
+            bengaliTitle: s.titleBn || '',
+            tagline: s.tagline || '',
+            directorNotes: s.directorNotes || '',
+            soundCue: s.soundCue || '',
+            cameraSpec: s.cameraSpec as any || {
+              focalLength: '35mm High-Speed Master',
+              aperture: 'f/1.4',
+              shutter: '1/48s 180°',
+              iso: 'ISO 400',
+              sensor: 'Full-Frame Cine',
+              format: 'RAW 14-BIT ARRI'
+            },
+            imageUrl: s.remoteUrl || '',
+            isVideo: s.isVideo || false,
+            panY: s.panY ?? 50,
+            colorAccent: s.colorAccent || '#D4AF37',
+            hoverStyle: 0,
+            lutFilter: (s.lutFilter as any) || 'cinematic',
+            aspectRatio: s.aspectRatio as any || '2.39:1',
+            adjustments: s.adjustments || {
+              brightness: 100,
+              contrast: 100,
+              saturation: 100,
+              bloom: 30,
+              grain: 15,
+              motionBlur: 50,
+              vignette: 40
+            },
+            tags: ['Scene', '12s']
+          }))
+        }));
+      }
+    } else {
+      const loaded = await storageManager.loadProject(id);
+      if (loaded) {
+        applyProjectV1ToState(loaded);
+        setCurrentIndex(0);
+      }
     }
   };
 
@@ -262,27 +384,118 @@ export default function App() {
     setCrashRecoveredProject(null);
   };
 
-  // Navigate to frame with audio feedback
+  // Navigate to frame with audio feedback and reset slide timecode
   const goToFrame = useCallback((index: number) => {
     const total = project.frames.length;
     const nextIndex = ((index % total) + total) % total;
     setCurrentIndex(nextIndex);
+    setSlideTimeSec(0);
     audioEngine.playShutterClick();
   }, [project.frames.length]);
 
   const nextFrame = useCallback(() => goToFrame(currentIndex + 1), [goToFrame, currentIndex]);
   const prevFrame = useCallback(() => goToFrame(currentIndex - 1), [goToFrame, currentIndex]);
 
-  // Autoplay loop timer
-  useEffect(() => {
-    if (!isPlaying) return;
-    const interval = calculateSlideshowInterval(speed);
-    const timer = setInterval(() => {
-      goToFrame(currentIndex + 1);
-    }, interval);
+  // Frame Stepping (-1F / +1F at 24fps)
+  const handleStepFrame = useCallback((forward: boolean) => {
+    const FRAME_DELTA = 1 / 24; // 1 frame at 24fps
+    const SLIDE_DURATION = 12.0;
 
-    return () => clearInterval(timer);
-  }, [isPlaying, speed, currentIndex, goToFrame]);
+    if (playbackMode === 'solo') {
+      // Solo scrub mode: strictly isolated within 0 to 12.0s without jumping cuts
+      setSlideTimeSec(prev => {
+        let updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
+        if (updated < 0) updated = 0;
+        if (updated > SLIDE_DURATION) updated = SLIDE_DURATION;
+        return updated;
+      });
+    } else {
+      // Sequence mode: steps across cuts when crossing 12.0s boundaries
+      setSlideTimeSec(prev => {
+        const updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
+        if (updated >= SLIDE_DURATION) {
+          setCurrentIndex(i => (i + 1) % project.frames.length);
+          return 0;
+        } else if (updated < 0) {
+          setCurrentIndex(i => (i - 1 + project.frames.length) % project.frames.length);
+          return Math.max(0, SLIDE_DURATION - FRAME_DELTA);
+        }
+        return updated;
+      });
+    }
+    audioEngine.playShutterClick();
+  }, [playbackMode, project.frames.length]);
+
+  // Local slide time scrubbing (0 to 12.000s)
+  const handleScrubSlideTime = useCallback((timeSec: number) => {
+    setSlideTimeSec(Math.max(0, Math.min(12.0, timeSec)));
+  }, []);
+
+  // Global animatic time scrubbing (0 to N * 12.0s)
+  const handleScrubGlobalTime = useCallback((globalSec: number) => {
+    const SLIDE_DURATION = 12.0;
+    const totalSlides = project.frames.length || 1;
+    const totalDuration = totalSlides * SLIDE_DURATION;
+    const clamped = Math.max(0, Math.min(totalDuration, globalSec));
+    const targetIndex = Math.min(totalSlides - 1, Math.floor(clamped / SLIDE_DURATION));
+    const localTime = clamped - (targetIndex * SLIDE_DURATION);
+    setCurrentIndex(targetIndex);
+    setSlideTimeSec(localTime);
+  }, [project.frames.length]);
+
+  // 12.0s Dual-Mode Playback Engine (288 frames @ 24fps per card)
+  const animFrameRef = useRef<number | null>(null);
+  const lastTimestampRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      lastTimestampRef.current = null;
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+      return;
+    }
+
+    const SLIDE_DURATION = 12.0;
+
+    const tick = (now: number) => {
+      if (lastTimestampRef.current !== null) {
+        const deltaSec = (now - lastTimestampRef.current) / 1000;
+        const safeDelta = Math.min(deltaSec, 0.5);
+
+        setSlideTimeSec(prevTime => {
+          const nextTime = prevTime + safeDelta;
+          if (playbackMode === 'sequence') {
+            // Sequence (Animatic) mode: auto-advance across Slide 1 through Slide N every 12.000s
+            if (nextTime >= SLIDE_DURATION) {
+              const framesLength = project.frames.length || 1;
+              setCurrentIndex(prevIdx => (prevIdx + 1) % framesLength);
+              return nextTime % SLIDE_DURATION;
+            }
+            return nextTime;
+          } else {
+            // Solo Scrub mode: loops strictly within this slide's 0 to 12.0s window
+            if (nextTime >= SLIDE_DURATION) {
+              return nextTime % SLIDE_DURATION;
+            }
+            return nextTime;
+          }
+        });
+      }
+      lastTimestampRef.current = now;
+      animFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    animFrameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+    };
+  }, [isPlaying, playbackMode, project.frames.length]);
 
   // Fullscreen event listener
   useEffect(() => {
@@ -812,6 +1025,79 @@ export default function App() {
             }));
           }}
           onUpdateFrame={handleUpdateFrame}
+          playbackMode={playbackMode}
+          slideTimeSec={slideTimeSec}
+          activeDualPanel={activeDualPanel}
+          onChangeDualPanel={setActiveDualPanel}
+          onSelectPlaybackMode={setPlaybackMode}
+          onTogglePlay={() => setIsPlaying(p => !p)}
+          onStepFrame={handleStepFrame}
+          onScrubSlideTime={handleScrubSlideTime}
+          onScrubGlobalTime={handleScrubGlobalTime}
+          onChangeAspectRatio={(r) => setAspectRatio(r)}
+          onAddSlide={() => {
+            const newId = project.frames.length + 1;
+            const newFrame: AnthologyFrame = {
+              id: newId,
+              epNumber: String(newId).padStart(3, '0'),
+              title: `New Scene Frame ${newId}`,
+              bengaliTitle: `দৃশ্য ${newId} // নতুন ফ্রেম`,
+              tagline: '12.0s Storyboard Slide at 24fps',
+              directorNotes: 'Director shot notes',
+              soundCue: 'Audio cue',
+              cameraSpec: {
+                focalLength: '35mm High-Speed Master',
+                aperture: 'f/1.4',
+                shutter: '1/48s 180°',
+                iso: 'ISO 400',
+                sensor: 'Full-Frame Cine',
+                format: 'RAW 14-BIT ARRI'
+              },
+              imageUrl: '',
+              isVideo: false,
+              panY: 50,
+              colorAccent: '#D4AF37',
+              hoverStyle: 0,
+              lutFilter: 'cinematic',
+              aspectRatio: aspectRatio,
+              adjustments: {
+                brightness: 100,
+                contrast: 100,
+                saturation: 100,
+                bloom: 30,
+                grain: 15,
+                motionBlur: 50,
+                vignette: 40
+              },
+              tags: ['Scene', '12s']
+            };
+            setProject(p => ({
+              ...p,
+              frames: [...p.frames, newFrame]
+            }));
+            setCurrentIndex(project.frames.length);
+          }}
+          onDuplicateSlide={(idx) => {
+            const target = project.frames[idx];
+            if (!target) return;
+            const dup: AnthologyFrame = {
+              ...target,
+              id: project.frames.length + 1,
+              epNumber: String(project.frames.length + 1).padStart(3, '0'),
+              title: `${target.title} (Copy)`
+            };
+            const nextFrames = [...project.frames];
+            nextFrames.splice(idx + 1, 0, dup);
+            setProject(p => ({ ...p, frames: nextFrames }));
+            setCurrentIndex(idx + 1);
+          }}
+          onDeleteSlide={(idx) => {
+            if (project.frames.length <= 1) return;
+            const nextFrames = project.frames.filter((_, i) => i !== idx);
+            setProject(p => ({ ...p, frames: nextFrames }));
+            setCurrentIndex(prev => Math.min(nextFrames.length - 1, prev));
+          }}
+          projectTitle={project.title}
         />
 
         {/* Director Inspector Sidebar Drawer */}

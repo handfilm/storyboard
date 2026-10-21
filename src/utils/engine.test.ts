@@ -405,5 +405,52 @@ test('Permanent Black Screen & Corruption Resilience: handles incomplete legacy 
   assert.equal(emptyMigrated.shots.length, 100, 'Empty project must default to all 100 shots');
 });
 
+test('CapCut-Style Draft Engine & 12.0s Sequencer invariants', async () => {
+  const { SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS, FEDERATION_APPS } = await import('../types/editor.ts');
+  const { studioDraftDb, DB_NAME, DB_VERSION, MAX_SERIALIZED_SNAPSHOT_BYTES } = await import('../services/db.ts');
+
+  // 1. Verify strict 12.0s timing engine constants
+  assert.equal(SLIDE_DURATION_SEC, 12.0, 'Default duration must be exactly 12.0 seconds');
+  assert.equal(SLIDE_TOTAL_FRAMES_24FPS, 288, '12.0s at 24fps must equal exactly 288 frames');
+
+  // 2. Verify IndexedDB database metadata and payload limits
+  assert.equal(DB_NAME, 'rawx_storyboard_studio_db');
+  assert.equal(DB_VERSION, 4);
+  assert.equal(MAX_SERIALIZED_SNAPSHOT_BYTES, 2 * 1024 * 1024);
+
+  // 3. Verify Federation Ecosystem apps
+  assert.ok(FEDERATION_APPS.some(a => a.subdomain === 'xvideos-r2'));
+  assert.ok(FEDERATION_APPS.some(a => a.subdomain === 'vault'));
+  assert.ok(FEDERATION_APPS.some(a => a.subdomain === 'hub'));
+  assert.ok(FEDERATION_APPS.some(a => a.subdomain === 'bloom-app'));
+
+  // 4. Test safe draft pruning of oversized inline blobs
+  const testDraft: any = {
+    projectId: 'test_proj',
+    activeSlideIndex: 0,
+    slides: [
+      {
+        id: 's1',
+        orderIndex: 0,
+        duration: 8.0,
+        remoteUrl: 'data:image/jpeg;base64,' + 'A'.repeat(70000)
+      }
+    ],
+    config: {
+      aspectRatio: '2.39:1',
+      fps: 24,
+      playbackMode: 'sequence',
+      loop: true,
+      masterVolume: 0.8,
+      isMuted: false
+    },
+    updatedAt: Date.now()
+  };
+
+  const safe = studioDraftDb.pruneToSafeDraft(testDraft);
+  assert.equal(safe.slides[0].duration, 12.0, 'Slide duration must be normalized to 12.0s');
+  assert.equal(safe.slides[0].remoteUrl, '', 'Oversized base64 must be pruned to avoid RangeError');
+});
+
 
 

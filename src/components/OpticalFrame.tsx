@@ -419,11 +419,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        style={{
-          transform: `perspective(1000px) rotateX(${-mousePos.y * 0.35}deg) rotateY(${mousePos.x * 0.35}deg)`,
-          transition: isPanningDrag ? 'none' : 'transform 0.4s var(--ease-hypersonic)'
-        }}
-        className={`relative ${getAspectRatioClasses()} bg-[#060608] border border-white/10 rounded-[2px] shadow-[0_20px_70px_rgba(0,0,0,0.95)] overflow-hidden transition-all group ${
+        className={`relative ${getAspectRatioClasses()} bg-[#060608] border border-white/10 rounded-[2px] shadow-[0_20px_70px_rgba(0,0,0,0.95)] overflow-hidden transition-colors duration-150 ease-out ${
           isPanActive ? 'cursor-ns-resize ring-1 ring-[#D4AF37]/50' : ''
         }`}
       >

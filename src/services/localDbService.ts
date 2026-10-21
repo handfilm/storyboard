@@ -262,6 +262,10 @@ class LocalDbService {
     return { json, byteSize, isPruned };
   }
 
+  public createSafeSnapshotPayload(frames: any, title?: string): { json: string; byteSize: number; isPruned: boolean } {
+    return this.pruneToSafePayload({ title, frames });
+  }
+
   public async saveUndoSnapshot(id: string, payloadObj: any): Promise<SafeStateSnapshotMetadata> {
     const { json, byteSize, isPruned } = this.pruneToSafePayload(payloadObj);
     const shotCount = Array.isArray(payloadObj?.frames) ? payloadObj.frames.length : (payloadObj?.shots?.length || 0);

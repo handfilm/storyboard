@@ -233,10 +233,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          {/* Glowing Vibrant Gold [PLAY] pill button from screenshot */}
+          {/* High-Contrast Gold [PLAY] button */}
           <button
             onClick={onTogglePlay}
-            className="px-4 py-1.5 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black font-black text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(229,169,25,0.45)] hover:scale-102"
+            className="px-4 py-1.5 rounded-full bg-[#E5A919] hover:bg-[#FFB703] text-black font-black text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out shadow-sm"
             title={isPlaying ? "Pause Sequence (Space)" : "Play Sequence (Space)"}
           >
             {isPlaying ? (

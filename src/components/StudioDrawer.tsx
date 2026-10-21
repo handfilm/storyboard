@@ -134,23 +134,23 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   const Icon = meta.icon;
 
   return (
-    <div className="w-[380px] sm:w-[440px] xl:w-[480px] h-full bg-[#08080C]/98 border-r border-[#D4AF37]/30 shadow-2xl flex flex-col z-30 shrink-0 select-none overflow-hidden backdrop-blur-2xl animate-in slide-in-from-left duration-200">
+    <div className="w-[380px] sm:w-[440px] xl:w-[480px] h-full bg-[#0a0a10]/98 border-r border-[#272732] shadow-[0_0_50px_rgba(0,0,0,0.95)] flex flex-col z-30 shrink-0 select-none overflow-hidden backdrop-blur-2xl animate-in slide-in-from-left duration-200">
       {/* Drawer Header */}
-      <div className="h-12 bg-[#0C0C12] border-b border-white/10 px-3 flex items-center justify-between shrink-0">
+      <div className="h-12 bg-[#0c0c10] border-b border-[#272732] px-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-[2px] bg-[#D4AF37]/15 border border-[#D4AF37]/50 flex items-center justify-center shrink-0">
-            <Icon className="w-3.5 h-3.5 text-[#FFE066]" />
+          <div className="w-7 h-7 rounded-[2px] bg-[#d4af37]/15 border border-[#d4af37]/50 flex items-center justify-center shrink-0">
+            <Icon className="w-3.5 h-3.5 text-[#fbbf24]" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="font-cinzel text-xs font-bold text-white tracking-wider truncate">
+              <h3 className="font-cinzel text-xs font-bold text-white tracking-[0.16em] truncate">
                 {meta.title}
               </h3>
-              <span className="text-[7.5px] px-1 py-0.2 bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#FFE066] font-mono-tech rounded-[1px] shrink-0 font-semibold">
+              <span className="text-[7.5px] px-1.5 py-0.2 bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#fbbf24] font-mono-tech rounded-[1px] shrink-0 font-bold">
                 {meta.badge}
               </span>
             </div>
-            <p className="text-[8.5px] text-white/50 font-mono-tech truncate">
+            <p className="text-[8.5px] text-zinc-400 font-mono-tech truncate">
               {meta.subtitle}
             </p>
           </div>
@@ -159,7 +159,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="p-1.5 rounded-[1px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white cursor-pointer transition-colors border border-white/10"
+          className="p-1.5 rounded-[1px] bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors border border-[#272732]"
           title="Close Panel (Esc)"
         >
           <X className="w-3.5 h-3.5" />

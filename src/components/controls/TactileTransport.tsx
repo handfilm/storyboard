@@ -104,16 +104,16 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
   const speedOptions = [0.5, 1.0, 1.5, 2.0];
 
   return (
-    <div className={`w-full max-w-5xl px-3.5 py-2.5 bg-[#0E0E12] border border-[#1C1C24] rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] flex flex-col gap-2 font-mono select-none ${className}`}>
+    <div className={`w-full max-w-5xl px-3.5 py-2.5 bg-[#0a0a10] border border-[#272732] rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.92)] flex flex-col gap-2 font-mono select-none ${className}`}>
       {/* Upper Deck: Scrub Track & Live Monospace SMPTE Timecode */}
       <div className="flex items-center gap-3 w-full">
         {/* Tactical Shot Label Pill */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#14141B] border border-[#23232E] shrink-0 text-[10px] font-bold">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] animate-pulse" />
-          <span className="text-[#EDEDED]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
-          <span className="text-white/20">/</span>
-          <span className="text-white/50">{String(totalSlides).padStart(3, '0')}</span>
-          <span className="text-[#F5A623] ml-1">F{String(currentFrameInSlide).padStart(3, '0')}/288</span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#070709] border border-[#272732] shrink-0 text-[10px] font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#eab308] animate-pulse" />
+          <span className="text-zinc-200">SH{String(currentIndex + 1).padStart(3, '0')}</span>
+          <span className="text-zinc-600">/</span>
+          <span className="text-zinc-400">{String(totalSlides).padStart(3, '0')}</span>
+          <span className="text-[#fbbf24] ml-1">F{String(currentFrameInSlide).padStart(3, '0')}/288</span>
         </div>
 
         {/* Dynamic Dual-Mode Scrubber Slider */}
@@ -136,47 +136,47 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
                 }
               }
             }}
-            className="w-full h-1.5 bg-[#1C1C26] rounded-full appearance-none cursor-pointer accent-[#F5A623]"
+            className="w-full h-1.5 bg-[#181822] rounded-full appearance-none cursor-pointer accent-[#eab308]"
             aria-label="Timeline scrubber"
           />
         </div>
 
         {/* Live Monospace Timecode Pill Badges (Stark Permanent Contrast) */}
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#14141B] border border-[#23232E] shrink-0 text-[10.5px] font-mono font-bold">
-          <span className="text-[#F5A623]">{slideTc}</span>
-          <span className="text-white/20">/</span>
-          <span className="text-white/40">00:00:12:00</span>
-          <span className="text-white/20">|</span>
-          <span className="text-white/40 text-[9.5px]">GLOBAL:</span>
-          <span className="text-[#EDEDED]">{globalTc}</span>
-          <span className="text-white/20">/</span>
-          <span className="text-white/40 text-[9.5px]">{totalDurationTc}</span>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#070709] border border-[#272732] shrink-0 text-[10.5px] font-mono font-bold">
+          <span className="text-[#fbbf24] tabular-nums">{slideTc}</span>
+          <span className="text-zinc-600">/</span>
+          <span className="text-zinc-500 tabular-nums">00:00:12:00</span>
+          <span className="text-zinc-600">|</span>
+          <span className="text-zinc-500 text-[9.5px]">GLOBAL:</span>
+          <span className="text-zinc-200 tabular-nums">{globalTc}</span>
+          <span className="text-zinc-600">/</span>
+          <span className="text-zinc-500 text-[9.5px] tabular-nums">{totalDurationTc}</span>
         </div>
       </div>
 
       {/* Lower Deck: Tactical Pill Badges & Permanent Transport Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#1C1C24]">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#272732]">
         {/* Left: Step -1F, PLAY/PAUSE, Step +1F, LOOP, Variable Speed Pills */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Step -1F (1/24s = 41.666ms) */}
+          {/* Step -1F (1/24s = 41.666ms, J) */}
           <button
             type="button"
             onClick={() => onStepFrame(false)}
-            className="px-3 py-1.5 rounded-full bg-[#16161F] hover:bg-[#20202C] text-[#EDEDED] border border-[#242432] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+            className="px-3 py-1.5 rounded-full bg-[#101018] hover:bg-[#181824] text-zinc-200 border border-[#272732] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
             title="Step Back 1 Frame (1/24s, J)"
           >
-            <SkipBack className="w-3.5 h-3.5 text-[#F5A623]" />
+            <SkipBack className="w-3.5 h-3.5 text-[#eab308]" />
             <span>-1F</span>
           </button>
 
-          {/* Master PLAY / PAUSE Tactical Pill (Gold/Amber Accent) */}
+          {/* Master PLAY / PAUSE Tactical Pill (Gold/Amber Accent, K/L) */}
           <button
             type="button"
             onClick={onTogglePlay}
-            className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] shadow-md ${
+            className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] shadow-md ${
               isPlaying
-                ? 'bg-[#F5A623] hover:bg-[#D97706] text-black shadow-[0_0_15px_rgba(245,166,35,0.4)]'
-                : 'bg-[#1C1C26] hover:bg-[#262635] text-[#FFFFFF] border border-[#303042]'
+                ? 'bg-gradient-to-r from-[#d4af37] via-[#eab308] to-[#fbbf24] text-black shadow-[0_0_15px_rgba(234,179,8,0.45)]'
+                : 'bg-[#181822] hover:bg-[#20202e] text-white border border-[#272732]'
             }`}
             title={isPlaying ? "Pause Playback (Space / K)" : "Start Playback (Space / L)"}
           >
@@ -193,14 +193,14 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             )}
           </button>
 
-          {/* Step +1F (1/24s = 41.666ms) */}
+          {/* Step +1F (1/24s = 41.666ms, L) */}
           <button
             type="button"
             onClick={() => onStepFrame(true)}
-            className="px-3 py-1.5 rounded-full bg-[#16161F] hover:bg-[#20202C] text-[#EDEDED] border border-[#242432] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+            className="px-3 py-1.5 rounded-full bg-[#101018] hover:bg-[#181824] text-zinc-200 border border-[#272732] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
             title="Step Forward 1 Frame (1/24s, L)"
           >
-            <SkipForward className="w-3.5 h-3.5 text-[#F5A623]" />
+            <SkipForward className="w-3.5 h-3.5 text-[#eab308]" />
             <span>+1F</span>
           </button>
 
@@ -210,8 +210,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             onClick={onToggleLoop}
             className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] border ${
               isLooping
-                ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_10px_rgba(245,166,35,0.2)]'
-                : 'bg-[#16161F] text-white/50 border-[#242432] hover:text-white'
+                ? 'bg-[#d4af37]/20 text-[#fbbf24] border-[#d4af37]/60 shadow-[0_0_10px_rgba(234,179,8,0.25)]'
+                : 'bg-[#101018] text-zinc-400 border-[#272732] hover:text-white'
             }`}
             title="Toggle Continuous Loop"
           >
@@ -220,8 +220,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
           </button>
 
           {/* Speed Pills: 0.5x, 1.0x, 1.5x, 2.0x (Pitch-Preserved) */}
-          <div className="flex items-center bg-[#12121A] p-0.5 rounded-full border border-[#22222E]">
-            <Gauge className="w-3 h-3 text-white/30 ml-2 mr-1" />
+          <div className="flex items-center bg-[#070709] p-0.5 rounded-full border border-[#272732]">
+            <Gauge className="w-3 h-3 text-zinc-500 ml-2 mr-1" />
             {speedOptions.map((s) => (
               <button
                 key={s}
@@ -229,8 +229,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
                 onClick={() => onChangePlaybackSpeed(s)}
                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
                   playbackSpeed === s
-                    ? 'bg-[#F5A623] text-black shadow-sm'
-                    : 'text-white/50 hover:text-white'
+                    ? 'bg-[#eab308] text-black shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
                 title={`Playback Speed ${s}x (Pitch Preserved)`}
               >
@@ -245,24 +245,24 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             onClick={onToggleMute}
             className={`p-1.5 rounded-full border cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
               !isMuted
-                ? 'bg-[#1C1C28] text-[#F5A623] border-[#F5A623]/60'
-                : 'bg-[#16161F] text-white/40 border-[#242432] hover:text-white'
+                ? 'bg-[#14141e] text-[#fbbf24] border-[#d4af37]/60'
+                : 'bg-[#101018] text-zinc-500 border-[#272732] hover:text-white'
             }`}
             title={isMuted ? "Unmute Audio (M)" : "Mute Audio (M)"}
           >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#eab308]" />}
           </button>
         </div>
 
         {/* Center: SEQUENCE (ANIMATIC) vs SOLO SCRUB Mode Segmented Capsule */}
-        <div className="flex items-center bg-[#12121A] p-0.5 rounded-full border border-[#22222E] text-[11px]">
+        <div className="flex items-center bg-[#070709] p-0.5 rounded-full border border-[#272732] text-[11px]">
           <button
             type="button"
             onClick={() => onSelectPlaybackMode('sequence')}
             className={`px-3.5 py-1 rounded-full transition-colors duration-150 ease-out cursor-pointer font-bold active:scale-[0.98] ${
               playbackMode === 'sequence'
-                ? 'bg-[#F5A623] text-black shadow-sm'
-                : 'text-white/60 hover:text-white'
+                ? 'bg-[#eab308] text-black shadow-sm'
+                : 'text-zinc-400 hover:text-white'
             }`}
             title="Auto-advance across Slide 001-100 every 12.0s with 0ms pre-buffering"
           >
@@ -273,8 +273,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             onClick={() => onSelectPlaybackMode('solo')}
             className={`px-3.5 py-1 rounded-full transition-colors duration-150 ease-out cursor-pointer font-bold active:scale-[0.98] ${
               playbackMode === 'solo'
-                ? 'bg-[#F5A623] text-black shadow-sm'
-                : 'text-white/60 hover:text-white'
+                ? 'bg-[#eab308] text-black shadow-sm'
+                : 'text-zinc-400 hover:text-white'
             }`}
             title="Strictly bound to isolated 12.0s boundary of selected shot"
           >
@@ -285,18 +285,18 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
         {/* Right: Aspect Ratio, REC/STILL, Purge, Fullscreen */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {onChangeAspectRatio && (
-            <div className="flex items-center bg-[#14141B] border border-[#23232E] rounded-full px-2 py-0.5">
-              <span className="text-[9.5px] text-white/40 mr-1.5 font-bold">ASPECT</span>
+            <div className="flex items-center bg-[#070709] border border-[#272732] rounded-full px-2 py-0.5">
+              <span className="text-[9.5px] text-zinc-500 mr-1.5 font-bold">ASPECT</span>
               <select
                 value={aspectRatio}
                 onChange={(e) => onChangeAspectRatio(e.target.value as AspectRatioType)}
-                className="bg-transparent text-[#EDEDED] text-[10px] font-mono outline-none cursor-pointer"
+                className="bg-transparent text-zinc-200 text-[10px] font-mono outline-none cursor-pointer"
               >
-                <option value="2.39:1" className="bg-[#12121A] text-white">2.39:1 CINEMA</option>
-                <option value="16:9" className="bg-[#12121A] text-white">16:9 WIDE</option>
-                <option value="4:3" className="bg-[#12121A] text-white">4:3 ACADEMY</option>
-                <option value="1:1" className="bg-[#12121A] text-white">1:1 SQUARE</option>
-                <option value="9:16" className="bg-[#12121A] text-white">9:16 VERTICAL</option>
+                <option value="2.39:1" className="bg-[#0a0a10] text-white">2.39:1 CINEMA</option>
+                <option value="16:9" className="bg-[#0a0a10] text-white">16:9 WIDE</option>
+                <option value="4:3" className="bg-[#0a0a10] text-white">4:3 ACADEMY</option>
+                <option value="1:1" className="bg-[#0a0a10] text-white">1:1 SQUARE</option>
+                <option value="9:16" className="bg-[#0a0a10] text-white">9:16 VERTICAL</option>
               </select>
             </div>
           )}
@@ -306,10 +306,10 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             <button
               type="button"
               onClick={onCaptureStill}
-              className="px-3 py-1 rounded-full bg-[#16161F] hover:bg-[#20202C] border border-[#242432] text-[#EDEDED] hover:text-[#F5A623] text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+              className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#272732] text-zinc-200 hover:text-[#fbbf24] text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
               title="Capture 4K Cinema Slate Still (S)"
             >
-              <Camera className="w-3.5 h-3.5 text-[#F5A623]" />
+              <Camera className="w-3.5 h-3.5 text-[#eab308]" />
               <span>REC / STILL</span>
             </button>
           )}
@@ -319,10 +319,10 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             <button
               type="button"
               onClick={onPurgeMedia}
-              className="px-2.5 py-1 rounded-full bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300 text-[10.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+              className="px-2.5 py-1 rounded-full bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 text-[10.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
               title="Purge clip media instantly (Shift+Delete)"
             >
-              <Trash2 className="w-3 h-3 text-red-400" />
+              <Trash2 className="w-3 h-3 text-rose-400" />
               <span className="hidden sm:inline">PURGE</span>
             </button>
           )}
@@ -332,7 +332,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             <button
               type="button"
               onClick={onToggleFullscreen}
-              className="p-1.5 rounded-full bg-[#16161F] hover:bg-[#20202C] text-white/70 hover:text-white border border-[#242432] cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+              className="p-1.5 rounded-full bg-[#101018] hover:bg-[#181824] text-zinc-400 hover:text-white border border-[#272732] cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
               title="Toggle Fullscreen (F)"
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}

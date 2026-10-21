@@ -949,7 +949,7 @@ export default function App() {
 
   return (
     <div
-      className="relative w-screen h-screen bg-[#050505] text-[#EDEDED] overflow-hidden select-none flex flex-col font-mono-tech"
+      className="relative w-screen h-screen bg-[#070709] text-zinc-200 overflow-hidden select-none flex flex-col font-mono-tech"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >

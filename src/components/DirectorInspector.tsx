@@ -64,18 +64,18 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-[450px] md:w-[480px] bg-[#0c0d12] border-l border-white/15 shadow-2xl z-50 flex flex-col backdrop-blur-xl animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-[450px] md:w-[480px] bg-black/90 backdrop-blur-2xl border-l border-[#272732] shadow-[0_0_50px_rgba(0,0,0,0.95)] z-50 flex flex-col animate-in slide-in-from-right duration-300">
       {/* Header */}
-      <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between">
+      <div className="p-4 sm:p-5 border-b border-[#272732] bg-[#0c0c10] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xs bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-mono-tech text-xs font-bold">
+          <div className="w-8 h-8 rounded-xs bg-[#d4af37]/15 border border-[#d4af37]/40 flex items-center justify-center text-[#fbbf24] font-mono-tech text-xs font-bold">
             {frame.epNumber}
           </div>
           <div>
-            <h3 className="font-cinzel text-sm font-bold text-white tracking-wider uppercase truncate max-w-[240px]">
+            <h3 className="font-cinzel text-sm font-bold text-white tracking-[0.15em] uppercase truncate max-w-[240px]">
               {frame.title}
             </h3>
-            <p className="font-bengali text-xs text-amber-400">
+            <p className="font-anek text-xs text-[#fbbf24] font-semibold">
               {frame.bengaliTitle} • Director Inspector
             </p>
           </div>
@@ -83,7 +83,7 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
 
         <button
           onClick={onClose}
-          className="p-1.5 rounded-xs hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
+          className="p-1.5 rounded-xs hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
           aria-label="Close Inspector"
         >
           <X className="w-5 h-5" />
@@ -91,7 +91,7 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/10 bg-black/40">
+      <div className="flex border-b border-[#272732] bg-[#0a0a10]">
         {[
           { id: 'optics', label: 'Optics & LUTs', icon: Sliders },
           { id: 'script', label: 'Script & Notes', icon: Type },
@@ -106,8 +106,8 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`flex-1 py-3 px-2 flex items-center justify-center gap-1.5 text-[11px] font-mono-tech tracking-wider border-b-2 transition-colors cursor-pointer ${
                 isActive
-                  ? 'border-amber-400 text-amber-400 bg-white/5 font-semibold'
-                  : 'border-transparent text-white/50 hover:text-white hover:bg-white/5'
+                  ? 'border-[#d4af37] text-[#fbbf24] bg-[#d4af37]/10 font-bold'
+                  : 'border-transparent text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />

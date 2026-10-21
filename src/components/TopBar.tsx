@@ -123,41 +123,48 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   return (
-    <header className="h-12 w-full bg-[#0E0E12] border-b border-[#1C1C24] px-3 sm:px-4 flex items-center justify-between select-none z-50 backdrop-blur-2xl relative font-sans">
-      {/* Left: Branding, Tool/Edit Pill & Project Diamond */}
+    <header className="h-13 w-full bg-[#0c0c10] border-b border-[#272732] px-3 sm:px-4 flex items-center justify-between select-none z-50 backdrop-blur-2xl relative font-sans">
+      {/* Left: Hollywood Director Monogram, Tool/Edit Pill & Project Diamond */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-        {/* Green App Logo Badge from screenshot */}
+        {/* Diamond Monogram in Tungsten Gold (rotate-45) */}
         <div 
           onClick={onOpenProjectManager}
-          className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 flex items-center justify-center shadow-[0_0_12px_rgba(34,197,94,0.35)] shrink-0 cursor-pointer active:scale-[0.98] transition-transform"
+          className="group relative flex items-center justify-center w-7 h-7 shrink-0 cursor-pointer"
           title="RAWx Storyboard Studio — Click for Project Vault"
         >
-          <Film className="w-3.5 h-3.5 text-black font-black" />
+          <div className="w-5 h-5 rotate-45 border border-[#d4af37]/80 bg-gradient-to-tr from-[#996515] via-[#d4af37] to-[#fde047] flex items-center justify-center shadow-[0_0_14px_rgba(234,179,8,0.4)] group-hover:shadow-[0_0_20px_rgba(234,179,8,0.65)] group-hover:border-[#ffe066] transition-all">
+            <Film className="w-2.5 h-2.5 text-black font-black -rotate-45" />
+          </div>
         </div>
 
-        {/* Studio Title */}
-        <span className="font-semibold text-xs sm:text-sm text-white tracking-tight shrink-0 hidden sm:inline">
-          RAWx Storyboard Studio
-        </span>
+        {/* Studio Title with Cinzel & Monospace Telemetry */}
+        <div className="flex flex-col shrink-0 hidden sm:flex leading-tight">
+          <span className="font-cinzel font-bold text-xs sm:text-[13px] text-white tracking-[0.2em]">
+            RAWx STUDIO
+          </span>
+          <span className="font-mono text-[8px] text-[#d4af37] tracking-[0.16em] uppercase">
+            DIRECTOR CHASSIS
+          </span>
+        </div>
 
         {/* Home / Return to Stage Quick Button */}
         <button
           type="button"
           onClick={onGoHome || (() => onSelectMode('STAGE'))}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#14141B] hover:bg-[#F5A623]/25 hover:border-[#F5A623]/60 border border-[#23232E] text-white/80 hover:text-[#F5A623] text-xs font-mono transition-colors duration-150 ease-out active:scale-[0.98] cursor-pointer shadow-sm group shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a0a10] hover:bg-[#d4af37]/20 hover:border-[#d4af37]/70 border border-[#272732] text-zinc-300 hover:text-[#fbbf24] text-xs font-mono transition-colors duration-150 ease-out active:scale-[0.98] cursor-pointer shadow-sm group shrink-0"
           title="STAGE (HOME) — Return to Cinematic Viewport"
         >
-          <Home className="w-3.5 h-3.5 text-[#F5A623]" />
+          <Home className="w-3.5 h-3.5 text-[#eab308]" />
           <span className="font-bold tracking-wider text-[11px] hidden sm:inline">HOME</span>
         </button>
 
         {/* Tool / Edit Segmented Pill */}
-        <div className="hidden md:flex items-center bg-[#14141B] p-0.5 rounded-full border border-[#23232E] text-[11px] shrink-0">
+        <div className="hidden md:flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] text-[11px] shrink-0">
           <button
             type="button"
             onClick={() => setActiveTabPill('Tool')}
             className={`px-3 py-0.5 rounded-full font-medium transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
-              activeTabPill === 'Tool' ? 'bg-[#272733] text-white shadow-sm' : 'text-white/50 hover:text-white'
+              activeTabPill === 'Tool' ? 'bg-[#272732] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Tool
@@ -169,14 +176,14 @@ export const TopBar: React.FC<TopBarProps> = ({
               onSelectMode('CUT');
             }}
             className={`px-3 py-0.5 rounded-full font-medium transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
-              activeTabPill === 'Edit' ? 'bg-[#272733] text-white shadow-sm' : 'text-white/50 hover:text-white'
+              activeTabPill === 'Edit' ? 'bg-[#272732] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Edit
           </button>
         </div>
 
-        {/* Diamond Project Title pill from screenshot */}
+        {/* Diamond Project Title pill */}
         {isEditingTitle ? (
           <div className="flex items-center gap-1 shrink">
             <input
@@ -192,11 +199,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                 }
               }}
               autoFocus
-              className="bg-black/90 border border-[#E5A919] text-white text-xs px-2.5 py-0.5 rounded-full font-mono outline-none max-w-[200px]"
+              className="bg-black/95 border border-[#d4af37] text-white text-xs px-2.5 py-0.5 rounded-full font-mono outline-none max-w-[200px]"
             />
             <button 
               onClick={handleTitleSubmit} 
-              className="p-1 text-[#E5A919] hover:text-[#FFCC00] cursor-pointer"
+              className="p-1 text-[#eab308] hover:text-[#fbbf24] cursor-pointer"
             >
               <Check className="w-3 h-3" />
             </button>
@@ -208,22 +215,22 @@ export const TopBar: React.FC<TopBarProps> = ({
               setIsEditingTitle(true);
             }}
             title={`Project: ${projectTitle} (Click to rename)`}
-            className="group flex items-center gap-1.5 px-3 py-1 bg-[#101017]/90 hover:bg-[#161622] rounded-full border border-white/10 hover:border-[#E5A919]/40 text-xs font-mono text-white/90 cursor-pointer transition-all shrink max-w-[150px] sm:max-w-[220px] lg:max-w-[300px]"
+            className="group flex items-center gap-1.5 px-3 py-1 bg-[#0a0a10]/95 hover:bg-[#121218] rounded-full border border-[#272732] hover:border-[#d4af37]/60 text-xs font-mono text-zinc-200 cursor-pointer transition-all shrink max-w-[150px] sm:max-w-[220px] lg:max-w-[300px]"
           >
-            <span className="text-[#E5A919] text-[10px] shrink-0 font-bold">◆</span>
+            <span className="text-[#eab308] text-[10px] shrink-0 font-bold">◆</span>
             <span className="truncate tracking-wide font-medium">{projectTitle}</span>
-            <span className="text-[9px] text-white/30 group-hover:text-[#E5A919] shrink-0">✎</span>
+            <span className="text-[9px] text-zinc-500 group-hover:text-[#eab308] shrink-0">✎</span>
           </div>
         )}
 
         {/* Save State Badge */}
-        <div className="hidden xl:flex items-center gap-1 text-[8.5px] font-mono text-white/50">
+        <div className="hidden xl:flex items-center gap-1.5 text-[8.5px] font-mono text-zinc-400">
           <span 
             className={`w-1.5 h-1.5 rounded-full ${
               saveState === 'saving'
-                ? 'bg-[#FFE066] animate-ping'
+                ? 'bg-[#fbbf24] animate-ping'
                 : saveState === 'error'
-                ? 'bg-red-400'
+                ? 'bg-rose-500'
                 : 'bg-emerald-400 animate-pulse'
             }`} 
           />
@@ -232,7 +239,7 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* Center: Primary Mode Switcher (STAGE | BLOOM | BOARD | CUT) */}
-      <div className="flex items-center bg-[#14141B] p-0.5 rounded-full border border-[#23232E] shrink-0 mx-1 shadow-inner">
+      <div className="flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] shrink-0 mx-1 shadow-inner">
         <button
           type="button"
           onClick={() => {
@@ -244,8 +251,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           }}
           className={`px-3.5 sm:px-4 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'STAGE' && (!activeModule || activeModule === 'PLAYER')
-              ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.45)]'
-              : 'text-white/70 hover:text-white hover:bg-white/10'
+              ? 'bg-[#eab308] text-black shadow-[0_0_15px_rgba(234,179,8,0.45)]'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
           title="STAGE (HOME) — Return to Cinematic Viewport"
         >
@@ -259,7 +266,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'BLOOM'
               ? 'bg-rose-500 text-black shadow-[0_0_12px_rgba(244,63,94,0.55)]'
-              : 'text-white/70 hover:text-white hover:bg-white/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
           title="Bloom Interactive Canvas (Fluid Stage & Magnetic Snap Sequencer)"
         >
@@ -272,8 +279,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={() => onSelectMode('BOARD')}
           className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'BOARD'
-              ? 'bg-[#F5A623] text-black font-bold shadow-[0_0_12px_rgba(245,166,35,0.45)]'
-              : 'text-white/70 hover:text-white'
+              ? 'bg-[#eab308] text-black font-bold shadow-[0_0_15px_rgba(234,179,8,0.45)]'
+              : 'text-zinc-400 hover:text-white'
           }`}
           title="100-Shot Storyboard Grid"
         >
@@ -286,8 +293,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={() => onSelectMode('CUT')}
           className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
             activeMode === 'CUT'
-              ? 'bg-[#F5A623] text-black font-bold shadow-[0_0_12px_rgba(245,166,35,0.45)]'
-              : 'text-white/70 hover:text-white'
+              ? 'bg-[#eab308] text-black font-bold shadow-[0_0_15px_rgba(234,179,8,0.45)]'
+              : 'text-zinc-400 hover:text-white'
           }`}
           title="CapCut Multi-Track Sequence Editor"
         >
@@ -296,7 +303,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
       </div>
 
-      {/* Right: Actions matching tactical aesthetic */}
+      {/* Right: Actions matching tactical director aesthetic */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Undo Button */}
         {onUndo && (
@@ -305,7 +312,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={onUndo}
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
-            className="p-1.5 rounded-full bg-[#14141B] hover:bg-[#1C1C26] text-white/60 hover:text-white border border-[#23232E] disabled:opacity-30 cursor-pointer transition-colors active:scale-[0.98]"
+            className="p-1.5 rounded-full bg-[#0a0a10] hover:bg-[#15151e] text-zinc-400 hover:text-white border border-[#272732] disabled:opacity-30 cursor-pointer transition-colors active:scale-[0.98]"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -317,7 +324,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             type="button"
             onClick={onToggleFullscreen}
             title="Toggle Cinema Fullscreen (F)"
-            className="p-1.5 rounded-full bg-[#14141B] hover:bg-[#1C1C26] text-white/60 hover:text-white border border-[#23232E] cursor-pointer transition-colors active:scale-[0.98]"
+            className="p-1.5 rounded-full bg-[#0a0a10] hover:bg-[#15151e] text-zinc-400 hover:text-white border border-[#272732] cursor-pointer transition-colors active:scale-[0.98]"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -330,36 +337,36 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={onToggleTitles}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10.5px] font-mono transition-colors duration-150 ease-out cursor-pointer shadow-sm active:scale-[0.98] ${
               showTitles
-                ? 'bg-[#181824] border-[#F5A623]/60 text-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.3)]'
-                : 'bg-[#14141B] border-[#23232E] text-white/40 hover:text-white/80'
+                ? 'bg-[#14141c] border-[#d4af37]/70 text-[#fbbf24] shadow-[0_0_10px_rgba(234,179,8,0.3)]'
+                : 'bg-[#0a0a10] border-[#272732] text-zinc-500 hover:text-zinc-200'
             }`}
             title="Toggle Master Titles Overlay (Hotkey: T)"
           >
-            <Type className={`w-3.5 h-3.5 ${showTitles ? 'text-[#F5A623]' : 'text-white/40'}`} />
+            <Type className={`w-3.5 h-3.5 ${showTitles ? 'text-[#eab308]' : 'text-zinc-500'}`} />
             <span className="font-bold tracking-wider hidden md:inline">
               TITLES: {showTitles ? 'ON' : 'OFF'}
             </span>
           </button>
         )}
 
-        {/* Dedicated Gold [▶ ANIMATIC] Button */}
+        {/* Dedicated Tungsten Gold [▶ ANIMATIC] Button */}
         <button
           type="button"
           onClick={onOpenAnimatic}
-          className="px-3.5 py-1 rounded-full bg-[#F5A623] hover:bg-[#D97706] text-black font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out shadow-[0_0_12px_rgba(245,166,35,0.4)] active:scale-[0.98]"
+          className="px-3.5 py-1 rounded-full bg-gradient-to-r from-[#d4af37] via-[#eab308] to-[#fbbf24] hover:brightness-110 text-black font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-[0_0_15px_rgba(234,179,8,0.4)] active:scale-[0.98]"
           title="Launch Animatic Cinema Player"
         >
           <Play className="w-3 h-3 fill-current" />
           <span>ANIMATIC</span>
         </button>
 
-        {/* "Apply to be featured" pill from screenshot */}
+        {/* "Apply to be featured" pill */}
         <button
           onClick={onOpenPublishModal}
-          className="hidden lg:flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white text-[11px] font-medium cursor-pointer transition-colors"
+          className="hidden lg:flex items-center gap-1 px-3 py-1 rounded-full bg-[#0a0a10] hover:bg-[#15151e] border border-[#272732] text-zinc-300 hover:text-white text-[11px] font-medium cursor-pointer transition-colors"
           title="Publish & Submit Project"
         >
-          <span>☆</span>
+          <span className="text-[#eab308]">☆</span>
           <span>Apply to be featured</span>
         </button>
 
@@ -367,7 +374,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => setIsLiked(p => !p)}
           className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-            isLiked ? 'text-red-400 bg-red-500/10' : 'text-white/50 hover:text-white hover:bg-white/5'
+            isLiked ? 'text-red-400 bg-red-500/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'
           }`}
           title="Like / Favorite Project"
         >
@@ -377,74 +384,74 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Share Button */}
         <button
           onClick={handleShare}
-          className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-colors cursor-pointer relative"
+          className="p-1.5 rounded-full text-zinc-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer relative"
           title="Share Project URL"
         >
           <Share2 className="w-3.5 h-3.5" />
           {shareFeedback && (
-            <span className="absolute right-0 top-full mt-1 px-2 py-0.5 bg-black border border-[#E5A919] text-[#E5A919] text-[9px] rounded font-mono whitespace-nowrap shadow-xl">
+            <span className="absolute right-0 top-full mt-1 px-2 py-0.5 bg-black border border-[#d4af37] text-[#fbbf24] text-[9px] rounded font-mono whitespace-nowrap shadow-xl">
               Copied!
             </span>
           )}
         </button>
 
         {/* Active Hands & Head Ecosystem Links Pill Cluster */}
-        <div className="hidden lg:flex items-center gap-1 bg-[#12121A] p-0.5 rounded-full border border-[#23232E] shrink-0 shadow-sm">
+        <div className="hidden lg:flex items-center gap-1 bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] shrink-0 shadow-sm">
           <a
             href="https://hub.handsandhead.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
             title="Hands & Head Hub — https://hub.handsandhead.com"
           >
             <span>HUB</span>
-            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
           </a>
 
           <a
             href="https://vault.handsandhead.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
             title="Hands & Head Vault — https://vault.handsandhead.com"
           >
             <span>VAULT</span>
-            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
           </a>
 
           <a
             href="https://bloom-app.handsandhead.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-rose-500/20 border border-transparent hover:border-rose-500/60 text-white/80 hover:text-rose-400 text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-rose-500/20 border border-transparent hover:border-rose-500/60 text-zinc-300 hover:text-rose-400 text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
             title="Bloom App — https://bloom-app.handsandhead.com"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
             <span>BLOOM</span>
-            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
           </a>
 
           <a
             href="https://xvideos-r2.handsandhead.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
             title="R2 Stream — https://xvideos-r2.handsandhead.com"
           >
-            <span className="text-[#F5A623]">R2</span>
+            <span className="text-[#eab308]">R2</span>
             <span>STREAM</span>
-            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
           </a>
 
           <a
             href="https://picseed.handsandhead.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#161622] hover:bg-[#F5A623]/20 border border-transparent hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
             title="Picseed CDN — https://picseed.handsandhead.com"
           >
             <span>PICSEED</span>
-            <ExternalLink className="w-2.5 h-2.5 text-white/30" />
+            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
           </a>
         </div>
 
@@ -454,24 +461,24 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={() => setIsFederationDockOpen(prev => !prev)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-mono transition-all cursor-pointer ${
               isFederationDockOpen 
-                ? 'bg-[#E5A919]/25 border-[#E5A919] text-[#FFE066] shadow-[0_0_8px_rgba(229,169,25,0.3)]' 
-                : 'bg-[#14141B] hover:bg-[#1D1D26] border-white/10 text-white/70 hover:text-white'
+                ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#fbbf24] shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
+                : 'bg-[#0a0a10] hover:bg-[#14141e] border-[#272732] text-zinc-400 hover:text-white'
             }`}
             title="Hands & Head Federation Ecosystem (hub, vault, bloom, xvideos-r2, picseed)"
           >
-            <Globe className="w-3.5 h-3.5 text-[#E5A919]" />
+            <Globe className="w-3.5 h-3.5 text-[#eab308]" />
             <span className="hidden xl:inline font-bold">ECOSYSTEM</span>
-            <ChevronDown className="w-3 h-3 text-white/40" />
+            <ChevronDown className="w-3 h-3 text-zinc-500" />
           </button>
 
           {isFederationDockOpen && (
             <div 
-              className="absolute right-0 top-full mt-2 w-72 bg-[#0E0E14] border border-[#2D2D3B] rounded-lg shadow-2xl p-2 z-50 font-mono text-xs backdrop-blur-2xl animate-in fade-in duration-150"
+              className="absolute right-0 top-full mt-2 w-72 bg-black/90 border border-[#272732] rounded-lg shadow-2xl p-2 z-50 font-mono text-xs backdrop-blur-2xl animate-in fade-in duration-150"
               onMouseLeave={() => setIsFederationDockOpen(false)}
             >
-              <div className="px-2 py-1 border-b border-white/10 mb-1 flex items-center justify-between">
-                <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Hands & Head Federation</span>
-                <span className="text-[9px] text-[#E5A919]">ACTIVE DRAFT SAFE</span>
+              <div className="px-2 py-1 border-b border-[#272732] mb-1 flex items-center justify-between">
+                <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Hands & Head Federation</span>
+                <span className="text-[9px] text-[#eab308] font-bold">ACTIVE DRAFT SAFE</span>
               </div>
               <div className="space-y-1">
                 {FEDERATION_APPS.map(app => (
@@ -481,24 +488,24 @@ export const TopBar: React.FC<TopBarProps> = ({
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`flex items-start justify-between p-2 rounded hover:bg-white/5 transition-colors ${
-                      app.badge === 'ACTIVE' ? 'bg-[#181822] border border-[#E5A919]/30' : ''
+                      app.badge === 'ACTIVE' ? 'bg-[#101018] border border-[#d4af37]/40' : ''
                     }`}
                   >
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-[#E6E6E6] text-[11px]">
+                      <div className="flex items-center gap-1.5 font-bold text-zinc-200 text-[11px]">
                         <span>{app.name}</span>
                         {app.badge && (
                           <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-mono ${
-                            app.badge === 'ACTIVE' ? 'bg-[#E5A919] text-black font-black' : 'bg-rose-500/20 text-rose-300'
+                            app.badge === 'ACTIVE' ? 'bg-[#eab308] text-black font-black' : 'bg-rose-500/20 text-rose-300'
                           }`}>
                             {app.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-[9.5px] text-white/40 mt-0.5">{app.description}</p>
-                      <span className="text-[9px] text-white/30">{app.subdomain}.handsandhead.com</span>
+                      <p className="text-[9.5px] text-zinc-400 mt-0.5">{app.description}</p>
+                      <span className="text-[9px] text-zinc-500">{app.subdomain}.handsandhead.com</span>
                     </div>
-                    <ExternalLink className="w-3 h-3 text-white/30 shrink-0 mt-1" />
+                    <ExternalLink className="w-3 h-3 text-zinc-500 shrink-0 mt-1" />
                   </a>
                 ))}
               </div>
@@ -510,7 +517,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="relative">
           <button
             onClick={() => setIsMoreMenuOpen(prev => !prev)}
-            className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+            className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
             title="More Studio Tools"
           >
             <MoreVertical className="w-3.5 h-3.5" />
@@ -518,19 +525,19 @@ export const TopBar: React.FC<TopBarProps> = ({
 
           {isMoreMenuOpen && (
             <div 
-              className="absolute right-0 top-full mt-2 w-52 bg-[#0B0C10] border border-white/15 rounded-md shadow-2xl p-1 z-50 font-mono text-[10px] space-y-0.5 backdrop-blur-xl"
+              className="absolute right-0 top-full mt-2 w-52 bg-black/90 border border-[#272732] rounded-md shadow-2xl p-1 z-50 font-mono text-[10px] space-y-0.5 backdrop-blur-xl"
               onMouseLeave={() => setIsMoreMenuOpen(false)}
             >
               {onToggleComponentsPopover && (
                 <button
                   onClick={() => { onToggleComponentsPopover(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-white/80 hover:text-[#FFE066] flex items-center justify-between cursor-pointer"
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <Layers className="w-3 h-3 text-[#D4AF37]" />
+                    <Layers className="w-3 h-3 text-[#d4af37]" />
                     <span>Components Matrix</span>
                   </div>
-                  <span className="text-[8px] bg-white/10 px-1 py-0.2 rounded text-white/60">
+                  <span className="text-[8px] bg-white/10 px-1 py-0.2 rounded text-zinc-400">
                     {componentsBadgeText}
                   </span>
                 </button>
@@ -539,29 +546,29 @@ export const TopBar: React.FC<TopBarProps> = ({
               {onOpenThemeSettings && (
                 <button
                   onClick={() => { onOpenThemeSettings(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-white/80 hover:text-[#FFE066] flex items-center gap-2 cursor-pointer"
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
                 >
-                  <Palette className="w-3 h-3 text-[#D4AF37]" />
+                  <Palette className="w-3 h-3 text-[#d4af37]" />
                   <span>Theme & Appearance</span>
                 </button>
               )}
 
               <button
                 onClick={() => { onToggleProMode(); setIsMoreMenuOpen(false); }}
-                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-white/80 hover:text-[#FFE066] flex items-center justify-between cursor-pointer"
+                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
               >
                 <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-3 h-3 text-[#D4AF37]" />
+                  <SlidersHorizontal className="w-3 h-3 text-[#d4af37]" />
                   <span>Studio Layout Mode</span>
                 </div>
-                <span className="px-1 py-0.2 bg-[#D4AF37]/20 text-[#FFE066] text-[8px] rounded">
+                <span className="px-1.5 py-0.2 bg-[#d4af37]/20 text-[#fbbf24] text-[8px] rounded font-bold">
                   {isProMode ? 'PRO' : 'SIMPLE'}
                 </span>
               </button>
 
               <button
                 onClick={() => { onOpenSelfTest(); setIsMoreMenuOpen(false); }}
-                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-white/80 hover:text-[#FFE066] flex items-center gap-2 cursor-pointer"
+                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
               >
                 <Activity className="w-3 h-3 text-emerald-400" />
                 <span>Self-Test Diagnostics</span>
@@ -569,18 +576,18 @@ export const TopBar: React.FC<TopBarProps> = ({
 
               <button
                 onClick={() => { onOpenShortcuts(); setIsMoreMenuOpen(false); }}
-                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-white/80 hover:text-[#FFE066] flex items-center gap-2 cursor-pointer"
+                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
               >
-                <HelpCircle className="w-3 h-3 text-[#D4AF37]" />
+                <HelpCircle className="w-3 h-3 text-[#d4af37]" />
                 <span>Keyboard Shortcuts (Shift+/)</span>
               </button>
 
               {onOpenProjectManager && (
                 <button
                   onClick={() => { onOpenProjectManager(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-white/80 hover:text-[#FFE066] flex items-center gap-2 cursor-pointer"
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
                 >
-                  <FolderOpen className="w-3 h-3 text-[#D4AF37]" />
+                  <FolderOpen className="w-3 h-3 text-[#d4af37]" />
                   <span>Project Vault Manager</span>
                 </button>
               )}
@@ -600,23 +607,23 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
               )}
 
-              <div className="border-t border-white/10 my-0.5" />
+              <div className="border-t border-[#272732] my-0.5" />
 
               <button
                 onClick={() => { exportFullIdbBackup(); setIsMoreMenuOpen(false); }}
-                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-[#FFE066] flex items-center gap-2 cursor-pointer"
+                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-[#fbbf24] flex items-center gap-2 cursor-pointer"
               >
-                <HardDriveDownload className="w-3 h-3 text-[#D4AF37]" />
+                <HardDriveDownload className="w-3 h-3 text-[#d4af37]" />
                 <span>Backup Local Database</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Done / Publish Button from screenshot */}
+        {/* Done / Publish Button */}
         <button
           onClick={onOpenPublishModal}
-          className="px-3.5 py-1 rounded-full bg-white hover:bg-white/90 text-black font-semibold text-xs transition-colors cursor-pointer shadow-sm shrink-0"
+          className="px-4 py-1 rounded-full bg-gradient-to-r from-zinc-200 to-white hover:brightness-110 text-black font-semibold text-xs transition-all cursor-pointer shadow-sm shrink-0"
         >
           Done
         </button>

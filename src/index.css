@@ -3,11 +3,17 @@
 @layer base {
   :root {
     --ease-hypersonic: cubic-bezier(0.16, 1, 0.3, 1);
+    --gold: #d4af37;
+    --gold-bright: #ffe066;
+    --gold-glow: rgba(234, 179, 8, 0.35);
+    --void-black: #070709;
+    --monitor-slate: #0a0a10;
+    --hairline-border: #272732;
   }
 
   body {
-    background-color: #050505;
-    color: #f5f5f5;
+    background-color: #070709;
+    color: #e4e4e7;
     font-family: 'JetBrains Mono', monospace;
     overflow: hidden;
   }
@@ -15,18 +21,39 @@
 
 .font-cinzel {
   font-family: 'Cinzel', serif;
+  letter-spacing: 0.2em;
+}
+
+.font-anek {
+  font-family: 'Anek Bangla', 'Noto Serif Bengali', serif;
+}
+
+.font-bengali {
+  font-family: 'Anek Bangla', 'Noto Serif Bengali', serif;
 }
 
 .font-mono-tech {
   font-family: 'JetBrains Mono', monospace;
-}
-
-.font-bengali {
-  font-family: 'Noto Serif Bengali', serif;
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
 }
 
 .font-syne {
   font-family: 'Syne', sans-serif;
+}
+
+.text-metallic-gold {
+  background: linear-gradient(135deg, #FFF4B8 0%, #EAB308 30%, #D4AF37 60%, #AA7C11 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 15px rgba(234, 179, 8, 0.35));
+}
+
+.text-metallic-silver {
+  background: linear-gradient(135deg, #FFFFFF 0%, #D4D4D8 45%, #A1A1AA 80%, #E4E4E7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.2));
 }
 
 /* Custom scrollbar hiding */

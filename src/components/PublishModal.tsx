@@ -94,20 +94,20 @@ git remote add origin https://github.com/YOUR_GITHUB_USERNAME/rawx-anthology-eng
 git push -u origin main`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#0d0e14] border border-white/20 rounded-xs shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#0a0a10] border border-[#272732] rounded-md shadow-[0_25px_80px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-black/40">
+        <div className="p-5 border-b border-[#272732] flex items-center justify-between bg-[#0c0c10]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xs bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <div className="w-9 h-9 rounded-xs bg-[#d4af37]/15 border border-[#d4af37]/40 flex items-center justify-center text-[#fbbf24]">
               <Github className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-cinzel text-lg font-bold text-white tracking-widest uppercase">
+              <h2 className="font-cinzel text-lg font-bold text-white tracking-[0.16em] uppercase">
                 Git & Hollywood Interchange Suite
               </h2>
-              <p className="font-mono-tech text-xs text-white/50 tracking-wider">
+              <p className="font-mono-tech text-xs text-zinc-400 tracking-wider">
                 PREPARE REPOSITORY • OTIO / EDL / FOUNTAIN / SRT • CLOUD DEPLOY
               </p>
             </div>
@@ -115,7 +115,7 @@ git push -u origin main`;
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xs hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-xs hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
             aria-label="Close Modal"
           >
             <X className="w-5 h-5" />
@@ -123,7 +123,7 @@ git push -u origin main`;
         </div>
 
         {/* Tab Bar */}
-        <div className="flex border-b border-white/10 bg-black/20">
+        <div className="flex border-b border-[#272732] bg-[#070709]">
           {[
             { id: 'git', label: 'Git Push Setup', icon: Terminal },
             { id: 'readme', label: 'GitHub README.md', icon: FileText },
@@ -138,8 +138,8 @@ git push -u origin main`;
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={`flex-1 py-3 px-3 flex items-center justify-center gap-2 text-xs font-mono-tech tracking-wider border-b-2 transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-amber-400 text-amber-300 bg-white/5 font-semibold'
-                    : 'border-transparent text-white/50 hover:text-white hover:bg-white/5'
+                    ? 'border-[#d4af37] text-[#fbbf24] bg-[#d4af37]/10 font-bold'
+                    : 'border-transparent text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Icon className="w-4 h-4" />

@@ -218,26 +218,26 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   return (
-    <div className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#07070A] font-mono select-none">
-      {/* 1. Tactical HUD Header Bar (Google Flow Obsidian & Warm Gold Aesthetic) */}
-      <div className="h-9 bg-[#0E0E12] border-b border-[#1C1C24] px-4 flex items-center justify-between text-xs shrink-0 z-20">
+    <div className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono select-none">
+      {/* 1. Tactical HUD Header Bar (Hollywood Director Chassis) */}
+      <div className="h-9 bg-[#0c0c10] border-b border-[#272732] px-4 flex items-center justify-between text-xs shrink-0 z-20">
         <div className="flex items-center gap-2.5 min-w-0">
           {/* Active Mode Capsule */}
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#14141B] border border-[#23232E] text-[10px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] animate-pulse" />
-            <span className="text-white/50 uppercase">STAGE:</span>
-            <span className="text-[#F5A623] font-bold">TACTILE CINEMA VIEWPORT</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#eab308] animate-pulse" />
+            <span className="text-zinc-500 uppercase">STAGE:</span>
+            <span className="text-[#fbbf24] font-bold">TACTILE CINEMA VIEWPORT</span>
           </div>
 
-          <span className="text-white/20 hidden sm:inline">|</span>
+          <span className="text-zinc-700 hidden sm:inline">|</span>
 
           {/* Active Shot Telemetry */}
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#14141B] border border-[#23232E] text-[10px] truncate">
-            <span className="text-[#F5A623] font-bold">
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] truncate">
+            <span className="text-[#fbbf24] font-bold">
               SH{String(currentIndex + 1).padStart(3, '0')} / {String(frames.length).padStart(3, '0')}
             </span>
-            <span className="text-white/30">•</span>
-            <span className="text-white/80 font-bold truncate">
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-200 font-bold truncate">
               {activeFrame.bengaliTitle || 'দৃষ্টি'} // {activeFrame.title || 'THE SINGULARITY'}
             </span>
           </div>
@@ -245,10 +245,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
         {/* Right Timing & Spec Capsules */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden md:flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#14141B] border border-[#23232E] text-[10px] text-white/60">
-            <span className="text-[#F5A623] font-bold">12.000s ALLOCATION</span>
-            <span>•</span>
-            <span>288 FRAMES @ 24FPS</span>
+          <div className="hidden md:flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400">
+            <span className="text-[#fbbf24] font-bold">12.000s ALLOCATION</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-300">288 FRAMES @ 24FPS</span>
           </div>
 
           {/* Solo / Sequence Mode Pill */}
@@ -258,7 +258,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             className={`px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer border active:scale-[0.98] ${
               playbackMode === 'sequence'
                 ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300'
-                : 'bg-amber-950/70 border-[#F5A623]/50 text-[#F5A623]'
+                : 'bg-amber-950/70 border-[#eab308]/60 text-[#fbbf24]'
             }`}
             title="Toggle between 12s Animatic Sequence advance and Solo Scrub"
           >
@@ -268,7 +268,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       </div>
 
       {/* 2. Main Stage Viewport (Hero Visual Plate with Glowing Metallic Titles) */}
-      <div className="flex-1 w-full relative flex items-center justify-center overflow-hidden p-2 sm:p-3 bg-[#08080C]">
+      <div className="flex-1 w-full relative flex items-center justify-center overflow-hidden p-2 sm:p-3 bg-[#070709]">
         <div className="w-full h-full max-w-6xl max-h-[82vh] flex items-center justify-center">
           <OpticalFrame
             frame={activeFrame}
@@ -291,7 +291,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       </div>
 
       {/* 3. Permanent Tactical Transport Pill Bar */}
-      <div className="h-11 bg-[#0E0E12] border-t border-[#1C1C24] px-4 flex items-center justify-between shrink-0 z-30">
+      <div className="h-12 bg-[#0c0c10] border-t border-[#272732] px-4 flex items-center justify-center shrink-0 z-30">
         <TactileTransport
           isPlaying={isAutoplay}
           onTogglePlay={onTogglePlay || (() => {})}
@@ -316,20 +316,20 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       </div>
 
       {/* 4. Bottom Tactile Sequence Runner (Frames 001 - 100) */}
-      <div className="h-28 bg-[#090A0E] border-t border-[#1C1C24] px-3 py-2 flex flex-col justify-between shrink-0 z-30">
+      <div className="h-28 bg-[#0a0a10] border-t border-[#272732] px-3 py-2 flex flex-col justify-between shrink-0 z-30">
         {/* Runner Header Readout */}
-        <div className="flex items-center justify-between text-[8.5px] text-white/50 mb-1">
+        <div className="flex items-center justify-between text-[8.5px] text-zinc-400 mb-1">
           <div className="flex items-center gap-2">
-            <GripHorizontal className="w-3.5 h-3.5 text-[#F5A623] animate-pulse" />
-            <span className="font-bold text-white uppercase tracking-wider">
+            <GripHorizontal className="w-3.5 h-3.5 text-[#eab308] animate-pulse" />
+            <span className="font-bold text-zinc-200 uppercase tracking-wider">
               100-SHOT SEQUENCE RUNNER (CLICK TO AUDITION • DRAG TO REORDER WITH MAGNETIC SNAP)
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[#F5A623] font-bold">AUTO-SYNC 12.0s</span>
-            <span className="text-white/20">•</span>
-            <span className="text-white/60">DRAG MEDIA DIRECTLY ONTO CARDS</span>
+            <span className="text-[#fbbf24] font-bold">AUTO-SYNC 12.0s</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-400">DRAG MEDIA DIRECTLY ONTO CARDS</span>
           </div>
         </div>
 
@@ -358,12 +358,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 }}
                 onDragEnd={handleDragEnd}
                 onClick={() => onSelectFrame(idx)}
-                className={`h-full w-28 shrink-0 bg-[#0E0E14] border rounded-md overflow-hidden cursor-pointer transition-colors duration-150 ease-out flex flex-col relative group active:scale-[0.98] ${
+                className={`h-full w-28 shrink-0 bg-[#070709] border rounded-md overflow-hidden cursor-pointer transition-colors duration-150 ease-out flex flex-col relative group active:scale-[0.98] ${
                   isActive
-                    ? 'border-[#F5A623] shadow-[0_0_15px_rgba(245,166,35,0.45)] ring-1 ring-[#F5A623]'
+                    ? 'border-[#d4af37] shadow-[0_0_15px_rgba(234,179,8,0.4)] ring-1 ring-[#eab308]'
                     : isTarget
-                    ? 'border-[#FFE066] scale-105'
-                    : 'border-[#23232E] hover:border-[#F5A623]/60'
+                    ? 'border-[#fbbf24] scale-105'
+                    : 'border-[#272732] hover:border-[#d4af37]/60'
                 }`}
                 title={`Shot ${idx + 1}: ${frame.title} — Click to load, drag to reorder`}
               >
@@ -377,31 +377,31 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                       loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-[7.5px] text-white/30 bg-gradient-to-br from-[#121218] to-black">
-                      <Film className="w-3.5 h-3.5 mb-0.5 text-white/20" />
+                    <div className="w-full h-full flex flex-col items-center justify-center text-[7.5px] text-zinc-500 bg-gradient-to-br from-[#101018] to-black">
+                      <Film className="w-3.5 h-3.5 mb-0.5 text-zinc-600" />
                       <span>SH{String(idx + 1).padStart(3, '0')}</span>
                     </div>
                   )}
 
                   {/* Top Badge: Shot Number */}
                   <span className={`absolute top-0.5 left-0.5 px-1.5 py-0.2 rounded-full text-[7.5px] font-mono font-bold ${
-                    isActive ? 'bg-[#F5A623] text-black font-black' : 'bg-black/80 text-[#FFE066]'
+                    isActive ? 'bg-[#eab308] text-black font-black' : 'bg-black/90 text-[#fbbf24]'
                   }`}>
                     {String(idx + 1).padStart(3, '0')}
                   </span>
 
                   {/* Duration Tag */}
-                  <span className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/80 text-[7px] font-mono text-white/70">
+                  <span className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/90 text-[7px] font-mono text-zinc-300">
                     12.0s
                   </span>
                 </div>
 
                 {/* Bottom Short Caption Slate */}
                 <div className={`h-4.5 px-1.5 flex items-center justify-between text-[7.5px] border-t ${
-                  isActive ? 'bg-[#181822] text-[#F5A623] border-[#F5A623]/40' : 'bg-black/90 text-white/70 border-white/5'
+                  isActive ? 'bg-[#121218] text-[#fbbf24] border-[#d4af37]/50' : 'bg-[#070709] text-zinc-400 border-[#272732]'
                 }`}>
                   <span className="font-bold truncate max-w-[55px]">{frame.bengaliTitle || 'দৃষ্টি'}</span>
-                  <span className="truncate max-w-[45px] text-white/40">{frame.title}</span>
+                  <span className="truncate max-w-[45px] text-zinc-500">{frame.title}</span>
                 </div>
               </div>
             );

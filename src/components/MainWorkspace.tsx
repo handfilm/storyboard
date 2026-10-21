@@ -309,19 +309,19 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
   // 5. Default Hero STAGE Mode with Dual-Panel Workflow
   return (
-    <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#09090D] font-mono">
-      {/* Top Dual-Panel Navigation Header (Google Flow Tactical Aesthetic) */}
-      <div className="h-9 bg-[#0E0E12] border-b border-[#1C1C24] px-4 flex items-center justify-between z-20 select-none shrink-0">
+    <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
+      {/* Top Dual-Panel Navigation Header (Hollywood Director Chassis) */}
+      <div className="h-9 bg-[#0c0c10] border-b border-[#272732] px-4 flex items-center justify-between z-20 select-none shrink-0">
         <div className="flex items-center gap-3">
           {/* Dual Panel Switcher: [TACTILE STAGE] | [DUAL STUDIO SPLIT] | [OPTICAL MONITOR] | [12.0S SEQUENCER] */}
-          <div className="flex items-center bg-[#14141B] p-0.5 rounded-full border border-[#23232E] text-[10.5px]">
+          <div className="flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] text-[10.5px]">
             <button
               type="button"
               onClick={() => handleSelectPanel('TACTILE_STAGE')}
               className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
                 currentPanel === 'TACTILE_STAGE'
-                  ? 'bg-[#F5A623] text-black shadow-sm'
-                  : 'text-white/60 hover:text-white'
+                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
+                  : 'text-zinc-400 hover:text-white'
               }`}
               title="Consolidated Tactical Stage: Glowing Bloom Viewport + 100-Shot Sequence Runner"
             >
@@ -334,8 +334,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onClick={() => handleSelectPanel('SPLIT')}
               className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
                 currentPanel === 'SPLIT'
-                  ? 'bg-[#F5A623] text-black shadow-sm'
-                  : 'text-white/60 hover:text-white'
+                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
+                  : 'text-zinc-400 hover:text-white'
               }`}
               title="Dual-Panel Workflow: 2.39:1 Cinema Optical Monitor on top, 12.0s Sequencer below"
             >
@@ -348,8 +348,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onClick={() => handleSelectPanel('OPTICAL')}
               className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
                 currentPanel === 'OPTICAL'
-                  ? 'bg-[#F5A623] text-black shadow-sm'
-                  : 'text-white/60 hover:text-white'
+                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
+                  : 'text-zinc-400 hover:text-white'
               }`}
               title="Optical Monitor: 2.39:1 Cinema canvas with permanent high-contrast transport controls"
             >
@@ -362,8 +362,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onClick={() => handleSelectPanel('SEQUENCER')}
               className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
                 currentPanel === 'SEQUENCER'
-                  ? 'bg-[#F5A623] text-black shadow-sm'
-                  : 'text-white/60 hover:text-white'
+                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
+                  : 'text-zinc-400 hover:text-white'
               }`}
               title="12.0s Sequencer: Card order, scene labels, text cues, and asset bindings"
             >
@@ -372,22 +372,22 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
             </button>
           </div>
 
-          <span className="text-white/20">|</span>
+          <span className="text-zinc-700">|</span>
 
           {/* Mode Tag Indicator Pill */}
-          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#14141B] border border-[#23232E] text-[10px]">
-            <span className="text-white/40">MODE:</span>
-            <span className={`font-bold ${playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#F5A623]'}`}>
+          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px]">
+            <span className="text-zinc-500">MODE:</span>
+            <span className={`font-bold ${playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#fbbf24]'}`}>
               {playbackMode === 'sequence' ? 'ANIMATIC 12.0s' : 'SOLO SCRUB 12.0s'}
             </span>
           </div>
         </div>
 
         {/* Right Timing Spec Pill */}
-        <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#14141B] border border-[#23232E] text-[10px] text-white/60">
-          <span className="text-[#F5A623] font-bold">12.000s ALLOCATION</span>
-          <span>•</span>
-          <span>288 FRAMES @ 24FPS</span>
+        <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400">
+          <span className="text-[#fbbf24] font-bold">12.000s ALLOCATION</span>
+          <span className="text-zinc-600">•</span>
+          <span className="text-zinc-300">288 FRAMES @ 24FPS</span>
         </div>
       </div>
 

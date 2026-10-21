@@ -65,21 +65,24 @@ export const LeftRail: React.FC<LeftRailProps> = ({
   onToggleCollapse
 }) => {
   return (
-    <aside className="h-full flex select-none z-30 shrink-0 bg-[#0E0E12] border-r border-[#1C1C24] font-mono-tech">
+    <aside className="h-full flex select-none z-30 shrink-0 bg-[#0c0c10] border-r border-[#272732] font-mono-tech">
       {/* Primary Slim Outer Strip */}
-      <div className="w-12 sm:w-13 h-full bg-[#0E0E12] border-r border-[#1C1C24] flex flex-col items-center justify-between py-2 shrink-0">
-        <div className="flex flex-col items-center gap-1.5 overflow-y-auto no-scrollbar w-full px-1">
+      <div className="w-13 sm:w-14 h-full bg-[#0a0a10] border-r border-[#272732] flex flex-col items-center justify-between py-2.5 shrink-0">
+        <div className="flex flex-col items-center gap-2 overflow-y-auto no-scrollbar w-full px-1">
           {/* Top Primary Home / Stage Button */}
           <button
             type="button"
             onClick={() => onSelectModule('PLAYER')}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] relative ${
               activeModule === 'PLAYER'
-                ? 'bg-[#F5A623] text-black font-bold shadow-[0_0_12px_rgba(245,166,35,0.45)]'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? 'bg-[#eab308] text-black font-bold shadow-[0_0_15px_rgba(234,179,8,0.45)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="STAGE (HOME) — Return to Cinematic Viewport"
           >
+            {activeModule === 'PLAYER' && (
+              <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-[#fbbf24] rounded-r shadow-[0_0_6px_#fbbf24]" />
+            )}
             <Home className="w-4 h-4" />
           </button>
 
@@ -87,13 +90,16 @@ export const LeftRail: React.FC<LeftRailProps> = ({
           <button
             type="button"
             onClick={() => onSelectModule('BLOOM')}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] relative ${
               activeModule === 'BLOOM'
-                ? 'bg-rose-500 text-black font-bold shadow-[0_0_12px_rgba(244,63,94,0.55)]'
+                ? 'bg-rose-500 text-black font-bold shadow-[0_0_14px_rgba(244,63,94,0.55)]'
                 : 'text-rose-400/80 hover:text-rose-300 hover:bg-rose-950/20'
             }`}
             title="BLOOM Interactive Canvas"
           >
+            {activeModule === 'BLOOM' && (
+              <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-rose-400 rounded-r shadow-[0_0_6px_#f43f5e]" />
+            )}
             <Sparkles className="w-4 h-4" />
           </button>
 
@@ -101,46 +107,55 @@ export const LeftRail: React.FC<LeftRailProps> = ({
           <button
             type="button"
             onClick={() => onSelectModule('BOARD')}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] relative ${
               activeModule === 'BOARD'
-                ? 'bg-[#F5A623]/20 border border-[#F5A623] text-[#F5A623] shadow-[0_0_10px_rgba(245,166,35,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
+                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24] shadow-[0_0_12px_rgba(234,179,8,0.35)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="Storyboard Engines (BOARD)"
           >
+            {activeModule === 'BOARD' && (
+              <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-[#d4af37] rounded-r shadow-[0_0_6px_#d4af37]" />
+            )}
             <LayoutGrid className="w-4 h-4" />
           </button>
 
           <button
             type="button"
             onClick={() => onSelectModule('MEDIA')}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] relative ${
               activeModule === 'MEDIA'
-                ? 'bg-[#F5A623]/20 border border-[#F5A623] text-[#F5A623] shadow-[0_0_10px_rgba(245,166,35,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
+                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24] shadow-[0_0_12px_rgba(234,179,8,0.35)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="4K Media Library & Ingestion (MEDIA)"
           >
+            {activeModule === 'MEDIA' && (
+              <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-[#d4af37] rounded-r shadow-[0_0_6px_#d4af37]" />
+            )}
             <ImageIcon className="w-4 h-4" />
           </button>
 
           <button
             type="button"
             onClick={() => onSelectModule('PRODUCTION')}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] relative ${
               activeModule === 'PRODUCTION'
-                ? 'bg-[#F5A623]/20 border border-[#F5A623] text-[#F5A623] shadow-[0_0_10px_rgba(245,166,35,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
+                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24] shadow-[0_0_12px_rgba(234,179,8,0.35)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="Production Call Sheets & Clapper"
           >
+            {activeModule === 'PRODUCTION' && (
+              <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-[#d4af37] rounded-r shadow-[0_0_6px_#d4af37]" />
+            )}
             <Clapperboard className="w-4 h-4" />
           </button>
 
           <button
             type="button"
             onClick={() => onSelectModule('MEDIA')}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
             title="Ingest Media Asset"
           >
             <Upload className="w-4 h-4" />
@@ -149,43 +164,49 @@ export const LeftRail: React.FC<LeftRailProps> = ({
           <button
             type="button"
             onClick={() => onSelectModule('LIBRARY')}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] relative ${
               activeModule === 'LIBRARY'
-                ? 'bg-[#F5A623]/20 border border-[#F5A623] text-[#F5A623] shadow-[0_0_10px_rgba(245,166,35,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
+                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24] shadow-[0_0_12px_rgba(234,179,8,0.35)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="Project Vault & Folders"
           >
+            {activeModule === 'LIBRARY' && (
+              <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-[#d4af37] rounded-r shadow-[0_0_6px_#d4af37]" />
+            )}
             <Folder className="w-4 h-4" />
           </button>
 
           <button
             type="button"
             onClick={() => onSelectModule('AI')}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] relative ${
               activeModule === 'AI'
-                ? 'bg-[#F5A623]/20 border border-[#F5A623] text-[#F5A623] shadow-[0_0_10px_rgba(245,166,35,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
+                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24] shadow-[0_0_12px_rgba(234,179,8,0.35)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="Flow AI & Multimodal Director"
           >
-            <Sparkles className="w-4 h-4 text-[#F5A623]" />
+            {activeModule === 'AI' && (
+              <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-[#d4af37] rounded-r shadow-[0_0_6px_#d4af37]" />
+            )}
+            <Sparkles className="w-4 h-4 text-[#eab308]" />
           </button>
         </div>
 
-        {/* Bottom Apps & Logo */}
-        <div className="flex flex-col items-center gap-2 pt-2 border-t border-[#1C1C24] w-full px-1">
+        {/* Bottom Apps & Monogram */}
+        <div className="flex flex-col items-center gap-2 pt-2 border-t border-[#272732] w-full px-1">
           <div 
-            className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center shadow-[0_0_10px_rgba(34,197,94,0.4)] cursor-pointer"
+            className="w-6 h-6 rotate-45 border border-[#d4af37]/80 bg-gradient-to-tr from-[#996515] to-[#d4af37] flex items-center justify-center shadow-[0_0_10px_rgba(234,179,8,0.4)] cursor-pointer"
             title="RAWx Storyboard Studio"
           >
-            <Film className="w-3.5 h-3.5 text-black font-black" />
+            <Film className="w-3 h-3 text-black font-black -rotate-45" />
           </div>
 
           <button
             type="button"
             onClick={() => onSelectModule('AI')}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:text-[#F5A623] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-[#fbbf24] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
             title="Creative Magic Prompt"
           >
             <Wand2 className="w-4 h-4" />
@@ -196,8 +217,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             onClick={() => onSelectModule('EDIT/CUT')}
             className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
               activeModule === 'EDIT/CUT'
-                ? 'bg-[#F5A623]/20 border border-[#F5A623] text-[#F5A623]'
-                : 'text-white/50 hover:text-white hover:bg-white/5'
+                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="CapCut Multi-Track Video Editor"
           >
@@ -210,7 +231,7 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
               activeModule === 'R2_STORAGE'
                 ? 'bg-rose-950/60 border border-rose-500 text-rose-300'
-                : 'text-white/50 hover:text-rose-400 hover:bg-white/5'
+                : 'text-zinc-400 hover:text-rose-400 hover:bg-white/5'
             }`}
             title="Cloudflare R2 Storage & Automation Engine"
           >
@@ -221,16 +242,16 @@ export const LeftRail: React.FC<LeftRailProps> = ({
 
       {/* Secondary Sub-Tools Strip */}
       {!isCollapsed && (
-        <div className="w-12 sm:w-13 h-full bg-[#12121A] flex flex-col justify-between py-2 border-r border-[#1C1C24]">
+        <div className="w-13 sm:w-14 h-full bg-[#070709] flex flex-col justify-between py-2 border-r border-[#272732]">
           <div className="flex flex-col items-center gap-1 overflow-y-auto no-scrollbar w-full px-1">
             {/* Collapse toggle header with gold dot */}
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="w-9 h-6 flex items-center justify-center gap-1 text-white/40 hover:text-[#F5A623] cursor-pointer active:scale-[0.98]"
+              className="w-9 h-6 flex items-center justify-center gap-1 text-zinc-500 hover:text-[#fbbf24] cursor-pointer active:scale-[0.98]"
               title="Collapse Tools Rail"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#eab308]" />
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
 
@@ -240,8 +261,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('STORY')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'STORY'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24] shadow-[0_0_10px_rgba(234,179,8,0.35)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Story & Screenplay Notebook"
             >
@@ -253,8 +274,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('LIBRARY')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'LIBRARY'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Folder Vault & Presets"
             >
@@ -266,8 +287,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('BOARD')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'BOARD'
-                  ? 'border-2 border-[#F5A623] text-[#F5A623] bg-[#F5A623]/20 shadow-[0_0_12px_rgba(245,166,35,0.5)]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'border-2 border-[#d4af37] text-[#fbbf24] bg-[#d4af37]/20 shadow-[0_0_15px_rgba(234,179,8,0.45)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="100-Shot Storyboard Grid"
             >
@@ -279,8 +300,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('TEXT')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'TEXT'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24] shadow-[0_0_10px_rgba(234,179,8,0.35)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Super Titles & Kinetic Typography"
             >
@@ -292,8 +313,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('OPTICS')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'OPTICS'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Optical Sliders & Lens Inspector"
             >
@@ -305,8 +326,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('SOUND')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'SOUND'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Web Audio Synthesizer & 43.6Hz Sub Drone"
             >
@@ -318,8 +339,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('PLAYER')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'PLAYER'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Animatic Player & Previs"
             >
@@ -331,8 +352,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('PRODUCTION')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'PRODUCTION'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Screenplay Breakdown & Call Sheets"
             >
@@ -344,8 +365,8 @@ export const LeftRail: React.FC<LeftRailProps> = ({
               onClick={() => onSelectModule('REVIEW')}
               className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
                 activeModule === 'REVIEW'
-                  ? 'bg-[#F5A623]/25 border border-[#F5A623] text-[#F5A623]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#d4af37]/25 border border-[#d4af37] text-[#fbbf24]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
               title="Review & Annotations"
             >
@@ -355,7 +376,7 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             <button
               type="button"
               onClick={() => onSelectModule('EXPORT')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/60 hover:text-[#F5A623] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-[#fbbf24] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
               title="Export Hollywood Interchange (OTIO, EDL, Fountain, SRT, CSV)"
             >
               <Download className="w-4 h-4" />
@@ -364,7 +385,7 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             <button
               type="button"
               onClick={() => onSelectModule('LIQUIFY')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/60 hover:text-[#F5A623] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-[#fbbf24] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
               title="Crop & Liquify Mesh Warp"
             >
               <Crop className="w-4 h-4" />
@@ -373,7 +394,7 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             <button
               type="button"
               onClick={() => onSelectModule('AI')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-[#F5A623]/80 hover:text-[#F5A623] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-[#eab308]/90 hover:text-[#fbbf24] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
               title="Gemini Flow AI Studio"
             >
               <Sparkles className="w-4 h-4" />
@@ -382,18 +403,18 @@ export const LeftRail: React.FC<LeftRailProps> = ({
             <button
               type="button"
               onClick={() => onSelectModule('EDIT/CUT')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/60 hover:text-[#F5A623] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-[#fbbf24] hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
               title="Multi-Track Sequence Editor"
             >
               <Scissors className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex flex-col items-center gap-1 border-t border-[#1C1C24] pt-2 px-1">
+          <div className="flex flex-col items-center gap-1 border-t border-[#272732] pt-2 px-1">
             <button
               type="button"
               onClick={() => onSelectModule('SETTINGS')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 cursor-pointer transition-colors active:scale-[0.98]"
               title="Settings & Appearance"
             >
               <Settings className="w-4 h-4" />

@@ -419,10 +419,17 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        className={`relative ${getAspectRatioClasses()} bg-[#060608] border border-white/10 rounded-[2px] shadow-[0_20px_70px_rgba(0,0,0,0.95)] overflow-hidden transition-colors duration-150 ease-out ${
-          isPanActive ? 'cursor-ns-resize ring-1 ring-[#D4AF37]/50' : ''
+        className={`relative ${getAspectRatioClasses()} bg-[#040407] border border-[#272732] rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.98)] ring-1 ring-[#d4af37]/20 overflow-hidden transition-colors duration-150 ease-out ${
+          isPanActive ? 'cursor-ns-resize ring-2 ring-[#d4af37]' : ''
         }`}
       >
+        {/* Cinema Safe-Action & Safe-Title Hairline Corner Marks */}
+        <div className="absolute inset-3 sm:inset-4 pointer-events-none z-[29] border border-white/5 select-none">
+          <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t border-l border-[#d4af37]/60" />
+          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t border-r border-[#d4af37]/60" />
+          <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b border-l border-[#d4af37]/60" />
+          <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b border-r border-[#d4af37]/60" />
+        </div>
         {/* Layer 1: Base Sharp Media Layer */}
         {hasPhoto ? (
           isVideo ? (
@@ -1100,62 +1107,62 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         {showMasterTitles && (
           <div className="absolute inset-0 z-[30] pointer-events-none flex flex-col items-center justify-center text-center px-4 sm:px-8 py-8">
             <div className="max-w-5xl w-full flex flex-col items-center">
-              {/* Massive Glowing Bengali Headline (Sized to cover the full word) */}
+              {/* Massive Glowing Bengali Headline with Anek Bangla & Metallic Gold */}
               {showTitleBn && (
                 <h1
-                  className={`font-['Noto_Serif_Bengali'] ${
+                  className={`font-anek ${
                     titleScale === 'ultra'
                       ? 'text-7xl sm:text-9xl md:text-[9.5rem] lg:text-[11rem] xl:text-[12rem] tracking-wider'
                       : titleScale === 'standard'
                       ? 'text-5xl sm:text-7xl md:text-8xl tracking-wide'
                       : 'text-6xl sm:text-8xl md:text-9xl lg:text-[7.5rem] xl:text-[8.75rem] 2xl:text-[10rem] tracking-wide sm:tracking-wider'
-                  } font-black leading-[1.05] transition-all duration-300 w-full text-center select-none ${
+                  } font-black leading-[1.05] transition-all duration-300 w-full text-center select-none text-metallic-gold drop-shadow-[0_0_35px_rgba(234,179,8,0.45)] ${
                     activeAnim === 'flare'
                       ? 'super-title-flare super-title-breathe'
                       : activeAnim === 'kinetic'
-                      ? 'super-title-kinetic text-[#FFE066]'
+                      ? 'super-title-kinetic text-[#fbbf24]'
                       : activeAnim === 'glitch'
-                      ? 'super-title-glitch text-[#FFE066]'
+                      ? 'super-title-glitch text-[#fbbf24]'
                       : activeAnim === 'breathe'
-                      ? 'super-title-breathe text-[#FFE066]'
+                      ? 'super-title-breathe text-[#fbbf24]'
                       : activeAnim === 'typewriter'
-                      ? 'super-title-typewriter text-[#FFE066]'
+                      ? 'super-title-typewriter text-[#fbbf24]'
                       : activeAnim === 'neon'
                       ? 'super-title-neon text-cyan-200'
                       : activeAnim === 'cinema-fade'
-                      ? 'super-title-cinema-fade text-[#FFE066]'
-                      : 'text-[#FFE066]'
+                      ? 'super-title-cinema-fade text-[#fbbf24]'
+                      : 'text-[#fbbf24]'
                   }`}
                   style={{
-                    filter: activeAnim === 'flare' ? undefined : 'drop-shadow(0 0 35px rgba(212,175,55,0.85)) drop-shadow(0 4px 15px rgba(0,0,0,0.9))'
+                    filter: activeAnim === 'flare' ? undefined : 'drop-shadow(0 0 35px rgba(234,179,8,0.85)) drop-shadow(0 4px 15px rgba(0,0,0,0.95))'
                   }}
                 >
-                  {safeFrame.bengaliTitle || 'সূচনা'}
+                  {safeFrame.bengaliTitle || 'দৃষ্টি / সূচনা'}
                 </h1>
               )}
 
               {/* English Cinzel Main Title */}
               {showTitleEn && (
                 <h2
-                  className={`font-cinzel text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.25em] mt-2 sm:mt-3 uppercase drop-shadow-2xl transition-all duration-300 ${
+                  className={`font-cinzel text-xl sm:text-3xl md:text-4xl font-bold tracking-[0.2em] mt-2 sm:mt-3 uppercase drop-shadow-2xl transition-all duration-300 ${
                     activeAnim === 'flare'
                       ? 'super-title-flare'
                       : activeAnim === 'kinetic'
-                      ? 'super-title-kinetic text-[#EDEDED]'
+                      ? 'super-title-kinetic text-zinc-100'
                       : activeAnim === 'glitch'
-                      ? 'super-title-glitch text-[#EDEDED]'
+                      ? 'super-title-glitch text-zinc-100'
                       : activeAnim === 'breathe'
-                      ? 'super-title-breathe text-[#EDEDED]'
+                      ? 'super-title-breathe text-zinc-100'
                       : activeAnim === 'typewriter'
-                      ? 'super-title-typewriter text-[#EDEDED]'
+                      ? 'super-title-typewriter text-zinc-100'
                       : activeAnim === 'neon'
                       ? 'super-title-neon text-cyan-100'
                       : activeAnim === 'cinema-fade'
-                      ? 'super-title-cinema-fade text-[#EDEDED]'
-                      : 'text-[#EDEDED]'
+                      ? 'super-title-cinema-fade text-zinc-100'
+                      : 'text-zinc-100'
                   }`}
                   style={{
-                    textShadow: activeAnim === 'flare' ? undefined : '0 4px 20px rgba(0,0,0,0.9), 0 0 15px rgba(212,175,55,0.3)'
+                    textShadow: activeAnim === 'flare' ? undefined : '0 4px 20px rgba(0,0,0,0.9), 0 0 15px rgba(234,179,8,0.35)'
                   }}
                 >
                   {safeFrame.title || 'THE SINGULARITY'}
@@ -1164,8 +1171,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
               {/* Telemetry Subtitle Tagline */}
               {showTagline && (
-                <p className={`font-mono-tech text-[10px] sm:text-xs tracking-[0.24em] font-semibold mt-1.5 uppercase drop-shadow-md transition-all duration-300 ${
-                  activeAnim === 'neon' ? 'super-title-neon text-cyan-300' : 'text-[#D4AF37]'
+                <p className={`font-mono-tech text-[10px] sm:text-xs tracking-[0.2em] font-semibold mt-1.5 uppercase drop-shadow-md transition-all duration-300 ${
+                  activeAnim === 'neon' ? 'super-title-neon text-cyan-300' : 'text-[#d4af37]'
                 }`}>
                   SC01-SH{safeFrame.epNumber} // {safeFrame.tagline || 'THE FIRST GAZE INTO THE UNKNOWN'}
                 </p>
@@ -1189,17 +1196,17 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                         e.stopPropagation();
                         setIsCenterPinned(true);
                       }}
-                      className="group px-3.5 py-1.5 bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 backdrop-blur-xl border border-white/10 hover:border-[#D4AF37]/50 rounded-full font-mono-tech text-[9px] sm:text-[10px] text-white/80 hover:text-white flex items-center gap-2 cursor-pointer transition-all duration-300 shadow-2xl select-none"
+                      className="group px-3.5 py-1.5 bg-[#0a0a10]/90 hover:bg-[#121218] backdrop-blur-xl border border-[#272732] hover:border-[#d4af37]/60 rounded-full font-mono-tech text-[9px] sm:text-[10px] text-zinc-300 hover:text-white flex items-center gap-2 cursor-pointer transition-all duration-300 shadow-2xl select-none"
                       title="Hover or tap to reveal full shot dialogue, technical jargon & animations"
                     >
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E5A919] shadow-[0_0_8px_#E5A919]" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#eab308] shadow-[0_0_8px_#eab308]" />
                       </span>
-                      <span className="font-bold text-[#FFE066] tracking-wider">SC01-SH{safeFrame.epNumber}</span>
-                      <span className="text-white/30">•</span>
-                      <span className="text-white/70 tracking-widest uppercase">SHOT TELEMETRY & ANIMATION DOCK</span>
-                      <span className="text-[7.5px] px-1.5 py-0.5 rounded bg-white/10 text-white/60 group-hover:text-[#FFE066] group-hover:bg-[#D4AF37]/20 transition-colors uppercase">
+                      <span className="font-bold text-[#fbbf24] tracking-wider">SC01-SH{safeFrame.epNumber}</span>
+                      <span className="text-zinc-600">•</span>
+                      <span className="text-zinc-300 tracking-widest uppercase">SHOT TELEMETRY & ANIMATION DOCK</span>
+                      <span className="text-[7.5px] px-1.5 py-0.5 rounded bg-white/10 text-zinc-400 group-hover:text-[#fbbf24] group-hover:bg-[#d4af37]/20 transition-colors uppercase">
                         HOVER / TAP
                       </span>
                     </button>
@@ -1207,12 +1214,12 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                     /* Expanded Luxurious Glassmorphic Telemetry Drawer */
                     <div 
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full bg-[#07080C]/95 backdrop-blur-2xl border border-[#D4AF37]/40 rounded-xl p-3.5 sm:p-4 shadow-[0_20px_60px_rgba(0,0,0,0.95)] animate-fadeIn transition-all duration-300 text-left font-mono-tech"
+                      className="w-full bg-[#07080C]/95 backdrop-blur-2xl border border-[#d4af37]/40 rounded-xl p-3.5 sm:p-4 shadow-[0_20px_60px_rgba(0,0,0,0.95)] animate-fadeIn transition-all duration-300 text-left font-mono-tech"
                     >
                       {/* Top Header of Drawer */}
-                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-[#272732]">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[#E5A919] shadow-[0_0_8px_#E5A919] animate-pulse" />
+                          <span className="w-2 h-2 rounded-full bg-[#eab308] shadow-[0_0_8px_#eab308] animate-pulse" />
                           <span className="text-[10px] font-bold text-white tracking-wider uppercase">
                             SC01-SH{safeFrame.epNumber} // DIRECTOR'S NOTE & SHOT TELEMETRY
                           </span>
@@ -1223,8 +1230,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                             onClick={() => setIsCenterPinned(p => !p)}
                             className={`px-2 py-0.5 rounded text-[8.5px] font-mono-tech flex items-center gap-1 transition-colors cursor-pointer ${
                               isCenterPinned
-                                ? 'bg-[#D4AF37] text-black font-bold shadow-[0_0_8px_rgba(212,175,55,0.5)]'
-                                : 'bg-white/10 text-white/70 hover:text-white hover:bg-white/20'
+                                ? 'bg-[#d4af37] text-black font-bold shadow-[0_0_8px_rgba(212,175,55,0.5)]'
+                                : 'bg-white/10 text-zinc-300 hover:text-white hover:bg-white/20'
                             }`}
                             title={isCenterPinned ? "Unpin dock" : "Pin dock open"}
                           >
@@ -1237,7 +1244,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
                               setIsCenterPinned(false);
                               setIsCenterHovered(false);
                             }}
-                            className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            className="p-1 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                             title="Collapse dock"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -1247,11 +1254,11 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
                       {/* Poetic Narrative & Dialogue Section */}
                       {showCaption && (
-                        <div className="mb-3 px-3 py-2 rounded bg-black/60 border border-white/5 text-center">
-                          <p className="font-['Noto_Serif_Bengali'] italic text-xs sm:text-sm text-[#FFE066] leading-relaxed drop-shadow">
+                        <div className="mb-3 px-3 py-2 rounded bg-black/80 border border-[#272732] text-center">
+                          <p className="font-anek italic font-bold text-xs sm:text-sm text-[#fbbf24] leading-relaxed drop-shadow">
                             "{safeFrame.bengaliDesc || safeFrame.tagline || 'আমরা কি আলো পেরিয়ে এলাম? (Did we cross the light?)'}"
                           </p>
-                          <div className="mt-1 flex items-center justify-center gap-2 text-[8px] text-white/50 uppercase tracking-widest">
+                          <div className="mt-1 flex items-center justify-center gap-2 text-[8px] text-zinc-400 uppercase tracking-widest">
                             <span>WRITER: {directorName || 'Rakib Himon'}</span>
                             <span>•</span>
                             <span>DIRECTOR: {directorName || 'Rakib Himon'}</span>

@@ -12,6 +12,7 @@ import {
   exportToSRT,
   triggerFileDownload
 } from '../data/hollywoodExporters';
+import { generatePremiereCapCutXml, generateFcpXml } from '../services/exportXml';
 import { 
   X, 
   Github, 
@@ -246,7 +247,38 @@ git push -u origin main`;
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 0A. Premiere / CapCut XML (FCP 7 XML / xmeml) */}
+                <div className="p-3.5 bg-gradient-to-b from-[#14141e] to-[#0a0a10] border border-[#d4af37]/60 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-[#fbbf24] font-bold">CAPCUT & PREMIERE</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">Premiere / CapCut XML (.xml)</h4>
+                    <p className="font-mono-tech text-[10px] text-white/60 mt-1">Direct import into CapCut Desktop and Premiere Pro with all 100 shots.</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadFile(generatePremiereCapCutXml(project), `${project.title.replace(/\s+/g, '_')}_CapCut_Premiere.xml`, 'application/xml')}
+                    className="mt-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/50 text-[#FFE066] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .xml</span>
+                  </button>
+                </div>
+
+                {/* 0B. FCPXML for DaVinci Resolve & FCPX */}
+                <div className="p-3.5 bg-gradient-to-b from-[#0e161c] to-[#0a0a10] border border-[#06b6d4]/50 rounded-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-[#06b6d4] font-bold">DAVINCI & FCP</span>
+                    <h4 className="font-cinzel text-xs font-bold text-white mt-1">FCPXML v1.10 (.fcpxml)</h4>
+                    <p className="font-mono-tech text-[10px] text-white/60 mt-1">Native Apple FCPXML spine for DaVinci Resolve 18+ and Final Cut Pro X.</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadFile(generateFcpXml(project), `${project.title.replace(/\s+/g, '_')}_DaVinci_FCP.fcpxml`, 'application/xml')}
+                    className="mt-3 py-1.5 bg-[#06b6d4]/20 hover:bg-[#06b6d4]/35 border border-[#06b6d4]/50 text-[#06b6d4] rounded-xs text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download .fcpxml</span>
+                  </button>
+                </div>
                 {/* 1. OpenTimelineIO (.otio) */}
                 <div className="p-3.5 bg-white/5 border border-white/10 rounded-xs flex flex-col justify-between">
                   <div>

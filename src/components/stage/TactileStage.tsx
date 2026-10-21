@@ -72,6 +72,13 @@ interface TactileStageProps {
   onChangePlaybackSpeed?: (speed: number) => void;
   onPurgeMedia?: () => void;
   projectTitle?: string;
+  onOpenExportTimeline?: () => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
+  onLoadAudioFile?: (file: File) => void;
+  detectedBpm?: number;
+  isAudioMuted?: boolean;
+  onToggleMute?: () => void;
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({
@@ -102,7 +109,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   playbackSpeed = 1.0,
   onChangePlaybackSpeed,
   onPurgeMedia,
-  projectTitle = 'RAWx Storyboard Studio'
+  projectTitle = 'RAWx Storyboard Studio',
+  onOpenExportTimeline,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
+  onLoadAudioFile,
+  detectedBpm,
+  isAudioMuted = false,
+  onToggleMute
 }) => {
   const activeFrame: AnthologyFrame = currentFrame || frames[currentIndex] || frames[0];
   const [isLooping, setIsLooping] = useState(true);
@@ -302,8 +316,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onStepFrame={onStepFrame || (() => {})}
           playbackSpeed={playbackSpeed}
           onChangePlaybackSpeed={onChangePlaybackSpeed || (() => {})}
-          isMuted={false}
-          onToggleMute={() => {}}
+          isMuted={isAudioMuted}
+          onToggleMute={onToggleMute || (() => {})}
           slideTimeSec={slideTimeSec}
           currentIndex={currentIndex}
           totalSlides={frames.length}
@@ -312,6 +326,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           aspectRatio={aspectRatio as any}
           onPurgeMedia={onPurgeMedia}
           hasMedia={Boolean(activeFrame.imageUrl)}
+          onOpenExportTimeline={onOpenExportTimeline}
+          isSnapToBeat={isSnapToBeat}
+          onToggleSnapToBeat={onToggleSnapToBeat}
+          onLoadAudioFile={onLoadAudioFile}
+          detectedBpm={detectedBpm}
         />
       </div>
 
@@ -329,6 +348,15 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-[#fbbf24] font-bold">AUTO-SYNC 12.0s</span>
             <span className="text-zinc-600">•</span>
+            {isSnapToBeat && (
+              <>
+                <span className="text-[#eab308] font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] animate-ping" />
+                  RHYTHMIC BEAT SNAP ({detectedBpm || 120} BPM)
+                </span>
+                <span className="text-zinc-600">•</span>
+              </>
+            )}
             <span className="text-zinc-400">DRAG MEDIA DIRECTLY ONTO CARDS</span>
           </div>
         </div>

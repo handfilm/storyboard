@@ -25,6 +25,7 @@ import { VideoScopesModal } from './components/VideoScopesModal';
 import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
 import { StudioDrawer } from './components/StudioDrawer';
 import { R2AutomationModal } from './components/R2AutomationModal';
+import { ExportTimelineModal } from './components/ExportTimelineModal';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
@@ -96,6 +97,9 @@ export default function App() {
   const [isAnimaticOpen, setIsAnimaticOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isR2AutomationOpen, setIsR2AutomationOpen] = useState(false);
+  const [isExportTimelineOpen, setIsExportTimelineOpen] = useState(false);
+  const [isSnapToBeat, setIsSnapToBeat] = useState(false);
+  const [detectedBpm, setDetectedBpm] = useState(120);
   const [titleAnimation, setTitleAnimation] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>('flare');
   const [historyStack, setHistoryStack] = useState<AnthologyProject[]>([]);
   const [redoStack, setRedoStack] = useState<AnthologyProject[]>([]);
@@ -450,12 +454,17 @@ export default function App() {
 
   useEffect(() => {
     if (!isPlaying) {
+      audioEngine.pauseAudio();
       lastTimestampRef.current = null;
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
       }
       return;
+    }
+
+    if (!isAudioMuted) {
+      audioEngine.playAudio();
     }
 
     const SLIDE_DURATION = 12.0;
@@ -467,12 +476,17 @@ export default function App() {
 
         setSlideTimeSec(prevTime => {
           const nextTime = prevTime + safeDelta;
+          const globalPlaybackSec = (currentIndex * SLIDE_DURATION) + nextTime;
+          audioEngine.syncPlaybackTime(globalPlaybackSec);
+
           if (playbackMode === 'sequence') {
             // Sequence (Animatic) mode: auto-advance across Slide 1 through Slide N every 12.000s
-            if (nextTime >= SLIDE_DURATION) {
+            // If snap-to-beat is enabled, boundary check triggers on musical downbeat
+            const boundaryDuration = isSnapToBeat ? 12.0 : SLIDE_DURATION;
+            if (nextTime >= boundaryDuration) {
               const framesLength = project.frames.length || 1;
               setCurrentIndex(prevIdx => (prevIdx + 1) % framesLength);
-              return nextTime % SLIDE_DURATION;
+              return nextTime % boundaryDuration;
             }
             return nextTime;
           } else {
@@ -496,7 +510,7 @@ export default function App() {
         animFrameRef.current = null;
       }
     };
-  }, [isPlaying, playbackMode, project.frames.length, playbackSpeed]);
+  }, [isPlaying, playbackMode, project.frames.length, playbackSpeed, isAudioMuted, currentIndex, isSnapToBeat]);
 
   // Fullscreen event listener
   useEffect(() => {
@@ -525,6 +539,28 @@ export default function App() {
       audioEngine.playShutterClick();
     }
   };
+
+  // Audio track ingestion for Web Audio DSP beat transient analysis
+  const handleLoadAudioFile = useCallback(async (file: File) => {
+    try {
+      const analysis = await audioEngine.loadAndAnalyzeAudioFile(file);
+      setDetectedBpm(analysis.detectedBpm);
+      audioEngine.setMuted(false);
+      setIsAudioMuted(false);
+      audioEngine.setVolume(audioVolume);
+    } catch (err) {
+      console.warn('Audio track ingestion error:', err);
+    }
+  }, [audioVolume]);
+
+  // Auto-Cut / Snap to Beat toggle
+  const handleToggleSnapToBeat = useCallback(() => {
+    setIsSnapToBeat(prev => {
+      const next = !prev;
+      audioEngine.setSnapToBeatEnabled(next);
+      return next;
+    });
+  }, []);
 
   // 4K Cinema Still Capture
   const handleCaptureStill = () => {
@@ -997,6 +1033,7 @@ export default function App() {
         canUndo={historyStack.length > 0}
         canRedo={redoStack.length > 0}
         onOpenR2Automation={() => setIsR2AutomationOpen(true)}
+        onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
       />
 
       {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
@@ -1191,6 +1228,13 @@ export default function App() {
             setCurrentIndex(prev => Math.min(nextFrames.length - 1, prev));
           }}
           projectTitle={project.title}
+          onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
+          isSnapToBeat={isSnapToBeat}
+          onToggleSnapToBeat={handleToggleSnapToBeat}
+          onLoadAudioFile={handleLoadAudioFile}
+          detectedBpm={detectedBpm}
+          isAudioMuted={isAudioMuted}
+          onToggleMute={toggleAudio}
         />
 
         {/* Director Inspector Sidebar Drawer */}
@@ -1340,6 +1384,13 @@ export default function App() {
         isOpen={isR2AutomationOpen}
         onClose={() => setIsR2AutomationOpen(false)}
         project={project}
+      />
+
+      {/* Professional NLE Timeline Export Suite (CapCut/Premiere XML & FCPXML) */}
+      <ExportTimelineModal
+        project={project}
+        isOpen={isExportTimelineOpen}
+        onClose={() => setIsExportTimelineOpen(false)}
       />
     </div>
   );

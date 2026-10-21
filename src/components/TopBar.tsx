@@ -67,6 +67,7 @@ interface TopBarProps {
   canUndo?: boolean;
   canRedo?: boolean;
   onOpenR2Automation?: () => void;
+  onOpenExportTimeline?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -95,7 +96,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRedo,
   canUndo = false,
   canRedo = false,
-  onOpenR2Automation
+  onOpenR2Automation,
+  onOpenExportTimeline
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(projectTitle);
@@ -360,6 +362,20 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span>ANIMATIC</span>
         </button>
 
+        {/* Dedicated NLE Timeline Export Button (Premiere/CapCut XML & FCPXML) */}
+        {onOpenExportTimeline && (
+          <button
+            type="button"
+            onClick={onOpenExportTimeline}
+            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
+            title="Export Timeline XML (CapCut Desktop, Adobe Premiere Pro & DaVinci Resolve)"
+          >
+            <Film className="w-3.5 h-3.5 text-[#eab308]" />
+            <span className="hidden sm:inline">EXPORT</span>
+            <span>NLE XML</span>
+          </button>
+        )}
+
         {/* "Apply to be featured" pill */}
         <button
           onClick={onOpenPublishModal}
@@ -603,6 +619,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </div>
                   <span className="text-[8px] bg-rose-950/60 border border-rose-500/40 text-rose-300 px-1 py-0.2 rounded font-bold">
                     CF R2
+                  </span>
+                </button>
+              )}
+
+              {onOpenExportTimeline && (
+                <button
+                  onClick={() => { onOpenExportTimeline(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-amber-300 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Film className="w-3 h-3 text-[#d4af37]" />
+                    <span>Export NLE Timeline (XML)</span>
+                  </div>
+                  <span className="text-[8px] bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fbbf24] px-1 py-0.2 rounded font-bold">
+                    XML/FCP
                   </span>
                 </button>
               )}

@@ -13,7 +13,7 @@
  *   1/24s frame nudge, pitch preservation, and instant media purge capability.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   Play, 
   Pause, 
@@ -26,10 +26,14 @@ import {
   VolumeX, 
   Camera, 
   Trash2,
-  Gauge
+  Gauge,
+  Music,
+  Film,
+  Sparkles
 } from 'lucide-react';
 import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../../types/editor';
 import { AspectRatioType } from '../../types/project';
+import { BeatMarker, audioEngine } from '../../services/audioEngine';
 
 export interface TactileTransportProps {
   isPlaying: boolean;
@@ -56,6 +60,12 @@ export interface TactileTransportProps {
   onPurgeMedia?: () => void;
   hasMedia?: boolean;
   className?: string;
+  onOpenExportTimeline?: () => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
+  beatMarkers?: BeatMarker[];
+  onLoadAudioFile?: (file: File) => void;
+  detectedBpm?: number;
 }
 
 export const TactileTransport: React.FC<TactileTransportProps> = ({
@@ -82,8 +92,28 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
   onCaptureStill,
   onPurgeMedia,
   hasMedia = false,
-  className = ''
+  className = '',
+  onOpenExportTimeline,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
+  beatMarkers,
+  onLoadAudioFile,
+  detectedBpm
 }) => {
+  // Active transient markers for the current scrubber domain
+  const displayMarkers = useMemo(() => {
+    if (beatMarkers && beatMarkers.length > 0) {
+      return beatMarkers;
+    }
+    const analysis = audioEngine.getAnalysis();
+    if (!analysis) return [];
+    if (playbackMode === 'solo') {
+      return audioEngine.getTransientsForSlide(currentIndex, SLIDE_DURATION_SEC);
+    } else {
+      return analysis.transients;
+    }
+  }, [beatMarkers, playbackMode, currentIndex]);
+
   // Format SMPTE Timecode @ 24fps
   const formatTimecode = (sec: number) => {
     const totalFrames = Math.max(0, Math.floor(sec * 24));
@@ -116,8 +146,30 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
           <span className="text-[#fbbf24] ml-1">F{String(currentFrameInSlide).padStart(3, '0')}/288</span>
         </div>
 
-        {/* Dynamic Dual-Mode Scrubber Slider */}
+        {/* Dynamic Dual-Mode Scrubber Slider with Subtle Gold Transient Ticks */}
         <div className="flex-1 flex items-center relative py-1">
+          {/* Subtle gold tick marks for kick/snare transients */}
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2.5 pointer-events-none flex items-center z-10 overflow-hidden px-1">
+            {displayMarkers.map((marker, idx) => {
+              const maxRange = playbackMode === 'solo' ? SLIDE_DURATION_SEC : totalDurationSec;
+              const markerTime = playbackMode === 'solo' ? (marker.timeSec % SLIDE_DURATION_SEC) : marker.timeSec;
+              if (markerTime < 0 || markerTime > maxRange) return null;
+              const pct = (markerTime / maxRange) * 100;
+              return (
+                <div
+                  key={marker.id || idx}
+                  style={{ left: `${pct}%` }}
+                  className={`absolute top-0 bottom-0 pointer-events-none ${
+                    marker.isDownbeat
+                      ? 'w-[2px] bg-[#fbbf24] shadow-[0_0_8px_rgba(251,191,36,0.95)] opacity-95'
+                      : 'w-[1px] bg-[#d4af37]/65 opacity-60'
+                  }`}
+                  title={`${marker.type.toUpperCase()} @ ${markerTime.toFixed(2)}s`}
+                />
+              );
+            })}
+          </div>
+
           <input
             type="range"
             min="0"
@@ -125,7 +177,10 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             step="0.041666" // 1 frame @ 24fps
             value={playbackMode === 'solo' ? slideTimeSec : globalSec}
             onChange={(e) => {
-              const val = parseFloat(e.target.value);
+              let val = parseFloat(e.target.value);
+              if (isSnapToBeat) {
+                val = audioEngine.snapTimeToNearestBeat(val, 0.3);
+              }
               if (playbackMode === 'solo') {
                 onScrubSlideTime(val);
               } else {
@@ -136,7 +191,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
                 }
               }
             }}
-            className="w-full h-1.5 bg-[#181822] rounded-full appearance-none cursor-pointer accent-[#eab308]"
+            className="w-full h-1.5 bg-[#181822] rounded-full appearance-none cursor-pointer accent-[#eab308] relative z-20"
             aria-label="Timeline scrubber"
           />
         </div>
@@ -252,6 +307,47 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
           >
             {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#eab308]" />}
           </button>
+
+          {/* Auto-Cut / Snap to Beat Toggle Pill */}
+          {onToggleSnapToBeat && (
+            <button
+              type="button"
+              onClick={onToggleSnapToBeat}
+              className={`px-2.5 py-1.5 rounded-full text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] border ${
+                isSnapToBeat
+                  ? 'bg-[#181824] border-[#d4af37] text-[#fbbf24] shadow-[0_0_12px_rgba(234,179,8,0.35)]'
+                  : 'bg-[#101018] border-[#272732] text-zinc-500 hover:text-zinc-300'
+              }`}
+              title="Auto-Cut / Snap to Beat: Lock slide cuts to nearest kick/snare transients"
+            >
+              <Music className={`w-3.5 h-3.5 ${isSnapToBeat ? 'text-[#eab308]' : 'text-zinc-500'}`} />
+              <span className="hidden sm:inline">SNAP BEAT:</span>
+              <span>{isSnapToBeat ? 'ON' : 'OFF'}</span>
+              {detectedBpm && isSnapToBeat && (
+                <span className="text-[9px] text-[#eab308] font-mono hidden md:inline">({detectedBpm} BPM)</span>
+              )}
+            </button>
+          )}
+
+          {/* Audio Ingestion Pill */}
+          <label
+            className="px-2.5 py-1.5 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#272732] text-zinc-400 hover:text-[#fbbf24] text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+            title="Ingest Audio Track for Beat Transient Analysis (MP3, WAV, AAC, OGG)"
+          >
+            <Music className="w-3 h-3 text-[#eab308]" />
+            <span className="hidden xl:inline text-zinc-300">TRACK:</span>
+            <span>INGEST</span>
+            <input
+              type="file"
+              accept="audio/*,.mp3,.wav,.aac,.ogg,.flac,.m4a"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0] && onLoadAudioFile) {
+                  onLoadAudioFile(e.target.files[0]);
+                }
+              }}
+            />
+          </label>
         </div>
 
         {/* Center: SEQUENCE (ANIMATIC) vs SOLO SCRUB Mode Segmented Capsule */}
@@ -299,6 +395,20 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
                 <option value="9:16" className="bg-[#0a0a10] text-white">9:16 VERTICAL</option>
               </select>
             </div>
+          )}
+
+          {/* Export Timeline NLE Modal Trigger Pill */}
+          {onOpenExportTimeline && (
+            <button
+              type="button"
+              onClick={onOpenExportTimeline}
+              className="px-3 py-1 rounded-full bg-gradient-to-r from-[#181824] to-[#12121a] hover:bg-[#202030] border border-[#d4af37]/70 text-[#fbbf24] hover:text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] shadow-sm"
+              title="Export Timeline XML (CapCut Desktop, Adobe Premiere Pro & DaVinci Resolve)"
+            >
+              <Film className="w-3.5 h-3.5 text-[#eab308]" />
+              <span className="hidden sm:inline">EXPORT</span>
+              <span>NLE XML</span>
+            </button>
           )}
 
           {/* REC / STILL Capture Pill */}

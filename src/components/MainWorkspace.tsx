@@ -88,6 +88,13 @@ interface MainWorkspaceProps {
   onChangePlaybackSpeed?: (speed: number) => void;
   onPurgeMedia?: () => void;
   projectTitle?: string;
+  onOpenExportTimeline?: () => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
+  onLoadAudioFile?: (file: File) => void;
+  detectedBpm?: number;
+  isAudioMuted?: boolean;
+  onToggleMute?: () => void;
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
@@ -142,7 +149,14 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   playbackSpeed = 1.0,
   onChangePlaybackSpeed,
   onPurgeMedia,
-  projectTitle = 'RAWx Storyboard Studio'
+  projectTitle = 'RAWx Storyboard Studio',
+  onOpenExportTimeline,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
+  onLoadAudioFile,
+  detectedBpm,
+  isAudioMuted = false,
+  onToggleMute
 }) => {
   // Local dual-panel view selection if not externally controlled
   const [localDualPanel, setLocalDualPanel] = useState<'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT'>(activeDualPanel || 'TACTILE_STAGE');
@@ -230,6 +244,13 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           onChangePlaybackSpeed={onChangePlaybackSpeed}
           onPurgeMedia={onPurgeMedia}
           projectTitle={projectTitle}
+          onOpenExportTimeline={onOpenExportTimeline}
+          isSnapToBeat={isSnapToBeat}
+          onToggleSnapToBeat={onToggleSnapToBeat}
+          onLoadAudioFile={onLoadAudioFile}
+          detectedBpm={detectedBpm}
+          isAudioMuted={isAudioMuted}
+          onToggleMute={onToggleMute}
         />
       </main>
     );
@@ -425,6 +446,13 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onChangePlaybackSpeed={onChangePlaybackSpeed}
               onPurgeMedia={onPurgeMedia}
               projectTitle={projectTitle}
+              onOpenExportTimeline={onOpenExportTimeline}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
+              onLoadAudioFile={onLoadAudioFile}
+              detectedBpm={detectedBpm}
+              isAudioMuted={isAudioMuted}
+              onToggleMute={onToggleMute}
             />
           </div>
         )}

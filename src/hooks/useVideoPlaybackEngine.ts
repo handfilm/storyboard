@@ -237,27 +237,45 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   }, [isPlaying, applyVelocity]);
 
   // =========================================================================
+  // =========================================================================
   // SUB-FRAME STEPPING (±1 Frame @ 24fps = 41.666ms)
   // =========================================================================
   const stepFrame = useCallback((forward: boolean) => {
-    applyVelocity(0); // Stop shuttle when stepping
-    setSlideTimeSec((prev) => {
-      const delta = forward ? frameDurationSec : -frameDurationSec;
-      let next = prev + delta;
+    // 1. Immediately halt all active playback, reverse intervals, and velocity
+    stopReversePlayback();
+    setIsPlaying(false);
+    setJklVelocity(0);
 
-      const minBound = inOutRange.isActive && inOutRange.inSec !== null ? inOutRange.inSec : 0;
-      const maxBound = inOutRange.isActive && inOutRange.outSec !== null ? inOutRange.outSec : SLIDE_DURATION_SEC;
+    const FRAME_DURATION = 1 / fps; // 0.041666...s (strictly 24fps)
+    const SLIDE_MAX_TIME = SLIDE_DURATION_SEC; // 12.0s
 
-      if (next > maxBound) {
-        next = isLooping ? minBound : maxBound;
-      } else if (next < minBound) {
-        next = isLooping ? maxBound : minBound;
+    const video = videoElementRef.current;
+    if (video) {
+      video.pause();
+      const curTime = typeof video.currentTime === 'number' && !isNaN(video.currentTime)
+        ? video.currentTime
+        : slideTimeSec;
+      const nextTime = forward
+        ? Math.min(curTime + FRAME_DURATION, SLIDE_MAX_TIME)
+        : Math.max(curTime - FRAME_DURATION, 0);
+
+      try {
+        video.currentTime = nextTime;
+      } catch {
+        // Safe seek fallback
       }
-
-      seekVideoToTime(next);
-      return next;
-    });
-  }, [frameDurationSec, inOutRange, isLooping, applyVelocity, seekVideoToTime]);
+      setSlideTimeSec(nextTime);
+      onTimeUpdate?.(nextTime, currentIndex * SLIDE_MAX_TIME + nextTime);
+    } else {
+      setSlideTimeSec((prev) => {
+        const nextTime = forward
+          ? Math.min(prev + FRAME_DURATION, SLIDE_MAX_TIME)
+          : Math.max(prev - FRAME_DURATION, 0);
+        onTimeUpdate?.(nextTime, currentIndex * SLIDE_MAX_TIME + nextTime);
+        return nextTime;
+      });
+    }
+  }, [fps, currentIndex, onTimeUpdate, slideTimeSec, stopReversePlayback]);
 
   // =========================================================================
   // SUB-CLIP IN/OUT MARKERS (I & O Hotkeys)

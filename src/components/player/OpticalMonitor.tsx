@@ -192,6 +192,18 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
   const [showTitles, setShowTitles] = useState<boolean>(true);
 
+  // Frame calculation constants strictly at 24fps
+  const FRAME_DURATION = 1 / 24;
+  const SLIDE_MAX_TIME = 12.0;
+
+  // Active slide frame state (0 to 287)
+  const [currentFrame, setCurrentFrame] = useState<number>(() => Math.floor(slideTimeSec * 24));
+
+  // Sync frame with slide time changes
+  useEffect(() => {
+    setCurrentFrame(Math.floor(slideTimeSec * 24));
+  }, [slideTimeSec]);
+
   // Hook 1: Professional Video Playback Engine
   const engine = useVideoPlaybackEngine({
     totalSlides,
@@ -211,6 +223,54 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     engine.attachVideoElement(videoRef.current);
   }, [engine, currentSlide?.remoteUrl]);
 
+  // Frame-accurate stepping forward (+1F)
+  const handleStepForward = useCallback(() => {
+    if (isPlaying) {
+      onTogglePlay();
+    }
+    engine.handleShuttleStop();
+
+    if (videoRef.current) {
+      videoRef.current.pause();
+      const nextTime = Math.min(videoRef.current.currentTime + FRAME_DURATION, SLIDE_MAX_TIME);
+      videoRef.current.currentTime = nextTime;
+      const targetFrame = Math.floor(nextTime * 24);
+      setCurrentFrame(targetFrame);
+      onScrubSlideTime(nextTime);
+      engine.scrubSlideTime(nextTime);
+    } else {
+      const nextTime = Math.min(slideTimeSec + FRAME_DURATION, SLIDE_MAX_TIME);
+      const targetFrame = Math.floor(nextTime * 24);
+      setCurrentFrame(targetFrame);
+      onScrubSlideTime(nextTime);
+      engine.scrubSlideTime(nextTime);
+    }
+  }, [isPlaying, onTogglePlay, engine, slideTimeSec, onScrubSlideTime]);
+
+  // Frame-accurate stepping backward (-1F)
+  const handleStepBackward = useCallback(() => {
+    if (isPlaying) {
+      onTogglePlay();
+    }
+    engine.handleShuttleStop();
+
+    if (videoRef.current) {
+      videoRef.current.pause();
+      const prevTime = Math.max(videoRef.current.currentTime - FRAME_DURATION, 0);
+      videoRef.current.currentTime = prevTime;
+      const targetFrame = Math.floor(prevTime * 24);
+      setCurrentFrame(targetFrame);
+      onScrubSlideTime(prevTime);
+      engine.scrubSlideTime(prevTime);
+    } else {
+      const prevTime = Math.max(slideTimeSec - FRAME_DURATION, 0);
+      const targetFrame = Math.floor(prevTime * 24);
+      setCurrentFrame(targetFrame);
+      onScrubSlideTime(prevTime);
+      engine.scrubSlideTime(prevTime);
+    }
+  }, [isPlaying, onTogglePlay, engine, slideTimeSec, onScrubSlideTime]);
+
   // Hook 2: Global Keyboard Shortcuts (Space, J/K/L, Arrows, I/O)
   useGlobalKeyboardShortcuts({
     playbackMode,
@@ -225,8 +285,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       engine.prevSlide();
     },
     onStepFrame: (fwd) => {
-      onStepFrame(fwd);
-      engine.stepFrame(fwd);
+      if (fwd) {
+        handleStepForward();
+      } else {
+        handleStepBackward();
+      }
     },
     onShuttleReverse: () => {
       engine.handleShuttleReverse();
@@ -464,23 +527,23 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           )}
 
           {/* ========================================================================= */}
-          {/* BROADCAST TELEMETRY HUD OVERLAY (Always Visible & Non-Intrusive)          */}
+          {/* BROADCAST TELEMETRY HUD OVERLAY (Clean Monospace, Single Non-Stacked Row) */}
           {/* ========================================================================= */}
           
           {/* Top Left: Scene ID, Frame Telemetry, SMPTE Timecode */}
-          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1.5 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md z-20">
+          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-20">
             <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] animate-pulse" />
             <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
-            <span className="text-white/20">|</span>
+            <span className="text-white/30">//</span>
             <span className="text-white font-bold tabular-nums">
+              F{String(Math.min(288, Math.max(1, currentFrame + 1))).padStart(3, '0')} / 288
+            </span>
+            <span className="text-white/30">//</span>
+            <span className="text-white/90 font-mono tabular-nums">
               {formatSMPTE(slideTimeSec)}
             </span>
-            <span className="text-white/20">|</span>
-            <span className="text-white/60 tabular-nums">
-              F{String(currentFrameInSlide).padStart(3, '0')}/288
-            </span>
-            <span className="text-white/20">|</span>
-            <span className="text-emerald-400 text-[9px]">24.0 FPS LOCKED</span>
+            <span className="text-white/30">//</span>
+            <span className="text-emerald-400 text-[9.5px]">24.0 fps locked</span>
           </div>
 
           {/* Top Right: Transport Velocity & NLE Status */}
@@ -510,39 +573,33 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* CREATIVE DYNAMIC PER-SLIDE TITLE STORYTELLING OVERLAY                     */}
-          {/* Choreographed positions: Center, Asymmetric Top-Left, Lower-Third, Right  */}
+          {/* SINGLE ACTIVE SLIDE TITLE - PURE METALLIC GOLD, ZERO GHOST/CODE OVERLAY   */}
           {/* ========================================================================= */}
-          {showTitles && (currentSlide?.titleEn || currentSlide?.titleBn) && (
-            <div className="absolute inset-0 pointer-events-none p-6 sm:p-10 flex flex-col justify-between z-10">
-              
-              {/* Primary Title Container (Positioned via Curated Layout Archetype) */}
-              <div className={`absolute ${titleLayout.titleContainerClass} transition-all duration-300`}>
-                
-                {/* Bengali Glowing Title (Anek Bangla / Metallic Gold) */}
-                {currentSlide.titleBn && (
-                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-[#ffe58f] via-[#d4af37] to-[#eab308] drop-shadow-[0_0_25px_rgba(234,179,8,0.5)]">
-                    {currentSlide.titleBn}
+          {showTitles && (
+            <div className="absolute inset-0 pointer-events-none p-6 sm:p-10 flex flex-col justify-end z-10 select-none">
+              <div className="max-w-3xl text-left pb-4">
+                {/* Bengali Glowing Title (Single active slide: e.g. Slide 1 -> "দৃষ্টি") */}
+                {(currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : '')) && (
+                  <h1 className="text-4xl sm:text-6xl md:text-7xl font-serif font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-[#ffe58f] via-[#d4af37] to-[#eab308] drop-shadow-[0_0_35px_rgba(234,179,8,0.7)] leading-tight">
+                    {currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : '')}
                   </h1>
                 )}
 
-                {/* English Subtitle (Cinzel tracking uppercase) */}
-                {currentSlide.titleEn && (
-                  <h2 className="text-xs sm:text-sm md:text-base font-mono font-bold tracking-[0.25em] text-[#EDEDED] uppercase mt-1 drop-shadow-md">
-                    {currentSlide.titleEn}
+                {/* English Subtitle (Single active slide: e.g. Slide 1 -> "THE SINGULARITY") */}
+                {(currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : '')) && (
+                  <h2 className="text-sm sm:text-base md:text-lg font-mono font-bold tracking-[0.25em] text-[#EDEDED] uppercase mt-2 drop-shadow-md">
+                    {currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : '')}
                   </h2>
                 )}
 
-                {/* Unified Captions (for non-split archetypes) */}
-                {!titleLayout.hasSplitCaption && (currentSlide.directorNotes || currentSlide.soundCue) && (
-                  <div className={titleLayout.captionContainerClass}>
+                {/* Director Notes / Sound Cue */}
+                {(currentSlide?.directorNotes || currentSlide?.soundCue) && (
+                  <div className="mt-2.5 flex items-center gap-3 text-[10.5px] font-mono text-white/70">
                     {currentSlide.directorNotes && (
-                      <p className="text-[10.5px] sm:text-xs text-white/70 font-mono drop-shadow">
-                        DIR: {currentSlide.directorNotes}
-                      </p>
+                      <span>DIR: {currentSlide.directorNotes}</span>
                     )}
                     {currentSlide.soundCue && (
-                      <span className="text-[9.5px] text-[#38BDF8] font-mono mt-0.5 drop-shadow flex items-center gap-1">
+                      <span className="text-[#38BDF8] flex items-center gap-1">
                         <Volume2 className="w-3 h-3" />
                         <span>{currentSlide.soundCue}</span>
                       </span>
@@ -550,31 +607,8 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* Asymmetric Split Caption (for Top-Left / Top-Right split archetypes) */}
-              {titleLayout.hasSplitCaption && (currentSlide.directorNotes || currentSlide.soundCue) && (
-                <div className={`${titleLayout.captionContainerClass} bg-[#0E0E12]/85 backdrop-blur-md px-3.5 py-2 border border-[#1C1C24] rounded-xl shadow-xl transition-all duration-300`}>
-                  {currentSlide.directorNotes && (
-                    <p className="text-xs text-[#EDEDED] font-mono leading-relaxed">
-                      {currentSlide.directorNotes}
-                    </p>
-                  )}
-                  {currentSlide.soundCue && (
-                    <p className="text-[10px] text-[#38BDF8] font-mono mt-1 flex items-center justify-end gap-1">
-                      <Volume2 className="w-3 h-3" />
-                      <span>{currentSlide.soundCue}</span>
-                    </p>
-                  )}
-                </div>
-              )}
-
             </div>
           )}
-
-          {/* Bottom Left Quick Telemetry Indicator: Layout Archetype Name */}
-          <div className="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-black/60 border border-white/10 text-[8.5px] font-mono text-zinc-400 pointer-events-none z-20">
-            LAYOUT: <span className="text-[#F5A623] font-bold uppercase">{titleLayout.name}</span>
-          </div>
 
         </div>
       </div>
@@ -597,8 +631,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           engine.setIsLooping(!isLooping);
         }}
         onStepFrame={(fwd) => {
-          onStepFrame(fwd);
-          engine.stepFrame(fwd);
+          if (fwd) {
+            handleStepForward();
+          } else {
+            handleStepBackward();
+          }
         }}
         playbackSpeed={playbackSpeed}
         onChangePlaybackSpeed={onChangePlaybackSpeed || (() => {})}

@@ -23,6 +23,7 @@ import { SelfTestModal } from './components/SelfTestModal';
 import { CanvasLiquifyModal } from './components/CanvasLiquifyModal';
 import { VideoScopesModal } from './components/VideoScopesModal';
 import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
+import { OpticalMonitorModal } from './components/OpticalMonitorModal';
 import { StudioDrawer } from './components/StudioDrawer';
 import { R2AutomationModal } from './components/R2AutomationModal';
 import { ExportTimelineModal } from './components/ExportTimelineModal';
@@ -75,6 +76,7 @@ export default function App() {
   const [audioVolume, setAudioVolume] = useState(0.4);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('sequence');
   const [activeDualPanel, setActiveDualPanel] = useState<'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER'>('TACTILE_STAGE');
+  const [isOpticalMonitorModalOpen, setIsOpticalMonitorModalOpen] = useState(false);
   const [slideTimeSec, setSlideTimeSec] = useState<number>(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
 
@@ -217,7 +219,8 @@ export default function App() {
         if (typeof session.activeSlideIndex === 'number') setCurrentIndex(session.activeSlideIndex);
         if (session.playbackMode) setPlaybackMode(session.playbackMode);
         if (session.activeDualPanel || session.activePanel) {
-          setActiveDualPanel((session.activeDualPanel || session.activePanel) as any || 'TACTILE_STAGE');
+          const panel = (session.activeDualPanel || session.activePanel);
+          setActiveDualPanel(panel as any || 'TACTILE_STAGE');
         }
       }
 
@@ -405,6 +408,9 @@ export default function App() {
 
   // Frame Stepping (-1F / +1F at 24fps)
   const handleStepFrame = useCallback((forward: boolean) => {
+    // Immediately pause playback to prevent sequence timer collision with playhead
+    setIsPlaying(false);
+
     const FRAME_DELTA = 1 / 24; // 1 frame at 24fps
     const SLIDE_DURATION = 12.0;
 
@@ -764,14 +770,14 @@ export default function App() {
       }
 
       switch (e.key) {
-        // Left / Right Arrow: Frame-by-frame nudge (1/24s = 41.666ms)
+        // Left / Right Arrow: Slide Navigation (Previous / Next Shot)
         case 'ArrowRight':
           e.preventDefault();
-          handleStepFrame(true);
+          nextFrame();
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          handleStepFrame(false);
+          prevFrame();
           break;
 
         // J / K / L: Standard NLE Playback Shuttle (Rewind / Pause / Forward)
@@ -1414,6 +1420,27 @@ export default function App() {
         projectTitle={project.title}
         directorName={project.director}
         aspectRatio={aspectRatio}
+      />
+
+      {/* Standalone Optical Monitor Cinema Lightbox Modal */}
+      <OpticalMonitorModal
+        isOpen={isOpticalMonitorModalOpen}
+        onClose={() => setIsOpticalMonitorModalOpen(false)}
+        frames={project.frames}
+        currentIndex={currentIndex}
+        aspectRatio={aspectRatio}
+        playbackMode={playbackMode}
+        isPlaying={isPlaying}
+        slideTimeSec={slideTimeSec}
+        playbackSpeed={playbackSpeed}
+        onTogglePlay={() => setIsPlaying(p => !p)}
+        onStepFrame={handleStepFrame}
+        onScrubSlideTime={(t) => setSlideTimeSec(t)}
+        onSelectPlaybackMode={(mode) => setPlaybackMode(mode)}
+        onChangePlaybackSpeed={(s) => setPlaybackSpeed(s)}
+        onChangeAspectRatio={(a) => setAspectRatio(a as AspectRatio)}
+        onUploadMedia={handleUploadImage}
+        projectTitle={project.title}
       />
     </div>
   );

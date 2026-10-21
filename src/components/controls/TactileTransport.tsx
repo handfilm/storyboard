@@ -212,29 +212,18 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
         </div>
       </div>
 
-      {/* Lower Deck: Tactical Pill Badges & Permanent Transport Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#272732]">
-        {/* Left: Step -1F, PLAY/PAUSE, Step +1F, LOOP, Variable Speed Pills */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Step -1F (1/24s = 41.666ms, J) */}
-          <button
-            type="button"
-            onClick={() => onStepFrame(false)}
-            className="px-3 py-1.5 rounded-full bg-[#101018] hover:bg-[#181824] text-zinc-200 border border-[#272732] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
-            title="Step Back 1 Frame (1/24s, J)"
-          >
-            <SkipBack className="w-3.5 h-3.5 text-[#eab308]" />
-            <span>-1F</span>
-          </button>
-
-          {/* Master PLAY / PAUSE Tactical Pill (Gold/Amber Accent, K/L) */}
+      {/* Lower Deck: Locked Single Horizontal Strip for Transport Controls */}
+      <div className="flex items-center justify-between gap-3 pt-1 border-t border-[#272732] overflow-x-auto no-scrollbar flex-nowrap w-full">
+        {/* Core Transport Engine (Always Locked Together, High-Contrast Tactical Styling) */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Master PLAY / PAUSE Tactical Pill (Gold/Amber Gradient Accent, Space / K / L) */}
           <button
             type="button"
             onClick={onTogglePlay}
-            className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] shadow-md ${
+            className={`px-4 py-1.5 rounded-full text-xs font-mono font-black flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] shadow-md shrink-0 ${
               isPlaying
-                ? 'bg-gradient-to-r from-[#d4af37] via-[#eab308] to-[#fbbf24] text-black shadow-[0_0_15px_rgba(234,179,8,0.45)]'
-                : 'bg-[#181822] hover:bg-[#20202e] text-white border border-[#272732]'
+                ? 'bg-gradient-to-r from-[#d4af37] via-[#eab308] to-[#fbbf24] text-black shadow-[0_0_18px_rgba(234,179,8,0.5)]'
+                : 'bg-[#181824] hover:bg-[#222232] text-white border border-[#272732]'
             }`}
             title={isPlaying ? "Pause Playback (Space / K)" : "Start Playback (Space / L)"}
           >
@@ -245,28 +234,17 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-current" />
+                <Play className="w-3.5 h-3.5 fill-current text-[#fbbf24]" />
                 <span>PLAY</span>
               </>
             )}
-          </button>
-
-          {/* Step +1F (1/24s = 41.666ms, L) */}
-          <button
-            type="button"
-            onClick={() => onStepFrame(true)}
-            className="px-3 py-1.5 rounded-full bg-[#101018] hover:bg-[#181824] text-zinc-200 border border-[#272732] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
-            title="Step Forward 1 Frame (1/24s, L)"
-          >
-            <SkipForward className="w-3.5 h-3.5 text-[#eab308]" />
-            <span>+1F</span>
           </button>
 
           {/* LOOP Pill */}
           <button
             type="button"
             onClick={onToggleLoop}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] border ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] border shrink-0 ${
               isLooping
                 ? 'bg-[#d4af37]/20 text-[#fbbf24] border-[#d4af37]/60 shadow-[0_0_10px_rgba(234,179,8,0.25)]'
                 : 'bg-[#101018] text-zinc-400 border-[#272732] hover:text-white'
@@ -277,192 +255,124 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             <span>LOOP</span>
           </button>
 
-          {/* Export Range MP4 Option next to main playback controls */}
-          {onOpenExportRange && (
+          {/* ANIMATIC (HERO GLOBAL) vs SOLO SCRUB Segmented Capsule */}
+          <div className="flex items-center bg-[#070709] p-0.5 rounded-full border border-[#272732] text-[11px] font-mono shrink-0 ml-1">
             <button
               type="button"
-              onClick={onOpenExportRange}
-              className="px-3 py-1.5 rounded-full bg-gradient-to-r from-[#d4af37]/25 via-[#eab308]/30 to-[#fbbf24]/25 hover:brightness-110 border border-[#d4af37] text-[#fbbf24] hover:text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] shadow-[0_0_12px_rgba(234,179,8,0.25)]"
-              title="Export Custom Frame Range to MP4 Video (WebCodecs H.264)"
+              onClick={() => onSelectPlaybackMode('sequence')}
+              className={`px-3 py-1 rounded-full transition-colors duration-150 ease-out cursor-pointer font-bold active:scale-[0.98] ${
+                playbackMode === 'sequence'
+                  ? 'bg-[#eab308] text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Hero Global Runner: Auto-advance across slides every 12.0s"
             >
-              <Video className="w-3.5 h-3.5 text-[#eab308]" />
-              <span className="hidden sm:inline">EXPORT</span>
-              <span>RANGE MP4</span>
+              ANIMATIC
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => onSelectPlaybackMode('solo')}
+              className={`px-3 py-1 rounded-full transition-colors duration-150 ease-out cursor-pointer font-bold active:scale-[0.98] ${
+                playbackMode === 'solo'
+                  ? 'bg-[#eab308] text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Solo Advanced Inspector: Lock to isolated 12.0s window with sub-frame scrubbing"
+            >
+              SOLO SCRUB
+            </button>
+          </div>
+        </div>
 
-          {/* Speed Pills: 0.5x, 1.0x, 1.5x, 2.0x (Pitch-Preserved) */}
-          <div className="flex items-center bg-[#070709] p-0.5 rounded-full border border-[#272732]">
+        {/* Right Secondary Utilities (Compact, Non-Wrapping) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Speed Selector Pills */}
+          <div className="hidden sm:flex items-center bg-[#070709] p-0.5 rounded-full border border-[#272732] shrink-0">
             <Gauge className="w-3 h-3 text-zinc-500 ml-2 mr-1" />
             {speedOptions.map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => onChangePlaybackSpeed(s)}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
                   playbackSpeed === s
                     ? 'bg-[#eab308] text-black shadow-sm'
                     : 'text-zinc-400 hover:text-white'
                 }`}
-                title={`Playback Speed ${s}x (Pitch Preserved)`}
+                title={`Playback Speed ${s}x`}
               >
                 {s}x
               </button>
             ))}
           </div>
 
-          {/* Audio Mute / Unmute Pill */}
+          {/* Audio Mute */}
           <button
             type="button"
             onClick={onToggleMute}
-            className={`p-1.5 rounded-full border cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] ${
+            className={`p-1.5 rounded-full border cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] shrink-0 ${
               !isMuted
                 ? 'bg-[#14141e] text-[#fbbf24] border-[#d4af37]/60'
                 : 'bg-[#101018] text-zinc-500 border-[#272732] hover:text-white'
             }`}
-            title={isMuted ? "Unmute Audio (M)" : "Mute Audio (M)"}
+            title={isMuted ? "Unmute Audio" : "Mute Audio"}
           >
             {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#eab308]" />}
           </button>
 
-          {/* Auto-Cut / Snap to Beat Toggle Pill */}
-          {onToggleSnapToBeat && (
-            <button
-              type="button"
-              onClick={onToggleSnapToBeat}
-              className={`px-2.5 py-1.5 rounded-full text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] border ${
-                isSnapToBeat
-                  ? 'bg-[#181824] border-[#d4af37] text-[#fbbf24] shadow-[0_0_12px_rgba(234,179,8,0.35)]'
-                  : 'bg-[#101018] border-[#272732] text-zinc-500 hover:text-zinc-300'
-              }`}
-              title="Auto-Cut / Snap to Beat: Lock slide cuts to nearest kick/snare transients"
-            >
-              <Music className={`w-3.5 h-3.5 ${isSnapToBeat ? 'text-[#eab308]' : 'text-zinc-500'}`} />
-              <span className="hidden sm:inline">SNAP BEAT:</span>
-              <span>{isSnapToBeat ? 'ON' : 'OFF'}</span>
-              {detectedBpm && isSnapToBeat && (
-                <span className="text-[9px] text-[#eab308] font-mono hidden md:inline">({detectedBpm} BPM)</span>
-              )}
-            </button>
-          )}
-
-          {/* Audio Ingestion Pill */}
-          <label
-            className="px-2.5 py-1.5 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#272732] text-zinc-400 hover:text-[#fbbf24] text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
-            title="Ingest Audio Track for Beat Transient Analysis (MP3, WAV, AAC, OGG)"
-          >
-            <Music className="w-3 h-3 text-[#eab308]" />
-            <span className="hidden xl:inline text-zinc-300">TRACK:</span>
-            <span>INGEST</span>
-            <input
-              type="file"
-              accept="audio/*,.mp3,.wav,.aac,.ogg,.flac,.m4a"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0] && onLoadAudioFile) {
-                  onLoadAudioFile(e.target.files[0]);
-                }
-              }}
-            />
-          </label>
-        </div>
-
-        {/* Center: SEQUENCE (ANIMATIC) vs SOLO SCRUB Mode Segmented Capsule */}
-        <div className="flex items-center bg-[#070709] p-0.5 rounded-full border border-[#272732] text-[11px]">
-          <button
-            type="button"
-            onClick={() => onSelectPlaybackMode('sequence')}
-            className={`px-3.5 py-1 rounded-full transition-colors duration-150 ease-out cursor-pointer font-bold active:scale-[0.98] ${
-              playbackMode === 'sequence'
-                ? 'bg-[#eab308] text-black shadow-sm'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-            title="Auto-advance across Slide 001-100 every 12.0s with 0ms pre-buffering"
-          >
-            ANIMATIC
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectPlaybackMode('solo')}
-            className={`px-3.5 py-1 rounded-full transition-colors duration-150 ease-out cursor-pointer font-bold active:scale-[0.98] ${
-              playbackMode === 'solo'
-                ? 'bg-[#eab308] text-black shadow-sm'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-            title="Strictly bound to isolated 12.0s boundary of selected shot"
-          >
-            SOLO SCRUB
-          </button>
-        </div>
-
-        {/* Right: Aspect Ratio, REC/STILL, Purge, Fullscreen */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Aspect Ratio Selector */}
           {onChangeAspectRatio && (
-            <div className="flex items-center bg-[#070709] border border-[#272732] rounded-full px-2 py-0.5">
-              <span className="text-[9.5px] text-zinc-500 mr-1.5 font-bold">ASPECT</span>
+            <div className="hidden md:flex items-center bg-[#070709] border border-[#272732] rounded-full px-2 py-0.5 shrink-0">
+              <span className="text-[9.5px] text-zinc-500 mr-1.5 font-bold font-mono">ASPECT</span>
               <select
                 value={aspectRatio}
                 onChange={(e) => onChangeAspectRatio(e.target.value as AspectRatioType)}
                 className="bg-transparent text-zinc-200 text-[10px] font-mono outline-none cursor-pointer"
               >
-                <option value="2.39:1" className="bg-[#0a0a10] text-white">2.39:1 CINEMA</option>
-                <option value="16:9" className="bg-[#0a0a10] text-white">16:9 WIDE</option>
-                <option value="4:3" className="bg-[#0a0a10] text-white">4:3 ACADEMY</option>
-                <option value="1:1" className="bg-[#0a0a10] text-white">1:1 SQUARE</option>
-                <option value="9:16" className="bg-[#0a0a10] text-white">9:16 VERTICAL</option>
+                <option value="2.39:1" className="bg-[#0a0a10] text-white">2.39:1</option>
+                <option value="16:9" className="bg-[#0a0a10] text-white">16:9</option>
+                <option value="4:3" className="bg-[#0a0a10] text-white">4:3</option>
+                <option value="1:1" className="bg-[#0a0a10] text-white">1:1</option>
+                <option value="9:16" className="bg-[#0a0a10] text-white">9:16</option>
               </select>
             </div>
           )}
 
-          {/* Export Timeline NLE Modal Trigger Pill */}
-          {onOpenExportTimeline && (
-            <button
-              type="button"
-              onClick={onOpenExportTimeline}
-              className="px-3 py-1 rounded-full bg-gradient-to-r from-[#181824] to-[#12121a] hover:bg-[#202030] border border-[#d4af37]/70 text-[#fbbf24] hover:text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] shadow-sm"
-              title="Export Timeline XML (CapCut Desktop, Adobe Premiere Pro & DaVinci Resolve)"
-            >
-              <Film className="w-3.5 h-3.5 text-[#eab308]" />
-              <span className="hidden sm:inline">EXPORT</span>
-              <span>NLE XML</span>
-            </button>
-          )}
-
-          {/* REC / STILL Capture Pill */}
+          {/* Capture Still */}
           {onCaptureStill && (
             <button
               type="button"
               onClick={onCaptureStill}
-              className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#272732] text-zinc-200 hover:text-[#fbbf24] text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+              className="px-2.5 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#272732] text-zinc-200 hover:text-[#fbbf24] text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] shrink-0"
               title="Capture 4K Cinema Slate Still (S)"
             >
-              <Camera className="w-3.5 h-3.5 text-[#eab308]" />
-              <span>REC / STILL</span>
+              <Camera className="w-3 h-3 text-[#eab308]" />
+              <span className="hidden lg:inline">REC STILL</span>
             </button>
           )}
 
-          {/* Instant Purge Media Pill (Shift+Delete) */}
+          {/* Purge Media */}
           {onPurgeMedia && hasMedia && (
             <button
               type="button"
               onClick={onPurgeMedia}
-              className="px-2.5 py-1 rounded-full bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 text-[10.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+              className="px-2.5 py-1 rounded-full bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] shrink-0"
               title="Purge clip media instantly (Shift+Delete)"
             >
-              <Trash2 className="w-3 h-3 text-rose-400" />
-              <span className="hidden sm:inline">PURGE</span>
+              <Trash2 className="w-3 h-3" />
+              <span className="hidden lg:inline">PURGE</span>
             </button>
           )}
 
-          {/* Fullscreen Pill */}
+          {/* Fullscreen Toggle */}
           {onToggleFullscreen && (
             <button
               type="button"
               onClick={onToggleFullscreen}
-              className="p-1.5 rounded-full bg-[#101018] hover:bg-[#181824] text-zinc-400 hover:text-white border border-[#272732] cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98]"
+              className="p-1.5 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#272732] text-zinc-400 hover:text-white transition-colors cursor-pointer shrink-0"
               title="Toggle Fullscreen (F)"
             >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-[#eab308]" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>

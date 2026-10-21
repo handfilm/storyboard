@@ -19,7 +19,7 @@ import { TimelineSequencer } from './sequencer/TimelineSequencer';
 import { BoardStudio } from '../features/board/BoardStudio';
 import { CutStudio } from '../features/cut/CutStudio';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
-import { ChevronLeft, ChevronRight, Home, Film, SlidersHorizontal, Layers, Play, SplitSquareVertical, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home, Film, SlidersHorizontal, Layers, Play, SplitSquareVertical, Sparkles, Sliders, Maximize2 } from 'lucide-react';
 import { MediaStudio } from '../features/media/MediaStudio';
 import { StoryNotebook } from '../features/story/StoryNotebook';
 import { TextStudio } from '../features/text/TextStudio';
@@ -160,7 +160,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   isAudioMuted = false,
   onToggleMute
 }) => {
-  // Local dual-panel view selection if not externally controlled
+  // Local dual-panel view selection if not externally controlled (TACTILE STAGE is the default primary stage)
   const [localDualPanel, setLocalDualPanel] = useState<'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT'>(activeDualPanel || 'TACTILE_STAGE');
   const currentPanel = onChangeDualPanel ? (activeDualPanel || 'TACTILE_STAGE') : localDualPanel;
 
@@ -333,82 +333,68 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   // 5. Default Hero STAGE Mode with Dual-Panel Workflow
   return (
     <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
-      {/* Top Dual-Panel Navigation Header (Hollywood Director Chassis) */}
+      {/* Consolidated Master Navigation Header */}
       <div className="h-9 bg-[#0c0c10] border-b border-[#272732] px-4 flex items-center justify-between z-20 select-none shrink-0">
-        <div className="flex items-center gap-3">
-          {/* Dual Panel Switcher: [TACTILE STAGE] | [DUAL STUDIO SPLIT] | [OPTICAL MONITOR] | [12.0S SEQUENCER] */}
-          <div className="flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] text-[10.5px]">
+        <div className="flex items-center gap-2">
+          {/* Panel Switcher Tabs */}
+          <div className="flex items-center gap-1 bg-[#0a0a10] border border-[#272732] rounded-full p-0.5">
             <button
               type="button"
               onClick={() => handleSelectPanel('TACTILE_STAGE')}
-              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
+              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
                 currentPanel === 'TACTILE_STAGE'
-                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
+                  ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
-              title="Consolidated Tactical Stage: Glowing Bloom Viewport + 100-Shot Sequence Runner"
+              title="Tactile Cinema Viewport with 100-Shot Sequence Runner"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Film className="w-3 h-3 text-[#eab308]" />
               <span>TACTILE STAGE</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleSelectPanel('SPLIT')}
-              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
+              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
                 currentPanel === 'SPLIT'
-                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
+                  ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
-              title="Dual-Panel Workflow: 2.39:1 Cinema Optical Monitor on top, 12.0s Sequencer below"
+              title="Dual Split Viewport & Timeline Sequencer"
             >
-              <SplitSquareVertical className="w-3.5 h-3.5" />
-              <span>DUAL STUDIO (SPLIT)</span>
+              <Sliders className="w-3 h-3 text-[#38bdf8]" />
+              <span>DUAL SPLIT</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleSelectPanel('OPTICAL')}
-              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
+              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
                 currentPanel === 'OPTICAL'
-                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
+                  ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
-              title="Optical Monitor: 2.39:1 Cinema canvas with permanent high-contrast transport controls"
+              title="Advanced Optical Monitor & JKL Transport"
             >
-              <Film className="w-3.5 h-3.5" />
+              <Maximize2 className="w-3 h-3 text-emerald-400" />
               <span>OPTICAL MONITOR</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectPanel('SEQUENCER')}
-              className={`px-3 py-0.5 rounded-full font-bold transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-                currentPanel === 'SEQUENCER'
-                  ? 'bg-[#eab308] text-black shadow-[0_0_12px_rgba(234,179,8,0.4)]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="12.0s Sequencer: Card order, scene labels, text cues, and asset bindings"
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>12.0S SEQUENCER</span>
             </button>
           </div>
 
-          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-700 hidden sm:inline">|</span>
 
-          {/* Mode Tag Indicator Pill */}
-          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px]">
-            <span className="text-zinc-500">MODE:</span>
-            <span className={`font-bold ${playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#fbbf24]'}`}>
-              {playbackMode === 'sequence' ? 'ANIMATIC 12.0s' : 'SOLO SCRUB 12.0s'}
+          {/* Mode Tag Indicator Pill: HERO GLOBAL vs SOLO INSPECTOR */}
+          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] font-mono">
+            <span className="text-zinc-500 uppercase">ENGINE:</span>
+            <span className={`font-bold uppercase tracking-wider ${playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#fbbf24]'}`}>
+              {playbackMode === 'sequence' ? 'HERO GLOBAL RUNNER' : 'SOLO INSPECTOR'}
             </span>
           </div>
         </div>
 
         {/* Right Timing Spec Pill */}
-        <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400">
-          <span className="text-[#fbbf24] font-bold">12.000s ALLOCATION</span>
+        <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400 font-mono">
+          <span className="text-[#fbbf24] font-bold">12.000s DURATION</span>
           <span className="text-zinc-600">•</span>
           <span className="text-zinc-300">288 FRAMES @ 24FPS</span>
         </div>

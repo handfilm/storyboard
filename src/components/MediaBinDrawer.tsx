@@ -41,6 +41,11 @@ import {
 } from 'lucide-react';
 import { studioDraftDb } from '../services/db';
 import { storyboardSyncService } from '../services/storyboardSyncService';
+import { 
+  generate240pWebPVideoThumbnail, 
+  autoBackfillMissingThumbnails,
+  storeVideoThumbnailInDb 
+} from '../services/videoThumbnailService';
 import { MediaMetaRecord } from '../types/project';
 import { useStudioStore } from '../core/store';
 import { eventBus } from '../core/eventBus';
@@ -127,12 +132,29 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
   useEffect(() => {
     refreshAssets();
 
-    const unsub = eventBus.on('asset_assigned_to_shot', () => {
+    // Automated process: backfill 240p WebP thumbnails into 'media_thumbnails' for existing videos
+    autoBackfillMissingThumbnails().then(({ generated }) => {
+      if (generated > 0) {
+        refreshAssets();
+      }
+    });
+
+    const unsubAssign = eventBus.on('asset_assigned_to_shot', () => {
+      refreshAssets();
+    });
+
+    const unsubThumbs = eventBus.on('thumbnails_updated', () => {
+      refreshAssets();
+    });
+
+    const unsubIngest = eventBus.on('media_asset_ingested', () => {
       refreshAssets();
     });
 
     return () => {
-      unsub();
+      unsubAssign();
+      unsubThumbs();
+      unsubIngest();
       isCancelledRef.current = true;
     };
   }, []);
@@ -147,85 +169,16 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
   const extractVideoThumbnail = async (
     file: File
   ): Promise<{ thumbBlob: Blob; width: number; height: number; duration: number }> => {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.muted = true;
-      video.playsInline = true;
-
-      const tempUrl = URL.createObjectURL(file);
-      video.src = tempUrl;
-
-      const cleanUp = () => {
-        try {
-          URL.revokeObjectURL(tempUrl);
-        } catch {}
-        video.src = '';
-      };
-
-      const timeoutId = setTimeout(() => {
-        cleanUp();
-        // Fallback placeholder blob
-        const fallback = new Blob([''], { type: 'image/webp' });
-        resolve({ thumbBlob: fallback, width: 1920, height: 1080, duration: 12.0 });
-      }, 8000);
-
-      video.onloadedmetadata = () => {
-        const dur = video.duration || 12.0;
-        const targetTime = Math.min(0.5, Math.max(0, dur / 2));
-        video.currentTime = targetTime;
-      };
-
-      video.onseeked = async () => {
-        clearTimeout(timeoutId);
-        try {
-          const vw = video.videoWidth || 1920;
-          const vh = video.videoHeight || 1080;
-          const targetW = 240;
-          const targetH = Math.round(targetW * (vh / vw)) || 135;
-
-          let thumbBlob: Blob;
-          if (typeof OffscreenCanvas !== 'undefined') {
-            const offscreen = new OffscreenCanvas(targetW, targetH);
-            const ctx = offscreen.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, targetW, targetH);
-            }
-            thumbBlob = await offscreen.convertToBlob({ type: 'image/webp', quality: 0.8 });
-          } else {
-            const canvas = document.createElement('canvas');
-            canvas.width = targetW;
-            canvas.height = targetH;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, targetW, targetH);
-            }
-            thumbBlob = await new Promise<Blob>((res) =>
-              canvas.toBlob((b) => res(b || new Blob()), 'image/webp', 0.8)
-            );
-          }
-
-          cleanUp();
-          resolve({
-            thumbBlob,
-            width: vw,
-            height: vh,
-            duration: video.duration || 12.0
-          });
-        } catch (e) {
-          cleanUp();
-          reject(e);
-        }
-      };
-
-      video.onerror = () => {
-        clearTimeout(timeoutId);
-        cleanUp();
-        const fallback = new Blob([''], { type: 'image/webp' });
-        resolve({ thumbBlob: fallback, width: 1920, height: 1080, duration: 12.0 });
-      };
-    });
+    return generate240pWebPVideoThumbnail(file, 0.5);
   };
+
+
+
+
+
+
+
+
 
   /**
    * Generates a 240p thumbnail for an image file
@@ -581,6 +534,20 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
             >
               <FolderPlus className="w-3 h-3 text-cyan-400" />
               <span>FOLDER</span>
+            </button>
+
+            {/* Auto-generate 240p WebP Thumbnails Button */}
+            <button
+              type="button"
+              onClick={async () => {
+                await autoBackfillMissingThumbnails();
+                refreshAssets();
+              }}
+              className="px-2 py-1 bg-white/5 hover:bg-amber-500/20 border border-[#272732] hover:border-amber-500/40 text-zinc-300 hover:text-amber-300 rounded-[1px] text-[9.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Automated process: generate 240p WebP thumbnails for videos using OffscreenCanvas and commit to media_thumbnails"
+            >
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>AUTO 240P</span>
             </button>
           </div>
         </div>

@@ -24,6 +24,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   frames,
   currentIndex = 0,
   projectTitle = 'RAWx Storyboard Studio',
+  directorName,
+  aspectRatio,
 }) => {
   return (
     <CutNativeExportModal
@@ -33,6 +35,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       currentSlideIndex={currentIndex}
       totalSlides={frames.length}
       projectTitle={projectTitle}
+      directorName={directorName}
+      aspectRatio={aspectRatio}
+      initialTab="mp4"
     />
   );
 };

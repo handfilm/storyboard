@@ -18,7 +18,6 @@ import React, { useState } from 'react';
 import { WorkspaceMode } from '../core/theme';
 import { SaveState } from '../core/storage';
 import { exportFullIdbBackup } from '../utils/backup';
-import { CutNativeExportModal } from './CutNativeExportModal';
 import {
   Film,
   Home,
@@ -74,6 +73,7 @@ export interface TopBarProps {
   onOpenR2Automation?: () => void;
   onOpenExportTimeline?: () => void;
   onOpenExportRange?: () => void;
+  onOpenExportStudio?: (tab?: 'mp4' | 'premiere' | 'fcpxml' | 'pdf' | 'backup') => void;
   onOpenWalkthrough?: () => void;
   onOpenVideoScopes?: () => void;
   onOpenAiStudio?: () => void;
@@ -100,6 +100,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenR2Automation,
   onOpenExportTimeline,
   onOpenExportRange,
+  onOpenExportStudio,
   onOpenWalkthrough,
   onOpenVideoScopes,
   onOpenAiStudio,
@@ -110,7 +111,6 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isEcosystemMenuOpen, setIsEcosystemMenuOpen] = useState(false);
-  const [isNativeExportOpen, setIsNativeExportOpen] = useState(false);
 
   const handleNavHome = () => {
     if (onSelectView) onSelectView('HOME');
@@ -269,7 +269,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (onOpenExportTimeline) onOpenExportTimeline();
+                    if (onOpenExportStudio) onOpenExportStudio('premiere');
+                    else if (onOpenExportTimeline) onOpenExportTimeline();
                     setIsExportMenuOpen(false);
                   }}
                   className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
@@ -285,7 +286,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (onOpenExportTimeline) onOpenExportTimeline();
+                    if (onOpenExportStudio) onOpenExportStudio('fcpxml');
+                    else if (onOpenExportTimeline) onOpenExportTimeline();
                     setIsExportMenuOpen(false);
                   }}
                   className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
@@ -301,11 +303,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (onOpenExportRange) {
-                      onOpenExportRange();
-                    } else {
-                      setIsNativeExportOpen(true);
-                    }
+                    if (onOpenExportStudio) onOpenExportStudio('mp4');
+                    else if (onOpenExportRange) onOpenExportRange();
                     setIsExportMenuOpen(false);
                   }}
                   className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-emerald-950/40 border border-emerald-500/20 text-emerald-200 hover:text-emerald-300 flex items-center justify-between cursor-pointer transition-colors"
@@ -321,7 +320,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    handleExportContactSheet();
+                    if (onOpenExportStudio) onOpenExportStudio('pdf');
+                    else handleExportContactSheet();
                     setIsExportMenuOpen(false);
                   }}
                   className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
@@ -337,7 +337,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    exportFullIdbBackup();
+                    if (onOpenExportStudio) onOpenExportStudio('backup');
+                    else exportFullIdbBackup();
                     setIsExportMenuOpen(false);
                   }}
                   className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors border-t border-[#272732] mt-1 pt-2"
@@ -546,13 +547,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Client-Side Native WebCodecs MP4 Master Exporter */}
-      <CutNativeExportModal
-        isOpen={isNativeExportOpen}
-        onClose={() => setIsNativeExportOpen(false)}
-        projectTitle={projectTitle}
-      />
     </header>
   );
 };

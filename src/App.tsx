@@ -26,8 +26,7 @@ import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
 import { OpticalMonitorModal } from './components/OpticalMonitorModal';
 import { StudioDrawer } from './components/StudioDrawer';
 import { R2AutomationModal } from './components/R2AutomationModal';
-import { ExportTimelineModal } from './components/ExportTimelineModal';
-import { ExportModal } from './components/modals/ExportModal';
+import { CutNativeExportModal, ExportModalTab } from './components/CutNativeExportModal';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
@@ -107,8 +106,14 @@ export default function App() {
   const [isAnimaticOpen, setIsAnimaticOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isR2AutomationOpen, setIsR2AutomationOpen] = useState(false);
-  const [isExportTimelineOpen, setIsExportTimelineOpen] = useState(false);
-  const [isExportRangeOpen, setIsExportRangeOpen] = useState(false);
+  const [isExportStudioOpen, setIsExportStudioOpen] = useState(false);
+  const [exportStudioTab, setExportStudioTab] = useState<ExportModalTab>('mp4');
+
+  const handleOpenExportStudio = useCallback((tab: ExportModalTab = 'mp4') => {
+    setExportStudioTab(tab);
+    setIsExportStudioOpen(true);
+  }, []);
+
   const [isCinemaPlayerOpen, setIsCinemaPlayerOpen] = useState(false);
   const [isSnapToBeat, setIsSnapToBeat] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState(120);
@@ -1045,7 +1050,7 @@ export default function App() {
         case 'E':
           e.preventDefault();
           if (e.shiftKey) {
-            setIsExportRangeOpen(prev => !prev);
+            handleOpenExportStudio('mp4');
           } else {
             setIsInspectorOpen(o => !o);
           }
@@ -1059,8 +1064,7 @@ export default function App() {
           setIsLiquifyOpen(false);
           setIsComponentsOpen(false);
           setIsThemeSettingsOpen(false);
-          setIsExportTimelineOpen(false);
-          setIsExportRangeOpen(false);
+          setIsExportStudioOpen(false);
           if (workspaceMode !== 'STAGE') setWorkspaceMode('STAGE');
           break;
       }
@@ -1068,7 +1072,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextFrame, prevFrame, handleStepFrame, isPlaying, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia]);
+  }, [nextFrame, prevFrame, handleStepFrame, isPlaying, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -1126,8 +1130,8 @@ export default function App() {
       case 'view.toggleGuides': setShowGuides(g => !g); break;
       case 'view.componentMatrix': setIsComponentsOpen(true); break;
       case 'export.captureStill': handleCaptureStill(); break;
-      case 'export.mp4': setIsExportRangeOpen(true); break;
-      case 'export.nle': setIsExportTimelineOpen(true); break;
+      case 'export.mp4': handleOpenExportStudio('mp4'); break;
+      case 'export.nle': handleOpenExportStudio('premiere'); break;
       case 'system.selfTest': setIsSelfTestOpen(true); break;
       case 'system.shortcuts': setIsShortcutsOpen(true); break;
       case 'system.exportBackup': exportFullIdbBackup(); break;
@@ -1235,8 +1239,9 @@ export default function App() {
         canUndo={historyStack.length > 0}
         canRedo={redoStack.length > 0}
         onOpenR2Automation={() => setIsR2AutomationOpen(true)}
-        onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
-        onOpenExportRange={() => setIsExportRangeOpen(true)}
+        onOpenExportStudio={handleOpenExportStudio}
+        onOpenExportTimeline={() => handleOpenExportStudio('premiere')}
+        onOpenExportRange={() => handleOpenExportStudio('mp4')}
         onOpenWalkthrough={() => setShowWalkthrough(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
@@ -1266,8 +1271,8 @@ export default function App() {
             setCurrentView('STUDIO');
             setWorkspaceMode('STAGE');
           }}
-          onOpenExportXml={() => setIsExportTimelineOpen(true)}
-          onOpenExportRange={() => setIsExportRangeOpen(true)}
+          onOpenExportXml={() => handleOpenExportStudio('premiere')}
+          onOpenExportRange={() => handleOpenExportStudio('mp4')}
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
         />
       ) : (
@@ -1468,8 +1473,8 @@ export default function App() {
             setCurrentIndex(prev => Math.min(nextFrames.length - 1, prev));
           }}
           projectTitle={project.title}
-          onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
-          onOpenExportRange={() => setIsExportRangeOpen(true)}
+          onOpenExportTimeline={() => handleOpenExportStudio('premiere')}
+          onOpenExportRange={() => handleOpenExportStudio('mp4')}
           isSnapToBeat={isSnapToBeat}
           onToggleSnapToBeat={handleToggleSnapToBeat}
           onLoadAudioFile={handleLoadAudioFile}
@@ -1636,22 +1641,17 @@ export default function App() {
         project={project}
       />
 
-      {/* Professional NLE Timeline Export Suite (CapCut/Premiere XML & FCPXML) */}
-      <ExportTimelineModal
-        project={project}
-        isOpen={isExportTimelineOpen}
-        onClose={() => setIsExportTimelineOpen(false)}
-      />
-
-      {/* 100% Client-Side Frame-Range MP4 Video Exporter */}
-      <ExportModal
-        isOpen={isExportRangeOpen}
-        onClose={() => setIsExportRangeOpen(false)}
+      {/* Unified Master Cinema Export Studio (MP4, Premiere XML, CapCut/DaVinci FCPXML, PDF, RAWX) */}
+      <CutNativeExportModal
+        isOpen={isExportStudioOpen}
+        onClose={() => setIsExportStudioOpen(false)}
         frames={project.frames}
-        currentIndex={currentIndex}
+        currentSlideIndex={currentIndex}
+        totalSlides={project.frames.length}
         projectTitle={project.title}
         directorName={project.director}
         aspectRatio={aspectRatio}
+        initialTab={exportStudioTab}
       />
 
       {/* Standalone Optical Monitor Cinema Lightbox Modal */}

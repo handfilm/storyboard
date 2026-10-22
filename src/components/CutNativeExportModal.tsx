@@ -176,7 +176,11 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   // 8. Refs
   const abortControllerRef = useRef<AbortController | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dedicatedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const shotStripScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // 9. Interactive Shot Preview Selection (for dedicated canvas monitor)
+  const [previewShotIdx, setPreviewShotIdx] = useState<number>(currentSlideIndex || 0);
 
   // Synchronize Tab when initialTab changes
   useEffect(() => {
@@ -192,6 +196,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       setIsFinished(false);
       setExportError(null);
       setExcludedIndices([]);
+      setPreviewShotIdx(currentSlideIndex || 0);
       const start = Math.max(1, currentSlideIndex + 1);
       const end = Math.min(totalCount, start + 11);
       setRangeStart(start);
@@ -284,40 +289,241 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     });
   }, [candidateSelection.indices.length]);
 
-  // Blit rendered frame from offline canvas to live thumbnail monitor
+  // Blit rendered frame from offline canvas to dedicated preview canvas and live thumbnail monitor
   const handleFrameRendered = useCallback((sourceCanvas: HTMLCanvasElement) => {
-    const destCanvas = previewCanvasRef.current;
-    if (!destCanvas) return;
-    const destCtx = destCanvas.getContext('2d');
-    if (!destCtx) return;
+    const targets = [dedicatedCanvasRef.current, previewCanvasRef.current].filter(Boolean) as HTMLCanvasElement[];
+    if (targets.length === 0) return;
 
-    if (destCanvas.width !== 320 || destCanvas.height !== 180) {
-      destCanvas.width = 320;
-      destCanvas.height = 180;
+    for (const destCanvas of targets) {
+      const destCtx = destCanvas.getContext('2d');
+      if (!destCtx) continue;
+
+      const targetW = destCanvas.width || 640;
+      const targetH = destCanvas.height || 360;
+
+      destCtx.fillStyle = '#06070B';
+      destCtx.fillRect(0, 0, targetW, targetH);
+
+      const sRatio = sourceCanvas.width / sourceCanvas.height;
+      const dRatio = targetW / targetH;
+      let dW = targetW;
+      let dH = targetH;
+      let dX = 0;
+      let dY = 0;
+
+      if (sRatio > dRatio) {
+        dH = Math.round(targetW / sRatio);
+        dY = Math.round((targetH - dH) / 2);
+      } else {
+        dW = Math.round(targetH * sRatio);
+        dX = Math.round((targetW - dW) / 2);
+      }
+
+      try {
+        destCtx.drawImage(sourceCanvas, dX, dY, dW, dH);
+      } catch {}
     }
-
-    destCtx.fillStyle = '#06070B';
-    destCtx.fillRect(0, 0, 320, 180);
-
-    const sRatio = sourceCanvas.width / sourceCanvas.height;
-    const dRatio = 320 / 180;
-    let dW = 320;
-    let dH = 180;
-    let dX = 0;
-    let dY = 0;
-
-    if (sRatio > dRatio) {
-      dH = Math.round(320 / sRatio);
-      dY = Math.round((180 - dH) / 2);
-    } else {
-      dW = Math.round(180 * sRatio);
-      dX = Math.round((320 - dW) / 2);
-    }
-
-    try {
-      destCtx.drawImage(sourceCanvas, dX, dY, dW, dH);
-    } catch {}
   }, []);
+
+  // Idle Frame Preview Effect: Renders scaled-down frame preview of current shot selection before rendering
+  useEffect(() => {
+    if (!isOpen || isExporting) return;
+    const canvas = dedicatedCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width || 640;
+    const h = canvas.height || 360;
+
+    // Reset background
+    ctx.fillStyle = '#06070B';
+    ctx.fillRect(0, 0, w, h);
+
+    const validShotIdx = activeSelection.indices.includes(previewShotIdx)
+      ? previewShotIdx
+      : (activeSelection.indices[0] ?? currentSlideIndex ?? 0);
+
+    const slide = slides[validShotIdx];
+    const frame = frames[validShotIdx];
+    const shotNum = validShotIdx + 1;
+    const titleEn = slide?.titleEn || frame?.title || `SHOT ${String(shotNum).padStart(3, '0')}`;
+    const titleBn = slide?.titleBn || frame?.bengaliTitle || 'আলোর স্মৃতি';
+    const thumbUrl = slide?.remoteUrl || frame?.imageUrl || '';
+
+    let isCancelled = false;
+
+    const drawCompositingOverlay = () => {
+      if (isCancelled) return;
+
+      // Aspect Ratio Masking preview (Scope 2.39:1 letterbox or Vertical 9:16 pillarbox)
+      if (resolutionPreset === '4k_scope' || resolutionPreset === '1080p_scope') {
+        const scopeH = Math.round(w / 2.39);
+        const barH = Math.max(0, Math.round((h - scopeH) / 2));
+        if (barH > 0) {
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, w, barH);
+          ctx.fillRect(0, h - barH, w, barH);
+          ctx.fillStyle = 'rgba(245, 166, 35, 0.45)';
+          ctx.fillRect(0, barH - 1, w, 1);
+          ctx.fillRect(0, h - barH, w, 1);
+        }
+      } else if (resolutionPreset === '9_16_vertical') {
+        const vertW = Math.round(h * (9 / 16));
+        const barW = Math.max(0, Math.round((w - vertW) / 2));
+        if (barW > 0) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+          ctx.fillRect(0, 0, barW, h);
+          ctx.fillRect(w - barW, 0, barW, h);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+          ctx.fillRect(barW - 1, 0, 1, h);
+          ctx.fillRect(w - barW, 0, 1, h);
+        }
+      }
+
+      // Cinematic Vignette
+      const grad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.78);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.65)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Optical Flare Streak
+      if (simulateFlare) {
+        const flareY = h * 0.48;
+        const flareGrad = ctx.createLinearGradient(0, flareY - 12, 0, flareY + 12);
+        flareGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+        flareGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
+        flareGrad.addColorStop(1, 'rgba(245, 166, 35, 0)');
+        ctx.fillStyle = flareGrad;
+        ctx.fillRect(0, flareY - 12, w, 24);
+      }
+
+      // Title Burn-in preview
+      if (burnInTitles) {
+        const scrimH = Math.round(h * 0.35);
+        const scrim = ctx.createLinearGradient(0, h - scrimH, 0, h);
+        scrim.addColorStop(0, 'rgba(0,0,0,0)');
+        scrim.addColorStop(0.5, 'rgba(0,0,0,0.6)');
+        scrim.addColorStop(1, 'rgba(0,0,0,0.95)');
+        ctx.fillStyle = scrim;
+        ctx.fillRect(0, h - scrimH, w, scrimH);
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#F5A623';
+        ctx.shadowColor = '#F5A623';
+        ctx.shadowBlur = 8;
+        ctx.font = 'bold 15px "Noto Sans Bengali", sans-serif';
+        ctx.fillText(titleBn, w / 2, h - 34);
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 11px system-ui, sans-serif';
+        ctx.fillText(titleEn.toUpperCase(), w / 2, h - 16);
+        ctx.restore();
+      }
+
+      // Corner Crosshairs & Framing Reticles
+      ctx.strokeStyle = 'rgba(245, 166, 35, 0.6)';
+      ctx.lineWidth = 1.5;
+      const bracketLen = 14;
+      const pad = 12;
+
+      // Top-Left
+      ctx.beginPath();
+      ctx.moveTo(pad, pad + bracketLen);
+      ctx.lineTo(pad, pad);
+      ctx.lineTo(pad + bracketLen, pad);
+      ctx.stroke();
+
+      // Top-Right
+      ctx.beginPath();
+      ctx.moveTo(w - pad - bracketLen, pad);
+      ctx.lineTo(w - pad, pad);
+      ctx.lineTo(w - pad, pad + bracketLen);
+      ctx.stroke();
+
+      // Bottom-Left
+      ctx.beginPath();
+      ctx.moveTo(pad, h - pad - bracketLen);
+      ctx.lineTo(pad, h - pad);
+      ctx.lineTo(pad + bracketLen, h - pad);
+      ctx.stroke();
+
+      // Bottom-Right
+      ctx.beginPath();
+      ctx.moveTo(w - pad - bracketLen, h - pad);
+      ctx.lineTo(w - pad, h - pad);
+      ctx.lineTo(w - pad, h - pad - bracketLen);
+      ctx.stroke();
+
+      // Center crosshair
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(w / 2 - 8, h / 2);
+      ctx.lineTo(w / 2 + 8, h / 2);
+      ctx.moveTo(w / 2, h / 2 - 8);
+      ctx.lineTo(w / 2, h / 2 + 8);
+      ctx.stroke();
+    };
+
+    if (thumbUrl) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = thumbUrl;
+      img.onload = () => {
+        if (isCancelled || !dedicatedCanvasRef.current) return;
+        const iRatio = img.width / img.height;
+        const dRatio = w / h;
+        let dW = w;
+        let dH = h;
+        let dX = 0;
+        let dY = 0;
+
+        if (iRatio > dRatio) {
+          dH = Math.round(w / iRatio);
+          dY = Math.round((h - dH) / 2);
+        } else {
+          dW = Math.round(h * iRatio);
+          dX = Math.round((w - dW) / 2);
+        }
+
+        ctx.drawImage(img, dX, dY, dW, dH);
+        drawCompositingOverlay();
+      };
+      img.onerror = () => {
+        if (!isCancelled) drawCompositingOverlay();
+      };
+    } else {
+      // Clean plate background
+      ctx.fillStyle = '#0e0f17';
+      ctx.fillRect(16, 16, w - 32, h - 32);
+      ctx.fillStyle = '#64748b';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText(`[ PLATE: ${titleEn} ]`, w / 2, h / 2 - 4);
+      ctx.font = '10px monospace';
+      ctx.fillText(`SHOT SH${String(shotNum).padStart(3, '0')} • 24.0 FPS RAW MASTER`, w / 2, h / 2 + 14);
+      drawCompositingOverlay();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    isOpen,
+    isExporting,
+    previewShotIdx,
+    activeSelection.indices,
+    currentSlideIndex,
+    slides,
+    frames,
+    resolutionPreset,
+    burnInTitles,
+    simulateFlare
+  ]);
 
   // Launch Master MP4 Render Pipeline
   const handleStartMp4Export = useCallback(async () => {
@@ -871,6 +1077,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               >
                 {candidateSelection.indices.map((shotIdx) => {
                   const isExcluded = excludedIndices.includes(shotIdx);
+                  const isPreviewing = previewShotIdx === shotIdx;
                   const slide = slides[shotIdx];
                   const frame = frames[shotIdx];
                   const shotNumber = shotIdx + 1;
@@ -881,11 +1088,15 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   return (
                     <div
                       key={shotIdx}
-                      className={`relative shrink-0 w-32 rounded-lg border overflow-hidden transition-all group ${
+                      onClick={() => !isExporting && setPreviewShotIdx(shotIdx)}
+                      className={`relative shrink-0 w-32 rounded-lg border overflow-hidden transition-all group cursor-pointer ${
                         isExcluded
                           ? 'bg-[#120a0d] border-rose-900/60 opacity-50'
-                          : 'bg-[#12131c] border-[#292b3e] hover:border-[#F5A623]'
+                          : isPreviewing
+                            ? 'bg-[#191812] border-[#F5A623] shadow-[0_0_12px_rgba(245,166,35,0.35)] ring-1 ring-[#F5A623]'
+                            : 'bg-[#12131c] border-[#292b3e] hover:border-[#F5A623]/70'
                       }`}
+                      title={isExcluded ? 'Shot excluded from render' : 'Click to preview shot in monitor'}
                     >
                       <div className="relative aspect-video w-full bg-black overflow-hidden">
                         {thumb ? (
@@ -905,6 +1116,12 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                           {shotLabel}
                         </div>
 
+                        {isPreviewing && !isExcluded && (
+                          <div className="absolute bottom-1 left-1 px-1 py-0.2 rounded bg-[#F5A623] text-black text-[7.5px] font-extrabold shadow">
+                            PREVIEW
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           disabled={isExporting}
@@ -912,7 +1129,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                             e.stopPropagation();
                             handleToggleExcludeShot(shotIdx);
                           }}
-                          className={`absolute top-1 right-1 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer ${
+                          className={`absolute top-1 right-1 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer z-10 ${
                             isExcluded
                               ? 'bg-rose-600 text-white'
                               : 'bg-black/70 hover:bg-rose-600 text-zinc-300 hover:text-white'
@@ -929,13 +1146,13 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                       </div>
 
                       <div className="p-1.5 space-y-0.5">
-                        <div className="text-[9px] font-bold text-zinc-200 truncate" title={title}>
+                        <div className={`text-[9px] font-bold truncate ${isPreviewing && !isExcluded ? 'text-[#F5A623]' : 'text-zinc-200'}`} title={title}>
                           {title}
                         </div>
                         <div className="flex items-center justify-between text-[7.5px] text-zinc-400 font-mono">
                           <span>12.0s • 288F</span>
-                          <span className={isExcluded ? 'text-rose-400' : 'text-[#F5A623]'}>
-                            {isExcluded ? 'SKIP' : 'ACTIVE'}
+                          <span className={isExcluded ? 'text-rose-400' : isPreviewing ? 'text-[#F5A623] font-bold' : 'text-zinc-400'}>
+                            {isExcluded ? 'SKIP' : isPreviewing ? 'MONITOR' : 'ACTIVE'}
                           </span>
                         </div>
                       </div>
@@ -953,6 +1170,123 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
           {/* TAB 1: MP4 VIDEO RENDER ENGINE */}
           {activeTab === 'mp4' && (
             <div className="space-y-4 animate-in fade-in duration-150">
+
+              {/* DEDICATED CINEMA FRAME PREVIEW & RENDER MONITOR */}
+              <div className="p-4 rounded-xl bg-[#08090e] border border-[#F5A623]/35 shadow-xl space-y-3 relative">
+                {/* Monitor Top Control / Status Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1f2130] pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded bg-[#F5A623]/15 text-[#F5A623] border border-[#F5A623]/30">
+                      <Film className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-white tracking-wider uppercase flex items-center gap-2">
+                        <span>{isExporting ? 'LIVE RENDER ENCODER FEED' : 'DEDICATED FRAME PREVIEW MONITOR'}</span>
+                        {isExporting ? (
+                          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-amber-500/20 text-[#F5A623] border border-amber-500/40 animate-pulse flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                            REC • 24 FPS
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            STANDBY PREVIEW
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[9.5px] text-zinc-400 font-sans">
+                        {isExporting 
+                          ? `Blitting WebCodecs hardware accelerated render stream (Shot ${telemetry.currentShotIndex}/${telemetry.totalShots})` 
+                          : `Visualizing Shot SH${String((previewShotIdx || 0) + 1).padStart(3, '0')} frame with optical composite overlays`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Shot Selection Dropdown (When Idle) */}
+                  {!isExporting && activeSelection.indices.length > 0 && (
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="text-[10px] text-zinc-400">Preview Shot:</span>
+                      <select
+                        value={previewShotIdx}
+                        onChange={(e) => setPreviewShotIdx(Number(e.target.value))}
+                        className="bg-[#12131e] border border-[#2d2f44] text-[#F5A623] text-xs font-bold rounded px-2.5 py-1 outline-none cursor-pointer focus:border-[#F5A623]"
+                      >
+                        {activeSelection.indices.map((idx) => {
+                          const num = idx + 1;
+                          const slide = slides[idx];
+                          const frame = frames[idx];
+                          const title = slide?.titleEn || frame?.title || `Shot ${num}`;
+                          return (
+                            <option key={idx} value={idx}>
+                              SH{String(num).padStart(3, '0')}: {title.slice(0, 24)}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Render Telemetry Badge (When Exporting) */}
+                  {isExporting && (
+                    <div className="text-[10.5px] font-mono text-[#F5A623] bg-black/60 px-2.5 py-1 rounded border border-[#F5A623]/30">
+                      FRAME {telemetry.currentFrameNum.toLocaleString()} / {telemetry.totalFrames.toLocaleString()} ({telemetry.percent}%)
+                    </div>
+                  )}
+                </div>
+
+                {/* Dedicated Cinema Canvas Monitor Viewport */}
+                <div className="relative w-full bg-[#030406] rounded-lg overflow-hidden border border-[#232536] flex items-center justify-center shadow-2xl p-1">
+                  {/* Dedicated Canvas Element */}
+                  <canvas
+                    ref={dedicatedCanvasRef}
+                    width={640}
+                    height={360}
+                    className="w-full max-w-2xl h-auto aspect-video object-contain mx-auto block rounded shadow"
+                  />
+
+                  {/* Tactical Watermark HUD Badges on Canvas */}
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 pointer-events-none">
+                    <div className="px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs border border-white/10 text-[8.5px] font-mono text-zinc-300">
+                      {dimensionInfo.name}
+                    </div>
+                    {isExporting ? (
+                      <div className="px-1.5 py-0.5 rounded bg-amber-500/30 border border-amber-500/50 text-[8.5px] font-mono font-bold text-[#F5A623] flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                        {telemetry.fps.toFixed(1)} FPS
+                      </div>
+                    ) : (
+                      <div className="px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs border border-white/10 text-[8.5px] font-mono text-emerald-400">
+                        24.00 FPS DCI
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute top-3 right-3 pointer-events-none">
+                    <div className="px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs border border-white/10 text-[8.5px] font-mono text-zinc-400">
+                      12.0s • 288F PER SHOT
+                    </div>
+                  </div>
+
+                  {/* Live Render Telemetry Overlay during WebCodecs Export */}
+                  {isExporting && (
+                    <div className="absolute bottom-3 left-3 right-3 p-2 rounded bg-black/85 backdrop-blur-sm border border-[#F5A623]/35 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[10px] font-mono text-zinc-200 pointer-events-none shadow-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#F5A623] font-bold">
+                          SHOT {String(telemetry.currentShotIndex).padStart(3, '0')}/{String(telemetry.totalShots).padStart(3, '0')}
+                        </span>
+                        <span className="text-zinc-500">•</span>
+                        <span>FRAME {telemetry.currentFrameNum}</span>
+                        <span className="text-zinc-500">•</span>
+                        <span className="text-cyan-400">{telemetry.percent}% COMPLETED</span>
+                      </div>
+                      <div className="text-zinc-400 text-[9px]">
+                        Hardware Accelerated VideoEncoder Active
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Resolution & Aspect */}
                 <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-2">

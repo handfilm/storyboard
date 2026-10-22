@@ -16,7 +16,7 @@
  * - Strict 2MB payload cap on serialized snapshots to prevent RangeError
  */
 
-import { ProjectDraft, ProjectMeta, MediaBlobRecord, SlideDraft, AspectRatioType } from '../types/project';
+import { ProjectDraft, ProjectMeta, MediaBlobRecord, MediaThumbnailRecord, MediaMetaRecord, SlideDraft, AspectRatioType } from '../types/project';
 import { SLIDE_DURATION_SEC } from '../types/editor';
 
 export const DB_NAME = 'rawx_storyboard_studio_db';
@@ -31,8 +31,11 @@ class StudioDraftDbService {
   private isPersisted: boolean = false;
 
   /**
-   * Initializes IndexedDB Version 4 with the three designated object stores
-   * and requests persistent storage to prevent OS eviction.
+   * Initializes IndexedDB Version 5 with the designated object stores:
+   * 1. media_blobs: Primary binary storage { id, fileBlob, filename, mimeType, sizeBytes, createdAt }
+   * 2. media_thumbnails: Ultra-lightweight WebP/JPEG thumbnail blobs (240x135)
+   * 3. media_meta: Telemetry data { id, duration, fps, width, height, codec, assignedShotId }
+   * Also retains projects_meta and project_drafts for timeline autosave.
    */
   public async getDb(): Promise<IDBDatabase> {
     if (this.db) return this.db;
@@ -64,11 +67,27 @@ class StudioDraftDbService {
           draftStore.createIndex('updatedAt', 'updatedAt', { unique: false });
         }
 
-        // 3. media_blobs: direct binary storage (Blob / ArrayBuffer)
+        // 3. media_blobs: Primary binary storage keyed by id storing { id, fileBlob, filename, mimeType, sizeBytes, createdAt }
         if (!db.objectStoreNames.contains('media_blobs')) {
           const mediaStore = db.createObjectStore('media_blobs', { keyPath: 'id' });
           mediaStore.createIndex('updatedAt', 'updatedAt', { unique: false });
           mediaStore.createIndex('mimeType', 'mimeType', { unique: false });
+          mediaStore.createIndex('filename', 'filename', { unique: false });
+          mediaStore.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+
+        // 4. media_thumbnails: Ultra-lightweight WebP/JPEG thumbnail blobs (240x135)
+        if (!db.objectStoreNames.contains('media_thumbnails')) {
+          const thumbStore = db.createObjectStore('media_thumbnails', { keyPath: 'id' });
+          thumbStore.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+
+        // 5. media_meta: Telemetry data { id, duration, fps, width, height, codec, assignedShotId }
+        if (!db.objectStoreNames.contains('media_meta')) {
+          const metaStore = db.createObjectStore('media_meta', { keyPath: 'id' });
+          metaStore.createIndex('assignedShotId', 'assignedShotId', { unique: false });
+          metaStore.createIndex('createdAt', 'createdAt', { unique: false });
+          metaStore.createIndex('filename', 'filename', { unique: false });
         }
       };
 
@@ -151,22 +170,40 @@ class StudioDraftDbService {
   }
 
   // =========================================================================
-  // BINARY MEDIA BLOBS STORE
+  // HIGH-PERFORMANCE TWO-TIER STORAGE ENGINE
+  // 1. media_blobs: Primary binary storage { id, fileBlob, filename, mimeType, sizeBytes, createdAt }
+  // 2. media_thumbnails: Lightweight WebP/JPEG thumbnails (240x135) { id, thumbnailBlob, mimeType, width, height, createdAt }
+  // 3. media_meta: Telemetry data { id, duration, fps, width, height, codec, assignedShotId }
   // =========================================================================
 
-  public async putMediaBlob(id: string, blob: Blob | ArrayBuffer, mimeType: string, name?: string): Promise<void> {
+  public async putMediaBlob(
+    id: string,
+    fileBlob: Blob | File | ArrayBuffer,
+    mimeType?: string,
+    name?: string
+  ): Promise<void> {
     const db = await this.getDb();
     const tx = db.transaction('media_blobs', 'readwrite');
     const store = tx.objectStore('media_blobs');
 
-    const sizeBytes = blob instanceof Blob ? blob.size : blob.byteLength;
+    const rawBlob = fileBlob instanceof ArrayBuffer
+      ? new Blob([fileBlob], { type: mimeType || 'application/octet-stream' })
+      : fileBlob;
+
+    const sizeBytes = rawBlob.size;
+    const filename = name || (rawBlob instanceof File ? rawBlob.name : `asset_${id}`);
+    const actualMime = mimeType || rawBlob.type || 'application/octet-stream';
+
     const record: MediaBlobRecord = {
       id,
-      blob,
-      mimeType,
+      fileBlob: rawBlob,
+      blob: rawBlob,
+      filename,
+      mimeType: actualMime,
       sizeBytes,
-      name,
-      updatedAt: Date.now()
+      name: filename,
+      updatedAt: Date.now(),
+      createdAt: Date.now()
     };
 
     store.put(record);
@@ -186,12 +223,13 @@ class StudioDraftDbService {
 
       return new Promise((resolve) => {
         req.onsuccess = () => {
-          if (!req.result) return resolve(null);
-          const rec: MediaBlobRecord = req.result;
-          if (rec.blob instanceof Blob) {
-            resolve(rec.blob);
-          } else if (rec.blob instanceof ArrayBuffer) {
-            resolve(new Blob([rec.blob], { type: rec.mimeType || 'application/octet-stream' }));
+          const rec: any = req.result;
+          if (!rec) return resolve(null);
+          const target = rec.fileBlob || rec.blob;
+          if (target instanceof Blob) {
+            resolve(target);
+          } else if (target instanceof ArrayBuffer) {
+            resolve(new Blob([target], { type: rec.mimeType || 'application/octet-stream' }));
           } else {
             resolve(null);
           }
@@ -203,13 +241,138 @@ class StudioDraftDbService {
     }
   }
 
-  public async deleteMediaBlob(id: string): Promise<void> {
+  public async putMediaThumbnail(
+    id: string,
+    thumbnailBlob: Blob,
+    width: number = 240,
+    height: number = 135
+  ): Promise<void> {
+    const db = await this.getDb();
+    const tx = db.transaction('media_thumbnails', 'readwrite');
+    const store = tx.objectStore('media_thumbnails');
+
+    const record: MediaThumbnailRecord = {
+      id,
+      thumbnailBlob,
+      mimeType: thumbnailBlob.type || 'image/webp',
+      width,
+      height,
+      createdAt: Date.now()
+    };
+
+    store.put(record);
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  public async getMediaThumbnail(id: string): Promise<Blob | null> {
     try {
       const db = await this.getDb();
-      const tx = db.transaction('media_blobs', 'readwrite');
-      tx.objectStore('media_blobs').delete(id);
+      const tx = db.transaction('media_thumbnails', 'readonly');
+      const store = tx.objectStore('media_thumbnails');
+      const req = store.get(id);
+
+      return new Promise((resolve) => {
+        req.onsuccess = () => {
+          if (!req.result) return resolve(null);
+          const rec: MediaThumbnailRecord = req.result;
+          resolve(rec.thumbnailBlob || null);
+        };
+        req.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  public async putMediaMeta(meta: MediaMetaRecord): Promise<void> {
+    const db = await this.getDb();
+    const tx = db.transaction('media_meta', 'readwrite');
+    const store = tx.objectStore('media_meta');
+
+    const record: MediaMetaRecord = {
+      ...meta,
+      createdAt: meta.createdAt || Date.now()
+    };
+
+    store.put(record);
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  public async getMediaMeta(id: string): Promise<MediaMetaRecord | null> {
+    try {
+      const db = await this.getDb();
+      const tx = db.transaction('media_meta', 'readonly');
+      const store = tx.objectStore('media_meta');
+      const req = store.get(id);
+
+      return new Promise((resolve) => {
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  public async getAllMediaMeta(): Promise<MediaMetaRecord[]> {
+    try {
+      const db = await this.getDb();
+      const tx = db.transaction('media_meta', 'readonly');
+      const store = tx.objectStore('media_meta');
+      const req = store.getAll();
+
+      return new Promise((resolve) => {
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  public async updateMediaMetaAssignedShot(id: string, assignedShotId: number | null): Promise<void> {
+    try {
+      const meta = await this.getMediaMeta(id);
+      if (meta) {
+        meta.assignedShotId = assignedShotId;
+        await this.putMediaMeta(meta);
+      }
     } catch (err) {
-      console.warn('[DraftDB] deleteMediaBlob error:', err);
+      console.warn('[DraftDB] updateMediaMetaAssignedShot error:', err);
+    }
+  }
+
+  public async deleteMediaBlob(id: string): Promise<void> {
+    return this.deleteMediaAsset(id);
+  }
+
+  public async deleteMediaAsset(id: string): Promise<void> {
+    try {
+      const db = await this.getDb();
+      const storesToUpdate = ['media_blobs', 'media_thumbnails', 'media_meta'].filter(name =>
+        db.objectStoreNames.contains(name)
+      );
+      if (storesToUpdate.length === 0) return;
+
+      const tx = db.transaction(storesToUpdate, 'readwrite');
+      for (const storeName of storesToUpdate) {
+        tx.objectStore(storeName).delete(id);
+      }
+
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (err) {
+      console.warn('[DraftDB] deleteMediaAsset error:', err);
     }
   }
 

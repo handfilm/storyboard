@@ -90,9 +90,36 @@ export interface ProjectMeta {
 
 export interface MediaBlobRecord {
   id: string; // Unique blob id
-  blob: Blob | ArrayBuffer;
+  blob?: Blob | ArrayBuffer;
+  fileBlob: Blob | File;
+  filename: string;
   mimeType: string;
   sizeBytes: number;
   name?: string;
   updatedAt: number;
+  createdAt?: number;
 }
+
+export interface MediaThumbnailRecord {
+  id: string;
+  thumbnailBlob: Blob;
+  mimeType: string;
+  width: number;
+  height: number;
+  createdAt: number;
+}
+
+export interface MediaMetaRecord {
+  id: string;
+  duration?: number;
+  fps?: number;
+  width?: number;
+  height?: number;
+  codec?: string;
+  assignedShotId?: number | null;
+  filename?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  createdAt: number;
+}
+

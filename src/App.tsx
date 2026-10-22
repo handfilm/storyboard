@@ -280,7 +280,33 @@ export default function App() {
       });
     });
 
-    return () => unsub();
+    const unsubAsset = eventBus.on('asset_assigned_to_shot', ({ assetId, shotIndex, blobUrl, meta }: any) => {
+      if (typeof shotIndex === 'number' && blobUrl) {
+        const isVid = meta?.mimeType?.startsWith('video') ?? false;
+        setProject(prev => {
+          const nextFrames = [...prev.frames];
+          if (nextFrames[shotIndex]) {
+            nextFrames[shotIndex] = {
+              ...nextFrames[shotIndex],
+              imageUrl: blobUrl,
+              isVideo: isVid
+            };
+          }
+          return { ...prev, frames: nextFrames };
+        });
+        try {
+          useStudioStore.getState().updateShot(shotIndex, {
+            imageUrl: blobUrl,
+            isVideo: isVid
+          });
+        } catch {}
+      }
+    });
+
+    return () => {
+      unsub();
+      unsubAsset();
+    };
   }, []);
 
   // Initialize Storage Core & Check Crash Status on Mount

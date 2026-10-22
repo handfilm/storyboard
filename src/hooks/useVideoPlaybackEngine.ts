@@ -23,6 +23,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS, PlaybackMode } from '../types/editor';
+import { studioDraftDb } from '../services/db';
 
 export type JklVelocity = -2 | -1 | 0 | 1 | 2;
 
@@ -32,6 +33,87 @@ export interface InOutRange {
   isActive: boolean;
 }
 
+/**
+ * High-Performance Two-Tier LRU Playback Cache (Max 8 active Blob URLs)
+ * Automatically revokes object URLs on eviction to prevent GPU/browser RAM leaks.
+ */
+export class LRUBlobUrlCache {
+  private capacity: number;
+  private cache: Map<string, string>; // assetId -> blobUrl
+
+  constructor(capacity: number = 8) {
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  public get(key: string): string | undefined {
+    if (!this.cache.has(key)) return undefined;
+    const url = this.cache.get(key)!;
+    // Re-insert to mark as most recently used
+    this.cache.delete(key);
+    this.cache.set(key, url);
+    return url;
+  }
+
+  public set(key: string, url: string): void {
+    if (this.cache.has(key)) {
+      const oldUrl = this.cache.get(key);
+      if (oldUrl && oldUrl !== url) {
+        try {
+          URL.revokeObjectURL(oldUrl);
+        } catch {}
+      }
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) {
+      // Evict least recently used (first entry in Map)
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey) {
+        const evictedUrl = this.cache.get(oldestKey);
+        if (evictedUrl) {
+          try {
+            URL.revokeObjectURL(evictedUrl);
+          } catch {}
+        }
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, url);
+  }
+
+  public has(key: string): boolean {
+    return this.cache.has(key);
+  }
+
+  public delete(key: string): void {
+    const url = this.cache.get(key);
+    if (url) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
+    this.cache.delete(key);
+  }
+
+  public clear(): void {
+    for (const url of this.cache.values()) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
+    this.cache.clear();
+  }
+
+  public size(): number {
+    return this.cache.size;
+  }
+
+  public keys(): string[] {
+    return Array.from(this.cache.keys());
+  }
+}
+
+export const globalLRUBlobCache = new LRUBlobUrlCache(8);
+
 export interface UseVideoPlaybackEngineOptions {
   totalSlides: number;
   initialSlideIndex?: number;
@@ -39,6 +121,7 @@ export interface UseVideoPlaybackEngineOptions {
   fps?: number;
   onSlideChange?: (index: number) => void;
   onTimeUpdate?: (slideTimeSec: number, globalTimeSec: number) => void;
+  slides?: Array<{ id: string; mediaBlobId?: string; remoteUrl?: string }>;
 }
 
 export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
@@ -48,7 +131,8 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     initialMode = 'sequence',
     fps = 24,
     onSlideChange,
-    onTimeUpdate
+    onTimeUpdate,
+    slides
   } = options;
 
   const [currentIndex, setCurrentIndex] = useState<number>(initialSlideIndex);
@@ -63,6 +147,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     isActive: false
   });
   const [shouldPrehydrate, setShouldPrehydrate] = useState<boolean>(false);
+  const [cuedMediaUrl, setCuedMediaUrl] = useState<string | null>(null);
 
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const reverseTimerRef = useRef<number | null>(null);
@@ -427,6 +512,67 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     return () => cancelAnimationFrame(animId);
   }, [isPlaying, jklVelocity, inOutRange, playbackMode, currentIndex, totalSlides, isLooping, onSlideChange, seekVideoToTime, applyVelocity]);
 
+  /**
+   * Two-Tier Media Resolver:
+   * 1. In-Memory LRU Cache check (0ms instant playback)
+   * 2. IndexedDB `media_blobs` retrieval -> URL.createObjectURL() -> LRU Cache entry
+   * Evicted items automatically call URL.revokeObjectURL()
+   */
+  const cueSlideMedia = useCallback(async (assetIdOrUrl: string): Promise<string | null> => {
+    if (!assetIdOrUrl) return null;
+
+    // Check if it's already an active external or data URL
+    if (assetIdOrUrl.startsWith('http://') || assetIdOrUrl.startsWith('https://') || assetIdOrUrl.startsWith('data:')) {
+      setCuedMediaUrl(assetIdOrUrl);
+      return assetIdOrUrl;
+    }
+
+    // Tier 1: In-Memory LRU Cache
+    const cachedUrl = globalLRUBlobCache.get(assetIdOrUrl);
+    if (cachedUrl) {
+      setCuedMediaUrl(cachedUrl);
+      return cachedUrl;
+    }
+
+    // Tier 2: IndexedDB media_blobs
+    try {
+      const blob = await studioDraftDb.getMediaBlob(assetIdOrUrl);
+      if (blob) {
+        const objectUrl = URL.createObjectURL(blob);
+        globalLRUBlobCache.set(assetIdOrUrl, objectUrl);
+        setCuedMediaUrl(objectUrl);
+        return objectUrl;
+      }
+    } catch (err) {
+      console.warn('[LRU Cache] Failed to hydrate blob for asset:', assetIdOrUrl, err);
+    }
+
+    // Fallback if assetIdOrUrl is a direct blob URL
+    if (assetIdOrUrl.startsWith('blob:')) {
+      setCuedMediaUrl(assetIdOrUrl);
+      return assetIdOrUrl;
+    }
+
+    return null;
+  }, []);
+
+  // Auto-cue current slide asset if slides array is passed
+  useEffect(() => {
+    if (slides && slides[currentIndex]) {
+      const slide = slides[currentIndex];
+      const targetId = slide.mediaBlobId || slide.remoteUrl;
+      if (targetId) {
+        cueSlideMedia(targetId);
+      }
+      // Pre-cue next slide for seamless transition
+      const nextSlideData = slides[(currentIndex + 1) % slides.length];
+      const nextTargetId = nextSlideData?.mediaBlobId || nextSlideData?.remoteUrl;
+      if (nextTargetId && !nextTargetId.startsWith('http') && !nextTargetId.startsWith('data:')) {
+        cueSlideMedia(nextTargetId);
+      }
+    }
+  }, [currentIndex, slides, cueSlideMedia]);
+
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
@@ -447,6 +593,9 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     jklVelocity,
     inOutRange,
     shouldPrehydrate,
+    cuedMediaUrl,
+    lruCache: globalLRUBlobCache,
+    cueSlideMedia,
     // Actions
     togglePlay,
     applyVelocity,

@@ -23,6 +23,7 @@ import { TactileSnapGuideLine } from '../../types/bloom';
 import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from '../ComponentsMatrixPopover';
 import { localDbService } from '../../services/localDbService';
 import { automationService } from '../../services/automationService';
+import { storyboardSyncService } from '../../services/storyboardSyncService';
 import { PlaybackMode, SLIDE_DURATION_SEC } from '../../types/editor';
 import { 
   Play, 
@@ -224,10 +225,25 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     setSnapGuides([]);
   };
 
-  // Direct file drop on an individual slide thumbnail
+  // Direct file or Media Asset Vault drop on an individual slide thumbnail
   const handleThumbnailFileDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const customData = e.dataTransfer.getData('text/plain');
+    if (customData) {
+      try {
+        const parsed = JSON.parse(customData);
+        if (parsed.type === 'MEDIA_ASSET_VAULT' && parsed.assetId) {
+          onSelectFrame(index);
+          storyboardSyncService.assignAssetToShot(parsed.assetId, index);
+          return;
+        }
+      } catch {
+        // Not a JSON payload, proceed to files check
+      }
+    }
+
     const file = e.dataTransfer.files?.[0];
     if (file) {
       onSelectFrame(index);
@@ -337,7 +353,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => {
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  const customData = e.dataTransfer.getData('text/plain');
+                  if ((e.dataTransfer.files && e.dataTransfer.files.length > 0) || (customData && customData.includes('MEDIA_ASSET_VAULT'))) {
                     handleThumbnailFileDrop(e, idx);
                   } else {
                     handleDrop(e, idx);

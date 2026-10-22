@@ -319,16 +319,38 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
 
   const isVideo = Boolean(
     currentSlide?.isVideo ||
-    (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl))
+    (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl)) ||
+    currentSlide?.mediaBlobId
   );
 
-  const mediaUrl = currentSlide?.remoteUrl
+  const [resolvedBlobUrl, setResolvedBlobUrl] = useState<string>('');
+
+  // Two-Tier LRU resolution for current slide media
+  useEffect(() => {
+    let isMounted = true;
+    const mediaId = currentSlide?.mediaBlobId || currentSlide?.remoteUrl;
+    if (mediaId) {
+      if (mediaId.startsWith('http') || mediaId.startsWith('data:')) {
+        setResolvedBlobUrl(mediaId);
+      } else {
+        engine.cueSlideMedia(mediaId).then((url) => {
+          if (isMounted && url) setResolvedBlobUrl(url);
+        });
+      }
+    } else {
+      setResolvedBlobUrl('');
+    }
+    return () => { isMounted = false; };
+  }, [currentSlide?.mediaBlobId, currentSlide?.remoteUrl, engine.cueSlideMedia]);
+
+  const mediaUrl = resolvedBlobUrl || (currentSlide?.remoteUrl
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
-    : '';
+    : '');
 
   const nextIsVideo = Boolean(
     nextSlide?.isVideo ||
-    (nextSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(nextSlide.remoteUrl))
+    (nextSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(nextSlide.remoteUrl)) ||
+    nextSlide?.mediaBlobId
   );
 
   const nextMediaUrl = nextSlide?.remoteUrl
@@ -337,18 +359,23 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
 
   // Double-buffering pre-hydration pipeline (1.5s prior to 12.0s boundary)
   useEffect(() => {
-    if (playbackMode === 'sequence' && (slideTimeSec >= 10.5 || engine.shouldPrehydrate) && nextMediaUrl) {
-      if (nextIsVideo && prebufferVideoRef.current) {
-        if (prebufferVideoRef.current.src !== nextMediaUrl) {
-          prebufferVideoRef.current.src = nextMediaUrl;
-          prebufferVideoRef.current.load();
+    if (playbackMode === 'sequence' && (slideTimeSec >= 10.5 || engine.shouldPrehydrate)) {
+      const nextMediaId = nextSlide?.mediaBlobId || nextSlide?.remoteUrl;
+      if (nextMediaId && !nextMediaId.startsWith('http') && !nextMediaId.startsWith('data:')) {
+        engine.cueSlideMedia(nextMediaId);
+      } else if (nextMediaUrl) {
+        if (nextIsVideo && prebufferVideoRef.current) {
+          if (prebufferVideoRef.current.src !== nextMediaUrl) {
+            prebufferVideoRef.current.src = nextMediaUrl;
+            prebufferVideoRef.current.load();
+          }
+        } else if (!nextIsVideo) {
+          const preImg = new Image();
+          preImg.src = nextMediaUrl;
         }
-      } else if (!nextIsVideo) {
-        const preImg = new Image();
-        preImg.src = nextMediaUrl;
       }
     }
-  }, [playbackMode, slideTimeSec, engine.shouldPrehydrate, nextMediaUrl, nextIsVideo]);
+  }, [playbackMode, slideTimeSec, engine.shouldPrehydrate, nextMediaUrl, nextIsVideo, nextSlide?.mediaBlobId, nextSlide?.remoteUrl, engine.cueSlideMedia]);
 
   // Clean up ObjectURLs on unmount
   useEffect(() => {

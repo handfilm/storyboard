@@ -29,6 +29,7 @@ import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../.
 import { r2StorageService } from '../../services/r2StorageService';
 import { studioDraftDb } from '../../services/db';
 import { TactileTransport } from '../controls/TactileTransport';
+import { StageTextOverlay } from '../StageTextOverlay';
 import { useVideoPlaybackEngine, JklVelocity } from '../../hooks/useVideoPlaybackEngine';
 import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcuts';
 import { 
@@ -325,43 +326,54 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     currentSlide?.mediaBlobId
   );
 
-  const [resolvedBlobUrl, setResolvedBlobUrl] = useState<string>('');
-
+  // Dynamic Dual-Stream Engine State:
+  // - proxyUrl: Lightweight 540p for 24fps zero-latency scrubbing
+  // - sourceUrl: Uncompressed 4K/1080p for full-res playback, fullscreen, & master export
+  const [sourceUrl, setSourceUrl] = useState<string>('');
+  const [proxyUrl, setProxyUrl] = useState<string>('');
   const previousUrlRef = useRef<string | null>(null);
 
-  // Two-Tier LRU resolution for current slide media with 720p proxy preference
+  // Hydrate dual streams for active shot and pre-buffer source
   useEffect(() => {
     let isMounted = true;
     const mediaId = currentSlide?.mediaBlobId || currentSlide?.remoteUrl;
     if (mediaId) {
       if (mediaId.startsWith('http') || mediaId.startsWith('data:')) {
-        setResolvedBlobUrl(mediaId);
+        setSourceUrl(mediaId);
+        setProxyUrl(mediaId);
       } else {
-        // Wire stage playback to use proxy blobs for 24fps scrubbing and J-K-L shuttling
-        studioDraftDb.getProxyUrl(mediaId).then((proxyUrl) => {
-          if (isMounted && proxyUrl) {
-            setResolvedBlobUrl(proxyUrl);
-          } else {
-            engine.cueSlideMedia(mediaId).then((url) => {
-              if (isMounted && url) setResolvedBlobUrl(url);
-            });
+        studioDraftDb.getDualStreamUrls(mediaId).then((urls) => {
+          if (isMounted) {
+            setSourceUrl(urls.sourceUrl);
+            setProxyUrl(urls.proxyUrl || urls.sourceUrl);
           }
         });
       }
     } else {
-      setResolvedBlobUrl('');
+      setSourceUrl('');
+      setProxyUrl('');
     }
     return () => { isMounted = false; };
-  }, [currentSlide?.mediaBlobId, currentSlide?.remoteUrl, engine.cueSlideMedia]);
+  }, [currentSlide?.mediaBlobId, currentSlide?.remoteUrl]);
 
-  const mediaUrl = resolvedBlobUrl || (currentSlide?.remoteUrl
+  // Adaptive Playback State Machine:
+  // - Dragging / Scrubbing Playhead: feed stage <video> with proxyUrl (540p)
+  // - Playing (Play button, Spacebar, JKL) or Fullscreen or Idle: feed uncompressed sourceUrl
+  const isPlayingActive = isPlaying || engine.jklVelocity !== 0;
+  const activeStreamType: 'proxy' | 'source' = (engine.isScrubbing && !isFullscreen && proxyUrl) ? 'proxy' : 'source';
+  
+  const rawMediaUrl = activeStreamType === 'proxy' 
+    ? (proxyUrl || sourceUrl) 
+    : (sourceUrl || proxyUrl);
+
+  const mediaUrl = rawMediaUrl || (currentSlide?.remoteUrl
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
     : '');
 
   // Delayed URL revocation: revoke old URLs only after the next slide mounts to prevent blank frames
   useEffect(() => {
     const oldUrl = previousUrlRef.current;
-    if (mediaUrl && oldUrl && oldUrl !== mediaUrl && oldUrl.startsWith('blob:')) {
+    if (mediaUrl && oldUrl && oldUrl !== mediaUrl && oldUrl.startsWith('blob:') && oldUrl !== sourceUrl && oldUrl !== proxyUrl) {
       const timer = setTimeout(() => {
         studioDraftDb.revokeTrackedUrl(oldUrl);
       }, 1000);
@@ -369,7 +381,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       return () => clearTimeout(timer);
     }
     previousUrlRef.current = mediaUrl;
-  }, [mediaUrl]);
+  }, [mediaUrl, sourceUrl, proxyUrl]);
 
   // Fullscreen controller
   const toggleFullscreen = useCallback(() => {
@@ -461,9 +473,10 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Invisible Secondary Pre-Buffer Video Element for Double-Buffering */}
+      {/* Invisible Secondary Pre-Buffer Video Element for Double-Buffering & Zero-Flicker Playback */}
       <video
         ref={prebufferVideoRef}
+        src={sourceUrl || undefined}
         className="hidden"
         preload="auto"
         muted
@@ -474,7 +487,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       <div className="flex-1 w-full flex items-center justify-center min-h-0 relative">
         <div className={`relative ${getAspectClass()} w-full bg-[#0E0E12] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center transition-colors duration-150 ease-out`}>
           
-          {/* Active Media Display */}
+          {/* Active Media Display - Ultra Clean Display (Zero Synthetic Noise/Grain) */}
           {mediaUrl ? (
             isVideo ? (
               <video
@@ -488,6 +501,13 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
                 preload="auto"
                 className="w-full h-full object-cover pointer-events-none"
                 style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
+                onLoadedMetadata={() => {
+                  if (videoRef.current && slideTimeSec > 0) {
+                    try {
+                      videoRef.current.currentTime = Math.min(slideTimeSec, videoRef.current.duration || slideTimeSec);
+                    } catch {}
+                  }
+                }}
               />
             ) : (
               <div
@@ -580,6 +600,19 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
               </div>
             )}
 
+            {/* Adaptive Dual-Stream Resolution Badge */}
+            <div className="flex items-center">
+              {activeStreamType === 'proxy' ? (
+                <span className="text-cyan-400 font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-400/40 text-[9px] shadow-sm">
+                  540p PROXY // 24FPS SCRUB
+                </span>
+              ) : (
+                <span className="text-[#fbbf24] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-400/40 text-[9px] shadow-sm">
+                  RAW 4K // FULL-RES
+                </span>
+              )}
+            </div>
+
             {/* Mode & Aspect Capsule */}
             <div className="bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1.5 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md">
               <span className="text-[#F5A623]">{aspectRatio}</span>
@@ -591,41 +624,19 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SINGLE ACTIVE SLIDE TITLE - PURE METALLIC GOLD, ZERO GHOST/CODE OVERLAY   */}
+          {/* REAL-TIME DUAL-LANGUAGE TYPOGRAPHY (BANGLA + ENGLISH SUBTITLES)           */}
           {/* ========================================================================= */}
           {showTitles && (
-            <div className="absolute inset-0 pointer-events-none p-6 sm:p-10 flex flex-col justify-end z-10 select-none">
-              <div className="max-w-3xl text-left pb-4">
-                {/* Bengali Glowing Title (Single active slide: e.g. Slide 1 -> "দৃষ্টি") */}
-                {(currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : '')) && (
-                  <h1 className="text-4xl sm:text-6xl md:text-7xl font-serif font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-[#ffe58f] via-[#d4af37] to-[#eab308] drop-shadow-[0_0_35px_rgba(234,179,8,0.7)] leading-tight">
-                    {currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : '')}
-                  </h1>
-                )}
-
-                {/* English Subtitle (Single active slide: e.g. Slide 1 -> "THE SINGULARITY") */}
-                {(currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : '')) && (
-                  <h2 className="text-sm sm:text-base md:text-lg font-mono font-bold tracking-[0.25em] text-[#EDEDED] uppercase mt-2 drop-shadow-md">
-                    {currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : '')}
-                  </h2>
-                )}
-
-                {/* Director Notes / Sound Cue */}
-                {(currentSlide?.directorNotes || currentSlide?.soundCue) && (
-                  <div className="mt-2.5 flex items-center gap-3 text-[10.5px] font-mono text-white/70">
-                    {currentSlide.directorNotes && (
-                      <span>DIR: {currentSlide.directorNotes}</span>
-                    )}
-                    {currentSlide.soundCue && (
-                      <span className="text-[#38BDF8] flex items-center gap-1">
-                        <Volume2 className="w-3 h-3" />
-                        <span>{currentSlide.soundCue}</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            <StageTextOverlay
+              shotIndex={currentIndex}
+              banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
+              englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
+              subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
+              directorNotes={currentSlide?.directorNotes}
+              isVisible={showTitles}
+              variant={titleLayout.variant}
+              allowQuickControls={true}
+            />
           )}
 
         </div>

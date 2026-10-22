@@ -251,7 +251,7 @@ function VibeWidget() {
         </div>
       </div>
       <AmberButton className="w-full" disabled={running} onClick={start}>
-        {running ? "TESTING 3-SECOND IMPULSE…" : "[ RUN VIBE CHECK ]"}
+        {running ? "TESTING 3-SECOND IMPULSE…" : "RUN VIBE CHECK"}
       </AmberButton>
     </Panel>
   );
@@ -289,7 +289,7 @@ function MeterWidget() {
       <div className="mt-4 flex items-center justify-between">
         <span className={`${MONO} text-[10px] text-zinc-500`}>24.0 FPS LOCKED</span>
         <AmberButton onClick={() => setRunning((prev) => !prev)}>
-          {running ? "[ HOLD ]" : "[ ROLL ]"}
+          {running ? "HOLD" : "ROLL"}
         </AmberButton>
       </div>
     </Panel>
@@ -529,7 +529,7 @@ function XmlWidget() {
         <div>TIMEBASE: 24 FPS · 12.0s SLIDE SYNC</div>
       </div>
       <AmberButton className="w-full" onClick={handleDownload}>
-        {downloaded ? "✓ SAMPLE XML EXPORTED" : "[ GENERATE NLE XML ]"}
+        {downloaded ? "✓ SAMPLE XML EXPORTED" : "GENERATE NLE XML"}
       </AmberButton>
     </Panel>
   );
@@ -543,7 +543,7 @@ function LaunchWidget({ onLaunch }: { onLaunch: () => void }) {
         onClick={onLaunch}
         className={`${MONO} group relative w-full transform-gpu overflow-hidden rounded border border-[#F5A623] bg-[#F5A623] px-6 py-4 text-sm font-bold text-[#070709] shadow-[0_0_35px_rgba(245,166,35,0.45)] transition-all duration-200 hover:scale-[1.02] active:scale-95 cursor-pointer`}
       >
-        <span className="relative z-10">[ ENTER DIRECTOR'S STUDIO ↗ ]</span>
+        <span className="relative z-10">ENTER DIRECTOR'S STUDIO ↗</span>
       </button>
       <div className={`${MONO} text-[10px] text-zinc-500`}>
         NO SERVER SUBSCRIPTION · 100% LOCAL SILICON ACCELERATED
@@ -641,7 +641,7 @@ export function LandingWalkthrough({ onLaunchStudio }: LandingWalkthroughProps) 
           className={`${MONO} flex items-center gap-2 text-xs text-zinc-400 transition hover:text-[#F5A623] cursor-pointer`}
         >
           <kbd className="rounded border border-[#23232D] bg-[#121217] px-1.5 py-0.5 text-[10px]">ESC</kbd>
-          [ SKIP TO STUDIO ]
+          SKIP TO STUDIO
         </button>
       </header>
 

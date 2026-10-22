@@ -718,7 +718,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
             </div>
             <div className="text-center">
               <p className="font-mono-tech text-[10px] sm:text-xs tracking-[0.25em] text-white/70 uppercase mb-1">
-                [ DROP MEDIA {safeFrame.epNumber} // OR CLICK TO LOAD ]
+                DROP MEDIA {safeFrame.epNumber} // OR CLICK TO LOAD
               </p>
               <p className="text-[9px] text-white/40 tracking-wider">
                 SUPPORTS 4K MP4, WEBM, MOV, JPG, PNG, WEBP • DRAG & DROP ANYWHERE

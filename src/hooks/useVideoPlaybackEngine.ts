@@ -149,6 +149,14 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   const [shouldPrehydrate, setShouldPrehydrate] = useState<boolean>(false);
   const [cuedMediaUrl, setCuedMediaUrl] = useState<string | null>(null);
 
+  // Dynamic Dual-Stream Engine state:
+  // - proxyUrl: Lightweight 540p for 24fps zero-latency scrubbing
+  // - sourceUrl: Uncompressed 4K/1080p for full-res playback, fullscreen, & master export
+  const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const scrubbingTimerRef = useRef<number | null>(null);
+
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const reverseTimerRef = useRef<number | null>(null);
   const rVfcIdRef = useRef<number | null>(null);
@@ -427,16 +435,41 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     seekVideoToTime(0);
   }, [totalSlides, onSlideChange, seekVideoToTime]);
 
-  // Scrub slide time
+  // Set scrubbing state explicitly
+  const setScrubbing = useCallback((scrubbing: boolean) => {
+    setIsScrubbing(scrubbing);
+    if (scrubbing && scrubbingTimerRef.current !== null) {
+      window.clearTimeout(scrubbingTimerRef.current);
+      scrubbingTimerRef.current = null;
+    }
+  }, []);
+
+  // Scrub slide time with auto-proxy switching
   const scrubSlideTime = useCallback((timeSec: number) => {
+    setIsScrubbing(true);
+    if (scrubbingTimerRef.current !== null) {
+      window.clearTimeout(scrubbingTimerRef.current);
+    }
+    scrubbingTimerRef.current = window.setTimeout(() => {
+      setIsScrubbing(false);
+    }, 180);
+
     const clamped = Math.max(0, Math.min(SLIDE_DURATION_SEC, timeSec));
     setSlideTimeSec(clamped);
     seekVideoToTime(clamped);
     onTimeUpdate?.(clamped, currentIndex * SLIDE_DURATION_SEC + clamped);
   }, [currentIndex, seekVideoToTime, onTimeUpdate]);
 
-  // Scrub global time across 100 slides
+  // Scrub global time across 100 slides with auto-proxy switching
   const scrubGlobalTime = useCallback((globalSec: number) => {
+    setIsScrubbing(true);
+    if (scrubbingTimerRef.current !== null) {
+      window.clearTimeout(scrubbingTimerRef.current);
+    }
+    scrubbingTimerRef.current = window.setTimeout(() => {
+      setIsScrubbing(false);
+    }, 180);
+
     const clampedGlobal = Math.max(0, Math.min(totalDurationSec, globalSec));
     const targetSlide = Math.min(totalSlides - 1, Math.floor(clampedGlobal / SLIDE_DURATION_SEC));
     const localSec = clampedGlobal % SLIDE_DURATION_SEC;
@@ -570,29 +603,64 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     return null;
   }, []);
 
-  // Auto-cue current slide asset if slides array is passed
+  /**
+   * Dynamic Dual-Stream Cueing Engine:
+   * Instantiates both proxyUrl (540p for scrubbing) and sourceUrl (raw 4K/1080p for playback).
+   */
+  const cueDualStreams = useCallback(async (assetIdOrUrl: string): Promise<{ proxyUrl: string; sourceUrl: string }> => {
+    if (!assetIdOrUrl) return { proxyUrl: '', sourceUrl: '' };
+
+    if (assetIdOrUrl.startsWith('http://') || assetIdOrUrl.startsWith('https://') || assetIdOrUrl.startsWith('data:')) {
+      setProxyUrl(assetIdOrUrl);
+      setSourceUrl(assetIdOrUrl);
+      setCuedMediaUrl(assetIdOrUrl);
+      return { proxyUrl: assetIdOrUrl, sourceUrl: assetIdOrUrl };
+    }
+
+    try {
+      const urls = await studioDraftDb.getDualStreamUrls(assetIdOrUrl);
+      setProxyUrl(urls.proxyUrl);
+      setSourceUrl(urls.sourceUrl);
+      setCuedMediaUrl(urls.sourceUrl || urls.proxyUrl);
+      return urls;
+    } catch (err) {
+      console.warn('[DualStream] cueDualStreams failed:', err);
+      return { proxyUrl: '', sourceUrl: '' };
+    }
+  }, []);
+
+  // Auto-cue current slide asset (both dual-stream and classic)
   useEffect(() => {
     if (slides && slides[currentIndex]) {
       const slide = slides[currentIndex];
       const targetId = slide.mediaBlobId || slide.remoteUrl;
       if (targetId) {
         cueSlideMedia(targetId);
+        cueDualStreams(targetId);
       }
-      // Pre-cue next slide for seamless transition
+      // Pre-cue next slide for seamless zero-flicker transition
       const nextSlideData = slides[(currentIndex + 1) % slides.length];
       const nextTargetId = nextSlideData?.mediaBlobId || nextSlideData?.remoteUrl;
       if (nextTargetId && !nextTargetId.startsWith('http') && !nextTargetId.startsWith('data:')) {
         cueSlideMedia(nextTargetId);
+        studioDraftDb.getDualStreamUrls(nextTargetId).catch(() => {});
       }
     }
-  }, [currentIndex, slides, cueSlideMedia]);
+  }, [currentIndex, slides, cueSlideMedia, cueDualStreams]);
 
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
       stopReversePlayback();
+      if (scrubbingTimerRef.current !== null) {
+        window.clearTimeout(scrubbingTimerRef.current);
+      }
     };
   }, [stopReversePlayback]);
+
+  // Adaptive Playback State Machine resolution
+  const activeStreamType: 'proxy' | 'source' = isScrubbing && proxyUrl ? 'proxy' : 'source';
+  const activeMediaUrl = (activeStreamType === 'proxy' ? proxyUrl : sourceUrl) || cuedMediaUrl || '';
 
   return {
     currentIndex,
@@ -608,6 +676,14 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     inOutRange,
     shouldPrehydrate,
     cuedMediaUrl,
+    // Dynamic Dual-Stream Engine properties
+    isScrubbing,
+    setScrubbing,
+    proxyUrl,
+    sourceUrl,
+    activeStreamType,
+    activeMediaUrl,
+    cueDualStreams,
     lruCache: globalLRUBlobCache,
     cueSlideMedia,
     // Actions

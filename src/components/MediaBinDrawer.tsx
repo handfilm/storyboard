@@ -405,7 +405,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
           <div className="flex items-center justify-between text-[10px] text-[#F5A623] font-bold tracking-wider mb-1">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-ping" />
-              <span>[ INGESTING {ingestDone}/{ingestTotal} ASSETS // {percentComplete}% ]</span>
+              <span>INGESTING {ingestDone}/{ingestTotal} ASSETS // {percentComplete}%</span>
             </div>
             <span className="text-zinc-400 text-[9px] truncate max-w-[150px]">
               {currentIngestFilename}
@@ -444,11 +444,11 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
                 e.preventDefault();
                 fileInputRef.current?.click();
               }}
-              className="px-2.5 py-1 bg-[#1a1a24] hover:bg-[#252536] active:scale-95 border border-[#d4af37]/50 text-[#fbbf24] hover:text-white rounded-[1px] text-[9.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+              className="px-2.5 py-1 bg-gradient-to-b from-[#1e1e2c] to-[#12121c] hover:from-[#28283a] hover:to-[#181824] active:scale-95 border border-[#d4af37]/60 hover:border-[#fbbf24] text-[#fbbf24] hover:text-white rounded-[2px] text-[9.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_8px_rgba(245,166,35,0.15)]"
               title="Select 10+ 4K Videos, Images or Audio files"
             >
               <Upload className="w-3 h-3 text-[#F5A623]" />
-              <span>[ INGEST FILES ]</span>
+              <span>INGEST FILES</span>
             </button>
 
             {/* Folder Drop / Directory Input Button */}
@@ -544,7 +544,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
           </span>
         </div>
         <span className="text-zinc-500 hidden sm:inline">
-          TAP CARD OR CLICK [ + ASSIGN TO SHOT ]
+          TAP CARD OR CLICK + ASSIGN TO SHOT
         </span>
       </div>
 
@@ -568,9 +568,9 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
                 e.preventDefault();
                 fileInputRef.current?.click();
               }}
-              className="mt-3 px-3 py-1.5 bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#fbbf24] text-[10px] font-bold rounded-[1px] hover:bg-[#d4af37]/30 active:scale-95 transition-all cursor-pointer shadow-[0_0_8px_rgba(245,166,35,0.2)]"
+              className="mt-3 px-3 py-1.5 bg-gradient-to-b from-[#2a2214] to-[#1a140a] border border-[#d4af37]/60 text-[#fbbf24] text-[10px] font-bold rounded-[2px] hover:from-[#3a301c] hover:to-[#221a0e] active:scale-95 transition-all cursor-pointer shadow-[0_0_12px_rgba(245,166,35,0.25)]"
             >
-              [ INGEST FILES ]
+              INGEST FILES
             </button>
           </div>
         ) : (
@@ -701,7 +701,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
                       <span>
                         {isAssignedToActive 
                           ? `✓ ASSIGNED TO SH${String(activeShotIndex + 1).padStart(3, '0')}`
-                          : `[ + ASSIGN TO SHOT ${String(activeShotIndex + 1).padStart(3, '0')} ]`}
+                          : `+ ASSIGN TO SHOT ${String(activeShotIndex + 1).padStart(3, '0')}`}
                       </span>
                     </button>
                   </div>

@@ -112,11 +112,15 @@ export async function generateVideoProxy(file: File | Blob): Promise<{ blob: Blo
     video.onloadedmetadata = () => {
       const vw = video.videoWidth || 1920;
       const vh = video.videoHeight || 1080;
-      const scale = Math.min(1, 720 / vh, 1280 / vw);
-      const targetW = Math.max(320, Math.round(vw * scale));
-      const targetH = Math.max(180, Math.round(vh * scale));
+      // Fast 540p target (max 960x540, 24fps) for zero-latency 24fps scrubbing
+      const scale = Math.min(1, 540 / vh, 960 / vw);
+      let targetW = Math.max(320, Math.round(vw * scale));
+      let targetH = Math.max(180, Math.round(vh * scale));
+      // Force even dimensions for video codecs
+      if (targetW % 2 !== 0) targetW -= 1;
+      if (targetH % 2 !== 0) targetH -= 1;
 
-      if (typeof MediaRecorder === 'undefined' || (vw <= 1280 && vh <= 720 && file.size < 4 * 1024 * 1024)) {
+      if (typeof MediaRecorder === 'undefined' || (vw <= 960 && vh <= 540 && file.size < 3 * 1024 * 1024)) {
         clearTimeout(timer);
         return finish(file, targetW, targetH, file.type || 'video/mp4');
       }
@@ -138,7 +142,7 @@ export async function generateVideoProxy(file: File | Blob): Promise<{ blob: Blo
 
       let recorder: MediaRecorder;
       try {
-        recorder = new MediaRecorder(stream, { mimeType: chosenMime, videoBitsPerSecond: 1_200_000 });
+        recorder = new MediaRecorder(stream, { mimeType: chosenMime, videoBitsPerSecond: 1_000_000 });
       } catch {
         clearTimeout(timer);
         return finish(file, targetW, targetH, file.type || 'video/mp4');
@@ -569,6 +573,69 @@ class StudioDraftDbService {
     this.activeProxyUrls.set(mediaId, url);
     this.activeObjectUrls.add(url);
     return url;
+  }
+
+  /**
+   * Retrieves the raw uncompressed source Blob from media_vault or media_blobs
+   */
+  public async getSourceMediaBlob(mediaId: string): Promise<Blob | null> {
+    if (!mediaId) return null;
+    try {
+      // 1. Check media_vault
+      const vaultItem = await this.getVaultMediaById(mediaId);
+      if (vaultItem && vaultItem.blob) {
+        return vaultItem.blob;
+      }
+      // 2. Check media_blobs
+      const blob = await this.getMediaBlob(mediaId);
+      if (blob) {
+        return blob;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[DraftDB] getSourceMediaBlob error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Retrieves the 540p lightweight proxy Blob from media_proxies
+   */
+  public async getProxyMediaBlob(mediaId: string): Promise<Blob | null> {
+    return this.getProxy(mediaId);
+  }
+
+  /**
+   * Adaptive Dual-Stream Resolver: Returns both proxyUrl (for 24fps scrubbing)
+   * and sourceUrl (for uncompressed playback & master export), pre-instantiating object URLs.
+   */
+  public async getDualStreamUrls(mediaId: string): Promise<{ proxyUrl: string; sourceUrl: string }> {
+    if (!mediaId) return { proxyUrl: '', sourceUrl: '' };
+
+    if (mediaId.startsWith('http://') || mediaId.startsWith('https://') || mediaId.startsWith('data:')) {
+      return { proxyUrl: mediaId, sourceUrl: mediaId };
+    }
+
+    let sourceUrl = this.activeMediaUrls.get(mediaId) || '';
+    if (!sourceUrl) {
+      const sourceBlob = await this.getSourceMediaBlob(mediaId);
+      if (sourceBlob) {
+        sourceUrl = this.getActiveMediaUrl(mediaId, sourceBlob);
+      }
+    }
+
+    let proxyUrl = this.activeProxyUrls.get(mediaId) || '';
+    if (!proxyUrl) {
+      const pBlob = await this.getProxy(mediaId);
+      if (pBlob) {
+        proxyUrl = this.getActiveProxyUrl(mediaId, pBlob);
+      } else {
+        // Fallback to sourceUrl if proxy is not yet generated
+        proxyUrl = sourceUrl;
+      }
+    }
+
+    return { proxyUrl: proxyUrl || sourceUrl, sourceUrl: sourceUrl || proxyUrl };
   }
 
   /**
@@ -1424,5 +1491,9 @@ class StudioDraftDbService {
 }
 
 export const studioDraftDb = new StudioDraftDbService();
+if (typeof window !== 'undefined') {
+  studioDraftDb.ensureStoragePersistence().catch(() => {});
+}
 export const db = studioDraftDb;
+
 

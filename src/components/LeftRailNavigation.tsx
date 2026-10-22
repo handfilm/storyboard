@@ -260,18 +260,18 @@ export const LeftRailNavigation: React.FC<LeftRailNavigationProps> = ({
           </button>
         </div>
 
-        {/* Top Selector: [ CAMERA & LENS PROFILES ] (Merged Body/Optics selector) */}
+        {/* Top Selector: CAMERA & LENS PROFILES (Merged Body/Optics selector) */}
         <div className="p-1.5 relative">
           <button
             type="button"
             onClick={() => setIsProfilesOpen(prev => !prev)}
-            className={`w-full rounded-[2px] bg-[#14141e] hover:bg-[#1a1a28] border border-[#d4af37]/40 hover:border-[#d4af37] text-left transition-colors cursor-pointer active:scale-[0.98] ${
+            className={`w-full rounded-[2px] bg-gradient-to-b from-[#181824] to-[#0e0e16] hover:from-[#202030] hover:to-[#12121e] border border-[#d4af37]/50 hover:border-[#fbbf24] text-left transition-all cursor-pointer shadow-[0_0_8px_rgba(245,166,35,0.1)] active:scale-[0.98] ${
               isCollapsed ? 'p-1.5 flex flex-col items-center text-center' : 'p-2 flex items-center justify-between'
             }`}
-            title="[ CAMERA & LENS PROFILES ] — Select Cine Body & Lens Optics"
+            title="CAMERA & LENS PROFILES — Select Cine Body & Lens Optics"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 rounded-[1px] bg-[#d4af37]/20 border border-[#d4af37]/60 flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-[2px] bg-[#d4af37]/20 border border-[#d4af37]/60 flex items-center justify-center shrink-0 shadow-sm">
                 <Camera className="w-3.5 h-3.5 text-[#fbbf24]" />
               </div>
               {!isCollapsed && (
@@ -293,13 +293,13 @@ export const LeftRailNavigation: React.FC<LeftRailNavigationProps> = ({
           {/* Camera Profiles Popover Menu */}
           {isProfilesOpen && (
             <div
-              className={`absolute top-full mt-1 bg-[#0c0c14] border border-[#d4af37]/60 rounded shadow-2xl p-1 z-50 text-[10px] space-y-0.5 backdrop-blur-2xl animate-in fade-in duration-150 ${
+              className={`absolute top-full mt-1 bg-[#0c0c14] border border-[#d4af37]/60 rounded-[3px] shadow-2xl p-1 z-50 text-[10px] space-y-0.5 backdrop-blur-2xl animate-in fade-in duration-150 ${
                 isCollapsed ? 'left-full ml-1 w-60' : 'left-1.5 right-1.5'
               }`}
               onMouseLeave={() => setIsProfilesOpen(false)}
             >
               <div className="px-2 py-1 text-[8.5px] text-[#fbbf24] font-bold border-b border-[#272732] uppercase tracking-wider flex items-center justify-between">
-                <span>[ CAMERA & LENS PROFILES ]</span>
+                <span>CAMERA & LENS PROFILES</span>
                 <span className="text-zinc-500">24 FPS</span>
               </div>
               {CINE_PROFILES.map((prof, idx) => {
@@ -460,20 +460,20 @@ export const LeftRailNavigation: React.FC<LeftRailNavigationProps> = ({
           )}
         </div>
 
-        {/* 3. [ SELF-TEST ] Button */}
+        {/* 3. SELF-TEST Diagnostics Button */}
         <button
           type="button"
           onClick={() => {
             if (onOpenSelfTest) onOpenSelfTest();
             else onSelectModule('SETTINGS');
           }}
-          className={`w-full rounded-[2px] bg-[#16121a] hover:bg-[#201824] border border-rose-500/40 hover:border-rose-400 text-rose-300 font-bold cursor-pointer transition-all active:scale-[0.98] ${
+          className={`w-full rounded-[2px] bg-gradient-to-b from-[#1c121e] to-[#120a16] hover:from-[#26162a] hover:to-[#180e20] border border-rose-500/40 hover:border-rose-400 text-rose-300 font-bold cursor-pointer transition-all shadow-[0_0_8px_rgba(244,63,94,0.15)] active:scale-[0.98] ${
             isCollapsed ? 'p-2 flex justify-center' : 'px-2.5 py-1.5 flex items-center justify-center gap-1.5'
           }`}
-          title="[ SELF-TEST ] — Run Studio Diagnostics Benchmark"
+          title="SELF-TEST — Run Studio Diagnostics Benchmark"
         >
           <Activity className="w-3.5 h-3.5 text-rose-400" />
-          {!isCollapsed && <span className="text-[10px] tracking-wider">[ SELF-TEST ]</span>}
+          {!isCollapsed && <span className="text-[10px] tracking-wider">SELF-TEST</span>}
         </button>
       </div>
     </aside>

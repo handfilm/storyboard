@@ -18,6 +18,7 @@ import React, { useState } from 'react';
 import { WorkspaceMode } from '../core/theme';
 import { SaveState } from '../core/storage';
 import { exportFullIdbBackup } from '../utils/backup';
+import { CutNativeExportModal } from './CutNativeExportModal';
 import {
   Film,
   Home,
@@ -108,6 +109,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isEcosystemMenuOpen, setIsEcosystemMenuOpen] = useState(false);
+  const [isNativeExportOpen, setIsNativeExportOpen] = useState(false);
 
   const handleNavHome = () => {
     if (onSelectView) onSelectView('HOME');
@@ -237,7 +239,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right: Tactical Action Cluster */}
         <div className="gap-3 flex items-center shrink-0">
-          {/* Unified [ EXPORT ▾ ] Dropdown */}
+          {/* Unified EXPORT ▾ Dropdown */}
           <div className="relative">
             <button
               type="button"
@@ -245,16 +247,16 @@ export const TopBar: React.FC<TopBarProps> = ({
                 setIsExportMenuOpen(prev => !prev);
                 setIsEcosystemMenuOpen(false);
               }}
-              className="px-3.5 py-1.5 rounded-full bg-[#101018]/90 hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-sm active:scale-[0.98]"
+              className="px-3.5 py-1.5 rounded-[3px] bg-gradient-to-b from-[#181824] to-[#0c0c14] hover:from-[#202030] hover:to-[#12121c] border border-[#d4af37]/60 hover:border-[#fbbf24] text-zinc-100 hover:text-[#fbbf24] font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-[0_0_12px_rgba(245,166,35,0.15)] active:scale-[0.98]"
               title="Hollywood NLE Timelines, Video Master & Backup Exporters"
             >
               <Download className="w-3.5 h-3.5 text-[#fbbf24]" />
-              <span>[ EXPORT ▾ ]</span>
+              <span>EXPORT ▾</span>
             </button>
 
             {isExportMenuOpen && (
               <div
-                className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a10]/98 border border-[#d4af37]/50 rounded shadow-2xl p-1.5 z-50 font-mono text-[11px] space-y-1 backdrop-blur-2xl animate-in fade-in duration-150"
+                className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a10]/98 border border-[#d4af37]/50 rounded-[3px] shadow-2xl p-1.5 z-50 font-mono text-[11px] space-y-1 backdrop-blur-2xl animate-in fade-in duration-150"
                 onMouseLeave={() => setIsExportMenuOpen(false)}
               >
                 <div className="px-2.5 py-1 text-[8.5px] font-bold text-[#d4af37] border-b border-[#272732] uppercase tracking-wider flex items-center justify-between">
@@ -269,7 +271,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     if (onOpenExportTimeline) onOpenExportTimeline();
                     setIsExportMenuOpen(false);
                   }}
-                  className="w-full px-2.5 py-2 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
+                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <Film className="w-3.5 h-3.5 text-[#d4af37]" />
@@ -285,7 +287,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     if (onOpenExportTimeline) onOpenExportTimeline();
                     setIsExportMenuOpen(false);
                   }}
-                  className="w-full px-2.5 py-2 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
+                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <Scissors className="w-3.5 h-3.5 text-[#38bdf8]" />
@@ -294,20 +296,20 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <span className="text-[8px] bg-[#38bdf8]/20 border border-[#38bdf8]/40 text-[#38bdf8] px-1.5 py-0.5 rounded font-bold">FCPXML</span>
                 </button>
 
-                {/* 3. MP4 Master (WebCodecs Render) */}
+                {/* 3. MP4 Master (Hardware WebCodecs Render) */}
                 <button
                   type="button"
                   onClick={() => {
-                    if (onOpenExportRange) onOpenExportRange();
+                    setIsNativeExportOpen(true);
                     setIsExportMenuOpen(false);
                   }}
-                  className="w-full px-2.5 py-2 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
+                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-emerald-950/40 border border-emerald-500/20 text-emerald-200 hover:text-emerald-300 flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <Video className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>MP4 Master (WebCodecs Render)</span>
+                    <span className="font-bold">MP4 Master (WebCodecs Render)</span>
                   </div>
-                  <span className="text-[8px] bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 px-1.5 py-0.5 rounded font-bold">MP4</span>
+                  <span className="text-[8px] bg-emerald-950/90 border border-emerald-400/50 text-emerald-300 px-1.5 py-0.5 rounded font-bold">H.264</span>
                 </button>
 
                 {/* 4. Contact Sheet PDF */}
@@ -317,7 +319,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     handleExportContactSheet();
                     setIsExportMenuOpen(false);
                   }}
-                  className="w-full px-2.5 py-2 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
+                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5 text-amber-400" />
@@ -333,7 +335,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     exportFullIdbBackup();
                     setIsExportMenuOpen(false);
                   }}
-                  className="w-full px-2.5 py-2 rounded text-left hover:bg-white/10 text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors border-t border-[#272732] mt-1 pt-2"
+                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors border-t border-[#272732] mt-1 pt-2"
                 >
                   <div className="flex items-center gap-2">
                     <HardDriveDownload className="w-3.5 h-3.5 text-[#fbbf24]" />
@@ -345,26 +347,26 @@ export const TopBar: React.FC<TopBarProps> = ({
             )}
           </div>
 
-          {/* [ ▶ PRO STUDIO ] (Solid red #E50914 pill) or [ HOME ] toggle */}
+          {/* PRO STUDIO or HOME toggle (tactile HUD style, zero third brackets) */}
           {currentView === 'HOME' ? (
             <button
               type="button"
               onClick={() => onSelectView?.('STUDIO')}
-              className="px-4 py-1.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_15px_rgba(229,9,20,0.5)] hover:shadow-[0_0_20px_rgba(229,9,20,0.8)] active:scale-[0.98]"
+              className="px-4 py-1.5 rounded-[3px] bg-gradient-to-b from-[#ff1e2b] to-[#b3000b] hover:from-[#ff3843] hover:to-[#cc000d] border border-red-400/80 text-white font-mono font-black text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_18px_rgba(229,9,20,0.6)] active:scale-[0.98]"
               title="Launch Active 12.0s 24fps Previs & Cut Engine"
             >
               <Play className="w-3 h-3 fill-current" />
-              <span>[ ▶ PRO STUDIO ]</span>
+              <span>▶ PRO STUDIO</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => onSelectView?.('HOME')}
-              className="px-4 py-1.5 rounded-full bg-[#1b1b24] hover:bg-[#252532] border border-[#E50914]/60 text-white font-bold text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 active:scale-[0.98]"
+              className="px-4 py-1.5 rounded-[3px] bg-gradient-to-b from-[#1c1c28] to-[#101018] hover:from-[#242434] hover:to-[#141420] border border-[#E50914]/70 hover:border-[#E50914] text-white font-mono font-bold text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_12px_rgba(229,9,20,0.3)] active:scale-[0.98]"
               title="Return to HANDFILM Home Page"
             >
               <Home className="w-3 h-3 text-[#E50914]" />
-              <span>[ HOME ]</span>
+              <span>HOME</span>
             </button>
           )}
 
@@ -511,6 +513,13 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Client-Side Native WebCodecs MP4 Master Exporter */}
+      <CutNativeExportModal
+        isOpen={isNativeExportOpen}
+        onClose={() => setIsNativeExportOpen(false)}
+        projectTitle={projectTitle}
+      />
     </header>
   );
 };

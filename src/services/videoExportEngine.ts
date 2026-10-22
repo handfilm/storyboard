@@ -57,6 +57,8 @@ export interface CinemaExportPipelineOptions {
   rangeStart?: number; // 1-indexed (e.g. 1)
   rangeEnd?: number;   // 1-indexed (e.g. 24)
   customListText?: string; // e.g. "1, 4, 7-12, 19, 88"
+  excludedShotIndices?: number[]; // 0-indexed shots to exclude from render
+  overrideShotIndices?: number[]; // Direct explicit shot list
 
   // Formats & Profiles
   resolutionPreset: CinemaResolutionPreset;
@@ -101,7 +103,8 @@ export function parseShotSelection(
   customText: string,
   totalAvailable: number,
   currentIdx: number = 0,
-  framesPerShot: number = 288
+  framesPerShot: number = 288,
+  excludedIndices: number[] = []
 ): ParsedSelectionResult {
   const maxShots = Math.max(1, totalAvailable);
   let resolvedIndices: number[] = [];
@@ -146,12 +149,20 @@ export function parseShotSelection(
     }
   }
 
+  // Filter out excluded shots if provided
+  if (excludedIndices && excludedIndices.length > 0) {
+    const excludedSet = new Set(excludedIndices);
+    resolvedIndices = resolvedIndices.filter(idx => !excludedSet.has(idx));
+  }
+
   const totalShots = resolvedIndices.length;
   const totalFrames = totalShots * framesPerShot;
   const durationSec = totalFrames / 24.0;
 
   let label = '';
-  if (totalShots === 1) {
+  if (totalShots === 0) {
+    label = 'SH_EMPTY';
+  } else if (totalShots === 1) {
     label = `SH${String(resolvedIndices[0] + 1).padStart(3, '0')}`;
   } else {
     label = `SH${String(resolvedIndices[0] + 1).padStart(3, '0')}-SH${String(resolvedIndices[resolvedIndices.length - 1] + 1).padStart(3, '0')}`;
@@ -624,6 +635,8 @@ export async function exportCinemaMasterMp4(
     rangeStart = 1,
     rangeEnd = 1,
     customListText = '',
+    excludedShotIndices = [],
+    overrideShotIndices,
     resolutionPreset,
     bitrateProfile,
     burnInTitles,
@@ -637,17 +650,31 @@ export async function exportCinemaMasterMp4(
 
   // 1. Calculate and parse target shot indices
   const count = Math.max(1, totalSlides || slides.length || frames.length || 1);
-  const parsedRange = parseShotSelection(
-    selectionMode,
-    rangeStart,
-    rangeEnd,
-    customListText,
-    count,
-    currentSlideIndex,
-    288 // 12.0s master duration @ 24fps
-  );
+  const parsedRange = overrideShotIndices && overrideShotIndices.length > 0
+    ? {
+        indices: overrideShotIndices,
+        totalShots: overrideShotIndices.length,
+        totalFrames: overrideShotIndices.length * 288,
+        durationSec: (overrideShotIndices.length * 288) / 24.0,
+        label: overrideShotIndices.length === 1 
+          ? `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}`
+          : `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}-SH${String(overrideShotIndices[overrideShotIndices.length - 1] + 1).padStart(3, '0')}`
+      }
+    : parseShotSelection(
+        selectionMode,
+        rangeStart,
+        rangeEnd,
+        customListText,
+        count,
+        currentSlideIndex,
+        288, // 12.0s master duration @ 24fps
+        excludedShotIndices
+      );
 
   const shotIndices = parsedRange.indices;
+  if (shotIndices.length === 0) {
+    throw new Error('No shots selected for export. Please select or include at least one shot in the sequence matrix.');
+  }
   const fps = 24;
   const framesPerShot = 288; // Full 12.0s Master
   const totalFrames = shotIndices.length * framesPerShot;

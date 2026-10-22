@@ -61,3 +61,13 @@ test('getBitrateBps provides broadcast and master specifications', () => {
   const master4K = getBitrateBps('master', true);
   assert.strictEqual(master4K, 80_000_000);
 });
+
+test('parseShotSelection filters out excludedIndices accurately', () => {
+  // Range 1 to 5 (indices 0, 1, 2, 3, 4), exclude indices 1 and 3 (shots 2 and 4)
+  const result = parseShotSelection('range', 1, 5, '', 100, 0, 288, [1, 3]);
+  assert.strictEqual(result.totalShots, 3);
+  assert.deepStrictEqual(result.indices, [0, 2, 4]);
+  assert.strictEqual(result.totalFrames, 3 * 288);
+  assert.strictEqual(result.durationSec, 36.0);
+});
+

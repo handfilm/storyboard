@@ -1,15 +1,22 @@
 /**
  * @file /src/components/CutNativeExportModal.tsx
- * @description Cinema Export Studio: Client-Side Hardware MP4 Master Exporter.
+ * @description Next-Level Tactical Cinema Export Studio for RAWx / HANDFILM.
  * 
- * Powered by WebCodecs & mp4-muxer offline render pipeline.
  * Features:
- * 1. Flexible Shot Selection: All Shots, Range Mode, Custom List Mode ('1, 4, 7-12'), and Current Active Shot.
- * 2. Multi-Format Resolution: 1080p Scope, 4K Master Scope, 1080p Standard, 4K Standard, Vertical Reel (9:16).
- * 3. Bitrate Profiles: Fast Proxy (12 Mbps), Broadcast (28-35 Mbps), Pristine Cinema Master (50-80 Mbps).
- * 4. Toggles: Glowing Bilingual Titles, Clean Video Plates, Anamorphic Flare Simulation, AAC 320kbps Audio.
- * 5. Real-time Live Thumbnail Preview Canvas & Tactical HUD with Amber Progress Bar.
- * 6. Direct browser download: HANDFILM_[ProjectName]_SH[Start]-SH[End]_[Resolution]_[Timestamp].mp4.
+ * 1. Centered, Viewport-Locked Modal (No navbar clipping, fixed inset-0 HUD).
+ * 2. Visual Shot Sequence Planner & Exclusion Matrix:
+ *    - Mode tabs: [ ALL SHOTS (1–100) ] | [ ACTIVE SHOT ] | [ CUSTOM RANGE ] | [ MANUAL LIST ].
+ *    - Stepper range inputs + dynamic runtime readout (e.g. 12 Shots = 02:24.00 @ 24fps).
+ *    - Horizontal thumbnail strip with [ × ] exclusion toggle, shot badge, and 12.0s • 288F counter.
+ * 3. 3 Modular Panels:
+ *    - Master Resolution & Aspect (4K Scope default, 4K UHD 16:9, 1080p Scope, 1080p Standard, 9:16 Vertical Reel).
+ *    - Bitrate & Quality Preset (Fast Proxy 12 Mbps, Broadcast 30 Mbps, Cinema Master 60 Mbps).
+ *    - Composite Layers Toggles (Bilingual Titles, Optical Letterbox & Flares, 320kbps AAC Audio).
+ * 4. Interactive Live Render HUD & Auto-Download:
+ *    - Monospace file name preview.
+ *    - Live thumbnail canvas preview of active rendered frame.
+ *    - Amber progress bar with real-time stats: [ RENDERING SHOT 003/012 • FRAME 672/3456 • 45.2% • 21.4 FPS ].
+ *    - Safe cancel/abort trigger + Web Audio success chime on completion.
  */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -43,7 +50,13 @@ import {
   CheckCircle2,
   Tv,
   Smartphone,
-  Maximize2
+  Maximize2,
+  Zap,
+  RotateCcw,
+  Clock,
+  SquareCheck,
+  SquareX,
+  Volume2
 } from 'lucide-react';
 
 export interface CutNativeExportModalProps {
@@ -56,6 +69,45 @@ export interface CutNativeExportModalProps {
   totalSlides?: number;
 }
 
+/**
+ * Crystalline cinema success chime synthesizer (E5 -> B5 harmonics)
+ */
+function playExportSuccessChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    // Note 1: E5 (659.25 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.5);
+
+    // Note 2: B5 (987.77 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(987.77, now + 0.12);
+    gain2.gain.setValueAtTime(0.001, now);
+    gain2.gain.setValueAtTime(0.22, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.85);
+  } catch {
+    // AudioContext blocked or non-fatal
+  }
+}
+
 export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   isOpen,
   onClose,
@@ -65,24 +117,27 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   currentSlideIndex = 0,
   totalSlides = 1
 }) => {
-  // Shot selection state
+  const totalCount = Math.max(1, totalSlides || slides.length || frames.length || 1);
+
+  // 1. Sequence & Range Selection
   const [selectionMode, setSelectionMode] = useState<ShotSelectionMode>('all');
   const [rangeStart, setRangeStart] = useState<number>(1);
-  const [rangeEnd, setRangeEnd] = useState<number>(Math.max(1, totalSlides || slides.length || frames.length || 1));
-  const [customListText, setCustomListText] = useState<string>('1, 2, 3');
+  const [rangeEnd, setRangeEnd] = useState<number>(Math.min(12, totalCount));
+  const [customListText, setCustomListText] = useState<string>('1, 3, 5-8, 12');
+  const [excludedIndices, setExcludedIndices] = useState<number[]>([]);
 
-  // Format & Quality state
-  const [resolutionPreset, setResolutionPreset] = useState<CinemaResolutionPreset>('1080p_scope');
+  // 2. Render Engine Modular Settings
+  // Default: 4K Scope (3840 × 1608, 2.39:1 Anamorphic)
+  const [resolutionPreset, setResolutionPreset] = useState<CinemaResolutionPreset>('4k_scope');
   const [bitrateProfile, setBitrateProfile] = useState<BitrateProfile>('broadcast');
-  const [colorSpace, setColorSpace] = useState<'rec709' | 'acescg'>('acescg');
-
-  // Compositing Toggles
   const [burnInTitles, setBurnInTitles] = useState<boolean>(true);
-  const [cleanPlates, setCleanPlates] = useState<boolean>(false);
   const [simulateFlare, setSimulateFlare] = useState<boolean>(true);
   const [includeAudio, setIncludeAudio] = useState<boolean>(true);
 
-  // Export & Telemetry state
+  // 3. Custom Output Filename
+  const [customFilename, setCustomFilename] = useState<string>('');
+
+  // 4. Render State & Live Telemetry
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [telemetry, setTelemetry] = useState<RenderTelemetry>({
     currentShotIndex: 1,
@@ -91,7 +146,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     totalFrames: 288,
     percent: 0,
     fps: 24.0,
-    statusText: 'IDLE // READY FOR RENDER PIPELINE'
+    statusText: 'IDLE // READY'
   });
   const [exportError, setExportError] = useState<string | null>(null);
   const [isFinished, setIsFinished] = useState<boolean>(false);
@@ -99,22 +154,29 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const shotStripScrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Synchronize start & end shots on open or index change
-  const totalCount = Math.max(1, totalSlides || slides.length || frames.length || 1);
+  // Reset or initialize when opened
   useEffect(() => {
     if (isOpen) {
-      setRangeStart(Math.max(1, currentSlideIndex + 1));
-      setRangeEnd(Math.min(totalCount, currentSlideIndex + 4));
-      setCustomListText(`1, 2, ${Math.min(totalCount, 3)}`);
-      setExportError(null);
-      setIsFinished(false);
       setIsExporting(false);
+      setIsFinished(false);
+      setExportError(null);
+      setExcludedIndices([]);
+      const start = Math.max(1, currentSlideIndex + 1);
+      const end = Math.min(totalCount, start + 11);
+      setRangeStart(start);
+      setRangeEnd(end);
+      setCustomListText(`1, ${Math.min(3, totalCount)}, ${Math.min(5, totalCount)}-${Math.min(8, totalCount)}`);
+      
+      const cleanProject = projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const timeStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      setCustomFilename(`HANDFILM_${cleanProject}_DirectorCut_${timeStr}.mp4`);
     }
-  }, [isOpen, currentSlideIndex, totalCount]);
+  }, [isOpen, currentSlideIndex, totalCount, projectTitle]);
 
-  // Dynamic live calculation of selected shots, frames, and duration
-  const selectionSummary = useMemo(() => {
+  // Candidate shots in selection mode before exclusion
+  const candidateSelection = useMemo(() => {
     return parseShotSelection(
       selectionMode,
       rangeStart,
@@ -122,26 +184,55 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       customListText,
       totalCount,
       currentSlideIndex,
-      288
+      288,
+      [] // without exclusion to show in visual matrix
     );
   }, [selectionMode, rangeStart, rangeEnd, customListText, totalCount, currentSlideIndex]);
+
+  // Final active selection after exclusions
+  const activeSelection = useMemo(() => {
+    return parseShotSelection(
+      selectionMode,
+      rangeStart,
+      rangeEnd,
+      customListText,
+      totalCount,
+      currentSlideIndex,
+      288,
+      excludedIndices
+    );
+  }, [selectionMode, rangeStart, rangeEnd, customListText, totalCount, currentSlideIndex, excludedIndices]);
 
   // Dimension details for active preset
   const dimensionInfo = useMemo(() => {
     return getExportPresetDimensions(resolutionPreset);
   }, [resolutionPreset]);
 
-  // Format runtime nicely mm:ss
-  const runtimeDisplay = useMemo(() => {
-    const mins = Math.floor(selectionSummary.durationSec / 60);
-    const secs = Math.floor(selectionSummary.durationSec % 60);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }, [selectionSummary.durationSec]);
+  // Dynamic runtime display mm:ss.ff
+  const dynamicRuntime = useMemo(() => {
+    const totalSec = activeSelection.durationSec;
+    const mins = Math.floor(totalSec / 60);
+    const secs = Math.floor(totalSec % 60);
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.00`;
+  }, [activeSelection.durationSec]);
 
-  if (!isOpen) return null;
+  // Toggle exclusion of a shot in the matrix
+  const handleToggleExcludeShot = (shotIdx: number) => {
+    setExcludedIndices(prev => {
+      if (prev.includes(shotIdx)) {
+        return prev.filter(i => i !== shotIdx);
+      } else {
+        // Prevent excluding ALL shots
+        if (candidateSelection.indices.length - prev.length <= 1) {
+          return prev;
+        }
+        return [...prev, shotIdx];
+      }
+    });
+  };
 
-  // Handle live frame preview blit to modal thumbnail canvas
-  const handleFrameRendered = (sourceCanvas: HTMLCanvasElement) => {
+  // Blit rendered frame from offline canvas to live thumbnail monitor
+  const handleFrameRendered = useCallback((sourceCanvas: HTMLCanvasElement) => {
     const destCanvas = previewCanvasRef.current;
     if (!destCanvas) return;
     const destCtx = destCanvas.getContext('2d');
@@ -173,10 +264,15 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     try {
       destCtx.drawImage(sourceCanvas, dX, dY, dW, dH);
     } catch {}
-  };
+  }, []);
 
   // Launch Master Render Pipeline
   const handleStartExport = async () => {
+    if (activeSelection.totalShots === 0) {
+      setExportError('At least one shot must be included in the sequence.');
+      return;
+    }
+
     setIsExporting(true);
     setIsFinished(false);
     setExportError(null);
@@ -195,618 +291,715 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         rangeStart,
         rangeEnd,
         customListText,
+        excludedShotIndices: excludedIndices,
+        overrideShotIndices: activeSelection.indices,
         resolutionPreset,
         bitrateProfile,
-        burnInTitles: cleanPlates ? false : burnInTitles,
-        cleanPlates,
-        simulateFlare: cleanPlates ? false : simulateFlare,
+        burnInTitles,
+        cleanPlates: false,
+        simulateFlare,
         includeAudio,
         onProgress: (tel) => setTelemetry(tel),
         onFrameRendered: (canvas) => handleFrameRendered(canvas),
         abortSignal: abortCtrl.signal
       });
 
-      // Automatic file download trigger
+      // Browser download
+      const targetName = customFilename.trim().endsWith('.mp4') 
+        ? customFilename.trim() 
+        : `${customFilename.trim() || 'HANDFILM_Master'}.mp4`;
+
       const downloadUrl = URL.createObjectURL(result.blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = result.filename;
+      link.download = targetName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(downloadUrl), 8000);
 
-      setDownloadedFileName(result.filename);
+      // Play success chime
+      playExportSuccessChime();
+
+      setDownloadedFileName(targetName);
       setIsFinished(true);
       setIsExporting(false);
 
     } catch (err: any) {
       if (err?.message?.includes('cancelled')) {
-        setExportError('Export cancelled.');
+        setExportError('Render aborted by user.');
       } else {
-        console.error('[CutNativeExportModal] Export failed:', err);
+        console.error('[CinemaExportStudio] Render failed:', err);
         setExportError(err?.message || 'Video encoding pipeline failed.');
       }
       setIsExporting(false);
     }
   };
 
-  const handleCancelExport = () => {
+  const handleAbortExport = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     setIsExporting(false);
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none font-sans overflow-y-auto">
-      <div className="w-full max-w-4xl bg-[#090A0F] border border-[#d4af37]/40 rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col font-mono text-zinc-300 my-8">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 md:p-8 select-none font-sans overflow-hidden">
+      
+      {/* Centered Tactical Modal Container */}
+      <div className="w-full max-w-5xl max-h-[90vh] bg-[#0c0d10] border border-[#F5A623]/30 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Header: Tactile Cinema Console HUD */}
-        <div className="px-6 py-4 bg-[#11121A] border-b border-[#252636] flex items-center justify-between">
+        {/* Pinned Header: Gold Title, Total Runtime, Clean Close */}
+        <div className="px-6 py-4 bg-[#111218] border-b border-[#22232f] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-[#d4af37]/20 border border-[#d4af37]/60 flex items-center justify-center shadow-[0_0_12px_rgba(212,175,55,0.3)]">
-              <Film className="w-4 h-4 text-[#fbbf24]" />
+            <div className="w-7 h-7 rounded-lg bg-[#F5A623]/20 border border-[#F5A623]/50 flex items-center justify-center shadow-[0_0_12px_rgba(245,166,35,0.3)]">
+              <Film className="w-4 h-4 text-[#F5A623]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white tracking-wider uppercase">
-                  CINEMA EXPORT STUDIO
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xs md:text-sm font-bold text-white tracking-widest uppercase">
+                  CINEMA EXPORT STUDIO <span className="text-[#F5A623] font-normal">// WebCodecs Native</span>
                 </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-[#f5a623]/20 border border-[#f5a623]/50 text-[#f5a623] font-bold">
-                  WEBCODECS MASTER
-                </span>
               </div>
-              <p className="text-[10.5px] text-zinc-400 font-sans tracking-wide">
-                Offline Frame-Accurate Hardware Renderer • Uncompressed IndexedDB Vault
+              <p className="text-[10px] text-zinc-400 font-sans tracking-wide">
+                Hardware-accelerated offline 24fps render engine with frame-accurate multi-shot stitching
               </p>
             </div>
           </div>
 
-          {!isExporting && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {/* Total Runtime Counter */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-[#161722] border border-[#26283b] text-xs">
+              <Clock className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span className="text-zinc-400 text-[10px] uppercase tracking-wider">Runtime:</span>
+              <span className="text-white font-bold font-mono">{dynamicRuntime}</span>
+              <span className="text-[#F5A623] text-[10px] font-bold">@ 24fps</span>
+            </div>
+
+            {!isExporting && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <span>✕</span>
+                <span>CLOSE</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Studio Body Split: Settings on Left, Live Telemetry & Inspector on Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 border-b border-[#252636]">
+        {/* Scrollable Body Container */}
+        <div className="overflow-y-auto flex-1 p-5 md:p-6 space-y-6">
           
-          {/* Left Column: Formats, Range, and Codec Selectors (7 cols) */}
-          <div className="lg:col-span-7 p-6 space-y-5 border-b lg:border-b-0 lg:border-r border-[#252636]">
-            
-            {/* 1. Shot Selection Mode */}
-            <div>
-              <label className="text-[11px] text-[#fbbf24] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
+          {/* ============================================================== */}
+          {/* SECTION 1: SHOT SEQUENCE SETTINGS & INTERACTIVE MATRIX        */}
+          {/* ============================================================== */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-2">
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>1. Shot Selection Mode</span>
+                <span>1. Shot Sequence Matrix & Planner</span>
               </label>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded">
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setSelectionMode('all')}
-                  className={`py-1.5 px-2 text-[10.5px] font-bold rounded transition-all cursor-pointer ${
-                    selectionMode === 'all'
-                      ? 'bg-[#d4af37] text-black shadow'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
-                  }`}
-                >
-                  All Timeline
-                </button>
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setSelectionMode('range')}
-                  className={`py-1.5 px-2 text-[10.5px] font-bold rounded transition-all cursor-pointer ${
-                    selectionMode === 'range'
-                      ? 'bg-[#d4af37] text-black shadow'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
-                  }`}
-                >
-                  Range Mode
-                </button>
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setSelectionMode('custom')}
-                  className={`py-1.5 px-2 text-[10.5px] font-bold rounded transition-all cursor-pointer ${
-                    selectionMode === 'custom'
-                      ? 'bg-[#d4af37] text-black shadow'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
-                  }`}
-                >
-                  Custom List
-                </button>
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setSelectionMode('current')}
-                  className={`py-1.5 px-2 text-[10.5px] font-bold rounded transition-all cursor-pointer ${
-                    selectionMode === 'current'
-                      ? 'bg-[#d4af37] text-black shadow'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
-                  }`}
-                >
-                  Active Shot
-                </button>
+              {/* Dynamic Telemetry Label */}
+              <div className="text-[10.5px] text-zinc-400 font-mono">
+                Selected: <span className="text-white font-bold">{activeSelection.totalShots} Shots</span>
+                {' • '}
+                <span className="text-[#F5A623] font-bold">{activeSelection.totalFrames.toLocaleString()} Frames</span>
+                {' • '}
+                <span className="text-cyan-300 font-bold">{dynamicRuntime}</span>
+                {excludedIndices.length > 0 && (
+                  <span className="text-rose-400 ml-2">({excludedIndices.length} Excluded)</span>
+                )}
               </div>
+            </div>
 
-              {/* Sub-inputs for Range or Custom */}
-              {selectionMode === 'range' && (
-                <div className="mt-2.5 p-3 rounded bg-[#10111a] border border-[#232435] flex items-center gap-3">
-                  <div className="flex-1">
-                    <span className="text-[9.5px] text-zinc-400 block mb-1">From Shot:</span>
+            {/* Range Selection Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 bg-[#07080c] border border-[#1d1e2b] rounded-xl">
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => setSelectionMode('all')}
+                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                  selectionMode === 'all'
+                    ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.3)]'
+                    : 'text-zinc-400 hover:text-white hover:bg-[#151620]'
+                }`}
+              >
+                ALL SHOTS (1–{totalCount})
+              </button>
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => setSelectionMode('current')}
+                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                  selectionMode === 'current'
+                    ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.3)]'
+                    : 'text-zinc-400 hover:text-white hover:bg-[#151620]'
+                }`}
+              >
+                ACTIVE SHOT ({String(currentSlideIndex + 1).padStart(3, '0')})
+              </button>
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => setSelectionMode('range')}
+                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                  selectionMode === 'range'
+                    ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.3)]'
+                    : 'text-zinc-400 hover:text-white hover:bg-[#151620]'
+                }`}
+              >
+                CUSTOM RANGE
+              </button>
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => setSelectionMode('custom')}
+                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                  selectionMode === 'custom'
+                    ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.3)]'
+                    : 'text-zinc-400 hover:text-white hover:bg-[#151620]'
+                }`}
+              >
+                MANUAL LIST
+              </button>
+            </div>
+
+            {/* Stepper Inputs for Range Mode */}
+            {selectionMode === 'range' && (
+              <div className="p-3.5 rounded-xl bg-[#101118] border border-[#202230] flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-zinc-400 font-sans">From Shot:</span>
                     <input
                       type="number"
                       min="1"
                       max={totalCount}
                       disabled={isExporting}
                       value={rangeStart}
-                      onChange={(e) => setRangeStart(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full bg-[#090A0F] border border-[#2b2c3f] rounded px-2.5 py-1 text-sm font-bold text-white text-center focus:border-[#fbbf24] outline-none"
+                      onChange={(e) => setRangeStart(Math.max(1, Math.min(totalCount, parseInt(e.target.value) || 1)))}
+                      className="w-18 bg-[#07080c] border border-[#2d2f42] rounded-lg px-2.5 py-1 text-sm font-bold text-[#F5A623] text-center focus:border-[#F5A623] outline-none"
                     />
                   </div>
-                  <span className="text-zinc-500 pt-4">to</span>
-                  <div className="flex-1">
-                    <span className="text-[9.5px] text-zinc-400 block mb-1">To Shot:</span>
+
+                  <span className="text-zinc-500 font-bold">→</span>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-zinc-400 font-sans">To Shot:</span>
                     <input
                       type="number"
                       min={rangeStart}
                       max={totalCount}
                       disabled={isExporting}
                       value={rangeEnd}
-                      onChange={(e) => setRangeEnd(Math.max(rangeStart, parseInt(e.target.value) || rangeStart))}
-                      className="w-full bg-[#090A0F] border border-[#2b2c3f] rounded px-2.5 py-1 text-sm font-bold text-white text-center focus:border-[#fbbf24] outline-none"
+                      onChange={(e) => setRangeEnd(Math.max(rangeStart, Math.min(totalCount, parseInt(e.target.value) || rangeStart)))}
+                      className="w-18 bg-[#07080c] border border-[#2d2f42] rounded-lg px-2.5 py-1 text-sm font-bold text-[#F5A623] text-center focus:border-[#F5A623] outline-none"
                     />
                   </div>
                 </div>
-              )}
 
-              {selectionMode === 'custom' && (
-                <div className="mt-2.5 p-3 rounded bg-[#10111a] border border-[#232435]">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[9.5px] text-zinc-400">Manual Shot Listing (Comma or Range):</span>
-                    <span className="text-[9px] text-zinc-500">e.g., 1, 4, 7-12, 19</span>
-                  </div>
-                  <input
-                    type="text"
-                    disabled={isExporting}
-                    value={customListText}
-                    onChange={(e) => setCustomListText(e.target.value)}
-                    placeholder="1, 4, 7-12, 19, 88"
-                    className="w-full bg-[#090A0F] border border-[#2b2c3f] rounded px-3 py-1.5 text-xs font-mono text-cyan-300 focus:border-[#fbbf24] outline-none"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* 2. Resolution & Aspect Formats */}
-            <div>
-              <label className="text-[11px] text-[#fbbf24] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span>2. Resolution & Aspect Formats</span>
-              </label>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* 1080p Cinema Scope */}
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setResolutionPreset('1080p_scope')}
-                  className={`p-2.5 rounded border text-left cursor-pointer transition-all ${
-                    resolutionPreset === '1080p_scope'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24] shadow-[0_0_15px_rgba(251,191,36,0.15)]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="font-bold text-xs text-white">1080p Cinema Scope</div>
-                  <div className="text-[10px] text-zinc-500 font-sans mt-0.5">1920 × 804 • 2.39:1 Theatrical Scope</div>
-                </button>
-
-                {/* 4K Master Scope */}
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setResolutionPreset('4k_scope')}
-                  className={`p-2.5 rounded border text-left cursor-pointer transition-all ${
-                    resolutionPreset === '4k_scope'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24] shadow-[0_0_15px_rgba(251,191,36,0.15)]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="font-bold text-xs text-white">4K Master Scope</div>
-                  <div className="text-[10px] text-zinc-500 font-sans mt-0.5">3840 × 1608 • UHD Cinema Archive</div>
-                </button>
-
-                {/* 1080p Standard */}
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setResolutionPreset('1080p_standard')}
-                  className={`p-2.5 rounded border text-left cursor-pointer transition-all ${
-                    resolutionPreset === '1080p_standard'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24] shadow-[0_0_15px_rgba(251,191,36,0.15)]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="font-bold text-xs text-white">1080p Standard (16:9)</div>
-                  <div className="text-[10px] text-zinc-500 font-sans mt-0.5">1920 × 1080 • Broadcast Master</div>
-                </button>
-
-                {/* 4K Standard */}
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setResolutionPreset('4k_standard')}
-                  className={`p-2.5 rounded border text-left cursor-pointer transition-all ${
-                    resolutionPreset === '4k_standard'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24] shadow-[0_0_15px_rgba(251,191,36,0.15)]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="font-bold text-xs text-white">4K Standard (16:9)</div>
-                  <div className="text-[10px] text-zinc-500 font-sans mt-0.5">3840 × 2160 • UHD 16:9 Master</div>
-                </button>
-
-                {/* Vertical Reel 9:16 */}
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setResolutionPreset('9_16_vertical')}
-                  className={`p-2.5 rounded border text-left sm:col-span-2 cursor-pointer transition-all ${
-                    resolutionPreset === '9_16_vertical'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24] shadow-[0_0_15px_rgba(251,191,36,0.15)]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="font-bold text-xs text-white flex items-center gap-1.5">
-                      <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Vertical Reel (1080 × 1920, 9:16)</span>
-                    </div>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300">
-                      SOCIAL CUT
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-zinc-500 font-sans mt-0.5">
-                    Safe-zone letterboxed scope with ambient blur and vertical title alignment
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* 3. Codec & Bitrate Profiles */}
-            <div>
-              <label className="text-[11px] text-[#fbbf24] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Cpu className="w-3.5 h-3.5" />
-                <span>3. Codec & Quality Profiles</span>
-              </label>
-
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setBitrateProfile('proxy')}
-                  className={`p-2 rounded border text-center cursor-pointer transition-all ${
-                    bitrateProfile === 'proxy'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400'
-                  }`}
-                >
-                  <div className="text-[11px] font-bold">Fast Proxy</div>
-                  <div className="text-[9px] text-zinc-500 font-sans">12 Mbps</div>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setBitrateProfile('broadcast')}
-                  className={`p-2 rounded border text-center cursor-pointer transition-all ${
-                    bitrateProfile === 'broadcast'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400'
-                  }`}
-                >
-                  <div className="text-[11px] font-bold">Broadcast</div>
-                  <div className="text-[9px] text-zinc-500 font-sans">28-35 Mbps</div>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => setBitrateProfile('master')}
-                  className={`p-2 rounded border text-center cursor-pointer transition-all ${
-                    bitrateProfile === 'master'
-                      ? 'bg-[#181926] border-[#fbbf24] text-[#fbbf24]'
-                      : 'bg-[#0c0d14] border-[#1e1f2d] text-zinc-400'
-                  }`}
-                >
-                  <div className="text-[11px] font-bold">Cinema Master</div>
-                  <div className="text-[9px] text-zinc-500 font-sans">50-80 Mbps</div>
-                </button>
-              </div>
-
-              {/* Color Space & Audio Info */}
-              <div className="mt-3 flex items-center justify-between p-2.5 rounded bg-[#10111a] border border-[#232435] text-[10.5px]">
-                <div className="flex items-center gap-2">
-                  <span className="text-zinc-400">Color Transform:</span>
-                  <span className="text-white font-bold">ACEScg / Rec.709 sRGB Preserved</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-zinc-400">Audio Muxing:</span>
-                  <span className="text-[#fbbf24] font-bold">AAC 320 kbps</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Burn-In & Title Toggles */}
-            <div>
-              <label className="text-[11px] text-[#fbbf24] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Type className="w-3.5 h-3.5" />
-                <span>4. Burn-In & Title Compositing</span>
-              </label>
-
-              <div className="space-y-2">
-                {/* Burn In Titles */}
-                <div className="p-2.5 rounded bg-[#10111a] border border-[#232435] flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-bold text-white">Burn In Titles & Typography</div>
-                    <div className="text-[9.5px] text-zinc-500 font-sans">
-                      Composites glowing Bangla headline + English Cinzel subtitle and timecode
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isExporting || cleanPlates}
-                    onClick={() => setBurnInTitles(b => !b)}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                      burnInTitles && !cleanPlates ? 'bg-[#d4af37]' : 'bg-zinc-700'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-black transition-transform ${
-                        burnInTitles && !cleanPlates ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Clean Video Plates */}
-                <div className="p-2.5 rounded bg-[#10111a] border border-[#232435] flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-bold text-white">Clean Video Plates Only</div>
-                    <div className="text-[9.5px] text-zinc-500 font-sans">
-                      Disables all text, slates, and reticles for raw VFX editorial handoff
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isExporting}
-                    onClick={() => {
-                      setCleanPlates(c => {
-                        const next = !c;
-                        if (next) setBurnInTitles(false);
-                        else setBurnInTitles(true);
-                        return next;
-                      });
-                    }}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                      cleanPlates ? 'bg-cyan-500' : 'bg-zinc-700'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-black transition-transform ${
-                        cleanPlates ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Anamorphic Flare Simulation */}
-                <div className="p-2.5 rounded bg-[#10111a] border border-[#232435] flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-bold text-white">Anamorphic Flare & Light Streak</div>
-                    <div className="text-[9.5px] text-zinc-500 font-sans">
-                      Renders blue/gold horizontal anamorphic laser filament & lens bloom
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isExporting || cleanPlates}
-                    onClick={() => setSimulateFlare(f => !f)}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                      simulateFlare && !cleanPlates ? 'bg-[#d4af37]' : 'bg-zinc-700'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-black transition-transform ${
-                        simulateFlare && !cleanPlates ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Audio Multiplexing */}
-                <div className="p-2.5 rounded bg-[#10111a] border border-[#232435] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Music className="w-3.5 h-3.5 text-[#fbbf24]" />
-                    <div>
-                      <div className="text-xs font-bold text-white">Timeline Audio Track Multiplexing</div>
-                      <div className="text-[9.5px] text-zinc-500 font-sans">
-                        Synthesizes ambient sub-bass drone with 24fps rhythmic cut-point markers
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isExporting}
-                    onClick={() => setIncludeAudio(a => !a)}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                      includeAudio ? 'bg-[#d4af37]' : 'bg-zinc-700'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-black transition-transform ${
-                        includeAudio ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Right Column: Live Telemetry, Thumbnail Monitor, and Diagnostics (5 cols) */}
-          <div className="lg:col-span-5 p-6 bg-[#0B0C13] flex flex-col justify-between space-y-5">
-            
-            <div className="space-y-4">
-              {/* Telemetry Header Badge */}
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-[#fbbf24] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Real-Time Monitor & Specs</span>
-                </span>
-                <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-bold">
-                  OFFLINE 24.0 FPS
-                </span>
-              </div>
-
-              {/* Live Render Canvas Monitor */}
-              <div className="relative aspect-video w-full bg-black rounded border border-[#2a2b3d] overflow-hidden flex items-center justify-center shadow-inner">
-                <canvas
-                  ref={previewCanvasRef}
-                  width={320}
-                  height={180}
-                  className="w-full h-full object-contain"
-                />
-                {!isExporting && !isFinished && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs p-4 text-center">
-                    <Film className="w-8 h-8 text-[#d4af37] mb-2 opacity-80" />
-                    <span className="text-xs font-bold text-white">LIVE FRAME MONITOR</span>
-                    <span className="text-[9.5px] text-zinc-400 font-sans mt-0.5">
-                      Frames stream here during offline rendering
-                    </span>
-                  </div>
-                )}
-                {isExporting && (
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/70 border border-[#f5a623]/40 text-[9px] text-[#f5a623] font-bold">
-                    REC • 24.0 FPS
-                  </div>
-                )}
-              </div>
-
-              {/* Sequence Specs Telemetry Grid */}
-              <div className="p-3.5 rounded bg-[#10111a] border border-[#232435] space-y-2 text-xs">
-                <div className="flex justify-between items-center py-0.5 border-b border-zinc-800/80">
-                  <span className="text-zinc-400 text-[10.5px]">Total Shots:</span>
-                  <span className="text-white font-bold font-mono">{selectionSummary.totalShots}</span>
-                </div>
-                <div className="flex justify-between items-center py-0.5 border-b border-zinc-800/80">
-                  <span className="text-zinc-400 text-[10.5px]">Total Frames @ 24fps:</span>
-                  <span className="text-[#fbbf24] font-bold font-mono">{selectionSummary.totalFrames.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center py-0.5 border-b border-zinc-800/80">
-                  <span className="text-zinc-400 text-[10.5px]">Estimated Runtime:</span>
-                  <span className="text-white font-bold font-mono">{runtimeDisplay} ({selectionSummary.durationSec.toFixed(1)}s)</span>
-                </div>
-                <div className="flex justify-between items-center py-0.5 border-b border-zinc-800/80">
-                  <span className="text-zinc-400 text-[10.5px]">Output Geometry:</span>
-                  <span className="text-cyan-300 font-bold font-mono">
-                    {dimensionInfo.width} × {dimensionInfo.height} ({dimensionInfo.aspectRatio})
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-0.5">
-                  <span className="text-zinc-400 text-[10.5px]">Source Storage:</span>
-                  <span className="text-emerald-400 font-bold text-[10px]">Uncompressed 4K Vault</span>
-                </div>
-              </div>
-
-              {/* Feedback messages */}
-              {exportError && (
-                <div className="p-3 rounded bg-rose-950/40 border border-rose-500/40 text-rose-300 text-[10.5px] flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">Encoding Interrupted</p>
-                    <p className="text-rose-400/80 font-sans">{exportError}</p>
-                  </div>
-                </div>
-              )}
-
-              {isFinished && (
-                <div className="p-3 rounded bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-[10.5px] flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">Cinema Master Exported Successfully</p>
-                    <p className="text-emerald-400/80 font-mono text-[9.5px] truncate max-w-xs">{downloadedFileName}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Tactical Render HUD (When Exporting) */}
-            {isExporting && (
-              <div className="p-4 rounded bg-[#05060A] border border-[#d4af37]/50 space-y-2 shadow-[0_0_20px_rgba(245,166,35,0.15)] animate-in fade-in">
-                <div className="flex justify-between items-center text-[10.5px]">
-                  <span className="text-[#f5a623] font-bold truncate max-w-[220px]">
-                    {telemetry.statusText}
-                  </span>
-                  <span className="text-white font-mono font-bold text-sm">
-                    {telemetry.percent}%
-                  </span>
-                </div>
-
-                {/* Amber Progress Bar */}
-                <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#d4af37] via-[#f5a623] to-[#fbbf24] transition-all duration-150"
-                    style={{ width: `${telemetry.percent}%` }}
-                  />
-                </div>
-
-                <div className="flex justify-between text-[9px] text-zinc-400 font-mono">
-                  <span>
-                    FRAME {telemetry.currentFrameNum.toLocaleString()} / {telemetry.totalFrames.toLocaleString()}
-                  </span>
-                  <span>{telemetry.fps.toFixed(1)} FPS</span>
+                <div className="text-[10.5px] text-zinc-400">
+                  Span: <span className="text-white font-bold">{Math.max(0, rangeEnd - rangeStart + 1)} Consecutive Shots</span>
                 </div>
               </div>
             )}
 
+            {/* Manual Tag-Based List Input */}
+            {selectionMode === 'custom' && (
+              <div className="p-3.5 rounded-xl bg-[#101118] border border-[#202230] space-y-1.5 animate-in fade-in">
+                <div className="flex justify-between items-center text-[10.5px]">
+                  <span className="text-zinc-400 font-sans">Enter comma-separated shots and ranges:</span>
+                  <span className="text-zinc-500">e.g., 1, 3, 5-8, 12</span>
+                </div>
+                <input
+                  type="text"
+                  disabled={isExporting}
+                  value={customListText}
+                  onChange={(e) => setCustomListText(e.target.value)}
+                  placeholder="1, 3, 5-8, 12"
+                  className="w-full bg-[#07080c] border border-[#2d2f42] rounded-lg px-3.5 py-2 text-xs font-mono text-cyan-300 focus:border-[#F5A623] outline-none"
+                />
+              </div>
+            )}
+
+            {/* Visual Shot Sequence & Exclusion Matrix Strip */}
+            <div className="p-3.5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-2">
+              <div className="flex items-center justify-between text-[10.5px]">
+                <span className="text-zinc-400 font-sans flex items-center gap-1.5">
+                  <Film className="w-3.5 h-3.5 text-[#F5A623]" />
+                  <span>Visual Sequence Strip (Click <span className="text-rose-400 font-bold">[ × ]</span> to exclude from render)</span>
+                </span>
+                {excludedIndices.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setExcludedIndices([])}
+                    className="text-[10px] text-[#F5A623] hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Exclusions</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Horizontal Scrollable Thumbnail Strip */}
+              <div 
+                ref={shotStripScrollRef}
+                className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-zinc-700"
+              >
+                {candidateSelection.indices.map((shotIdx) => {
+                  const isExcluded = excludedIndices.includes(shotIdx);
+                  const slide = slides[shotIdx];
+                  const frame = frames[shotIdx];
+                  const shotNumber = shotIdx + 1;
+                  const shotLabel = `SH${String(shotNumber).padStart(3, '0')}`;
+                  const title = slide?.titleEn || frame?.title || `Shot ${shotNumber}`;
+                  const thumb = slide?.remoteUrl || frame?.imageUrl || '';
+
+                  return (
+                    <div
+                      key={shotIdx}
+                      className={`relative shrink-0 w-36 rounded-lg border overflow-hidden transition-all group ${
+                        isExcluded
+                          ? 'bg-[#120a0d] border-rose-900/60 opacity-50'
+                          : 'bg-[#12131c] border-[#292b3e] hover:border-[#F5A623]'
+                      }`}
+                    >
+                      {/* Shot Thumbnail Container */}
+                      <div className="relative aspect-video w-full bg-black overflow-hidden">
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt={shotLabel}
+                            className={`w-full h-full object-cover transition-transform duration-200 group-hover:scale-105 ${
+                              isExcluded ? 'grayscale' : ''
+                            }`}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 to-black text-zinc-600 text-[9px]">
+                            <Film className="w-4 h-4 mb-0.5 opacity-40" />
+                            <span>PLATE</span>
+                          </div>
+                        )}
+
+                        {/* Top Overlay Badge */}
+                        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 border border-white/10 text-[8.5px] font-bold text-white">
+                          {shotLabel}
+                        </div>
+
+                        {/* Exclusion Toggle Button [ × ] */}
+                        <button
+                          type="button"
+                          disabled={isExporting}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleExcludeShot(shotIdx);
+                          }}
+                          title={isExcluded ? 'Include shot in render' : 'Exclude shot from render'}
+                          className={`absolute top-1 right-1 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold transition-all cursor-pointer ${
+                            isExcluded
+                              ? 'bg-rose-600 text-white shadow-sm'
+                              : 'bg-black/70 hover:bg-rose-600 text-zinc-300 hover:text-white'
+                          }`}
+                        >
+                          {isExcluded ? '+' : '×'}
+                        </button>
+
+                        {/* Excluded Diagonal Watermark */}
+                        {isExcluded && (
+                          <div className="absolute inset-0 bg-rose-950/60 backdrop-blur-xs flex items-center justify-center">
+                            <span className="text-[9px] font-bold text-rose-300 tracking-wider">
+                              EXCLUDED
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Shot Info Footer */}
+                      <div className="p-2 space-y-0.5">
+                        <div className="text-[9.5px] font-bold text-zinc-200 truncate" title={title}>
+                          {title}
+                        </div>
+                        <div className="flex items-center justify-between text-[8px] text-zinc-400 font-mono">
+                          <span>12.0s • 288F</span>
+                          <span className={isExcluded ? 'text-rose-400' : 'text-[#F5A623]'}>
+                            {isExcluded ? 'SKIP' : 'ACTIVE'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+
+          {/* ============================================================== */}
+          {/* SECTION 2: 3 DISTINCT TACTILE MODULAR PANELS                  */}
+          {/* ============================================================== */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            {/* Panel 1: Master Resolution & Aspect */}
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] flex flex-col justify-between space-y-3">
+              <div>
+                <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Resolution & Aspect</span>
+                </label>
+
+                <div className="space-y-1.5">
+                  {/* 4K Scope (Default) */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setResolutionPreset('4k_scope')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      resolutionPreset === '4k_scope'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">4K Scope (3840 × 1608)</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#F5A623]/20 text-[#F5A623] font-bold">2.39:1</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Theatrical Anamorphic Scope Master</div>
+                  </button>
+
+                  {/* 4K Standard 16:9 */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setResolutionPreset('4k_standard')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      resolutionPreset === '4k_standard'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">4K UHD (3840 × 2160)</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-bold">16:9</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Ultra HD 16:9 Cinema Master</div>
+                  </button>
+
+                  {/* 1080p Scope */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setResolutionPreset('1080p_scope')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      resolutionPreset === '1080p_scope'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">1080p Scope (1920 × 804)</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-bold">2.39:1</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Fast Theatrical Proxy</div>
+                  </button>
+
+                  {/* 1080p Standard */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setResolutionPreset('1080p_standard')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      resolutionPreset === '1080p_standard'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">1080p Standard (1920 × 1080)</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-bold">16:9</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Web & Broadcast Television</div>
+                  </button>
+
+                  {/* Vertical Reel 9:16 */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setResolutionPreset('9_16_vertical')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      resolutionPreset === '9_16_vertical'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Vertical Reel (1080 × 1920)</span>
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold">9:16</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Social Cut with Safe-Zone Letterbox</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel 2: Bitrate & Quality Preset */}
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] flex flex-col justify-between space-y-3">
+              <div>
+                <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Bitrate & Quality Profile</span>
+                </label>
+
+                <div className="space-y-2">
+                  {/* Fast Proxy */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setBitrateProfile('proxy')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      bitrateProfile === 'proxy'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">Fast Proxy</span>
+                      <span className="text-[10px] text-[#F5A623] font-bold">12 Mbps</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Lightweight client review file</div>
+                  </button>
+
+                  {/* Broadcast */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setBitrateProfile('broadcast')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      bitrateProfile === 'broadcast'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">Broadcast Profile</span>
+                      <span className="text-[10px] text-[#F5A623] font-bold">30 Mbps</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Industry standard H.264 High Profile</div>
+                  </button>
+
+                  {/* Cinema Master */}
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setBitrateProfile('master')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      bitrateProfile === 'master'
+                        ? 'bg-[#181926] border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                        : 'bg-[#101118] border-[#222332] text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">Cinema Master</span>
+                      <span className="text-[10px] text-[#F5A623] font-bold">60 Mbps</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 font-sans mt-0.5">Pristine DCI archival quality</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Color Specs Info Card */}
+              <div className="p-3 rounded-lg bg-[#11121a] border border-[#232435] space-y-1 text-[10px]">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Color Transform:</span>
+                  <span className="text-emerald-400 font-bold">ACEScg / Rec.709</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>Framerate Lock:</span>
+                  <span className="text-[#F5A623] font-bold">24.000 FPS</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel 3: Composite Layers & Audio */}
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] flex flex-col justify-between space-y-3">
+              <div>
+                <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Composite Layers</span>
+                </label>
+
+                <div className="space-y-2">
+                  {/* Burn In Titles */}
+                  <div className="p-2.5 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white">Burn-in Glowing Titles</div>
+                      <div className="text-[9px] text-zinc-500 font-sans">Bangla gold bloom + English subtitle</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isExporting}
+                      onClick={() => setBurnInTitles(b => !b)}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer relative ${
+                        burnInTitles ? 'bg-[#F5A623]' : 'bg-zinc-700'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-black transition-transform ${burnInTitles ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  {/* Optical Flare Simulation */}
+                  <div className="p-2.5 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white">Optical Bars & Anamorphic Flare</div>
+                      <div className="text-[9px] text-zinc-500 font-sans">Cyan/gold laser streak & bloom</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isExporting}
+                      onClick={() => setSimulateFlare(f => !f)}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer relative ${
+                        simulateFlare ? 'bg-[#F5A623]' : 'bg-zinc-700'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-black transition-transform ${simulateFlare ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  {/* Master Audio Track */}
+                  <div className="p-2.5 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1">
+                        <Volume2 className="w-3 h-3 text-[#F5A623]" />
+                        <span>Timeline Master Audio</span>
+                      </div>
+                      <div className="text-[9px] text-zinc-500 font-sans">320kbps AAC ambient sub-bass drone</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isExporting}
+                      onClick={() => setIncludeAudio(a => !a)}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer relative ${
+                        includeAudio ? 'bg-[#F5A623]' : 'bg-zinc-700'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-black transition-transform ${includeAudio ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick specs pill */}
+              <div className="p-2.5 rounded-lg bg-[#11121a] border border-[#232435] text-[10px] text-zinc-400 flex justify-between items-center">
+                <span>Output Dimension:</span>
+                <span className="text-white font-mono font-bold">{dimensionInfo.width} × {dimensionInfo.height}</span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Feedback & Error Banner */}
+          {exportError && (
+            <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Render Interrupted</p>
+                <p className="text-rose-400/80 font-sans text-[11px]">{exportError}</p>
+              </div>
+            </div>
+          )}
+
+          {isFinished && (
+            <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Cinema Master Export Complete</p>
+                <p className="text-emerald-400/80 font-mono text-[10.5px]">Saved as: {downloadedFileName}</p>
+              </div>
+            </div>
+          )}
 
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-6 py-4 bg-[#0e0f17] flex items-center justify-between">
-          <div className="text-[10px] text-zinc-500 font-mono truncate max-w-md">
-            Output File: <span className="text-zinc-300 font-bold">
-              HANDFILM_{projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_{selectionSummary.label}.mp4
-            </span>
-          </div>
+        {/* ============================================================== */}
+        {/* SECTION 4: INTERACTIVE LIVE RENDER HUD & ACTION BAR (PINNED)   */}
+        {/* ============================================================== */}
+        <div className="p-5 md:px-6 md:py-4 bg-[#0e0f16] border-t border-[#222330] shrink-0">
+          
+          {isExporting ? (
+            /* Active Live Render State: Thumbnail Monitor + Amber Bar + Telemetry + Cancel */
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* Live Thumbnail Window */}
+                <div className="flex items-center gap-3">
+                  <div className="relative w-28 aspect-video rounded-lg bg-black border border-[#F5A623]/50 overflow-hidden shrink-0 shadow-[0_0_12px_rgba(245,166,35,0.2)]">
+                    <canvas
+                      ref={previewCanvasRef}
+                      width={320}
+                      height={180}
+                      className="w-full h-full object-contain"
+                    />
+                    <div className="absolute top-1 left-1 px-1 py-0.2 rounded bg-black/80 text-[7.5px] font-bold text-[#F5A623]">
+                      LIVE
+                    </div>
+                  </div>
 
-          <div className="flex items-center gap-3">
-            {isExporting ? (
-              <button
-                type="button"
-                onClick={handleCancelExport}
-                className="px-4 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold cursor-pointer transition-all"
-              >
-                Cancel Render
-              </button>
-            ) : (
-              <>
+                  {/* Telemetry Stats */}
+                  <div>
+                    <div className="text-xs font-bold text-[#F5A623] tracking-wide">
+                      [ RENDERING SHOT {String(telemetry.currentShotIndex).padStart(3, '0')}/{String(telemetry.totalShots).padStart(3, '0')} • FRAME {telemetry.currentFrameNum.toLocaleString()}/{telemetry.totalFrames.toLocaleString()} • {telemetry.percent}% • {telemetry.fps.toFixed(1)} FPS ]
+                    </div>
+                    <div className="text-[10px] text-zinc-400 font-sans mt-0.5">
+                      Writing H.264 High Profile MP4 bitstream via WebCodecs
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cancel / Abort Button */}
+                <button
+                  type="button"
+                  onClick={handleAbortExport}
+                  className="px-4 py-2 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-600/60 text-rose-200 text-xs font-bold tracking-wider cursor-pointer transition-all self-end sm:self-center"
+                >
+                  ABORT RENDER
+                </button>
+              </div>
+
+              {/* Amber Progress Bar */}
+              <div className="w-full h-2.5 bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-[#2a2c3d]">
+                <div
+                  className="h-full bg-gradient-to-r from-[#d4af37] via-[#F5A623] to-[#fbbf24] rounded-full transition-all duration-150 shadow-[0_0_10px_rgba(245,166,35,0.5)]"
+                  style={{ width: `${Math.max(2, telemetry.percent)}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            /* Idle Action Bar: Editable File Name Input + Start Button */
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* File Name Preview */}
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider shrink-0 font-sans">
+                  File:
+                </span>
+                <input
+                  type="text"
+                  value={customFilename}
+                  onChange={(e) => setCustomFilename(e.target.value)}
+                  className="w-full max-w-md bg-[#07080c] border border-[#26283b] rounded-lg px-3 py-1.5 text-xs font-mono text-zinc-200 focus:border-[#F5A623] outline-none"
+                  placeholder="HANDFILM_DirectorCut.mp4"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded bg-[#141520] hover:bg-[#1d1f2e] text-zinc-300 hover:text-white border border-[#27283a] text-xs font-bold cursor-pointer transition-all"
+                  className="px-4 py-2 rounded-lg bg-[#141520] hover:bg-[#1d1f2e] text-zinc-300 hover:text-white border border-[#292b3e] text-xs font-bold cursor-pointer transition-all"
                 >
                   Close
                 </button>
@@ -814,14 +1007,15 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 <button
                   type="button"
                   onClick={handleStartExport}
-                  className="px-5 py-2 rounded bg-gradient-to-r from-[#b38600] via-[#d4af37] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(251,191,36,0.4)] active:scale-[0.98] transition-all"
+                  className="px-6 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_25px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>EXPORT MP4 MASTER</span>
+                  <Zap className="w-4 h-4 fill-black" />
+                  <span>START MASTER EXPORT</span>
                 </button>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
+
         </div>
 
       </div>

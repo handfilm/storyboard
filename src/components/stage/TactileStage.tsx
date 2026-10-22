@@ -24,6 +24,7 @@ import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from '../Components
 import { localDbService } from '../../services/localDbService';
 import { automationService } from '../../services/automationService';
 import { storyboardSyncService } from '../../services/storyboardSyncService';
+import { db } from '../../services/db';
 import { PlaybackMode, SLIDE_DURATION_SEC } from '../../types/editor';
 import { 
   Play, 
@@ -247,15 +248,78 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     const file = e.dataTransfer.files?.[0];
     if (file) {
       onSelectFrame(index);
+      db.saveMediaToVault(file).then(saved => {
+        db.assignMediaToShot(saved.id, index);
+      });
       onUploadImage(file);
+    }
+  };
+
+  const [isStageDraggingOver, setIsStageDraggingOver] = useState(false);
+
+  const handleStageDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsStageDraggingOver(true);
+  };
+
+  const handleStageDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isStageDraggingOver) setIsStageDraggingOver(true);
+  };
+
+  const handleStageDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsStageDraggingOver(false);
+  };
+
+  const handleStageDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsStageDraggingOver(false);
+
+    // Check for Media Asset Vault card payload
+    const customData = e.dataTransfer.getData('text/plain');
+    if (customData) {
+      try {
+        const parsed = JSON.parse(customData);
+        if (parsed.type === 'MEDIA_ASSET_VAULT' && parsed.assetId) {
+          await db.assignMediaToShot(parsed.assetId, currentIndex);
+          return;
+        }
+      } catch {}
+    }
+
+    // Check for external files
+    const files = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+    if (files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const saved = await db.saveMediaToVault(file);
+        if (i === 0) {
+          await db.assignMediaToShot(saved.id, currentIndex);
+          onUploadImage(file);
+        }
+      }
     }
   };
 
   return (
     <div className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono select-none">
       {/* Main Stage Viewport (Hero Visual Plate with Glowing Metallic Titles) */}
-      <div className="flex-1 w-full relative flex items-center justify-center overflow-hidden p-2 sm:p-3 bg-[#070709]">
-        <div className="w-full h-full max-w-6xl max-h-[82vh] flex items-center justify-center">
+      <div 
+        className={`flex-1 w-full relative flex items-center justify-center overflow-hidden p-2 sm:p-3 bg-[#070709] transition-all duration-150 ${
+          isStageDraggingOver ? 'border-2 border-[#F5A623] bg-[#F5A623]/10 shadow-[0_0_30px_rgba(245,166,35,0.3)]' : 'border-transparent'
+        }`}
+        onDragEnter={handleStageDragEnter}
+        onDragOver={handleStageDragOver}
+        onDragLeave={handleStageDragLeave}
+        onDrop={handleStageDrop}
+      >
+        <div className="w-full h-full max-w-6xl max-h-[82vh] flex items-center justify-center pointer-events-auto">
           <OpticalFrame
             frame={activeFrame}
             aspectRatio={aspectRatio}

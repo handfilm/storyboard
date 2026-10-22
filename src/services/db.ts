@@ -18,16 +18,154 @@
 
 import { ProjectDraft, ProjectMeta, MediaBlobRecord, MediaThumbnailRecord, MediaMetaRecord, SlideDraft, AspectRatioType } from '../types/project';
 import { SLIDE_DURATION_SEC } from '../types/editor';
+import { eventBus } from '../core/eventBus';
 
 export const DB_NAME = 'rawx_storyboard_studio_db';
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 export const MAX_SERIALIZED_SNAPSHOT_BYTES = 2 * 1024 * 1024; // 2MB limit
+
+export interface VaultMediaItem {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  blob: Blob;            // Must store the raw Blob/File directly
+  thumbnailUrl?: string; // DataURL (WebP/JPEG 240p)
+  createdAt: number;
+  shotIndex?: number;
+}
+
+export type MediaItem = VaultMediaItem;
+
+export interface TimelineSlotRecord {
+  slotIndex: number;
+  mediaId: string;
+  assignedAt: number;
+}
+
+export function createFallbackSvgThumbnail(title: string, isVideo: boolean): string {
+  const bg = isVideo ? '%2307121c' : '%23140f07';
+  const fg = isVideo ? '%2338bdf8' : '%23fbbf24';
+  const cleanTitle = encodeURIComponent((title || (isVideo ? 'Video' : 'Still')).slice(0, 18));
+  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="135" viewBox="0 0 240 135"><rect width="240" height="135" fill="${bg}"/><text x="50%" y="45%" text-anchor="middle" fill="${fg}" font-family="monospace" font-size="13" font-weight="bold">${isVideo ? '▶ 4K VIDEO' : '◆ STILL PLATE'}</text><text x="50%" y="65%" text-anchor="middle" fill="%23a1a1aa" font-family="monospace" font-size="9.5">${cleanTitle}</text></svg>`;
+}
+
+export async function generateCanvasThumbnail(file: File | Blob): Promise<string> {
+  const isVideo = file.type.startsWith('video') || (file instanceof File && /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name));
+  const filename = file instanceof File ? file.name : (isVideo ? 'video.mp4' : 'image.jpg');
+
+  if (isVideo) {
+    return new Promise((resolve) => {
+      let resolved = false;
+      let tempUrl = '';
+      try {
+        tempUrl = URL.createObjectURL(file);
+      } catch {
+        return resolve(createFallbackSvgThumbnail(filename, true));
+      }
+
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      video.src = tempUrl;
+
+      const finish = (dataUrl: string) => {
+        if (resolved) return;
+        resolved = true;
+        try { URL.revokeObjectURL(tempUrl); } catch {}
+        resolve(dataUrl);
+      };
+
+      const captureFrame = () => {
+        try {
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 360;
+          const targetW = 240;
+          const targetH = Math.round(targetW * (vh / vw)) || 135;
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, targetW, targetH);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            if (dataUrl && dataUrl.length > 50) {
+              return finish(dataUrl);
+            }
+          }
+        } catch {
+          // ignore
+        }
+        finish(createFallbackSvgThumbnail(filename, true));
+      };
+
+      video.onloadeddata = () => {
+        try {
+          video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
+        } catch {
+          captureFrame();
+        }
+      };
+
+      video.onseeked = () => captureFrame();
+      video.onerror = () => finish(createFallbackSvgThumbnail(filename, true));
+      setTimeout(() => finish(createFallbackSvgThumbnail(filename, true)), 2200);
+    });
+  } else {
+    return new Promise((resolve) => {
+      let resolved = false;
+      let tempUrl = '';
+      try {
+        tempUrl = URL.createObjectURL(file);
+      } catch {
+        return resolve(createFallbackSvgThumbnail(filename, false));
+      }
+
+      const img = new Image();
+      img.src = tempUrl;
+
+      const finish = (dataUrl: string) => {
+        if (resolved) return;
+        resolved = true;
+        try { URL.revokeObjectURL(tempUrl); } catch {}
+        resolve(dataUrl);
+      };
+
+      img.onload = () => {
+        try {
+          const iw = img.naturalWidth || 640;
+          const ih = img.naturalHeight || 360;
+          const targetW = 240;
+          const targetH = Math.round(targetW * (ih / iw)) || 135;
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            if (dataUrl && dataUrl.length > 50) {
+              return finish(dataUrl);
+            }
+          }
+        } catch {}
+        finish(createFallbackSvgThumbnail(filename, false));
+      };
+
+      img.onerror = () => finish(createFallbackSvgThumbnail(filename, false));
+      setTimeout(() => finish(createFallbackSvgThumbnail(filename, false)), 1800);
+    });
+  }
+}
+
 
 class StudioDraftDbService {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<IDBDatabase> | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private activeObjectUrls: Set<string> = new Set();
+  private activeMediaUrls: Map<string, string> = new Map();
   private isPersisted: boolean = false;
 
   /**
@@ -88,6 +226,22 @@ class StudioDraftDbService {
           metaStore.createIndex('assignedShotId', 'assignedShotId', { unique: false });
           metaStore.createIndex('createdAt', 'createdAt', { unique: false });
           metaStore.createIndex('filename', 'filename', { unique: false });
+        }
+
+        // 6. media_vault: Primary store for uploaded files { id, name, mimeType, size, blob, thumbnailUrl, createdAt, shotIndex }
+        if (!db.objectStoreNames.contains('media_vault')) {
+          const vaultStore = db.createObjectStore('media_vault', { keyPath: 'id' });
+          vaultStore.createIndex('createdAt', 'createdAt', { unique: false });
+          vaultStore.createIndex('shotIndex', 'shotIndex', { unique: false });
+          vaultStore.createIndex('mimeType', 'mimeType', { unique: false });
+          vaultStore.createIndex('name', 'name', { unique: false });
+        }
+
+        // 7. timeline_slots: Maps timeline indices (0 to 99) directly to mediaId references { slotIndex, mediaId, assignedAt }
+        if (!db.objectStoreNames.contains('timeline_slots')) {
+          const slotStore = db.createObjectStore('timeline_slots', { keyPath: 'slotIndex' });
+          slotStore.createIndex('mediaId', 'mediaId', { unique: false });
+          slotStore.createIndex('assignedAt', 'assignedAt', { unique: false });
         }
       };
 
@@ -686,7 +840,304 @@ class StudioDraftDbService {
     }
     return null;
   }
+
+  // =========================================================================
+  // BULLETPROOF MEDIA VAULT & TIMELINE SLOTS PERSISTENCE
+  // =========================================================================
+
+  /**
+   * Converts file to Blob, creates thumbnail, persists in `media_vault`, and returns the persistent record.
+   */
+  public async saveMediaToVault(file: File): Promise<VaultMediaItem> {
+    const db = await this.getDb();
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `vault_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    const isVideo = file.type.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name);
+    const mimeType = file.type || (isVideo ? 'video/mp4' : 'image/jpeg');
+
+    // 1. Generate persistent DataURL thumbnail via Canvas (JPEG 0.7, 240p)
+    const thumbnailUrl = await generateCanvasThumbnail(file);
+
+    // 2. Build persistent Vault record storing the raw Blob/File directly
+    const item: VaultMediaItem = {
+      id,
+      name: file.name,
+      mimeType,
+      size: file.size,
+      blob: file, // Store raw Blob/File directly in IndexedDB
+      thumbnailUrl,
+      createdAt: Date.now()
+    };
+
+    // 3. Put into media_vault store
+    const tx = db.transaction('media_vault', 'readwrite');
+    const store = tx.objectStore('media_vault');
+    store.put(item);
+
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    // 4. Cache active object URL in memory
+    try {
+      const activeUrl = URL.createObjectURL(file);
+      this.activeMediaUrls.set(id, activeUrl);
+    } catch {}
+
+    // 5. Backwards compatibility: also mirror into media_blobs & media_meta
+    try {
+      if (db.objectStoreNames.contains('media_blobs')) {
+        await this.putMediaBlob(id, file, mimeType, file.name);
+      }
+      if (db.objectStoreNames.contains('media_meta')) {
+        await this.putMediaMeta({
+          id,
+          filename: file.name,
+          mimeType,
+          sizeBytes: file.size,
+          createdAt: Date.now(),
+          assignedShotId: null,
+          duration: isVideo ? 12.0 : undefined,
+          fps: 24
+        });
+      }
+    } catch (err) {
+      console.warn('[DraftDB] Mirror save error (non-fatal):', err);
+    }
+
+    // 6. Notify event bus
+    eventBus.emit('media_asset_ingested', { item, timestamp: Date.now() });
+
+    return item;
+  }
+
+  /**
+   * Hydrates all saved assets on boot so nothing vanishes on reload or tab switch.
+   */
+  public async getAllVaultMedia(): Promise<VaultMediaItem[]> {
+    try {
+      const db = await this.getDb();
+      if (!db.objectStoreNames.contains('media_vault')) {
+        return [];
+      }
+      const tx = db.transaction('media_vault', 'readonly');
+      const store = tx.objectStore('media_vault');
+      const req = store.getAll();
+
+      return new Promise((resolve) => {
+        req.onsuccess = () => {
+          const items: VaultMediaItem[] = req.result || [];
+          items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          // Preload active object URLs in memory
+          for (const item of items) {
+            if (item.blob && !this.activeMediaUrls.has(item.id)) {
+              try {
+                this.activeMediaUrls.set(item.id, URL.createObjectURL(item.blob));
+              } catch {}
+            }
+          }
+          resolve(items);
+        };
+        req.onerror = () => resolve([]);
+      });
+    } catch (err) {
+      console.warn('[DraftDB] getAllVaultMedia error:', err);
+      return [];
+    }
+  }
+
+  public async getVaultMediaById(id: string): Promise<VaultMediaItem | null> {
+    try {
+      const db = await this.getDb();
+      if (!db.objectStoreNames.contains('media_vault')) return null;
+      const tx = db.transaction('media_vault', 'readonly');
+      const req = tx.objectStore('media_vault').get(id);
+
+      return new Promise((resolve) => {
+        req.onsuccess = () => {
+          const item: VaultMediaItem = req.result;
+          if (item && item.blob && !this.activeMediaUrls.has(item.id)) {
+            try {
+              this.activeMediaUrls.set(item.id, URL.createObjectURL(item.blob));
+            } catch {}
+          }
+          resolve(item || null);
+        };
+        req.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Links the media to the slide index durably (timeline_slots).
+   */
+  public async assignMediaToShot(mediaId: string, shotIndex: number): Promise<void> {
+    const db = await this.getDb();
+
+    // 1. Commit to timeline_slots
+    if (db.objectStoreNames.contains('timeline_slots')) {
+      const tx1 = db.transaction('timeline_slots', 'readwrite');
+      tx1.objectStore('timeline_slots').put({
+        slotIndex: shotIndex,
+        mediaId,
+        assignedAt: Date.now()
+      });
+      await new Promise<void>((resolve, reject) => {
+        tx1.oncomplete = () => resolve();
+        tx1.onerror = () => reject(tx1.error);
+      });
+    }
+
+    // 2. Update media_vault item's shotIndex
+    let updatedItem: VaultMediaItem | null = null;
+    if (db.objectStoreNames.contains('media_vault')) {
+      const tx2 = db.transaction('media_vault', 'readwrite');
+      const store2 = tx2.objectStore('media_vault');
+      const getReq = store2.get(mediaId);
+      await new Promise<void>((resolve) => {
+        getReq.onsuccess = () => {
+          if (getReq.result) {
+            updatedItem = { ...getReq.result, shotIndex };
+            store2.put(updatedItem);
+          }
+          resolve();
+        };
+        getReq.onerror = () => resolve();
+      });
+    }
+
+    // 3. Update media_meta
+    if (db.objectStoreNames.contains('media_meta')) {
+      await this.updateMediaMetaAssignedShot(mediaId, shotIndex);
+    }
+
+    // 4. Resolve durable active object URL
+    let blobUrl = this.activeMediaUrls.get(mediaId);
+    if (!blobUrl && updatedItem && (updatedItem as any).blob) {
+      blobUrl = URL.createObjectURL((updatedItem as any).blob);
+      this.activeMediaUrls.set(mediaId, blobUrl);
+    }
+
+    // 5. Broadcast assignment event for timeline and stage reactivity
+    eventBus.emit('asset_assigned_to_shot', {
+      assetId: mediaId,
+      shotIndex,
+      blobUrl: blobUrl || '',
+      name: updatedItem ? (updatedItem as any).name : 'media',
+      meta: updatedItem ? {
+        filename: (updatedItem as any).name,
+        mimeType: (updatedItem as any).mimeType,
+        sizeBytes: (updatedItem as any).size
+      } : undefined,
+      timestamp: Date.now()
+    });
+  }
+
+  public async getTimelineSlot(slotIndex: number): Promise<TimelineSlotRecord | null> {
+    try {
+      const db = await this.getDb();
+      if (!db.objectStoreNames.contains('timeline_slots')) return null;
+      const tx = db.transaction('timeline_slots', 'readonly');
+      const req = tx.objectStore('timeline_slots').get(slotIndex);
+
+      return new Promise((resolve) => {
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  public async getAllTimelineSlots(): Promise<TimelineSlotRecord[]> {
+    try {
+      const db = await this.getDb();
+      if (!db.objectStoreNames.contains('timeline_slots')) return [];
+      const tx = db.transaction('timeline_slots', 'readonly');
+      const req = tx.objectStore('timeline_slots').getAll();
+
+      return new Promise((resolve) => {
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Retrieves active in-memory Object URL or generates one from Blob
+   */
+  public getActiveMediaUrl(mediaId: string, blob?: Blob): string {
+    if (this.activeMediaUrls.has(mediaId)) {
+      return this.activeMediaUrls.get(mediaId)!;
+    }
+    if (blob) {
+      try {
+        const url = URL.createObjectURL(blob);
+        this.activeMediaUrls.set(mediaId, url);
+        return url;
+      } catch {}
+    }
+    return '';
+  }
+
+  /**
+   * Seeds initial starter assets (e.g., cyberpunk_flight_4k, dhaka_neon_alley) if vault is empty
+   */
+  public async seedDefaultVaultAssets(): Promise<void> {
+    const existing = await this.getAllVaultMedia();
+    if (existing.length > 0) return;
+
+    const db = await this.getDb();
+    if (!db.objectStoreNames.contains('media_vault')) return;
+
+    // 1. Starter 4K video asset
+    const vidThumb = createFallbackSvgThumbnail('cyberpunk_flight_4k.mp4', true);
+    const vidBlob = new Blob(['RAWX_CYBERPUNK_FLIGHT_4K_VIDEO_STREAM'], { type: 'video/mp4' });
+    const vidItem: VaultMediaItem = {
+      id: 'cyberpunk_flight_4k',
+      name: 'cyberpunk_flight_4k.mp4',
+      mimeType: 'video/mp4',
+      size: 24.5 * 1024 * 1024,
+      blob: vidBlob,
+      thumbnailUrl: vidThumb,
+      createdAt: Date.now() - 3600000
+    };
+
+    // 2. Starter Dhaka neon alley still plate
+    const stillThumb = createFallbackSvgThumbnail('dhaka_neon_alley.png', false);
+    const stillBlob = new Blob(['RAWX_DHAKA_NEON_ALLEY_RAW_14BIT'], { type: 'image/png' });
+    const stillItem: VaultMediaItem = {
+      id: 'dhaka_neon_alley',
+      name: 'dhaka_neon_alley.png',
+      mimeType: 'image/png',
+      size: 8.2 * 1024 * 1024,
+      blob: stillBlob,
+      thumbnailUrl: stillThumb,
+      createdAt: Date.now() - 7200000
+    };
+
+    const tx = db.transaction('media_vault', 'readwrite');
+    const store = tx.objectStore('media_vault');
+    store.put(vidItem);
+    store.put(stillItem);
+
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    this.activeMediaUrls.set(vidItem.id, URL.createObjectURL(vidBlob));
+    this.activeMediaUrls.set(stillItem.id, URL.createObjectURL(stillBlob));
+  }
 }
 
 export const studioDraftDb = new StudioDraftDbService();
+export const db = studioDraftDb;
 

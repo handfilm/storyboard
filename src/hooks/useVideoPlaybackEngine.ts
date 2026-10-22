@@ -527,15 +527,29 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
       return assetIdOrUrl;
     }
 
-    // Tier 1: In-Memory LRU Cache
+    // Tier 1: In-Memory Map & LRU Cache
+    const activeVaultUrl = studioDraftDb.getActiveMediaUrl(assetIdOrUrl);
+    if (activeVaultUrl) {
+      setCuedMediaUrl(activeVaultUrl);
+      return activeVaultUrl;
+    }
+
     const cachedUrl = globalLRUBlobCache.get(assetIdOrUrl);
     if (cachedUrl) {
       setCuedMediaUrl(cachedUrl);
       return cachedUrl;
     }
 
-    // Tier 2: IndexedDB media_blobs
+    // Tier 2: IndexedDB media_vault & media_blobs
     try {
+      const vaultItem = await studioDraftDb.getVaultMediaById(assetIdOrUrl);
+      if (vaultItem && vaultItem.blob) {
+        const objectUrl = studioDraftDb.getActiveMediaUrl(assetIdOrUrl, vaultItem.blob);
+        globalLRUBlobCache.set(assetIdOrUrl, objectUrl);
+        setCuedMediaUrl(objectUrl);
+        return objectUrl;
+      }
+
       const blob = await studioDraftDb.getMediaBlob(assetIdOrUrl);
       if (blob) {
         const objectUrl = URL.createObjectURL(blob);

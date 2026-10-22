@@ -349,6 +349,41 @@ export default function App() {
         await storageManager.dismissCrashRecovery();
         setCrashRecoveredProject(null);
       }
+
+      // 3. Auto-hydrate bulletproof media_vault and timeline_slots on mount
+      try {
+        let vaultItems = await studioDraftDb.getAllVaultMedia();
+        if (vaultItems.length === 0) {
+          await studioDraftDb.seedDefaultVaultAssets();
+          vaultItems = await studioDraftDb.getAllVaultMedia();
+        }
+        const slots = await studioDraftDb.getAllTimelineSlots();
+        for (const slot of slots) {
+          const item = vaultItems.find(v => v.id === slot.mediaId);
+          if (item && item.blob) {
+            const url = studioDraftDb.getActiveMediaUrl(item.id, item.blob);
+            const isVid = item.mimeType.startsWith('video');
+            setProject(prev => {
+              const nextFrames = [...prev.frames];
+              if (nextFrames[slot.slotIndex]) {
+                nextFrames[slot.slotIndex] = {
+                  ...nextFrames[slot.slotIndex],
+                  imageUrl: url,
+                  isVideo: isVid
+                };
+              }
+              return { ...prev, frames: nextFrames };
+            });
+            useStudioStore.getState().updateShot(slot.slotIndex, {
+              imageUrl: url,
+              isVideo: isVid
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[App] Vault hydration error on mount:', err);
+      }
+
       setIsStorageInitialized(true);
     };
 
@@ -800,21 +835,23 @@ export default function App() {
   // Rapid Ingestion Pipeline: Direct IndexedDB Storage + High-Impact Overlays
   const handleUploadImage = useCallback(async (file: File) => {
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
-    const blobKey = `media_shot_${currentIndex + 1}_${Date.now()}`;
     
-    // 1. Direct write to IndexedDB media_blobs store
+    // 1. Direct write to IndexedDB media_vault store & timeline_slots
+    let url = '';
     try {
-      await studioDraftDb.putMediaBlob(blobKey, file, file.type, file.name);
+      const vaultItem = await studioDraftDb.saveMediaToVault(file);
+      await studioDraftDb.assignMediaToShot(vaultItem.id, currentIndex);
+      url = studioDraftDb.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
     } catch (err) {
-      console.warn('[App] Direct blob write to IndexedDB:', err);
+      console.warn('[App] Vault media persistence error:', err);
+      url = URL.createObjectURL(file);
     }
 
     // 2. Tracked Object URL with zero memory leaks
     const current = project.frames[currentIndex];
-    if (current?.imageUrl && current.imageUrl.startsWith('blob:')) {
+    if (current?.imageUrl && current.imageUrl.startsWith('blob:') && current.imageUrl !== url) {
       studioDraftDb.revokeTrackedUrl(current.imageUrl);
     }
-    const url = studioDraftDb.createTrackedUrl(file);
 
     // 3. Auto-pair with default high-impact bilingual title overlays and audio cue
     const shotNum = String(currentIndex + 1).padStart(3, '0');

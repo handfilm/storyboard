@@ -130,12 +130,16 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         <div className="absolute inset-0 z-0 overflow-hidden">
           {frames[currentSlideIndex % frames.length]?.imageUrl ? (
             <img 
+              key={`hero-plate-${currentSlideIndex}`}
               src={frames[currentSlideIndex % frames.length]?.imageUrl} 
               alt={activeSlide.title} 
-              className="w-full h-full object-cover object-center opacity-30 scale-105 filter blur-xs transition-all duration-1000 ease-out"
+              className="w-full h-full object-cover object-center opacity-30 scale-105 filter blur-xs animate-hero-plate"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#12121c] via-[#0d0d12] to-black opacity-60" />
+            <div 
+              key={`hero-plate-fallback-${currentSlideIndex}`}
+              className="w-full h-full bg-gradient-to-br from-[#12121c] via-[#0d0d12] to-black opacity-60 animate-hero-plate" 
+            />
           )}
         </div>
 
@@ -150,8 +154,11 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         <div className="absolute inset-0 bg-gradient-to-t from-[#070709] via-transparent to-transparent z-10 pointer-events-none" />
         <div className="absolute inset-0 bg-black/40 z-10 pointer-events-none" />
 
-        {/* Hero Content Stack */}
-        <div className="relative z-20 max-w-3xl space-y-3">
+        {/* Hero Content Stack with subtle CSS cinematic fade */}
+        <div 
+          key={`hero-content-${currentSlideIndex}`}
+          className="relative z-20 max-w-3xl space-y-3 animate-hero-fade"
+        >
           {/* Gold eyebrow tag */}
           <div className="text-xs font-mono text-[#F5A623] tracking-widest uppercase flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">

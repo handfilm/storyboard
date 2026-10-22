@@ -106,9 +106,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   return (
-    <header className="h-16 px-6 md:px-12 flex items-center justify-between bg-gradient-to-b from-[#070709]/95 via-[#070709]/75 to-transparent backdrop-blur-md sticky top-0 z-50 border-b border-white/5 select-none font-sans">
-      {/* Left: Brand HANDFILM + Minimal Nav Links */}
-      <div className="flex items-center gap-6 sm:gap-8 min-w-0">
+    <header className="h-16 w-full bg-gradient-to-b from-[#070709]/95 via-[#070709]/75 to-transparent backdrop-blur-md sticky top-0 z-50 border-b border-white/5 select-none font-sans">
+      <div className="max-w-7xl mx-auto px-6 md:px-12 w-full h-full flex items-center justify-between">
+        {/* Left: Brand HANDFILM + Minimal Nav Links */}
+        <div className="flex items-center gap-6 sm:gap-8 min-w-0">
         {/* Brand Logo & Name */}
         <div 
           onClick={handleNavHome}
@@ -351,6 +352,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
           )}
         </div>
+      </div>
       </div>
     </header>
   );

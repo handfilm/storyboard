@@ -94,7 +94,7 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
       <div className="flex border-b border-[#272732] bg-[#0a0a10]">
         {[
           { id: 'optics', label: 'Optics & LUTs', icon: Sliders },
-          { id: 'script', label: 'Script & Notes', icon: Type },
+          { id: 'script', label: 'Text & Script', icon: Type },
           { id: 'camera', label: 'Camera Rig', icon: Camera },
           { id: 'media', label: 'Media Assets', icon: Film },
         ].map(tab => {
@@ -248,57 +248,108 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
           </div>
         )}
 
-        {/* TAB 2: SCRIPT & NOTES */}
+        {/* TAB 2: TEXT & SCRIPT */}
         {activeTab === 'script' && (
           <div className="space-y-4">
-            <div>
-              <label className="block text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase mb-1">
-                English Episode Title
-              </label>
-              <input
-                type="text"
-                value={frame.title}
-                onChange={(e) => onUpdateFrame({ ...frame, title: e.target.value })}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-cinzel tracking-wider text-white focus:outline-none focus:border-amber-400"
-              />
+            <div className="flex items-center justify-between pb-1 border-b border-white/5">
+              <span className="text-[10px] font-mono-tech tracking-wider text-amber-400 uppercase font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Real-Time Super Titles
+              </span>
+              <span className="text-[8.5px] font-mono-tech text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                0ms Stage Sync
+              </span>
             </div>
 
+            {/* Bangla Title Input */}
             <div>
-              <label className="block text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase mb-1">
-                Bengali Subtitle
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase">
+                  Bangla Title (বাংলা শিরোনাম)
+                </label>
+                <span className="text-[9px] font-mono-tech text-white/40">Anek Bangla</span>
+              </div>
               <input
                 type="text"
                 value={frame.bengaliTitle}
+                placeholder="যেমন: দৃষ্টি / সূচনা"
                 onChange={(e) => onUpdateFrame({ ...frame, bengaliTitle: e.target.value })}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-sm font-bengali text-amber-300 focus:outline-none focus:border-amber-400"
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-base font-bengali text-amber-300 focus:outline-none focus:border-amber-400 transition-colors"
               />
+              {/* Quick Bangla Suggestions */}
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {['দৃষ্টি', 'সূচনা', 'সীমানা', 'আলো', 'সংঘাত', 'মহাকর্ষ', 'শূন্য'].map(word => (
+                  <button
+                    key={word}
+                    type="button"
+                    onClick={() => onUpdateFrame({ ...frame, bengaliTitle: word })}
+                    className="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 hover:border-amber-400 rounded-[2px] text-[10px] font-bengali cursor-pointer transition-colors"
+                  >
+                    {word}
+                  </button>
+                ))}
+              </div>
             </div>
 
+            {/* English Headline Input */}
             <div>
-              <label className="block text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase mb-1">
-                Curatorial Tagline
-              </label>
-              <textarea
-                rows={2}
-                value={frame.tagline}
-                onChange={(e) => onUpdateFrame({ ...frame, tagline: e.target.value })}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-mono-tech text-white/90 focus:outline-none focus:border-amber-400"
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase">
+                  English Headline (Cinzel)
+                </label>
+                <span className="text-[9px] font-mono-tech text-white/40">2.39:1 Scope</span>
+              </div>
+              <input
+                type="text"
+                value={frame.title}
+                placeholder="e.g. THE SINGULARITY"
+                onChange={(e) => onUpdateFrame({ ...frame, title: e.target.value })}
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-cinzel font-bold tracking-widest text-white focus:outline-none focus:border-amber-400 transition-colors"
               />
+              {/* Quick English Suggestions */}
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {['THE SINGULARITY', 'EVENT HORIZON', 'PHOTON SPHERE', 'DARK MATTER'].map(title => (
+                  <button
+                    key={title}
+                    type="button"
+                    onClick={() => onUpdateFrame({ ...frame, title })}
+                    className="px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 hover:border-amber-400/50 rounded-[2px] text-[9px] font-cinzel tracking-wider cursor-pointer transition-colors"
+                  >
+                    {title}
+                  </button>
+                ))}
+              </div>
             </div>
 
+            {/* Dialogue / Subtitle Textarea */}
             <div>
               <label className="block text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase mb-1">
-                Directorial Screenplay & Lighting Notes
+                Dialogue / Subtitle & Screenplay
               </label>
               <textarea
-                rows={4}
-                value={frame.directorNotes}
+                rows={3}
+                value={frame.directorNotes || ''}
+                placeholder="Enter character dialogue, spoken subtitles, or directorial screenplay notes..."
                 onChange={(e) => onUpdateFrame({ ...frame, directorNotes: e.target.value })}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-mono-tech text-white/90 leading-relaxed focus:outline-none focus:border-amber-400"
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-mono-tech text-white/90 leading-relaxed focus:outline-none focus:border-amber-400 transition-colors"
               />
             </div>
 
+            {/* Curatorial Tagline */}
+            <div>
+              <label className="block text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase mb-1">
+                Curatorial Tagline / Shot Subtitle
+              </label>
+              <input
+                type="text"
+                value={frame.tagline}
+                placeholder="e.g. THE FIRST GAZE INTO THE UNKNOWN"
+                onChange={(e) => onUpdateFrame({ ...frame, tagline: e.target.value })}
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-mono-tech text-white/90 focus:outline-none focus:border-amber-400 transition-colors"
+              />
+            </div>
+
+            {/* Sound Design Cue */}
             <div>
               <label className="block text-[11px] font-mono-tech tracking-wider text-amber-400 uppercase mb-1">
                 Sound Design Cue
@@ -306,13 +357,14 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
               <input
                 type="text"
                 value={frame.soundCue}
+                placeholder="e.g. 43.6Hz Sub Drone & Spatial Cue"
                 onChange={(e) => onUpdateFrame({ ...frame, soundCue: e.target.value })}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-mono-tech text-white/90 focus:outline-none focus:border-amber-400"
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs font-mono-tech text-white/90 focus:outline-none focus:border-amber-400 transition-colors"
               />
             </div>
 
             {/* AI Prompt Generator Button */}
-            <div className="pt-3 border-t border-white/10">
+            <div className="pt-2 border-t border-white/10">
               <button
                 onClick={handleGeneratePrompt}
                 className="w-full py-2.5 px-3 bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-500/40 rounded-xs text-xs font-mono-tech tracking-wider text-amber-300 flex items-center justify-center gap-2 cursor-pointer transition-all"

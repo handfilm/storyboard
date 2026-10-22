@@ -54,6 +54,7 @@ export interface CinemaPlayerProps {
   onChangeAspectRatio?: (aspect: AspectRatio) => void;
   directorName?: string;
   projectTitle?: string;
+  onUploadMedia?: (file: File) => void;
 }
 
 export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({

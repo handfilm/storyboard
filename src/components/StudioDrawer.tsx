@@ -170,7 +170,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
       <div className="flex-1 overflow-y-auto no-scrollbar relative">
         {activeModule === 'STORY' && <StoryNotebook />}
         {activeModule === 'MEDIA' && <MediaStudio />}
-        {activeModule === 'TEXT' && <TextStudio />}
+        {activeModule === 'TEXT' && <TextStudio currentFrame={currentFrame} onUpdateFrame={onUpdateFrame} />}
         {activeModule === 'SOUND' && <SoundStudio />}
         {activeModule === 'PLAYER' && <PrevisStudio />}
         {activeModule === 'PRODUCTION' && <ProductionStudio />}

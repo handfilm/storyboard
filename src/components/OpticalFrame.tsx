@@ -1185,11 +1185,20 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         {showMasterTitles && (
           <div className="absolute inset-0 z-[30] pointer-events-none p-4 sm:p-8 overflow-hidden select-none">
             {/* Primary Storytelling Title Container (Choreographed per-slide layout) */}
-            <div className={`absolute ${titleLayout.titleContainerClass} flex flex-col ${
-              titleLayout.titleAlign === 'left' ? 'items-start text-left' :
-              titleLayout.titleAlign === 'right' ? 'items-end text-right' :
-              'items-center text-center'
-            } transition-all duration-300 pointer-events-none max-w-4xl`}>
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenInspector?.();
+              }}
+              title="Click to edit titles in Real-Time Text Inspector"
+              className={`absolute ${titleLayout.titleContainerClass} flex flex-col ${
+                titleLayout.titleAlign === 'left' ? 'items-start text-left' :
+                titleLayout.titleAlign === 'right' ? 'items-end text-right' :
+                'items-center text-center'
+              } transition-all duration-300 pointer-events-auto cursor-pointer max-w-4xl relative group`}
+            >
+              {/* Anamorphic Horizontal Light Streak */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160%] max-w-[1200px] h-[1.5px] bg-gradient-to-r from-transparent via-[#FFE066]/70 to-transparent blur-[1px] pointer-events-none -z-10 animate-pulse" />
               {/* Massive Glowing Bengali Headline with Anek Bangla & Metallic Gold */}
               {showTitleBn && (
                 <h1

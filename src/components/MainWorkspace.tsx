@@ -284,7 +284,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
       switch (activeModule) {
         case 'MEDIA': return <MediaStudio />;
         case 'STORY': return <StoryNotebook />;
-        case 'TEXT': return <TextStudio />;
+        case 'TEXT': return <TextStudio currentFrame={currentFrame} onUpdateFrame={onUpdateFrame} />;
         case 'SOUND': return <SoundStudio />;
         case 'PRODUCTION': return <ProductionStudio />;
         case 'REVIEW': return <ReviewStudio />;

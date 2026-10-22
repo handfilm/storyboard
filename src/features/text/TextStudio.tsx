@@ -1,28 +1,30 @@
 /**
- * RAWx Studio — Super Title and Caption Editor
+ * RAWx Studio — Real-Time Text & Super Title Inspector
  * Public API: TextStudio component
- * Handles in-place typography layout, bilingual font stacks (Noto Serif Bengali, Cinzel, JetBrains Mono),
- * cinematic typography presets, kinetic text animations, and SRT/VTT export.
+ * 
+ * Complies with Step 3 Specification:
+ * - Real-Time Text Properties Tab with 0ms two-way binding to stage canvas.
+ * - Live input fields for Bangla Title, English Headline, and Dialogue / Subtitle.
+ * - Quick curated bilingual suggestions & presets.
+ * - Instant synchronization to IndexedDB draft storage and useStudioStore.
+ * - Maintains anamorphic horizontal light streak, gold metallic gradient, and breathing glow.
  */
 
 import React, { useState } from 'react';
 import { useStudioStore } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
 import { toBengaliNumerals } from '../../utils/engine';
-import { TitleAnimationStyle } from '../../types/anthology';
+import { TitleAnimationStyle, AnthologyFrame } from '../../types/anthology';
 import { eventBus } from '../../core/eventBus';
 import { 
   Type, 
-  AlignLeft, 
-  AlignCenter, 
-  AlignRight, 
   Sliders, 
   Sparkles, 
   Download, 
-  Upload, 
   Eye, 
-  RefreshCw,
-  Zap
+  Zap,
+  Check,
+  Film
 } from 'lucide-react';
 
 const titlePresets = [
@@ -34,51 +36,103 @@ const titlePresets = [
   { name: 'Minimalist Tokyo Sub', font: 'Inter', color: '#FFE066', glow: '0 2px 4px rgba(0,0,0,0.9)', letterSpacing: '0.05em' }
 ];
 
-export const TextStudio: React.FC = () => {
+const banglaSuggestions = ["দৃষ্টি", "সূচনা", "সীমানা", "আলো", "সংঘাত", "উন্মোচন", "অন্ধকার", "মহাকর্ষ", "গভীরতা", "শূন্য"];
+const englishSuggestions = ["THE SINGULARITY", "EVENT HORIZON", "PHOTON SPHERE", "SHOCK // CORE", "SPATIAL DISTORTION", "THE APERTURE", "DARK MATTER", "THE ABYSS"];
+
+export interface TextStudioProps {
+  currentFrame?: AnthologyFrame;
+  onUpdateFrame?: (updated: AnthologyFrame) => void;
+}
+
+export const TextStudio: React.FC<TextStudioProps> = ({
+  currentFrame,
+  onUpdateFrame
+}) => {
   const {
     activeShotIndex,
     project,
-    updateShot,
-    setActiveShotIndex
+    updateShot
   } = useStudioStore();
 
   const currentShot = project.shots[activeShotIndex] || {};
   const currentTheme = baseThemesData[activeShotIndex % baseThemesData.length];
-  const isVideo = Boolean(
-    currentShot.isVideo ||
-    (currentShot.imageUrl && (
-      currentShot.imageUrl.startsWith('data:video') ||
-      currentShot.imageUrl.startsWith('blob:') ||
-      /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(currentShot.imageUrl)
-    ))
-  );
 
-  const [titleEn, setTitleEn] = useState(currentShot.title || currentTheme.title);
-  const [titleBn, setTitleBn] = useState(currentShot.bengaliTitle || currentTheme.sub);
-  const [caption, setCaption] = useState(currentShot.bengaliDesc || currentShot.tagline || currentTheme.tag);
+  // Derive active frame values with zero-lag fallback
+  const titleEn = currentFrame ? currentFrame.title : (currentShot.title ?? currentTheme.title);
+  const titleBn = currentFrame ? currentFrame.bengaliTitle : (currentShot.bengaliTitle ?? currentTheme.sub);
+  const caption = currentFrame ? currentFrame.tagline : (currentShot.tagline ?? currentTheme.tag);
+  const dialogue = currentFrame ? (currentFrame.directorNotes || '') : (currentShot.directorNotes || '');
+  const soundCue = currentFrame ? (currentFrame.soundCue || '') : (currentShot.soundCue || '');
+
   const [fontSize, setFontSize] = useState(36);
   const [fontSizeBn, setFontSizeBn] = useState(56);
   const [textColor, setTextColor] = useState('#FFE066');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
   const [animationStyle, setAnimationStyle] = useState<TitleAnimationStyle>(
-    (currentShot.titleAnimation as any) || 'flare'
+    (currentFrame?.titleAnimation as any) || (currentShot.titleAnimation as any) || 'flare'
   );
 
-  const handleApplyChanges = () => {
-    updateShot(activeShotIndex, {
+  // 0ms Lag Two-Way Dispatcher
+  const handleUpdate = (partial: Partial<AnthologyFrame>) => {
+    const base: AnthologyFrame = currentFrame || {
+      id: activeShotIndex + 1,
+      epNumber: String(activeShotIndex + 1).padStart(3, '0'),
       title: titleEn,
       bengaliTitle: titleBn,
       tagline: caption,
-      titleAnimation: animationStyle
+      directorNotes: dialogue,
+      soundCue: soundCue,
+      cameraSpec: {
+        focalLength: '35mm High-Speed Master',
+        aperture: 'f/1.4',
+        shutter: '1/48s 180°',
+        iso: 'ISO 400',
+        sensor: 'Full-Frame Cine',
+        format: 'RAW 14-BIT ARRI'
+      },
+      imageUrl: currentShot.imageUrl || '',
+      isVideo: Boolean(currentShot.isVideo),
+      panY: 50,
+      colorAccent: '#D4AF37',
+      hoverStyle: 0,
+      lutFilter: 'cinematic',
+      aspectRatio: '2.39:1',
+      adjustments: {
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        bloom: 30,
+        grain: 15,
+        motionBlur: 50,
+        vignette: 40
+      },
+      tags: ['Scene', '12s']
+    };
+
+    const updatedFrame: AnthologyFrame = {
+      ...base,
+      ...partial
+    };
+
+    // 1. Immediately notify stage & App.tsx for 0ms visual repaint & autosave queue
+    if (onUpdateFrame) {
+      onUpdateFrame(updatedFrame);
+    }
+
+    // 2. Synchronize useStudioStore
+    updateShot(activeShotIndex, {
+      title: updatedFrame.title,
+      bengaliTitle: updatedFrame.bengaliTitle,
+      tagline: updatedFrame.tagline,
+      directorNotes: updatedFrame.directorNotes,
+      soundCue: updatedFrame.soundCue,
+      titleAnimation: updatedFrame.titleAnimation
     });
+
+    // 3. Emit global event for any decoupled listeners
     eventBus.emit('shot:updated', {
       index: activeShotIndex,
-      partial: {
-        title: titleEn,
-        bengaliTitle: titleBn,
-        tagline: caption,
-        titleAnimation: animationStyle
-      }
+      partial
     });
   };
 
@@ -95,7 +149,7 @@ export const TextStudio: React.FC = () => {
     for (let i = 0; i < total; i++) {
       const shot = project.shots[i] || {};
       const theme = baseThemesData[i % baseThemesData.length];
-      const duration = shot.durationSeconds || 2.5;
+      const duration = shot.durationSeconds || 12.0; // 12.0s standard slide
       const startTimeStr = formatSRTTime(currentTime);
       currentTime += duration;
       const endTimeStr = formatSRTTime(currentTime);
@@ -111,7 +165,7 @@ export const TextStudio: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `RAWx_Subtitles_EP_${String(activeShotIndex + 1).padStart(3, '0')}.srt`;
+    a.download = `RAWx_Subtitles_Master.srt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -125,196 +179,238 @@ export const TextStudio: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col md:flex-row bg-[#050505] text-[#EDEDED] font-mono select-none overflow-hidden">
-      {/* Left Canvas Preview Area */}
-      <div className="flex-1 flex flex-col border-r border-[#D4AF37]/20 overflow-hidden">
-        {/* Top bar */}
-        <div className="h-12 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <Type className="w-4 h-4 text-[#D4AF37]" />
-            <span className="font-bold text-[#FFE066]">TITLE & CAPTION CANVAS</span>
-            <span className="text-[#8A8A8A]">| SHOT #{String(activeShotIndex + 1).padStart(3, '0')}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportSRT}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-[#121212] hover:bg-[#D4AF37] hover:text-black border border-[#D4AF37]/30 rounded text-xs transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>EXPORT .SRT</span>
-            </button>
-            <button
-              onClick={handleApplyChanges}
-              className="px-3 py-1 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold rounded text-xs transition-colors"
-            >
-              UPDATE SHOT
-            </button>
-          </div>
+    <div className="w-full h-full flex flex-col bg-[#07070a] text-[#EDEDED] font-mono-tech select-none overflow-y-auto no-scrollbar">
+      {/* Top Header & Quick Action Strip */}
+      <div className="h-10 border-b border-[#272732] bg-[#0c0c10] px-3.5 flex items-center justify-between text-xs shrink-0 sticky top-0 z-20">
+        <div className="flex items-center gap-2 min-w-0">
+          <Type className="w-3.5 h-3.5 text-[#eab308]" />
+          <span className="font-bold text-[#fbbf24] text-[11px] tracking-wider uppercase truncate">
+            REAL-TIME TEXT INSPECTOR
+          </span>
+          <span className="text-zinc-500 text-[10px]">
+            SH{String(activeShotIndex + 1).padStart(3, '0')}
+          </span>
         </div>
 
-        {/* Live Preview Display */}
-        <div className="flex-1 bg-[#030304] flex items-center justify-center p-6 relative">
-          <div className="w-full max-w-4xl aspect-video bg-black rounded border border-[#D4AF37]/30 relative flex flex-col items-center justify-center p-8 shadow-2xl overflow-hidden">
-            {/* Background Shot Media (Video or Image) */}
-            {isVideo ? (
-              <video
-                src={currentShot.imageUrl}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover opacity-40 blur-[1px]"
-              />
-            ) : (
-              <img
-                src={currentShot.imageUrl || 'https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80'}
-                alt="Background"
-                className="absolute inset-0 w-full h-full object-cover opacity-40 blur-[1px]"
-              />
-            )}
-
-            {/* Title Lockup Preview */}
-            <div className="relative z-10 text-center flex flex-col items-center gap-3 max-w-2xl">
-              <div 
-                className={`font-bold tracking-widest uppercase transition-all duration-300 ${
-                  animationStyle === 'flare' ? 'super-title-flare' :
-                  animationStyle === 'kinetic' ? 'super-title-kinetic' :
-                  animationStyle === 'glitch' ? 'super-title-glitch' :
-                  animationStyle === 'breathe' ? 'super-title-breathe' :
-                  animationStyle === 'typewriter' ? 'super-title-typewriter' :
-                  animationStyle === 'neon' ? 'super-title-neon' :
-                  animationStyle === 'cinema-fade' ? 'super-title-cinema-fade' : ''
-                }`}
-                style={{
-                  fontFamily: selectedFont,
-                  fontSize: `${fontSize}px`,
-                  color: animationStyle === 'flare' ? undefined : textColor,
-                  textShadow: animationStyle === 'flare' ? undefined : '0 0 25px rgba(212,175,55,0.7), 0 4px 12px rgba(0,0,0,0.9)'
-                }}
-              >
-                {titleEn}
-              </div>
-
-              <div 
-                className={`font-serif text-[#FFE066] font-bold tracking-wide sm:tracking-wider leading-none transition-all duration-300 ${
-                  animationStyle === 'flare' ? 'super-title-flare super-title-breathe' :
-                  animationStyle === 'kinetic' ? 'super-title-kinetic' :
-                  animationStyle === 'glitch' ? 'super-title-glitch' :
-                  animationStyle === 'breathe' ? 'super-title-breathe' :
-                  animationStyle === 'typewriter' ? 'super-title-typewriter' :
-                  animationStyle === 'neon' ? 'super-title-neon' :
-                  animationStyle === 'cinema-fade' ? 'super-title-cinema-fade' : ''
-                }`}
-                style={{
-                  fontFamily: 'Noto Serif Bengali, serif',
-                  fontSize: `${fontSizeBn}px`,
-                  textShadow: animationStyle === 'flare' ? undefined : '0 0 25px rgba(255,224,102,0.8), 0 4px 12px rgba(0,0,0,0.9)'
-                }}
-              >
-                {titleBn}
-              </div>
-
-              <div className={`mt-4 px-4 py-1.5 bg-black/70 rounded-full border border-[#D4AF37]/30 text-xs font-mono tracking-wide max-w-lg transition-all ${
-                animationStyle === 'flare' ? 'super-caption-flare text-[#FFE066]' :
-                animationStyle === 'kinetic' ? 'super-caption-wave text-[#EDEDED]' :
-                animationStyle === 'glitch' ? 'super-caption-glitch text-[#EDEDED]' :
-                animationStyle === 'breathe' ? 'super-caption-breathe text-[#EDEDED]' :
-                animationStyle === 'typewriter' ? 'super-caption-typewriter text-[#EDEDED]' :
-                animationStyle === 'neon' ? 'super-title-neon text-cyan-200' :
-                animationStyle === 'cinema-fade' ? 'super-caption-wave text-[#EDEDED]' : 'text-[#EDEDED]'
-              }`}>
-                {caption}
-              </div>
-            </div>
-
-            {/* HUD Meta Overlay */}
-            <div className="absolute top-4 left-4 text-[10px] text-[#8A8A8A] font-mono flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-[#D4AF37] animate-pulse" />
-              <span>RAWx SUPER ENGINE // STYLE: <span className="text-[#FFE066] font-bold">{animationStyle.toUpperCase()}</span></span>
-            </div>
-            <div className="absolute bottom-4 right-4 text-[10px] text-[#D4AF37] font-mono">
-              EP {String(activeShotIndex + 1).padStart(3, '0')} // পর্ব {toBengaliNumerals(String(activeShotIndex + 1).padStart(3, '0'))}
-            </div>
-          </div>
-        </div>
+        <button
+          onClick={handleExportSRT}
+          className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 hover:bg-[#d4af37]/20 hover:text-[#fbbf24] border border-[#272732] hover:border-[#d4af37]/40 rounded-[1px] text-[9.5px] transition-colors cursor-pointer"
+          title="Export 100-Shot Subtitles as .SRT file"
+        >
+          <Download className="w-3 h-3 text-[#d4af37]" />
+          <span>.SRT</span>
+        </button>
       </div>
 
-      {/* Right Controls Panel */}
-      <div className="w-full md:w-80 bg-[#0B0B0B] flex flex-col overflow-y-auto custom-scrollbar p-4 gap-4 text-xs">
-        <h3 className="font-bold text-[#FFE066] text-xs uppercase tracking-wider border-b border-[#D4AF37]/20 pb-2">
-          Typography Controls
-        </h3>
+      <div className="p-3.5 sm:p-4 flex flex-col gap-4">
+        {/* Live Title Card Preview (compact anamorphic preview) */}
+        <div className="p-3 rounded-[2px] bg-[#030304] border border-[#272732] relative overflow-hidden shadow-inner flex flex-col items-center justify-center min-h-[105px]">
+          {/* Anamorphic Gold Flare Background Streak */}
+          <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 h-[1px] bg-gradient-to-r from-transparent via-[#FFE066]/50 to-transparent blur-[0.5px]" />
+          <div className="absolute top-1/2 left-1/4 right-1/4 -translate-y-1/2 h-2.5 bg-gradient-to-r from-transparent via-[#D4AF37]/20 to-transparent blur-sm" />
 
-        {/* Text Input Fields */}
-        <div className="flex flex-col gap-3">
+          {/* Bengali Title */}
+          <span 
+            className="font-bengali font-black text-metallic-gold super-title-breathe drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] transition-all text-center leading-tight select-none"
+            style={{ fontSize: `${Math.min(fontSizeBn * 0.5, 34)}px` }}
+          >
+            {titleBn || 'দৃষ্টি'}
+          </span>
+
+          {/* English Headline */}
+          <span 
+            className="font-cinzel font-bold text-white tracking-[0.2em] uppercase drop-shadow-md text-center mt-1 select-none"
+            style={{ 
+              fontFamily: selectedFont,
+              fontSize: `${Math.min(fontSize * 0.45, 18)}px`,
+              color: textColor
+            }}
+          >
+            {titleEn || 'THE SINGULARITY'}
+          </span>
+
+          {/* Dialogue / Tagline Subtitle */}
+          {caption && (
+            <span className="font-mono-tech text-[8px] text-[#fbbf24]/80 tracking-wider uppercase mt-1 text-center truncate max-w-[90%]">
+              {caption}
+            </span>
+          )}
+
+          <div className="absolute bottom-1 right-2 text-[7.5px] text-zinc-500 font-mono-tech">
+            LIVE 0ms CANVAS LINKED
+          </div>
+        </div>
+
+        {/* 1. Real-Time Bilingual Text Properties */}
+        <div className="flex flex-col gap-3 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
+          <div className="flex items-center justify-between border-b border-[#272732] pb-1.5">
+            <span className="text-[10px] font-bold text-[#fbbf24] uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-3 h-3 text-[#eab308]" />
+              TEXT PROPERTIES & TWO-WAY BINDING
+            </span>
+            <span className="text-[8px] text-emerald-400 font-mono-tech bg-emerald-950/60 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+              0ms STAGE SYNC
+            </span>
+          </div>
+
+          {/* Bangla Title Input */}
           <div>
-            <label className="text-[10px] text-[#8A8A8A] uppercase">English Title</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[10px] text-zinc-400 font-mono-tech uppercase">
+                বাংলা শীর্ষক (Bangla Title)
+              </label>
+              <span className="text-[8px] text-[#eab308] font-mono-tech">Noto Serif / Anek</span>
+            </div>
             <input
               type="text"
-              value={titleEn}
-              onChange={(e) => setTitleEn(e.target.value)}
-              className="w-full bg-[#121212] border border-[#D4AF37]/20 rounded p-2 text-xs text-[#EDEDED] focus:outline-none focus:border-[#D4AF37] mt-1"
+              value={titleBn || ''}
+              onChange={(e) => handleUpdate({ bengaliTitle: e.target.value })}
+              placeholder="যেমন: দৃষ্টি, সূচনা, সীমানা"
+              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-sm font-bengali font-bold text-[#ffe58f] outline-none transition-colors"
+            />
+            {/* Quick Suggestions for Bangla */}
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {banglaSuggestions.slice(0, 5).map(sug => (
+                <button
+                  key={sug}
+                  type="button"
+                  onClick={() => handleUpdate({ bengaliTitle: sug })}
+                  className="px-1.5 py-0.5 rounded-[1px] bg-white/5 hover:bg-[#d4af37]/20 border border-[#272732] hover:border-[#d4af37]/50 text-[9px] font-bengali text-zinc-300 hover:text-[#fbbf24] cursor-pointer transition-colors"
+                >
+                  {sug}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* English Headline Input */}
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[10px] text-zinc-400 font-mono-tech uppercase">
+                English Headline (Cinematic Title)
+              </label>
+              <span className="text-[8px] text-[#eab308] font-mono-tech">Cinzel 35mm</span>
+            </div>
+            <input
+              type="text"
+              value={titleEn || ''}
+              onChange={(e) => handleUpdate({ title: e.target.value })}
+              placeholder="e.g. THE SINGULARITY"
+              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-xs font-cinzel font-bold text-white tracking-wider outline-none transition-colors uppercase"
+            />
+            {/* Quick Suggestions for English */}
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {englishSuggestions.slice(0, 4).map(sug => (
+                <button
+                  key={sug}
+                  type="button"
+                  onClick={() => handleUpdate({ title: sug })}
+                  className="px-1.5 py-0.5 rounded-[1px] bg-white/5 hover:bg-[#d4af37]/20 border border-[#272732] hover:border-[#d4af37]/50 text-[8px] font-mono-tech text-zinc-300 hover:text-white cursor-pointer transition-colors"
+                >
+                  {sug}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Dialogue / Subtitle Textarea */}
+          <div>
+            <label className="text-[10px] text-zinc-400 font-mono-tech uppercase block mb-1">
+              Dialogue / Curatorial Subtitle
+            </label>
+            <textarea
+              rows={2}
+              value={caption || ''}
+              onChange={(e) => handleUpdate({ tagline: e.target.value })}
+              placeholder="Dialogue, scene subtitle, or voiceover cue..."
+              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-xs font-mono-tech text-zinc-200 outline-none transition-colors resize-none leading-relaxed"
             />
           </div>
 
+          {/* Screenplay & Lighting Notes */}
           <div>
-            <label className="text-[10px] text-[#8A8A8A] uppercase">বাংলা শীর্ষক (Bengali Title)</label>
-            <input
-              type="text"
-              value={titleBn}
-              onChange={(e) => setTitleBn(e.target.value)}
-              className="w-full bg-[#121212] border border-[#D4AF37]/20 rounded p-2 text-xs text-[#FFE066] font-serif focus:outline-none focus:border-[#D4AF37] mt-1"
-            />
-          </div>
-
-          <div>
-            <label className="text-[10px] text-[#8A8A8A] uppercase">Narrative Caption</label>
+            <label className="text-[10px] text-zinc-400 font-mono-tech uppercase block mb-1">
+              Screenplay & Director Notes
+            </label>
             <textarea
               rows={3}
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              className="w-full bg-[#121212] border border-[#D4AF37]/20 rounded p-2 text-xs text-[#EDEDED] focus:outline-none focus:border-[#D4AF37] mt-1 resize-none"
+              value={dialogue || ''}
+              onChange={(e) => handleUpdate({ directorNotes: e.target.value })}
+              placeholder="Directorial notes on performance, lighting, or blocking..."
+              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-xs font-mono-tech text-zinc-300 outline-none transition-colors resize-none leading-relaxed"
             />
           </div>
         </div>
 
-        {/* Font & Size */}
-        <div className="flex flex-col gap-3 border-t border-[#D4AF37]/10 pt-3">
+        {/* 2. Super Title Kinetic Animation Selector */}
+        <div className="flex flex-col gap-2.5 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-zinc-400 font-mono-tech uppercase flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-[#eab308]" />
+              Super Title Animation Style
+            </label>
+            <span className="text-[8.5px] text-[#fbbf24] font-mono-tech font-bold uppercase">
+              {animationStyle}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { id: 'flare', label: 'Anamorphic Gold Flare' },
+              { id: 'kinetic', label: 'Kinetic Snap' },
+              { id: 'glitch', label: 'Celluloid Glitch' },
+              { id: 'breathe', label: 'Aura Breathe' },
+              { id: 'typewriter', label: 'Typewriter Reveal' },
+              { id: 'neon', label: 'Dhaka Cyber Neon' },
+              { id: 'cinema-fade', label: '70mm Dissolve' }
+            ].map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  setAnimationStyle(opt.id as any);
+                  handleUpdate({ titleAnimation: opt.id as any });
+                }}
+                className={`p-1.5 rounded-[1px] border text-[9.5px] text-left transition-colors cursor-pointer ${
+                  animationStyle === opt.id 
+                    ? 'border-[#fbbf24] bg-[#d4af37]/20 text-[#fbbf24] font-bold shadow-[0_0_8px_rgba(234,179,8,0.3)]' 
+                    : 'border-[#272732] bg-[#121218] text-zinc-400 hover:text-white hover:border-zinc-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. Typography Size & Font Stack */}
+        <div className="flex flex-col gap-3 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
+          <div className="flex items-center justify-between border-b border-[#272732] pb-1.5">
+            <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Sliders className="w-3 h-3 text-[#eab308]" />
+              Typography Geometry & Font
+            </span>
+          </div>
+
           <div>
-            <label className="text-[10px] text-[#8A8A8A] uppercase">Font Family</label>
+            <label className="text-[9.5px] text-zinc-400 uppercase block mb-1">Headline Font Family</label>
             <select
               value={selectedFont}
               onChange={(e) => setSelectedFont(e.target.value)}
-              className="w-full bg-[#121212] border border-[#D4AF37]/20 rounded p-1.5 text-xs text-[#EDEDED] mt-1"
+              className="w-full bg-[#121218] border border-[#272732] rounded-[1px] p-1.5 text-xs text-zinc-200 outline-none cursor-pointer"
             >
-              <option value="Cinzel">Cinzel (Cinematic Epic)</option>
-              <option value="JetBrains Mono">JetBrains Mono (Cyber HUD)</option>
+              <option value="Cinzel">Cinzel (Cinematic Master)</option>
+              <option value="JetBrains Mono">JetBrains Mono (Technical HUD)</option>
               <option value="Noto Serif Bengali">Noto Serif Bengali (Heritage)</option>
-              <option value="Inter">Inter (Clean Modern)</option>
-              <option value="Courier New">Courier New (Script Typewriter)</option>
+              <option value="Anek Bangla">Anek Bangla (Bold Display)</option>
+              <option value="Courier New">Courier New (Screenplay Typewriter)</option>
             </select>
           </div>
 
           <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>ENGLISH FONT SIZE</span>
-              <span className="text-[#FFE066]">{fontSize}px</span>
-            </div>
-            <input
-              type="range"
-              min="20"
-              max="72"
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-              className="w-full accent-[#D4AF37] mt-1"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>BANGLA TITLE SIZE (FULL WORD)</span>
-              <span className="text-[#FFE066] font-bold">{fontSizeBn}px</span>
+            <div className="flex justify-between text-[9.5px] text-zinc-400 mb-1">
+              <span>BANGLA HEADLINE SCALE</span>
+              <span className="text-[#fbbf24] font-bold">{fontSizeBn}px</span>
             </div>
             <input
               type="range"
@@ -322,79 +418,41 @@ export const TextStudio: React.FC = () => {
               max="96"
               value={fontSizeBn}
               onChange={(e) => setFontSizeBn(Number(e.target.value))}
-              className="w-full accent-[#D4AF37] mt-1"
+              className="w-full accent-[#fbbf24]"
             />
-            <div className="flex gap-1.5 mt-1">
-              <button
-                type="button"
-                onClick={() => setFontSizeBn(36)}
-                className={`px-2 py-0.5 rounded text-[8.5px] font-mono ${fontSizeBn === 36 ? 'bg-[#FFE066] text-black font-bold' : 'bg-white/5 text-white/60 hover:text-white'}`}
-              >
-                COMPACT (36)
-              </button>
-              <button
-                type="button"
-                onClick={() => setFontSizeBn(56)}
-                className={`px-2 py-0.5 rounded text-[8.5px] font-mono ${fontSizeBn === 56 ? 'bg-[#FFE066] text-black font-bold' : 'bg-white/5 text-white/60 hover:text-white'}`}
-              >
-                COVER WORD (56)
-              </button>
-              <button
-                type="button"
-                onClick={() => setFontSizeBn(76)}
-                className={`px-2 py-0.5 rounded text-[8.5px] font-mono ${fontSizeBn === 76 ? 'bg-[#FFE066] text-black font-bold' : 'bg-white/5 text-white/60 hover:text-white'}`}
-              >
-                MASSIVE (76)
-              </button>
-            </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] text-[#8A8A8A] uppercase flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#D4AF37]" />
-                Super Title Animation
-              </label>
-              <span className="text-[9px] text-[#FFE066] font-bold uppercase">{animationStyle}</span>
+            <div className="flex justify-between text-[9.5px] text-zinc-400 mb-1">
+              <span>ENGLISH TITLE SCALE</span>
+              <span className="text-[#fbbf24] font-bold">{fontSize}px</span>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {[
-                { id: 'flare', label: 'Anamorphic Flare' },
-                { id: 'kinetic', label: 'Kinetic Snap' },
-                { id: 'glitch', label: 'Cyber Glitch' },
-                { id: 'breathe', label: 'Aura Breathe' },
-                { id: 'typewriter', label: 'Typewriter' },
-                { id: 'neon', label: 'Cyber Neon' },
-                { id: 'cinema-fade', label: 'Cinema Dissolve' }
-              ].map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setAnimationStyle(opt.id as any)}
-                  className={`p-1.5 rounded border text-[10px] text-left transition-all cursor-pointer ${
-                    animationStyle === opt.id 
-                      ? 'border-[#D4AF37] bg-[#D4AF37]/25 text-[#FFE066] font-bold shadow-[0_0_8px_rgba(212,175,55,0.4)]' 
-                      : 'border-[#D4AF37]/15 bg-[#121212] text-[#8A8A8A] hover:text-white hover:border-[#D4AF37]/40'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            <input
+              type="range"
+              min="16"
+              max="64"
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="w-full accent-[#fbbf24]"
+            />
           </div>
         </div>
 
-        {/* Style Presets */}
-        <div className="flex flex-col gap-2 border-t border-[#D4AF37]/10 pt-3">
-          <label className="text-[10px] text-[#8A8A8A] uppercase">Cinema Style Presets</label>
+        {/* 4. Cinema Typography Style Presets */}
+        <div className="flex flex-col gap-2 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
+          <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
+            Curated Film Presets
+          </span>
           <div className="flex flex-col gap-1.5">
             {titlePresets.map(preset => (
               <button
                 key={preset.name}
+                type="button"
                 onClick={() => handleApplyPreset(preset)}
-                className="p-2 bg-[#121212] hover:bg-[#181818] border border-[#D4AF37]/20 hover:border-[#D4AF37] rounded text-left flex items-center justify-between"
+                className="p-2 bg-[#121218] hover:bg-[#181822] border border-[#272732] hover:border-[#fbbf24]/50 rounded-[1px] text-left flex items-center justify-between cursor-pointer transition-colors"
               >
-                <span className="font-bold truncate" style={{ color: preset.color }}>{preset.name}</span>
-                <span className="text-[9px] text-[#8A8A8A]">{preset.font}</span>
+                <span className="font-bold text-xs truncate" style={{ color: preset.color }}>{preset.name}</span>
+                <span className="text-[8.5px] text-zinc-400 font-mono-tech">{preset.font}</span>
               </button>
             ))}
           </div>

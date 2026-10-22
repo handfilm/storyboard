@@ -116,8 +116,68 @@ export default function App() {
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [crashRecoveredProject, setCrashRecoveredProject] = useState<ProjectV1 | null>(null);
   const [isStorageInitialized, setIsStorageInitialized] = useState(false);
-
   const touchStartXRef = useRef<number | null>(null);
+
+  // ==========================================
+  // Core Audio Engine Handlers (Declared upfront to prevent Temporal Dead Zone / ReferenceError)
+  // ==========================================
+  const toggleAudio = useCallback(() => {
+    setIsAudioMuted(prev => {
+      const nextState = !prev;
+      try {
+        audioEngine.setMuted(nextState);
+        if (!nextState) {
+          audioEngine.setVolume(audioVolume);
+          audioEngine.playShutterClick();
+        }
+      } catch (err) {
+        console.warn('[Audio] toggleAudio error:', err);
+      }
+      return nextState;
+    });
+  }, [audioVolume]);
+
+  const playAudio = useCallback(() => {
+    if (!isAudioMuted) {
+      try {
+        audioEngine.playAudio();
+      } catch (err) {
+        console.warn('[Audio] playAudio error:', err);
+      }
+    }
+  }, [isAudioMuted]);
+
+  const pauseAudio = useCallback(() => {
+    try {
+      audioEngine.pauseAudio();
+    } catch (err) {
+      console.warn('[Audio] pauseAudio error:', err);
+    }
+  }, []);
+
+  const handleLoadAudioFile = useCallback(async (file: File) => {
+    try {
+      const analysis = await audioEngine.loadAndAnalyzeAudioFile(file);
+      setDetectedBpm(analysis.detectedBpm);
+      audioEngine.setMuted(false);
+      setIsAudioMuted(false);
+      audioEngine.setVolume(audioVolume);
+    } catch (err) {
+      console.warn('Audio track ingestion error:', err);
+    }
+  }, [audioVolume]);
+
+  const handleToggleSnapToBeat = useCallback(() => {
+    setIsSnapToBeat(prev => {
+      const next = !prev;
+      try {
+        audioEngine.setSnapToBeatEnabled(next);
+      } catch (err) {
+        console.warn('SnapToBeat error:', err);
+      }
+      return next;
+    });
+  }, []);
 
   const applyProjectV1ToState = useCallback((p: ProjectV1) => {
     if (!p) return;
@@ -568,39 +628,6 @@ export default function App() {
     }
   };
 
-  // Audio mute toggle
-  const toggleAudio = () => {
-    const nextState = !isAudioMuted;
-    setIsAudioMuted(nextState);
-    audioEngine.setMuted(nextState);
-    if (!nextState) {
-      audioEngine.setVolume(audioVolume);
-      audioEngine.playShutterClick();
-    }
-  };
-
-  // Audio track ingestion for Web Audio DSP beat transient analysis
-  const handleLoadAudioFile = useCallback(async (file: File) => {
-    try {
-      const analysis = await audioEngine.loadAndAnalyzeAudioFile(file);
-      setDetectedBpm(analysis.detectedBpm);
-      audioEngine.setMuted(false);
-      setIsAudioMuted(false);
-      audioEngine.setVolume(audioVolume);
-    } catch (err) {
-      console.warn('Audio track ingestion error:', err);
-    }
-  }, [audioVolume]);
-
-  // Auto-Cut / Snap to Beat toggle
-  const handleToggleSnapToBeat = useCallback(() => {
-    setIsSnapToBeat(prev => {
-      const next = !prev;
-      audioEngine.setSnapToBeatEnabled(next);
-      return next;
-    });
-  }, []);
-
   // 4K Cinema Still Capture
   const handleCaptureStill = () => {
     const frame = project.frames[currentIndex];
@@ -690,13 +717,35 @@ export default function App() {
   }, [redoStack, project]);
 
   const handleUpdateFrame = useCallback((updated: AnthologyFrame) => {
-    setHistoryStack(h => [...h.slice(-15), project]);
-    setRedoStack([]);
-    setProject(prev => ({
-      ...prev,
-      frames: prev.frames.map(f => f.id === updated.id ? updated : f)
-    }));
-  }, [project]);
+    setProject(prev => {
+      const idx = prev.frames.findIndex(f => f.id === updated.id);
+      if (idx !== -1) {
+        try {
+          useStudioStore.getState().updateShot(idx, {
+            title: updated.title,
+            bengaliTitle: updated.bengaliTitle,
+            tagline: updated.tagline,
+            directorNotes: updated.directorNotes,
+            soundCue: updated.soundCue,
+            imageUrl: updated.imageUrl,
+            isVideo: updated.isVideo,
+            adjustments: updated.adjustments ? {
+              halations: 0,
+              anamorphicStreak: 0,
+              ...updated.adjustments
+            } : undefined,
+            lutFilter: updated.lutFilter
+          });
+        } catch {
+          // safe fallback
+        }
+      }
+      return {
+        ...prev,
+        frames: prev.frames.map(f => f.id === updated.id ? updated : f)
+      };
+    });
+  }, []);
 
   // Rapid Ingestion Pipeline: Direct IndexedDB Storage + High-Impact Overlays
   const handleUploadImage = useCallback(async (file: File) => {

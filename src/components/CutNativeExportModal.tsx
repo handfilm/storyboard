@@ -20,6 +20,7 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AnthologyFrame } from '../types/anthology';
 import { SlideDraft } from '../types/project';
 import { 
@@ -345,14 +346,14 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 md:p-8 select-none font-sans overflow-hidden">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden">
       
       {/* Centered Tactical Modal Container */}
-      <div className="w-full max-w-5xl max-h-[90vh] bg-[#0c0d10] border border-[#F5A623]/30 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-4xl max-h-[85vh] bg-[#0c0d10] border border-[#F5A623]/40 rounded-xl flex flex-col overflow-hidden shadow-2xl font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Pinned Header: Gold Title, Total Runtime, Clean Close */}
-        <div className="px-6 py-4 bg-[#111218] border-b border-[#22232f] flex items-center justify-between shrink-0">
+        {/* Sticky Header: Gold Title, Total Runtime, Prominent Close */}
+        <div className="sticky top-0 bg-[#0c0d10] border-b border-[#F5A623]/20 p-4 flex justify-between items-center z-10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-lg bg-[#F5A623]/20 border border-[#F5A623]/50 flex items-center justify-center shadow-[0_0_12px_rgba(245,166,35,0.3)]">
               <Film className="w-4 h-4 text-[#F5A623]" />
@@ -378,21 +379,20 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               <span className="text-[#F5A623] text-[10px] font-bold">@ 24fps</span>
             </div>
 
-            {!isExporting && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                <span>✕</span>
-                <span>CLOSE</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isExporting}
+              className="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-[#F5A623]/30 bg-[#161722]"
+            >
+              <span className="text-[#F5A623] font-bold">✕</span>
+              <span>CLOSE</span>
+            </button>
           </div>
         </div>
 
         {/* Scrollable Body Container */}
-        <div className="overflow-y-auto flex-1 p-5 md:p-6 space-y-6">
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
           
           {/* ============================================================== */}
           {/* SECTION 1: SHOT SEQUENCE SETTINGS & INTERACTIVE MATRIX        */}
@@ -925,14 +925,12 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
         </div>
 
-        {/* ============================================================== */}
-        {/* SECTION 4: INTERACTIVE LIVE RENDER HUD & ACTION BAR (PINNED)   */}
-        {/* ============================================================== */}
-        <div className="p-5 md:px-6 md:py-4 bg-[#0e0f16] border-t border-[#222330] shrink-0">
+        {/* Sticky Bottom Action Bar */}
+        <div className="sticky bottom-0 bg-[#0c0d10] border-t border-white/10 p-4 flex justify-between items-center gap-3 z-10 shrink-0">
           
           {isExporting ? (
             /* Active Live Render State: Thumbnail Monitor + Amber Bar + Telemetry + Cancel */
-            <div className="space-y-3">
+            <div className="w-full space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Live Thumbnail Window */}
                 <div className="flex items-center gap-3">
@@ -978,8 +976,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               </div>
             </div>
           ) : (
-            /* Idle Action Bar: Editable File Name Input + Start Button */
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            /* Idle Action Bar: Editable File Name Input + Close & Start Button */
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
               {/* File Name Preview */}
               <div className="flex-1 flex items-center gap-2">
                 <span className="text-[10px] text-zinc-500 uppercase tracking-wider shrink-0 font-sans">
@@ -989,19 +987,19 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   type="text"
                   value={customFilename}
                   onChange={(e) => setCustomFilename(e.target.value)}
-                  className="w-full max-w-md bg-[#07080c] border border-[#26283b] rounded-lg px-3 py-1.5 text-xs font-mono text-zinc-200 focus:border-[#F5A623] outline-none"
+                  className="w-full max-w-sm bg-[#07080c] border border-[#26283b] rounded-lg px-3 py-1.5 text-xs font-mono text-zinc-200 focus:border-[#F5A623] outline-none"
                   placeholder="HANDFILM_DirectorCut.mp4"
                 />
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
                 <button
                   type="button"
                   onClick={onClose}
                   className="px-4 py-2 rounded-lg bg-[#141520] hover:bg-[#1d1f2e] text-zinc-300 hover:text-white border border-[#292b3e] text-xs font-bold cursor-pointer transition-all"
                 >
-                  Close
+                  ✕ Close
                 </button>
 
                 <button
@@ -1021,4 +1019,9 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

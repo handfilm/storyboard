@@ -301,7 +301,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setIsNativeExportOpen(true);
+                    if (onOpenExportRange) {
+                      onOpenExportRange();
+                    } else {
+                      setIsNativeExportOpen(true);
+                    }
                     setIsExportMenuOpen(false);
                   }}
                   className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-emerald-950/40 border border-emerald-500/20 text-emerald-200 hover:text-emerald-300 flex items-center justify-between cursor-pointer transition-colors"

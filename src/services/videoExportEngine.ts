@@ -71,6 +71,7 @@ export interface CinemaExportPipelineOptions {
   // Callback Hooks
   onProgress?: (telemetry: RenderTelemetry) => void;
   onFrameRendered?: (canvas: HTMLCanvasElement, frameNum: number, totalFrames: number) => void;
+  previewCanvas?: HTMLCanvasElement | null;
   abortSignal?: AbortSignal;
 }
 
@@ -645,6 +646,7 @@ export async function exportCinemaMasterMp4(
     includeAudio,
     onProgress,
     onFrameRendered,
+    previewCanvas,
     abortSignal
   } = options;
 
@@ -925,6 +927,28 @@ export async function exportCinemaMasterMp4(
           fps: currentFps,
           statusText: `RENDERING SHOT ${String(currentShotNum).padStart(3, '0')}/${String(totalShots).padStart(3, '0')} // FRAME ${globalFrameIndex.toLocaleString()}/${totalFrames.toLocaleString()} // ${percent}% // ${currentFps} FPS`
         });
+      }
+
+      if (previewCanvas) {
+        try {
+          const previewCtx = previewCanvas.getContext('2d');
+          if (previewCtx) {
+            previewCtx.drawImage(canvas, 0, 0, 320, 134);
+            // Dynamic HUD overlay: [ SHOT 00X • FRAME 142/288 • 24 FPS • ENCODING ]
+            previewCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+            previewCtx.fillRect(0, 134 - 24, 320, 24);
+            previewCtx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
+            previewCtx.lineWidth = 1;
+            previewCtx.strokeRect(0, 134 - 24, 320, 24);
+            previewCtx.fillStyle = '#F5A623';
+            previewCtx.font = 'bold 9.5px "JetBrains Mono", monospace';
+            previewCtx.textAlign = 'center';
+            const hudText = `[ SHOT ${String(currentShotNum).padStart(3, '0')} • FRAME ${f + 1}/${framesPerShot} • 24 FPS • ENCODING ]`;
+            previewCtx.fillText(hudText, 160, 134 - 8);
+          }
+        } catch {
+          // Non-fatal preview canvas blit fallback
+        }
       }
 
       if (onFrameRendered) {

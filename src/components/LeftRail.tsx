@@ -1,29 +1,17 @@
 /**
  * @file /src/components/LeftRail.tsx
- * @description Single Scrollable Left Navigation Rail for RAWx Storyboard Studio.
- * Re-exports LeftRailNavigation and adapts existing LeftRail calls to the unified 15-module system.
+ * @description Single Scrollable Left Navigation Rail for HANDFILM Creative Suite.
+ * Re-exports StudioNavRail.
  */
 
 import React from 'react';
-import { LeftRailNavigation, StudioModuleId, CameraLensProfile } from './LeftRailNavigation';
+import { StudioNavRail, StudioNavRailProps, StudioModuleId, CameraLensProfile, CINE_PROFILES } from './StudioNavRail';
 
-export type { StudioModuleId, CameraLensProfile };
-export { LeftRailNavigation };
+export type { StudioNavRailProps, StudioModuleId, CameraLensProfile };
+export { CINE_PROFILES, StudioNavRail };
 
-export interface LeftRailProps {
-  activeModule: StudioModuleId;
-  onSelectModule: (module: StudioModuleId) => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  isProMode: boolean;
-  onToggleProMode?: () => void;
-  onOpenVaultMode?: () => void;
-  onOpenSelfTest?: () => void;
-  onOpenSettingsModal?: () => void;
-  activeProfile?: CameraLensProfile;
-  onSelectProfile?: (profile: CameraLensProfile) => void;
-}
+export interface LeftRailProps extends StudioNavRailProps {}
 
 export const LeftRail: React.FC<LeftRailProps> = (props) => {
-  return <LeftRailNavigation {...props} />;
+  return <StudioNavRail {...props} />;
 };

@@ -531,5 +531,33 @@
   animation: amberProgressPulse 2s ease-in-out infinite;
 }
 
+/* ========================================================================= */
+/* MODAL ENTRANCE: SUBTLE FADE-IN & UPWARD SLIDE                             */
+/* ========================================================================= */
+@keyframes modalBackdropFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
 
+@keyframes modalSlideUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 
+.animate-modal-backdrop {
+  animation: modalBackdropFadeIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-modal-slide-up {
+  animation: modalSlideUpFade 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}

@@ -1,27 +1,27 @@
 /**
  * @file /src/components/StudioDrawer.tsx
- * @description Futuristic Dockable Studio Drawer for RAWx Storyboard Studio.
+ * @description Master Dockable Studio Drawer for HANDFILM Creative Suite.
  * Opens functional feature panels in Stage mode (Story, Media, Titles, Sound, Player,
- * Library, AI, Production, Review, Optics) alongside the Cinema Monitor.
+ * Library, AI Director, Production, Review, Optics, Cloud & R2, Photo Edit) alongside the Cinema Monitor.
  */
 
 import React from 'react';
-import { StudioModuleId } from './LeftRail';
+import { StudioModuleId } from './StudioNavRail';
 import { StoryNotebook } from '../features/story/StoryNotebook';
 import { MediaStudio } from '../features/media/MediaStudio';
 import { TextStudio } from '../features/text/TextStudio';
 import { SoundStudio } from '../features/sound/SoundStudio';
 import { PrevisStudio } from '../features/previs/PrevisStudio';
-import { ProductionStudio } from '../features/production/ProductionStudio';
-import { ReviewStudio } from '../features/review/ReviewStudio';
+import { ProductionSuite } from './ProductionSuite';
+import { ReviewPanel } from './ReviewPanel';
 import { LibraryStudio } from '../features/library/LibraryStudio';
-import { AiStudio } from '../features/ai/AiStudio';
+import { AIDirectorSuite } from './AIDirectorSuite';
+import { CloudR2Sync } from './CloudR2Sync';
+import { PhotoLiquifySuite } from './PhotoLiquifySuite';
 import { DirectorInspector } from './DirectorInspector';
 import { AnthologyFrame } from '../types/anthology';
 import { 
   X, 
-  Maximize2, 
-  Minimize2, 
   BookOpen, 
   Image as ImageIcon, 
   Type, 
@@ -31,7 +31,9 @@ import {
   MessageSquare, 
   Library, 
   Sparkles, 
-  Sliders 
+  Sliders,
+  Cloud,
+  Wand2
 } from 'lucide-react';
 
 interface StudioDrawerProps {
@@ -59,71 +61,85 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
     switch (activeModule) {
       case 'STORY':
         return {
-          title: 'STORY NOTEBOOK',
-          subtitle: 'Scene Beats, Screenplay & Dialogue',
+          title: '02 STORY NOTEBOOK',
+          subtitle: 'Scene Beats, Screenplay & AI Copilot',
           icon: BookOpen,
           badge: 'SCREENPLAY'
         };
       case 'MEDIA':
         return {
-          title: 'MEDIA ASSET VAULT',
+          title: '03 MEDIA ASSET VAULT',
           subtitle: '4K Footage, Presets & Ingestion',
           icon: ImageIcon,
           badge: 'INGEST'
         };
       case 'TEXT':
         return {
-          title: 'SUPER TITLE STUDIO',
-          subtitle: 'Kinetic Typography & Super Animations',
+          title: '06 SUPER TITLE STUDIO',
+          subtitle: 'Kinetic Typography & Glowing Subtitles',
           icon: Type,
           badge: 'TYPOGRAPHY'
         };
       case 'SOUND':
         return {
-          title: 'SOUND STUDIO & DSP',
+          title: '08 SOUND STUDIO & DSP',
           subtitle: '43.6Hz Sub Drone & Web Audio Synth',
           icon: Volume2,
           badge: 'DSP SYNTH'
         };
       case 'PLAYER':
         return {
-          title: 'ANIMATIC PREVIS PLAYER',
+          title: '01 ANIMATIC PREVIS PLAYER',
           subtitle: 'J-K-L Jog Shuttle & Loop Transport',
           icon: PlaySquare,
           badge: 'TRANSPORT'
         };
+      case 'LIQUIFY':
+        return {
+          title: '09 PHOTO EDIT & BULK RESIZER',
+          subtitle: 'Liquify Warp Suite & Batch Resizer',
+          icon: Wand2,
+          badge: 'PHOTO SUITE'
+        };
       case 'PRODUCTION':
         return {
-          title: 'PRODUCTION & CALL SHEETS',
+          title: '10 PRODUCTION & CALL SHEETS',
           subtitle: 'Day Schedules & Line-Item Budget',
           icon: Clapperboard,
           badge: 'HOLLYWOOD'
         };
       case 'REVIEW':
         return {
-          title: 'REVIEW & ANNOTATIONS',
+          title: '11 REVIEW & ANNOTATIONS',
           subtitle: 'Director Notes & Client Approvals',
           icon: MessageSquare,
           badge: 'COLLAB'
         };
+      case 'AI':
+        return {
+          title: '12 AI CREATIVE DIRECTOR',
+          subtitle: 'Gemini Cine & Veo Prompt Generator',
+          icon: Sparkles,
+          badge: 'FLOW AI'
+        };
+      case 'R2_STORAGE':
+        return {
+          title: '13 CLOUD & R2 ARCHIVE',
+          subtitle: 'Cloudflare R2 & Byte-Range Streaming',
+          icon: Cloud,
+          badge: 'CLOUD R2'
+        };
       case 'LIBRARY':
         return {
-          title: 'LOOK & LUT LIBRARY',
+          title: '14 LOOK & LUT LIBRARY',
           subtitle: '3D Color Presets & Optics Catalog',
           icon: Library,
           badge: 'PRESETS'
         };
-      case 'AI':
-        return {
-          title: 'AI CREATIVE DIRECTOR',
-          subtitle: 'Multimodal Gemini & Flow Assistant',
-          icon: Sparkles,
-          badge: 'FLOW AI'
-        };
       default:
         return {
-          title: 'DIRECTOR INSPECTOR',
-          subtitle: 'Optical Lens & Post FX Telemetry',
+          title: '07 EDIT & CAM',
+          subtitle: '3D Virtual Rig & Optics Rack',
           icon: Sliders,
           badge: 'OPTICS'
         };
@@ -134,7 +150,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   const Icon = meta.icon;
 
   return (
-    <div className="w-[380px] sm:w-[440px] xl:w-[480px] h-full bg-[#0a0a10]/98 border-r border-[#272732] shadow-[0_0_50px_rgba(0,0,0,0.95)] flex flex-col z-30 shrink-0 select-none overflow-hidden backdrop-blur-2xl animate-in slide-in-from-left duration-200">
+    <div className="w-[420px] sm:w-[480px] xl:w-[560px] h-full bg-[#0a0a10]/98 border-r border-[#272732] shadow-[0_0_50px_rgba(0,0,0,0.95)] flex flex-col z-30 shrink-0 select-none overflow-hidden backdrop-blur-2xl animate-in slide-in-from-left duration-200">
       {/* Drawer Header */}
       <div className="h-12 bg-[#0c0c10] border-b border-[#272732] px-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -173,19 +189,30 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
         {activeModule === 'TEXT' && <TextStudio currentFrame={currentFrame} onUpdateFrame={onUpdateFrame} />}
         {activeModule === 'SOUND' && <SoundStudio />}
         {activeModule === 'PLAYER' && <PrevisStudio />}
-        {activeModule === 'PRODUCTION' && <ProductionStudio />}
-        {activeModule === 'REVIEW' && <ReviewStudio />}
+        {activeModule === 'LIQUIFY' && (
+          <PhotoLiquifySuite
+            isOpen={true}
+            frame={currentFrame}
+            onClose={onClose}
+            onApplyWarp={(warpedUrl) => onUpdateFrame({ ...currentFrame, imageUrl: warpedUrl })}
+          />
+        )}
+        {activeModule === 'PRODUCTION' && <ProductionSuite />}
+        {activeModule === 'REVIEW' && <ReviewPanel />}
+        {activeModule === 'AI' && <AIDirectorSuite />}
+        {activeModule === 'R2_STORAGE' && <CloudR2Sync />}
         {activeModule === 'LIBRARY' && <LibraryStudio />}
-        {activeModule === 'AI' && <AiStudio />}
         {activeModule !== 'STORY' && 
          activeModule !== 'MEDIA' && 
          activeModule !== 'TEXT' && 
          activeModule !== 'SOUND' && 
          activeModule !== 'PLAYER' && 
+         activeModule !== 'LIQUIFY' &&
          activeModule !== 'PRODUCTION' && 
          activeModule !== 'REVIEW' && 
-         activeModule !== 'LIBRARY' && 
-         activeModule !== 'AI' && (
+         activeModule !== 'AI' &&
+         activeModule !== 'R2_STORAGE' &&
+         activeModule !== 'LIBRARY' && (
           <DirectorInspector
             frame={currentFrame}
             onUpdateFrame={onUpdateFrame}

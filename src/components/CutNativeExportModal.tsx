@@ -558,6 +558,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         cleanPlates: false,
         simulateFlare,
         includeAudio,
+        previewCanvas: previewCanvasRef.current,
         onProgress: (tel) => setTelemetry(tel),
         onFrameRendered: (canvas) => handleFrameRendered(canvas),
         abortSignal: abortCtrl.signal
@@ -783,16 +784,16 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
   const modalNode = (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden"
+      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden animate-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isExporting) {
           onClose();
         }
       }}
     >
-      {/* Centered Modal Container */}
+      {/* Centered Modal Container with Subtle Fade-in & Upward Slide Animation */}
       <div 
-        className="w-full max-w-4xl max-h-[85vh] bg-[#0c0d10] border border-[#F5A623]/40 rounded-xl flex flex-col overflow-hidden shadow-2xl relative font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-4xl max-h-[85vh] bg-[#0c0d10] border border-[#F5A623]/40 rounded-xl flex flex-col overflow-hidden shadow-2xl relative font-mono text-zinc-300 animate-modal-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Tactical Corner Accents */}
@@ -1705,16 +1706,16 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
           {isExporting ? (
             <div className="w-full space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="relative w-24 aspect-video rounded bg-black border border-[#F5A623]/50 overflow-hidden shrink-0">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5">
+                  <div className="relative shrink-0">
                     <canvas
                       ref={previewCanvasRef}
                       width={320}
-                      height={180}
-                      className="w-full h-full object-contain"
+                      height={134}
+                      className="rounded-lg border border-[#F5A623]/30 bg-black shadow-lg"
                     />
-                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-black/80 text-[7px] font-bold text-[#F5A623]">
-                      LIVE
+                    <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/80 border border-[#F5A623]/40 text-[7.5px] font-bold text-[#F5A623] font-mono">
+                      LIVE RENDER
                     </div>
                   </div>
 

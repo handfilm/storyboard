@@ -16,8 +16,15 @@ const HOST = '0.0.0.0';
 
 app.use(express.json({ limit: '50mb' }));
 
-// Initialize Google GenAI
-const ai = new GoogleGenAI();
+// Initialize Google GenAI with User-Agent header as required by SDK guidelines
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
 
 // Safe Config Endpoint for Client-Side Initialization
 app.get('/api/config', (_req, res) => {
@@ -134,6 +141,90 @@ app.post('/api/breakdown', async (req, res) => {
   } catch (error: any) {
     console.error('Gemini breakdown error:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// AI Screenplay Assistant Hook (Streaming & Unary with 4 modes)
+app.post('/api/story/assistant', async (req, res) => {
+  const { mode = 'expand_beat', prompt = '', scriptContext = '', stream = false } = req.body;
+
+  let systemDirective = '';
+  switch (mode) {
+    case 'expand_beat':
+      systemDirective = `You are an elite cinema screenwriting director and visual storyteller.
+Elaborate the user's beat into a cinematic sequence composed of precise 12-second dramatic visual beats.
+For each 12-second beat, describe:
+- SCENE HEADER (e.g. INT. / EXT. - LOCATION - TIME)
+- BENGALI TITLE & ENGLISH TITLE
+- CAMERA SPEC & FOCAL LENGTH (e.g. 35mm Master Prime, f/1.4, slow push-in)
+- VISUAL ACTION & SENSORY DETAILS (lighting, textures, micro-expressions)
+- SOUND CUE & AMBIENCE (e.g. 43Hz sub-bass rumble, analog tape hiss)
+Provide vivid, visceral cinematic prose.`;
+      break;
+    case 'polish_dialogue':
+      systemDirective = `You are an award-winning bilingual screenwriter specializing in naturalistic, high-tension Bengali and English cinema dialogue.
+Polish and elevate the provided dialogue:
+1. Sharpen subtext, emotional undertones, and dramatic conflict.
+2. Provide natural Bengali phrasing with phonetic rhythm alongside punchy English translations.
+3. Include actor pacing beats, pauses (<break>), and micro-reactions.
+Keep the formatting clean and ready for screenplay reading.`;
+      break;
+    case 'generate_loglines':
+      systemDirective = `You are a Hollywood script supervisor and cinematographer.
+Convert the provided narrative beats into concise, punchy shot loglines formatted for a 100-shot cinematic storyboard.
+Format each shot with:
+[SHOT 00X] • [SCENE INT/EXT] • [FOCAL LENGTH] • [LOGLINE] • [DRAMATIC TENSION 1-100]
+Make each description visceral, clear, and actionable for visual production.`;
+      break;
+    case 'punch_tension':
+      systemDirective = `You are a master of suspense and cinematic tension (in the spirit of Fincher, Nolan, and Satyajit Ray).
+Re-architect the provided scene or beat to dramatically punch up psychological tension, stakes, ticking-clock urgency, and visceral stakes.
+Add high-contrast visual juxtaposition and specify exact camera tilt or lighting shifts that heighten dread and momentum.`;
+      break;
+    default:
+      systemDirective = `You are a world-class film director and creative assistant. Assist the screenwriter with cinematic vision, pacing, and visual storytelling.`;
+  }
+
+  const fullPrompt = `${systemDirective}\n\n${scriptContext ? `Script Context:\n${scriptContext}\n\n` : ''}User Input / Beat:\n${prompt}`;
+
+  if (stream) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    try {
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-3.8-flash',
+        contents: fullPrompt
+      });
+
+      for await (const chunk of responseStream) {
+        if (chunk.text) {
+          res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+        }
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error: any) {
+      console.error('Gemini Story Assistant streaming error:', error);
+      res.write(`data: ${JSON.stringify({ error: error.message || 'Generation failed' })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
+  } else {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: fullPrompt
+      });
+      res.json({
+        success: true,
+        text: response.text || ''
+      });
+    } catch (error: any) {
+      console.error('Gemini Story Assistant error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Generation failed' });
+    }
   }
 });
 

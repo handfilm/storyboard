@@ -15,6 +15,7 @@ import { toBengaliNumerals } from '../../utils/engine';
 import { convertShotV1ToFrame } from '../../utils/projectMigration';
 import { exportToOTIO, exportToCMX3600EDL, exportToSRT, triggerFileDownload } from '../../data/hollywoodExporters';
 import { audioEngine } from '../../utils/audioEngine';
+import { CutEditorTimeline } from '../../components/CutEditorTimeline';
 import {
   Scissors,
   Play,
@@ -1343,152 +1344,18 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard }) => {
       </div>
 
       {/* 3. MULTI-TRACK TIMELINE BOTTOM SECTION */}
-      <div className="h-64 bg-[#060609] border-t border-white/10 flex flex-col shrink-0 overflow-hidden z-20">
-        {/* Timeline Control Strip */}
-        <div className="h-9 bg-[#09090D] border-b border-white/10 px-4 flex items-center justify-between text-xs shrink-0">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSplitAtPlayhead}
-              className="px-2 py-0.5 bg-white/5 hover:bg-[#D4AF37] hover:text-black rounded border border-white/10 text-[9.5px] font-bold flex items-center gap-1 cursor-pointer"
-              title="Split clip at playhead position (S)"
-            >
-              <Scissors className="w-3 h-3" />
-              <span>SPLIT (S)</span>
-            </button>
-            <button
-              onClick={() => setIsMagneticSnap(!isMagneticSnap)}
-              className={`px-2 py-0.5 rounded border text-[9.5px] cursor-pointer ${
-                isMagneticSnap ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#FFE066] font-bold' : 'bg-white/5 border-white/10 text-white/40'
-              }`}
-            >
-              MAGNETIC SNAP
-            </button>
-          </div>
-
-          {/* Timeline Zoom Slider */}
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] text-white/40">ZOOM</span>
-            <input
-              type="range"
-              min="20"
-              max="160"
-              value={zoomScale}
-              onChange={(e) => setZoomScale(Number(e.target.value))}
-              className="w-20 accent-[#D4AF37] cursor-pointer"
-            />
-            <span className="text-[9px] text-[#FFE066] w-8">{zoomScale}%</span>
-          </div>
-        </div>
-
-        {/* Timeline Body: Track Headers + Track Lanes with Draggable Playhead */}
-        <div className="flex-1 flex overflow-hidden relative">
-          {/* Track Headers (Left column) */}
-          <div className="w-36 bg-[#08080C] border-r border-white/10 flex flex-col shrink-0 z-20">
-            {/* Ruler spacer */}
-            <div className="h-6 border-b border-white/10 bg-[#0a0a0f]" />
-            {tracks.map((track) => (
-              <div
-                key={track.id}
-                className="h-9 border-b border-white/10 px-2 flex items-center justify-between text-[9.5px] font-bold text-white/70"
-              >
-                <div className="flex items-center gap-1.5 truncate">
-                  <span className="text-[#FFE066]">{track.id}</span>
-                  <span className="text-[8px] text-white/40 truncate">{track.label.split(' ')[1]}</span>
-                </div>
-                <div className="flex items-center gap-1 text-white/40">
-                  <button className="hover:text-white"><Eye className="w-3 h-3" /></button>
-                  <button className="hover:text-white"><Lock className="w-3 h-3" /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tracks Canvas & Draggable Ruler */}
-          <div
-            ref={timelineTracksRef}
-            className="flex-1 overflow-x-auto overflow-y-hidden relative bg-[#040406]"
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const clickX = e.clientX - rect.left + e.currentTarget.scrollLeft;
-              const newTime = Math.max(0, Math.min(totalDuration, clickX / pps));
-              setPlayheadTime(newTime);
-            }}
-          >
-            <div style={{ width: `${Math.max(1200, totalDuration * pps + 200)}px` }} className="relative h-full">
-              {/* Timeline Time Ruler */}
-              <div className="h-6 border-b border-white/10 bg-[#07070a] relative select-none flex items-center">
-                {Array.from({ length: Math.ceil(totalDuration) + 1 }).map((_, sec) => (
-                  <div
-                    key={sec}
-                    className="absolute top-0 bottom-0 border-l border-white/15 flex items-end pb-0.5 pl-1"
-                    style={{ left: `${sec * pps}px` }}
-                  >
-                    <span className="text-[7.5px] text-white/40 font-mono-tech">{sec}s</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Dedicated Track Lanes */}
-              {tracks.map((track) => (
-                <div
-                  key={track.id}
-                  className="h-9 border-b border-white/10 relative bg-black/40 hover:bg-white/[0.02] transition-colors"
-                >
-                  {/* Clips on this track */}
-                  {clips
-                    .filter(c => c.trackId === track.id)
-                    .map((clip) => {
-                      const isSelected = selectedClipId === clip.id;
-                      const leftPos = clip.start * pps;
-                      const clipWidth = clip.duration * pps;
-
-                      return (
-                        <div
-                          key={clip.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedClipId(clip.id);
-                            if (clip.shotIndex !== undefined) {
-                              setActiveShotIndex(clip.shotIndex);
-                            }
-                          }}
-                          className={`absolute top-1 bottom-1 rounded-[2px] px-2 flex items-center justify-between text-[9px] cursor-pointer overflow-hidden transition-all shadow-sm ${
-                            isSelected
-                              ? 'bg-[#D4AF37] text-black font-bold ring-2 ring-[#FFE066] z-10'
-                              : track.type === 'video'
-                              ? 'bg-amber-950/70 border border-amber-600/40 text-amber-200'
-                              : track.type === 'text'
-                              ? 'bg-cyan-950/70 border border-cyan-600/40 text-cyan-200'
-                              : 'bg-emerald-950/70 border border-emerald-600/40 text-emerald-200'
-                          }`}
-                          style={{
-                            left: `${leftPos}px`,
-                            width: `${Math.max(20, clipWidth)}px`
-                          }}
-                        >
-                          <span className="truncate">{clip.name}</span>
-                          <span className="text-[8px] opacity-70 shrink-0 ml-1">{clip.duration.toFixed(1)}s</span>
-
-                          {/* Trim Handles */}
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/40 hover:w-2 hover:bg-[#FFE066] cursor-ew-resize" />
-                          <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 hover:w-2 hover:bg-[#FFE066] cursor-ew-resize" />
-                        </div>
-                      );
-                    })}
-                </div>
-              ))}
-
-              {/* Red Draggable Playhead Needle */}
-              <div
-                className="absolute top-0 bottom-0 w-px bg-red-500 z-30 pointer-events-none"
-                style={{ left: `${playheadTime * pps}px` }}
-              >
-                <div className="w-3 h-3 bg-red-500 transform -translate-x-1.5 -translate-y-1 rotate-45 shadow-lg" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CutEditorTimeline
+        clips={clips}
+        tracks={tracks}
+        playheadTime={playheadTime}
+        totalDuration={totalDuration}
+        selectedClipId={selectedClipId}
+        onSelectClip={setSelectedClipId}
+        onSeek={setPlayheadTime}
+        onSplitClip={handleSplitAtPlayhead}
+        onUpdateClips={setClips}
+        className="h-64 shrink-0 z-20"
+      />
     </div>
   );
 };

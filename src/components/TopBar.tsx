@@ -72,6 +72,8 @@ interface TopBarProps {
   onOpenExportTimeline?: () => void;
   onOpenExportRange?: () => void;
   onOpenWalkthrough?: () => void;
+  currentView?: 'HOME' | 'STUDIO';
+  onSelectView?: (view: 'HOME' | 'STUDIO') => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -103,7 +105,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenR2Automation,
   onOpenExportTimeline,
   onOpenExportRange,
-  onOpenWalkthrough
+  onOpenWalkthrough,
+  currentView = 'HOME',
+  onSelectView
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(projectTitle);
@@ -132,42 +136,35 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header className="h-13 w-full bg-[#0c0c10] border-b border-[#272732] px-3 sm:px-4 flex items-center justify-between select-none z-50 backdrop-blur-2xl relative font-sans">
-      {/* Left: Hollywood Director Monogram, Tool/Edit Pill & Project Diamond */}
+      {/* Left: HANDFILM Cinema Red Monogram & Title */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-        {/* Diamond Monogram in Tungsten Gold (rotate-45) */}
+        {/* Diamond Monogram in HANDFILM Cinema Red (rotate-45) */}
         <div 
           onClick={onOpenProjectManager}
           className="group relative flex items-center justify-center w-7 h-7 shrink-0 cursor-pointer"
-          title="RAWx Storyboard Studio — Click for Project Vault"
+          title="HANDFILM Studio — Click for Project Vault"
         >
-          <div className="w-5 h-5 rotate-45 border border-[#d4af37]/80 bg-gradient-to-tr from-[#996515] via-[#d4af37] to-[#fde047] flex items-center justify-center shadow-[0_0_14px_rgba(234,179,8,0.4)] group-hover:shadow-[0_0_20px_rgba(234,179,8,0.65)] group-hover:border-[#ffe066] transition-all">
-            <Film className="w-2.5 h-2.5 text-black font-black -rotate-45" />
+          <div className="w-5 h-5 rotate-45 border border-[#E50914] bg-gradient-to-tr from-[#8B0000] via-[#E50914] to-[#ff4d4d] flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.5)] group-hover:shadow-[0_0_20px_rgba(229,9,20,0.8)] group-hover:border-[#ff6b6b] transition-all">
+            <Film className="w-2.5 h-2.5 text-white font-black -rotate-45" />
           </div>
         </div>
 
         {/* Studio Title with Cinzel & Monospace Telemetry */}
-        <div className="flex flex-col shrink-0 hidden sm:flex leading-tight">
-          <span className="font-cinzel font-bold text-xs sm:text-[13px] text-white tracking-[0.2em]">
-            RAWx STUDIO
+        <div 
+          onClick={() => onSelectView?.('HOME')}
+          className="flex flex-col shrink-0 cursor-pointer leading-tight group"
+          title="HANDFILM — Click for Home"
+        >
+          <span className="font-cinzel font-black text-xs sm:text-[14px] text-[#E50914] tracking-[0.22em] group-hover:text-white transition-colors">
+            HANDFILM
           </span>
-          <span className="font-mono text-[8px] text-[#d4af37] tracking-[0.16em] uppercase">
-            DIRECTOR CHASSIS
+          <span className="font-mono text-[7.5px] text-[#F5A623] tracking-[0.16em] uppercase">
+            24FPS PREVIS & NLE
           </span>
         </div>
 
-        {/* Home / Return to Stage Quick Button */}
-        <button
-          type="button"
-          onClick={onGoHome || (() => onSelectMode('STAGE'))}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a0a10] hover:bg-[#d4af37]/20 hover:border-[#d4af37]/70 border border-[#272732] text-zinc-300 hover:text-[#fbbf24] text-xs font-mono transition-colors duration-150 ease-out active:scale-[0.98] cursor-pointer shadow-sm group shrink-0"
-          title="STAGE (HOME) — Return to Cinematic Viewport"
-        >
-          <Home className="w-3.5 h-3.5 text-[#eab308]" />
-          <span className="font-bold tracking-wider text-[11px] hidden sm:inline">HOME</span>
-        </button>
-
         {/* Tool / Edit Segmented Pill */}
-        <div className="hidden md:flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] text-[11px] shrink-0">
+        <div className="hidden lg:flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] text-[11px] shrink-0">
           <button
             type="button"
             onClick={() => setActiveTabPill('Tool')}
@@ -181,6 +178,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             type="button"
             onClick={() => {
               setActiveTabPill('Edit');
+              if (onSelectView) onSelectView('STUDIO');
               onSelectMode('CUT');
             }}
             className={`px-3 py-0.5 rounded-full font-medium transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
@@ -223,7 +221,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               setIsEditingTitle(true);
             }}
             title={`Project: ${projectTitle} (Click to rename)`}
-            className="group flex items-center gap-1.5 px-3 py-1 bg-[#0a0a10]/95 hover:bg-[#121218] rounded-full border border-[#272732] hover:border-[#d4af37]/60 text-xs font-mono text-zinc-200 cursor-pointer transition-all shrink max-w-[150px] sm:max-w-[220px] lg:max-w-[300px]"
+            className="group flex items-center gap-1.5 px-3 py-1 bg-[#0a0a10]/95 hover:bg-[#121218] rounded-full border border-[#272732] hover:border-[#d4af37]/60 text-xs font-mono text-zinc-200 cursor-pointer transition-all shrink max-w-[130px] sm:max-w-[200px] lg:max-w-[260px]"
           >
             <span className="text-[#eab308] text-[10px] shrink-0 font-bold">◆</span>
             <span className="truncate tracking-wide font-medium">{projectTitle}</span>
@@ -246,68 +244,67 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Center: Primary Mode Switcher (STAGE | BLOOM | BOARD | CUT) */}
+      {/* Center: Top Navigation Pills ([ Home ] [ Director Cuts ] [ 12s Sequencer ] [ My List ]) */}
       <div className="flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] shrink-0 mx-1 shadow-inner">
         <button
           type="button"
           onClick={() => {
-            if (onGoHome) {
-              onGoHome();
-            } else {
-              onSelectMode('STAGE');
-            }
+            if (onSelectView) onSelectView('HOME');
+            else if (onGoHome) onGoHome();
           }}
-          className={`px-3.5 sm:px-4 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-            activeMode === 'STAGE' && (!activeModule || activeModule === 'PLAYER')
-              ? 'bg-[#eab308] text-black shadow-[0_0_15px_rgba(234,179,8,0.45)]'
+          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
+            currentView === 'HOME'
+              ? 'bg-[#E50914] text-white shadow-[0_0_15px_rgba(229,9,20,0.45)]'
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
-          title="STAGE (HOME) — Return to Cinematic Viewport"
+          title="HANDFILM Home — 10-Slide Cinema Manifesto & Top 10"
         >
           <Home className="w-3 h-3" />
-          <span>STAGE</span>
+          <span>Home</span>
         </button>
 
         <button
           type="button"
-          onClick={() => onSelectMode('BLOOM')}
+          onClick={() => {
+            if (onSelectView) onSelectView('STUDIO');
+            onSelectMode('STAGE');
+          }}
           className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-            activeMode === 'BLOOM'
-              ? 'bg-rose-500 text-black shadow-[0_0_12px_rgba(244,63,94,0.55)]'
+            currentView === 'STUDIO' && activeMode === 'STAGE'
+              ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.45)]'
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
-          title="Bloom Interactive Canvas (Fluid Stage & Magnetic Snap Sequencer)"
+          title="Director Cuts — 2.39:1 Anamorphic Viewport"
         >
-          <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-          <span>BLOOM</span>
+          <Film className="w-3 h-3" />
+          <span>Director Cuts</span>
         </button>
 
         <button
           type="button"
-          onClick={() => onSelectMode('BOARD')}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-            activeMode === 'BOARD'
-              ? 'bg-[#eab308] text-black font-bold shadow-[0_0_15px_rgba(234,179,8,0.45)]'
-              : 'text-zinc-400 hover:text-white'
+          onClick={() => {
+            if (onSelectView) onSelectView('STUDIO');
+            onSelectMode('BOARD');
+          }}
+          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
+            currentView === 'STUDIO' && activeMode === 'BOARD'
+              ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.45)]'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
-          title="100-Shot Storyboard Grid"
+          title="12s Sequencer — 100-Shot Storyboard Grid"
         >
           <span className="text-xs">⊞</span>
-          <span>BOARD</span>
+          <span>12s Sequencer</span>
         </button>
 
         <button
           type="button"
-          onClick={() => onSelectMode('CUT')}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-            activeMode === 'CUT'
-              ? 'bg-[#eab308] text-black font-bold shadow-[0_0_15px_rgba(234,179,8,0.45)]'
-              : 'text-zinc-400 hover:text-white'
-          }`}
-          title="CapCut Multi-Track Sequence Editor"
+          onClick={onOpenProjectManager}
+          className="px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider text-zinc-400 hover:text-white hover:bg-white/5 transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
+          title="My List — Projects & Vault"
         >
-          <span className="text-xs">🎬</span>
-          <span>CUT</span>
+          <FolderOpen className="w-3 h-3 text-[#F5A623]" />
+          <span>My List</span>
         </button>
       </div>
 
@@ -357,16 +354,52 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         )}
 
+        {/* Tactical Dual-View Mode CTA Pill */}
+        {currentView === 'HOME' ? (
+          <button
+            type="button"
+            onClick={() => onSelectView?.('STUDIO')}
+            className="px-3.5 py-1 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-[0_0_15px_rgba(229,9,20,0.5)] active:scale-[0.98]"
+            title="Switch to Active 12.0s 24fps Previs & Cut Engine"
+          >
+            <Play className="w-3 h-3 fill-current" />
+            <span>▶ PRO STUDIO</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onSelectView?.('HOME')}
+            className="px-3.5 py-1 rounded-full bg-[#1b1b24] hover:bg-[#252532] border border-[#E50914]/60 text-white font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98]"
+            title="Return to HANDFILM Home Page"
+          >
+            <Home className="w-3 h-3 text-[#E50914]" />
+            <span>HOME</span>
+          </button>
+        )}
+
         {/* Dedicated 10-Slide Cinematic Walkthrough Manifesto */}
         {onOpenWalkthrough && (
           <button
             type="button"
             onClick={onOpenWalkthrough}
             className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#F5A623]/20 border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
-            title="Open RAWx Director's Manifesto Walkthrough (10 Interactive Slides)"
+            title="Open HANDFILM Director's Manifesto Walkthrough (10 Interactive Slides)"
           >
             <HelpCircle className="w-3 h-3 text-[#F5A623]" />
             <span>[ ? MANIFESTO ]</span>
+          </button>
+        )}
+
+        {/* Dedicated NLE Timeline Export Button (Premiere/CapCut XML & FCPXML) */}
+        {onOpenExportTimeline && (
+          <button
+            type="button"
+            onClick={onOpenExportTimeline}
+            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
+            title="Export Timeline XML (CapCut Desktop, Adobe Premiere Pro & DaVinci Resolve)"
+          >
+            <Film className="w-3.5 h-3.5 text-[#eab308]" />
+            <span>EXPORT XML</span>
           </button>
         )}
 
@@ -380,20 +413,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           <Play className="w-3 h-3 fill-current" />
           <span>ANIMATIC</span>
         </button>
-
-        {/* Dedicated NLE Timeline Export Button (Premiere/CapCut XML & FCPXML) */}
-        {onOpenExportTimeline && (
-          <button
-            type="button"
-            onClick={onOpenExportTimeline}
-            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
-            title="Export Timeline XML (CapCut Desktop, Adobe Premiere Pro & DaVinci Resolve)"
-          >
-            <Film className="w-3.5 h-3.5 text-[#eab308]" />
-            <span className="hidden sm:inline">EXPORT</span>
-            <span>NLE XML</span>
-          </button>
-        )}
 
         {/* Dedicated Client-Side MP4 Video Exporter Button */}
         {onOpenExportRange && (

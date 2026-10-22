@@ -20,14 +20,6 @@ import { BoardStudio } from '../features/board/BoardStudio';
 import { CutStudio } from '../features/cut/CutStudio';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
 import { ChevronLeft, ChevronRight, Home, Film, SlidersHorizontal, Layers, Play, SplitSquareVertical, Sparkles, Sliders, Maximize2 } from 'lucide-react';
-import { MediaStudio } from '../features/media/MediaStudio';
-import { StoryNotebook } from '../features/story/StoryNotebook';
-import { TextStudio } from '../features/text/TextStudio';
-import { SoundStudio } from '../features/sound/SoundStudio';
-import { ProductionStudio } from '../features/production/ProductionStudio';
-import { ReviewStudio } from '../features/review/ReviewStudio';
-import { LibraryStudio } from '../features/library/LibraryStudio';
-import { AiStudio } from '../features/ai/AiStudio';
 import { StudioModuleId } from './LeftRail';
 import { BloomInteractiveCanvas } from './stage/BloomInteractiveCanvas';
 import { TactileStage } from './stage/TactileStage';
@@ -278,61 +270,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
     );
   }
 
-  // 4. Specialized Studio Modules in STAGE Mode
-  if (activeMode === 'STAGE' && activeModule && activeModule !== 'PLAYER') {
-    const renderModule = () => {
-      switch (activeModule) {
-        case 'MEDIA': return <MediaStudio />;
-        case 'STORY': return <StoryNotebook />;
-        case 'TEXT': return <TextStudio currentFrame={currentFrame} onUpdateFrame={onUpdateFrame} />;
-        case 'SOUND': return <SoundStudio />;
-        case 'PRODUCTION': return <ProductionStudio />;
-        case 'REVIEW': return <ReviewStudio />;
-        case 'LIBRARY': return <LibraryStudio />;
-        case 'AI': return <AiStudio />;
-        default: return null;
-      }
-    };
-
-    const moduleView = renderModule();
-    if (moduleView) {
-      return (
-        <main className="flex-1 w-full h-full overflow-hidden flex flex-col bg-[#050508]">
-          <div className="h-9 bg-[#090A0F]/95 border-b border-white/10 px-4 flex items-center justify-between text-xs font-mono shrink-0 select-none z-20 shadow-md">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onReturnToStage}
-                className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#E5A919] hover:bg-[#FFE066] text-black text-[11px] font-bold tracking-wider transition-colors duration-150 cursor-pointer shadow-[0_0_12px_rgba(229,169,25,0.4)]"
-                title="Return to Cinema Stage (Home)"
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span>← STAGE (HOME)</span>
-              </button>
-              <span className="text-white/20">|</span>
-              <span className="text-[#FFE066] text-[11px] uppercase font-bold tracking-wider">
-                {activeModule} MODULE ACTIVE
-              </span>
-            </div>
-
-            <button
-              onClick={onReturnToStage}
-              className="px-2.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-white/70 hover:text-white text-[10.5px] transition-colors duration-150 cursor-pointer flex items-center gap-1.5 border border-white/10"
-              title="Close module and return to viewport"
-            >
-              <span>Back to Viewport</span>
-              <span>✕</span>
-            </button>
-          </div>
-
-          <div className="flex-1 w-full h-full overflow-hidden">
-            {moduleView}
-          </div>
-        </main>
-      );
-    }
-  }
-
-  // 5. Default Hero STAGE Mode with Dual-Panel Workflow
+  // 4. Default Hero STAGE Mode with Dual-Panel Workflow (Exclusively renders the 2.39:1 anamorphic monitor)
   return (
     <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
       {/* Consolidated Master Navigation Header */}

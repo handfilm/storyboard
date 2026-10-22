@@ -65,6 +65,10 @@ export interface AnthologyFrame {
   titleAnimation?: TitleAnimationStyle;
   voiceoverDirective?: any;
   omniDecisions?: any;
+  slideHoldSec?: number;
+  durationSec?: number;
+  subclipInSec?: number;
+  subclipOutSec?: number;
 }
 
 export interface AnthologyProject {
@@ -79,6 +83,7 @@ export interface AnthologyProject {
   activeFilter?: LutPreset;
   activeLens?: string;
   lastUpdatedBy?: string;
+  defaultSlideHoldSec?: number;
 }
 
 export interface CollaboratorPresence {

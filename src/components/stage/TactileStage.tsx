@@ -80,6 +80,7 @@ interface TactileStageProps {
   detectedBpm?: number;
   isAudioMuted?: boolean;
   onToggleMute?: () => void;
+  onOpenCinemaPlayer?: () => void;
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({
@@ -99,6 +100,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onOpenAnimatic,
   onOpenInspector,
   onToggleTitles,
+  onOpenCinemaPlayer,
   showTitles = true,
   playbackMode = 'sequence',
   onSelectPlaybackMode,
@@ -299,6 +301,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             onQuickSampleImage={() => {}}
             onOpenAnimatic={onOpenAnimatic}
             onToggleTitles={onToggleTitles}
+            onOpenCinemaPlayer={onOpenCinemaPlayer}
           />
         </div>
 
@@ -334,6 +337,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onToggleSnapToBeat={onToggleSnapToBeat}
           onLoadAudioFile={onLoadAudioFile}
           detectedBpm={detectedBpm}
+          showFrameStepButtons={componentsVisibility?.frameStepButtons ?? false}
         />
       </div>
 

@@ -36,6 +36,10 @@ export interface ShotV1 {
   titleAnimation?: 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'neon' | 'cinema-fade' | 'fade';
   adjustments: FrameAdjustments;
   tags: string[];
+  slideHoldSec?: number; // Preview hold in stage slider (default 12.0s)
+  durationSec?: number;  // Real assigned duration for exports (EDL, OTIO, CSV)
+  subclipInSec?: number;
+  subclipOutSec?: number;
 }
 
 export interface SceneV1 {
@@ -65,6 +69,7 @@ export interface ProjectSettingsV1 {
   componentsVisibility: ComponentVisibility;
   theme: string;
   density: 'compact' | 'spacious';
+  defaultSlideHoldSec?: number; // 12.0s default
 }
 
 export interface TimelineClipV1 {

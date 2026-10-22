@@ -46,11 +46,15 @@ function secondsToSRTTime(seconds: number): string {
  */
 export function exportToOTIO(project: AnthologyProject, fps: number = 24): string {
   const safeFps = fps || 24;
-  const defaultDurationFrames = Math.round(2.5 * safeFps);
 
   let cumulativeFrame = 0;
   const clips = project.frames.map((frame, index) => {
-    const durationFrames = defaultDurationFrames;
+    // Real assigned duration takes precedence over preview hold
+    const assignedDurationSec = frame.durationSec ?? 2.5;
+    const durationFrames = Math.max(1, Math.round(assignedDurationSec * safeFps));
+    const previewHoldSec = frame.slideHoldSec ?? project.defaultSlideHoldSec ?? 12.0;
+    const durationSource = frame.durationSec !== undefined ? 'Assigned Shot Duration (durationSec)' : 'Standard Assigned Duration (2.5s)';
+    
     const startFrame = cumulativeFrame;
     cumulativeFrame += durationFrames;
 
@@ -77,7 +81,11 @@ export function exportToOTIO(project: AnthologyProject, fps: number = 24): strin
           aperture: frame.cameraSpec?.aperture,
           directorNotes: frame.directorNotes,
           soundCue: frame.soundCue,
-          shotNumber: index + 1
+          shotNumber: index + 1,
+          assignedDurationSec,
+          durationFrames,
+          durationSource,
+          previewHoldSec
         }
       }
     };
@@ -105,7 +113,8 @@ export function exportToOTIO(project: AnthologyProject, fps: number = 24): strin
     metadata: {
       director: project.director,
       nodeLocation: project.nodeLocation,
-      created: project.createdAt || new Date().toISOString()
+      created: project.createdAt || new Date().toISOString(),
+      durationCalculationNote: "Export uses real assigned shot duration (durationSec), not Stage preview hold"
     }
   };
 
@@ -118,16 +127,19 @@ export function exportToOTIO(project: AnthologyProject, fps: number = 24): strin
  */
 export function exportToCMX3600EDL(project: AnthologyProject, fps: number = 24): string {
   const safeFps = fps || 24;
-  const defaultDurationFrames = Math.round(2.5 * safeFps);
 
   let edl = `TITLE: ${project.title.substring(0, 32).toUpperCase()}\n`;
-  edl += `FCM: NON-DROP FRAME\n\n`;
+  edl += `FCM: NON-DROP FRAME\n`;
+  edl += `* TIMELINE: REAL ASSIGNED DURATIONS (EXCLUDES PREVIEW HOLD)\n\n`;
 
   let timelineIn = 0;
 
   project.frames.forEach((frame, idx) => {
     const shotNum = String(idx + 1).padStart(3, '0');
-    const duration = defaultDurationFrames;
+    const assignedDurationSec = frame.durationSec ?? 2.5;
+    const duration = Math.max(1, Math.round(assignedDurationSec * safeFps));
+    const previewHoldSec = frame.slideHoldSec ?? project.defaultSlideHoldSec ?? 12.0;
+    const durationSource = frame.durationSec !== undefined ? 'Assigned Shot Duration' : 'Default Assigned (2.5s)';
     const timelineOut = timelineIn + duration;
 
     const srcInTC = framesToTimecode(0, safeFps);
@@ -135,11 +147,11 @@ export function exportToCMX3600EDL(project: AnthologyProject, fps: number = 24):
     const dstInTC = framesToTimecode(timelineIn, safeFps);
     const dstOutTC = framesToTimecode(timelineOut, safeFps);
 
-    // Standard CMX 3600 entry line:
-    // 001  AX       V     C        00:00:00:00 00:00:02:12 00:00:00:00 00:00:02:12
+    // Standard CMX 3600 entry line
     edl += `${shotNum}  AX       V     C        ${srcInTC} ${srcOutTC} ${dstInTC} ${dstOutTC}\n`;
     edl += `* FROM CLIP NAME: SHOT_${frame.epNumber}_${frame.title.toUpperCase()}\n`;
-    edl += `* COMMENT: [${frame.bengaliTitle}] ${frame.cameraSpec.focalLength} ${frame.cameraSpec.aperture}\n\n`;
+    edl += `* COMMENT: [${frame.bengaliTitle}] ${frame.cameraSpec.focalLength} ${frame.cameraSpec.aperture}\n`;
+    edl += `* DURATION: ${assignedDurationSec.toFixed(2)}s [${durationSource}] (Preview Hold: ${previewHoldSec.toFixed(1)}s)\n\n`;
 
     timelineIn = timelineOut;
   });
@@ -189,8 +201,10 @@ export function exportToSRT(project: AnthologyProject, defaultDurationSec: numbe
   let currentTime = 0;
 
   project.frames.forEach((frame, idx) => {
+    // Respect real assigned duration
+    const shotDuration = frame.durationSec ?? defaultDurationSec;
     const startTime = currentTime;
-    const endTime = currentTime + defaultDurationSec;
+    const endTime = currentTime + shotDuration;
     currentTime = endTime;
 
     const startStr = secondsToSRTTime(startTime);
@@ -207,22 +221,47 @@ export function exportToSRT(project: AnthologyProject, defaultDurationSec: numbe
 
 /**
  * 5. CSV Shot List Exporter (.csv)
+ * Exports full shot specifications including assigned duration, source type, and preview hold
  */
 export function exportToCSVShotList(project: AnthologyProject): string {
-  const headers = ['Shot #', 'Bengali Title', 'English Title', 'Tagline', 'Focal Length', 'Aperture', 'ISO', 'Shutter', 'Sensor', 'Sound Cue', 'Director Notes'];
-  const rows = project.frames.map((frame, idx) => [
-    `"${frame.epNumber || idx + 1}"`,
-    `"${(frame.bengaliTitle || '').replace(/"/g, '""')}"`,
-    `"${(frame.title || '').replace(/"/g, '""')}"`,
-    `"${(frame.tagline || '').replace(/"/g, '""')}"`,
-    `"${(frame.cameraSpec?.focalLength || '').replace(/"/g, '""')}"`,
-    `"${(frame.cameraSpec?.aperture || '').replace(/"/g, '""')}"`,
-    `"${(frame.cameraSpec?.iso || '').replace(/"/g, '""')}"`,
-    `"${(frame.cameraSpec?.shutter || '').replace(/"/g, '""')}"`,
-    `"${(frame.cameraSpec?.sensor || '').replace(/"/g, '""')}"`,
-    `"${(frame.soundCue || '').replace(/"/g, '""')}"`,
-    `"${(frame.directorNotes || '').replace(/"/g, '""')}"`
-  ]);
+  const headers = [
+    'Shot #', 
+    'Bengali Title', 
+    'English Title', 
+    'Tagline', 
+    'Assigned Duration (s)', 
+    'Duration Source', 
+    'Preview Hold (s)', 
+    'Focal Length', 
+    'Aperture', 
+    'ISO', 
+    'Shutter', 
+    'Sensor', 
+    'Sound Cue', 
+    'Director Notes'
+  ];
+  const rows = project.frames.map((frame, idx) => {
+    const assignedDuration = frame.durationSec ?? 2.5;
+    const durationSource = frame.durationSec !== undefined ? 'Assigned' : 'Default (2.5s)';
+    const previewHold = frame.slideHoldSec ?? project.defaultSlideHoldSec ?? 12.0;
+
+    return [
+      `"${frame.epNumber || idx + 1}"`,
+      `"${(frame.bengaliTitle || '').replace(/"/g, '""')}"`,
+      `"${(frame.title || '').replace(/"/g, '""')}"`,
+      `"${(frame.tagline || '').replace(/"/g, '""')}"`,
+      `"${assignedDuration.toFixed(2)}"`,
+      `"${durationSource}"`,
+      `"${previewHold.toFixed(1)}"`,
+      `"${(frame.cameraSpec?.focalLength || '').replace(/"/g, '""')}"`,
+      `"${(frame.cameraSpec?.aperture || '').replace(/"/g, '""')}"`,
+      `"${(frame.cameraSpec?.iso || '').replace(/"/g, '""')}"`,
+      `"${(frame.cameraSpec?.shutter || '').replace(/"/g, '""')}"`,
+      `"${(frame.cameraSpec?.sensor || '').replace(/"/g, '""')}"`,
+      `"${(frame.soundCue || '').replace(/"/g, '""')}"`,
+      `"${(frame.directorNotes || '').replace(/"/g, '""')}"`
+    ];
+  });
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }

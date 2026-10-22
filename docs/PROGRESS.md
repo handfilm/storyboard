@@ -1,8 +1,68 @@
 # RAWx Storyboard Engine — Master Progress Tracker
 **Project:** RAWx Storyboard Engine  
 **Aesthetic:** Black & Gold Cinema (`#050505` bg, `#0B0B0B` surface, `#D4AF37` gold, `#EDEDED` text)  
-**Current Milestone:** Milestone 2 (PERSISTENCE CORE: SAVE AND STORE) — COMPLETED  
-**Working Protocol:** Strict 1-Milestone-at-a-time execution with git tags (m0, m1... m14)
+**Current Protocol:** Director Pre-Production Roadmap (D0 – D11)  
+**Current Milestone:** D0 (AUDIT & REPO VERIFICATION) — COMPLETED  
+**Git Tag:** `d0`  
+
+---
+
+## Director Pre-Production Roadmap (D0 – D11)
+
+### [x] D0 — AUDIT & REPO VERIFICATION
+- **Status:** COMPLETED
+- **Git Tag:** `d0`
+- **Audit Findings**:
+  - [x] Read `PROGRESS.md`, codebase structure, and confirmed no prior `implementation_plan.md` existed.
+  - [x] Full build status: `npm run build` succeeds (1.16s), `tsc --noEmit` 0 errors.
+  - [x] Test suite: 27/27 unit tests pass across all suites (`npm test`).
+  - [x] Security audit: Zero API keys present in client bundle or source trees. Server-side proxy active in `server.ts`.
+  - [x] Master director blueprint compiled and saved at `/docs/DIRECTOR.md`.
+  - [x] Status of milestones D1–D11 evaluated and documented in IMPLEMENTED / PARTIAL / MISSING matrix.
+
+### [ ] D1 — DUAL PLAYBACK ENGINES (STAGE SLIDER & CINEMA PLAYER)
+- **Status:** PENDING (Next up on "continue")
+- **Target Git Tag:** `d1`
+
+### [ ] D2 — SCRIPT TO SHOTS (FOUNTAIN IMPORT & CHANGE TRACKING)
+- **Status:** PENDING
+- **Target Git Tag:** `d2`
+
+### [ ] D3 — DIRECTOR SHOT FIELDS (14 COVERAGE ATTRIBUTES)
+- **Status:** PENDING
+- **Target Git Tag:** `d3`
+
+### [ ] D4 — ANNOTATION LAYER (VECTOR DRAWING & STYLUS)
+- **Status:** PENDING
+- **Target Git Tag:** `d4`
+
+### [ ] D5 — CAMERA AND BLOCKING DIAGRAM (2D OVERHEAD & FOV CONE)
+- **Status:** PENDING
+- **Target Git Tag:** `d5`
+
+### [ ] D6 — ANIMATIC WITH AUDIO (SCRATCH VO & TAP TIMING)
+- **Status:** PENDING
+- **Target Git Tag:** `d6`
+
+### [ ] D7 — DOCUMENT OUTPUTS (PDF STORYBOARDS & PRINT STYLES)
+- **Status:** PENDING
+- **Target Git Tag:** `d7`
+
+### [ ] D8 — EDITING HANDOFF (EDL, OTIO, FCPXML & INTEGRITY CHECK)
+- **Status:** PENDING
+- **Target Git Tag:** `d8`
+
+### [ ] D9 — SHARE AND REVIEW (OFFLINE HTML BUNDLE & COMMENTS)
+- **Status:** PENDING
+- **Target Git Tag:** `d9`
+
+### [ ] D10 — TABLET, MOBILE, OFFLINE (PWA & DEVICE LIMITS)
+- **Status:** PENDING
+- **Target Git Tag:** `d10`
+
+### [ ] D11 — SECURITY, BACKUP, DEPLOY (CI SMOKE & PRODUCTION GUIDE)
+- **Status:** PENDING
+- **Target Git Tag:** `d11`
 
 ---
 

@@ -96,6 +96,7 @@ interface MainWorkspaceProps {
   detectedBpm?: number;
   isAudioMuted?: boolean;
   onToggleMute?: () => void;
+  onOpenCinemaPlayer?: () => void;
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
@@ -158,7 +159,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onLoadAudioFile,
   detectedBpm,
   isAudioMuted = false,
-  onToggleMute
+  onToggleMute,
+  onOpenCinemaPlayer
 }) => {
   // Local dual-panel view selection if not externally controlled (TACTILE STAGE is the default primary stage)
   const [localDualPanel, setLocalDualPanel] = useState<'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT'>(activeDualPanel || 'TACTILE_STAGE');
@@ -442,6 +444,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               detectedBpm={detectedBpm}
               isAudioMuted={isAudioMuted}
               onToggleMute={onToggleMute}
+              onOpenCinemaPlayer={onOpenCinemaPlayer}
             />
           </div>
         )}

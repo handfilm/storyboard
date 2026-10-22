@@ -34,6 +34,7 @@ export interface ComponentVisibility {
   bloom: boolean;
   lensBlur: boolean;
   motionBlur: boolean;
+  frameStepButtons?: boolean;
 }
 
 export const DEFAULT_COMPONENT_VISIBILITY: ComponentVisibility = {
@@ -51,6 +52,7 @@ export const DEFAULT_COMPONENT_VISIBILITY: ComponentVisibility = {
   bloom: true,
   lensBlur: true,
   motionBlur: true,
+  frameStepButtons: false, // default OFF per Director specification
 };
 
 const STORAGE_KEY = 'rawx_components_v1';
@@ -103,6 +105,7 @@ const COMPONENT_ROWS: ComponentRow[] = [
   { key: 'hudData', label: 'HUD Telemetry Data', category: 'HUD & Framing', desc: 'Focal, aperture, node, archive readout' },
   { key: 'reticles', label: 'Corner Reticle Brackets', category: 'HUD & Framing', desc: 'Gold optical corner targeting brackets' },
   { key: 'guides', label: 'Rule of Thirds & Crosshair', category: 'HUD & Framing', desc: 'Composition 3x3 grid & center marker' },
+  { key: 'frameStepButtons', label: 'Frame-Step Buttons (-1F / +1F)', category: 'HUD & Framing', desc: 'Display discrete frame step buttons on the transport strip (keys , and . also step frames)' },
   // Optical Post FX
   { key: 'grain', label: '35mm Film Grain', category: 'Optical Post FX', desc: 'Dynamic procedural ISO 800 grain' },
   { key: 'vignette', label: 'Optical Falloff Vignette', category: 'Optical Post FX', desc: 'Edge falloff radial gradient' },

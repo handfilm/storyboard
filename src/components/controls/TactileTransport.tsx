@@ -68,6 +68,7 @@ export interface TactileTransportProps {
   beatMarkers?: BeatMarker[];
   onLoadAudioFile?: (file: File) => void;
   detectedBpm?: number;
+  showFrameStepButtons?: boolean;
 }
 
 export const TactileTransport: React.FC<TactileTransportProps> = ({
@@ -101,7 +102,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
   onToggleSnapToBeat,
   beatMarkers,
   onLoadAudioFile,
-  detectedBpm
+  detectedBpm,
+  showFrameStepButtons = false
 }) => {
   // Active transient markers for the current scrubber domain
   const displayMarkers = useMemo(() => {
@@ -239,6 +241,30 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
               </>
             )}
           </button>
+
+          {/* Conditional Frame Step Buttons (Default OFF in Components menu) */}
+          {showFrameStepButtons && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => onStepFrame(false)}
+                className="px-2 py-1.5 rounded-full text-[10px] font-mono font-bold bg-[#14141E] hover:bg-[#1E1E2C] text-zinc-300 border border-[#272732] flex items-center gap-1 cursor-pointer transition-colors active:scale-[0.98]"
+                title="Step -1 Frame (Hotkeys: , or <)"
+              >
+                <SkipBack className="w-3 h-3 text-[#d4af37]" />
+                <span>-1F</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onStepFrame(true)}
+                className="px-2 py-1.5 rounded-full text-[10px] font-mono font-bold bg-[#14141E] hover:bg-[#1E1E2C] text-zinc-300 border border-[#272732] flex items-center gap-1 cursor-pointer transition-colors active:scale-[0.98]"
+                title="Step +1 Frame (Hotkeys: . or >)"
+              >
+                <span>+1F</span>
+                <SkipForward className="w-3 h-3 text-[#d4af37]" />
+              </button>
+            </div>
+          )}
 
           {/* LOOP Pill */}
           <button

@@ -49,6 +49,8 @@ import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';
 import { PlaybackMode } from './types/editor';
 import { SlideDraft, AspectRatioType, ProjectDraft } from './types/project';
+import { CinemaPlayer } from './components/player/CinemaPlayer';
+import { keyScopeManager } from './core/keyScopeManager';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -102,6 +104,7 @@ export default function App() {
   const [isR2AutomationOpen, setIsR2AutomationOpen] = useState(false);
   const [isExportTimelineOpen, setIsExportTimelineOpen] = useState(false);
   const [isExportRangeOpen, setIsExportRangeOpen] = useState(false);
+  const [isCinemaPlayerOpen, setIsCinemaPlayerOpen] = useState(false);
   const [isSnapToBeat, setIsSnapToBeat] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState(120);
   const [titleAnimation, setTitleAnimation] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>('flare');
@@ -475,7 +478,8 @@ export default function App() {
       audioEngine.playAudio();
     }
 
-    const SLIDE_DURATION = 12.0;
+    const currentFrame = project.frames[currentIndex] || project.frames[0];
+    const shotSlideHold = currentFrame?.slideHoldSec ?? project.defaultSlideHoldSec ?? 12.0;
 
     const tick = (now: number) => {
       if (lastTimestampRef.current !== null) {
@@ -484,13 +488,13 @@ export default function App() {
 
         setSlideTimeSec(prevTime => {
           const nextTime = prevTime + safeDelta;
-          const globalPlaybackSec = (currentIndex * SLIDE_DURATION) + nextTime;
+          const globalPlaybackSec = (currentIndex * 12.0) + nextTime;
           audioEngine.syncPlaybackTime(globalPlaybackSec);
 
           if (playbackMode === 'sequence') {
-            // Sequence (Animatic) mode: auto-advance across Slide 1 through Slide N every 12.000s
+            // Sequence (Animatic) mode: auto-advance across Slide 1 through Slide N every shotSlideHold time
             // If snap-to-beat is enabled, boundary check triggers on musical downbeat
-            const boundaryDuration = isSnapToBeat ? 12.0 : SLIDE_DURATION;
+            const boundaryDuration = isSnapToBeat ? 12.0 : shotSlideHold;
             if (nextTime >= boundaryDuration) {
               const framesLength = project.frames.length || 1;
               setCurrentIndex(prevIdx => (prevIdx + 1) % framesLength);
@@ -498,9 +502,9 @@ export default function App() {
             }
             return nextTime;
           } else {
-            // Solo Scrub mode: loops strictly within this slide's 0 to 12.0s window
-            if (nextTime >= SLIDE_DURATION) {
-              return nextTime % SLIDE_DURATION;
+            // Solo Scrub mode: loops strictly within this slide's hold window
+            if (nextTime >= shotSlideHold) {
+              return nextTime % shotSlideHold;
             }
             return nextTime;
           }
@@ -518,7 +522,34 @@ export default function App() {
         animFrameRef.current = null;
       }
     };
-  }, [isPlaying, playbackMode, project.frames.length, playbackSpeed, isAudioMuted, currentIndex, isSnapToBeat]);
+  }, [isPlaying, playbackMode, project.frames, project.defaultSlideHoldSec, playbackSpeed, isAudioMuted, currentIndex, isSnapToBeat]);
+
+  // Milestone D1: Single Source of Truth Key Scope Manager Initialization & Sync
+  useEffect(() => {
+    const cleanupKeyScope = keyScopeManager.init();
+    keyScopeManager.setCheatSheetHandler(() => setIsShortcutsOpen(prev => !prev));
+    return cleanupKeyScope;
+  }, []);
+
+  useEffect(() => {
+    if (isCinemaPlayerOpen) {
+      keyScopeManager.setActiveLayer('CINEMA');
+    } else {
+      keyScopeManager.setActiveLayer('STAGE');
+    }
+  }, [isCinemaPlayerOpen]);
+
+  useEffect(() => {
+    return keyScopeManager.registerStageHandlers({
+      onTogglePlay: () => setIsPlaying(p => !p),
+      onNextShot: nextFrame,
+      onPrevShot: prevFrame,
+      onStepFrame: handleStepFrame,
+      onToggleGrid: () => setWorkspaceMode(m => m === 'BOARD' ? 'STAGE' : 'BOARD'),
+      onOpenCinema: () => setIsCinemaPlayerOpen(true),
+      onToggleMute: toggleAudio
+    });
+  }, [nextFrame, prevFrame, handleStepFrame, toggleAudio]);
 
   // Fullscreen event listener
   useEffect(() => {

@@ -43,7 +43,8 @@ import {
   Disc,
   Type,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Maximize
 } from 'lucide-react';
 
 interface OpticalFrameProps {
@@ -71,6 +72,7 @@ interface OpticalFrameProps {
   onSelectTitleAnimation?: (anim: TitleAnimationStyle) => void;
   onCycleTitleAnimation?: () => void;
   onToggleTitles?: () => void;
+  onOpenCinemaPlayer?: () => void;
 }
 
 // Real-Time Optical Physics & Depth of Field (DOF) Calculator
@@ -182,9 +184,32 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   titleAnimation,
   onSelectTitleAnimation,
   onCycleTitleAnimation,
-  onToggleTitles
+  onToggleTitles,
+  onOpenCinemaPlayer
 }) => {
   const safeFrame: AnthologyFrame = frame || generateInitialFrames()[0];
+
+  // Subtle 'dissolve' crossfade effect between frames
+  const [dissolveImageUrl, setDissolveImageUrl] = useState<string | null>(null);
+  const [isDissolving, setIsDissolving] = useState(false);
+  const activeImageRef = useRef<string | undefined>(safeFrame.imageUrl);
+  const dissolveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (safeFrame.imageUrl && safeFrame.imageUrl !== activeImageRef.current) {
+      if (activeImageRef.current) {
+        setDissolveImageUrl(activeImageRef.current);
+        setIsDissolving(true);
+        if (dissolveTimerRef.current) clearTimeout(dissolveTimerRef.current);
+        dissolveTimerRef.current = window.setTimeout(() => {
+          setIsDissolving(false);
+          setDissolveImageUrl(null);
+        }, 350);
+      }
+      activeImageRef.current = safeFrame.imageUrl;
+    }
+  }, [safeFrame.imageUrl]);
+
   const [localAnimStyle, setLocalAnimStyle] = useState<TitleAnimationStyle>(
     (titleAnimation as any) || (safeFrame.titleAnimation as any) || 'flare'
   );
@@ -346,6 +371,38 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
     };
   }, [isPanningDrag, onPanChange]);
 
+  const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleContainerPointerDown = (e: React.PointerEvent) => {
+    pointerStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+  };
+
+  const handleContainerPointerUp = (e: React.PointerEvent) => {
+    if (!pointerStartRef.current) return;
+    const dx = Math.abs(e.clientX - pointerStartRef.current.x);
+    const dy = Math.abs(e.clientY - pointerStartRef.current.y);
+    const dt = Date.now() - pointerStartRef.current.time;
+    pointerStartRef.current = null;
+
+    // Clean click condition: moved under 5px, under 500ms, not dragging, no pan active
+    if (dx < 5 && dy < 5 && dt < 500 && !isPanActive && onOpenCinemaPlayer) {
+      const target = e.target as HTMLElement;
+      if (target.closest('button, input, select, textarea, [data-interactive="true"]')) {
+        return;
+      }
+      onOpenCinemaPlayer();
+    }
+  };
+
+  const handleContainerDoubleClick = (e: React.MouseEvent) => {
+    if (!isPanActive && onOpenCinemaPlayer) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('button, input, select, textarea, [data-interactive="true"]')) {
+        onOpenCinemaPlayer();
+      }
+    }
+  };
+
   const isMediaFile = (file: File) => {
     return file.type.startsWith('image/') || file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
   };
@@ -415,13 +472,16 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           setIsStageHovered(false);
           handleMouseLeave();
         }}
+        onPointerDown={handleContainerPointerDown}
+        onPointerUp={handleContainerPointerUp}
+        onDoubleClick={handleContainerDoubleClick}
         onMouseDown={handlePanMouseDown}
         onTouchStart={handlePanTouchStart}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
         className={`relative ${getAspectRatioClasses()} bg-[#040407] border border-[#272732] rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.98)] ring-1 ring-[#d4af37]/20 overflow-hidden transition-colors duration-150 ease-out ${
-          isPanActive ? 'cursor-ns-resize ring-2 ring-[#d4af37]' : ''
+          isPanActive ? 'cursor-ns-resize ring-2 ring-[#d4af37]' : 'cursor-pointer'
         }`}
       >
         {/* Cinema Safe-Action & Safe-Title Hairline Corner Marks */}
@@ -490,6 +550,23 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           <div className="absolute inset-0 bg-gradient-to-br from-[#0c0d12] via-[#08080a] to-[#040405] z-[1] flex items-center justify-center">
             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px]" />
           </div>
+        )}
+
+        {/* Subtle Dissolve Crossfade Layer */}
+        {dissolveImageUrl && (
+          <div
+            className={`absolute -inset-[6%] transition-opacity duration-350 ease-out z-[2] pointer-events-none ${
+              isDissolving ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{
+              backgroundImage: `url(${dissolveImageUrl})`,
+              backgroundSize: bgSizeStyle,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: `center ${panOffsetPercent}%`,
+              filter: filterCSS,
+              transform: `translate(${mousePos.x * 0.5}px, ${mousePos.y * 0.5}px)`
+            }}
+          />
         )}
 
         {/* Pan Active Interactive Pill */}
@@ -1254,6 +1331,15 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               title="Replace Frame Photo"
             >
               <Upload className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onOpenCinemaPlayer && (
+            <button
+              onClick={onOpenCinemaPlayer}
+              className="p-1.5 rounded-[1px] bg-black/80 hover:bg-black border border-[#D4AF37]/50 text-[#D4AF37] hover:text-[#FFE066] hover:border-[#D4AF37] backdrop-blur-md cursor-pointer transition-colors shadow-lg"
+              title="Open Cinema Player (F)"
+            >
+              <Maximize className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

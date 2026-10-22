@@ -35,6 +35,7 @@ interface HandfilmHomeProps {
   onLaunchStudio?: () => void;
   onOpenExportXml: () => void;
   onOpenExportRange?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
@@ -42,7 +43,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   onEnterStudio,
   onLaunchStudio,
   onOpenExportXml,
-  onOpenExportRange
+  onOpenExportRange,
+  onOpenShortcuts
 }) => {
   // Hero Carousel State & Custom Transition Timer
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -531,6 +533,17 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 <li><button onClick={() => onEnterStudio(0)} className="hover:text-zinc-300">Launch Previs Studio</button></li>
                 <li><button onClick={onOpenExportXml} className="hover:text-zinc-300">NLE XML Suite</button></li>
                 <li><button onClick={onOpenExportRange} className="hover:text-zinc-300">MP4 WebCodecs Muxer</button></li>
+                {onOpenShortcuts && (
+                  <li>
+                    <button 
+                      onClick={onOpenShortcuts} 
+                      className="hover:text-[#F5A623] text-left transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="text-[10px] px-1 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">?</span>
+                      <span>Keyboard Shortcuts</span>
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
 

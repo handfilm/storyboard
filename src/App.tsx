@@ -1179,6 +1179,7 @@ export default function App() {
           }}
           onOpenExportXml={() => setIsExportTimelineOpen(true)}
           onOpenExportRange={() => setIsExportRangeOpen(true)}
+          onOpenShortcuts={() => setIsShortcutsOpen(true)}
         />
       ) : (
         <>

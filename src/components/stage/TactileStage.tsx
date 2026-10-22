@@ -25,6 +25,7 @@ import { localDbService } from '../../services/localDbService';
 import { automationService } from '../../services/automationService';
 import { storyboardSyncService } from '../../services/storyboardSyncService';
 import { db } from '../../services/db';
+import { useStudioStore } from '../../core/store';
 import { PlaybackMode, SLIDE_DURATION_SEC } from '../../types/editor';
 import { 
   Play, 
@@ -227,17 +228,33 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   // Direct file or Media Asset Vault drop on an individual slide thumbnail
-  const handleThumbnailFileDrop = (e: React.DragEvent, index: number) => {
+  const handleThumbnailFileDrop = async (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.stopPropagation();
 
+    // 1. Check for Media Asset Vault card payload
     const customData = e.dataTransfer.getData('text/plain');
     if (customData) {
       try {
         const parsed = JSON.parse(customData);
         if (parsed.type === 'MEDIA_ASSET_VAULT' && parsed.assetId) {
           onSelectFrame(index);
-          storyboardSyncService.assignAssetToShot(parsed.assetId, index);
+          await db.assignMediaToShot(parsed.assetId, index);
+          const vaultItem = await db.getVaultMediaById(parsed.assetId);
+          if (vaultItem && vaultItem.blob) {
+            const blobUrl = db.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
+            const isVid = vaultItem.mimeType.startsWith('video');
+            onUpdateFrame?.({
+              ...frames[index],
+              imageUrl: blobUrl,
+              isVideo: isVid
+            });
+            useStudioStore.getState().updateShot(index, {
+              imageUrl: blobUrl,
+              isVideo: isVid,
+              title: vaultItem.name.replace(/\.[^/.]+$/, "")
+            });
+          }
           return;
         }
       } catch {
@@ -245,13 +262,29 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       }
     }
 
+    // 2. Direct files drop on slide thumbnail
     const file = e.dataTransfer.files?.[0];
     if (file) {
       onSelectFrame(index);
-      db.saveMediaToVault(file).then(saved => {
-        db.assignMediaToShot(saved.id, index);
-      });
-      onUploadImage(file);
+      try {
+        const saved = await db.saveMediaToVault(file);
+        await db.assignMediaToShot(saved.id, index);
+        const blobUrl = db.getActiveMediaUrl(saved.id, saved.blob);
+        const isVid = saved.mimeType.startsWith('video');
+        onUpdateFrame?.({
+          ...frames[index],
+          imageUrl: blobUrl,
+          isVideo: isVid
+        });
+        useStudioStore.getState().updateShot(index, {
+          imageUrl: blobUrl,
+          isVideo: isVid,
+          title: saved.name.replace(/\.[^/.]+$/, "")
+        });
+        onUploadImage(file);
+      } catch (err) {
+        console.warn('[TactileStage] handleThumbnailFileDrop error:', err);
+      }
     }
   };
 
@@ -281,27 +314,116 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     e.stopPropagation();
     setIsStageDraggingOver(false);
 
-    // Check for Media Asset Vault card payload
+    // 1. Check for Media Asset Vault card payload
     const customData = e.dataTransfer.getData('text/plain');
     if (customData) {
       try {
         const parsed = JSON.parse(customData);
         if (parsed.type === 'MEDIA_ASSET_VAULT' && parsed.assetId) {
           await db.assignMediaToShot(parsed.assetId, currentIndex);
+          const vaultItem = await db.getVaultMediaById(parsed.assetId);
+          if (vaultItem && vaultItem.blob) {
+            const blobUrl = db.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
+            const isVid = vaultItem.mimeType.startsWith('video');
+            onUpdateFrame?.({
+              ...activeFrame,
+              imageUrl: blobUrl,
+              isVideo: isVid
+            });
+            useStudioStore.getState().updateShot(currentIndex, {
+              imageUrl: blobUrl,
+              isVideo: isVid,
+              title: vaultItem.name.replace(/\.[^/.]+$/, "")
+            });
+          }
           return;
         }
       } catch {}
     }
 
-    // Check for external files
-    const files = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+    // 2. Check for directory entries or direct files
+    let files: File[] = [];
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0) {
+      const entryPromises: any[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (typeof it.webkitGetAsEntry === 'function') {
+          const entry = it.webkitGetAsEntry();
+          if (entry) entryPromises.push(entry);
+        }
+      }
+      if (entryPromises.length > 0) {
+        const traverseDirectory = async (entry: any): Promise<File[]> => {
+          const fl: File[] = [];
+          const read = async (ent: any) => {
+            if (!ent) return;
+            if (ent.isFile) {
+              await new Promise<void>((res) => {
+                ent.file((f: File) => {
+                  if (f && (f.type.startsWith('video') || f.type.startsWith('image') || f.type.startsWith('audio') || /\.(mp4|webm|mov|mkv|jpg|jpeg|png|webp|mp3|wav|ogg)$/i.test(f.name))) {
+                    fl.push(f);
+                  }
+                  res();
+                }, () => res());
+              });
+            } else if (ent.isDirectory) {
+              const reader = ent.createReader();
+              await new Promise<void>((res) => {
+                const readAll = () => {
+                  reader.readEntries(async (subEntries: any[]) => {
+                    if (subEntries.length === 0) {
+                      res();
+                    } else {
+                      for (const s of subEntries) {
+                        await read(s);
+                      }
+                      readAll();
+                    }
+                  }, () => res());
+                };
+                readAll();
+              });
+            }
+          };
+          await read(entry);
+          return fl;
+        };
+
+        for (const ep of entryPromises) {
+          const res = await traverseDirectory(ep);
+          files.push(...res);
+        }
+      }
+    }
+
+    if (files.length === 0 && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      files = Array.from(e.dataTransfer.files);
+    }
+
     if (files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const saved = await db.saveMediaToVault(file);
-        if (i === 0) {
-          await db.assignMediaToShot(saved.id, currentIndex);
-          onUploadImage(file);
+        try {
+          const saved = await db.saveMediaToVault(file);
+          if (i === 0) {
+            await db.assignMediaToShot(saved.id, currentIndex);
+            const blobUrl = db.getActiveMediaUrl(saved.id, saved.blob);
+            const isVid = saved.mimeType.startsWith('video');
+            onUpdateFrame?.({
+              ...activeFrame,
+              imageUrl: blobUrl,
+              isVideo: isVid
+            });
+            useStudioStore.getState().updateShot(currentIndex, {
+              imageUrl: blobUrl,
+              isVideo: isVid,
+              title: saved.name.replace(/\.[^/.]+$/, "")
+            });
+            onUploadImage(file);
+          }
+        } catch (err) {
+          console.warn('[TactileStage] handleStageDrop save error:', err);
         }
       }
     }

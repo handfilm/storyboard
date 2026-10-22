@@ -21,7 +21,7 @@ import { SLIDE_DURATION_SEC } from '../types/editor';
 import { eventBus } from '../core/eventBus';
 
 export const DB_NAME = 'rawx_storyboard_studio_db';
-export const DB_VERSION = 4;
+export const DB_VERSION = 6;
 export const MAX_SERIALIZED_SNAPSHOT_BYTES = 2 * 1024 * 1024; // 2MB limit
 
 export interface MediaProxyRecord {
@@ -39,9 +39,12 @@ export interface VaultMediaItem {
   name: string;
   mimeType: string;
   size: number;
-  blob: Blob;            // Must store the raw Blob/File directly
-  thumbnailUrl?: string; // DataURL (WebP/JPEG 240p)
+  blob: Blob; // Raw binary file (never convert multi-GB files to base64)
+  thumbnailUrl: string; // Resilient WebP/JPEG data URL or SVG placeholder
+  duration?: number;
+  resolution?: string;
   createdAt: number;
+  assignedShotIndex?: number;
   shotIndex?: number;
 }
 
@@ -53,11 +56,192 @@ export interface TimelineSlotRecord {
   assignedAt: number;
 }
 
-export function createFallbackSvgThumbnail(title: string, isVideo: boolean): string {
+export function createFallbackSvgThumbnail(
+  title: string,
+  isVideo: boolean,
+  sizeBytes?: number,
+  ext?: string
+): string {
   const bg = isVideo ? '%2307121c' : '%23140f07';
   const fg = isVideo ? '%2338bdf8' : '%23fbbf24';
+  const fileExt = ext || (title.includes('.') ? title.split('.').pop()?.toUpperCase() : (isVideo ? 'MP4' : 'IMG'));
   const cleanTitle = encodeURIComponent((title || (isVideo ? 'Video' : 'Still')).slice(0, 18));
-  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="135" viewBox="0 0 240 135"><rect width="240" height="135" fill="${bg}"/><text x="50%" y="45%" text-anchor="middle" fill="${fg}" font-family="monospace" font-size="13" font-weight="bold">${isVideo ? '▶ 4K VIDEO' : '◆ STILL PLATE'}</text><text x="50%" y="65%" text-anchor="middle" fill="%23a1a1aa" font-family="monospace" font-size="9.5">${cleanTitle}</text></svg>`;
+  const sizeText = sizeBytes ? `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB` : '';
+  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="135" viewBox="0 0 240 135"><rect width="240" height="135" fill="${bg}"/><rect x="6" y="6" width="228" height="123" fill="none" stroke="${fg}" stroke-width="1" stroke-dasharray="4 2" opacity="0.4"/><text x="50%" y="40%" text-anchor="middle" fill="${fg}" font-family="monospace" font-size="12" font-weight="bold">${isVideo ? '▶ ' + fileExt + ' VIDEO' : '◆ ' + fileExt + ' PLATE'}</text><text x="50%" y="60%" text-anchor="middle" fill="%23a1a1aa" font-family="monospace" font-size="9.5">${cleanTitle}</text><text x="50%" y="78%" text-anchor="middle" fill="%2371717a" font-family="monospace" font-size="8.5">${sizeText}</text></svg>`;
+}
+
+/**
+ * Resilient thumbnail and metadata extractor with a strict 1.2-second timeout.
+ * NEVER lets video decoding stalls or errors block file ingestion.
+ */
+export async function extractMediaMetadataAndThumbnail(
+  file: File | Blob
+): Promise<{ thumbnailUrl: string; duration?: number; resolution?: string }> {
+  const isVideo = file.type.startsWith('video') || (file instanceof File && /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name));
+  const isAudio = file.type.startsWith('audio') || (file instanceof File && /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(file.name));
+  const filename = file instanceof File ? file.name : (isVideo ? 'video.mp4' : isAudio ? 'audio.mp3' : 'image.jpg');
+  const ext = filename.includes('.') ? filename.split('.').pop()?.toUpperCase() : undefined;
+
+  if (isAudio) {
+    const thumb = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="135" viewBox="0 0 240 135"><rect width="240" height="135" fill="%23130d1e"/><text x="50%" y="45%" text-anchor="middle" fill="%23c084fc" font-family="monospace" font-size="13" font-weight="bold">♫ AUDIO TRACK</text><text x="50%" y="65%" text-anchor="middle" fill="%23a1a1aa" font-family="monospace" font-size="9.5">${encodeURIComponent(filename.slice(0, 18))}</text></svg>`;
+    return { thumbnailUrl: thumb, duration: 12.0, resolution: 'AUDIO' };
+  }
+
+  if (isVideo) {
+    return new Promise((resolve) => {
+      let settled = false;
+      let tempUrl = '';
+
+      const fallback = () => {
+        if (settled) return;
+        settled = true;
+        if (tempUrl) {
+          try { URL.revokeObjectURL(tempUrl); } catch {}
+        }
+        resolve({
+          thumbnailUrl: createFallbackSvgThumbnail(filename, true, file.size, ext),
+          duration: 12.0,
+          resolution: '4K'
+        });
+      };
+
+      // Strict 1.2-second timeout: NEVER block upload pipeline!
+      const timer = setTimeout(fallback, 1200);
+
+      try {
+        tempUrl = URL.createObjectURL(file);
+      } catch {
+        clearTimeout(timer);
+        return fallback();
+      }
+
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      video.src = tempUrl;
+
+      const finishSuccess = (thumbUrl: string, duration?: number, resolution?: string) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (tempUrl) {
+          try { URL.revokeObjectURL(tempUrl); } catch {}
+        }
+        resolve({ thumbnailUrl: thumbUrl, duration, resolution });
+      };
+
+      const captureFrame = () => {
+        try {
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 360;
+          let resolution = '1080P';
+          if (vw >= 3840 || vh >= 2160) resolution = '4K';
+          else if (vw >= 2560 || vh >= 1440) resolution = '2K';
+          else if (vw >= 1920 || vh >= 1080) resolution = '1080P';
+          else if (vw >= 1280 || vh >= 720) resolution = '720P';
+          else resolution = `${vw}x${vh}`;
+
+          const duration = video.duration && !isNaN(video.duration) ? Math.round(video.duration * 10) / 10 : 12.0;
+
+          const targetW = 240;
+          const targetH = Math.round(targetW * (vh / vw)) || 135;
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, targetW, targetH);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            if (dataUrl && dataUrl.length > 60) {
+              return finishSuccess(dataUrl, duration, resolution);
+            }
+          }
+        } catch {}
+        fallback();
+      };
+
+      video.onloadedmetadata = () => {
+        try {
+          video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
+        } catch {
+          captureFrame();
+        }
+      };
+
+      video.onseeked = () => captureFrame();
+      video.onerror = () => fallback();
+    });
+  } else {
+    // Image Plate
+    return new Promise((resolve) => {
+      let settled = false;
+      let tempUrl = '';
+
+      const fallback = () => {
+        if (settled) return;
+        settled = true;
+        if (tempUrl) {
+          try { URL.revokeObjectURL(tempUrl); } catch {}
+        }
+        resolve({
+          thumbnailUrl: createFallbackSvgThumbnail(filename, false, file.size, ext),
+          resolution: 'STILL'
+        });
+      };
+
+      const timer = setTimeout(fallback, 1200);
+
+      try {
+        tempUrl = URL.createObjectURL(file);
+      } catch {
+        clearTimeout(timer);
+        return fallback();
+      }
+
+      const img = new Image();
+      img.src = tempUrl;
+
+      img.onload = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try {
+          const iw = img.naturalWidth || 640;
+          const ih = img.naturalHeight || 360;
+          let resolution = '1080P';
+          if (iw >= 3840 || ih >= 2160) resolution = '4K';
+          else if (iw >= 1920 || ih >= 1080) resolution = '1080P';
+          else resolution = `${iw}x${ih}`;
+
+          const targetW = 240;
+          const targetH = Math.round(targetW * (ih / iw)) || 135;
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            if (dataUrl && dataUrl.length > 60) {
+              if (tempUrl) {
+                try { URL.revokeObjectURL(tempUrl); } catch {}
+              }
+              return resolve({ thumbnailUrl: dataUrl, resolution });
+            }
+          }
+        } catch {}
+        fallback();
+      };
+
+      img.onerror = () => fallback();
+    });
+  }
+}
+
+export async function generateCanvasThumbnail(file: File | Blob): Promise<string> {
+  const result = await extractMediaMetadataAndThumbnail(file);
+  return result.thumbnailUrl;
 }
 
 /**
@@ -195,115 +379,6 @@ export async function generateVideoProxy(file: File | Blob): Promise<{ blob: Blo
   });
 }
 
-export async function generateCanvasThumbnail(file: File | Blob): Promise<string> {
-  const isVideo = file.type.startsWith('video') || (file instanceof File && /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name));
-  const filename = file instanceof File ? file.name : (isVideo ? 'video.mp4' : 'image.jpg');
-
-  if (isVideo) {
-    return new Promise((resolve) => {
-      let resolved = false;
-      let tempUrl = '';
-      try {
-        tempUrl = URL.createObjectURL(file);
-      } catch {
-        return resolve(createFallbackSvgThumbnail(filename, true));
-      }
-
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.muted = true;
-      video.playsInline = true;
-      video.src = tempUrl;
-
-      const finish = (dataUrl: string) => {
-        if (resolved) return;
-        resolved = true;
-        try { URL.revokeObjectURL(tempUrl); } catch {}
-        resolve(dataUrl);
-      };
-
-      const captureFrame = () => {
-        try {
-          const vw = video.videoWidth || 640;
-          const vh = video.videoHeight || 360;
-          const targetW = 240;
-          const targetH = Math.round(targetW * (vh / vw)) || 135;
-          const canvas = document.createElement('canvas');
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, targetW, targetH);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-            if (dataUrl && dataUrl.length > 50) {
-              return finish(dataUrl);
-            }
-          }
-        } catch {
-          // ignore
-        }
-        finish(createFallbackSvgThumbnail(filename, true));
-      };
-
-      video.onloadeddata = () => {
-        try {
-          video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
-        } catch {
-          captureFrame();
-        }
-      };
-
-      video.onseeked = () => captureFrame();
-      video.onerror = () => finish(createFallbackSvgThumbnail(filename, true));
-      setTimeout(() => finish(createFallbackSvgThumbnail(filename, true)), 2200);
-    });
-  } else {
-    return new Promise((resolve) => {
-      let resolved = false;
-      let tempUrl = '';
-      try {
-        tempUrl = URL.createObjectURL(file);
-      } catch {
-        return resolve(createFallbackSvgThumbnail(filename, false));
-      }
-
-      const img = new Image();
-      img.src = tempUrl;
-
-      const finish = (dataUrl: string) => {
-        if (resolved) return;
-        resolved = true;
-        try { URL.revokeObjectURL(tempUrl); } catch {}
-        resolve(dataUrl);
-      };
-
-      img.onload = () => {
-        try {
-          const iw = img.naturalWidth || 640;
-          const ih = img.naturalHeight || 360;
-          const targetW = 240;
-          const targetH = Math.round(targetW * (ih / iw)) || 135;
-          const canvas = document.createElement('canvas');
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, targetW, targetH);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-            if (dataUrl && dataUrl.length > 50) {
-              return finish(dataUrl);
-            }
-          }
-        } catch {}
-        finish(createFallbackSvgThumbnail(filename, false));
-      };
-
-      img.onerror = () => finish(createFallbackSvgThumbnail(filename, false));
-      setTimeout(() => finish(createFallbackSvgThumbnail(filename, false)), 1800);
-    });
-  }
-}
-
 
 class StudioDraftDbService {
   private db: IDBDatabase | null = null;
@@ -325,91 +400,135 @@ class StudioDraftDbService {
     if (this.db) return this.db;
     if (this.initPromise) return this.initPromise;
 
-    this.initPromise = new Promise((resolve, reject) => {
+    this.initPromise = (async () => {
       if (typeof window === 'undefined' || !window.indexedDB) {
-        return reject(new Error('IndexedDB not available in current environment'));
+        throw new Error('IndexedDB not available in current environment');
       }
 
       // Lock browser cache against OS eviction
-      this.ensureStoragePersistence();
+      this.ensureStoragePersistence().catch(() => {});
 
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-      request.onupgradeneeded = (e: IDBVersionChangeEvent) => {
-        const db = (e.target as IDBOpenDBRequest).result;
-
-        // 1. projects_meta: metadata for quick project switching
-        if (!db.objectStoreNames.contains('projects_meta')) {
-          const metaStore = db.createObjectStore('projects_meta', { keyPath: 'id' });
-          metaStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-          metaStore.createIndex('title', 'title', { unique: false });
+      let versionToOpen = DB_VERSION;
+      if (typeof indexedDB !== 'undefined' && typeof indexedDB.databases === 'function') {
+        try {
+          const dbs = await indexedDB.databases();
+          const existing = dbs.find(d => d.name === DB_NAME);
+          if (existing && typeof existing.version === 'number' && existing.version >= versionToOpen) {
+            versionToOpen = existing.version + 1;
+          }
+        } catch {
+          // ignore
         }
+      }
 
-        // 2. project_drafts: full draft state including 12.0s slides
-        if (!db.objectStoreNames.contains('project_drafts')) {
-          const draftStore = db.createObjectStore('project_drafts', { keyPath: 'projectId' });
-          draftStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-        }
+      const openReq = (ver?: number): Promise<IDBDatabase> => {
+        return new Promise<IDBDatabase>((resolve, reject) => {
+          const request = typeof ver === 'number' ? indexedDB.open(DB_NAME, ver) : indexedDB.open(DB_NAME);
 
-        // 3. media_blobs: Primary binary storage keyed by id storing { id, fileBlob, filename, mimeType, sizeBytes, createdAt }
-        if (!db.objectStoreNames.contains('media_blobs')) {
-          const mediaStore = db.createObjectStore('media_blobs', { keyPath: 'id' });
-          mediaStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-          mediaStore.createIndex('mimeType', 'mimeType', { unique: false });
-          mediaStore.createIndex('filename', 'filename', { unique: false });
-          mediaStore.createIndex('createdAt', 'createdAt', { unique: false });
-        }
+          request.onupgradeneeded = (e: IDBVersionChangeEvent) => {
+            const db = (e.target as IDBOpenDBRequest).result;
 
-        // 4. media_thumbnails: Ultra-lightweight WebP/JPEG thumbnail blobs (240x135)
-        if (!db.objectStoreNames.contains('media_thumbnails')) {
-          const thumbStore = db.createObjectStore('media_thumbnails', { keyPath: 'id' });
-          thumbStore.createIndex('createdAt', 'createdAt', { unique: false });
-        }
+            // 1. projects_meta: metadata for quick project switching
+            if (!db.objectStoreNames.contains('projects_meta')) {
+              const metaStore = db.createObjectStore('projects_meta', { keyPath: 'id' });
+              metaStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+              metaStore.createIndex('title', 'title', { unique: false });
+            }
 
-        // 5. media_meta: Telemetry data { id, duration, fps, width, height, codec, assignedShotId }
-        if (!db.objectStoreNames.contains('media_meta')) {
-          const metaStore = db.createObjectStore('media_meta', { keyPath: 'id' });
-          metaStore.createIndex('assignedShotId', 'assignedShotId', { unique: false });
-          metaStore.createIndex('createdAt', 'createdAt', { unique: false });
-          metaStore.createIndex('filename', 'filename', { unique: false });
-        }
+            // 2. project_drafts: full draft state including 12.0s slides
+            if (!db.objectStoreNames.contains('project_drafts')) {
+              const draftStore = db.createObjectStore('project_drafts', { keyPath: 'projectId' });
+              draftStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+            }
 
-        // 6. media_vault: Primary store for uploaded files { id, name, mimeType, size, blob, thumbnailUrl, createdAt, shotIndex }
-        if (!db.objectStoreNames.contains('media_vault')) {
-          const vaultStore = db.createObjectStore('media_vault', { keyPath: 'id' });
-          vaultStore.createIndex('createdAt', 'createdAt', { unique: false });
-          vaultStore.createIndex('shotIndex', 'shotIndex', { unique: false });
-          vaultStore.createIndex('mimeType', 'mimeType', { unique: false });
-          vaultStore.createIndex('name', 'name', { unique: false });
-        }
+            // 3. media_blobs: Primary binary storage keyed by id storing { id, fileBlob, filename, mimeType, sizeBytes, createdAt }
+            if (!db.objectStoreNames.contains('media_blobs')) {
+              const mediaStore = db.createObjectStore('media_blobs', { keyPath: 'id' });
+              mediaStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+              mediaStore.createIndex('mimeType', 'mimeType', { unique: false });
+              mediaStore.createIndex('filename', 'filename', { unique: false });
+              mediaStore.createIndex('createdAt', 'createdAt', { unique: false });
+            }
 
-        // 7. timeline_slots: Maps timeline indices (0 to 99) directly to mediaId references { slotIndex, mediaId, assignedAt }
-        if (!db.objectStoreNames.contains('timeline_slots')) {
-          const slotStore = db.createObjectStore('timeline_slots', { keyPath: 'slotIndex' });
-          slotStore.createIndex('mediaId', 'mediaId', { unique: false });
-          slotStore.createIndex('assignedAt', 'assignedAt', { unique: false });
-        }
+            // 4. media_thumbnails: Ultra-lightweight WebP/JPEG thumbnail blobs (240x135)
+            if (!db.objectStoreNames.contains('media_thumbnails')) {
+              const thumbStore = db.createObjectStore('media_thumbnails', { keyPath: 'id' });
+              thumbStore.createIndex('createdAt', 'createdAt', { unique: false });
+            }
 
-        // 8. media_proxies: 720p WebM/MP4 proxy blobs for fluid 24fps scrubbing & J-K-L shuttling
-        if (!db.objectStoreNames.contains('media_proxies')) {
-          const proxyStore = db.createObjectStore('media_proxies', { keyPath: 'id' });
-          proxyStore.createIndex('mediaId', 'mediaId', { unique: false });
-          proxyStore.createIndex('createdAt', 'createdAt', { unique: false });
-        }
+            // 5. media_meta: Telemetry data { id, duration, fps, width, height, codec, assignedShotId }
+            if (!db.objectStoreNames.contains('media_meta')) {
+              const metaStore = db.createObjectStore('media_meta', { keyPath: 'id' });
+              metaStore.createIndex('assignedShotId', 'assignedShotId', { unique: false });
+              metaStore.createIndex('createdAt', 'createdAt', { unique: false });
+              metaStore.createIndex('filename', 'filename', { unique: false });
+            }
+
+            // 6. media_vault: Primary store for uploaded files { id, name, mimeType, size, blob, thumbnailUrl, createdAt, shotIndex }
+            if (!db.objectStoreNames.contains('media_vault')) {
+              const vaultStore = db.createObjectStore('media_vault', { keyPath: 'id' });
+              vaultStore.createIndex('createdAt', 'createdAt', { unique: false });
+              vaultStore.createIndex('shotIndex', 'shotIndex', { unique: false });
+              vaultStore.createIndex('mimeType', 'mimeType', { unique: false });
+              vaultStore.createIndex('name', 'name', { unique: false });
+            }
+
+            // 7. timeline_slots: Maps timeline indices (0 to 99) directly to mediaId references { slotIndex, mediaId, assignedAt }
+            if (!db.objectStoreNames.contains('timeline_slots')) {
+              const slotStore = db.createObjectStore('timeline_slots', { keyPath: 'slotIndex' });
+              slotStore.createIndex('mediaId', 'mediaId', { unique: false });
+              slotStore.createIndex('assignedAt', 'assignedAt', { unique: false });
+            }
+
+            // 8. media_proxies: 720p WebM/MP4 proxy blobs for fluid 24fps scrubbing & J-K-L shuttling
+            if (!db.objectStoreNames.contains('media_proxies')) {
+              const proxyStore = db.createObjectStore('media_proxies', { keyPath: 'id' });
+              proxyStore.createIndex('mediaId', 'mediaId', { unique: false });
+              proxyStore.createIndex('createdAt', 'createdAt', { unique: false });
+            }
+          };
+
+          request.onsuccess = () => {
+            this.db = request.result;
+            resolve(request.result);
+          };
+
+          request.onerror = async () => {
+            const err = request.error;
+            // VersionError fallback: if existing database version was higher than requested
+            if (err && err.name === 'VersionError') {
+              console.warn('[DraftDB] VersionError detected, automatically opening at current existing database version');
+              try {
+                const fallbackReq = indexedDB.open(DB_NAME);
+                fallbackReq.onsuccess = () => {
+                  this.db = fallbackReq.result;
+                  resolve(fallbackReq.result);
+                };
+                fallbackReq.onerror = () => reject(fallbackReq.error);
+                return;
+              } catch (fallbackErr) {
+                return reject(fallbackErr);
+              }
+            }
+            reject(err);
+          };
+        });
       };
 
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve(request.result);
-      };
-
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+      try {
+        const result = await openReq(versionToOpen);
+        return result;
+      } catch (err) {
+        this.initPromise = null;
+        throw err;
+      }
+    })();
 
     return this.initPromise;
   }
+
+  private lruActiveUrls: Map<string, string> = new Map(); // id -> objectUrl (max 8)
+  private readonly MAX_LRU_URLS = 8;
 
   /**
    * Lock browser cache against OS-level eviction via navigator.storage.persist()
@@ -422,10 +541,12 @@ class StudioDraftDbService {
       const alreadyPersisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
       if (alreadyPersisted) {
         this.isPersisted = true;
+        console.log(`[STORAGE] Persistent storage granted: true`);
         return true;
       }
       const granted = await navigator.storage.persist();
       this.isPersisted = granted;
+      console.log(`[STORAGE] Persistent storage granted: ${granted}`);
       return granted;
     } catch {
       return false;
@@ -437,8 +558,49 @@ class StudioDraftDbService {
   }
 
   // =========================================================================
-  // OBJECT URL LIFECYCLE MANAGEMENT (ZERO LEAKS)
+  // OBJECT URL LIFECYCLE MANAGEMENT (LRU MAX 8 ACTIVE URLS, ZERO LEAKS)
   // =========================================================================
+
+  /**
+   * Dynamically creates or retrieves an Object URL with LRU eviction (max 8 active URLs).
+   * Automatically calls URL.revokeObjectURL() on eviction to prevent GPU/RAM memory saturation.
+   */
+  public getOrCreateObjectUrl(id: string, blob: Blob): string {
+    if (!blob) return '';
+
+    // Check if already in LRU cache
+    if (this.lruActiveUrls.has(id)) {
+      const url = this.lruActiveUrls.get(id)!;
+      // Mark as MRU
+      this.lruActiveUrls.delete(id);
+      this.lruActiveUrls.set(id, url);
+      return url;
+    }
+
+    // If cache is full, evict oldest entry
+    if (this.lruActiveUrls.size >= this.MAX_LRU_URLS) {
+      const oldestId = this.lruActiveUrls.keys().next().value;
+      if (oldestId) {
+        const evictedUrl = this.lruActiveUrls.get(oldestId);
+        if (evictedUrl) {
+          try { URL.revokeObjectURL(evictedUrl); } catch {}
+          this.activeObjectUrls.delete(evictedUrl);
+        }
+        this.lruActiveUrls.delete(oldestId);
+        this.activeMediaUrls.delete(oldestId);
+      }
+    }
+
+    try {
+      const url = URL.createObjectURL(blob);
+      this.lruActiveUrls.set(id, url);
+      this.activeMediaUrls.set(id, url);
+      this.activeObjectUrls.add(url);
+      return url;
+    } catch {
+      return '';
+    }
+  }
 
   /**
    * Generates a tracked Object URL that will be automatically revoked on draft switch
@@ -1182,7 +1344,10 @@ class StudioDraftDbService {
   // =========================================================================
 
   /**
-   * Converts file to Blob, creates thumbnail, persists in `media_vault`, and returns the persistent record.
+   * Resilient Ingestion Worker:
+   * NEVER let a thumbnail failure block upload. Wrap video keyframe extraction in 1.2s timeout.
+   * Fallback to instant generated SVG data-URI thumbnail.
+   * Stores raw binary Blob (never multi-GB base64) directly in `media_vault` store.
    */
   public async saveMediaToVault(file: File): Promise<VaultMediaItem> {
     const db = await this.getDb();
@@ -1191,20 +1356,34 @@ class StudioDraftDbService {
       : `vault_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     const isVideo = file.type.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name);
-    const mimeType = file.type || (isVideo ? 'video/mp4' : 'image/jpeg');
+    const isAudio = file.type.startsWith('audio') || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(file.name);
+    const mimeType = file.type || (isVideo ? 'video/mp4' : isAudio ? 'audio/mpeg' : 'image/jpeg');
 
-    // 1. Generate persistent DataURL thumbnail via Canvas (JPEG 0.7, 240p)
-    const thumbnailUrl = await generateCanvasThumbnail(file);
+    // 1. Resilient metadata extraction with strict 1.2s timeout (never blocks upload)
+    let metaResult: { thumbnailUrl: string; duration?: number; resolution?: string };
+    try {
+      metaResult = await extractMediaMetadataAndThumbnail(file);
+    } catch {
+      metaResult = {
+        thumbnailUrl: createFallbackSvgThumbnail(file.name, isVideo, file.size),
+        duration: isVideo ? 12.0 : undefined,
+        resolution: isVideo ? '4K' : 'STILL'
+      };
+    }
 
-    // 2. Build persistent Vault record storing the raw Blob/File directly
+    // 2. Build persistent Vault record storing the raw binary Blob directly
     const item: VaultMediaItem = {
       id,
       name: file.name,
       mimeType,
       size: file.size,
       blob: file, // Store raw Blob/File directly in IndexedDB
-      thumbnailUrl,
-      createdAt: Date.now()
+      thumbnailUrl: metaResult.thumbnailUrl,
+      duration: metaResult.duration,
+      resolution: metaResult.resolution,
+      createdAt: Date.now(),
+      assignedShotIndex: undefined,
+      shotIndex: undefined
     };
 
     // 3. Put into media_vault store
@@ -1217,13 +1396,7 @@ class StudioDraftDbService {
       tx.onerror = () => reject(tx.error);
     });
 
-    // 4. Cache active object URL in memory
-    try {
-      const activeUrl = URL.createObjectURL(file);
-      this.activeMediaUrls.set(id, activeUrl);
-    } catch {}
-
-    // 5. Backwards compatibility: also mirror into media_blobs & media_meta
+    // 4. Backwards compatibility: mirror into media_blobs & media_meta
     try {
       if (db.objectStoreNames.contains('media_blobs')) {
         await this.putMediaBlob(id, file, mimeType, file.name);
@@ -1236,7 +1409,7 @@ class StudioDraftDbService {
           sizeBytes: file.size,
           createdAt: Date.now(),
           assignedShotId: null,
-          duration: isVideo ? 12.0 : undefined,
+          duration: metaResult.duration || (isVideo ? 12.0 : undefined),
           fps: 24
         });
       }
@@ -1244,30 +1417,29 @@ class StudioDraftDbService {
       console.warn('[DraftDB] Mirror save error (non-fatal):', err);
     }
 
-    // 6. Generate and persist lightweight 720p proxy for video files (for fluid 24fps scrubbing and J-K-L shuttling)
+    // 5. Generate and persist lightweight 720p proxy asynchronously in background (non-blocking)
     if (isVideo) {
-      try {
-        const proxy = await generateVideoProxy(file);
+      generateVideoProxy(file).then(proxy => {
         if (proxy && proxy.blob) {
-          await this.saveProxy(id, proxy.blob, {
+          this.saveProxy(id, proxy.blob, {
             width: proxy.width,
             height: proxy.height,
             mimeType: proxy.mimeType
-          });
+          }).catch(() => {});
         }
-      } catch (proxyErr) {
+      }).catch((proxyErr) => {
         console.warn('[DraftDB] Proxy generation error (non-fatal):', proxyErr);
-      }
+      });
     }
 
-    // 7. Notify event bus
+    // 6. Notify event bus
     eventBus.emit('media_asset_ingested', { item, timestamp: Date.now() });
 
     return item;
   }
 
   /**
-   * Hydrates all saved assets on boot so nothing vanishes on reload or tab switch.
+   * Hydrates all saved assets from `media_vault` so nothing vanishes on reload or tab switch.
    */
   public async getAllVaultMedia(): Promise<VaultMediaItem[]> {
     try {
@@ -1283,14 +1455,6 @@ class StudioDraftDbService {
         req.onsuccess = () => {
           const items: VaultMediaItem[] = req.result || [];
           items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-          // Preload active object URLs in memory
-          for (const item of items) {
-            if (item.blob && !this.activeMediaUrls.has(item.id)) {
-              try {
-                this.activeMediaUrls.set(item.id, URL.createObjectURL(item.blob));
-              } catch {}
-            }
-          }
           resolve(items);
         };
         req.onerror = () => resolve([]);
@@ -1311,17 +1475,82 @@ class StudioDraftDbService {
       return new Promise((resolve) => {
         req.onsuccess = () => {
           const item: VaultMediaItem = req.result;
-          if (item && item.blob && !this.activeMediaUrls.has(item.id)) {
-            try {
-              this.activeMediaUrls.set(item.id, URL.createObjectURL(item.blob));
-            } catch {}
-          }
           resolve(item || null);
         };
         req.onerror = () => resolve(null);
       });
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Delete asset from `media_vault` and related stores, revoking object URLs.
+   */
+  public async deleteVaultMedia(id: string): Promise<void> {
+    try {
+      const db = await this.getDb();
+      const storesToUpdate = ['media_vault', 'media_blobs', 'media_thumbnails', 'media_meta', 'media_proxies'].filter(name =>
+        db.objectStoreNames.contains(name)
+      );
+      if (storesToUpdate.length > 0) {
+        const tx = db.transaction(storesToUpdate, 'readwrite');
+        for (const storeName of storesToUpdate) {
+          tx.objectStore(storeName).delete(id);
+        }
+        await new Promise<void>((resolve, reject) => {
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+      }
+
+      // Revoke LRU object URL if active
+      if (this.lruActiveUrls.has(id)) {
+        const url = this.lruActiveUrls.get(id);
+        if (url) {
+          try { URL.revokeObjectURL(url); } catch {}
+          this.activeObjectUrls.delete(url);
+        }
+        this.lruActiveUrls.delete(id);
+      }
+      this.activeMediaUrls.delete(id);
+      this.activeProxyUrls.delete(id);
+
+      eventBus.emit('media_asset_deleted', { id, timestamp: Date.now() });
+    } catch (err) {
+      console.warn('[DraftDB] deleteVaultMedia error:', err);
+    }
+  }
+
+  /**
+   * Clears all assets in `media_vault` and cleans up object URLs.
+   */
+  public async clearAllVaultMedia(): Promise<void> {
+    try {
+      const db = await this.getDb();
+      const stores = ['media_vault', 'media_blobs', 'media_thumbnails', 'media_meta', 'media_proxies', 'timeline_slots'].filter(name =>
+        db.objectStoreNames.contains(name)
+      );
+      if (stores.length > 0) {
+        const tx = db.transaction(stores, 'readwrite');
+        for (const s of stores) {
+          tx.objectStore(s).clear();
+        }
+        await new Promise<void>((resolve, reject) => {
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+      }
+
+      for (const url of this.lruActiveUrls.values()) {
+        try { URL.revokeObjectURL(url); } catch {}
+        this.activeObjectUrls.delete(url);
+      }
+      this.lruActiveUrls.clear();
+      this.activeMediaUrls.clear();
+      this.activeProxyUrls.clear();
+    } catch (err) {
+      console.warn('[DraftDB] clearAllVaultMedia error:', err);
     }
   }
 
@@ -1345,7 +1574,7 @@ class StudioDraftDbService {
       });
     }
 
-    // 2. Update media_vault item's shotIndex
+    // 2. Update media_vault item's assignedShotIndex & shotIndex
     let updatedItem: VaultMediaItem | null = null;
     if (db.objectStoreNames.contains('media_vault')) {
       const tx2 = db.transaction('media_vault', 'readwrite');
@@ -1354,7 +1583,7 @@ class StudioDraftDbService {
       await new Promise<void>((resolve) => {
         getReq.onsuccess = () => {
           if (getReq.result) {
-            updatedItem = { ...getReq.result, shotIndex };
+            updatedItem = { ...getReq.result, assignedShotIndex: shotIndex, shotIndex };
             store2.put(updatedItem);
           }
           resolve();
@@ -1368,11 +1597,12 @@ class StudioDraftDbService {
       await this.updateMediaMetaAssignedShot(mediaId, shotIndex);
     }
 
-    // 4. Resolve durable active object URL
-    let blobUrl = this.activeMediaUrls.get(mediaId);
-    if (!blobUrl && updatedItem && (updatedItem as any).blob) {
-      blobUrl = URL.createObjectURL((updatedItem as any).blob);
-      this.activeMediaUrls.set(mediaId, blobUrl);
+    // 4. Resolve durable active object URL using LRU cache
+    let blobUrl = '';
+    if (updatedItem && (updatedItem as any).blob) {
+      blobUrl = this.getOrCreateObjectUrl(mediaId, (updatedItem as any).blob);
+    } else {
+      blobUrl = this.activeMediaUrls.get(mediaId) || '';
     }
 
     // 5. Broadcast assignment event for timeline and stage reactivity
@@ -1423,20 +1653,19 @@ class StudioDraftDbService {
   }
 
   /**
-   * Retrieves active in-memory Object URL or generates one from Blob
+   * Retrieves active in-memory Object URL or generates one from Blob via LRU cache
    */
   public getActiveMediaUrl(mediaId: string, blob?: Blob): string {
-    if (this.activeMediaUrls.has(mediaId)) {
-      return this.activeMediaUrls.get(mediaId)!;
+    if (this.lruActiveUrls.has(mediaId)) {
+      const url = this.lruActiveUrls.get(mediaId)!;
+      this.lruActiveUrls.delete(mediaId);
+      this.lruActiveUrls.set(mediaId, url);
+      return url;
     }
     if (blob) {
-      try {
-        const url = URL.createObjectURL(blob);
-        this.activeMediaUrls.set(mediaId, url);
-        return url;
-      } catch {}
+      return this.getOrCreateObjectUrl(mediaId, blob);
     }
-    return '';
+    return this.activeMediaUrls.get(mediaId) || '';
   }
 
   /**
@@ -1450,7 +1679,7 @@ class StudioDraftDbService {
     if (!db.objectStoreNames.contains('media_vault')) return;
 
     // 1. Starter 4K video asset
-    const vidThumb = createFallbackSvgThumbnail('cyberpunk_flight_4k.mp4', true);
+    const vidThumb = createFallbackSvgThumbnail('cyberpunk_flight_4k.mp4', true, 24.5 * 1024 * 1024, 'MP4');
     const vidBlob = new Blob(['RAWX_CYBERPUNK_FLIGHT_4K_VIDEO_STREAM'], { type: 'video/mp4' });
     const vidItem: VaultMediaItem = {
       id: 'cyberpunk_flight_4k',
@@ -1459,11 +1688,13 @@ class StudioDraftDbService {
       size: 24.5 * 1024 * 1024,
       blob: vidBlob,
       thumbnailUrl: vidThumb,
+      duration: 12.0,
+      resolution: '4K',
       createdAt: Date.now() - 3600000
     };
 
     // 2. Starter Dhaka neon alley still plate
-    const stillThumb = createFallbackSvgThumbnail('dhaka_neon_alley.png', false);
+    const stillThumb = createFallbackSvgThumbnail('dhaka_neon_alley.png', false, 8.2 * 1024 * 1024, 'PNG');
     const stillBlob = new Blob(['RAWX_DHAKA_NEON_ALLEY_RAW_14BIT'], { type: 'image/png' });
     const stillItem: VaultMediaItem = {
       id: 'dhaka_neon_alley',
@@ -1472,6 +1703,8 @@ class StudioDraftDbService {
       size: 8.2 * 1024 * 1024,
       blob: stillBlob,
       thumbnailUrl: stillThumb,
+      duration: undefined,
+      resolution: '4K',
       createdAt: Date.now() - 7200000
     };
 
@@ -1485,8 +1718,8 @@ class StudioDraftDbService {
       tx.onerror = () => reject(tx.error);
     });
 
-    this.activeMediaUrls.set(vidItem.id, URL.createObjectURL(vidBlob));
-    this.activeMediaUrls.set(stillItem.id, URL.createObjectURL(stillBlob));
+    this.getOrCreateObjectUrl(vidItem.id, vidBlob);
+    this.getOrCreateObjectUrl(stillItem.id, stillBlob);
   }
 }
 
@@ -1495,5 +1728,12 @@ if (typeof window !== 'undefined') {
   studioDraftDb.ensureStoragePersistence().catch(() => {});
 }
 export const db = studioDraftDb;
+
+// Direct named helper exports per architectural requirement:
+export const getAllVaultMedia = () => studioDraftDb.getAllVaultMedia();
+export const deleteVaultMedia = (id: string) => studioDraftDb.deleteVaultMedia(id);
+export const clearAllVaultMedia = () => studioDraftDb.clearAllVaultMedia();
+export const saveMediaToVault = (file: File) => studioDraftDb.saveMediaToVault(file);
+
 
 

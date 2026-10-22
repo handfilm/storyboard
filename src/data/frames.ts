@@ -127,6 +127,11 @@ export const lutPresetsList: Array<{ id: LutPreset; label: string; desc: string 
 
 // Curated high quality cinematic sample packs using bundled 4K master plates
 export const localCinematicPlates = [
+  "/assets/aistudio/02_4487d60a.jpg",
+  "/assets/aistudio/01_5fdc96be.jpg",
+  "/assets/aistudio/03_307d68f5.jpg",
+  "/assets/aistudio/04_a108e8eb.jpg",
+  "/assets/aistudio/05__2__6d814b04.jpg",
   "/assets/aistudio/image_332d00ec.png",
   "/assets/aistudio/image_5ea6c84c.png",
   "/assets/aistudio/image_7e972830.png",

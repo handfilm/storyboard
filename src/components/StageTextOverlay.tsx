@@ -12,6 +12,17 @@
 import React, { useState } from 'react';
 import { Type, Sparkles, Sliders, Eye, EyeOff } from 'lucide-react';
 
+export type StageTitleVariant =
+  | 'left-bottom'
+  | 'mid-bottom'
+  | 'right-bottom'
+  | 'center-low'
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'asymmetric-split'
+  | 'top-right-split'
+  | 'middle-right';
+
 export interface StageTextOverlayProps {
   shotIndex: number;
   banglaTitle?: string;
@@ -23,9 +34,10 @@ export interface StageTextOverlayProps {
   scale?: number;
   glowIntensity?: number;
   tracking?: number;
-  variant?: 'center-low' | 'bottom-left' | 'asymmetric-split' | 'top-right-split' | 'middle-right' | 'bottom-right';
+  variant?: StageTitleVariant;
   className?: string;
   allowQuickControls?: boolean;
+  onChangeVariant?: (variant: 'left-bottom' | 'mid-bottom' | 'right-bottom') => void;
 }
 
 export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
@@ -39,9 +51,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   scale: initialScale = 1.0,
   glowIntensity: initialGlow = 1.0,
   tracking: initialTracking = 0.15,
-  variant = 'center-low',
+  variant = 'mid-bottom',
   className = '',
-  allowQuickControls = false
+  allowQuickControls = false,
+  onChangeVariant
 }) => {
   const [scale, setScale] = useState<number>(initialScale);
   const [glow, setGlow] = useState<number>(initialGlow);
@@ -55,14 +68,17 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const displayEnglish = englishTitle || `SHOT ${String(shotIndex + 1).padStart(3, '0')} // SEQUENCE ARCHIVE`;
   const displaySubtitle = subtitle || directorNotes || '24.0 FPS RAW • MASTER CINE PROJECTION';
 
-  // Glow styles based on glow intensity
+  // Normalize variant into standard 3 primary monitor positions
+  const normalizedVariant = 
+    variant === 'left-bottom' || variant === 'bottom-left' ? 'left-bottom' :
+    variant === 'right-bottom' || variant === 'bottom-right' ? 'right-bottom' :
+    variant === 'center-low' ? 'mid-bottom' : variant;
+
+  // Glow styles with user adjustability + CSS keyframe golden bloom support
   const banglaGlowStyle = {
-    textShadow: glow > 0 
-      ? `0 0 ${12 * glow}px rgba(245, 166, 35, 0.75), 0 0 ${28 * glow}px rgba(245, 166, 35, 0.45), 0 2px 4px rgba(0,0,0,0.9)`
-      : '0 2px 6px rgba(0,0,0,0.9)',
     letterSpacing: `${tracking}em`,
     transform: `scale(${scale})`,
-    transformOrigin: variant === 'center-low' ? 'center center' : variant.includes('right') ? 'right center' : 'left center'
+    transformOrigin: normalizedVariant === 'mid-bottom' ? 'center center' : normalizedVariant === 'right-bottom' ? 'right center' : 'left center'
   };
 
   const englishGlowStyle = {
@@ -71,10 +87,12 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   };
 
   const getPositionClasses = () => {
-    switch (variant) {
-      case 'bottom-left':
+    switch (normalizedVariant) {
+      case 'left-bottom':
+        // Traditional slate alignment with horizontal amber flare trailing right
         return 'bottom-10 left-8 sm:bottom-14 sm:left-12 text-left items-start';
-      case 'bottom-right':
+      case 'right-bottom':
+        // Editorial alignment, text anchored to the lower-right boundary
         return 'bottom-10 right-8 sm:bottom-14 sm:right-12 text-right items-end';
       case 'top-right-split':
         return 'top-10 right-8 sm:top-14 sm:right-12 text-right items-end';
@@ -82,32 +100,38 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         return 'top-10 left-8 sm:top-14 sm:left-12 text-left items-start';
       case 'middle-right':
         return 'top-1/2 -translate-y-1/2 right-8 sm:right-14 text-right items-end';
-      case 'center-low':
+      case 'mid-bottom':
       default:
-        return 'bottom-12 sm:bottom-16 left-1/2 -translate-x-1/2 text-center items-center';
+        // Symmetrical cinema title alignment centered above the 2.39:1 lower letterbox matte
+        return 'bottom-10 sm:bottom-14 left-1/2 -translate-x-1/2 text-center items-center';
     }
   };
+
+  const isLeftBottom = normalizedVariant === 'left-bottom';
 
   return (
     <div
       className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-end p-6 select-none ${className}`}
       data-shot-index={shotIndex}
     >
-      {/* Floating typography cluster */}
-      <div className={`absolute flex flex-col transition-all duration-75 ease-out max-w-3xl ${getPositionClasses()}`}>
+      {/* Floating typography cluster with 450ms CSS Keyframe Entrance Motion */}
+      <div 
+        key={`stage-title-${shotIndex}-${normalizedVariant}`}
+        className={`absolute flex flex-col animate-title-entrance max-w-3xl ${getPositionClasses()}`}
+      >
         
-        {/* Glowing Bangla Title */}
+        {/* Glowing Bangla Title with 450ms Golden Bloom Burst to Crisp Glow */}
         <h1
-          className="font-bangla font-black text-2xl sm:text-3xl md:text-4xl text-[#F5A623] tracking-wide leading-none transition-transform duration-75"
+          className="font-bangla font-black text-2xl sm:text-3xl md:text-4xl text-[#F5A623] tracking-wide leading-none animate-golden-bloom"
           style={banglaGlowStyle}
         >
           {displayBangla}
         </h1>
 
         {/* English Cinematic Subtitle */}
-        <div className="mt-2 flex flex-col gap-1">
+        <div className={`mt-2 flex flex-col gap-1 ${normalizedVariant === 'mid-bottom' ? 'items-center' : normalizedVariant === 'right-bottom' ? 'items-end' : 'items-start'}`}>
           <p
-            className="font-cinzel font-bold text-xs sm:text-sm md:text-base text-white/95 uppercase transition-all duration-75"
+            className="font-cinzel font-bold text-xs sm:text-sm md:text-base text-white/95 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
             style={englishGlowStyle}
           >
             {displayEnglish}
@@ -115,30 +139,75 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
           {/* Director / Sequence Note */}
           {displaySubtitle && (
-            <p className="font-mono text-[9px] sm:text-[10px] text-white/60 tracking-wider uppercase">
+            <p className="font-mono text-[9px] sm:text-[10px] text-white/70 tracking-wider uppercase drop-shadow-md">
               {displaySubtitle}
             </p>
           )}
 
           {cameraInfo && (
-            <span className="font-mono text-[8px] text-[#fbbf24]/80 tracking-widest mt-0.5">
+            <span className="font-mono text-[8px] text-[#fbbf24]/90 tracking-widest mt-0.5">
               {cameraInfo}
             </span>
+          )}
+
+          {/* Left-Bottom Slate Trailing Horizontal Amber Flare */}
+          {isLeftBottom && (
+            <div className="w-64 sm:w-80 h-[1.5px] bg-gradient-to-r from-[#F5A623] via-[#F5A623]/70 to-transparent mt-2 shadow-[0_0_10px_#F5A623] animate-amber-flare" />
           )}
         </div>
       </div>
 
       {/* Optional Interactive Mini Quick-Adjuster (pointer-events-auto) */}
       {allowQuickControls && (
-        <div className="absolute top-3 right-3 pointer-events-auto z-30">
+        <div className="absolute top-3 right-3 pointer-events-auto z-30 flex items-center gap-2">
+          {/* 3-Position Quick Switcher Pill */}
+          <div className="flex items-center p-0.5 rounded-full bg-black/70 border border-[#F5A623]/30 backdrop-blur-md text-[9px] font-mono shadow-lg">
+            <button
+              type="button"
+              onClick={() => onChangeVariant?.('left-bottom')}
+              className={`px-2 py-0.5 rounded-full transition-colors ${
+                normalizedVariant === 'left-bottom'
+                  ? 'bg-[#F5A623] text-black font-bold shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Traditional Slate (Left-Bottom with Flare)"
+            >
+              LEFT
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeVariant?.('mid-bottom')}
+              className={`px-2 py-0.5 rounded-full transition-colors ${
+                normalizedVariant === 'mid-bottom'
+                  ? 'bg-[#F5A623] text-black font-bold shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Cinema Center (Mid-Bottom above Matte)"
+            >
+              MID
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeVariant?.('right-bottom')}
+              className={`px-2 py-0.5 rounded-full transition-colors ${
+                normalizedVariant === 'right-bottom'
+                  ? 'bg-[#F5A623] text-black font-bold shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Editorial Slate (Right-Bottom Anchor)"
+            >
+              RIGHT
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setShowControls(c => !c)}
-            className="p-1.5 rounded bg-black/60 hover:bg-black/80 border border-white/10 hover:border-[#F5A623]/50 text-white/70 hover:text-[#F5A623] text-[10px] flex items-center gap-1 transition-all"
+            className="p-1.5 rounded-full bg-black/70 hover:bg-black/90 border border-white/15 hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] flex items-center gap-1 transition-all backdrop-blur-md"
             title="Adjust Stage Typography"
           >
             <Sliders className="w-3 h-3 text-[#F5A623]" />
-            <span className="font-mono text-[9px]">TXT HUD</span>
+            <span className="font-mono text-[9px]">TXT</span>
           </button>
 
           {showControls && (

@@ -1,113 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { HOMEPAGE_SLIDES, HomepageSlide, SlideWidgetKey } from "../../data/homepageSlides";
 
 export interface LandingWalkthroughProps {
   onLaunchStudio: () => void;
 }
 
-type WidgetKey =
-  | "telemetry"
-  | "vibe"
-  | "meter"
-  | "playback"
-  | "scope"
-  | "type"
-  | "audio"
-  | "silicon"
-  | "xml"
-  | "launch";
+export type WidgetKey = SlideWidgetKey;
+export type SlideData = HomepageSlide;
+export const SLIDES_DATA = HOMEPAGE_SLIDES;
 
-interface SlideData {
-  id: number;
-  title: string;
-  subtitle: string;
-  body: string;
-  tag: string;
-  widget: WidgetKey;
-}
-
-export const SLIDES_DATA: readonly SlideData[] = [
-  {
-    id: 1,
-    title: "THE DEATH OF BLOAT",
-    subtitle: "Zero-Cloud Sovereign Core",
-    tag: "LOCAL-FIRST ARCHITECTURE",
-    widget: "telemetry",
-    body: "Reject multi-gigabyte desktop software, render queues, and cloud subscriptions. Your browser's GPU and IndexedDB run the entire studio.",
-  },
-  {
-    id: 2,
-    title: "THE 15S DOPAMINE FILTER",
-    subtitle: "Instant Creative Pulse",
-    tag: "RAPID CREATIVE VALIDATION",
-    widget: "vibe",
-    body: "Drop raw footage onto the stage. If it doesn't give you chills with music and title within three seconds, kill the shot instantly.",
-  },
-  {
-    id: 3,
-    title: "THE 12.0S CINEMATIC METER",
-    subtitle: "288 Frames @ 24fps Locked",
-    tag: "TEMPORAL PRECISION",
-    widget: "meter",
-    body: "Every storyboard frame is constrained to a strict 12.000s temporal block. Master your pacing before committing to deep assembly.",
-  },
-  {
-    id: 4,
-    title: "DUAL-MODE PLAYBACK ENGINE",
-    subtitle: "Sequence Animatic vs Solo Inspector",
-    tag: "MACRO / MICRO CONTROL",
-    widget: "playback",
-    body: "Switch seamlessly between macro sequence flow (continuous 100-slide playback) and micro sub-frame scrubbing with J-K-L shuttling.",
-  },
-  {
-    id: 5,
-    title: "2.39:1 OPTICAL SCOPE",
-    subtitle: "The Director's True Aspect",
-    tag: "CINEMATIC COMPOSITION",
-    widget: "scope",
-    body: "True theatrical widescreen letterboxing with real-time anamorphic lens streaks and zero hover clutter.",
-  },
-  {
-    id: 6,
-    title: "BILINGUAL TYPOGRAPHIC ART",
-    subtitle: "Real-Time Gold Metallic Bloom",
-    tag: "TYPE / LIGHT / LANGUAGE",
-    widget: "type",
-    body: "Elevate native Bangla and English titles into high-fashion cinema graphics with real-time bidirectional inspector synchronization.",
-  },
-  {
-    id: 7,
-    title: "AUDIO TRANSIENT BEAT-SYNC",
-    subtitle: "DSP Waveform Intelligence",
-    tag: "RHYTHM-AWARE EDITING",
-    widget: "audio",
-    body: "Built-in Web Audio API peak detection marks kick and snare downbeats, snapping shot cuts automatically to musical rhythm.",
-  },
-  {
-    id: 8,
-    title: "SOVEREIGN LOCAL SILICON",
-    subtitle: "Your Machine Is The Server",
-    tag: "LOCAL DATA OWNERSHIP",
-    widget: "silicon",
-    body: "100% client-side persistence via IndexedDB. Your footage never leaves your local drive. Complete operational security.",
-  },
-  {
-    id: 9,
-    title: "ONE-CLICK NLE HANDOVER",
-    subtitle: "Premiere & CapCut XML Pipeline",
-    tag: "PORTABLE EDIT DECISIONS",
-    widget: "xml",
-    body: "Export native FCP 7 XML and FCPXML directly to CapCut Desktop or Premiere Pro with complete timecodes, titles, and track metadata.",
-  },
-  {
-    id: 10,
-    title: "CLIENT-SIDE MP4 EXPORTER",
-    subtitle: "Local WebCodecs Hardware Muxer",
-    tag: "FROM IDEA TO DELIVERABLE",
-    widget: "launch",
-    body: "Render selected frame ranges directly into high-fidelity H.264 MP4 files straight from your canvas, completely in-browser.",
-  },
-];
 
 const GOLD_TEXT =
   "bg-gradient-to-b from-[#FFF2B2] via-[#F5A623] to-[#B45309] bg-clip-text text-transparent";

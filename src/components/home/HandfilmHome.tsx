@@ -149,14 +149,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
       >
-        {/* Ambient Film Plate Preview for current slide */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          {frames[currentSlideIndex % frames.length]?.imageUrl ? (
+        {/* Ambient Film Plate Preview for current slide - 2.39:1 Ultra-Widescreen Artwork Frame */}
+        <div className="absolute inset-0 z-0 overflow-hidden flex items-center justify-center bg-black">
+          {activeSlide.backgroundImage || frames[currentSlideIndex % frames.length]?.imageUrl ? (
             <img 
               key={`hero-plate-${slideTransitionKey}-${currentSlideIndex}`}
-              src={frames[currentSlideIndex % frames.length]?.imageUrl} 
-              alt={activeSlide.title} 
-              className={`w-full h-full object-cover object-center opacity-35 scale-105 filter blur-xs ${
+              src={activeSlide.backgroundImage || frames[currentSlideIndex % frames.length]?.imageUrl} 
+              alt={activeSlide.imageAlt || activeSlide.title} 
+              className={`w-full h-full object-cover object-center opacity-65 md:opacity-75 scale-100 transition-transform duration-1000 ease-out ${
                 isTransitionActive ? 'animate-hero-plate' : 'opacity-0'
               }`}
             />

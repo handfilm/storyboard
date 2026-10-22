@@ -202,6 +202,17 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   // Active slide frame state (0 to 287)
   const [currentFrame, setCurrentFrame] = useState<number>(() => Math.floor(slideTimeSec * 24));
 
+  // Dynamic multi-position animated title placement per shot with interactive override
+  const [titlePosition, setTitlePosition] = useState<'left-bottom' | 'mid-bottom' | 'right-bottom' | 'auto'>('auto');
+
+  const effectiveTitleVariant = useMemo<'left-bottom' | 'mid-bottom' | 'right-bottom'>(() => {
+    if (titlePosition !== 'auto') return titlePosition;
+    const mod = Math.abs(currentIndex) % 3;
+    if (mod === 0) return 'left-bottom';
+    if (mod === 1) return 'mid-bottom';
+    return 'right-bottom';
+  }, [titlePosition, currentIndex]);
+
   // Sync frame with slide time changes
   useEffect(() => {
     setCurrentFrame(Math.floor(slideTimeSec * 24));
@@ -613,6 +624,59 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
               )}
             </div>
 
+            {/* Title Position Switcher Capsule */}
+            <div className="bg-[#0E0E12]/95 border border-[#1C1C24] px-2 py-1 rounded-full text-[9px] font-mono text-[#EDEDED] flex items-center gap-1 shadow-lg backdrop-blur-md">
+              <span className="text-zinc-500 font-bold uppercase tracking-wider hidden sm:inline pl-1">TITLE:</span>
+              <button
+                type="button"
+                onClick={() => setTitlePosition('left-bottom')}
+                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer ${
+                  effectiveTitleVariant === 'left-bottom'
+                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+                title="Traditional Slate (Left-Bottom with Flare)"
+              >
+                LEFT
+              </button>
+              <button
+                type="button"
+                onClick={() => setTitlePosition('mid-bottom')}
+                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer ${
+                  effectiveTitleVariant === 'mid-bottom'
+                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+                title="Cinema Center (Mid-Bottom above Matte)"
+              >
+                MID
+              </button>
+              <button
+                type="button"
+                onClick={() => setTitlePosition('right-bottom')}
+                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer ${
+                  effectiveTitleVariant === 'right-bottom'
+                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+                title="Editorial Slate (Right-Bottom Anchor)"
+              >
+                RIGHT
+              </button>
+              <button
+                type="button"
+                onClick={() => setTitlePosition('auto')}
+                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer text-[8px] ${
+                  titlePosition === 'auto'
+                    ? 'bg-zinc-700 text-white font-bold'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+                title="Auto-Sequence Rhythm (Per-shot fallback)"
+              >
+                AUTO
+              </button>
+            </div>
+
             {/* Mode & Aspect Capsule */}
             <div className="bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1.5 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md">
               <span className="text-[#F5A623]">{aspectRatio}</span>
@@ -634,8 +698,9 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
               subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
               directorNotes={currentSlide?.directorNotes}
               isVisible={showTitles}
-              variant={titleLayout.variant}
+              variant={effectiveTitleVariant}
               allowQuickControls={true}
+              onChangeVariant={(v) => setTitlePosition(v)}
             />
           )}
 

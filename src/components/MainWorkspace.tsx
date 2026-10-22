@@ -15,6 +15,7 @@ import { WorkspaceMode } from '../core/theme';
 import { AnthologyFrame, AspectRatio } from '../types/anthology';
 import { OpticalFrame } from './OpticalFrame';
 import { OpticalMonitor } from './player/OpticalMonitor';
+import { ReelsView } from './ReelsView';
 import { TimelineSequencer } from './sequencer/TimelineSequencer';
 import { BoardStudio } from '../features/board/BoardStudio';
 import { CutStudio } from '../features/cut/CutStudio';
@@ -408,12 +409,12 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           </div>
         )}
 
-        {/* VIEW 1: DUAL STUDIO SPLIT (Top: Optical Monitor, Bottom: Timeline Sequencer) */}
+        {/* VIEW 1: DUAL STUDIO SPLIT (Top: 12.0s Reels Viewport with Editorial Obsidian Capsule, Bottom: Timeline Sequencer) */}
         {currentPanel === 'SPLIT' && (
           <div className="w-full h-full flex flex-col overflow-hidden">
-            {/* Top: 2.39:1 Optical Monitor Canvas */}
-            <div className="flex-1 min-h-[340px] w-full flex items-center justify-center overflow-hidden border-b border-[#1C1C24] p-2">
-              <OpticalMonitor
+            {/* Top: 12.0s Reels Mode Editorial Layout */}
+            <div className="flex-1 min-h-[340px] w-full flex items-center justify-center overflow-hidden border-b border-[#1C1C24]">
+              <ReelsView
                 currentSlide={slides[currentIndex]}
                 nextSlide={slides[(currentIndex + 1) % slides.length]}
                 currentIndex={currentIndex}
@@ -436,6 +437,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onPurgeMedia={onPurgeMedia}
                 onOpenCinemaPlayer={onOpenCinemaPlayer}
                 projectTitle={projectTitle}
+                defaultSafeZone="bottom"
               />
             </div>
 

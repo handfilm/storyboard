@@ -39,6 +39,7 @@ export interface KeyboardShortcutsHandlers {
   onToggleFullscreen?: () => void;
   onOpenExportRange?: () => void;
   onToggleTitles?: () => void;
+  onToggleShortcuts?: () => void;
 }
 
 export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) {
@@ -56,7 +57,8 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
     onClearInOutPoints,
     onToggleFullscreen,
     onOpenExportRange,
-    onToggleTitles
+    onToggleTitles,
+    onToggleShortcuts
   } = handlers;
 
   useEffect(() => {
@@ -83,6 +85,13 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
       if (e.shiftKey && (e.key === 'e' || e.key === 'E')) {
         e.preventDefault();
         onOpenExportRange?.();
+        return;
+      }
+
+      // Keyboard Shortcuts Cheat Sheet: '?' or Shift + /
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        onToggleShortcuts?.();
         return;
       }
 
@@ -181,6 +190,7 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
     onClearInOutPoints,
     onToggleFullscreen,
     onOpenExportRange,
-    onToggleTitles
+    onToggleTitles,
+    onToggleShortcuts
   ]);
 }

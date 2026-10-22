@@ -121,6 +121,24 @@ const ALL_SHORTCUTS: ShortcutItem[] = [
     scope: 'GLOBAL',
     testCodes: ['Home', 'End']
   },
+  {
+    key: '↑ / ↓',
+    name: 'Previous / Next Cut Point',
+    description: 'Jump playhead to head boundary of previous or next shot in sequence',
+    category: 'navigation',
+    scope: 'NLE ENGINE',
+    tag: 'NAVIGATION',
+    testCodes: ['ArrowUp', 'ArrowDown']
+  },
+  {
+    key: 'Shift + Space',
+    name: 'Audition In / Out Range',
+    description: 'Play loop strictly bounded between marked In-point and Out-point markers',
+    category: 'navigation',
+    scope: 'TRIMMER',
+    tag: 'AUDITION',
+    testCodes: ['Space']
+  },
 
   // --- Storyboard Views & Modes ---
   {
@@ -356,10 +374,10 @@ const ALL_SHORTCUTS: ShortcutItem[] = [
 
 const CATEGORIES = [
   { id: 'all', label: 'All Shortcuts', icon: Keyboard },
-  { id: 'navigation', label: 'Navigation & Transport', icon: Play },
+  { id: 'navigation', label: 'NLE Playback & Transport', icon: Play },
+  { id: 'trimmer', label: 'NLE Trimmer & Razor', icon: Scissors },
   { id: 'modes', label: 'Views & Viewports', icon: Grid },
   { id: 'optics', label: 'Camera & Optics', icon: Camera },
-  { id: 'trimmer', label: 'Trimmer & Cutting', icon: Scissors },
   { id: 'system', label: 'System & Export', icon: Command }
 ] as const;
 
@@ -404,6 +422,13 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
       }
 
       if (isInput) return;
+
+      // Toggle close modal when '?' or Shift + / is pressed again
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        onClose();
+        return;
+      }
 
       // Ignore standard tab navigation
       if (e.key === 'Tab') return;
@@ -502,17 +527,20 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
               <Keyboard className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm sm:text-base font-bold font-mono tracking-wider text-white">
-                  STORYBOARD ENGINE // KEYBOARD SHORTCUTS
+                  HANDFILM // KEYBOARD SHORTCUTS CHEAT SHEET
                 </h2>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/30 text-[10px] font-mono font-semibold text-[#F5A623]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/30 text-[10px] font-mono font-semibold text-[#F5A623]">
                   <Layers className="w-2.5 h-2.5" />
                   SCOPE: {activeLayer}
                 </span>
+                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-mono font-semibold text-emerald-400">
+                  PRESS [?] TO TOGGLE
+                </span>
               </div>
               <p className="text-[11px] text-zinc-400 mt-0.5">
-                Complete tactile control reference for playback, scrubbing, and director inspection
+                Complete tactile control reference for NLE transport, playback shuttling, 24fps frame stepping, & trimming
               </p>
             </div>
           </div>
@@ -544,82 +572,118 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           </div>
         </div>
 
-        {/* Quick-Start Navigation Hero Bar (The Core 4 Controls) */}
+        {/* Quick-Start Navigation Hero Bar (The Core 6 NLE & Playback Controls) */}
         <div className="px-5 py-3 bg-gradient-to-r from-zinc-900/90 via-[#12121A] to-zinc-900/90 border-b border-zinc-800/70 shrink-0">
           <div className="text-[10px] font-mono uppercase tracking-widest text-[#F5A623] font-semibold mb-2 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Sparkles className="w-3 h-3 text-[#F5A623]" />
-              Essential Storyboard Navigation
+              Core NLE Playback & Transport Deck
             </span>
-            {detectedKey && (
+            {detectedKey ? (
               <span className="text-emerald-400 animate-pulse flex items-center gap-1 lowercase font-mono">
                 key pressed: <span className="font-bold uppercase text-white bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">[{detectedKey}]</span>
+              </span>
+            ) : (
+              <span className="text-zinc-500 font-mono text-[10px] hidden sm:inline">
+                Tap physical keys to test & highlight shortcuts live
               </span>
             )}
           </div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* Play/Pause */}
-            <div className="p-2.5 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-[#E50914]/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-[#E50914]/20 border border-[#E50914]/40 flex items-center justify-center text-[#E50914]">
-                  <Play className="w-3 h-3 fill-current" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {/* 1. Play/Pause */}
+            <div className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-[#E50914]/50 transition-colors">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-5 h-5 rounded bg-[#E50914]/20 border border-[#E50914]/40 flex items-center justify-center text-[#E50914] shrink-0">
+                  <Play className="w-2.5 h-2.5 fill-current" />
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-200">Play / Pause</div>
-                  <div className="text-[10px] text-zinc-500 font-mono">Audition loop</div>
+                <div className="truncate">
+                  <div className="text-[11px] font-semibold text-zinc-200 truncate">Play / Pause</div>
+                  <div className="text-[9px] text-zinc-500 font-mono">Loop audition</div>
                 </div>
               </div>
-              <kbd className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-mono font-bold shadow-sm">
+              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-[10px] font-mono font-bold shadow-sm shrink-0">
                 Space
               </kbd>
             </div>
 
-            {/* Previous/Next Shot */}
-            <div className="p-2.5 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-[#F5A623]/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-[#F5A623]/20 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
-                  <Film className="w-3 h-3" />
+            {/* 2. Shuttle Deck (J-K-L) */}
+            <div className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-cyan-500/50 transition-colors">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-5 h-5 rounded bg-cyan-950/40 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+                  <FastForward className="w-2.5 h-2.5" />
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-200">Next / Prev Shot</div>
-                  <div className="text-[10px] text-zinc-500 font-mono">Jump slide</div>
-                </div>
-              </div>
-              <kbd className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-mono font-bold shadow-sm">
-                ← / →
-              </kbd>
-            </div>
-
-            {/* Shuttle Deck */}
-            <div className="p-2.5 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-cyan-500/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-cyan-950/40 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-                  <FastForward className="w-3 h-3" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-200">NLE Shuttle</div>
-                  <div className="text-[10px] text-zinc-500 font-mono">Rev / Stop / Fwd</div>
+                <div className="truncate">
+                  <div className="text-[11px] font-semibold text-zinc-200 truncate">NLE Shuttle</div>
+                  <div className="text-[9px] text-zinc-500 font-mono">Rev / Halt / Fwd</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-mono font-bold shadow-sm">
+              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-[10px] font-mono font-bold shadow-sm shrink-0">
                 J K L
               </kbd>
             </div>
 
-            {/* Single Frame Step */}
-            <div className="p-2.5 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-purple-500/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-purple-950/40 border border-purple-500/40 flex items-center justify-center text-purple-400">
-                  <Sliders className="w-3 h-3" />
+            {/* 3. Single Frame Step */}
+            <div className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-purple-500/50 transition-colors">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-5 h-5 rounded bg-purple-950/40 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
+                  <Sliders className="w-2.5 h-2.5" />
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-200">Frame Nudge</div>
-                  <div className="text-[10px] text-zinc-500 font-mono">±1F (41ms)</div>
+                <div className="truncate">
+                  <div className="text-[11px] font-semibold text-zinc-200 truncate">Frame Step</div>
+                  <div className="text-[9px] text-zinc-500 font-mono">±1F (41.6ms)</div>
                 </div>
               </div>
-              <kbd className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-mono font-bold shadow-sm">
+              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-[10px] font-mono font-bold shadow-sm shrink-0">
                 , / .
+              </kbd>
+            </div>
+
+            {/* 4. Previous/Next Shot */}
+            <div className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-[#F5A623]/50 transition-colors">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-5 h-5 rounded bg-[#F5A623]/20 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623] shrink-0">
+                  <Film className="w-2.5 h-2.5" />
+                </div>
+                <div className="truncate">
+                  <div className="text-[11px] font-semibold text-zinc-200 truncate">Shot Jump</div>
+                  <div className="text-[9px] text-zinc-500 font-mono">Next / Prev</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-[10px] font-mono font-bold shadow-sm shrink-0">
+                ← / →
+              </kbd>
+            </div>
+
+            {/* 5. In / Out Trim Markers */}
+            <div className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-emerald-500/50 transition-colors">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Scissors className="w-2.5 h-2.5" />
+                </div>
+                <div className="truncate">
+                  <div className="text-[11px] font-semibold text-zinc-200 truncate">In / Out Trim</div>
+                  <div className="text-[9px] text-zinc-500 font-mono">Subclip range</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-[10px] font-mono font-bold shadow-sm shrink-0">
+                I / O
+              </kbd>
+            </div>
+
+            {/* 6. Razor Split */}
+            <div className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 flex items-center justify-between group hover:border-amber-500/50 transition-colors">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-5 h-5 rounded bg-amber-950/40 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                  <Scissors className="w-2.5 h-2.5" />
+                </div>
+                <div className="truncate">
+                  <div className="text-[11px] font-semibold text-zinc-200 truncate">Razor Split</div>
+                  <div className="text-[9px] text-zinc-500 font-mono">Cut at head</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-[10px] font-mono font-bold shadow-sm shrink-0">
+                S
               </kbd>
             </div>
           </div>
@@ -751,12 +815,12 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
             <span className="text-zinc-400">
-              Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">?</kbd> anytime to open this modal
+              Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">?</kbd> anywhere in the app to toggle this cheat sheet
             </span>
           </div>
           
           <div className="flex items-center gap-3">
-            <span>Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">Esc</kbd> to exit</span>
+            <span>Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">?</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">Esc</kbd> to exit</span>
             <span className="text-zinc-600">|</span>
             <span className="text-[#F5A623] font-semibold">HANDFILM DIRECTOR CORE</span>
           </div>

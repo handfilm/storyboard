@@ -41,7 +41,8 @@ import {
   Globe,
   Settings,
   Sliders,
-  ChevronDown
+  ChevronDown,
+  Keyboard
 } from 'lucide-react';
 
 export interface TopBarProps {
@@ -370,6 +371,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
+          {/* Keyboard Shortcuts Trigger Button ('?' Cheat Sheet) */}
+          <button
+            type="button"
+            onClick={onOpenShortcuts}
+            className="px-2.5 py-1.5 rounded-full bg-[#101018]/90 hover:bg-[#181824] border border-[#272732] hover:border-[#F5A623]/60 text-zinc-300 hover:text-[#F5A623] font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
+            title="Keyboard Shortcuts Cheat Sheet (Press ?)"
+          >
+            <Keyboard className="w-3.5 h-3.5 text-[#F5A623]" />
+            <span className="hidden sm:inline font-bold text-[10px]">SHORTCUTS</span>
+            <kbd className="px-1 py-0.2 rounded bg-black/60 border border-zinc-700/70 text-[9px] text-[#F5A623] font-mono font-bold">?</kbd>
+          </button>
+
           {/* Right Ecosystem Menu: HUB, VAULT, R2 / STREAM, BLOOM-APP, DEEPER, LAB, SETTINGS */}
           <div className="relative">
             <button
@@ -507,6 +520,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <span className="font-bold">SETTINGS</span>
                   </div>
                   <span className="text-[8.5px] text-zinc-500">Quotas & Diagnostics</span>
+                </button>
+
+                {/* 8. KEYBOARD SHORTCUTS (?) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenShortcuts) onOpenShortcuts();
+                    setIsEcosystemMenuOpen(false);
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-[#F5A623] hover:text-[#FFE066] flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Keyboard className="w-3.5 h-3.5 text-[#F5A623]" />
+                    <span className="font-bold">SHORTCUTS CHEAT SHEET</span>
+                  </div>
+                  <span className="text-[8.5px] bg-[#F5A623]/20 border border-[#F5A623]/40 px-1 rounded text-[#F5A623] font-bold">?</span>
                 </button>
               </div>
             )}

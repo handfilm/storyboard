@@ -311,6 +311,19 @@ export default function App() {
     };
   }, []);
 
+  // Register KeyScopeManager cheat sheet handler and init on mount
+  useEffect(() => {
+    const unsubCheatSheet = keyScopeManager.setCheatSheetHandler(() => {
+      setIsShortcutsOpen(prev => !prev);
+    });
+    const unsubKeyScope = keyScopeManager.init();
+
+    return () => {
+      unsubCheatSheet();
+      unsubKeyScope();
+    };
+  }, []);
+
   // Initialize Storage Core & Check Crash Status on Mount
   useEffect(() => {
     let isMounted = true;

@@ -1,63 +1,48 @@
 /**
  * @file /src/components/TopBar.tsx
- * @description Master Top Bar matching the Google Flow aesthetic from the reference screenshot:
- * - Green RAWx square logo with film frame
- * - Project title with yellow diamond indicator
- * - Segmented "Tool" / "Edit" pill
- * - Center mode switcher with glowing gold STAGE pill, BOARD, and CUT
- * - Right: Undo, Fullscreen, [▶ ANIMATIC] gold button, [☆ Apply to be featured], Heart, Share, Done
- * - Full suite of studio utilities (Components Matrix, Theme, Self-Test, Project Vault)
+ * @description Master Editorial Cinema TopBar for HANDFILM:
+ * - Left: Cinema Red Diamond Monogram, HANDFILM brand, minimal nav links (Home, Top 10 Reels, Manifesto)
+ * - Right: Tactical action cluster ([ ? MANIFESTO ], [ EXPORT XML ], [ ▶ PRO STUDIO ] / [ HOME ])
+ * - Zero pill collision or wrap; secondary studio tools neatly accessible via overflow menu.
  */
 
 import React, { useState } from 'react';
 import { WorkspaceMode } from '../core/theme';
 import { SaveState } from '../core/storage';
 import { exportFullIdbBackup } from '../utils/backup';
-import { FEDERATION_APPS } from '../types/editor';
 import {
   Film,
   Home,
-  RotateCcw,
-  RotateCw,
-  Maximize2,
   Play,
-  Share2,
-  Heart,
   MoreVertical,
-  Check,
   FolderOpen,
   Layers,
   Palette,
   Activity,
   HelpCircle,
   HardDriveDownload,
-  Download,
   SlidersHorizontal,
-  ChevronDown,
-  Type,
   Cloud,
-  Globe,
-  ExternalLink,
   Video,
   Sparkles
 } from 'lucide-react';
 
-interface TopBarProps {
-  projectTitle: string;
-  onUpdateTitle: (title: string) => void;
-  activeMode: WorkspaceMode;
-  onSelectMode: (mode: WorkspaceMode) => void;
+export interface TopBarProps {
+  projectTitle?: string;
+  onUpdateTitle?: (title: string) => void;
+  activeMode?: WorkspaceMode;
+  onSelectMode?: (mode: WorkspaceMode) => void;
   onGoHome?: () => void;
   activeModule?: string;
-  isProMode: boolean;
-  onToggleProMode: () => void;
+  isProMode?: boolean;
+  onToggleProMode?: () => void;
   componentsBadgeText?: string;
   onToggleComponentsPopover?: () => void;
   onOpenThemeSettings?: () => void;
-  onOpenCommandPalette: () => void;
-  onOpenSelfTest: () => void;
-  onOpenShortcuts: () => void;
-  onOpenPublishModal: () => void;
+  onOpenCommandPalette?: () => void;
+  onOpenSelfTest?: () => void;
+  onOpenShortcuts?: () => void;
+  onOpenPublishModal?: () => void;
   onOpenProjectManager?: () => void;
   onOpenAnimatic?: () => void;
   onToggleFullscreen?: () => void;
@@ -77,31 +62,19 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
-  projectTitle,
-  onUpdateTitle,
-  activeMode,
+  projectTitle = 'UNTITLED_CANVAS_01',
+  activeMode = 'STAGE',
   onSelectMode,
   onGoHome,
-  activeModule,
-  isProMode,
+  isProMode = true,
   onToggleProMode,
   componentsBadgeText = '12/13 ON',
   onToggleComponentsPopover,
   onOpenThemeSettings,
-  onOpenCommandPalette,
   onOpenSelfTest,
   onOpenShortcuts,
-  onOpenPublishModal,
   onOpenProjectManager,
   onOpenAnimatic,
-  onToggleFullscreen,
-  onToggleTitles,
-  showTitles = true,
-  saveState = 'saved',
-  onUndo,
-  onRedo,
-  canUndo = false,
-  canRedo = false,
   onOpenR2Automation,
   onOpenExportTimeline,
   onOpenExportRange,
@@ -109,497 +82,192 @@ export const TopBar: React.FC<TopBarProps> = ({
   currentView = 'HOME',
   onSelectView
 }) => {
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(projectTitle);
-  const [activeTabPill, setActiveTabPill] = useState<'Tool' | 'Edit'>('Tool');
-  const [isLiked, setIsLiked] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [isFederationDockOpen, setIsFederationDockOpen] = useState(false);
-  const [shareFeedback, setShareFeedback] = useState(false);
 
-  const handleTitleSubmit = () => {
-    setIsEditingTitle(false);
-    if (titleDraft.trim()) {
-      onUpdateTitle(titleDraft.trim());
+  const handleNavHome = () => {
+    if (onSelectView) onSelectView('HOME');
+    else if (onGoHome) onGoHome();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavTop10 = () => {
+    if (currentView !== 'HOME') {
+      onSelectView?.('HOME');
+      setTimeout(() => {
+        document.getElementById('top-10-reels-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     } else {
-      setTitleDraft(projectTitle);
+      document.getElementById('top-10-reels-section')?.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
-  const handleShare = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      setShareFeedback(true);
-      setTimeout(() => setShareFeedback(false), 2000);
-    }
+  const handleNavManifesto = () => {
+    if (onOpenWalkthrough) onOpenWalkthrough();
   };
 
   return (
-    <header className="h-13 w-full bg-[#0c0c10] border-b border-[#272732] px-3 sm:px-4 flex items-center justify-between select-none z-50 backdrop-blur-2xl relative font-sans">
-      {/* Left: HANDFILM Cinema Red Monogram & Title */}
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-        {/* Diamond Monogram in HANDFILM Cinema Red (rotate-45) */}
+    <header className="h-16 px-6 md:px-12 flex items-center justify-between bg-gradient-to-b from-[#070709]/95 via-[#070709]/75 to-transparent backdrop-blur-md sticky top-0 z-50 border-b border-white/5 select-none font-sans">
+      {/* Left: Brand HANDFILM + Minimal Nav Links */}
+      <div className="flex items-center gap-6 sm:gap-8 min-w-0">
+        {/* Brand Logo & Name */}
         <div 
-          onClick={onOpenProjectManager}
-          className="group relative flex items-center justify-center w-7 h-7 shrink-0 cursor-pointer"
-          title="HANDFILM Studio — Click for Project Vault"
+          onClick={handleNavHome}
+          className="flex items-center gap-3 cursor-pointer group shrink-0"
+          title="HANDFILM — Return to Home"
         >
-          <div className="w-5 h-5 rotate-45 border border-[#E50914] bg-gradient-to-tr from-[#8B0000] via-[#E50914] to-[#ff4d4d] flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.5)] group-hover:shadow-[0_0_20px_rgba(229,9,20,0.8)] group-hover:border-[#ff6b6b] transition-all">
+          {/* Diamond Monogram in HANDFILM Cinema Red */}
+          <div className="w-5 h-5 rotate-45 border border-[#E50914] bg-gradient-to-tr from-[#8B0000] via-[#E50914] to-[#ff4d4d] flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.5)] group-hover:shadow-[0_0_20px_rgba(229,9,20,0.8)] transition-all">
             <Film className="w-2.5 h-2.5 text-white font-black -rotate-45" />
           </div>
-        </div>
 
-        {/* Studio Title with Cinzel & Monospace Telemetry */}
-        <div 
-          onClick={() => onSelectView?.('HOME')}
-          className="flex flex-col shrink-0 cursor-pointer leading-tight group"
-          title="HANDFILM — Click for Home"
-        >
-          <span className="font-cinzel font-black text-xs sm:text-[14px] text-[#E50914] tracking-[0.22em] group-hover:text-white transition-colors">
-            HANDFILM
-          </span>
-          <span className="font-mono text-[7.5px] text-[#F5A623] tracking-[0.16em] uppercase">
-            24FPS PREVIS & NLE
-          </span>
-        </div>
-
-        {/* Tool / Edit Segmented Pill */}
-        <div className="hidden lg:flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] text-[11px] shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTabPill('Tool')}
-            className={`px-3 py-0.5 rounded-full font-medium transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
-              activeTabPill === 'Tool' ? 'bg-[#272732] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Tool
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTabPill('Edit');
-              if (onSelectView) onSelectView('STUDIO');
-              onSelectMode('CUT');
-            }}
-            className={`px-3 py-0.5 rounded-full font-medium transition-colors duration-150 ease-out cursor-pointer active:scale-[0.98] ${
-              activeTabPill === 'Edit' ? 'bg-[#272732] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Edit
-          </button>
-        </div>
-
-        {/* Diamond Project Title pill */}
-        {isEditingTitle ? (
-          <div className="flex items-center gap-1 shrink">
-            <input
-              type="text"
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={handleTitleSubmit}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleTitleSubmit();
-                if (e.key === 'Escape') {
-                  setTitleDraft(projectTitle);
-                  setIsEditingTitle(false);
-                }
-              }}
-              autoFocus
-              className="bg-black/95 border border-[#d4af37] text-white text-xs px-2.5 py-0.5 rounded-full font-mono outline-none max-w-[200px]"
-            />
-            <button 
-              onClick={handleTitleSubmit} 
-              className="p-1 text-[#eab308] hover:text-[#fbbf24] cursor-pointer"
-            >
-              <Check className="w-3 h-3" />
-            </button>
-          </div>
-        ) : (
-          <div 
-            onClick={() => {
-              setTitleDraft(projectTitle);
-              setIsEditingTitle(true);
-            }}
-            title={`Project: ${projectTitle} (Click to rename)`}
-            className="group flex items-center gap-1.5 px-3 py-1 bg-[#0a0a10]/95 hover:bg-[#121218] rounded-full border border-[#272732] hover:border-[#d4af37]/60 text-xs font-mono text-zinc-200 cursor-pointer transition-all shrink max-w-[130px] sm:max-w-[200px] lg:max-w-[260px]"
-          >
-            <span className="text-[#eab308] text-[10px] shrink-0 font-bold">◆</span>
-            <span className="truncate tracking-wide font-medium">{projectTitle}</span>
-            <span className="text-[9px] text-zinc-500 group-hover:text-[#eab308] shrink-0">✎</span>
-          </div>
-        )}
-
-        {/* Save State Badge */}
-        <div className="hidden xl:flex items-center gap-1.5 text-[8.5px] font-mono text-zinc-400">
-          <span 
-            className={`w-1.5 h-1.5 rounded-full ${
-              saveState === 'saving'
-                ? 'bg-[#fbbf24] animate-ping'
-                : saveState === 'error'
-                ? 'bg-rose-500'
-                : 'bg-emerald-400 animate-pulse'
-            }`} 
-          />
-          <span className="text-[8px] uppercase tracking-wider">{saveState}</span>
-        </div>
-      </div>
-
-      {/* Center: Top Navigation Pills ([ Home ] [ Director Cuts ] [ 12s Sequencer ] [ My List ]) */}
-      <div className="flex items-center bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] shrink-0 mx-1 shadow-inner">
-        <button
-          type="button"
-          onClick={() => {
-            if (onSelectView) onSelectView('HOME');
-            else if (onGoHome) onGoHome();
-          }}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-            currentView === 'HOME'
-              ? 'bg-[#E50914] text-white shadow-[0_0_15px_rgba(229,9,20,0.45)]'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5'
-          }`}
-          title="HANDFILM Home — 10-Slide Cinema Manifesto & Top 10"
-        >
-          <Home className="w-3 h-3" />
-          <span>Home</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (onSelectView) onSelectView('STUDIO');
-            onSelectMode('STAGE');
-          }}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-            currentView === 'STUDIO' && activeMode === 'STAGE'
-              ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.45)]'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5'
-          }`}
-          title="Director Cuts — 2.39:1 Anamorphic Viewport"
-        >
-          <Film className="w-3 h-3" />
-          <span>Director Cuts</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (onSelectView) onSelectView('STUDIO');
-            onSelectMode('BOARD');
-          }}
-          className={`px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98] ${
-            currentView === 'STUDIO' && activeMode === 'BOARD'
-              ? 'bg-[#F5A623] text-black shadow-[0_0_15px_rgba(245,166,35,0.45)]'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5'
-          }`}
-          title="12s Sequencer — 100-Shot Storyboard Grid"
-        >
-          <span className="text-xs">⊞</span>
-          <span>12s Sequencer</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenProjectManager}
-          className="px-3 sm:px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider text-zinc-400 hover:text-white hover:bg-white/5 transition-colors duration-150 ease-out cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
-          title="My List — Projects & Vault"
-        >
-          <FolderOpen className="w-3 h-3 text-[#F5A623]" />
-          <span>My List</span>
-        </button>
-      </div>
-
-      {/* Right: Actions matching tactical director aesthetic */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        {/* Undo Button */}
-        {onUndo && (
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
-            className="p-1.5 rounded-full bg-[#0a0a10] hover:bg-[#15151e] text-zinc-400 hover:text-white border border-[#272732] disabled:opacity-30 cursor-pointer transition-colors active:scale-[0.98]"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-        )}
-
-        {/* Fullscreen Button */}
-        {onToggleFullscreen && (
-          <button
-            type="button"
-            onClick={onToggleFullscreen}
-            title="Toggle Cinema Fullscreen (F)"
-            className="p-1.5 rounded-full bg-[#0a0a10] hover:bg-[#15151e] text-zinc-400 hover:text-white border border-[#272732] cursor-pointer transition-colors active:scale-[0.98]"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
-        )}
-
-        {/* Quick Title Toggle Button */}
-        {onToggleTitles && (
-          <button
-            type="button"
-            onClick={onToggleTitles}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10.5px] font-mono transition-colors duration-150 ease-out cursor-pointer shadow-sm active:scale-[0.98] ${
-              showTitles
-                ? 'bg-[#14141c] border-[#d4af37]/70 text-[#fbbf24] shadow-[0_0_10px_rgba(234,179,8,0.3)]'
-                : 'bg-[#0a0a10] border-[#272732] text-zinc-500 hover:text-zinc-200'
-            }`}
-            title="Toggle Master Titles Overlay (Hotkey: T)"
-          >
-            <Type className={`w-3.5 h-3.5 ${showTitles ? 'text-[#eab308]' : 'text-zinc-500'}`} />
-            <span className="font-bold tracking-wider hidden md:inline">
-              TITLES: {showTitles ? 'ON' : 'OFF'}
+          <div className="flex flex-col leading-tight">
+            <span className="font-cinzel font-black text-sm sm:text-base text-[#E50914] tracking-[0.22em] group-hover:text-white transition-colors">
+              HANDFILM
             </span>
+            <span className="font-mono text-[7px] sm:text-[7.5px] text-[#F5A623] tracking-[0.18em] uppercase">
+              24FPS PREVIS & NLE
+            </span>
+          </div>
+        </div>
+
+        {/* Minimal Nav Links: Home, Top 10 Reels, Manifesto with gap-6 text-xs text-zinc-400 */}
+        <nav className="flex items-center gap-6 text-xs text-zinc-400 font-medium">
+          <button
+            type="button"
+            onClick={handleNavHome}
+            className={`transition-colors cursor-pointer hover:text-white ${
+              currentView === 'HOME' ? 'text-white font-semibold' : ''
+            }`}
+          >
+            Home
+          </button>
+          <button
+            type="button"
+            onClick={handleNavTop10}
+            className="transition-colors cursor-pointer hover:text-white"
+          >
+            Top 10 Reels
+          </button>
+          <button
+            type="button"
+            onClick={handleNavManifesto}
+            className="transition-colors cursor-pointer hover:text-white"
+          >
+            Manifesto
+          </button>
+        </nav>
+      </div>
+
+      {/* Right: Tactical Action Cluster (gap-3 flex items-center) */}
+      <div className="gap-3 flex items-center shrink-0">
+        {/* [ ? MANIFESTO ] */}
+        {onOpenWalkthrough && (
+          <button
+            type="button"
+            onClick={onOpenWalkthrough}
+            className="px-3.5 py-1.5 rounded-full bg-[#101018]/80 hover:bg-[#F5A623]/15 border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-sm active:scale-[0.98]"
+            title="Open HANDFILM Director's Manifesto (10 Interactive Slides)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#F5A623]" />
+            <span>[ ? MANIFESTO ]</span>
           </button>
         )}
 
-        {/* Tactical Dual-View Mode CTA Pill */}
+        {/* [ EXPORT XML ] */}
+        {onOpenExportTimeline && (
+          <button
+            type="button"
+            onClick={onOpenExportTimeline}
+            className="px-3.5 py-1.5 rounded-full bg-[#101018]/80 hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-sm active:scale-[0.98]"
+            title="Export Timeline XML (Premiere Pro, CapCut Desktop & DaVinci Resolve)"
+          >
+            <Film className="w-3.5 h-3.5 text-[#eab308]" />
+            <span>[ EXPORT XML ]</span>
+          </button>
+        )}
+
+        {/* [ ▶ PRO STUDIO ] (Solid red #E50914 pill) or [ HOME ] toggle */}
         {currentView === 'HOME' ? (
           <button
             type="button"
             onClick={() => onSelectView?.('STUDIO')}
-            className="px-3.5 py-1 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-[0_0_15px_rgba(229,9,20,0.5)] active:scale-[0.98]"
-            title="Switch to Active 12.0s 24fps Previs & Cut Engine"
+            className="px-4 py-1.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_15px_rgba(229,9,20,0.5)] hover:shadow-[0_0_20px_rgba(229,9,20,0.8)] active:scale-[0.98]"
+            title="Launch Active 12.0s 24fps Previs & Cut Engine"
           >
             <Play className="w-3 h-3 fill-current" />
-            <span>▶ PRO STUDIO</span>
+            <span>[ ▶ PRO STUDIO ]</span>
           </button>
         ) : (
           <button
             type="button"
             onClick={() => onSelectView?.('HOME')}
-            className="px-3.5 py-1 rounded-full bg-[#1b1b24] hover:bg-[#252532] border border-[#E50914]/60 text-white font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98]"
+            className="px-4 py-1.5 rounded-full bg-[#1b1b24] hover:bg-[#252532] border border-[#E50914]/60 text-white font-bold text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 active:scale-[0.98]"
             title="Return to HANDFILM Home Page"
           >
             <Home className="w-3 h-3 text-[#E50914]" />
-            <span>HOME</span>
+            <span>[ HOME ]</span>
           </button>
         )}
 
-        {/* Dedicated 10-Slide Cinematic Walkthrough Manifesto */}
-        {onOpenWalkthrough && (
-          <button
-            type="button"
-            onClick={onOpenWalkthrough}
-            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#F5A623]/20 border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
-            title="Open HANDFILM Director's Manifesto Walkthrough (10 Interactive Slides)"
-          >
-            <HelpCircle className="w-3 h-3 text-[#F5A623]" />
-            <span>[ ? MANIFESTO ]</span>
-          </button>
-        )}
-
-        {/* Dedicated NLE Timeline Export Button (Premiere/CapCut XML & FCPXML) */}
-        {onOpenExportTimeline && (
-          <button
-            type="button"
-            onClick={onOpenExportTimeline}
-            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
-            title="Export Timeline XML (CapCut Desktop, Adobe Premiere Pro & DaVinci Resolve)"
-          >
-            <Film className="w-3.5 h-3.5 text-[#eab308]" />
-            <span>EXPORT XML</span>
-          </button>
-        )}
-
-        {/* Dedicated Tungsten Gold [▶ ANIMATIC] Button */}
-        <button
-          type="button"
-          onClick={onOpenAnimatic}
-          className="px-3.5 py-1 rounded-full bg-gradient-to-r from-[#d4af37] via-[#eab308] to-[#fbbf24] hover:brightness-110 text-black font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-[0_0_15px_rgba(234,179,8,0.4)] active:scale-[0.98]"
-          title="Launch Animatic Cinema Player"
-        >
-          <Play className="w-3 h-3 fill-current" />
-          <span>ANIMATIC</span>
-        </button>
-
-        {/* Dedicated Client-Side MP4 Video Exporter Button */}
-        {onOpenExportRange && (
-          <button
-            type="button"
-            onClick={onOpenExportRange}
-            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#181824] border border-[#d4af37]/60 hover:border-[#d4af37] text-zinc-200 hover:text-[#fbbf24] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
-            title="Export Frame Range to MP4 Video (100% In-Browser WebCodecs)"
-          >
-            <Video className="w-3.5 h-3.5 text-[#eab308]" />
-            <span className="hidden sm:inline">EXPORT</span>
-            <span>RANGE MP4</span>
-          </button>
-        )}
-
-        {/* "Apply to be featured" pill */}
-        <button
-          onClick={onOpenPublishModal}
-          className="hidden lg:flex items-center gap-1 px-3 py-1 rounded-full bg-[#0a0a10] hover:bg-[#15151e] border border-[#272732] text-zinc-300 hover:text-white text-[11px] font-medium cursor-pointer transition-colors"
-          title="Publish & Submit Project"
-        >
-          <span className="text-[#eab308]">☆</span>
-          <span>Apply to be featured</span>
-        </button>
-
-        {/* Heart / Favorite */}
-        <button
-          onClick={() => setIsLiked(p => !p)}
-          className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-            isLiked ? 'text-red-400 bg-red-500/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'
-          }`}
-          title="Like / Favorite Project"
-        >
-          <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
-        </button>
-
-        {/* Share Button */}
-        <button
-          onClick={handleShare}
-          className="p-1.5 rounded-full text-zinc-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer relative"
-          title="Share Project URL"
-        >
-          <Share2 className="w-3.5 h-3.5" />
-          {shareFeedback && (
-            <span className="absolute right-0 top-full mt-1 px-2 py-0.5 bg-black border border-[#d4af37] text-[#fbbf24] text-[9px] rounded font-mono whitespace-nowrap shadow-xl">
-              Copied!
-            </span>
-          )}
-        </button>
-
-        {/* Active Hands & Head Ecosystem Links Pill Cluster */}
-        <div className="hidden lg:flex items-center gap-1 bg-[#0a0a10] p-0.5 rounded-full border border-[#272732] shrink-0 shadow-sm">
-          <a
-            href="https://hub.handsandhead.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
-            title="Hands & Head Hub — https://hub.handsandhead.com"
-          >
-            <span>HUB</span>
-            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
-          </a>
-
-          <a
-            href="https://vault.handsandhead.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
-            title="Hands & Head Vault — https://vault.handsandhead.com"
-          >
-            <span>VAULT</span>
-            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
-          </a>
-
-          <a
-            href="https://bloom-app.handsandhead.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-rose-500/20 border border-transparent hover:border-rose-500/60 text-zinc-300 hover:text-rose-400 text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
-            title="Bloom App — https://bloom-app.handsandhead.com"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-            <span>BLOOM</span>
-            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
-          </a>
-
-          <a
-            href="https://xvideos-r2.handsandhead.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
-            title="R2 Stream — https://xvideos-r2.handsandhead.com"
-          >
-            <span className="text-[#eab308]">R2</span>
-            <span>STREAM</span>
-            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
-          </a>
-
-          <a
-            href="https://picseed.handsandhead.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#101018] hover:bg-[#eab308]/20 border border-transparent hover:border-[#eab308]/60 text-zinc-300 hover:text-[#fbbf24] text-[10px] font-mono font-bold tracking-wider transition-colors duration-150 active:scale-[0.98]"
-            title="Picseed CDN — https://picseed.handsandhead.com"
-          >
-            <span>PICSEED</span>
-            <ExternalLink className="w-2.5 h-2.5 text-zinc-500" />
-          </a>
-        </div>
-
-        {/* Cross-App Federation Dock Button & Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setIsFederationDockOpen(prev => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-mono transition-all cursor-pointer ${
-              isFederationDockOpen 
-                ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#fbbf24] shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
-                : 'bg-[#0a0a10] hover:bg-[#14141e] border-[#272732] text-zinc-400 hover:text-white'
-            }`}
-            title="Hands & Head Federation Ecosystem (hub, vault, bloom, xvideos-r2, picseed)"
-          >
-            <Globe className="w-3.5 h-3.5 text-[#eab308]" />
-            <span className="hidden xl:inline font-bold">ECOSYSTEM</span>
-            <ChevronDown className="w-3 h-3 text-zinc-500" />
-          </button>
-
-          {isFederationDockOpen && (
-            <div 
-              className="absolute right-0 top-full mt-2 w-72 bg-black/90 border border-[#272732] rounded-lg shadow-2xl p-2 z-50 font-mono text-xs backdrop-blur-2xl animate-in fade-in duration-150"
-              onMouseLeave={() => setIsFederationDockOpen(false)}
-            >
-              <div className="px-2 py-1 border-b border-[#272732] mb-1 flex items-center justify-between">
-                <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Hands & Head Federation</span>
-                <span className="text-[9px] text-[#eab308] font-bold">ACTIVE DRAFT SAFE</span>
-              </div>
-              <div className="space-y-1">
-                {FEDERATION_APPS.map(app => (
-                  <a
-                    key={app.id}
-                    href={app.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-start justify-between p-2 rounded hover:bg-white/5 transition-colors ${
-                      app.badge === 'ACTIVE' ? 'bg-[#101018] border border-[#d4af37]/40' : ''
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5 font-bold text-zinc-200 text-[11px]">
-                        <span>{app.name}</span>
-                        {app.badge && (
-                          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-mono ${
-                            app.badge === 'ACTIVE' ? 'bg-[#eab308] text-black font-black' : 'bg-rose-500/20 text-rose-300'
-                          }`}>
-                            {app.badge}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[9.5px] text-zinc-400 mt-0.5">{app.description}</p>
-                      <span className="text-[9px] text-zinc-500">{app.subdomain}.handsandhead.com</span>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-zinc-500 shrink-0 mt-1" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* More Tools Dropdown */}
+        {/* Tactical Studio Overflow Menu */}
         <div className="relative">
           <button
             onClick={() => setIsMoreMenuOpen(prev => !prev)}
             className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
-            title="More Studio Tools"
+            title="More Studio Tools & Settings"
           >
-            <MoreVertical className="w-3.5 h-3.5" />
+            <MoreVertical className="w-4 h-4" />
           </button>
 
           {isMoreMenuOpen && (
             <div 
-              className="absolute right-0 top-full mt-2 w-52 bg-black/90 border border-[#272732] rounded-md shadow-2xl p-1 z-50 font-mono text-[10px] space-y-0.5 backdrop-blur-xl"
+              className="absolute right-0 top-full mt-2 w-56 bg-black/95 border border-[#272732] rounded-md shadow-2xl p-1.5 z-50 font-mono text-[11px] space-y-0.5 backdrop-blur-2xl animate-in fade-in duration-150"
               onMouseLeave={() => setIsMoreMenuOpen(false)}
             >
+              {onOpenAnimatic && (
+                <button
+                  onClick={() => { onOpenAnimatic(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Play className="w-3 h-3 text-[#d4af37]" />
+                    <span>Animatic Cinema Player</span>
+                  </div>
+                  <span className="text-[8px] bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fbbf24] px-1 py-0.2 rounded font-bold">
+                    PREVIEW
+                  </span>
+                </button>
+              )}
+
+              {onOpenExportRange && (
+                <button
+                  onClick={() => { onOpenExportRange(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Video className="w-3 h-3 text-[#eab308]" />
+                    <span>Export MP4 Range</span>
+                  </div>
+                  <span className="text-[8px] bg-white/10 px-1 py-0.2 rounded text-zinc-400">
+                    MP4
+                  </span>
+                </button>
+              )}
+
+              {onOpenProjectManager && (
+                <button
+                  onClick={() => { onOpenProjectManager(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
+                >
+                  <FolderOpen className="w-3 h-3 text-[#d4af37]" />
+                  <span>Project Vault Manager</span>
+                </button>
+              )}
+
               {onToggleComponentsPopover && (
                 <button
                   onClick={() => { onToggleComponentsPopover(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Layers className="w-3 h-3 text-[#d4af37]" />
@@ -614,64 +282,25 @@ export const TopBar: React.FC<TopBarProps> = ({
               {onOpenThemeSettings && (
                 <button
                   onClick={() => { onOpenThemeSettings(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
                 >
                   <Palette className="w-3 h-3 text-[#d4af37]" />
                   <span>Theme & Appearance</span>
                 </button>
               )}
 
-              <button
-                onClick={() => { onToggleProMode(); setIsMoreMenuOpen(false); }}
-                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-3 h-3 text-[#d4af37]" />
-                  <span>Studio Layout Mode</span>
-                </div>
-                <span className="px-1.5 py-0.2 bg-[#d4af37]/20 text-[#fbbf24] text-[8px] rounded font-bold">
-                  {isProMode ? 'PRO' : 'SIMPLE'}
-                </span>
-              </button>
-
-              <button
-                onClick={() => { onOpenSelfTest(); setIsMoreMenuOpen(false); }}
-                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
-              >
-                <Activity className="w-3 h-3 text-emerald-400" />
-                <span>Self-Test Diagnostics</span>
-              </button>
-
-              <button
-                onClick={() => { onOpenShortcuts(); setIsMoreMenuOpen(false); }}
-                className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
-              >
-                <HelpCircle className="w-3 h-3 text-[#d4af37]" />
-                <span>Keyboard Shortcuts (Shift+/)</span>
-              </button>
-
-              {onOpenWalkthrough && (
+              {onToggleProMode && (
                 <button
-                  onClick={() => { onOpenWalkthrough(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-[#F5A623] hover:text-[#FFF2B2] flex items-center justify-between cursor-pointer"
+                  onClick={() => { onToggleProMode(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-3 h-3 text-[#F5A623]" />
-                    <span>Director's Manifesto</span>
+                    <SlidersHorizontal className="w-3 h-3 text-[#d4af37]" />
+                    <span>Studio Layout Mode</span>
                   </div>
-                  <span className="text-[8px] bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] px-1 py-0.2 rounded font-bold">
-                    10-SLIDE
+                  <span className="px-1.5 py-0.2 bg-[#d4af37]/20 text-[#fbbf24] text-[8px] rounded font-bold">
+                    {isProMode ? 'PRO' : 'SIMPLE'}
                   </span>
-                </button>
-              )}
-
-              {onOpenProjectManager && (
-                <button
-                  onClick={() => { onOpenProjectManager(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-300 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
-                >
-                  <FolderOpen className="w-3 h-3 text-[#d4af37]" />
-                  <span>Project Vault Manager</span>
                 </button>
               )}
 
@@ -690,22 +319,27 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
               )}
 
-              {onOpenExportTimeline && (
+              {onOpenSelfTest && (
                 <button
-                  onClick={() => { onOpenExportTimeline(); setIsMoreMenuOpen(false); }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-amber-300 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer"
+                  onClick={() => { onOpenSelfTest(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
                 >
-                  <div className="flex items-center gap-2">
-                    <Film className="w-3 h-3 text-[#d4af37]" />
-                    <span>Export NLE Timeline (XML)</span>
-                  </div>
-                  <span className="text-[8px] bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fbbf24] px-1 py-0.2 rounded font-bold">
-                    XML/FCP
-                  </span>
+                  <Activity className="w-3 h-3 text-emerald-400" />
+                  <span>Self-Test Diagnostics</span>
                 </button>
               )}
 
-              <div className="border-t border-[#272732] my-0.5" />
+              {onOpenShortcuts && (
+                <button
+                  onClick={() => { onOpenShortcuts(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center gap-2 cursor-pointer"
+                >
+                  <HelpCircle className="w-3 h-3 text-[#d4af37]" />
+                  <span>Keyboard Shortcuts (?)</span>
+                </button>
+              )}
+
+              <div className="border-t border-[#272732] my-1" />
 
               <button
                 onClick={() => { exportFullIdbBackup(); setIsMoreMenuOpen(false); }}
@@ -717,14 +351,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
           )}
         </div>
-
-        {/* Done / Publish Button */}
-        <button
-          onClick={onOpenPublishModal}
-          className="px-4 py-1 rounded-full bg-gradient-to-r from-zinc-200 to-white hover:brightness-110 text-black font-semibold text-xs transition-all cursor-pointer shadow-sm shrink-0"
-        >
-          Done
-        </button>
       </div>
     </header>
   );

@@ -44,10 +44,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   onOpenExportXml,
   onOpenExportRange
 }) => {
-  // Hero Carousel State
+  // Hero Carousel State & Custom Transition Timer
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isHeroPaused, setIsHeroPaused] = useState(false);
-  const heroTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isTransitionActive, setIsTransitionActive] = useState(true);
+  const [slideTransitionKey, setSlideTransitionKey] = useState(0);
+
+  const heroCycleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const transitionResetTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Top 10 Shots
   const top10Shots = frames.slice(0, 10);
@@ -55,28 +59,45 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   // FAQ Accordion State
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  // 6-second auto-cycle across the 10 slides when not hovered
+  // Custom trigger for slide transition to re-arm animate-hero-fade & animate-hero-plate
+  const triggerSlideTransition = (nextIndexOrFn: number | ((prev: number) => number)) => {
+    if (transitionResetTimerRef.current) {
+      clearTimeout(transitionResetTimerRef.current);
+    }
+    // Momentarily toggle off animation to ensure fresh CSS animation cycle upon slide change
+    setIsTransitionActive(false);
+
+    // Re-mount / trigger CSS keyframe fade classes on next animation frame
+    requestAnimationFrame(() => {
+      setCurrentSlideIndex(nextIndexOrFn);
+      setSlideTransitionKey((prev) => prev + 1);
+      setIsTransitionActive(true);
+    });
+  };
+
+  // Custom transition timer: specifically at the 6-second mark (6000ms), advance slide and trigger CSS fade classes
   useEffect(() => {
     if (isHeroPaused) return;
 
-    heroTimerRef.current = setInterval(() => {
-      setCurrentSlideIndex((prev) => (prev + 1) % SLIDES_DATA.length);
+    heroCycleTimerRef.current = setInterval(() => {
+      triggerSlideTransition((prev) => (prev + 1) % SLIDES_DATA.length);
     }, 6000);
 
     return () => {
-      if (heroTimerRef.current) clearInterval(heroTimerRef.current);
+      if (heroCycleTimerRef.current) clearInterval(heroCycleTimerRef.current);
+      if (transitionResetTimerRef.current) clearTimeout(transitionResetTimerRef.current);
     };
-  }, [isHeroPaused]);
+  }, [isHeroPaused, slideTransitionKey]);
 
   const activeSlide = SLIDES_DATA[currentSlideIndex];
 
-  // Jump to next or previous slide
+  // Jump to next or previous slide using custom transition trigger
   const handlePrevSlide = () => {
-    setCurrentSlideIndex((prev) => (prev - 1 + SLIDES_DATA.length) % SLIDES_DATA.length);
+    triggerSlideTransition((prev) => (prev - 1 + SLIDES_DATA.length) % SLIDES_DATA.length);
   };
 
   const handleNextSlide = () => {
-    setCurrentSlideIndex((prev) => (prev + 1) % SLIDES_DATA.length);
+    triggerSlideTransition((prev) => (prev + 1) % SLIDES_DATA.length);
   };
 
   // Launch Studio Action
@@ -122,7 +143,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       {/* MODULE 1: 10-SLIDE CINEMA HERO RUNNER (2.39:1 OPTICAL CONTAINER) */}
       {/* ========================================================= */}
       <section 
-        className="min-h-[60vh] flex flex-col justify-end p-8 md:p-14 relative overflow-hidden border-b border-[#232330]"
+        className="min-h-[60vh] lg:min-h-[70vh] flex flex-col justify-end relative overflow-hidden border-b border-[#232330]"
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
       >
@@ -130,120 +151,131 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         <div className="absolute inset-0 z-0 overflow-hidden">
           {frames[currentSlideIndex % frames.length]?.imageUrl ? (
             <img 
-              key={`hero-plate-${currentSlideIndex}`}
+              key={`hero-plate-${slideTransitionKey}-${currentSlideIndex}`}
               src={frames[currentSlideIndex % frames.length]?.imageUrl} 
               alt={activeSlide.title} 
-              className="w-full h-full object-cover object-center opacity-30 scale-105 filter blur-xs animate-hero-plate"
+              className={`w-full h-full object-cover object-center opacity-35 scale-105 filter blur-xs ${
+                isTransitionActive ? 'animate-hero-plate' : 'opacity-0'
+              }`}
             />
           ) : (
             <div 
-              key={`hero-plate-fallback-${currentSlideIndex}`}
-              className="w-full h-full bg-gradient-to-br from-[#12121c] via-[#0d0d12] to-black opacity-60 animate-hero-plate" 
+              key={`hero-plate-fallback-${slideTransitionKey}-${currentSlideIndex}`}
+              className={`w-full h-full bg-gradient-to-br from-[#12121c] via-[#0d0d12] to-black opacity-60 ${
+                isTransitionActive ? 'animate-hero-plate' : 'opacity-0'
+              }`} 
             />
           )}
         </div>
 
-        {/* Soft Dark Radial Glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(229,9,20,0.18),transparent_70%)] pointer-events-none z-10" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_75%_40%,rgba(245,166,35,0.12),transparent_65%)] pointer-events-none z-10" />
+        {/* 3-Way Cinematic Vignette */}
+        {/* 1. Left Gradient Scrim for crisp text legibility */}
+        <div className="absolute inset-y-0 left-0 w-full md:w-3/4 bg-gradient-to-r from-[#070709] via-[#070709]/60 to-transparent z-10 pointer-events-none" />
 
-        {/* Subtle Horizontal Anamorphic Flare */}
-        <div className="absolute top-1/2 left-0 w-full h-[1.5px] bg-gradient-to-r from-transparent via-[#00f0ff]/20 via-[#E50914]/50 to-transparent pointer-events-none z-10 blur-[0.5px]" />
+        {/* 2. Bottom Gradient Scrim for seamless transition into Top 10 */}
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#070709] via-[#070709]/40 to-transparent z-10 pointer-events-none" />
 
-        {/* Bottom Fade Gradient & dark scrim */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#070709] via-transparent to-transparent z-10 pointer-events-none" />
-        <div className="absolute inset-0 bg-black/40 z-10 pointer-events-none" />
+        {/* 3. Soft Dark Radial Glow & Subtle Anamorphic Flare */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(229,9,20,0.14),transparent_70%)] pointer-events-none z-10" />
+        <div className="absolute top-1/2 left-0 w-full h-[1.5px] bg-gradient-to-r from-transparent via-[#00f0ff]/15 via-[#E50914]/40 to-transparent pointer-events-none z-10 blur-[0.5px]" />
 
-        {/* Hero Content Stack with subtle CSS cinematic fade */}
-        <div 
-          key={`hero-content-${currentSlideIndex}`}
-          className="relative z-20 max-w-3xl space-y-3 animate-hero-fade"
-        >
-          {/* Gold eyebrow tag */}
-          <div className="text-xs font-mono text-[#F5A623] tracking-widest uppercase flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
-              {activeSlide.tag}
-            </span>
-            <span className="text-zinc-600 font-bold">•</span>
-            <span className="text-zinc-400 font-mono text-[11px]">
-              SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
-            </span>
-          </div>
-
-          {/* Massive Title */}
-          <h1 className="text-4xl md:text-6xl font-black text-zinc-100 tracking-tight font-cinzel leading-none drop-shadow-lg">
-            {activeSlide.title}
-          </h1>
-
-          {/* Subtitle & 2-line manifesto body */}
-          <div className="text-xl md:text-2xl font-light text-zinc-300 font-sans tracking-wide">
-            // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
-          </div>
-
-          <p className="text-zinc-400 text-sm max-w-xl mt-3 leading-relaxed line-clamp-2 font-sans">
-            {activeSlide.body}
-          </p>
-
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-3 pt-4">
-            <button
-              onClick={handleLaunchStudio}
-              className="px-7 py-3.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-sm sm:text-base flex items-center gap-3 shadow-[0_0_25px_rgba(229,9,20,0.6)] hover:shadow-[0_0_35px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95 group"
-            >
-              <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
-              <span className="tracking-wide">LAUNCH DIRECTOR'S STUDIO</span>
-            </button>
-
-            <button
-              onClick={handleScrollToSpecs}
-              className="px-6 py-3.5 rounded-full bg-[#0E0E12] hover:bg-[#181822] border border-[#2B2B36] hover:border-zinc-500 text-zinc-300 hover:text-white font-semibold text-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95"
-            >
-              <Info className="w-4 h-4 text-[#F5A623]" />
-              <span>MORE INFO</span>
-            </button>
-
-            <button
-              onClick={onOpenExportXml}
-              className="px-5 sm:px-6 py-3.5 rounded-full bg-[#121218] hover:bg-[#1b1b24] border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-semibold text-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95"
-              title="Export Full Storyboard XML"
-            >
-              <Film className="w-4 h-4" />
-              <span>EXPORT XML</span>
-            </button>
-          </div>
-
-          {/* 10-Slide Indicator Pill Dots & Shuttles */}
-          <div className="flex items-center gap-4 pt-6">
-            <div className="flex items-center gap-1.5">
-              {SLIDES_DATA.map((slide, idx) => (
-                <button
-                  key={slide.id}
-                  onClick={() => setCurrentSlideIndex(idx)}
-                  className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                    idx === currentSlideIndex 
-                      ? 'w-8 bg-[#E50914] shadow-[0_0_10px_rgba(229,9,20,0.8)]' 
-                      : 'w-2 bg-white/20 hover:bg-white/50'
-                  }`}
-                  title={`Slide ${idx + 1}: ${slide.title} // ${slide.subtitle}`}
-                />
-              ))}
+        {/* Master Balanced Responsive Container aligning with grid below */}
+        <div className="relative z-20 w-full max-w-7xl mx-auto px-8 md:px-16 lg:px-20 pb-12 pt-16">
+          <div 
+            key={`hero-content-${slideTransitionKey}-${currentSlideIndex}`}
+            className={`max-w-2xl ${isTransitionActive ? 'animate-hero-fade' : 'opacity-0'}`}
+          >
+            {/* Eyebrow: font-mono text-xs uppercase tracking-[0.3em] text-[#F5A623] mb-3 flex items-center gap-2 */}
+            <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#F5A623] mb-3 flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
+                {activeSlide.tag}
+              </span>
+              <span className="text-zinc-600 font-bold">•</span>
+              <span className="text-zinc-400 font-mono text-[11px] tracking-widest">
+                SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
+              </span>
             </div>
 
-            <div className="flex items-center gap-1.5 ml-2">
+            {/* Main Headline: drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)] */}
+            <h1 className="text-4xl md:text-6xl font-black text-zinc-100 tracking-tight font-cinzel leading-none drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)]">
+              {activeSlide.title}
+            </h1>
+
+            {/* Subtitle: mt-3 mb-4 text-lg md:text-xl font-semibold text-zinc-200 */}
+            <div className="mt-3 mb-4 text-lg md:text-xl font-semibold text-zinc-200 font-sans tracking-wide">
+              // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
+            </div>
+
+            {/* Description: max-w-xl text-zinc-400 text-sm md:text-base leading-relaxed mb-6 */}
+            <p className="max-w-xl text-zinc-400 text-sm md:text-base leading-relaxed mb-6 font-sans line-clamp-2">
+              {activeSlide.body}
+            </p>
+
+            {/* Action CTA Buttons: gap-4 flex items-center flex-wrap */}
+            <div className="gap-4 flex items-center flex-wrap">
               <button
-                onClick={handlePrevSlide}
-                className="w-7 h-7 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                title="Previous Slide"
+                onClick={handleLaunchStudio}
+                className="px-7 py-3.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-sm sm:text-base flex items-center gap-3 shadow-[0_0_25px_rgba(229,9,20,0.6)] hover:shadow-[0_0_35px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95 group"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
+                <span className="tracking-wide">LAUNCH DIRECTOR'S STUDIO</span>
               </button>
+
               <button
-                onClick={handleNextSlide}
-                className="w-7 h-7 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                title="Next Slide"
+                onClick={handleScrollToSpecs}
+                className="px-6 py-3.5 rounded-full bg-[#0E0E12] hover:bg-[#181822] border border-[#2B2B36] hover:border-zinc-500 text-zinc-300 hover:text-white font-semibold text-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <Info className="w-4 h-4 text-[#F5A623]" />
+                <span>MORE INFO</span>
               </button>
+
+              <button
+                onClick={onOpenExportXml}
+                className="px-5 sm:px-6 py-3.5 rounded-full bg-[#121218] hover:bg-[#1b1b24] border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-semibold text-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+                title="Export Full Storyboard XML"
+              >
+                <Film className="w-4 h-4" />
+                <span>EXPORT XML</span>
+              </button>
+            </div>
+
+            {/* 10-Slide Indicator Pill Dots & Shuttles */}
+            <div className="flex items-center gap-4 pt-6">
+              <div className="flex items-center gap-1.5">
+                {SLIDES_DATA.map((slide, idx) => (
+                  <button
+                    key={slide.id}
+                    onClick={() => {
+                      if (idx !== currentSlideIndex) {
+                        triggerSlideTransition(idx);
+                      }
+                    }}
+                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      idx === currentSlideIndex 
+                        ? 'w-8 bg-[#E50914] shadow-[0_0_10px_rgba(229,9,20,0.8)]' 
+                        : 'w-2 bg-white/20 hover:bg-white/50'
+                    }`}
+                    title={`Slide ${idx + 1}: ${slide.title} // ${slide.subtitle}`}
+                  />
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5 ml-2">
+                <button
+                  onClick={handlePrevSlide}
+                  className="w-7 h-7 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  title="Previous Slide"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleNextSlide}
+                  className="w-7 h-7 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  title="Next Slide"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -252,7 +284,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       {/* ========================================================= */}
       {/* MODULE 2: NETFLIX "TOP 10 MASTER SHOTS TODAY" */}
       {/* ========================================================= */}
-      <section className="relative px-6 sm:px-12 lg:px-20 py-12 border-b border-[#232330]">
+      <section id="top-10-reels-section" className="relative px-8 md:px-16 lg:px-20 py-12 border-b border-[#232330]">
+        <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -348,7 +381,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             );
           })}
         </div>
-      </section>
+      </div>
+    </section>
 
       {/* ========================================================= */}
       {/* MODULE 3: FEATURE MATRIX ("MORE REASONS TO CREATE ON HANDFILM") */}

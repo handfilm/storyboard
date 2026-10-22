@@ -385,20 +385,41 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
           <span className="text-zinc-700 hidden sm:inline">|</span>
 
-          {/* Mode Tag Indicator Pill: HERO GLOBAL vs SOLO INSPECTOR */}
-          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] font-mono">
-            <span className="text-zinc-500 uppercase">ENGINE:</span>
-            <span className={`font-bold uppercase tracking-wider ${playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#fbbf24]'}`}>
-              {playbackMode === 'sequence' ? 'HERO GLOBAL RUNNER' : 'SOLO INSPECTOR'}
+          {/* Active Shot Telemetry */}
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] truncate max-w-[240px] xl:max-w-[360px]">
+            <span className="text-[#fbbf24] font-bold shrink-0">
+              SH{String(currentIndex + 1).padStart(3, '0')} / {String(frames.length).padStart(3, '0')}
+            </span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-200 font-bold truncate">
+              {currentFrame?.bengaliTitle || 'দৃষ্টি'} // {currentFrame?.title || 'THE SINGULARITY'}
             </span>
           </div>
         </div>
 
-        {/* Right Timing Spec Pill */}
-        <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400 font-mono">
-          <span className="text-[#fbbf24] font-bold">12.000s DURATION</span>
-          <span className="text-zinc-600">•</span>
-          <span className="text-zinc-300">288 FRAMES @ 24FPS</span>
+        {/* Right Timing Spec & Mode Capsules */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden md:flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400 font-mono">
+            <span className="text-[#fbbf24] font-bold">12.000s ALLOCATION</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-300">288 FRAMES @ 24FPS</span>
+          </div>
+
+          {/* Solo / Sequence Mode Pill */}
+          {onSelectPlaybackMode && (
+            <button
+              type="button"
+              onClick={() => onSelectPlaybackMode(playbackMode === 'sequence' ? 'solo' : 'sequence')}
+              className={`px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer border active:scale-[0.98] ${
+                playbackMode === 'sequence'
+                  ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300'
+                  : 'bg-amber-950/70 border-[#eab308]/60 text-[#fbbf24]'
+              }`}
+              title="Toggle between 12s Animatic Sequence advance and Solo Scrub"
+            >
+              {playbackMode === 'sequence' ? '▶ ANIMATIC (12s)' : '🔍 SOLO SCRUB'}
+            </button>
+          )}
         </div>
       </div>
 

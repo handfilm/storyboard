@@ -237,55 +237,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   return (
     <div className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono select-none">
-      {/* 1. Tactical HUD Header Bar (Hollywood Director Chassis) */}
-      <div className="h-9 bg-[#0c0c10] border-b border-[#272732] px-4 flex items-center justify-between text-xs shrink-0 z-20">
-        <div className="flex items-center gap-2.5 min-w-0">
-          {/* Active Mode Capsule */}
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#eab308] animate-pulse" />
-            <span className="text-zinc-500 uppercase">STAGE:</span>
-            <span className="text-[#fbbf24] font-bold">TACTILE CINEMA VIEWPORT</span>
-          </div>
-
-          <span className="text-zinc-700 hidden sm:inline">|</span>
-
-          {/* Active Shot Telemetry */}
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] truncate">
-            <span className="text-[#fbbf24] font-bold">
-              SH{String(currentIndex + 1).padStart(3, '0')} / {String(frames.length).padStart(3, '0')}
-            </span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-zinc-200 font-bold truncate">
-              {activeFrame.bengaliTitle || 'দৃষ্টি'} // {activeFrame.title || 'THE SINGULARITY'}
-            </span>
-          </div>
-        </div>
-
-        {/* Right Timing & Spec Capsules */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden md:flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400">
-            <span className="text-[#fbbf24] font-bold">12.000s ALLOCATION</span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-zinc-300">288 FRAMES @ 24FPS</span>
-          </div>
-
-          {/* Solo / Sequence Mode Pill */}
-          <button
-            type="button"
-            onClick={() => onSelectPlaybackMode?.(playbackMode === 'sequence' ? 'solo' : 'sequence')}
-            className={`px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer border active:scale-[0.98] ${
-              playbackMode === 'sequence'
-                ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300'
-                : 'bg-amber-950/70 border-[#eab308]/60 text-[#fbbf24]'
-            }`}
-            title="Toggle between 12s Animatic Sequence advance and Solo Scrub"
-          >
-            {playbackMode === 'sequence' ? '▶ ANIMATIC (12s)' : '🔍 SOLO SCRUB'}
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Main Stage Viewport (Hero Visual Plate with Glowing Metallic Titles) */}
+      {/* Main Stage Viewport (Hero Visual Plate with Glowing Metallic Titles) */}
       <div className="flex-1 w-full relative flex items-center justify-center overflow-hidden p-2 sm:p-3 bg-[#070709]">
         <div className="w-full h-full max-w-6xl max-h-[82vh] flex items-center justify-center">
           <OpticalFrame

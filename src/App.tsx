@@ -119,6 +119,24 @@ export default function App() {
   const [isStorageInitialized, setIsStorageInitialized] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
 
+  // Landing Walkthrough Modal State (First-time visitors see full 10-slide walkthrough)
+  const [showWalkthrough, setShowWalkthrough] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('rawx_walkthrough_seen') !== 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleCloseWalkthrough = useCallback(() => {
+    setShowWalkthrough(false);
+    try {
+      localStorage.setItem('rawx_walkthrough_seen', 'true');
+    } catch (e) {
+      console.warn('Could not save rawx_walkthrough_seen to localStorage', e);
+    }
+  }, []);
+
   // ==========================================
   // Core Audio Engine Handlers (Declared upfront to prevent Temporal Dead Zone / ReferenceError)
   // ==========================================
@@ -299,6 +317,9 @@ export default function App() {
         if (session && typeof session.activeSlideIndex === 'number') {
           setCurrentIndex(session.activeSlideIndex);
         }
+        // Dismiss and bypass the "SESSION RECOVERY AVAILABLE" yellow banner automatically once state is hydrated from IndexedDB
+        await storageManager.dismissCrashRecovery();
+        setCrashRecoveredProject(null);
       }
       setIsStorageInitialized(true);
     };
@@ -1132,6 +1153,7 @@ export default function App() {
         onOpenR2Automation={() => setIsR2AutomationOpen(true)}
         onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
         onOpenExportRange={() => setIsExportRangeOpen(true)}
+        onOpenWalkthrough={() => setShowWalkthrough(true)}
       />
 
       {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
@@ -1523,6 +1545,11 @@ export default function App() {
         onUploadMedia={handleUploadImage}
         projectTitle={project.title}
       />
+
+      {/* 10-Slide Cinematic Walkthrough Manifesto Modal */}
+      {showWalkthrough && (
+        <LandingWalkthrough onLaunchStudio={handleCloseWalkthrough} />
+      )}
     </div>
   );
 }

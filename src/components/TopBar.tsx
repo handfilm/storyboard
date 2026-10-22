@@ -365,8 +365,8 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#F5A623]/20 border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
             title="Open RAWx Director's Manifesto Walkthrough (10 Interactive Slides)"
           >
-            <Sparkles className="w-3 h-3 text-[#F5A623]" />
-            <span className="hidden sm:inline">MANIFESTO</span>
+            <HelpCircle className="w-3 h-3 text-[#F5A623]" />
+            <span>[ ? MANIFESTO ]</span>
           </button>
         )}
 

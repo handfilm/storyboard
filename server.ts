@@ -114,6 +114,29 @@ Generate intelligent video editing decisions for a 10-second sequence:
   }
 });
 
+// Gemini Script Breakdown / Assistant Proxy
+app.post('/api/breakdown', async (req, res) => {
+  try {
+    const { prompt, context } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ success: false, error: 'Prompt is required' });
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `${context ? `Context: ${context}\n\n` : ''}${prompt}`
+    });
+
+    res.json({
+      success: true,
+      text: response.text || ''
+    });
+  } catch (error: any) {
+    console.error('Gemini breakdown error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', engine: 'RAWx Storyboard Engine Enterprise', time: new Date().toISOString() });

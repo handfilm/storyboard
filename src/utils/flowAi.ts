@@ -5,8 +5,6 @@
  * with @google/genai integration, intelligent storyboard breakdown, and camera prompts.
  */
 
-import { GoogleGenAI } from '@google/genai';
-
 export interface FlowGenerationResult {
   text: string;
   shots?: Array<{
@@ -27,16 +25,6 @@ export interface FlowImageResult {
 }
 
 class FlowSdk {
-  private client: GoogleGenAI | null = null;
-
-  constructor() {
-    const apiKey = typeof process !== 'undefined' && process.env?.GEMINI_API_KEY
-      ? process.env.GEMINI_API_KEY
-      : (typeof window !== 'undefined' && (window as any).__GEMINI_API_KEY__) || '';
-    if (apiKey) {
-      this.client = new GoogleGenAI({ apiKey });
-    }
-  }
 
   /**
    * Flow.media.select()
@@ -99,18 +87,20 @@ class FlowSdk {
    * Multimodal assistant for script breakdown, bilingual translations, and camera advice.
    */
   public async generateText(prompt: string, context?: string): Promise<FlowGenerationResult> {
-    if (this.client) {
-      try {
-        const response = await this.client.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `${context ? `Context: ${context}\n\n` : ''}${prompt}`
-        });
-
-        const text = response.text || '';
-        return { text };
-      } catch (err) {
-        console.warn('[RAWx Flow] Gemini API call fallback:', err);
+    try {
+      const res = await fetch('/api/breakdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, context }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.text) {
+          return { text: data.text };
+        }
       }
+    } catch (err) {
+      console.warn('[RAWx Flow] Server breakdown API call fallback:', err);
     }
 
     // High-fidelity programmatic director breakdown

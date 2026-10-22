@@ -126,7 +126,6 @@ export class SelfTestEngine {
 
     // 6. Gemini API
     const startAI = performance.now();
-    const hasKey = typeof process !== 'undefined' && Boolean(process.env?.GEMINI_API_KEY);
     checks.push({
       featureId: 'platform-gemini',
       name: 'Gemini AI Script & Story Analysis Engine',

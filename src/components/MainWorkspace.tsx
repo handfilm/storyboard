@@ -286,10 +286,10 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                   ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
-              title="Tactile Cinema Viewport with 100-Shot Sequence Runner"
+              title="Stage Viewport with 100-Shot Sequence Runner"
             >
               <Film className="w-3 h-3 text-[#eab308]" />
-              <span>TACTILE STAGE</span>
+              <span>Stage</span>
             </button>
 
             <button
@@ -300,10 +300,10 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                   ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
-              title="Dual Split Viewport & Timeline Sequencer"
+              title="12.0s Reels Viewport & Timeline Sequencer"
             >
               <Sliders className="w-3 h-3 text-[#38bdf8]" />
-              <span>DUAL SPLIT</span>
+              <span>12.0s Reels</span>
             </button>
 
             <button
@@ -314,10 +314,10 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                   ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
-              title="Advanced Optical Monitor & JKL Transport"
+              title="Advanced Monitor & JKL Transport"
             >
               <Maximize2 className="w-3 h-3 text-emerald-400" />
-              <span>OPTICAL MONITOR</span>
+              <span>Monitor</span>
             </button>
           </div>
 

@@ -629,13 +629,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           />
         )}
 
-        {/* Layer 4: Procedural Film Grain & Dynamic Vignette */}
-        {showGrain && (
-          <div
-            className="absolute inset-0 film-grain z-[10] pointer-events-none"
-            style={{ opacity: safeAdjustments.grain / 100 }}
-          />
-        )}
+        {/* Layer 4: Vignette without noise */}
         {showVignette && (
           <div
             className="absolute inset-0 pointer-events-none z-[11]"

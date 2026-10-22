@@ -36,6 +36,7 @@ import {
   saveComponentVisibility 
 } from './components/ComponentsMatrixPopover';
 import { ThemeSettingsModal } from './components/ThemeSettingsModal';
+import { SettingsModal } from './components/modals/SettingsModal';
 import { audioEngine } from './utils/audioEngine';
 import { calculateSlideshowInterval } from './utils/engine';
 import { exportFullIdbBackup } from './utils/backup';
@@ -100,6 +101,7 @@ export default function App() {
   const [isLiquifyOpen, setIsLiquifyOpen] = useState(false);
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false);
   const [isVideoScopesOpen, setIsVideoScopesOpen] = useState(false);
   const [isAnimaticOpen, setIsAnimaticOpen] = useState(false);
@@ -1223,6 +1225,17 @@ export default function App() {
         onOpenExportTimeline={() => setIsExportTimelineOpen(true)}
         onOpenExportRange={() => setIsExportRangeOpen(true)}
         onOpenWalkthrough={() => setShowWalkthrough(true)}
+        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
+        onOpenAiStudio={() => {
+          setActiveModule('AI');
+          setWorkspaceMode('STAGE');
+          setIsDrawerOpen(true);
+        }}
+        onOpenBloomSequencer={() => {
+          setWorkspaceMode('BLOOM');
+          setIsDrawerOpen(false);
+        }}
       />
 
       {/* Main Studio Viewport: HandfilmHome or Full Pro Studio */}
@@ -1251,7 +1264,9 @@ export default function App() {
         <LeftRail
           activeModule={activeModule}
           onSelectModule={(mod) => {
-            if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
+            if (mod === 'SETTINGS') {
+              setIsSettingsModalOpen(true);
+            } else if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
               handleGoHome();
             } else if (mod === 'BLOOM') {
               setWorkspaceMode('BLOOM');
@@ -1264,8 +1279,6 @@ export default function App() {
               setIsDrawerOpen(false);
             } else if (mod === 'R2_STORAGE') {
               setIsR2AutomationOpen(true);
-            } else if (mod === 'SETTINGS') {
-              setIsThemeSettingsOpen(true);
             } else if (mod === 'EXPORT') {
               setIsPublishModalOpen(true);
             } else if (mod === 'LIQUIFY') {
@@ -1288,6 +1301,10 @@ export default function App() {
           isCollapsed={isRailCollapsed}
           onToggleCollapse={() => setIsRailCollapsed(c => !c)}
           isProMode={isProMode}
+          onToggleProMode={() => setIsProMode(p => !p)}
+          onOpenVaultMode={() => setIsProjectManagerOpen(true)}
+          onOpenSelfTest={() => setIsSelfTestOpen(true)}
+          onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         />
 
         {/* Functional Studio Drawer in STAGE Mode */}
@@ -1528,6 +1545,12 @@ export default function App() {
       <SelfTestModal
         isOpen={isSelfTestOpen}
         onClose={() => setIsSelfTestOpen(false)}
+      />
+
+      {/* Dedicated Comprehensive Settings & Diagnostics Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
       />
 
       {/* Theme Settings Modal */}

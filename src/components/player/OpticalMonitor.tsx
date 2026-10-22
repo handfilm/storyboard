@@ -327,7 +327,9 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
 
   const [resolvedBlobUrl, setResolvedBlobUrl] = useState<string>('');
 
-  // Two-Tier LRU resolution for current slide media
+  const previousUrlRef = useRef<string | null>(null);
+
+  // Two-Tier LRU resolution for current slide media with 720p proxy preference
   useEffect(() => {
     let isMounted = true;
     const mediaId = currentSlide?.mediaBlobId || currentSlide?.remoteUrl;
@@ -335,8 +337,15 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       if (mediaId.startsWith('http') || mediaId.startsWith('data:')) {
         setResolvedBlobUrl(mediaId);
       } else {
-        engine.cueSlideMedia(mediaId).then((url) => {
-          if (isMounted && url) setResolvedBlobUrl(url);
+        // Wire stage playback to use proxy blobs for 24fps scrubbing and J-K-L shuttling
+        studioDraftDb.getProxyUrl(mediaId).then((proxyUrl) => {
+          if (isMounted && proxyUrl) {
+            setResolvedBlobUrl(proxyUrl);
+          } else {
+            engine.cueSlideMedia(mediaId).then((url) => {
+              if (isMounted && url) setResolvedBlobUrl(url);
+            });
+          }
         });
       }
     } else {
@@ -349,43 +358,17 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
     : '');
 
-  const nextIsVideo = Boolean(
-    nextSlide?.isVideo ||
-    (nextSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(nextSlide.remoteUrl)) ||
-    nextSlide?.mediaBlobId
-  );
-
-  const nextMediaUrl = nextSlide?.remoteUrl
-    ? r2StorageService.getStreamUrl(nextSlide.remoteUrl, nextIsVideo)
-    : '';
-
-  // Double-buffering pre-hydration pipeline (1.5s prior to 12.0s boundary)
+  // Delayed URL revocation: revoke old URLs only after the next slide mounts to prevent blank frames
   useEffect(() => {
-    if (playbackMode === 'sequence' && (slideTimeSec >= 10.5 || engine.shouldPrehydrate)) {
-      const nextMediaId = nextSlide?.mediaBlobId || nextSlide?.remoteUrl;
-      if (nextMediaId && !nextMediaId.startsWith('http') && !nextMediaId.startsWith('data:')) {
-        engine.cueSlideMedia(nextMediaId);
-      } else if (nextMediaUrl) {
-        if (nextIsVideo && prebufferVideoRef.current) {
-          if (prebufferVideoRef.current.src !== nextMediaUrl) {
-            prebufferVideoRef.current.src = nextMediaUrl;
-            prebufferVideoRef.current.load();
-          }
-        } else if (!nextIsVideo) {
-          const preImg = new Image();
-          preImg.src = nextMediaUrl;
-        }
-      }
+    const oldUrl = previousUrlRef.current;
+    if (mediaUrl && oldUrl && oldUrl !== mediaUrl && oldUrl.startsWith('blob:')) {
+      const timer = setTimeout(() => {
+        studioDraftDb.revokeTrackedUrl(oldUrl);
+      }, 1000);
+      previousUrlRef.current = mediaUrl;
+      return () => clearTimeout(timer);
     }
-  }, [playbackMode, slideTimeSec, engine.shouldPrehydrate, nextMediaUrl, nextIsVideo, nextSlide?.mediaBlobId, nextSlide?.remoteUrl, engine.cueSlideMedia]);
-
-  // Clean up ObjectURLs on unmount
-  useEffect(() => {
-    return () => {
-      if (mediaUrl && mediaUrl.startsWith('blob:')) {
-        studioDraftDb.revokeTrackedUrl(mediaUrl);
-      }
-    };
+    previousUrlRef.current = mediaUrl;
   }, [mediaUrl]);
 
   // Fullscreen controller
@@ -495,11 +478,13 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           {mediaUrl ? (
             isVideo ? (
               <video
+                key={mediaUrl}
                 ref={videoRef}
                 src={mediaUrl}
-                muted={isMuted}
-                loop={isLooping && !engine.inOutRange.isActive}
                 playsInline
+                muted={isMuted}
+                autoPlay
+                loop={isLooping && !engine.inOutRange.isActive}
                 preload="auto"
                 className="w-full h-full object-cover pointer-events-none"
                 style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}

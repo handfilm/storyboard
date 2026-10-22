@@ -756,9 +756,6 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
             </div>
           )}
 
-          {/* Film Grain Shader Layer */}
-          <div className="absolute inset-0 film-grain z-[10] pointer-events-none opacity-40" />
-
           {/* Vignette Layer */}
           <div 
             className="absolute inset-0 pointer-events-none z-[11]"

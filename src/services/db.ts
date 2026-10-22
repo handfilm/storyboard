@@ -21,8 +21,18 @@ import { SLIDE_DURATION_SEC } from '../types/editor';
 import { eventBus } from '../core/eventBus';
 
 export const DB_NAME = 'rawx_storyboard_studio_db';
-export const DB_VERSION = 5;
+export const DB_VERSION = 4;
 export const MAX_SERIALIZED_SNAPSHOT_BYTES = 2 * 1024 * 1024; // 2MB limit
+
+export interface MediaProxyRecord {
+  id: string; // mediaId
+  mediaId: string;
+  blob: Blob;
+  mimeType: string;
+  width: number;
+  height: number;
+  createdAt: number;
+}
 
 export interface VaultMediaItem {
   id: string;
@@ -48,6 +58,137 @@ export function createFallbackSvgThumbnail(title: string, isVideo: boolean): str
   const fg = isVideo ? '%2338bdf8' : '%23fbbf24';
   const cleanTitle = encodeURIComponent((title || (isVideo ? 'Video' : 'Still')).slice(0, 18));
   return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="135" viewBox="0 0 240 135"><rect width="240" height="135" fill="${bg}"/><text x="50%" y="45%" text-anchor="middle" fill="${fg}" font-family="monospace" font-size="13" font-weight="bold">${isVideo ? '▶ 4K VIDEO' : '◆ STILL PLATE'}</text><text x="50%" y="65%" text-anchor="middle" fill="%23a1a1aa" font-family="monospace" font-size="9.5">${cleanTitle}</text></svg>`;
+}
+
+/**
+ * High-performance 720p proxy generation for 4K video / media
+ * Downscales heavy footage to lightweight 720p WebM/MP4 for fluid 24fps scrubbing & J-K-L shuttling
+ */
+export async function generateVideoProxy(file: File | Blob): Promise<{ blob: Blob; width: number; height: number; mimeType: string }> {
+  const isVideo = file.type.startsWith('video') || (file instanceof File && /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name));
+  if (!isVideo) {
+    return { blob: file, width: 1280, height: 720, mimeType: file.type || 'image/jpeg' };
+  }
+
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return { blob: file, width: 1280, height: 720, mimeType: file.type || 'video/mp4' };
+  }
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    let tempUrl = '';
+    try {
+      tempUrl = URL.createObjectURL(file);
+    } catch {
+      return resolve({ blob: file, width: 1280, height: 720, mimeType: file.type || 'video/mp4' });
+    }
+
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.src = tempUrl;
+
+    const cleanup = () => {
+      try { URL.revokeObjectURL(tempUrl); } catch {}
+    };
+
+    const finish = (blob: Blob, width: number, height: number, mimeType: string) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      resolve({ blob, width, height, mimeType });
+    };
+
+    const timer = setTimeout(() => {
+      finish(file, 1280, 720, file.type || 'video/mp4');
+    }, 3500);
+
+    video.onerror = () => {
+      clearTimeout(timer);
+      finish(file, 1280, 720, file.type || 'video/mp4');
+    };
+
+    video.onloadedmetadata = () => {
+      const vw = video.videoWidth || 1920;
+      const vh = video.videoHeight || 1080;
+      const scale = Math.min(1, 720 / vh, 1280 / vw);
+      const targetW = Math.max(320, Math.round(vw * scale));
+      const targetH = Math.max(180, Math.round(vh * scale));
+
+      if (typeof MediaRecorder === 'undefined' || (vw <= 1280 && vh <= 720 && file.size < 4 * 1024 * 1024)) {
+        clearTimeout(timer);
+        return finish(file, targetW, targetH, file.type || 'video/mp4');
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx || typeof canvas.captureStream !== 'function') {
+        clearTimeout(timer);
+        return finish(file, targetW, targetH, file.type || 'video/mp4');
+      }
+
+      const stream = canvas.captureStream(24);
+      let chosenMime = 'video/webm;codecs=vp8';
+      if (!MediaRecorder.isTypeSupported(chosenMime)) {
+        chosenMime = MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4';
+      }
+
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(stream, { mimeType: chosenMime, videoBitsPerSecond: 1_200_000 });
+      } catch {
+        clearTimeout(timer);
+        return finish(file, targetW, targetH, file.type || 'video/mp4');
+      }
+
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        clearTimeout(timer);
+        if (chunks.length > 0) {
+          const proxyBlob = new Blob(chunks, { type: chosenMime });
+          finish(proxyBlob, targetW, targetH, chosenMime);
+        } else {
+          finish(file, targetW, targetH, file.type || 'video/mp4');
+        }
+      };
+
+      try {
+        recorder.start();
+        video.currentTime = 0;
+        video.play().catch(() => {});
+
+        let frameCount = 0;
+        const maxFrames = Math.min(288, Math.round((video.duration || 12) * 24));
+        const drawLoop = () => {
+          if (resolved) return;
+          if (video.paused || video.ended || frameCount >= maxFrames || frameCount >= 72) {
+            if (recorder.state === 'recording') recorder.stop();
+            return;
+          }
+          ctx.drawImage(video, 0, 0, targetW, targetH);
+          frameCount++;
+          requestAnimationFrame(drawLoop);
+        };
+        requestAnimationFrame(drawLoop);
+
+        setTimeout(() => {
+          if (recorder.state === 'recording') {
+            try { recorder.stop(); } catch {}
+          }
+        }, 2200);
+      } catch {
+        clearTimeout(timer);
+        finish(file, targetW, targetH, file.type || 'video/mp4');
+      }
+    };
+  });
 }
 
 export async function generateCanvasThumbnail(file: File | Blob): Promise<string> {
@@ -166,6 +307,7 @@ class StudioDraftDbService {
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private activeObjectUrls: Set<string> = new Set();
   private activeMediaUrls: Map<string, string> = new Map();
+  private activeProxyUrls: Map<string, string> = new Map();
   private isPersisted: boolean = false;
 
   /**
@@ -242,6 +384,13 @@ class StudioDraftDbService {
           const slotStore = db.createObjectStore('timeline_slots', { keyPath: 'slotIndex' });
           slotStore.createIndex('mediaId', 'mediaId', { unique: false });
           slotStore.createIndex('assignedAt', 'assignedAt', { unique: false });
+        }
+
+        // 8. media_proxies: 720p WebM/MP4 proxy blobs for fluid 24fps scrubbing & J-K-L shuttling
+        if (!db.objectStoreNames.contains('media_proxies')) {
+          const proxyStore = db.createObjectStore('media_proxies', { keyPath: 'id' });
+          proxyStore.createIndex('mediaId', 'mediaId', { unique: false });
+          proxyStore.createIndex('createdAt', 'createdAt', { unique: false });
         }
       };
 
@@ -321,6 +470,126 @@ class StudioDraftDbService {
       }
     }
     this.activeObjectUrls.clear();
+    for (const url of this.activeProxyUrls.values()) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
+    this.activeProxyUrls.clear();
+  }
+
+  // =========================================================================
+  // 720p PROXY ENGINE & INDEXEDDB PERSISTENCE
+  // =========================================================================
+
+  /**
+   * Persists a 720p proxy Blob in `media_proxies` store
+   */
+  public async saveProxy(mediaId: string, proxyBlob: Blob, meta: { width: number; height: number; mimeType: string }): Promise<void> {
+    try {
+      const db = await this.getDb();
+      if (!db.objectStoreNames.contains('media_proxies')) return;
+      const record: MediaProxyRecord = {
+        id: mediaId,
+        mediaId,
+        blob: proxyBlob,
+        mimeType: meta.mimeType,
+        width: meta.width,
+        height: meta.height,
+        createdAt: Date.now()
+      };
+      const tx = db.transaction('media_proxies', 'readwrite');
+      tx.objectStore('media_proxies').put(record);
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      // Cache proxy url
+      try {
+        const proxyUrl = URL.createObjectURL(proxyBlob);
+        this.activeProxyUrls.set(mediaId, proxyUrl);
+        this.activeObjectUrls.add(proxyUrl);
+      } catch {}
+    } catch (err) {
+      console.warn('[DraftDB] saveProxy error:', err);
+    }
+  }
+
+  /**
+   * Retrieves a 720p proxy Blob from `media_proxies` store
+   */
+  public async getProxy(mediaId: string): Promise<Blob | null> {
+    try {
+      const db = await this.getDb();
+      if (!db.objectStoreNames.contains('media_proxies')) return null;
+      const tx = db.transaction('media_proxies', 'readonly');
+      const req = tx.objectStore('media_proxies').get(mediaId);
+      return new Promise<Blob | null>((resolve) => {
+        req.onsuccess = () => {
+          const record = req.result as MediaProxyRecord | undefined;
+          resolve(record?.blob || null);
+        };
+        req.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Returns a valid Object URL for the 720p proxy
+   */
+  public async getProxyUrl(mediaId: string): Promise<string | null> {
+    if (!mediaId) return null;
+    if (this.activeProxyUrls.has(mediaId)) {
+      return this.activeProxyUrls.get(mediaId)!;
+    }
+    const blob = await this.getProxy(mediaId);
+    if (blob) {
+      try {
+        const url = URL.createObjectURL(blob);
+        this.activeProxyUrls.set(mediaId, url);
+        this.activeObjectUrls.add(url);
+        return url;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Generates or retrieves an active proxy url for an in-memory blob
+   */
+  public getActiveProxyUrl(mediaId: string, blob: Blob): string {
+    if (this.activeProxyUrls.has(mediaId)) {
+      return this.activeProxyUrls.get(mediaId)!;
+    }
+    const url = URL.createObjectURL(blob);
+    this.activeProxyUrls.set(mediaId, url);
+    this.activeObjectUrls.add(url);
+    return url;
+  }
+
+  /**
+   * Estimates browser IndexedDB storage quota and persistence state
+   */
+  public async getStorageQuota(): Promise<{ usedBytes: number; quotaBytes: number; percentUsed: number; isPersisted: boolean }> {
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+      try {
+        const est = await navigator.storage.estimate();
+        const used = est.usage || 0;
+        const total = est.quota || 1024 * 1024 * 1024;
+        const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : this.isPersisted;
+        return {
+          usedBytes: used,
+          quotaBytes: total,
+          percentUsed: Math.min(100, Math.round((used / total) * 100)),
+          isPersisted: persisted
+        };
+      } catch {}
+    }
+    return { usedBytes: 0, quotaBytes: 1024 * 1024 * 1024, percentUsed: 0, isPersisted: this.isPersisted };
   }
 
   // =========================================================================
@@ -908,7 +1177,23 @@ class StudioDraftDbService {
       console.warn('[DraftDB] Mirror save error (non-fatal):', err);
     }
 
-    // 6. Notify event bus
+    // 6. Generate and persist lightweight 720p proxy for video files (for fluid 24fps scrubbing and J-K-L shuttling)
+    if (isVideo) {
+      try {
+        const proxy = await generateVideoProxy(file);
+        if (proxy && proxy.blob) {
+          await this.saveProxy(id, proxy.blob, {
+            width: proxy.width,
+            height: proxy.height,
+            mimeType: proxy.mimeType
+          });
+        }
+      } catch (proxyErr) {
+        console.warn('[DraftDB] Proxy generation error (non-fatal):', proxyErr);
+      }
+    }
+
+    // 7. Notify event bus
     eventBus.emit('media_asset_ingested', { item, timestamp: Date.now() });
 
     return item;

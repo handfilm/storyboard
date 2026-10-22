@@ -69,6 +69,27 @@ export const FEDERATION_APPS: FederationApp[] = [
     description: 'Dynamic Fluid Canvas & Generative Node Sequencer'
   },
   {
+    id: 'deeper',
+    name: 'Deeper Scopes',
+    subdomain: 'deeper',
+    url: 'https://deeper.handsandhead.com',
+    description: 'Waveforms, Vectorscopes & Deep Color Telemetry'
+  },
+  {
+    id: 'lab',
+    name: 'Flow AI Lab',
+    subdomain: 'lab',
+    url: 'https://lab.handsandhead.com',
+    description: 'Veo Cine Engine, Generative Previs & Bilingual Polish'
+  },
+  {
+    id: 'settings',
+    name: 'Studio Settings',
+    subdomain: 'settings',
+    url: '#settings',
+    description: 'IndexedDB Quotas, Hotkeys & Diagnostics'
+  },
+  {
     id: 'hub',
     name: 'Hands & Head Hub',
     subdomain: 'hub',

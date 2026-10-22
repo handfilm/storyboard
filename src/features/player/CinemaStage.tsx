@@ -254,17 +254,6 @@ export const CinemaStage: React.FC = () => {
           />
         )}
 
-        {/* 35mm Grain Overlay */}
-        {visibility.grain && (
-          <div 
-            className="absolute inset-0 pointer-events-none opacity-20 mix-blend-overlay"
-            style={{
-              backgroundImage: 'radial-gradient(rgba(255,255,255,0.15) 1px, transparent 0)',
-              backgroundSize: '3px 3px'
-            }}
-          />
-        )}
-
         {/* Director Framing Guides */}
         {(isGuidesActive || visibility.guides) && (
           <div className="absolute inset-0 pointer-events-none z-10">

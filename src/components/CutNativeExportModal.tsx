@@ -20,7 +20,7 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import ReactDOM, { createPortal } from 'react-dom';
 import { AnthologyFrame } from '../types/anthology';
 import { SlideDraft } from '../types/project';
 import { 
@@ -175,6 +175,18 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       setCustomFilename(`HANDFILM_${cleanProject}_DirectorCut_${timeStr}.mp4`);
     }
   }, [isOpen, currentSlideIndex, totalCount, projectTitle]);
+
+  // Close modal on Escape key press (when not actively exporting)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isExporting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isExporting, onClose]);
 
   // Candidate shots in selection mode before exclusion
   const candidateSelection = useMemo(() => {
@@ -347,10 +359,25 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden">
+    <div 
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isExporting) {
+          onClose();
+        }
+      }}
+    >
       
       {/* Centered Tactical Modal Container */}
-      <div className="w-full max-w-4xl max-h-[85vh] bg-[#0c0d10] border border-[#F5A623]/40 rounded-xl flex flex-col overflow-hidden shadow-2xl font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150">
+      <div 
+        className="relative w-full max-w-4xl max-h-[85vh] bg-[#0c0d10] border border-[#F5A623]/40 rounded-xl flex flex-col overflow-hidden shadow-2xl font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Tactical Corner Reticle Accents */}
+        <div className="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-[#F5A623]/70 pointer-events-none z-30 rounded-tl-xl" />
+        <div className="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-[#F5A623]/70 pointer-events-none z-30 rounded-tr-xl" />
+        <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-[#F5A623]/70 pointer-events-none z-30 rounded-bl-xl" />
+        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-[#F5A623]/70 pointer-events-none z-30 rounded-br-xl" />
         
         {/* Sticky Header: Gold Title, Total Runtime, Prominent Close */}
         <div className="sticky top-0 bg-[#0c0d10] border-b border-[#F5A623]/20 p-4 flex justify-between items-center z-10 shrink-0">
@@ -1021,7 +1048,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   );
 
   if (typeof document !== 'undefined') {
-    return createPortal(modalContent, document.body);
+    return ReactDOM.createPortal(modalContent, document.body);
   }
   return modalContent;
 };

@@ -434,6 +434,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onChangeAspectRatio={onChangeAspectRatio || (() => {})}
                 onUploadMedia={onUploadImage}
                 onPurgeMedia={onPurgeMedia}
+                onOpenCinemaPlayer={onOpenCinemaPlayer}
                 projectTitle={projectTitle}
               />
             </div>
@@ -503,6 +504,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onChangeAspectRatio={onChangeAspectRatio || (() => {})}
               onUploadMedia={onUploadImage}
               onPurgeMedia={onPurgeMedia}
+              onOpenCinemaPlayer={onOpenCinemaPlayer}
               projectTitle={projectTitle}
             />
           </div>

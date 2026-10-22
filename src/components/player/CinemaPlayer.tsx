@@ -115,12 +115,28 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         ))
   );
 
-  // Key Scope Layer Management
+  // Key Scope Layer Management & Hardware Fullscreen
   useEffect(() => {
     if (isOpen) {
       keyScopeManager.setActiveLayer('CINEMA');
+      // Attempt hardware fullscreen if not already active
+      if (!document.fullscreenElement && containerRef.current) {
+        const el = containerRef.current as any;
+        const requestMethod = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (requestMethod) {
+          requestMethod.call(el).then(() => {
+            setIsFullscreen(true);
+          }).catch(() => {
+            // Silently fall back to fixed fullscreen theater mode (resilient inside iframe sandbox)
+            setIsFullscreen(false);
+          });
+        }
+      }
     } else {
       keyScopeManager.setActiveLayer('STAGE');
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
     }
   }, [isOpen]);
 
@@ -440,6 +456,34 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     }
   };
 
+  const handleScrubberTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!scrubberRef.current) return;
+    setIsDraggingScrubber(true);
+    const touch = e.touches[0];
+    const rect = scrubberRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+    const targetTime = pct * duration;
+    setCurrentTime(targetTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = targetTime;
+    }
+    showControlsTemporarily();
+  };
+
+  const handleScrubberTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!scrubberRef.current || !isDraggingScrubber) return;
+    const touch = e.touches[0];
+    const rect = scrubberRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+    setHoverPosition(pct * 100);
+    setHoverTime(pct * duration);
+    const targetTime = pct * duration;
+    setCurrentTime(targetTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = targetTime;
+    }
+  };
+
   // Touch double-tap skipping
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const touch = e.touches[0];
@@ -542,8 +586,8 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       onTouchStart={handleTouchStart}
       role="region"
       aria-label="RAWx Cinema Fullscreen Player"
-      className={`fixed inset-0 z-[120] bg-[#050505] text-[#EDEDED] font-mono flex flex-col justify-between overflow-hidden select-none cinema-player-dialog ${
-        !isHudVisible ? 'cursor-none' : ''
+      className={`fixed inset-0 z-[99999] bg-black text-[#EDEDED] font-mono flex flex-col justify-between overflow-hidden select-none cinema-player-dialog ${
+        !isHudVisible ? 'cursor-none' : 'cursor-default'
       }`}
     >
       {/* ========================================================================= */}
@@ -663,6 +707,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       {/* ========================================================================= */}
       <div 
         onClick={togglePlay}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          toggleFullscreen();
+        }}
         className="flex-1 w-full relative flex items-center justify-center p-2 sm:p-6 cursor-pointer overflow-hidden"
       >
         <div className={`relative ${getAspectClass()} bg-black shadow-[0_30px_90px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center`}>
@@ -783,7 +831,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           onMouseDown={handleScrubberMouseDown}
           onMouseMove={handleScrubberMouseMove}
           onMouseLeave={() => setHoverTime(null)}
-          className="relative w-full h-4 flex items-center cursor-pointer group py-1"
+          onTouchStart={handleScrubberTouchStart}
+          onTouchMove={handleScrubberTouchMove}
+          onTouchEnd={() => setIsDraggingScrubber(false)}
+          className="relative w-full h-5 flex items-center cursor-pointer group py-1"
         >
           {/* Hover Time Tooltip */}
           {hoverTime !== null && (

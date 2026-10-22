@@ -1446,6 +1446,7 @@ export default function App() {
           detectedBpm={detectedBpm}
           isAudioMuted={isAudioMuted}
           onToggleMute={toggleAudio}
+          onOpenCinemaPlayer={() => setIsCinemaPlayerOpen(true)}
         />
 
         {/* Director Inspector Sidebar Drawer */}
@@ -1481,7 +1482,7 @@ export default function App() {
         onTogglePlay={() => setIsPlaying(p => !p)}
         onSpeedChange={setSpeed}
         onToggleHud={() => setShowHud(h => !h)}
-        onToggleFullscreen={toggleFullscreen}
+        onToggleFullscreen={() => setIsCinemaPlayerOpen(true)}
         onToggleAudio={toggleAudio}
         onVolumeChange={setAudioVolume}
         onToggleViewMode={() => setWorkspaceMode(m => m === 'BOARD' ? 'STAGE' : 'BOARD')}
@@ -1636,6 +1637,20 @@ export default function App() {
         onChangeAspectRatio={(a) => setAspectRatio(a as AspectRatio)}
         onUploadMedia={handleUploadImage}
         projectTitle={project.title}
+      />
+
+      {/* YouTube-Grade Cinema Fullscreen Player Engine */}
+      <CinemaPlayer
+        isOpen={isCinemaPlayerOpen}
+        onClose={() => setIsCinemaPlayerOpen(false)}
+        frames={project.frames}
+        currentIndex={currentIndex}
+        onSelectFrame={goToFrame}
+        aspectRatio={aspectRatio}
+        onChangeAspectRatio={(a) => setAspectRatio(a)}
+        directorName={project.director}
+        projectTitle={project.title}
+        onUploadMedia={handleUploadImage}
       />
 
       {/* 10-Slide Cinematic Walkthrough Manifesto Modal */}

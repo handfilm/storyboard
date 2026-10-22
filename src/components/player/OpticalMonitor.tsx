@@ -153,6 +153,7 @@ interface OpticalMonitorProps {
   onUploadMedia?: (file: File) => void;
   onPurgeMedia?: () => void;
   onCaptureStill?: () => void;
+  onOpenCinemaPlayer?: () => void;
   projectTitle?: string;
   className?: string;
 }
@@ -179,6 +180,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   onUploadMedia,
   onPurgeMedia,
   onCaptureStill,
+  onOpenCinemaPlayer,
   projectTitle = 'RAWx Storyboard',
   className = ''
 }) => {
@@ -388,6 +390,10 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
 
   // Fullscreen controller
   const toggleFullscreen = useCallback(() => {
+    if (onOpenCinemaPlayer) {
+      onOpenCinemaPlayer();
+      return;
+    }
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen().catch(() => {});
@@ -396,7 +402,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       document.exitFullscreen().catch(() => {});
       setIsFullscreen(false);
     }
-  }, []);
+  }, [onOpenCinemaPlayer]);
 
   useEffect(() => {
     const handleFsChange = () => {

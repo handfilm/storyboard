@@ -260,6 +260,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
   // Title Scale State: 'cover' spans the whole word, 'ultra' is massive, 'standard' is compact
   const [titleScale, setTitleScale] = useState<'cover' | 'ultra' | 'standard'>('cover');
+  const [fullscreenBeacon, setFullscreenBeacon] = useState(false);
 
   // Curated Storytelling Title Layout for this frame
   const frameIdx = (safeFrame.id ? Number(safeFrame.id) - 1 : (safeFrame.epNumber ? Number(safeFrame.epNumber) - 1 : 0)) || 0;
@@ -378,26 +379,17 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   };
 
   const handleContainerPointerUp = (e: React.PointerEvent) => {
-    if (!pointerStartRef.current) return;
-    const dx = Math.abs(e.clientX - pointerStartRef.current.x);
-    const dy = Math.abs(e.clientY - pointerStartRef.current.y);
-    const dt = Date.now() - pointerStartRef.current.time;
     pointerStartRef.current = null;
-
-    // Clean click condition: moved under 5px, under 500ms, not dragging, no pan active
-    if (dx < 5 && dy < 5 && dt < 500 && !isPanActive && onOpenCinemaPlayer) {
-      const target = e.target as HTMLElement;
-      if (target.closest('button, input, select, textarea, [data-interactive="true"]')) {
-        return;
-      }
-      onOpenCinemaPlayer();
-    }
   };
 
   const handleContainerDoubleClick = (e: React.MouseEvent) => {
     if (!isPanActive && onOpenCinemaPlayer) {
       const target = e.target as HTMLElement;
       if (!target.closest('button, input, select, textarea, [data-interactive="true"]')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setFullscreenBeacon(true);
+        setTimeout(() => setFullscreenBeacon(false), 500);
         onOpenCinemaPlayer();
       }
     }
@@ -480,7 +472,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        className={`relative ${getAspectRatioClasses()} bg-[#040407] border border-[#272732] rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.98)] ring-1 ring-[#d4af37]/20 overflow-hidden transition-colors duration-150 ease-out ${
+        className={`group relative ${getAspectRatioClasses()} bg-[#040407] border border-[#272732] rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.98)] ring-1 ring-[#d4af37]/20 overflow-hidden transition-colors duration-150 ease-out ${
           isPanActive ? 'cursor-ns-resize ring-2 ring-[#d4af37]' : 'cursor-pointer'
         }`}
       >
@@ -862,7 +854,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         )}
 
         {/* Quick Edit & Title Toggle Trigger on Frame Hover */}
-        <div className="absolute top-3 right-32 sm:right-36 z-[40] flex items-center gap-1.5 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:hover:opacity-100 transition-opacity">
+        <div className="absolute top-3 right-3 sm:right-4 z-[40] flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           {onToggleTitles && (
             <button
               onClick={onToggleTitles}
@@ -893,16 +885,60 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               <Upload className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* ========================================================================= */}
+        {/* YOUTUBE-GRADE INSIDE-MEDIA FULLSCREEN BUTTON & QUICK DOCK (Bottom Bar)     */}
+        {/* ========================================================================= */}
+        {/* Bottom-Left Inside-Media Telemetry Pill */}
+        <div className="absolute bottom-3 left-3 z-[45] flex items-center gap-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="px-2.5 py-1 rounded-[2px] bg-black/80 backdrop-blur-md border border-white/10 text-[9.5px] font-mono text-zinc-300 flex items-center gap-1.5 shadow-lg select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />
+            <span className="font-bold text-[#FFE066]">SHOT {String(safeFrame.id || 1).padStart(3, '0')}</span>
+            <span className="text-white/20">•</span>
+            <span className="text-zinc-400">DOUBLE-CLICK TO EXPAND</span>
+          </div>
+        </div>
+
+        {/* Bottom-Right Prominent Inside-Media Fullscreen Button */}
+        <div className="absolute bottom-3 right-3 z-[45] flex items-center gap-2 pointer-events-auto">
+          {/* Format Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-[2px] bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-mono text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
+            <span className="font-bold text-[#D4AF37]">{aspectRatio}</span>
+            <span className="text-white/20">|</span>
+            <span className="text-zinc-400">4K CINEMA</span>
+          </div>
+
           {onOpenCinemaPlayer && (
             <button
-              onClick={onOpenCinemaPlayer}
-              className="p-1.5 rounded-[1px] bg-black/80 hover:bg-black border border-[#D4AF37]/50 text-[#D4AF37] hover:text-[#FFE066] hover:border-[#D4AF37] backdrop-blur-md cursor-pointer transition-colors shadow-lg"
-              title="Open Cinema Player (F)"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFullscreenBeacon(true);
+                setTimeout(() => setFullscreenBeacon(false), 500);
+                onOpenCinemaPlayer();
+              }}
+              aria-label="Full screen (f)"
+              title="Full screen (f)"
+              className="group/fs relative flex items-center justify-center p-2 rounded-[2px] bg-black/85 hover:bg-[#D4AF37] border border-white/20 hover:border-[#D4AF37] text-white hover:text-black shadow-[0_4px_24px_rgba(0,0,0,0.85)] backdrop-blur-md transition-all duration-150 cursor-pointer active:scale-95"
             >
-              <Maximize className="w-3.5 h-3.5" />
+              <Maximize className="w-4 h-4 transition-transform duration-150 group-hover/fs:scale-110" />
+              {/* Tooltip */}
+              <span className="absolute bottom-full right-0 mb-2 px-2 py-0.5 rounded bg-black/95 border border-[#D4AF37]/50 text-[10px] font-mono font-bold text-[#FFE066] whitespace-nowrap shadow-xl opacity-0 group-hover/fs:opacity-100 pointer-events-none transition-opacity duration-150">
+                Full screen (f)
+              </span>
             </button>
           )}
         </div>
+
+        {/* Fullscreen Beacon Flash Feedback */}
+        {fullscreenBeacon && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-out fade-out duration-300">
+            <div className="p-4 rounded-full bg-[#0D0D12]/90 border border-[#D4AF37] text-[#FFE066] shadow-[0_0_30px_rgba(212,175,55,0.6)] animate-ping">
+              <Maximize className="w-10 h-10" />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

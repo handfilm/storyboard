@@ -32,6 +32,7 @@ import {
 interface HandfilmHomeProps {
   frames: AnthologyFrame[];
   onEnterStudio: (shotIndex?: number) => void;
+  onLaunchStudio?: () => void;
   onOpenExportXml: () => void;
   onOpenExportRange?: () => void;
 }
@@ -39,6 +40,7 @@ interface HandfilmHomeProps {
 export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   frames,
   onEnterStudio,
+  onLaunchStudio,
   onOpenExportXml,
   onOpenExportRange
 }) => {
@@ -53,13 +55,13 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   // FAQ Accordion State
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  // Auto-advance hero carousel every 6.5 seconds when not hovered
+  // 6-second auto-cycle across the 10 slides when not hovered
   useEffect(() => {
     if (isHeroPaused) return;
 
     heroTimerRef.current = setInterval(() => {
       setCurrentSlideIndex((prev) => (prev + 1) % SLIDES_DATA.length);
-    }, 6500);
+    }, 6000);
 
     return () => {
       if (heroTimerRef.current) clearInterval(heroTimerRef.current);
@@ -75,6 +77,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
   const handleNextSlide = () => {
     setCurrentSlideIndex((prev) => (prev + 1) % SLIDES_DATA.length);
+  };
+
+  // Launch Studio Action
+  const handleLaunchStudio = () => {
+    if (onLaunchStudio) {
+      onLaunchStudio();
+    } else {
+      onEnterStudio(0);
+    }
   };
 
   // Scroll smoothly to Specs / Matrix section
@@ -106,90 +117,87 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   ];
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto overflow-x-hidden bg-[#0A0A0E] text-white font-sans selection:bg-[#E50914] selection:text-white pb-24">
+    <div className="flex-1 w-full h-full overflow-y-auto overflow-x-hidden bg-[#070709] text-white font-sans selection:bg-[#E50914] selection:text-white pb-24">
       {/* ========================================================= */}
-      {/* MODULE 1: TOP HERO SECTION — 10-SLIDE CINEMATIC MANIFESTO */}
+      {/* MODULE 1: 10-SLIDE CINEMA HERO RUNNER (2.39:1 OPTICAL CONTAINER) */}
       {/* ========================================================= */}
       <section 
-        className="relative w-full min-h-[580px] lg:min-h-[640px] flex flex-col justify-end px-6 sm:px-12 lg:px-20 pb-16 pt-12 overflow-hidden border-b border-[#232330]"
+        className="min-h-[60vh] flex flex-col justify-end p-8 md:p-14 relative overflow-hidden border-b border-[#232330]"
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
       >
-        {/* Dynamic Anamorphic Ambient Background */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0E] via-[#0A0A0E]/60 to-black/90 z-10" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_20%,rgba(229,9,20,0.18),transparent_70%)] pointer-events-none z-10" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_75%_35%,rgba(245,166,35,0.15),transparent_60%)] pointer-events-none z-10" />
-
-        {/* Cinematic Grid & Anamorphic Streak Line */}
-        <div className="absolute top-1/2 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#E50914]/40 to-transparent pointer-events-none z-10" />
-        <div className="absolute inset-0 opacity-15 pointer-events-none bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:48px_48px] z-0" />
-
         {/* Ambient Film Plate Preview for current slide */}
         <div className="absolute inset-0 z-0 overflow-hidden">
           {frames[currentSlideIndex % frames.length]?.imageUrl ? (
             <img 
               src={frames[currentSlideIndex % frames.length]?.imageUrl} 
               alt={activeSlide.title} 
-              className="w-full h-full object-cover object-center opacity-25 scale-105 filter blur-xs transition-all duration-1000 ease-out"
+              className="w-full h-full object-cover object-center opacity-30 scale-105 filter blur-xs transition-all duration-1000 ease-out"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-[#12121c] via-[#0d0d12] to-black opacity-60" />
           )}
         </div>
 
-        {/* Hero Content Block */}
-        <div className="relative z-20 max-w-4xl space-y-4">
-          {/* Tag & Slide Counter */}
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-0.5 rounded-full bg-[#E50914]/20 border border-[#E50914]/60 text-[#E50914] font-mono text-xs font-bold uppercase tracking-widest shadow-[0_0_12px_rgba(229,9,20,0.35)]">
-              HANDFILM MANIFESTO
-            </span>
-            <span className="text-zinc-500 font-mono text-xs">•</span>
-            <span className="text-[#F5A623] font-mono text-xs tracking-wider uppercase font-semibold">
+        {/* Soft Dark Radial Glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(229,9,20,0.18),transparent_70%)] pointer-events-none z-10" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_75%_40%,rgba(245,166,35,0.12),transparent_65%)] pointer-events-none z-10" />
+
+        {/* Subtle Horizontal Anamorphic Flare */}
+        <div className="absolute top-1/2 left-0 w-full h-[1.5px] bg-gradient-to-r from-transparent via-[#00f0ff]/20 via-[#E50914]/50 to-transparent pointer-events-none z-10 blur-[0.5px]" />
+
+        {/* Bottom Fade Gradient & dark scrim */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#070709] via-transparent to-transparent z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-black/40 z-10 pointer-events-none" />
+
+        {/* Hero Content Stack */}
+        <div className="relative z-20 max-w-3xl space-y-3">
+          {/* Gold eyebrow tag */}
+          <div className="text-xs font-mono text-[#F5A623] tracking-widest uppercase flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
               {activeSlide.tag}
             </span>
-            <span className="text-zinc-500 font-mono text-xs">•</span>
-            <span className="font-mono text-xs text-zinc-400">
+            <span className="text-zinc-600 font-bold">•</span>
+            <span className="text-zinc-400 font-mono text-[11px]">
               SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
             </span>
           </div>
 
-          {/* Bilingual & Cinematic Main Headline */}
-          <div className="space-y-1">
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-cinzel tracking-tight text-white drop-shadow-md">
-              {activeSlide.title}
-            </h1>
-            <p className="text-xl sm:text-2xl lg:text-3xl font-light text-zinc-300 font-sans tracking-wide">
-              // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
-            </p>
+          {/* Massive Title */}
+          <h1 className="text-4xl md:text-6xl font-black text-zinc-100 tracking-tight font-cinzel leading-none drop-shadow-lg">
+            {activeSlide.title}
+          </h1>
+
+          {/* Subtitle & 2-line manifesto body */}
+          <div className="text-xl md:text-2xl font-light text-zinc-300 font-sans tracking-wide">
+            // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
           </div>
 
-          {/* Body Description */}
-          <p className="text-zinc-400 text-sm sm:text-base max-w-2xl leading-relaxed pt-1 font-sans">
+          <p className="text-zinc-400 text-sm max-w-xl mt-3 leading-relaxed line-clamp-2 font-sans">
             {activeSlide.body}
           </p>
 
-          {/* Hero CTAs */}
-          <div className="flex flex-wrap items-center gap-4 pt-4">
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-4">
             <button
-              onClick={() => onEnterStudio(0)}
-              className="px-6 sm:px-8 py-3.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-sm sm:text-base flex items-center gap-3 shadow-[0_0_25px_rgba(229,9,20,0.55)] hover:shadow-[0_0_35px_rgba(229,9,20,0.8)] transition-all duration-200 cursor-pointer active:scale-95 group"
+              onClick={handleLaunchStudio}
+              className="px-7 py-3.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-sm sm:text-base flex items-center gap-3 shadow-[0_0_25px_rgba(229,9,20,0.6)] hover:shadow-[0_0_35px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95 group"
             >
               <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
-              <span className="tracking-wide">ENTER PRO STUDIO</span>
+              <span className="tracking-wide">LAUNCH DIRECTOR'S STUDIO</span>
             </button>
 
             <button
               onClick={handleScrollToSpecs}
-              className="px-5 sm:px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-zinc-200 hover:text-white font-semibold text-sm flex items-center gap-2 transition-all duration-200 cursor-pointer backdrop-blur-md active:scale-95"
+              className="px-6 py-3.5 rounded-full bg-[#0E0E12] hover:bg-[#181822] border border-[#2B2B36] hover:border-zinc-500 text-zinc-300 hover:text-white font-semibold text-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95"
             >
               <Info className="w-4 h-4 text-[#F5A623]" />
-              <span>EXPLORE SPECS</span>
+              <span>MORE INFO</span>
             </button>
 
             <button
               onClick={onOpenExportXml}
-              className="px-5 sm:px-6 py-3.5 rounded-full bg-[#121218] hover:bg-[#1b1b24] border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-semibold text-sm flex items-center gap-2 transition-all duration-200 cursor-pointer active:scale-95"
+              className="px-5 sm:px-6 py-3.5 rounded-full bg-[#121218] hover:bg-[#1b1b24] border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-semibold text-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95"
               title="Export Full Storyboard XML"
             >
               <Film className="w-4 h-4" />
@@ -197,7 +205,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             </button>
           </div>
 
-          {/* 10-Slide Progress Indicators & Manual Shuttles */}
+          {/* 10-Slide Indicator Pill Dots & Shuttles */}
           <div className="flex items-center gap-4 pt-6">
             <div className="flex items-center gap-1.5">
               {SLIDES_DATA.map((slide, idx) => (
@@ -209,25 +217,25 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                       ? 'w-8 bg-[#E50914] shadow-[0_0_10px_rgba(229,9,20,0.8)]' 
                       : 'w-2 bg-white/20 hover:bg-white/50'
                   }`}
-                  title={`Go to slide ${idx + 1}: ${slide.title}`}
+                  title={`Slide ${idx + 1}: ${slide.title} // ${slide.subtitle}`}
                 />
               ))}
             </div>
 
-            <div className="flex items-center gap-1.5 ml-4">
+            <div className="flex items-center gap-1.5 ml-2">
               <button
                 onClick={handlePrevSlide}
-                className="w-8 h-8 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 title="Previous Slide"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={handleNextSlide}
-                className="w-8 h-8 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-full bg-black/60 border border-white/15 hover:border-white/40 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 title="Next Slide"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

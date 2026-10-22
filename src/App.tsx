@@ -45,6 +45,7 @@ import { migrateToProjectV1, convertShotV1ToFrame } from './utils/projectMigrati
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
+import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';
@@ -65,6 +66,7 @@ export default function App() {
   }));
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentView, setCurrentView] = useState<'HOME' | 'STUDIO'>('HOME');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('STAGE');
   const [activeModule, setActiveModule] = useState<StudioModuleId>('PLAYER');
   const [isProMode, setIsProMode] = useState(false);
@@ -1090,6 +1092,7 @@ export default function App() {
 
   // Central Stage / Home Navigation Handler: Returns immediately to Hero Viewport from ANY module
   const handleGoHome = () => {
+    setCurrentView('HOME');
     setWorkspaceMode('STAGE');
     setActiveModule('PLAYER');
     setIsDrawerOpen(false);
@@ -1123,10 +1126,13 @@ export default function App() {
         activeMode={workspaceMode}
         activeModule={activeModule}
         onGoHome={handleGoHome}
+        currentView={currentView}
+        onSelectView={setCurrentView}
         onSelectMode={(mode) => {
           if (mode === 'STAGE') {
             handleGoHome();
           } else {
+            setCurrentView('STUDIO');
             setWorkspaceMode(mode);
             setIsDrawerOpen(false);
           }
@@ -1156,8 +1162,28 @@ export default function App() {
         onOpenWalkthrough={() => setShowWalkthrough(true)}
       />
 
-      {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
-      <div className="flex-1 w-full flex overflow-hidden relative">
+      {/* Main Studio Viewport: HandfilmHome or Full Pro Studio */}
+      {currentView === 'HOME' ? (
+        <HandfilmHome
+          frames={project.frames}
+          onEnterStudio={(shotIndex) => {
+            if (typeof shotIndex === 'number') {
+              setCurrentIndex(shotIndex);
+            }
+            setCurrentView('STUDIO');
+            setWorkspaceMode('STAGE');
+          }}
+          onLaunchStudio={() => {
+            setCurrentView('STUDIO');
+            setWorkspaceMode('STAGE');
+          }}
+          onOpenExportXml={() => setIsExportTimelineOpen(true)}
+          onOpenExportRange={() => setIsExportRangeOpen(true)}
+        />
+      ) : (
+        <>
+          {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
+          <div className="flex-1 w-full flex overflow-hidden relative">
         <LeftRail
           activeModule={activeModule}
           onSelectModule={(mod) => {
@@ -1406,6 +1432,8 @@ export default function App() {
         onToggleGuides={() => setShowGuides(g => !g)}
         onCaptureStill={handleCaptureStill}
       />
+      </>
+      )}
 
       {/* Components Matrix Popover (12/13) */}
       <ComponentsMatrixPopover

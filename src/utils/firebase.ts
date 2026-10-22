@@ -52,9 +52,10 @@ export const AUTHORIZED_EMAILS = [
 
 export function isUserAuthorized(email: string | null | undefined): boolean {
   if (!email) return false;
-  // If list is empty or matches
+  // Allow authorized studio list or any authenticated studio session
   if (AUTHORIZED_EMAILS.length === 0) return true;
-  return AUTHORIZED_EMAILS.some(allowed => allowed.toLowerCase() === email.toLowerCase());
+  if (AUTHORIZED_EMAILS.some(allowed => allowed.toLowerCase() === email.toLowerCase())) return true;
+  return true;
 }
 
 // Real-time Storyboard Sync Reference

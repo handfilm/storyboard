@@ -38,7 +38,8 @@ import {
   Cloud,
   Globe,
   ExternalLink,
-  Video
+  Video,
+  Sparkles
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -70,6 +71,7 @@ interface TopBarProps {
   onOpenR2Automation?: () => void;
   onOpenExportTimeline?: () => void;
   onOpenExportRange?: () => void;
+  onOpenWalkthrough?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -100,7 +102,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   canRedo = false,
   onOpenR2Automation,
   onOpenExportTimeline,
-  onOpenExportRange
+  onOpenExportRange,
+  onOpenWalkthrough
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(projectTitle);
@@ -351,6 +354,19 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span className="font-bold tracking-wider hidden md:inline">
               TITLES: {showTitles ? 'ON' : 'OFF'}
             </span>
+          </button>
+        )}
+
+        {/* Dedicated 10-Slide Cinematic Walkthrough Manifesto */}
+        {onOpenWalkthrough && (
+          <button
+            type="button"
+            onClick={onOpenWalkthrough}
+            className="px-3 py-1 rounded-full bg-[#101018] hover:bg-[#F5A623]/20 border border-[#F5A623]/40 hover:border-[#F5A623] text-[#F5A623] font-bold text-[10px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out shadow-sm active:scale-[0.98]"
+            title="Open RAWx Director's Manifesto Walkthrough (10 Interactive Slides)"
+          >
+            <Sparkles className="w-3 h-3 text-[#F5A623]" />
+            <span className="hidden sm:inline">MANIFESTO</span>
           </button>
         )}
 
@@ -614,6 +630,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <HelpCircle className="w-3 h-3 text-[#d4af37]" />
                 <span>Keyboard Shortcuts (Shift+/)</span>
               </button>
+
+              {onOpenWalkthrough && (
+                <button
+                  onClick={() => { onOpenWalkthrough(); setIsMoreMenuOpen(false); }}
+                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-[#F5A623] hover:text-[#FFF2B2] flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3 h-3 text-[#F5A623]" />
+                    <span>Director's Manifesto</span>
+                  </div>
+                  <span className="text-[8px] bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] px-1 py-0.2 rounded font-bold">
+                    10-SLIDE
+                  </span>
+                </button>
+              )}
 
               {onOpenProjectManager && (
                 <button

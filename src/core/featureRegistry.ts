@@ -353,6 +353,18 @@ class FeatureRegistry {
       status: 'stable',
       selfTest: async () => ({ ok: true, message: 'rawx-project.v1 persistence schema valid and active' })
     });
+
+    this.register({
+      id: 'director-manifesto-walkthrough',
+      name: "Director's Manifesto & Walkthrough (10 Interactive Slides)",
+      module: 'SYSTEM',
+      description: '10-slide interactive cinematic presentation of the RAWx studio architecture and design principles',
+      path: 'TopBar > MANIFESTO',
+      shortcut: 'Alt+M',
+      commandId: 'system.manifesto',
+      status: 'stable',
+      selfTest: async () => ({ ok: true, message: 'LandingWalkthrough 10-slide component active' })
+    });
   }
 }
 

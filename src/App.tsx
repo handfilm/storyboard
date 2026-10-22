@@ -44,6 +44,7 @@ import { ProjectV1 } from './types/projectSchema';
 import { migrateToProjectV1, convertShotV1ToFrame } from './utils/projectMigration';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
+import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';

@@ -743,7 +743,21 @@ class StudioDraftDbService {
   public async getSourceMediaBlob(mediaId: string): Promise<Blob | null> {
     if (!mediaId) return null;
     try {
-      // 1. Check media_vault
+      // 0. If mediaId is an active object URL, look up original asset ID
+      if (mediaId.startsWith('blob:')) {
+        for (const [id, url] of this.lruActiveUrls.entries()) {
+          if (url === mediaId) {
+            return this.getSourceMediaBlob(id);
+          }
+        }
+        for (const [id, url] of this.activeMediaUrls.entries()) {
+          if (url === mediaId) {
+            return this.getSourceMediaBlob(id);
+          }
+        }
+      }
+
+      // 1. Check media_vault by ID
       const vaultItem = await this.getVaultMediaById(mediaId);
       if (vaultItem && vaultItem.blob) {
         return vaultItem.blob;
@@ -753,9 +767,32 @@ class StudioDraftDbService {
       if (blob) {
         return blob;
       }
+
+      // 3. Check media_vault by filename/name match
+      const allVault = await this.getAllVaultMedia();
+      const matched = allVault.find(v => v.name === mediaId || v.id === mediaId);
+      if (matched && matched.blob) {
+        return matched.blob;
+      }
+
       return null;
     } catch (err) {
       console.warn('[DraftDB] getSourceMediaBlob error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Retrieves source media blob for a given timeline shot index via timeline_slots
+   */
+  public async getSourceMediaBlobForShot(shotIndex: number): Promise<Blob | null> {
+    try {
+      const slot = await this.getTimelineSlot(shotIndex);
+      if (slot && slot.mediaId) {
+        return this.getSourceMediaBlob(slot.mediaId);
+      }
+      return null;
+    } catch {
       return null;
     }
   }
@@ -1734,6 +1771,8 @@ export const getAllVaultMedia = () => studioDraftDb.getAllVaultMedia();
 export const deleteVaultMedia = (id: string) => studioDraftDb.deleteVaultMedia(id);
 export const clearAllVaultMedia = () => studioDraftDb.clearAllVaultMedia();
 export const saveMediaToVault = (file: File) => studioDraftDb.saveMediaToVault(file);
+export const getSourceMediaBlob = (mediaId: string) => studioDraftDb.getSourceMediaBlob(mediaId);
+export const getSourceMediaBlobForShot = (shotIndex: number) => studioDraftDb.getSourceMediaBlobForShot(shotIndex);
 
 
 

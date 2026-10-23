@@ -242,7 +242,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           onOpenAnimatic={onOpenAnimatic}
           onOpenInspector={onOpenInspector}
           onToggleTitles={onToggleTitles}
-          showTitles={true}
+          showTitles={componentsVisibility?.titlesAll ?? true}
           playbackMode={playbackMode}
           onSelectPlaybackMode={onSelectPlaybackMode}
           slideTimeSec={slideTimeSec}
@@ -325,7 +325,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onOpenAnimatic={onOpenAnimatic}
               onOpenInspector={onOpenInspector}
               onToggleTitles={onToggleTitles}
-              showTitles={true}
+              showTitles={componentsVisibility?.titlesAll ?? true}
               playbackMode={playbackMode}
               onSelectPlaybackMode={onSelectPlaybackMode}
               slideTimeSec={slideTimeSec}
@@ -379,6 +379,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onPurgeMedia={onPurgeMedia}
                 onOpenCinemaPlayer={onOpenCinemaPlayer}
                 projectTitle={projectTitle}
+                showTitles={componentsVisibility?.titlesAll ?? true}
                 defaultSafeZone="bottom"
               />
             </div>
@@ -450,6 +451,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onPurgeMedia={onPurgeMedia}
               onOpenCinemaPlayer={onOpenCinemaPlayer}
               projectTitle={projectTitle}
+              showTitles={componentsVisibility?.titlesAll ?? true}
             />
           </div>
         )}

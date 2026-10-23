@@ -119,6 +119,17 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
 
   // --- Navigation & Cut Points ---
   {
+    id: 'nav_contact_sheet_grid',
+    name: 'Contact Sheet Grid (Modal 1)',
+    description: 'Instantly toggle Modal 1: 100-Frame Contact Sheet Grid visibility in the main workspace',
+    category: 'navigation',
+    defaultKey: 'G',
+    currentKey: 'G',
+    scope: 'WORKSPACE',
+    tag: 'ESSENTIAL',
+    testCodes: ['KeyG', 'g', 'G']
+  },
+  {
     id: 'nav_prev_shot',
     name: 'Previous Shot',
     description: 'Jump backward between storyboard shots or slides',

@@ -504,7 +504,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         {/* Real-Time Bilingual Titles Overlay (Foreground Multi-Layer Zoom) */}
         {isTitlesActive && (
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
+            className="absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center"
             style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
           >
             <StageTextOverlay
@@ -533,7 +533,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         )}
 
         {/* Directorial HUD Overlay + Stage HUD Quick T TITLES Toggle */}
-        <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-20">
+        <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-40">
           <div className="flex items-center gap-2">
             {showHud && (
               <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
@@ -607,7 +607,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
 
         {/* Hover Action Controls */}
-        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 z-20 pointer-events-auto">
+        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 z-40 pointer-events-auto">
           <button
             onClick={() => fileInputRef.current?.click()}
             className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"

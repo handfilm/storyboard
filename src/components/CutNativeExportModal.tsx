@@ -36,7 +36,7 @@ import {
 import { exportFullIdbBackup } from '../utils/backup';
 import { exportDirectorsCutBundle } from '../services/directorsCutExport';
 import { exportProductionPackageZip } from '../services/productionPackageExport';
-import { downloadStoryboardPdf } from '../utils/pdfExport';
+import { downloadStoryboardPdf, exportFrameAsJpeg, exportFramesAsJpegZip } from '../utils/pdfExport';
 import { 
   Film, 
   Video, 
@@ -60,7 +60,8 @@ import {
   Copy,
   Check,
   Archive,
-  Package
+  Package,
+  Camera
 } from 'lucide-react';
 
 export type ExportModalTab = 'mp4' | 'premiere' | 'fcpxml' | 'package' | 'pdf' | 'directors_cut' | 'backup';
@@ -159,9 +160,10 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   const [includeXmlMarkers, setIncludeXmlMarkers] = useState<boolean>(true);
   const [isXmlCopied, setIsXmlCopied] = useState<boolean>(false);
 
-  // 6. PDF Contact Sheet Options
+  // 6. PDF Contact Sheet & High-Res JPEG Options
   const [pdfColumns, setPdfColumns] = useState<number>(4);
   const [includePdfSpecs, setIncludePdfSpecs] = useState<boolean>(true);
+  const [includeJpegSlate, setIncludeJpegSlate] = useState<boolean>(true);
 
   // 6b. Production Package ZIP Options
   const [packageBurnInTitles, setPackageBurnInTitles] = useState<boolean>(false);
@@ -816,7 +818,50 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     } finally {
       setIsExporting(false);
     }
-  }, [selectedFrames, projectTitle, directorName, aspectRatio, pdfColumns, includePdfSpecs, playExportSuccessChime]);
+  }, [selectedFrames, projectTitle, directorName, aspectRatio, pdfColumns, includePdfSpecs]);
+
+  // Direct download of Individual Storyboard Frame as High-Resolution JPEG (1920x1080)
+  const handleExportSingleFrameJpeg = useCallback(async () => {
+    const safeFrames = frames || [];
+    const targetFrame = safeFrames[previewShotIdx] || safeFrames[currentSlideIndex || 0] || selectedFrames[0];
+    if (!targetFrame) {
+      setExportError('No storyboard frame available to export as JPEG.');
+      return;
+    }
+    try {
+      setIsExporting(true);
+      setExportError(null);
+      await exportFrameAsJpeg(targetFrame, projectTitle, includeJpegSlate);
+      playExportSuccessChime();
+      const cleanEp = (targetFrame.epNumber || `SH${String((previewShotIdx || 0) + 1).padStart(3, '0')}`).replace(/[^a-zA-Z0-9_-]/g, '');
+      setDownloadedFileName(`${projectTitle}_${cleanEp}_HiRes_1080p.jpg`);
+      setIsFinished(true);
+    } catch (err: any) {
+      console.error('[HiRes JPEG Export Error]', err);
+      setExportError(err?.message || 'Could not export High-Resolution JPEG.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [frames, previewShotIdx, currentSlideIndex, selectedFrames, projectTitle, includeJpegSlate]);
+
+  // Batch export selected storyboard frames as High-Resolution JPEGs (.zip)
+  const handleExportSelectedFramesJpegZip = useCallback(async () => {
+    const targets = selectedFrames.length > 0 ? selectedFrames : (frames || []);
+    if (targets.length === 0) return;
+    try {
+      setIsExporting(true);
+      setExportError(null);
+      await exportFramesAsJpegZip(targets, projectTitle);
+      playExportSuccessChime();
+      setDownloadedFileName(`${projectTitle}_Storyboard_HiRes_JPEGs.zip`);
+      setIsFinished(true);
+    } catch (err: any) {
+      console.error('[Batch JPEG ZIP Error]', err);
+      setExportError(err?.message || 'Could not export High-Resolution JPEGs ZIP.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [selectedFrames, frames, projectTitle]);
 
   // Export Full Lossless RAWX Backup (.rawx JSON)
   const handleExportRawxBackup = useCallback(async () => {
@@ -1948,8 +1993,55 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2">
                   <span className="text-[10.5px] text-emerald-400 font-bold uppercase block">PDF Delivery</span>
                   <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
-                    Clicking Generate Contact Sheet will launch a clean browser print preview formatted for both Light and Dark backgrounds. Save directly as PDF or print on physical call sheets.
+                    Clicking Download Storyboard PDF generates a multi-frame A4 storyboard packet, or use Print Preview for Light/Dark call sheets.
                   </p>
+                </div>
+              </div>
+
+              {/* INDIVIDUAL HIGH-RESOLUTION JPEG FRAME EXPORT */}
+              <div className="p-4 rounded-lg bg-[#101118] border border-cyan-500/30 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10.5px] text-cyan-400 font-bold uppercase flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5" />
+                      Individual Frame High-Resolution JPEG Export (1920×1080)
+                    </span>
+                    <p className="text-[11px] text-zinc-400 font-sans mt-0.5">
+                      Select any shot in the Visual Shot Strip above (currently <strong className="text-white">SH{String((previewShotIdx || 0) + 1).padStart(3, '0')} — {frames?.[previewShotIdx || 0]?.title || 'Active Frame'}</strong>) to export a standalone 1080p graded JPEG.
+                    </p>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs text-zinc-300 shrink-0 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeJpegSlate}
+                      onChange={(e) => setIncludeJpegSlate(e.target.checked)}
+                      className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                    />
+                    <span>Include Camera Slate</span>
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={handleExportSingleFrameJpeg}
+                    className="px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/60 text-cyan-200 hover:text-white text-xs font-bold tracking-wider flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>EXPORT SH{String((previewShotIdx || 0) + 1).padStart(3, '0')} AS HI-RES JPEG (.JPG)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={handleExportSelectedFramesJpegZip}
+                    className="px-3.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-[#F5A623] text-xs font-bold tracking-wider flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#F5A623]" />
+                    <span>BATCH EXPORT {activeSelection.totalShots} JPEGs (.ZIP)</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -2203,7 +2295,17 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 )}
 
                 {activeTab === 'pdf' && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleExportSingleFrameJpeg}
+                      disabled={isExporting}
+                      className="px-3.5 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/60 text-cyan-200 hover:text-white font-bold text-xs tracking-wider flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                      title="Export active previewed storyboard frame as High-Resolution 1920×1080 JPEG"
+                    >
+                      <Camera className="w-3.5 h-3.5 text-cyan-300" />
+                      <span>HI-RES JPEG</span>
+                    </button>
                     <button
                       type="button"
                       onClick={handleDownloadStoryboardPdf}

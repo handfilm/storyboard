@@ -37,6 +37,7 @@ interface HandfilmHomeProps {
   onOpenExportXml: () => void;
   onOpenExportRange?: () => void;
   onOpenShortcuts?: () => void;
+  showTitles?: boolean;
 }
 
 export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
@@ -45,7 +46,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   onLaunchStudio,
   onOpenExportXml,
   onOpenExportRange,
-  onOpenShortcuts
+  onOpenShortcuts,
+  showTitles = true
 }) => {
   // Top 10 Shots
   const top10Shots = frames.slice(0, 10);
@@ -100,6 +102,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         onLaunchStudio={handleLaunchStudio}
         onOpenExportXml={onOpenExportXml}
         onScrollToSpecs={handleScrollToSpecs}
+        showTitles={showTitles}
       />
 
       {/* ========================================================= */}

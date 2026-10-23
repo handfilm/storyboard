@@ -204,7 +204,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
       {/* Optional Interactive Quick-HUD for on-stage tweaking */}
       {allowQuickControls && (
-        <div className="absolute top-3 right-3 pointer-events-auto z-40 flex items-center gap-1.5">
+        <div className="absolute top-12 right-3 pointer-events-auto z-40 flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setShowQuickHud(v => !v)}

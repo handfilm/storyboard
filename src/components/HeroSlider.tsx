@@ -21,13 +21,15 @@ export interface HeroSliderProps {
   onLaunchStudio: () => void;
   onOpenExportXml?: () => void;
   onScrollToSpecs?: () => void;
+  showTitles?: boolean;
 }
 
 export const HeroSlider: React.FC<HeroSliderProps> = ({
   frames = [],
   onLaunchStudio,
   onOpenExportXml,
-  onScrollToSpecs
+  onScrollToSpecs,
+  showTitles = true
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isHeroPaused, setIsHeroPaused] = useState(false);
@@ -64,6 +66,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
   }, [isHeroPaused, slideTransitionKey]);
 
   const activeSlide = SLIDES_DATA[currentSlideIndex] || SLIDES_DATA[0];
+  const activeFrame = frames.length > 0 ? frames[currentSlideIndex % frames.length] : undefined;
 
   const handlePrevSlide = () => {
     triggerSlideTransition((prev) => (prev - 1 + SLIDES_DATA.length) % SLIDES_DATA.length);
@@ -121,31 +124,43 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
           key={`hero-content-${slideTransitionKey}-${currentSlideIndex}`}
           className={`max-w-2xl ${isTransitionActive ? 'animate-hero-fade' : 'opacity-0'}`}
         >
-          {/* Eyebrow */}
-          <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#F5A623] mb-3 flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
-              {activeSlide.tag}
-            </span>
-            <span className="text-zinc-600 font-bold">•</span>
-            <span className="text-zinc-400 font-mono text-[11px] tracking-widest">
-              SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
-            </span>
-          </div>
+          {showTitles && (
+            <>
+              {/* Eyebrow */}
+              <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#F5A623] mb-3 flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
+                  {activeSlide.tag}
+                </span>
+                <span className="text-zinc-600 font-bold">•</span>
+                <span className="text-zinc-300 font-mono text-[11px] tracking-widest">
+                  SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
+                </span>
+                {activeFrame?.bengaliTitle && (
+                  <>
+                    <span className="text-zinc-600 font-bold">•</span>
+                    <span className="font-bangla text-sm text-[#FFE066] font-bold tracking-normal glow-gold">
+                      {activeFrame.bengaliTitle}
+                    </span>
+                  </>
+                )}
+              </div>
 
-          {/* Main Headline */}
-          <h1 className="text-4xl md:text-6xl font-black text-zinc-100 tracking-tight font-cinzel leading-none drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)]">
-            {activeSlide.title}
-          </h1>
+              {/* Main Headline */}
+              <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight font-cinzel leading-none drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
+                {activeSlide.title}
+              </h1>
 
-          {/* Subtitle */}
-          <div className="mt-3 mb-4 text-lg md:text-xl font-semibold text-zinc-200 font-sans tracking-wide">
-            // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
-          </div>
+              {/* Subtitle */}
+              <div className="mt-3 mb-4 text-lg md:text-xl font-semibold text-zinc-200 font-sans tracking-wide">
+                // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
+              </div>
 
-          {/* Description */}
-          <p className="max-w-xl text-zinc-400 text-sm md:text-base leading-relaxed mb-6 font-sans line-clamp-2">
-            {activeSlide.body}
-          </p>
+              {/* Description */}
+              <p className="max-w-xl text-zinc-300 text-sm md:text-base leading-relaxed mb-6 font-sans line-clamp-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
+                {activeSlide.body}
+              </p>
+            </>
+          )}
 
           {/* Action CTA Buttons: Master [ ⚡ TRY STUDIO ] + Compact [ ⓘ INFO ] & [ ⤓ EXPORT ] */}
           <div className="gap-3 sm:gap-4 flex items-center flex-wrap">

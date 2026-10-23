@@ -91,6 +91,36 @@
   animation: heroEntrance 0.48s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes heroFade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-fade {
+  animation: heroFade 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes heroPlate {
+  0% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+}
+
+.animate-hero-plate {
+  animation: heroPlate 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @keyframes heroKineticEntrance {
   0% {
     opacity: 0;

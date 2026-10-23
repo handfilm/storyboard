@@ -196,9 +196,9 @@ class KeyScopeManager {
       return;
     }
 
-    // G: Toggle contact sheet grid
+    // G: Toggle Modal 1: Contact Sheet Grid
     if (e.key === 'g' || e.key === 'G') {
-      if (!e.metaKey && !e.ctrlKey) {
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         this.stageHandlers.onToggleGrid();
         return;
@@ -207,16 +207,16 @@ class KeyScopeManager {
 
     // F: Open Cinema Player
     if (e.key === 'f' || e.key === 'F') {
-      if (!e.metaKey && !e.ctrlKey) {
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         this.stageHandlers.onOpenCinema();
         return;
       }
     }
 
-    // M: Toggle audio mute
+    // M: Toggle audio mute (Shift+M reserved for Multi-Cam)
     if (e.key === 'm' || e.key === 'M') {
-      if (!e.metaKey && !e.ctrlKey && this.stageHandlers.onToggleMute) {
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && this.stageHandlers.onToggleMute) {
         e.preventDefault();
         this.stageHandlers.onToggleMute();
         return;

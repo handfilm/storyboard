@@ -58,6 +58,7 @@ export interface ReelsViewProps {
   onPurgeMedia?: () => void;
   onOpenCinemaPlayer?: () => void;
   projectTitle?: string;
+  showTitles?: boolean;
   defaultSafeZone?: ReelsSafeZonePosition;
 }
 
@@ -82,6 +83,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   onUploadMedia,
   onOpenCinemaPlayer,
   projectTitle = '12.0S CINEMA REEL',
+  showTitles = true,
   defaultSafeZone = 'bottom'
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -418,6 +420,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           {/* ========================================================================= */}
           {/* FROSTED OBSIDIAN CAPSULE EDITORIAL SUITE                                  */}
           {/* ========================================================================= */}
+          {showTitles && (
           <div 
             className={`absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl flex flex-col ${getSafeZoneClass()}`}
           >
@@ -468,6 +471,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
             </div>
           </div>
+          )}
 
         </div>
       </div>

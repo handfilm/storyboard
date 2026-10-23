@@ -160,6 +160,7 @@ interface OpticalMonitorProps {
   onCaptureStill?: () => void;
   onOpenCinemaPlayer?: () => void;
   projectTitle?: string;
+  showTitles?: boolean;
   className?: string;
 }
 
@@ -187,6 +188,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   onCaptureStill,
   onOpenCinemaPlayer,
   projectTitle = 'RAWx Storyboard',
+  showTitles: propShowTitles,
   className = ''
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -197,8 +199,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
-  const [showTitles, setShowTitles] = useState<boolean>(true);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState<boolean>(false);
+
+  const storeShowTitles = useStudioStore((s) => s.titleConfig?.showTitles ?? true);
+  const storeTitlesAll = useStudioStore((s) => s.visibility.titlesAll);
+  const showTitles = (propShowTitles ?? true) && storeShowTitles && storeTitlesAll;
 
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
@@ -337,7 +342,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       toggleFullscreen();
     },
     onToggleTitles: () => {
-      setShowTitles((t) => !t);
+      useStudioStore.getState().toggleTitles();
     }
   });
 
@@ -668,7 +673,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           {/* ========================================================================= */}
           
           {/* Top Left: Scene ID, Frame Telemetry, SMPTE Timecode */}
-          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-20">
+          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-40">
             <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] animate-pulse" />
             <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
             <span className="text-white/30">//</span>
@@ -684,7 +689,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           </div>
 
           {/* Top Right: Transport Velocity & NLE Status */}
-          <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
+          <div className="absolute top-3 right-3 flex items-center gap-2 z-40">
             {/* JKL Velocity Badge */}
             <div className={`px-2.5 py-1 rounded-full border text-[9.5px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md ${velocityBadge.color}`}>
               <Activity className="w-3 h-3" />
@@ -809,7 +814,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           {/* ========================================================================= */}
           {showTitles && (
             <div
-              className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
+              className="absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center"
               style={{ transform: zoomTransforms.fgTransform }}
             >
               <StageTextOverlay

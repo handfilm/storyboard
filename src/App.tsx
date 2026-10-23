@@ -505,19 +505,6 @@ export default function App() {
     };
   }, []);
 
-  // Register KeyScopeManager cheat sheet handler and init on mount
-  useEffect(() => {
-    const unsubCheatSheet = keyScopeManager.setCheatSheetHandler(() => {
-      setIsShortcutsOpen(prev => !prev);
-    });
-    const unsubKeyScope = keyScopeManager.init();
-
-    return () => {
-      unsubCheatSheet();
-      unsubKeyScope();
-    };
-  }, []);
-
   // Initialize Storage Core & Check Crash Status on Mount
   useEffect(() => {
     let isMounted = true;
@@ -923,9 +910,14 @@ export default function App() {
 
   // Milestone D1: Single Source of Truth Key Scope Manager Initialization & Sync
   useEffect(() => {
+    const cleanupCheatSheet = keyScopeManager.setCheatSheetHandler(() => {
+      setIsShortcutsOpen(prev => !prev);
+    });
     const cleanupKeyScope = keyScopeManager.init();
-    keyScopeManager.setCheatSheetHandler(() => setIsShortcutsOpen(prev => !prev));
-    return cleanupKeyScope;
+    return () => {
+      cleanupCheatSheet();
+      cleanupKeyScope();
+    };
   }, []);
 
   useEffect(() => {
@@ -936,17 +928,43 @@ export default function App() {
     }
   }, [isCinemaPlayerOpen]);
 
+  const isBlockingOverlayOpen =
+    isShortcutsOpen ||
+    isCommandPaletteOpen ||
+    isExportStudioOpen ||
+    isSettingsModalOpen ||
+    isPublishModalOpen ||
+    isProjectManagerOpen ||
+    isLiquifyOpen ||
+    showWalkthrough;
+
   useEffect(() => {
     return keyScopeManager.registerStageHandlers({
-      onTogglePlay: () => setIsPlaying(p => !p),
-      onNextShot: nextFrame,
-      onPrevShot: prevFrame,
-      onStepFrame: handleStepFrame,
-      onToggleGrid: () => setIsContactSheetOpen(o => !o),
-      onOpenCinema: () => setIsCinemaPlayerOpen(true),
-      onToggleMute: toggleAudio
+      onTogglePlay: () => {
+        if (!isBlockingOverlayOpen) setIsPlaying(p => !p);
+      },
+      onNextShot: () => {
+        if (!isBlockingOverlayOpen) nextFrame();
+      },
+      onPrevShot: () => {
+        if (!isBlockingOverlayOpen) prevFrame();
+      },
+      onStepFrame: (fwd) => {
+        if (!isBlockingOverlayOpen) handleStepFrame(fwd);
+      },
+      onToggleGrid: () => {
+        if (!isBlockingOverlayOpen && (currentView === 'STUDIO' || isContactSheetOpen)) {
+          setIsContactSheetOpen(o => !o);
+        }
+      },
+      onOpenCinema: () => {
+        if (!isBlockingOverlayOpen) setIsCinemaPlayerOpen(true);
+      },
+      onToggleMute: () => {
+        if (!isBlockingOverlayOpen) toggleAudio();
+      }
     });
-  }, [nextFrame, prevFrame, handleStepFrame, toggleAudio]);
+  }, [nextFrame, prevFrame, handleStepFrame, toggleAudio, isBlockingOverlayOpen, currentView, isContactSheetOpen]);
 
   // Fullscreen event listener
   useEffect(() => {
@@ -1058,15 +1076,40 @@ export default function App() {
     }
   };
 
+  // Keep useStudioStore titleConfig.showTitles & visibility.titlesAll synchronized with componentsVisibility.titlesAll
+  useEffect(() => {
+    try {
+      const store = useStudioStore.getState();
+      if (store.titleConfig.showTitles !== componentsVisibility.titlesAll || store.visibility.titlesAll !== componentsVisibility.titlesAll) {
+        store.setTitleConfig({ showTitles: componentsVisibility.titlesAll });
+      }
+    } catch {}
+  }, [componentsVisibility.titlesAll]);
+
+  // Also listen to store-driven title toggles (e.g., Stage fallback toggleTitlesStore)
+  useEffect(() => {
+    return eventBus.on('titles:toggle', (visible: boolean) => {
+      setComponentsVisibility(prev => {
+        if (prev.titlesAll === visible) return prev;
+        const next = { ...prev, titlesAll: visible };
+        saveComponentVisibility(next);
+        return next;
+      });
+    });
+  }, []);
+
   // Title Toggle Handler
   const handleToggleTitles = useCallback(() => {
     setComponentsVisibility(prev => {
-      const next = { ...prev, titlesAll: !prev.titlesAll };
+      const nextVal = !prev.titlesAll;
+      const next = { ...prev, titlesAll: nextVal };
       saveComponentVisibility(next);
+      try {
+        useStudioStore.getState().setTitleConfig({ showTitles: nextVal });
+      } catch {}
       return next;
     });
-    useStudioStore.getState().setVisibilityItem('titlesAll', !componentsVisibility.titlesAll);
-  }, [componentsVisibility.titlesAll]);
+  }, []);
 
   const handleUndo = useCallback(() => {
     if (historyStack.length === 0) return;
@@ -1193,8 +1236,12 @@ export default function App() {
   // Keyboard Navigation: NLE Shuttle, 1/24s Nudge, Loop Audition & Instant Purge
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      // Don't intercept if user is typing in an input, textarea, select, or contentEditable
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
+      ) {
         return;
       }
 
@@ -1212,13 +1259,6 @@ export default function App() {
         return;
       }
 
-      // Shortcuts Cheat Sheet (Shift+/)
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault();
-        setIsShortcutsOpen(prev => !prev);
-        return;
-      }
-
       // Global Multi-Cam Mode Trigger: Shift+M (Instantly activates Multi-Cam viewport with MultiCamGridMonitor and MultiCamTimelineTrack)
       if (e.shiftKey && (e.key === 'M' || e.key === 'm' || e.code === 'KeyM')) {
         e.preventDefault();
@@ -1229,17 +1269,17 @@ export default function App() {
         return;
       }
 
-      switch (e.key) {
-        // Left / Right Arrow: Slide Navigation (Previous / Next Shot)
-        case 'ArrowRight':
-          e.preventDefault();
-          nextFrame();
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          prevFrame();
-          break;
+      if (e.ctrlKey || e.metaKey || e.altKey || isShortcutsOpen || isCommandPaletteOpen) {
+        if (e.key === 'Escape') {
+          setIsCommandPaletteOpen(false);
+          setIsShortcutsOpen(false);
+        }
+        return;
+      }
 
+      // Note: Space, ArrowLeft, ArrowRight, ',', '.', 'G', 'F', 'M', and '?' are handled cleanly
+      // in capture phase by keyScopeManager to guarantee single-dispatch without double-toggling.
+      switch (e.key) {
         // J / K / L: Standard NLE Playback Shuttle (Rewind / Pause / Forward)
         case 'j':
         case 'J':
@@ -1258,25 +1298,6 @@ export default function App() {
             setIsPlaying(true);
           } else {
             handleStepFrame(true);
-          }
-          break;
-
-        // Space: Instant loop audition
-        case ' ':
-          e.preventDefault();
-          setIsPlaying(p => !p);
-          break;
-
-        case 'f':
-        case 'F':
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case 'g':
-        case 'G':
-          if (!e.metaKey && !e.ctrlKey) {
-            e.preventDefault();
-            setIsContactSheetOpen(prev => !prev);
           }
           break;
         case 'v':
@@ -1311,15 +1332,6 @@ export default function App() {
           e.preventDefault();
           handleCaptureStill();
           break;
-        case 'm':
-        case 'M':
-          e.preventDefault();
-          if (e.shiftKey) {
-            handleToggleMultiCam();
-          } else {
-            toggleAudio();
-          }
-          break;
         case 'h':
         case 'H':
           e.preventDefault();
@@ -1352,7 +1364,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextFrame, prevFrame, handleStepFrame, isPlaying, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio, handleToggleMultiCam]);
+  }, [handleStepFrame, isPlaying, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio, handleToggleMultiCam, isShortcutsOpen, isCommandPaletteOpen]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -1600,6 +1612,7 @@ export default function App() {
           onOpenExportXml={() => handleOpenExportStudio('premiere')}
           onOpenExportRange={() => handleOpenExportStudio('mp4')}
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
+          showTitles={componentsVisibility.titlesAll}
         />
       ) : (
         <>

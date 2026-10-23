@@ -44,7 +44,7 @@ import {
   Grid
 } from 'lucide-react';
 import { filterFrames, getLutFilterCSS } from '../utils/engine';
-import { downloadStoryboardPdf, StoryboardPdfOptions } from '../utils/pdfExport';
+import { downloadStoryboardPdf, StoryboardPdfOptions, exportFrameAsJpeg, exportFramesAsJpegZip } from '../utils/pdfExport';
 
 const ALL_LUT_OPTIONS: { id: LutPreset; label: string; desc: string; color: string }[] = [
   { id: 'cinematic', label: 'RAWx Cinema 35', desc: 'Warm shadows, golden skin tones', color: '#D4AF37' },
@@ -98,13 +98,22 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   const [dropPosition, setDropPosition] = useState<'before' | 'after'>('before');
   const [lastReorderMsg, setLastReorderMsg] = useState<string | null>(null);
 
-  // PDF Export State
+  // PDF & High-Res JPEG Export State
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
   const [pdfStatusMessage, setPdfStatusMessage] = useState('');
   const [pdfLayout, setPdfLayout] = useState<4 | 6>(6);
   const [pdfTheme, setPdfTheme] = useState<'print' | 'dark'>('print');
   const [showPdfOptions, setShowPdfOptions] = useState(false);
+  const [jpegTargetIndex, setJpegTargetIndex] = useState<number>(currentIndex || 0);
+  const [jpegIncludeSlate, setJpegIncludeSlate] = useState<boolean>(true);
+  const [exportingJpegId, setExportingJpegId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setJpegTargetIndex(Math.max(0, Math.min(frames.length - 1, currentIndex || 0)));
+    }
+  }, [isOpen, currentIndex, frames.length]);
 
   // Compare Mode State
   const [isCompareMode, setIsCompareMode] = useState(false);
@@ -328,7 +337,8 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
 
     const remaining = frames.filter(f => !selectedFrameIds.has(f.id));
     if (remaining.length === 0) {
-      alert('Cannot delete all frames. A storyboard must retain at least 1 frame.');
+      setLastReorderMsg('Cannot delete all frames — storyboard must retain at least 1 frame');
+      setTimeout(() => setLastReorderMsg(null), 3500);
       setConfirmDeleteBatch(false);
       return;
     }
@@ -420,6 +430,54 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     } catch (err: any) {
       console.error('[PDF Export Error]', err);
       setPdfStatusMessage(`Export failed: ${err?.message || 'Unknown error'}`);
+      setTimeout(() => setIsExportingPdf(false), 3000);
+    }
+  };
+
+  // Export Single Storyboard Frame as High-Resolution JPEG (1920x1080)
+  const handleExportSingleJpeg = async (targetFrame?: AnthologyFrame, includeSlateOverride?: boolean, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const frameToExport = targetFrame || frames[jpegTargetIndex] || frames[currentIndex] || frames[0];
+    if (!frameToExport) return;
+
+    try {
+      setExportingJpegId(frameToExport.id);
+      const useSlate = includeSlateOverride ?? jpegIncludeSlate;
+      await exportFrameAsJpeg(frameToExport, projectTitle, useSlate);
+      const shotTag = frameToExport.epNumber || `SH${String((frames.indexOf(frameToExport) + 1) || 1).padStart(3, '0')}`;
+      setLastReorderMsg(`Exported ${shotTag} High-Res JPEG (1920×1080)`);
+      setTimeout(() => setLastReorderMsg(null), 3500);
+    } catch (err: any) {
+      console.error('[Hi-Res JPEG Export Error]', err);
+      setLastReorderMsg(`JPEG export failed: ${err?.message || 'Unknown error'}`);
+      setTimeout(() => setLastReorderMsg(null), 3500);
+    } finally {
+      setExportingJpegId(null);
+    }
+  };
+
+  // Batch Export Selected or Populated Frames as High-Resolution JPEGs (.zip)
+  const handleExportBatchJpegs = async () => {
+    const selectedList = selectedFrameIds.size > 0
+      ? frames.filter(f => selectedFrameIds.has(f.id))
+      : frames.filter(f => Boolean(f.imageUrl));
+    const batchTargets = selectedList.length > 0 ? selectedList : frames.slice(0, 12);
+
+    try {
+      setIsExportingPdf(true);
+      setPdfProgress(5);
+      setPdfStatusMessage(`Rendering ${batchTargets.length} High-Res JPEGs (1920×1080)...`);
+      await exportFramesAsJpegZip(batchTargets, projectTitle, (pct, msg) => {
+        setPdfProgress(pct);
+        setPdfStatusMessage(msg);
+      });
+      setShowPdfOptions(false);
+      setIsExportingPdf(false);
+      setLastReorderMsg(`Exported ${batchTargets.length} High-Res JPEGs (.zip)`);
+      setTimeout(() => setLastReorderMsg(null), 3500);
+    } catch (err: any) {
+      console.error('[Batch JPEG Export Error]', err);
+      setPdfStatusMessage(`JPEG ZIP failed: ${err?.message || 'Unknown error'}`);
       setTimeout(() => setIsExportingPdf(false), 3000);
     }
   };
@@ -537,81 +595,145 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 <span className="text-[8px] bg-amber-400/20 px-1 rounded text-amber-200">A4</span>
               </button>
 
-              {/* PDF Configuration Flyout */}
-              {showPdfOptions && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-[#0e0f16] border border-amber-500/40 rounded-[2px] shadow-2xl p-3 z-50 text-[10px] space-y-2.5 backdrop-blur-xl animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-1.5 text-amber-400 font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Printer className="w-3.5 h-3.5" />
-                      PRINTABLE PDF STORYBOARD
-                    </span>
-                    <button onClick={() => setShowPdfOptions(false)} className="text-zinc-400 hover:text-white">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {/* PDF & High-Res JPEG Configuration Flyout */}
+                  {showPdfOptions && (
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-[#0e0f16] border border-amber-500/40 rounded-[2px] shadow-2xl p-3.5 z-50 text-[10px] space-y-2.5 backdrop-blur-xl animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-1.5 text-amber-400 font-bold">
+                        <span className="flex items-center gap-1.5">
+                          <Printer className="w-3.5 h-3.5" />
+                          EXPORT TO PDF STORYBOARD
+                        </span>
+                        <button onClick={() => setShowPdfOptions(false)} className="text-zinc-400 hover:text-white cursor-pointer">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
-                  <div>
-                    <label className="text-zinc-400 block mb-1">Layout Format</label>
-                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="text-zinc-400 block mb-1">Layout Format</label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() => setPdfLayout(6)}
+                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
+                              pdfLayout === 6
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-zinc-400'
+                            }`}
+                          >
+                            6 Shots / Sheet (3x2)
+                          </button>
+                          <button
+                            onClick={() => setPdfLayout(4)}
+                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
+                              pdfLayout === 4
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-zinc-400'
+                            }`}
+                          >
+                            4 Shots / Sheet (2x2)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-zinc-400 block mb-1">Color Style</label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() => setPdfTheme('print')}
+                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
+                              pdfTheme === 'print'
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-zinc-400'
+                            }`}
+                          >
+                            Print White Paper
+                          </button>
+                          <button
+                            onClick={() => setPdfTheme('dark')}
+                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
+                              pdfTheme === 'dark'
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-zinc-400'
+                            }`}
+                          >
+                            Obsidian Cinema
+                          </button>
+                        </div>
+                      </div>
+
                       <button
-                        onClick={() => setPdfLayout(6)}
-                        className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                          pdfLayout === 6
-                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                            : 'bg-white/5 border-white/10 text-zinc-400'
-                        }`}
+                        disabled={isExportingPdf}
+                        onClick={handleExportPdf}
+                        className="w-full py-2 bg-amber-400 hover:bg-amber-300 text-black font-bold tracking-wider rounded-[2px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                       >
-                        6 Shots / Sheet (3x2)
+                        <Download className="w-3.5 h-3.5" />
+                        <span>DOWNLOAD PDF STORYBOARD</span>
                       </button>
-                      <button
-                        onClick={() => setPdfLayout(4)}
-                        className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                          pdfLayout === 4
-                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                            : 'bg-white/5 border-white/10 text-zinc-400'
-                        }`}
-                      >
-                        4 Shots / Sheet (2x2)
-                      </button>
+
+                      {/* HIGH-RESOLUTION INDIVIDUAL JPEG EXPORT SECTION */}
+                      <div className="pt-2.5 mt-1 border-t border-white/15 space-y-2">
+                        <div className="flex items-center justify-between text-cyan-300 font-bold text-[9.5px] uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5">
+                            <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                            INDIVIDUAL HI-RES JPEG (1080P)
+                          </span>
+                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-400/30 text-cyan-200">
+                            1920×1080
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="text-zinc-400 block mb-1 text-[9px]">Target Storyboard Frame</label>
+                          <select
+                            value={jpegTargetIndex}
+                            onChange={(e) => setJpegTargetIndex(Number(e.target.value))}
+                            className="w-full bg-[#07080d] border border-white/15 focus:border-cyan-400 rounded-[2px] px-2 py-1.5 text-[9.5px] text-zinc-200 outline-none cursor-pointer"
+                          >
+                            {frames.map((f, idx) => (
+                              <option key={f.id ?? idx} value={idx}>
+                                {f.epNumber || `#${String(idx + 1).padStart(3, '0')}`} — {f.title || `Frame ${idx + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <label className="flex items-center justify-between text-[9.5px] text-zinc-300 cursor-pointer select-none">
+                          <span>Burn-in Camera Slate & Bilingual Titles</span>
+                          <input
+                            type="checkbox"
+                            checked={jpegIncludeSlate}
+                            onChange={(e) => setJpegIncludeSlate(e.target.checked)}
+                            className="accent-cyan-400 w-3.5 h-3.5 cursor-pointer"
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          disabled={isExportingPdf || exportingJpegId !== null}
+                          onClick={() => handleExportSingleJpeg(frames[jpegTargetIndex], jpegIncludeSlate)}
+                          className="w-full py-2 bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/60 text-cyan-200 hover:text-white font-bold tracking-wider rounded-[2px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-cyan-300" />
+                          <span>
+                            {exportingJpegId !== null ? 'RENDERING HI-RES JPEG...' : 'EXPORT INDIVIDUAL JPEG (.JPG)'}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isExportingPdf}
+                          onClick={handleExportBatchJpegs}
+                          className="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-amber-300 font-bold tracking-wider rounded-[2px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 text-[9px]"
+                        >
+                          <Download className="w-3 h-3 text-amber-400" />
+                          <span>
+                            {selectedFrameIds.size > 0
+                              ? `EXPORT ${selectedFrameIds.size} SELECTED JPEGs (.ZIP)`
+                              : 'BATCH EXPORT ALL HI-RES JPEGs (.ZIP)'}
+                          </span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="text-zinc-400 block mb-1">Color Style</label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button
-                        onClick={() => setPdfTheme('print')}
-                        className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                          pdfTheme === 'print'
-                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                            : 'bg-white/5 border-white/10 text-zinc-400'
-                        }`}
-                      >
-                        Print White Paper
-                      </button>
-                      <button
-                        onClick={() => setPdfTheme('dark')}
-                        className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                          pdfTheme === 'dark'
-                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                            : 'bg-white/5 border-white/10 text-zinc-400'
-                        }`}
-                      >
-                        Obsidian Cinema
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    disabled={isExportingPdf}
-                    onClick={handleExportPdf}
-                    className="w-full py-2 bg-amber-400 hover:bg-amber-300 text-black font-bold tracking-wider rounded-[2px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>DOWNLOAD PDF STORYBOARD</span>
-                  </button>
-                </div>
-              )}
+                  )}
             </div>
 
             {/* Close Button */}
@@ -1256,8 +1378,17 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                         )}
                       </div>
                     ) : !isMultiSelectMode ? (
-                      /* Hover Nudge Controls */
+                      /* Hover Nudge & Individual Hi-Res JPEG Export Controls */
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={(e) => handleExportSingleJpeg(frame, true, e)}
+                          className="px-1.5 py-0.5 bg-black/85 hover:bg-cyan-400 hover:text-black rounded-[1px] border border-cyan-400/50 text-cyan-300 text-[8px] font-bold flex items-center gap-0.5 cursor-pointer transition-colors"
+                          title="Export individual frame as High-Resolution JPEG (1920×1080)"
+                        >
+                          <Camera className="w-2.5 h-2.5" />
+                          <span>JPG</span>
+                        </button>
                         <button
                           onClick={(e) => handleNudge(frame.id, 'left', e)}
                           className="p-1 bg-black/80 hover:bg-amber-400 hover:text-black rounded-[1px] border border-white/20 text-zinc-300 text-[8px] cursor-pointer transition-colors"

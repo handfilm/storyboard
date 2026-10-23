@@ -52,6 +52,7 @@ import {
 import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/firebase';
 import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
 import { User } from 'firebase/auth';
+import { ExportModalTab } from './CutNativeExportModal';
 
 export interface TopBarProps {
   projectTitle?: string;
@@ -82,7 +83,7 @@ export interface TopBarProps {
   onOpenR2Automation?: () => void;
   onOpenExportTimeline?: () => void;
   onOpenExportRange?: () => void;
-  onOpenExportStudio?: (tab?: 'mp4' | 'premiere' | 'fcpxml' | 'pdf' | 'backup') => void;
+  onOpenExportStudio?: (tab?: ExportModalTab) => void;
   onOpenWalkthrough?: () => void;
   onOpenVideoScopes?: () => void;
   onOpenAiStudio?: () => void;

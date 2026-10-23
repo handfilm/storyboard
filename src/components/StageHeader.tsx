@@ -205,7 +205,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           <button
             type="button"
             onClick={() => onSelectPanel('MULTICAM')}
-            className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl text-xs font-extrabold tracking-wider transition-all duration-300 cursor-pointer select-none flex items-center gap-1.5 active:translate-y-0.5 border-2 ${
+            className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold tracking-wider transition-all duration-300 cursor-pointer select-none flex items-center gap-2 active:translate-y-0.5 border-2 ${
               currentPanel === 'MULTICAM'
                 ? 'bg-gradient-to-r from-amber-600/35 via-[#352208] to-amber-600/25 text-[#FFE066] border-[#F5A623] shadow-[0_0_24px_rgba(245,166,35,0.7),inset_0_1.5px_2px_rgba(255,220,120,0.5)] ring-2 ring-amber-500/50'
                 : 'bg-gradient-to-r from-amber-950/40 via-[#16141a] to-amber-950/30 text-amber-300 border-amber-500/70 hover:border-amber-400 hover:text-amber-200 hover:bg-gradient-to-r hover:from-amber-600/25 hover:to-amber-500/15 hover:shadow-[0_0_24px_rgba(245,166,35,0.65),0_0_8px_rgba(245,166,35,0.4)]'
@@ -213,8 +213,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             title="Multi-Camera Live Switching & Precision Angle Grid (Shift+M)"
             aria-label="Multi-Camera Live View"
           >
-            <Video className={`w-4.5 h-4.5 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'MULTICAM' ? 'text-[#F5A623] scale-110' : 'text-amber-400'}`} />
-            <span className="text-[11px] sm:text-xs">CAM</span>
+            <Video className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-150 ${currentPanel === 'MULTICAM' ? 'text-[#F5A623] scale-110' : 'text-amber-400'}`} />
+            <span className="text-[11px] sm:text-xs">MULTI-CAM</span>
           </button>
 
           {/* Hover Card for Multi-Cam with Hotkey Details */}

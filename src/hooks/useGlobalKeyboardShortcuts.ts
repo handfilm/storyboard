@@ -30,6 +30,7 @@ export interface KeyboardShortcutsHandlers {
   onOpenExportRange?: () => void;
   onToggleTitles?: () => void;
   onToggleShortcuts?: () => void;
+  onToggleScreenRecorder?: () => void;
 }
 
 function matchesCombo(e: KeyboardEvent, shortcutId: string, fallback: boolean): boolean {
@@ -75,7 +76,8 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
     onToggleFullscreen,
     onOpenExportRange,
     onToggleTitles,
-    onToggleShortcuts
+    onToggleShortcuts,
+    onToggleScreenRecorder
   } = handlers;
 
   useEffect(() => {
@@ -89,6 +91,13 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
           target.tagName === 'SELECT' ||
           target.isContentEditable)
       ) {
+        return;
+      }
+
+      // Alt + R: Screen Recorder Toggle
+      if (e.altKey && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        onToggleScreenRecorder?.();
         return;
       }
 

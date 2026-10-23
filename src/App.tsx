@@ -53,6 +53,10 @@ import { PlaybackMode } from './types/editor';
 import { SlideDraft, AspectRatioType, ProjectDraft } from './types/project';
 import { CinemaPlayer } from './components/player/CinemaPlayer';
 import { keyScopeManager } from './core/keyScopeManager';
+import { ScreenRecorderFloatingBar } from './components/recorder/ScreenRecorderFloatingBar';
+import { QuickTrimPreviewModal } from './components/recorder/QuickTrimPreviewModal';
+import { AdvancedTrimmerModal } from './components/recorder/AdvancedTrimmerModal';
+import { RecordedCaptureResult } from './services/screenRecorderEngine';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -117,6 +121,29 @@ export default function App() {
   const [isCinemaPlayerOpen, setIsCinemaPlayerOpen] = useState(false);
   const [isSnapToBeat, setIsSnapToBeat] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState(120);
+
+  // Screen Recorder & WebCodecs Trimmer Suite State
+  const [isScreenRecorderOpen, setIsScreenRecorderOpen] = useState(false);
+  const [capturedResult, setCapturedResult] = useState<RecordedCaptureResult | null>(null);
+  const [isQuickTrimOpen, setIsQuickTrimOpen] = useState(false);
+  const [isAdvancedTrimmerOpen, setIsAdvancedTrimmerOpen] = useState(false);
+  const [advancedTrimmerInSec, setAdvancedTrimmerInSec] = useState(0);
+  const [advancedTrimmerOutSec, setAdvancedTrimmerOutSec] = useState<number | undefined>(undefined);
+
+  const handleRecordingComplete = useCallback((result: RecordedCaptureResult) => {
+    setCapturedResult(result);
+    setIsQuickTrimOpen(true);
+    setIsScreenRecorderOpen(false);
+  }, []);
+
+  const handleOpenAdvancedTrimmer = useCallback((result: RecordedCaptureResult, initialIn: number, initialOut: number) => {
+    setCapturedResult(result);
+    setAdvancedTrimmerInSec(initialIn);
+    setAdvancedTrimmerOutSec(initialOut);
+    setIsQuickTrimOpen(false);
+    setIsAdvancedTrimmerOpen(true);
+  }, []);
+
   const [titleAnimation, setTitleAnimation] = useState<'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter'>('flare');
   const [historyStack, setHistoryStack] = useState<AnthologyProject[]>([]);
   const [redoStack, setRedoStack] = useState<AnthologyProject[]>([]);
@@ -768,6 +795,31 @@ export default function App() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Global Alt+R Screen Recorder Shortcut Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is inside text input/textarea
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) {
+        e.preventDefault();
+        setIsScreenRecorderOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -1292,6 +1344,7 @@ export default function App() {
         onOpenWalkthrough={() => setShowWalkthrough(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
+        onOpenScreenRecorder={() => setIsScreenRecorderOpen(prev => !prev)}
         onOpenAiStudio={() => {
           setActiveModule('AI');
           setWorkspaceMode('STAGE');
@@ -1763,6 +1816,70 @@ export default function App() {
         directorName={project.director}
         projectTitle={project.title}
         onUploadMedia={handleUploadImage}
+      />
+
+      {/* Zero-Lag 4K/60FPS Screen Recorder Floating Control Dock */}
+      <ScreenRecorderFloatingBar
+        isOpen={isScreenRecorderOpen}
+        onClose={() => setIsScreenRecorderOpen(false)}
+        onRecordingComplete={handleRecordingComplete}
+      />
+
+      {/* Instant Post-Capture Quick Trim Preview Modal */}
+      <QuickTrimPreviewModal
+        captureResult={isQuickTrimOpen ? capturedResult : null}
+        onClose={() => {
+          setIsQuickTrimOpen(false);
+          setCapturedResult(null);
+        }}
+        onOpenAdvancedTrimmer={handleOpenAdvancedTrimmer}
+        onCommittedToVault={async (mediaId, shotIndex) => {
+          try {
+            const activeUrl = studioDraftDb.getActiveMediaUrl(mediaId);
+            if (activeUrl) {
+              const frame = project.frames[shotIndex];
+              if (frame) {
+                handleUpdateFrame({
+                  ...frame,
+                  imageUrl: activeUrl,
+                  isVideo: true
+                });
+              }
+            }
+          } catch (err) {
+            console.warn('[App] Vault media sync warning:', err);
+          }
+        }}
+        activeShotIndex={currentIndex}
+      />
+
+      {/* Pro Precision Multi-Segment Trimmer Modal */}
+      <AdvancedTrimmerModal
+        captureResult={isAdvancedTrimmerOpen ? capturedResult : null}
+        initialInSec={advancedTrimmerInSec}
+        initialOutSec={advancedTrimmerOutSec}
+        onClose={() => {
+          setIsAdvancedTrimmerOpen(false);
+          setCapturedResult(null);
+        }}
+        onCommittedToVault={async (mediaId, shotIndex) => {
+          try {
+            const activeUrl = studioDraftDb.getActiveMediaUrl(mediaId);
+            if (activeUrl) {
+              const frame = project.frames[shotIndex];
+              if (frame) {
+                handleUpdateFrame({
+                  ...frame,
+                  imageUrl: activeUrl,
+                  isVideo: true
+                });
+              }
+            }
+          } catch (err) {
+            console.warn('[App] Vault media sync warning:', err);
+          }
+        }}
+        activeShotIndex={currentIndex}
       />
 
       {/* 10-Slide Cinematic Walkthrough Manifesto Modal */}

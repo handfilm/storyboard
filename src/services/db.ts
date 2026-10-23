@@ -1424,7 +1424,10 @@ class StudioDraftDbService {
    * Fallback to instant generated SVG data-URI thumbnail.
    * Stores raw binary Blob (never multi-GB base64) directly in `media_vault` store.
    */
-  public async saveMediaToVault(file: File): Promise<VaultMediaItem> {
+  public async saveMediaToVault(fileOrBlob: File | Blob, customName?: string): Promise<VaultMediaItem> {
+    const file = fileOrBlob instanceof File
+      ? fileOrBlob
+      : new File([fileOrBlob], customName || `capture_${Date.now()}.${fileOrBlob.type?.includes('mp4') ? 'mp4' : 'webm'}`, { type: fileOrBlob.type || 'video/webm' });
     const db = await this.getDb();
     const id = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()

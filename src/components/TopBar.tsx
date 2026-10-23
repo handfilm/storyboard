@@ -43,7 +43,8 @@ import {
   ChevronDown,
   Keyboard,
   Type,
-  Maximize2
+  Maximize2,
+  Circle
 } from 'lucide-react';
 
 export interface TopBarProps {
@@ -81,6 +82,7 @@ export interface TopBarProps {
   onOpenAiStudio?: () => void;
   onOpenBloomSequencer?: () => void;
   onOpenSettingsModal?: () => void;
+  onOpenScreenRecorder?: () => void;
   currentView?: 'HOME' | 'STUDIO';
   onSelectView?: (view: 'HOME' | 'STUDIO') => void;
   currentShotIndex?: number;
@@ -108,6 +110,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenExportRange,
   onOpenExportStudio,
   onOpenWalkthrough,
+  onOpenScreenRecorder,
   onOpenVideoScopes,
   onOpenAiStudio,
   onOpenBloomSequencer,
@@ -479,6 +482,20 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right: Tactical Action Cluster */}
         <div className="gap-2 sm:gap-2.5 flex items-center shrink-0">
+          {/* Tactical Screen Recorder Trigger [ ⏺ REC ] */}
+          {onOpenScreenRecorder && (
+            <button
+              type="button"
+              onClick={onOpenScreenRecorder}
+              className="px-3 py-1.5 rounded-[3px] bg-rose-950/60 hover:bg-rose-900/80 border border-rose-500/60 text-rose-300 hover:text-white font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-[0_0_12px_rgba(244,63,94,0.25)] active:scale-[0.98]"
+              title="Record Screen & Audio at 4K/60fps (Alt+R)"
+            >
+              <Circle className="w-2.5 h-2.5 fill-rose-500 text-rose-500 animate-pulse" />
+              <span className="tracking-wide">REC</span>
+              <span className="text-[9px] text-rose-400/80 hidden md:inline ml-0.5">Alt+R</span>
+            </button>
+          )}
+
           {/* Unified EXPORT ▾ Dropdown with Chiseled Tactical Border */}
           <div className="relative">
             <button

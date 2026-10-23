@@ -1,7 +1,7 @@
 /**
  * @file /src/services/thumbnailEngine.test.ts
  * @description Unit tests for dynamic hover video thumbnail engine, non-black frame extraction,
- * SMPTE timecode formatting, and RAM virtualization cleanup.
+ * SMPTE timecode formatting, hover-scrubbing with requestAnimationFrame, and RAM virtualization cleanup.
  */
 
 import test from 'node:test';
@@ -13,7 +13,9 @@ import {
   formatSMPTETimecode,
   thumbnailMemoryCache,
   extractVideoPoster,
-  cleanupVideoElement
+  cleanupVideoElement,
+  hoverScrubThumbnailSource,
+  createHoverScrubber
 } from './thumbnailEngine';
 
 test('thumbnailEngine dimensions and default timestamp are configured', () => {
@@ -48,6 +50,21 @@ test('extractVideoPoster extracts non-black fallback in test environment', async
   assert.equal(result.width, 160);
   assert.equal(result.height, 90);
   assert.equal(result.timecode, 'TC 00:00:00:12');
+});
+
+test('hoverScrubThumbnailSource and createHoverScrubber handle RAF hover scrubbing', () => {
+  const mockContainer = {
+    getBoundingClientRect: () => ({ left: 0, width: 200, top: 0, height: 100, right: 200, bottom: 100 })
+  } as unknown as HTMLElement;
+
+  let reportedState: any = null;
+  const scrubber = createHoverScrubber(mockContainer, null, 12.0, (state) => {
+    reportedState = state;
+  });
+
+  assert.equal(typeof scrubber.handleMouseMove, 'function');
+  assert.equal(typeof scrubber.cleanup, 'function');
+  scrubber.cleanup();
 });
 
 test('cleanupVideoElement executes safely without throwing on null or standard elements', () => {

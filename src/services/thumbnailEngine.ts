@@ -3,19 +3,20 @@
  * @description High-Performance Video Thumbnail & Tactical Hover-Scrubbing Engine.
  * 
  * Core Capabilities:
- * 1. Frame Extraction Pipeline:
- *    - Seeks lightweight hidden <video preload="metadata" muted playsInline> to t = 0.5s (or 10% duration)
- *      to strictly bypass black intro frames / initial clapperboard frames.
- *    - Renders to an OffscreenCanvas (160x90) and produces lightweight base64 JPEG fallbacks (approx 5KB).
- *    - Syncs directly to IndexedDB 'media_thumbnails' and in-memory LRU cache.
- * 2. Dynamic Hover Scrubbing:
- *    - Throttled via requestAnimationFrame (RAF) with monotonic seek guards for fluid 60fps tracking.
- *    - Maps normalized cursor X/width to video duration without audio playback.
+ * 1. Offscreen Frame Extraction at 10% Duration:
+ *    - Seeks a lightweight hidden <video preload="metadata" muted playsInline> to 10% duration (dur * 0.1)
+ *      to completely bypass black intro frames, company title cards, or fade-ins.
+ *    - Renders to an OffscreenCanvas (160x90) and produces lightweight base64 JPEG fallbacks (~5KB).
+ *    - Saves generated thumbnails directly into IndexedDB ('media_thumbnails') and in-memory LRU cache.
+ * 2. Hover-Scrubbing with requestAnimationFrame:
+ *    - Exposes hover-scrubbing functions (`hoverScrubThumbnailSource`, `createHoverScrubber`)
+ *      that calculate normalized X positions and use requestAnimationFrame to seek the hidden <video>
+ *      element and update the thumbnail source without audio playback.
  * 3. RAM Virtualization & 4GB Guard:
- *    - Enforces viewport boundary window (±3 card buffer) for HTML5 video decoder lifecycle.
- *    - Strict DOM cleanup: pauses video, removes 'src' attribute, invokes load(), and revokes blob URLs.
- * 4. SMPTE Timecode Formatter:
- *    - Formats timestamp to standard broadcast TC HH:MM:SS:FF at 24fps.
+ *    - Enforces strict DOM cleanup on unmount: pauses, invokes `video.removeAttribute('src')`, `video.load()`,
+ *      and revokes any associated blob URLs.
+ * 4. Broadcast SMPTE Timecode Formatter:
+ *    - Formats timestamp to standard broadcast TC HH:MM:SS:FF locked at 24fps.
  */
 
 import { studioDraftDb } from './db';
@@ -34,6 +35,13 @@ export interface ExtractedPosterResult {
   timecode: string;
 }
 
+export interface HoverScrubState {
+  normalizedX: number;
+  currentSec: number;
+  timecode: string;
+  thumbnailSource?: string;
+}
+
 // In-Memory Fast LRU Cache (Up to 150 items)
 class ThumbnailMemoryCache {
   private cache = new Map<string, string>();
@@ -42,7 +50,6 @@ class ThumbnailMemoryCache {
   get(key: string): string | undefined {
     const val = this.cache.get(key);
     if (val) {
-      // Refresh recency
       this.cache.delete(key);
       this.cache.set(key, val);
     }
@@ -87,12 +94,36 @@ export function formatSMPTETimecode(seconds: number, fps: number = 24): string {
 }
 
 /**
- * Extracts a non-black poster frame from a video source by seeking to t = 0.5s or 10% duration.
- * Outputs a 160x90 base64 JPEG fallback and Blob.
+ * Captures the current frame of a video element to a lightweight base64 JPEG using an offscreen or standard canvas.
+ */
+export function captureVideoFrameAsBase64(
+  video: HTMLVideoElement,
+  targetW: number = THUMB_WIDTH,
+  targetH: number = THUMB_HEIGHT,
+  quality: number = THUMB_JPEG_QUALITY
+): string {
+  if (typeof document === 'undefined') return '';
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    ctx.drawImage(video, 0, 0, targetW, targetH);
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Offscreen frame extraction at 10% duration for video files.
+ * Extracts a crisp non-black frame, saves as lightweight base64 JPEG in IndexedDB, and updates memory cache.
  */
 export async function extractVideoPoster(
   source: Blob | File | string,
-  preferredTimestampSec: number = DEFAULT_KEYFRAME_TIMESTAMP_SEC
+  preferredTimestampSec?: number,
+  assetId?: string
 ): Promise<ExtractedPosterResult> {
   // If running in Node.js / SSR / test runner without browser DOM
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -104,7 +135,7 @@ export async function extractVideoPoster(
       width: THUMB_WIDTH,
       height: THUMB_HEIGHT,
       duration: 12.0,
-      timecode: formatSMPTETimecode(preferredTimestampSec, 24)
+      timecode: formatSMPTETimecode(preferredTimestampSec || 0.5, 24)
     };
   }
 
@@ -165,11 +196,14 @@ export async function extractVideoPoster(
 
     video.onloadedmetadata = () => {
       const dur = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 12.0;
-      // Seek to at least 0.5s or 10% of duration to bypass initial black frames / logos
-      const targetTime = Math.min(
-        Math.max(dur - 0.05, 0.05),
-        Math.max(preferredTimestampSec, dur * 0.1)
-      );
+      // Seek to 10% duration (or preferredTimestamp if explicitly provided) to bypass black intro frames
+      let targetTime: number;
+      if (preferredTimestampSec !== undefined && preferredTimestampSec > 0) {
+        targetTime = Math.min(Math.max(dur - 0.05, 0.05), preferredTimestampSec);
+      } else {
+        // Strict 10% duration seek
+        targetTime = Math.min(Math.max(dur - 0.05, 0.05), Math.max(0.5, dur * 0.1));
+      }
       video.currentTime = targetTime;
     };
 
@@ -194,14 +228,13 @@ export async function extractVideoPoster(
             type: 'image/jpeg',
             quality: THUMB_JPEG_QUALITY
           });
-          // Convert to base64
           base64 = await new Promise<string>((res) => {
             const reader = new FileReader();
             reader.onloadend = () => res(reader.result as string || '');
             reader.readAsDataURL(blobResult);
           });
         } else {
-          // Canvas fallback
+          // Standard Canvas Fallback
           const canvas = document.createElement('canvas');
           canvas.width = targetW;
           canvas.height = targetH;
@@ -229,6 +262,16 @@ export async function extractVideoPoster(
           timecode: formatSMPTETimecode(video.currentTime, 24)
         };
 
+        // Cache in memory
+        if (assetId) {
+          thumbnailMemoryCache.set(assetId, base64);
+          try {
+            await studioDraftDb.putMediaThumbnail(assetId, blobResult);
+          } catch {
+            // Non-fatal if IDB unavailable
+          }
+        }
+
         cleanup();
         resolve(result);
       } catch (err) {
@@ -240,7 +283,6 @@ export async function extractVideoPoster(
     video.onerror = () => {
       clearTimeout(timeoutTimer);
       cleanup();
-      // Graceful fallback SVG on decode error
       const errSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${THUMB_WIDTH}" height="${THUMB_HEIGHT}" viewBox="0 0 ${THUMB_WIDTH} ${THUMB_HEIGHT}"><rect width="${THUMB_WIDTH}" height="${THUMB_HEIGHT}" fill="%231a0a0a"/><text x="50%" y="55%" text-anchor="middle" fill="%23ef4444" font-family="monospace" font-size="9">DECODE ERROR</text></svg>`;
       resolve({
         base64: errSvg,
@@ -266,7 +308,6 @@ export async function cacheVideoThumbnail(
   }
   try {
     if (typeof base64OrBlob === 'string') {
-      // Store in IndexedDB as a blob
       const res = await fetch(base64OrBlob);
       const blob = await res.blob();
       await studioDraftDb.putMediaThumbnail(assetId, blob);
@@ -322,16 +363,61 @@ export function cleanupVideoElement(videoEl: HTMLVideoElement | null, blobUrlToR
 }
 
 /**
- * Lightweight dynamic hover-scrub controller using requestAnimationFrame.
- * Updates video element smoothly without audio playback and reports normalized metrics.
+ * Exposes a dedicated hover-scrubbing controller that uses requestAnimationFrame (RAF)
+ * to calculate normalized X positions, seek the hidden <video> element smoothly without audio,
+ * and update the thumbnail source in real time.
  */
-export interface HoverScrubState {
-  normalizedX: number;
-  currentSec: number;
-  timecode: string;
+export function hoverScrubThumbnailSource(
+  containerEl: HTMLElement,
+  clientX: number,
+  videoEl: HTMLVideoElement | null,
+  durationSec: number,
+  onUpdate: (state: HoverScrubState) => void,
+  rafRef: { current: number | null }
+): void {
+  if (rafRef.current !== null) return;
+
+  rafRef.current = requestAnimationFrame(() => {
+    rafRef.current = null;
+    const rect = containerEl.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    const clampedX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const normalized = clampedX / rect.width;
+    const dur = durationSec > 0 ? durationSec : 12.0;
+    const currentSec = Math.min(dur, Math.max(0, normalized * dur));
+    const tc = formatSMPTETimecode(currentSec, 24);
+
+    let newSource: string | undefined;
+
+    if (videoEl) {
+      videoEl.muted = true;
+      videoEl.volume = 0;
+      try {
+        videoEl.currentTime = currentSec;
+        // If video is ready, capture current frame as updated thumbnail source
+        if (videoEl.readyState >= 2) {
+          const captured = captureVideoFrameAsBase64(videoEl);
+          if (captured) newSource = captured;
+        }
+      } catch {
+        // ignore fast seek edge-cases
+      }
+    }
+
+    onUpdate({
+      normalizedX: normalized,
+      currentSec,
+      timecode: tc,
+      thumbnailSource: newSource
+    });
+  });
 }
 
-export function createRafHoverScrubber(
+/**
+ * Creates a reusable RAF hover scrubber for components.
+ */
+export function createHoverScrubber(
   containerEl: HTMLElement,
   videoEl: HTMLVideoElement | null,
   durationSec: number,
@@ -340,51 +426,16 @@ export function createRafHoverScrubber(
   handleMouseMove: (e: React.MouseEvent | MouseEvent) => void;
   cleanup: () => void;
 } {
-  let rafId: number | null = null;
-  let latestX = 0;
-  let isSeeking = false;
-  const duration = durationSec > 0 ? durationSec : 12.0;
-
-  const performUpdate = () => {
-    rafId = null;
-    const rect = containerEl.getBoundingClientRect();
-    if (rect.width <= 0) return;
-
-    const clampedX = Math.max(0, Math.min(rect.width, latestX));
-    const normalized = clampedX / rect.width;
-    const currentSec = Math.min(duration, Math.max(0, normalized * duration));
-    const tc = formatSMPTETimecode(currentSec, 24);
-
-    if (videoEl && !isSeeking) {
-      isSeeking = true;
-      videoEl.muted = true;
-      try {
-        videoEl.currentTime = currentSec;
-      } catch {
-        // ignore fast seek edge-cases
-      }
-      isSeeking = false;
-    }
-
-    onUpdate({
-      normalizedX: normalized,
-      currentSec,
-      timecode: tc
-    });
-  };
+  const rafRef = { current: null as number | null };
 
   const handleMouseMove = (e: React.MouseEvent | MouseEvent) => {
-    const rect = containerEl.getBoundingClientRect();
-    latestX = e.clientX - rect.left;
-    if (rafId === null) {
-      rafId = requestAnimationFrame(performUpdate);
-    }
+    hoverScrubThumbnailSource(containerEl, e.clientX, videoEl, durationSec, onUpdate, rafRef);
   };
 
   const cleanup = () => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     }
   };
 

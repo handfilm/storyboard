@@ -3,16 +3,17 @@
  * @description Master Filmstrip Media Card for RAWx Storyboard & HANDFILM Media Vault.
  * 
  * Enhanced Capabilities:
- * 1. Dynamic Hover-Scrubbing Video Thumbnail Engine with RAF 60fps tracking.
- * 2. Tactile Hover Zoom:
+ * 1. Normalized X hover scrubbing seeking a hidden <video> element via requestAnimationFrame.
+ * 2. Real-time dynamic thumbnail source updates without audio playback.
+ * 3. Tactile Hover Zoom:
  *    - Preview container: `relative overflow-hidden rounded-lg border border-white/10 transition-all duration-300 ease-out`
  *    - On Hover: `scale-125 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.9),0_0_15px_rgba(245,166,35,0.45)] border-[#F5A623]`
  *    - Edge-safe transform origin (`origin-left`, `origin-right`, or `origin-center`) to prevent boundary clipping.
- * 3. Cinematic Micro-HUD at bottom:
+ * 4. Cinematic Micro-HUD at bottom:
  *    - Broadcast SMPTE timecode (`TC 00:00:03:12` @ 24fps)
  *    - Shot index badge (`SH001` / target shot)
  *    - Playback status indicator badge (`SCRUB`, `24FPS`, `IDB CACHED`)
- * 4. RAM Virtualization & 4GB Guard:
+ * 5. RAM Virtualization & 4GB Guard:
  *    - Mounts HTML5 video decoder context only during hover inspection.
  *    - Full cleanup on unmount: pauses, calls `video.removeAttribute('src')`, `video.load()`, and revokes blob URLs.
  */
@@ -22,7 +23,9 @@ import { VaultMediaItem } from '../services/db';
 import { 
   formatSMPTETimecode, 
   cleanupVideoElement, 
-  thumbnailMemoryCache 
+  thumbnailMemoryCache,
+  captureVideoFrameAsBase64,
+  hoverScrubThumbnailSource
 } from '../services/thumbnailEngine';
 import { 
   Video, 
@@ -66,6 +69,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   const [cursorX, setCursorX] = useState<number | null>(null);
   const [cursorNormalized, setCursorNormalized] = useState<number>(0);
   const [smpteTimecode, setSmpteTimecode] = useState<string>('TC 00:00:00:00');
+  const [dynamicThumbnail, setDynamicThumbnail] = useState<string | null>(null);
+  const [scrubFrame, setScrubFrame] = useState<string | null>(null);
   const [targetShotIndex, setTargetShotIndex] = useState<number>(activeShotIndex);
   const [transformOrigin, setTransformOrigin] = useState<'origin-center' | 'origin-left' | 'origin-right'>('origin-center');
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
@@ -73,7 +78,6 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   const thumbContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const rafIdRef = useRef<number | null>(null);
-  const latestMouseXRef = useRef<number>(0);
 
   const isVid = item.mimeType?.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(item.name);
   const isAud = item.mimeType?.startsWith('audio') || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(item.name);
@@ -98,7 +102,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     return [];
   }, [item.thumbnails, item.thumbnailUrl, item.id]);
 
-  // Fallback static thumbnail (never black)
+  // Fallback static thumbnail (never pure black)
   const staticFallbackThumbnail = useMemo(() => {
     return item.thumbnailUrl || filmstripFrames[0] || thumbnailMemoryCache.get(item.id) || '';
   }, [item.thumbnailUrl, filmstripFrames, item.id]);
@@ -117,34 +121,54 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     }
   }, []);
 
-  // Handle RAF-throttled position update
-  const triggerRafScrub = useCallback(() => {
-    if (rafIdRef.current !== null) return;
-
-    rafIdRef.current = requestAnimationFrame(() => {
-      rafIdRef.current = null;
-      if (!thumbContainerRef.current) return;
-
-      const rect = thumbContainerRef.current.getBoundingClientRect();
-      const x = Math.max(0, Math.min(rect.width, latestMouseXRef.current));
-      const normalized = rect.width > 0 ? x / rect.width : 0;
-      const targetSec = normalized * totalDurationSec;
-
-      setCursorX(x);
-      setCursorNormalized(normalized);
-      setSmpteTimecode(formatSMPTETimecode(targetSec, 24));
-
-      // Scrub HTML5 video element without audio
-      if (videoRef.current && videoRef.current.readyState >= 1) {
-        try {
-          videoRef.current.muted = true;
-          videoRef.current.currentTime = targetSec;
-        } catch {
-          // ignore seek collisions
-        }
+  // When hidden video seeks, capture frame to update thumbnail source
+  const handleHiddenVideoSeeked = useCallback(() => {
+    if (videoRef.current && videoRef.current.readyState >= 2) {
+      const frameDataUrl = captureVideoFrameAsBase64(videoRef.current);
+      if (frameDataUrl && frameDataUrl.length > 50) {
+        setDynamicThumbnail(frameDataUrl);
       }
-    });
-  }, [totalDurationSec]);
+    }
+  }, []);
+
+  // onMouseMove event listener on thumbnail container: calculates normalized X and seeks hidden video with RAF
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!thumbContainerRef.current) return;
+    const container = thumbContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    // Calculate normalized X position (0.0 to 1.0)
+    const clientX = e.clientX;
+    const currentX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const normalizedX = currentX / rect.width;
+    const targetSec = normalizedX * totalDurationSec;
+
+    // Fast synchronous needle & timecode update
+    setCursorX(currentX);
+    setCursorNormalized(normalizedX);
+    setSmpteTimecode(formatSMPTETimecode(targetSec, 24));
+
+    // Filmstrip keyframe instant response
+    if (filmstripFrames.length > 0) {
+      const fIdx = Math.min(filmstripFrames.length - 1, Math.floor(normalizedX * filmstripFrames.length));
+      setScrubFrame(filmstripFrames[fIdx]);
+    }
+
+    // Smooth, non-audio video scrubbing throttled with requestAnimationFrame
+    hoverScrubThumbnailSource(
+      container,
+      clientX,
+      videoRef.current,
+      totalDurationSec,
+      (state) => {
+        if (state.thumbnailSource) {
+          setDynamicThumbnail(state.thumbnailSource);
+        }
+      },
+      rafIdRef
+    );
+  }, [totalDurationSec, filmstripFrames]);
 
   // Mouse Enter: mount video element if video file, calculate boundary clamping
   const handleMouseEnter = () => {
@@ -161,18 +185,14 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!thumbContainerRef.current) return;
-    const rect = thumbContainerRef.current.getBoundingClientRect();
-    latestMouseXRef.current = e.clientX - rect.left;
-    triggerRafScrub();
-  };
-
   // Mouse Leave: unmount video tag, release decoder context
   const handleMouseLeave = () => {
     setIsHovered(false);
     setCursorX(null);
     setCursorNormalized(0);
+    setScrubFrame(null);
+    setDynamicThumbnail(null);
+
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
@@ -212,6 +232,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     onAssignToShot(item, targetShotIndex);
   };
 
+  // Active displayed thumbnail source
+  const activeThumbnailSource = dynamicThumbnail || scrubFrame || staticFallbackThumbnail;
+
   return (
     <div
       draggable
@@ -231,7 +254,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           : 'border-[#272732] hover:border-[#fbbf24]'
       }`}
     >
-      {/* 1. Tactical Hover Zoom Container with Dynamic Hover Scrubbing & Micro-HUD */}
+      {/* 1. Tactical Hover Zoom Container with onMouseMove Normalized X Scrubbing & Micro-HUD */}
       <div 
         ref={thumbContainerRef}
         onMouseEnter={handleMouseEnter}
@@ -243,21 +266,26 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             : 'border-white/10 z-0 overflow-hidden'
         }`}
       >
-        {/* Active Viewport Media: HTML5 Video when hovered, Lightweight JPEG Fallback otherwise */}
-        {isHovered && isVid && videoBlobUrl ? (
+        {/* Hidden <video> Element: Used for smooth non-audio frame seeking with RAF */}
+        {isVid && videoBlobUrl && (
           <video
             ref={videoRef}
             src={videoBlobUrl}
             muted
             playsInline
             preload="metadata"
-            className="w-full h-full object-cover"
+            onSeeked={handleHiddenVideoSeeked}
+            className="hidden pointer-events-none"
+            aria-hidden="true"
           />
-        ) : staticFallbackThumbnail ? (
+        )}
+
+        {/* Thumbnail Source: Rendered and dynamically updated via RAF hover scrubbing */}
+        {activeThumbnailSource ? (
           <img
-            src={staticFallbackThumbnail}
+            src={activeThumbnailSource}
             alt={item.name}
-            className="w-full h-full object-cover transition-opacity duration-150"
+            className="w-full h-full object-cover transition-opacity duration-100"
             loading="lazy"
           />
         ) : (

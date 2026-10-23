@@ -117,6 +117,57 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     (mediaUrl && (mediaUrl.startsWith('data:video') || /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(mediaUrl)))
   );
 
+  const displayBangla = currentSlide?.titleBn || 'আলোর স্মৃতি';
+  const displayEnglish = currentSlide?.titleEn || `SHOT ${String(currentIndex + 1).padStart(3, '0')} // MASTER REEL`;
+  const displaySubtitle = currentSlide?.tagline || currentSlide?.directorNotes || '24.0 FPS RAW • MASTER CINE PROJECTION';
+
+  // Subtle Cross-Dissolve Transition State
+  const [outgoingPlate, setOutgoingPlate] = useState<{
+    url: string;
+    isVideo: boolean;
+    panY?: number;
+    title?: string;
+  } | null>(null);
+  const [isCrossDissolving, setIsCrossDissolving] = useState(false);
+  const dissolveTimerRef = useRef<number | null>(null);
+  const prevIndexRef = useRef<number>(currentIndex);
+  const prevMediaUrlRef = useRef<string>('');
+
+  useEffect(() => {
+    if (prevIndexRef.current !== currentIndex) {
+      if (prevMediaUrlRef.current && prevMediaUrlRef.current !== mediaUrl) {
+        if (dissolveTimerRef.current) {
+          clearTimeout(dissolveTimerRef.current);
+        }
+        setOutgoingPlate({
+          url: prevMediaUrlRef.current,
+          isVideo: isVideo,
+          panY: currentSlide?.panY ?? 50,
+          title: displayEnglish
+        });
+        setIsCrossDissolving(true);
+
+        dissolveTimerRef.current = window.setTimeout(() => {
+          setIsCrossDissolving(false);
+          setOutgoingPlate(null);
+        }, 340);
+      }
+      prevIndexRef.current = currentIndex;
+    }
+
+    if (mediaUrl) {
+      prevMediaUrlRef.current = mediaUrl;
+    }
+  }, [currentIndex, mediaUrl, isVideo, currentSlide?.panY, displayEnglish]);
+
+  useEffect(() => {
+    return () => {
+      if (dissolveTimerRef.current) {
+        clearTimeout(dissolveTimerRef.current);
+      }
+    };
+  }, []);
+
   // Sync video currentTime with slideTimeSec without unmounting or restarting
   useEffect(() => {
     if (videoRef.current && Math.abs(videoRef.current.currentTime - slideTimeSec) > 0.15) {
@@ -182,10 +233,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     }
   };
 
-  const displayBangla = currentSlide?.titleBn || 'আলোর স্মৃতি';
-  const displayEnglish = currentSlide?.titleEn || `SHOT ${String(currentIndex + 1).padStart(3, '0')} // MASTER REEL`;
-  const displaySubtitle = currentSlide?.tagline || currentSlide?.directorNotes || '24.0 FPS RAW • MASTER CINE PROJECTION';
-
   return (
     <div 
       ref={containerRef}
@@ -198,29 +245,56 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
       <div className="flex-1 w-full flex items-center justify-center min-h-0 relative p-2 sm:p-4">
         <div className={`relative ${getAspectClass()} w-full bg-[#0B0B0F] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center`}>
           
+          {/* Outgoing Visual Plate for Cinematic Cross-Dissolve */}
+          {outgoingPlate && isCrossDissolving && (
+            <div className="absolute inset-0 w-full h-full pointer-events-none z-0 animate-cross-dissolve-out overflow-hidden">
+              {outgoingPlate.isVideo ? (
+                <video
+                  src={outgoingPlate.url}
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover pointer-events-none"
+                  style={{ objectPosition: `center ${outgoingPlate.panY ?? 50}%` }}
+                />
+              ) : (
+                <img
+                  src={outgoingPlate.url}
+                  alt={outgoingPlate.title || 'Outgoing'}
+                  className="w-full h-full object-cover object-center pointer-events-none"
+                  style={{ objectPosition: `center ${outgoingPlate.panY ?? 50}%` }}
+                />
+              )}
+            </div>
+          )}
+
           {/* Active Visual Media Plate */}
           {mediaUrl ? (
-            isVideo ? (
-              <video
-                key={mediaUrl}
-                ref={videoRef}
-                src={mediaUrl}
-                playsInline
-                muted={isMuted}
-                autoPlay={isPlaying}
-                loop={isLooping}
-                preload="auto"
-                className="w-full h-full object-cover pointer-events-none"
-                style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
-              />
-            ) : (
-              <img
-                src={mediaUrl}
-                alt={displayEnglish}
-                className="w-full h-full object-cover object-center pointer-events-none"
-                style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
-              />
-            )
+            <div
+              key={`reels_plate_${currentIndex}`}
+              className={`w-full h-full z-10 overflow-hidden ${isCrossDissolving ? 'animate-cross-dissolve' : ''}`}
+            >
+              {isVideo ? (
+                <video
+                  key={mediaUrl}
+                  ref={videoRef}
+                  src={mediaUrl}
+                  playsInline
+                  muted={isMuted}
+                  autoPlay={isPlaying}
+                  loop={isLooping}
+                  preload="auto"
+                  className="w-full h-full object-cover pointer-events-none"
+                  style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
+                />
+              ) : (
+                <img
+                  src={mediaUrl}
+                  alt={displayEnglish}
+                  className="w-full h-full object-cover object-center pointer-events-none"
+                  style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
+                />
+              )}
+            </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-[#09090D] p-6 text-center">
               <Film className="w-12 h-12 text-[#F5A623]/30 mb-3 animate-pulse" />

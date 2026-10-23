@@ -46,7 +46,8 @@ import {
   Maximize2,
   Circle,
   LogIn,
-  LogOut
+  LogOut,
+  Package
 } from 'lucide-react';
 import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/firebase';
 import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
@@ -467,6 +468,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <span className="font-bold">MP4 Master (WebCodecs Render)</span>
                   </div>
                   <span className="text-[8px] bg-emerald-950/90 border border-emerald-400/50 text-emerald-300 px-1.5 py-0.5 rounded font-bold">H.264</span>
+                </button>
+
+                {/* 3b. Production Package (.zip) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenExportStudio) onOpenExportStudio('package');
+                    setIsExportMenuOpen(false);
+                  }}
+                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-amber-950/40 border border-amber-500/20 text-amber-200 hover:text-amber-300 flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="font-bold">Production Package (.zip)</span>
+                  </div>
+                  <span className="text-[8px] bg-amber-950/90 border border-amber-400/50 text-amber-300 px-1.5 py-0.5 rounded font-bold">NLE ZIP</span>
                 </button>
 
                 {/* 4. Contact Sheet PDF */}

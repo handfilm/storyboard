@@ -110,6 +110,21 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [isIngesting, setIsIngesting] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
 
+  // Subtle Cross-Dissolve Transition State
+  const [outgoingMedia, setOutgoingMedia] = useState<{
+    url: string;
+    isVideo: boolean;
+    filter: string;
+    title?: string;
+  } | null>(null);
+  const [isCrossDissolving, setIsCrossDissolving] = useState(false);
+  const dissolveTimerRef = useRef<number | null>(null);
+  const prevIndexRef = useRef<number>(currentIndex);
+  const prevMediaUrlRef = useRef<string | null>(null);
+  const prevFilterRef = useRef<string>('');
+  const prevIsVideoRef = useRef<boolean>(false);
+  const prevTitleRef = useRef<string>('');
+
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
   const isVertigo = useStudioStore((s) => s.isVertigoLinked);
@@ -172,6 +187,50 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   // - While Scrubbing / Dragging -> Fast proxyUrl (540p for zero-latency 24fps)
   // - While Playing / Fullscreen -> Pristine full-resolution sourceUrl
   const activeMediaUrl = (isScrubbing && proxyUrl) ? proxyUrl : (sourceUrl || frame?.imageUrl || null);
+
+  const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
+  const combinedMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
+    ? `${lutFilterStyle} ${zoomTransforms.bgDepthBlur}`
+    : lutFilterStyle;
+
+  // Track Shot Changes for Subtle Filmic Cross-Dissolve Animation
+  useEffect(() => {
+    if (prevIndexRef.current !== currentIndex) {
+      if (prevMediaUrlRef.current && prevMediaUrlRef.current !== activeMediaUrl && !isScrubbing) {
+        if (dissolveTimerRef.current) {
+          window.clearTimeout(dissolveTimerRef.current);
+        }
+        setOutgoingMedia({
+          url: prevMediaUrlRef.current,
+          isVideo: prevIsVideoRef.current,
+          filter: prevFilterRef.current,
+          title: prevTitleRef.current
+        });
+        setIsCrossDissolving(true);
+
+        dissolveTimerRef.current = window.setTimeout(() => {
+          setIsCrossDissolving(false);
+          setOutgoingMedia(null);
+        }, 340);
+      }
+      prevIndexRef.current = currentIndex;
+    }
+
+    if (activeMediaUrl) {
+      prevMediaUrlRef.current = activeMediaUrl;
+      prevFilterRef.current = combinedMediaFilter;
+      prevIsVideoRef.current = Boolean(frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4'));
+      prevTitleRef.current = frame?.title || '';
+    }
+  }, [currentIndex, activeMediaUrl, isScrubbing, combinedMediaFilter, frame]);
+
+  useEffect(() => {
+    return () => {
+      if (dissolveTimerRef.current) {
+        window.clearTimeout(dissolveTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
@@ -247,11 +306,6 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     }
   };
 
-  const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
-  const combinedMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
-    ? `${lutFilterStyle} ${zoomTransforms.bgDepthBlur}`
-    : lutFilterStyle;
-
   return (
     <div
       ref={containerRef}
@@ -287,9 +341,38 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         style={getAspectStyle(aspectRatio)}
         className="relative w-full max-h-full max-w-6xl mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
       >
+        {/* Outgoing Base Plate for Cinematic Cross-Dissolve Transition */}
+        {outgoingMedia && isCrossDissolving && (
+          <div
+            className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pointer-events-none z-0 animate-cross-dissolve-out"
+            style={{ transform: zoomTransforms.bgTransform }}
+          >
+            {outgoingMedia.isVideo ? (
+              <video
+                src={outgoingMedia.url}
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+                style={{ filter: outgoingMedia.filter }}
+              />
+            ) : (
+              <img
+                src={outgoingMedia.url}
+                alt="Outgoing Plate"
+                className="w-full h-full object-cover"
+                style={{ filter: outgoingMedia.filter }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Incoming / Active Media Plate */}
         {activeMediaUrl ? (
           <div
-            className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center"
+            key={`shot_${currentIndex}`}
+            className={`w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center z-10 ${
+              isCrossDissolving ? 'animate-cross-dissolve' : ''
+            }`}
             style={{ transform: zoomTransforms.bgTransform }}
           >
             {frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm') ? (

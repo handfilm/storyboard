@@ -191,4 +191,31 @@
   animation: rawxGoldShimmerBeam 4.5s linear infinite;
 }
 
+/* Subtle Cinematic Cross-Dissolve Transition for MainWorkspace Frame Navigation */
+@keyframes crossDissolveFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes crossDissolveFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-cross-dissolve {
+  animation: crossDissolveFadeIn 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-cross-dissolve-out {
+  animation: crossDissolveFadeOut 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 

@@ -391,6 +391,51 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
     : '');
 
+  // Subtle Cross-Dissolve Transition State for Shot Navigation
+  const [outgoingPlate, setOutgoingPlate] = useState<{
+    url: string;
+    isVideo: boolean;
+    panY?: number;
+  } | null>(null);
+  const [isCrossDissolving, setIsCrossDissolving] = useState(false);
+  const dissolveTimerRef = useRef<number | null>(null);
+  const prevIndexRef = useRef<number>(currentIndex);
+  const prevMediaUrlRef = useRef<string>('');
+
+  useEffect(() => {
+    if (prevIndexRef.current !== currentIndex) {
+      if (prevMediaUrlRef.current && prevMediaUrlRef.current !== mediaUrl && !engine.isScrubbing) {
+        if (dissolveTimerRef.current) {
+          clearTimeout(dissolveTimerRef.current);
+        }
+        setOutgoingPlate({
+          url: prevMediaUrlRef.current,
+          isVideo: Boolean(currentSlide?.isVideo),
+          panY: currentSlide?.panY ?? 50
+        });
+        setIsCrossDissolving(true);
+
+        dissolveTimerRef.current = window.setTimeout(() => {
+          setIsCrossDissolving(false);
+          setOutgoingPlate(null);
+        }, 340);
+      }
+      prevIndexRef.current = currentIndex;
+    }
+
+    if (mediaUrl) {
+      prevMediaUrlRef.current = mediaUrl;
+    }
+  }, [currentIndex, mediaUrl, engine.isScrubbing, currentSlide]);
+
+  useEffect(() => {
+    return () => {
+      if (dissolveTimerRef.current) {
+        clearTimeout(dissolveTimerRef.current);
+      }
+    };
+  }, []);
+
   // Delayed URL revocation: revoke old URLs only after the next slide mounts to prevent blank frames
   useEffect(() => {
     const oldUrl = previousUrlRef.current;
@@ -508,10 +553,38 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       <div className="flex-1 w-full flex items-center justify-center min-h-0 relative">
         <div className={`relative ${getAspectClass()} w-full bg-[#0E0E12] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center transition-colors duration-150 ease-out`}>
           
-          {/* Active Media Display - Ultra Clean Display with Multi-Layer Zoom */}
+          {/* Active Media Display - Ultra Clean Display with Multi-Layer Zoom & Cross-Dissolve */}
+          {outgoingPlate && isCrossDissolving && (
+            <div
+              className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pointer-events-none z-0 animate-cross-dissolve-out"
+              style={{ transform: zoomTransforms.bgTransform }}
+            >
+              {outgoingPlate.isVideo ? (
+                <video
+                  src={outgoingPlate.url}
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover pointer-events-none"
+                  style={{ objectPosition: `center ${outgoingPlate.panY ?? 50}%` }}
+                />
+              ) : (
+                <div
+                  className="w-full h-full bg-cover bg-no-repeat"
+                  style={{
+                    backgroundImage: `url(${outgoingPlate.url})`,
+                    backgroundPosition: `center ${outgoingPlate.panY ?? 50}%`
+                  }}
+                />
+              )}
+            </div>
+          )}
+
           {mediaUrl ? (
             <div
-              className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center"
+              key={`optical_plate_${currentIndex}`}
+              className={`w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center z-10 ${
+                isCrossDissolving ? 'animate-cross-dissolve' : ''
+              }`}
               style={{ transform: zoomTransforms.bgTransform }}
             >
               {isVideo ? (

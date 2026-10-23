@@ -35,6 +35,7 @@ import {
 } from '../services/exportXml';
 import { exportFullIdbBackup } from '../utils/backup';
 import { exportDirectorsCutBundle } from '../services/directorsCutExport';
+import { exportProductionPackageZip } from '../services/productionPackageExport';
 import { 
   Film, 
   Video, 
@@ -57,10 +58,11 @@ import {
   Printer,
   Copy,
   Check,
-  Archive
+  Archive,
+  Package
 } from 'lucide-react';
 
-export type ExportModalTab = 'mp4' | 'premiere' | 'fcpxml' | 'pdf' | 'directors_cut' | 'backup';
+export type ExportModalTab = 'mp4' | 'premiere' | 'fcpxml' | 'package' | 'pdf' | 'directors_cut' | 'backup';
 
 export interface CutNativeExportModalProps {
   isOpen: boolean;
@@ -159,6 +161,13 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   // 6. PDF Contact Sheet Options
   const [pdfColumns, setPdfColumns] = useState<number>(4);
   const [includePdfSpecs, setIncludePdfSpecs] = useState<boolean>(true);
+
+  // 6b. Production Package ZIP Options
+  const [packageBurnInTitles, setPackageBurnInTitles] = useState<boolean>(false);
+  const [packageIncludeXmlEdl, setPackageIncludeXmlEdl] = useState<boolean>(true);
+  const [packageResolution, setPackageResolution] = useState<'1080p_scope' | '4k_scope'>('1080p_scope');
+  const [packageProgressText, setPackageProgressText] = useState<string>('Ready to bundle');
+  const [packageProgressPercent, setPackageProgressPercent] = useState<number>(0);
 
   // 7. Render State & Live Telemetry (For MP4 Engine)
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -821,6 +830,55 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     }
   }, [projectTitle, directorName, aspectRatio, selectedFrames, frames, xmlFps, customFilename]);
 
+  // Export Production Package ZIP (frame assets, NLE JSON manifest, CMX 3600 EDL, FCP7 XML)
+  const handleExportProductionPackage = useCallback(async () => {
+    try {
+      setIsExporting(true);
+      setExportError(null);
+      setPackageProgressPercent(0);
+      setPackageProgressText('Initializing Production Package...');
+
+      const filename = await exportProductionPackageZip({
+        projectTitle,
+        directorName,
+        aspectRatio,
+        frames: selectedFrames.length > 0 ? selectedFrames : (frames || []),
+        slides,
+        fps: xmlFps,
+        customFilename: customFilename ? `${customFilename}_ProductionPackage` : undefined,
+        burnInTitles: packageBurnInTitles,
+        includeXmlEdl: packageIncludeXmlEdl,
+        targetResolution: packageResolution,
+        onProgress: (p) => {
+          setPackageProgressPercent(p.percent);
+          setPackageProgressText(p.stage);
+        },
+        abortSignal: abortControllerRef.current?.signal
+      });
+
+      playExportSuccessChime();
+      setDownloadedFileName(filename);
+      setIsFinished(true);
+    } catch (err: any) {
+      console.error('[ProductionPackage Error]', err);
+      setExportError(err?.message || 'Could not generate Production Package ZIP.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [
+    projectTitle,
+    directorName,
+    aspectRatio,
+    selectedFrames,
+    frames,
+    slides,
+    xmlFps,
+    customFilename,
+    packageBurnInTitles,
+    packageIncludeXmlEdl,
+    packageResolution
+  ]);
+
   const handleAbortExport = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -897,7 +955,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
           </div>
 
           {/* Unified Format Navigation Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded-xl text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded-xl text-center">
             {/* 1. MP4 VIDEO */}
             <button
               type="button"
@@ -943,7 +1001,22 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               <span className="truncate">CAPCUT FCPXML</span>
             </button>
 
-            {/* 4. CONTACT SHEET (PDF) */}
+            {/* 4. PRODUCTION PACKAGE (ZIP) */}
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => setActiveTab('package')}
+              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeTab === 'package'
+                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span className="truncate">PRODUCTION PKG</span>
+            </button>
+
+            {/* 5. CONTACT SHEET (PDF) */}
             <button
               type="button"
               disabled={isExporting}
@@ -958,7 +1031,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               <span className="truncate">CONTACT SHEET</span>
             </button>
 
-            {/* 5. DIRECTOR'S CUT (ZIP) */}
+            {/* 6. DIRECTOR'S CUT (ZIP) */}
             <button
               type="button"
               disabled={isExporting}
@@ -973,7 +1046,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               <span className="truncate">DIRECTOR'S CUT</span>
             </button>
 
-            {/* 6. PROJECT BACKUP (.rawx) */}
+            {/* 7. PROJECT BACKUP (.rawx) */}
             <button
               type="button"
               disabled={isExporting}
@@ -1647,7 +1720,161 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: CONTACT SHEET PDF */}
+          {/* TAB 4: PRODUCTION PACKAGE (ZIP) */}
+          {activeTab === 'package' && (
+            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Professional Production Package (.zip) // NLE Bundle</h3>
+                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
+                    Bundles all sequence frame assets into an uncompressed <code className="text-[#F5A623]">assets/</code> directory alongside an industry-standard <code className="text-cyan-400">manifest.json</code>, Premiere &amp; DaVinci XML conform sequence, and CMX 3600 EDL.
+                  </p>
+                </div>
+              </div>
+
+              {/* Package Inclusions Matrix */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
+                  <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-xs">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>manifest.json</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
+                    Universal NLE JSON manifest with frame-accurate SMPTE timecodes, titles, and optics.
+                  </p>
+                  <span className="inline-block text-[8.5px] font-mono text-cyan-300 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-800/40">
+                    JSON Interop 1.0
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
+                  <div className="flex items-center gap-1.5 text-[#F5A623] font-bold text-xs">
+                    <Film className="w-3.5 h-3.5" />
+                    <span>assets/ (Plates)</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
+                    Full-resolution cinema stills for every active shot, formatted for direct NLE timeline drop.
+                  </p>
+                  <span className="inline-block text-[8.5px] font-mono text-[#F5A623] bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/40">
+                    {selectedFrames.length > 0 ? selectedFrames.length : totalCount} Assets
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
+                  <div className="flex items-center gap-1.5 text-purple-400 font-bold text-xs">
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>sequence.xml</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
+                    FCP 7 XML linking to <code className="text-white">assets/</code> for 1-click Premiere &amp; DaVinci conform.
+                  </p>
+                  <span className="inline-block text-[8.5px] font-mono text-purple-300 bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-800/40">
+                    xmeml v5
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>sequence.edl</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
+                    Standard CMX 3600 Edit Decision List for Avid, DaVinci, and offline post conform.
+                  </p>
+                  <span className="inline-block text-[8.5px] font-mono text-emerald-300 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                    CMX 3600
+                  </span>
+                </div>
+              </div>
+
+              {/* Package Options */}
+              <div className="p-4 rounded-lg bg-[#101118] border border-[#222332] space-y-3">
+                <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider block">
+                  Package Configuration
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Resolution Selection */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] text-zinc-400 block font-sans">Plate Resolution:</span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPackageResolution('1080p_scope')}
+                        className={`flex-1 py-1.5 px-2 rounded border text-xs font-bold transition-all cursor-pointer ${
+                          packageResolution === '1080p_scope'
+                            ? 'bg-[#F5A623] text-black border-[#F5A623]'
+                            : 'bg-black border-zinc-700 text-zinc-400'
+                        }`}
+                      >
+                        1080p Scope
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPackageResolution('4k_scope')}
+                        className={`flex-1 py-1.5 px-2 rounded border text-xs font-bold transition-all cursor-pointer ${
+                          packageResolution === '4k_scope'
+                            ? 'bg-[#F5A623] text-black border-[#F5A623]'
+                            : 'bg-black border-zinc-700 text-zinc-400'
+                        }`}
+                      >
+                        4K Scope
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Burn-in Titles Toggle */}
+                  <div className="flex flex-col justify-between py-1">
+                    <span className="text-[11px] text-zinc-400 font-sans">Burn-in Titles on Assets:</span>
+                    <label className="flex items-center gap-2 cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={packageBurnInTitles}
+                        onChange={(e) => setPackageBurnInTitles(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs text-white">Burn titles onto plates</span>
+                    </label>
+                  </div>
+
+                  {/* Include XML / EDL */}
+                  <div className="flex flex-col justify-between py-1">
+                    <span className="text-[11px] text-zinc-400 font-sans">Conform Sequences:</span>
+                    <label className="flex items-center gap-2 cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={packageIncludeXmlEdl}
+                        onChange={(e) => setPackageIncludeXmlEdl(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs text-white">Include sequence.xml &amp; .edl</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Progress bar when exporting package */}
+                {isExporting && activeTab === 'package' && (
+                  <div className="pt-2 space-y-1.5">
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-[#F5A623] font-bold">{packageProgressText}</span>
+                      <span className="text-white font-bold">{packageProgressPercent}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-[#2a2c3d]">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#d4af37] via-[#F5A623] to-[#fbbf24] rounded-full transition-all duration-150 shadow-[0_0_10px_rgba(245,166,35,0.5)]"
+                        style={{ width: `${Math.max(2, packageProgressPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: CONTACT SHEET PDF */}
           {activeTab === 'pdf' && (
             <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
               <div className="flex items-start gap-3">
@@ -1935,6 +2162,18 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   >
                     <Download className="w-4 h-4" />
                     <span>EXPORT FCPXML (.fcpxml)</span>
+                  </button>
+                )}
+
+                {activeTab === 'package' && (
+                  <button
+                    type="button"
+                    onClick={handleExportProductionPackage}
+                    disabled={isExporting}
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>DOWNLOAD PRODUCTION PKG (.ZIP)</span>
                   </button>
                 )}
 

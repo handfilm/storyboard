@@ -383,7 +383,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
               }`}>
                 1
               </kbd>
-              <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activeConfig === '1x1'} />
+              <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activeConfig === '1x1'} angles={displayAngles} activeAngleIdx={heroIdx} />
               <span>1x1 SOLO</span>
             </button>
 
@@ -403,7 +403,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
               }`}>
                 2
               </kbd>
-              <MultiCamPresetThumbnail config="1x3" size="sm" isActive={activeConfig === '1x3'} />
+              <MultiCamPresetThumbnail config="1x3" size="sm" isActive={activeConfig === '1x3'} angles={displayAngles} activeAngleIdx={heroIdx} />
               <span>1x3 DIRECTOR</span>
             </button>
 
@@ -423,7 +423,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
               }`}>
                 3
               </kbd>
-              <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activeConfig === '2x2'} />
+              <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activeConfig === '2x2'} angles={displayAngles} activeAngleIdx={heroIdx} />
               <span>2x2 QUAD</span>
             </button>
           </div>
@@ -504,7 +504,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                 onClick={() => onSelectAngle(idx)}
                 className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl transition-all ${
                   isHero
-                    ? 'border-[#FFE066] animate-gold-focus-border ring-2 ring-[#F5A623]/80 ring-offset-2 ring-offset-black z-20'
+                    ? 'border-[3px] border-[#FFE066] animate-gold-focus-border shadow-[0_0_35px_rgba(255,224,102,0.6)] ring-2 ring-[#FFE066]/80 ring-offset-2 ring-offset-black z-20'
                     : 'border-white/10 hover:border-amber-400/50 opacity-75 hover:opacity-100 z-10'
                 }`}
               >
@@ -660,6 +660,8 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         activeConfig={activeConfig}
         onSelectConfig={setConfig}
         onClose={() => setIsGridMenuOpen(false)}
+        angles={displayAngles}
+        activeAngleIdx={heroIdx}
       />
     </div>
   );

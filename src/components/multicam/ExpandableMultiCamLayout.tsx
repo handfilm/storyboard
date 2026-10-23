@@ -175,7 +175,7 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
               }`}
               title="2x2 Quad Grid Preset (Side-by-side comparison of 4 cameras)"
             >
-              <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activePreset === '2x2'} />
+              <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activePreset === '2x2'} angles={group.angles} activeAngleIdx={currentActiveAngleIdx} />
               <span>2x2 QUAD</span>
             </button>
 
@@ -190,7 +190,7 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
               }`}
               title="1x3 Director Preset (Hero program monitor + 3 synchronized angle comparison monitors)"
             >
-              <MultiCamPresetThumbnail config="1x3" size="sm" isActive={activePreset === '1x3'} />
+              <MultiCamPresetThumbnail config="1x3" size="sm" isActive={activePreset === '1x3'} angles={group.angles} activeAngleIdx={currentActiveAngleIdx} />
               <span>1x3 DIRECTOR</span>
             </button>
 
@@ -205,7 +205,7 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
               }`}
               title="1x1 Solo Inspection Preset (Full focus program angle with instant A/B flip)"
             >
-              <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activePreset === '1x1'} />
+              <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activePreset === '1x1'} angles={group.angles} activeAngleIdx={currentActiveAngleIdx} />
               <span>1x1 SOLO</span>
             </button>
           </div>

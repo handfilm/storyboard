@@ -1,19 +1,22 @@
 /**
  * @file /src/components/multicam/MultiCamGridSelectionMenu.tsx
- * @description Rich visual Grid Selection Menu for MultiCam with thumbnail previews,
+ * @description Rich visual Grid Selection Menu for MultiCam with dynamic thumbnail previews,
  * keyboard shortcut indicators ('1', '2', '3'), and gold-themed layout cards.
  */
 
 import React, { useEffect } from 'react';
-import { X, Check, Sparkles, Grid2X2, LayoutList, Square, Keyboard } from 'lucide-react';
+import { X, Check, Grid2X2, Keyboard, Eye, Video } from 'lucide-react';
 import { MultiCamGridConfig } from './MultiCamViewportGrid';
 import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
+import { MultiCamAngle } from '../../types/multicam';
 
 export interface MultiCamGridSelectionMenuProps {
   isOpen: boolean;
   activeConfig: MultiCamGridConfig;
   onSelectConfig: (config: MultiCamGridConfig) => void;
   onClose: () => void;
+  angles?: MultiCamAngle[];
+  activeAngleIdx?: number;
 }
 
 interface PresetOption {
@@ -56,7 +59,9 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
   isOpen,
   activeConfig,
   onSelectConfig,
-  onClose
+  onClose,
+  angles = [],
+  activeAngleIdx = 0
 }) => {
   // ESC to close or '1', '2', '3' to select and close
   useEffect(() => {
@@ -94,6 +99,11 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
 
   if (!isOpen) return null;
 
+  const safeIdx = Math.max(0, Math.min(activeAngleIdx, Math.max(0, angles.length - 1)));
+  const activeAngle = angles[safeIdx];
+  const activeAngleLabel = activeAngle?.label || `CAM 0${safeIdx + 1}`;
+  const totalAnglesCount = Math.max(angles.length, 4);
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div 
@@ -114,6 +124,10 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#FFE066]/15 text-[#FFE066] border border-[#FFE066]/30">
                   LAYOUT PRESETS
                 </span>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-black/60 text-amber-300 border border-amber-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FFE066] animate-pulse" />
+                  CURRENT FOCUS: {activeAngleLabel}
+                </span>
               </div>
               <p className="text-xs text-neutral-400 font-sans mt-0.5">
                 Select monitor geometry or press keys <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">1</kbd>, <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">2</kbd>, or <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">3</kbd> anytime
@@ -131,7 +145,7 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
           </button>
         </div>
 
-        {/* Preset Cards Grid with Visual Thumbnail Previews */}
+        {/* Preset Cards Grid with Dynamic Visual Thumbnail Previews */}
         <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#060709]">
           {PRESET_OPTIONS.map(preset => {
             const isSelected = activeConfig === preset.id;
@@ -149,17 +163,38 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
                     : 'bg-[#0B0C12] border-white/10 hover:border-amber-400/50 hover:bg-[#101118]'
                 }`}
               >
-                {/* Visual Thumbnail Preview Container */}
-                <div className="w-full flex flex-col items-center justify-center py-3 bg-black/60 rounded-xl border border-white/5 mb-3 group-hover:border-amber-400/30 transition-colors">
-                  <MultiCamPresetThumbnail
-                    config={preset.id}
-                    isActive={isSelected}
-                    size="lg"
-                    className="shadow-md"
-                  />
-                  <div className="flex items-center gap-1.5 mt-2 font-mono text-[10px] text-neutral-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span className="uppercase tracking-wider">PREVIEW THUMBNAIL</span>
+                {/* Dynamic Visual Thumbnail Preview Container */}
+                <div className="w-full flex flex-col items-center justify-center py-2.5 px-2 bg-black/70 rounded-xl border border-white/10 mb-3 group-hover:border-amber-400/40 transition-all shadow-inner">
+                  <div className="w-full flex justify-center">
+                    <MultiCamPresetThumbnail
+                      config={preset.id}
+                      isActive={isSelected}
+                      size="lg"
+                      angles={angles}
+                      activeAngleIdx={activeAngleIdx}
+                      className="shadow-md"
+                    />
+                  </div>
+
+                  {/* Dynamic Layout Mapping Telemetry Bar */}
+                  <div className="w-full flex items-center justify-between mt-2 pt-2 border-t border-white/10 font-mono text-[9.5px]">
+                    <div className="flex items-center gap-1.5 text-neutral-400 truncate max-w-[140px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#FFE066] shadow-[0_0_6px_#FFE066]" />
+                      <span className="truncate">
+                        {preset.id === '1x1' 
+                          ? `${activeAngleLabel} SOLO` 
+                          : preset.id === '1x3' 
+                          ? `HERO: ${activeAngleLabel}` 
+                          : `FOCUS: ${activeAngleLabel}`}
+                      </span>
+                    </div>
+                    <span className="text-[#FFE066] font-bold shrink-0">
+                      {preset.id === '1x1' 
+                        ? '100% PGM' 
+                        : preset.id === '1x3' 
+                        ? '1+3 SPLIT' 
+                        : '4-QUADRANT'}
+                    </span>
                   </div>
                 </div>
 
@@ -208,13 +243,18 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
           })}
         </div>
 
-        {/* Footer with Keyboard Guidance */}
+        {/* Footer with Keyboard Guidance & Camera Status */}
         <div className="px-6 py-3.5 bg-[#0A0B10] border-t border-white/10 flex items-center justify-between text-xs text-neutral-400 font-mono">
           <div className="flex items-center gap-2">
             <Keyboard className="w-4 h-4 text-amber-400" />
             <span>DIRECT KEYBOARD SHORTCUTS: PRESS <strong className="text-white">1</strong> FOR SOLO, <strong className="text-white">2</strong> FOR DIRECTOR, <strong className="text-white">3</strong> FOR QUAD</span>
           </div>
-          <span className="text-[11px] text-amber-400/80">ESC TO CLOSE</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-neutral-500 hidden sm:inline">
+              SYNCED FEEDS: <strong className="text-amber-400">{totalAnglesCount}</strong>
+            </span>
+            <span className="text-[11px] text-amber-400/80">ESC TO CLOSE</span>
+          </div>
         </div>
       </div>
     </div>

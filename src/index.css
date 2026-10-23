@@ -130,22 +130,23 @@
     border-color: #FFE066;
     box-shadow: 
       0 0 0 2px #FFE066,
-      0 0 22px rgba(255, 224, 102, 0.8),
-      0 0 45px rgba(245, 166, 35, 0.45),
-      inset 0 0 16px rgba(255, 224, 102, 0.3);
+      0 0 24px rgba(255, 224, 102, 0.85),
+      0 0 48px rgba(245, 166, 35, 0.5),
+      inset 0 0 16px rgba(255, 224, 102, 0.35);
   }
   50% {
     border-color: #F5A623;
     box-shadow: 
-      0 0 0 3px #F5A623,
-      0 0 35px rgba(245, 166, 35, 0.95),
-      0 0 65px rgba(255, 224, 102, 0.65),
-      inset 0 0 28px rgba(245, 166, 35, 0.4);
+      0 0 0 3.5px #F5A623,
+      0 0 38px rgba(245, 166, 35, 0.95),
+      0 0 68px rgba(255, 224, 102, 0.7),
+      inset 0 0 28px rgba(245, 166, 35, 0.45);
   }
 }
 
 .animate-gold-focus-border {
-  animation: rawxGoldBorderPulse 2s ease-in-out infinite;
+  animation: rawxGoldBorderPulse 2s ease-in-out infinite !important;
+  border-color: #FFE066 !important;
 }
 
 @keyframes rawxGoldShimmerBeam {

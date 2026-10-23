@@ -1955,6 +1955,7 @@ export default function App() {
         }}
         onPopulateSamplePack={handlePopulateAllFrames}
         onReorderFrames={handleReorderFrames}
+        onUpdateFrame={handleUpdateFrame}
         projectTitle={project.title}
         directorName={project.director}
         aspectRatio={aspectRatio}

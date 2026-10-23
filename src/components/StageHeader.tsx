@@ -62,21 +62,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const totalRuntimeSec = (totalShotsCount * slideDurationSec).toFixed(1);
 
   return (
-    <header className={`h-14 bg-[#08090C]/95 backdrop-blur-md border-b border-white/10 px-4 md:px-6 flex items-center justify-between z-30 select-none shrink-0 font-mono transition-colors duration-150 ${className}`}>
+    <header className={`h-16 sm:h-18 bg-[#08090C]/98 backdrop-blur-md border-b border-white/10 px-4 md:px-8 flex items-center justify-between z-30 select-none shrink-0 font-mono transition-colors duration-150 ${className}`}>
       {/* 1. Primary View Switcher Tabs (Left Cluster) */}
-      <div className="flex items-center space-x-2.5 sm:space-x-3">
-        {/* [ Stage ] Capsule Tab */}
+      <div className="flex items-center space-x-3 sm:space-x-4">
+        {/* [ Stage ] Chiseled 3D Metallic Tab */}
         <div className="relative group/tab">
           <button
             type="button"
             onClick={() => onSelectPanel('TACTILE_STAGE')}
-            className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
               currentPanel === 'TACTILE_STAGE'
-                ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
-                : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
+                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
+                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
             }`}
           >
-            <Film className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'TACTILE_STAGE' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+            <Film className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'TACTILE_STAGE' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
             <span>Stage</span>
           </button>
 
@@ -98,18 +98,18 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ 12.0s Reels ] Capsule Tab */}
+        {/* [ 12.0s Reels ] Chiseled 3D Metallic Tab */}
         <div className="relative group/tab">
           <button
             type="button"
             onClick={() => onSelectPanel('SPLIT')}
-            className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
               currentPanel === 'SPLIT'
-                ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
-                : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
+                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
+                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
             }`}
           >
-            <Sliders className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'SPLIT' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+            <Sliders className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'SPLIT' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
             <span>12.0s Reels</span>
           </button>
 
@@ -131,18 +131,18 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ Monitor ] Capsule Tab */}
+        {/* [ Monitor ] Chiseled 3D Metallic Tab */}
         <div className="relative group/tab">
           <button
             type="button"
             onClick={() => onSelectPanel('OPTICAL')}
-            className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
               currentPanel === 'OPTICAL'
-                ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
-                : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
+                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
+                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
             }`}
           >
-            <Maximize2 className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+            <Maximize2 className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
             <span>Monitor</span>
           </button>
 

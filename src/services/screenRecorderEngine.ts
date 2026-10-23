@@ -17,6 +17,7 @@
 
 export type CaptureResolution = '4K' | '1080p' | 'window';
 export type RecordingContainerFormat = 'webm' | 'mp4';
+export type MultiAngleMode = 'screen-cam-pip' | 'cam-screen-pip' | 'screen-only' | 'cam-only';
 
 export interface RecorderTelemetry {
   durationSec: number;
@@ -26,6 +27,8 @@ export interface RecorderTelemetry {
   status: 'idle' | 'recording' | 'paused' | 'processing';
   activeCodec: string;
   resolution: string;
+  multiAngleMode?: MultiAngleMode;
+  hasCamera?: boolean;
 }
 
 export interface RecorderOptions {
@@ -34,6 +37,8 @@ export interface RecorderOptions {
   captureSystemAudio?: boolean;
   captureMicrophone?: boolean;
   visualizeMouseClicks?: boolean;
+  enableCamera?: boolean;
+  initialMultiAngleMode?: MultiAngleMode;
 }
 
 export interface RecordedCaptureResult {
@@ -50,14 +55,25 @@ export interface RecordedCaptureResult {
 
 type TelemetryListener = (telemetry: RecorderTelemetry) => void;
 type StatusListener = (status: RecorderTelemetry['status']) => void;
+type MultiAngleListener = (mode: MultiAngleMode, hasCamera: boolean) => void;
 
 class ScreenRecorderEngine {
   private mediaRecorder: MediaRecorder | null = null;
   private displayStream: MediaStream | null = null;
+  private cameraStream: MediaStream | null = null;
   private micStream: MediaStream | null = null;
   private combinedStream: MediaStream | null = null;
   private audioCtx: AudioContext | null = null;
   private recordedChunks: Blob[] = [];
+
+  // Multi-Angle Compositor state
+  private displayVideoEl: HTMLVideoElement | null = null;
+  private cameraVideoEl: HTMLVideoElement | null = null;
+  private compositeCanvas: HTMLCanvasElement | null = null;
+  private compositeCtx: CanvasRenderingContext2D | null = null;
+  private compositeRafId: number | null = null;
+  private multiAngleMode: MultiAngleMode = 'screen-cam-pip';
+  private isCameraRequested: boolean = false;
 
   // Telemetry state
   private status: RecorderTelemetry['status'] = 'idle';
@@ -75,6 +91,7 @@ class ScreenRecorderEngine {
   // Listeners
   private telemetryListeners: Set<TelemetryListener> = new Set();
   private statusListeners: Set<StatusListener> = new Set();
+  private multiAngleListeners: Set<MultiAngleListener> = new Set();
 
   /**
    * Determine best supported hardware-accelerated codec.
@@ -229,8 +246,54 @@ class ScreenRecorderEngine {
         }
       }
 
+      // Multi-Angle Initialization
+      this.multiAngleMode = options.initialMultiAngleMode || 'screen-cam-pip';
+      if (options.enableCamera) {
+        try {
+          this.cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 60 }
+            },
+            audio: false
+          });
+        } catch (camErr) {
+          console.warn('[ScreenRecorder] Optional camera initialization skipped:', camErr);
+        }
+      }
+
+      // Initialize composite elements
+      const targetW = resolution === '4K' ? 3840 : 1920;
+      const targetH = resolution === '4K' ? 2160 : 1080;
+      this.compositeCanvas = document.createElement('canvas');
+      this.compositeCanvas.width = targetW;
+      this.compositeCanvas.height = targetH;
+      this.compositeCtx = this.compositeCanvas.getContext('2d', { alpha: false });
+
+      this.displayVideoEl = document.createElement('video');
+      this.displayVideoEl.srcObject = this.displayStream;
+      this.displayVideoEl.muted = true;
+      this.displayVideoEl.playsInline = true;
+      this.displayVideoEl.play().catch(() => {});
+
+      if (this.cameraStream) {
+        this.cameraVideoEl = document.createElement('video');
+        this.cameraVideoEl.srcObject = this.cameraStream;
+        this.cameraVideoEl.muted = true;
+        this.cameraVideoEl.playsInline = true;
+        this.cameraVideoEl.play().catch(() => {});
+      }
+
+      this.startCompositeLoop();
+
+      const canvasStream = (this.compositeCanvas as any).captureStream 
+        ? (this.compositeCanvas as any).captureStream(60) 
+        : this.displayStream;
+      const compositeVideoTrack = canvasStream.getVideoTracks()[0] || videoTrack;
+
       // 3. Assemble Combined Capture Stream
-      const finalTracks: MediaStreamTrack[] = [videoTrack];
+      const finalTracks: MediaStreamTrack[] = [compositeVideoTrack];
       if (hasAudioTrack && audioDest.stream.getAudioTracks().length > 0) {
         finalTracks.push(audioDest.stream.getAudioTracks()[0]);
       }
@@ -416,7 +479,9 @@ class ScreenRecorderEngine {
         totalBytes: this.totalBytesRecorded,
         status: this.status,
         activeCodec: this.activeCodec,
-        resolution: this.currentResolutionText
+        resolution: this.currentResolutionText,
+        multiAngleMode: this.multiAngleMode,
+        hasCamera: Boolean(this.cameraStream && this.cameraStream.active)
       };
 
       this.notifyTelemetry(telemetry);
@@ -424,6 +489,235 @@ class ScreenRecorderEngine {
 
     this.telemetryTimer = window.setInterval(tick, 100);
     tick();
+  }
+
+  private startCompositeLoop(): void {
+    this.stopCompositeLoop();
+
+    const render = () => {
+      if (this.status !== 'recording' && this.status !== 'paused') return;
+
+      const canvas = this.compositeCanvas;
+      const ctx = this.compositeCtx;
+      if (!canvas || !ctx) return;
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const hasCam = Boolean(this.cameraVideoEl && this.cameraVideoEl.readyState >= 2);
+      const hasDisplay = Boolean(this.displayVideoEl && this.displayVideoEl.readyState >= 2);
+
+      if (this.multiAngleMode === 'screen-cam-pip') {
+        // Main view: Screen
+        if (hasDisplay && this.displayVideoEl) {
+          ctx.drawImage(this.displayVideoEl, 0, 0, w, h);
+        } else {
+          ctx.fillStyle = '#08090C';
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        // Corner PiP: Camera
+        if (hasCam && this.cameraVideoEl) {
+          const pipW = Math.round(w * 0.26);
+          const pipH = Math.round((pipW / 16) * 9);
+          const margin = Math.round(w * 0.02);
+          const x = w - pipW - margin;
+          const y = h - pipH - margin;
+          const radius = Math.round(pipW * 0.06);
+
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctx.shadowBlur = 24;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, pipW, pipH, radius);
+          } else {
+            ctx.rect(x, y, pipW, pipH);
+          }
+          ctx.fillStyle = '#000000';
+          ctx.fill();
+          ctx.clip();
+          ctx.drawImage(this.cameraVideoEl, x, y, pipW, pipH);
+          ctx.restore();
+
+          // Cyber Cyan Tally Border
+          ctx.save();
+          ctx.lineWidth = Math.max(3, Math.round(w * 0.002));
+          ctx.strokeStyle = '#00F0FF';
+          ctx.shadowColor = 'rgba(0, 240, 255, 0.7)';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, pipW, pipH, radius);
+          } else {
+            ctx.rect(x, y, pipW, pipH);
+          }
+          ctx.stroke();
+
+          // Live red tally dot
+          ctx.fillStyle = '#E50914';
+          ctx.shadowColor = '#E50914';
+          ctx.shadowBlur = 6;
+          ctx.beginPath();
+          ctx.arc(x + 16, y + 16, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      } else if (this.multiAngleMode === 'cam-screen-pip') {
+        // Main view: Camera
+        if (hasCam && this.cameraVideoEl) {
+          ctx.drawImage(this.cameraVideoEl, 0, 0, w, h);
+        } else if (hasDisplay && this.displayVideoEl) {
+          ctx.drawImage(this.displayVideoEl, 0, 0, w, h);
+        } else {
+          ctx.fillStyle = '#08090C';
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        // Corner PiP: Screen
+        if (hasDisplay && this.displayVideoEl) {
+          const pipW = Math.round(w * 0.28);
+          const pipH = Math.round((pipW / 16) * 9);
+          const margin = Math.round(w * 0.02);
+          const x = w - pipW - margin;
+          const y = h - pipH - margin;
+          const radius = Math.round(pipW * 0.06);
+
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctx.shadowBlur = 24;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, pipW, pipH, radius);
+          } else {
+            ctx.rect(x, y, pipW, pipH);
+          }
+          ctx.fillStyle = '#000000';
+          ctx.fill();
+          ctx.clip();
+          ctx.drawImage(this.displayVideoEl, x, y, pipW, pipH);
+          ctx.restore();
+
+          // Warm Amber Tally Border
+          ctx.save();
+          ctx.lineWidth = Math.max(3, Math.round(w * 0.002));
+          ctx.strokeStyle = '#F5A623';
+          ctx.shadowColor = 'rgba(245, 166, 35, 0.7)';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, pipW, pipH, radius);
+          } else {
+            ctx.rect(x, y, pipW, pipH);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+      } else if (this.multiAngleMode === 'screen-only') {
+        if (hasDisplay && this.displayVideoEl) {
+          ctx.drawImage(this.displayVideoEl, 0, 0, w, h);
+        }
+      } else if (this.multiAngleMode === 'cam-only') {
+        if (hasCam && this.cameraVideoEl) {
+          ctx.drawImage(this.cameraVideoEl, 0, 0, w, h);
+        } else if (hasDisplay && this.displayVideoEl) {
+          ctx.drawImage(this.displayVideoEl, 0, 0, w, h);
+        }
+      }
+
+      this.compositeRafId = requestAnimationFrame(render);
+    };
+
+    this.compositeRafId = requestAnimationFrame(render);
+  }
+
+  private stopCompositeLoop(): void {
+    if (this.compositeRafId !== null) {
+      cancelAnimationFrame(this.compositeRafId);
+      this.compositeRafId = null;
+    }
+  }
+
+  public getMultiAngleMode(): MultiAngleMode {
+    return this.multiAngleMode;
+  }
+
+  public setMultiAngleMode(mode: MultiAngleMode): void {
+    this.multiAngleMode = mode;
+    this.notifyMultiAngle();
+  }
+
+  public hasCamera(): boolean {
+    return Boolean(this.cameraStream && this.cameraStream.active);
+  }
+
+  public async enableCamera(): Promise<boolean> {
+    if (this.cameraStream && this.cameraStream.active) return true;
+    try {
+      this.cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 60 }
+        },
+        audio: false
+      });
+      if (!this.cameraVideoEl) {
+        this.cameraVideoEl = document.createElement('video');
+        this.cameraVideoEl.muted = true;
+        this.cameraVideoEl.playsInline = true;
+      }
+      this.cameraVideoEl.srcObject = this.cameraStream;
+      await this.cameraVideoEl.play().catch(() => {});
+      this.notifyMultiAngle();
+      return true;
+    } catch (err) {
+      console.warn('[ScreenRecorder] Camera enable failed:', err);
+      return false;
+    }
+  }
+
+  public disableCamera(): void {
+    if (this.cameraStream) {
+      this.cameraStream.getTracks().forEach(t => t.stop());
+      this.cameraStream = null;
+    }
+    if (this.cameraVideoEl) {
+      this.cameraVideoEl.srcObject = null;
+    }
+    if (this.multiAngleMode === 'cam-only') {
+      this.multiAngleMode = 'screen-only';
+    }
+    this.notifyMultiAngle();
+  }
+
+  public async cycleMultiAngleMode(): Promise<MultiAngleMode> {
+    if (!this.hasCamera()) {
+      const ok = await this.enableCamera();
+      if (!ok) {
+        this.multiAngleMode = 'screen-only';
+        this.notifyMultiAngle();
+        return this.multiAngleMode;
+      }
+    }
+
+    const order: MultiAngleMode[] = ['screen-cam-pip', 'cam-screen-pip', 'screen-only', 'cam-only'];
+    const curIdx = order.indexOf(this.multiAngleMode);
+    const nextMode = order[(curIdx + 1) % order.length];
+    this.setMultiAngleMode(nextMode);
+    return nextMode;
+  }
+
+  public onMultiAngleChange(listener: MultiAngleListener): () => void {
+    this.multiAngleListeners.add(listener);
+    return () => this.multiAngleListeners.delete(listener);
+  }
+
+  private notifyMultiAngle(): void {
+    const hasCam = this.hasCamera();
+    this.multiAngleListeners.forEach(fn => fn(this.multiAngleMode, hasCam));
   }
 
   private stopTelemetryLoop(): void {
@@ -438,6 +732,30 @@ class ScreenRecorderEngine {
    */
   private cleanup(): void {
     this.stopTelemetryLoop();
+    this.stopCompositeLoop();
+
+    if (this.displayVideoEl) {
+      this.displayVideoEl.srcObject = null;
+      this.displayVideoEl.remove();
+      this.displayVideoEl = null;
+    }
+
+    if (this.cameraVideoEl) {
+      this.cameraVideoEl.srcObject = null;
+      this.cameraVideoEl.remove();
+      this.cameraVideoEl = null;
+    }
+
+    if (this.cameraStream) {
+      this.cameraStream.getTracks().forEach(t => t.stop());
+      this.cameraStream = null;
+    }
+
+    if (this.compositeCanvas) {
+      this.compositeCanvas.remove();
+      this.compositeCanvas = null;
+      this.compositeCtx = null;
+    }
 
     if (this.displayStream) {
       this.displayStream.getTracks().forEach(t => t.stop());

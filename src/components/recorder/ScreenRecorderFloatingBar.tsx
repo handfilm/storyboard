@@ -8,6 +8,7 @@ import {
   screenRecorderEngine, 
   CaptureResolution, 
   RecordingContainerFormat, 
+  MultiAngleMode,
   RecorderTelemetry, 
   RecordedCaptureResult 
 } from '../../services/screenRecorderEngine';
@@ -48,6 +49,8 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
   const [systemAudio, setSystemAudio] = useState<boolean>(true);
   const [microphone, setMicrophone] = useState<boolean>(false);
   const [mouseClicks, setMouseClicks] = useState<boolean>(true);
+  const [multiAngleMode, setMultiAngleMode] = useState<MultiAngleMode>('screen-cam-pip');
+  const [hasCamera, setHasCamera] = useState<boolean>(false);
   const [status, setStatus] = useState<RecorderTelemetry['status']>('idle');
   const [telemetry, setTelemetry] = useState<RecorderTelemetry>({
     durationSec: 0,
@@ -56,18 +59,29 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
     totalBytes: 0,
     status: 'idle',
     activeCodec: '',
-    resolution: '3840x2160'
+    resolution: '3840x2160',
+    multiAngleMode: 'screen-cam-pip',
+    hasCamera: false
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Subscribe to recorder engine state
   useEffect(() => {
-    const unsubTelemetry = screenRecorderEngine.onTelemetry((t) => setTelemetry(t));
+    const unsubTelemetry = screenRecorderEngine.onTelemetry((t) => {
+      setTelemetry(t);
+      if (t.multiAngleMode) setMultiAngleMode(t.multiAngleMode);
+      if (t.hasCamera !== undefined) setHasCamera(t.hasCamera);
+    });
     const unsubStatus = screenRecorderEngine.onStatusChange((s) => setStatus(s));
+    const unsubMultiAngle = screenRecorderEngine.onMultiAngleChange((m, cam) => {
+      setMultiAngleMode(m);
+      setHasCamera(cam);
+    });
 
     return () => {
       unsubTelemetry();
       unsubStatus();
+      unsubMultiAngle();
     };
   }, []);
 
@@ -104,7 +118,9 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
         format,
         captureSystemAudio: systemAudio,
         captureMicrophone: microphone,
-        visualizeMouseClicks: mouseClicks
+        visualizeMouseClicks: mouseClicks,
+        enableCamera: multiAngleMode.includes('cam'),
+        initialMultiAngleMode: multiAngleMode
       });
     } catch (err: any) {
       if (err.name !== 'NotAllowedError') {
@@ -132,6 +148,14 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
     }
   };
 
+  const handleCycleMultiAngle = async () => {
+    try {
+      await screenRecorderEngine.cycleMultiAngleMode();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error cycling multi-angle capture');
+    }
+  };
+
   const [showHotkeys, setShowHotkeys] = useState(false);
 
   // Global Precision Hotkey Matrix for Screen Recorder with input guard
@@ -151,6 +175,7 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
         } else {
           handlePauseResume();
         }
+        return;
       }
 
       // Shift + S: Stop & Launch Trimmer
@@ -159,12 +184,20 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
         if (status === 'recording' || status === 'paused') {
           handleStop();
         }
+        return;
+      }
+
+      // Shift + M: Cycle Multi-Angle / Camera PiP
+      if (e.shiftKey && e.key.toUpperCase() === 'M') {
+        e.preventDefault();
+        handleCycleMultiAngle();
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, status, resolution, format, systemAudio, microphone, mouseClicks]);
+  }, [isOpen, status, resolution, format, systemAudio, microphone, mouseClicks, multiAngleMode]);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 MB';
@@ -248,6 +281,10 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-400">Stop & Launch Trimmer</span>
                     <span className="bg-black/60 px-1.5 py-0.5 rounded text-rose-300 border border-white/10">Shift + S</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Multi-Angle (Cam / PiP)</span>
+                    <span className="bg-black/60 px-1.5 py-0.5 rounded text-[#00F0FF] border border-white/10">Shift + M</span>
                   </div>
                 </div>
               )}
@@ -334,8 +371,35 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
             )}
           </div>
 
-          {/* Center: Audio & Mouse Toggles */}
-          <div className="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-white/10">
+          {/* Center: Multi-Angle, Audio & Mouse Toggles */}
+          <div className="flex items-center gap-1.5 bg-black/50 p-1 rounded-lg border border-white/10 flex-wrap">
+            {/* Multi-Angle (Cam / Screen PiP) Toggle */}
+            <button
+              type="button"
+              onClick={handleCycleMultiAngle}
+              className={`p-1.5 rounded-md flex items-center gap-1.5 text-[10px] font-bold transition-all cursor-pointer border ${
+                multiAngleMode === 'screen-cam-pip'
+                  ? 'bg-cyan-950/80 text-[#00F0FF] border-[#00F0FF]/50 shadow-[0_0_10px_rgba(0,240,255,0.3)]'
+                  : multiAngleMode === 'cam-screen-pip'
+                  ? 'bg-amber-950/80 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_10px_rgba(245,166,35,0.3)]'
+                  : multiAngleMode === 'cam-only'
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                  : 'bg-zinc-900/80 text-zinc-400 border-white/10 hover:text-white'
+              }`}
+              title="Multi-Angle Toggle: Full-screen display & webcam with PiP corner overlay (Shift+M)"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">
+                {multiAngleMode === 'screen-cam-pip' && 'Screen + Cam PiP'}
+                {multiAngleMode === 'cam-screen-pip' && 'Cam + Screen PiP'}
+                {multiAngleMode === 'screen-only' && 'Screen Only'}
+                {multiAngleMode === 'cam-only' && 'Cam Only'}
+              </span>
+              <span className="text-[9px] bg-black/50 px-1 py-0.2 rounded font-mono border border-white/15 text-zinc-300">
+                Shift+M
+              </span>
+            </button>
+
             {/* System Audio Toggle */}
             <button
               type="button"

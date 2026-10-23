@@ -71,6 +71,26 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timelineCanvasRef = useRef<HTMLDivElement | null>(null);
+  const filmstripScrollRef = useRef<HTMLDivElement | null>(null);
+  const thumbnailItemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Calculate active frame thumbnail index based on current playhead
+  const activeThumbnailIndex = filmstripFrames.length > 0
+    ? Math.min(filmstripFrames.length - 1, Math.max(0, Math.floor((currentTime / duration) * filmstripFrames.length)))
+    : 0;
+
+  // Dynamically center active frame thumbnail as user shuttles with arrow keys
+  useEffect(() => {
+    if (filmstripFrames.length === 0) return;
+    const activeThumbEl = thumbnailItemRefs.current[activeThumbnailIndex];
+    if (activeThumbEl && filmstripScrollRef.current) {
+      activeThumbEl.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  }, [activeThumbnailIndex, filmstripFrames.length]);
 
   // Initialize footage and filmstrip
   useEffect(() => {
@@ -98,9 +118,9 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
     setSelectedSegmentId(firstSegment.id);
     setCurrentTime(initialIn);
 
-    // Extract filmstrip micro-thumbnails via hardware pipeline
+    // Extract filmstrip micro-thumbnails via hardware pipeline (24 dense samples)
     setIsLoadingFilmstrip(true);
-    videoTrimmerEngine.generateFilmstripThumbnails(captureResult.blob, 16)
+    videoTrimmerEngine.generateFilmstripThumbnails(captureResult.blob, 24)
       .then((frames) => {
         setFilmstripFrames(frames);
         setIsLoadingFilmstrip(false);
@@ -714,13 +734,102 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
               )}
             </div>
 
+            {/* Dynamic Centered Filmstrip Preview Strip */}
+            <div className="bg-[#080910] border-b border-white/10 px-4 py-2 flex flex-col gap-1.5 shrink-0 select-none">
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                <div className="flex items-center gap-2">
+                  <Film className="w-3.5 h-3.5 text-[#F5A623]" />
+                  <span className="font-bold text-[#F5A623] tracking-wider uppercase">DYNAMIC FILMSTRIP SHUTTLE</span>
+                  <span className="text-zinc-500">//</span>
+                  <span className="text-zinc-200">
+                    FRAME {filmstripFrames.length > 0 ? activeThumbnailIndex + 1 : 0} OF {filmstripFrames.length || 0}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[#FFE066] font-bold">TC {formatSMPTETimecode(currentTime, captureResult.fps || 60)}</span>
+                  <span className="text-zinc-500 hidden md:inline">(Arrow keys shuttle & auto-center)</span>
+                </div>
+              </div>
+
+              {/* Scroll Container with Centered Active Frame */}
+              <div 
+                ref={filmstripScrollRef}
+                className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-1 scroll-smooth"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                {isLoadingFilmstrip ? (
+                  <div className="w-full h-16 flex items-center justify-center text-zinc-500 text-xs gap-2">
+                    <div className="w-4 h-4 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
+                    <span>Extracting dynamic 60fps filmstrip frames...</span>
+                  </div>
+                ) : (
+                  filmstripFrames.map((frame, idx) => {
+                    const isActive = idx === activeThumbnailIndex;
+                    const isInsideActiveSeg = activeSegment && frame.timeSec >= activeSegment.startTime && frame.timeSec <= activeSegment.endTime;
+                    const frameDuration = duration / Math.max(1, filmstripFrames.length);
+                    const isNearIn = activeSegment && Math.abs(frame.timeSec - activeSegment.startTime) <= frameDuration;
+                    const isNearOut = activeSegment && Math.abs(frame.timeSec - activeSegment.endTime) <= frameDuration;
+
+                    return (
+                      <div
+                        key={idx}
+                        ref={(el) => { thumbnailItemRefs.current[idx] = el; }}
+                        onClick={() => {
+                          if (videoRef.current) {
+                            videoRef.current.currentTime = frame.timeSec;
+                            setCurrentTime(frame.timeSec);
+                          }
+                        }}
+                        className={`relative shrink-0 w-24 h-15 rounded-lg overflow-hidden border-2 cursor-pointer transition-all duration-150 select-none ${
+                          isActive
+                            ? 'border-[#F5A623] ring-2 ring-[#F5A623] scale-105 z-20 shadow-[0_0_18px_rgba(245,166,35,0.7)]'
+                            : isInsideActiveSeg
+                            ? 'border-[#F5A623]/60 opacity-95 hover:border-white'
+                            : 'border-white/10 opacity-60 hover:opacity-100 hover:border-white/40'
+                        }`}
+                      >
+                        <img
+                          src={frame.dataUrl}
+                          alt={`Frame ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+
+                        {/* Frame Number Badge */}
+                        <span className="absolute top-1 left-1 text-[8px] font-mono font-bold text-zinc-300 bg-black/70 px-1 py-0.2 rounded border border-white/10">
+                          #{String(idx + 1).padStart(2, '0')}
+                        </span>
+
+                        {/* Boundary Markers (IN / OUT) */}
+                        {isNearIn && (
+                          <span className="absolute top-1 right-1 text-[8px] font-mono font-black text-emerald-300 bg-emerald-950/90 px-1 py-0.2 rounded border border-emerald-500/50 shadow">
+                            IN
+                          </span>
+                        )}
+                        {isNearOut && (
+                          <span className="absolute top-1 right-1 text-[8px] font-mono font-black text-rose-300 bg-rose-950/90 px-1 py-0.2 rounded border border-rose-500/50 shadow">
+                            OUT
+                          </span>
+                        )}
+
+                        {/* Bottom Frame Timestamp */}
+                        <span className={`absolute bottom-0.5 right-1 text-[8px] font-mono font-bold ${isActive ? 'text-[#FFE066]' : 'text-zinc-400'}`}>
+                          {formatTimecode(frame.timeSec)}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
             {/* Hardware Filmstrip Timeline Canvas */}
             <div 
               ref={timelineCanvasRef}
-              className="h-28 bg-[#06070B] p-3 flex flex-col justify-center relative select-none shrink-0"
+              className="h-24 bg-[#06070B] p-3 flex flex-col justify-center relative select-none shrink-0"
             >
               {/* Micro-Thumbnail Filmstrip Canvas */}
-              <div className="relative h-14 bg-[#0F101A] border border-white/15 rounded-lg overflow-hidden flex items-center">
+              <div className="relative h-12 bg-[#0F101A] border border-white/15 rounded-lg overflow-hidden flex items-center">
                 {isLoadingFilmstrip ? (
                   <div className="w-full h-full flex items-center justify-center text-zinc-500 text-[10px] gap-2">
                     <div className="w-3.5 h-3.5 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
@@ -794,7 +903,7 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
               </div>
 
               {/* Timecode markers */}
-              <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono mt-1.5">
+              <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono mt-1">
                 <span>00:00:00:00</span>
                 <span>{formatTimecode(duration / 2)}</span>
                 <span>{formatTimecode(duration)}</span>

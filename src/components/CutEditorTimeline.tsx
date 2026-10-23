@@ -69,6 +69,66 @@ const TRACK_THEMES: Record<string, { badge: string; border: string; bg: string; 
   VO: { badge: 'bg-rose-950/80 text-rose-400 border-rose-700/60', border: 'border-rose-600/40', bg: 'bg-rose-950/30', text: 'text-rose-400' }
 };
 
+export interface PlayheadTimecodeOverlayProps {
+  currentTime: number;
+  duration: number;
+  isScrubbing?: boolean;
+  fps?: number;
+  className?: string;
+}
+
+/**
+ * PlayheadTimecodeOverlay renders a dynamic pill element bound to the playhead's
+ * normalized currentTime position with CSS transitions for smooth interpolation during
+ * playback and instant tracking during active scrubbing.
+ */
+export const PlayheadTimecodeOverlay: React.FC<PlayheadTimecodeOverlayProps> = ({
+  currentTime,
+  duration,
+  isScrubbing = false,
+  fps = 24,
+  className = ''
+}) => {
+  const safeCurrentTime = Math.max(0, currentTime);
+  const safeDuration = Math.max(0.01, duration);
+  const normalizedProgress = Math.min(100, Math.max(0, (safeCurrentTime / safeDuration) * 100));
+
+  // Compute exact SMPTE & frame index: TC 00:00:04:12 // F108
+  const totalFrames = Math.floor(safeCurrentTime * fps);
+  const ff = totalFrames % fps;
+  const ss = Math.floor(safeCurrentTime) % 60;
+  const mm = Math.floor(safeCurrentTime / 60) % 60;
+  const hh = Math.floor(safeCurrentTime / 3600);
+
+  const timecodeString = `TC ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')} // F${totalFrames}`;
+
+  return (
+    <div
+      className={`absolute top-0 bottom-0 pointer-events-none will-change-[left] ${
+        isScrubbing ? 'transition-none' : 'transition-[left] duration-75 ease-out'
+      } ${className}`}
+      style={{
+        left: `${normalizedProgress}%`,
+        transform: 'translateX(-50%)'
+      }}
+    >
+      {/* Floating pill above playhead */}
+      <div className="absolute top-1 left-1/2 transform -translate-x-1/2 pointer-events-none whitespace-nowrap z-50">
+        <div className="bg-[#0c0d10]/95 border border-[#F5A623]/50 text-[#F5A623] px-2.5 py-0.5 rounded-full text-[10px] font-mono shadow-[0_2px_10px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-none whitespace-nowrap flex items-center gap-1.5 animate-fade-in">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623] animate-pulse" />
+          <span>{timecodeString}</span>
+        </div>
+      </div>
+
+      {/* Scrubber Needle (Red/Amber Gradient with Glowing Shadow) */}
+      <div className="w-0.5 h-full mx-auto bg-gradient-to-b from-[#F5A623] via-rose-500 to-rose-600 shadow-[0_0_10px_rgba(244,63,94,0.8)] relative">
+        {/* Playhead Diamond Cap */}
+        <div className="w-4 h-4 bg-gradient-to-br from-[#FFE066] to-rose-500 transform -translate-x-[7px] translate-y-6 rotate-45 shadow-[0_0_12px_rgba(245,166,35,0.9)] border border-white/80" />
+      </div>
+    </div>
+  );
+};
+
 export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
   clips,
   tracks = DEFAULT_TRACKS,
@@ -209,15 +269,6 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
   const currentTime = Math.max(0, playheadTime);
   const duration = Math.max(0.1, totalDuration);
 
-  // Dynamic Floating Playhead Timecode Format: TC 00:00:04:12 // F108
-  const formatPlayheadBadge = (seconds: number) => {
-    const totalFrames = Math.floor(seconds * 24);
-    const ff = totalFrames % 24;
-    const ss = Math.floor(seconds) % 60;
-    const mm = Math.floor(seconds / 60) % 60;
-    const hh = Math.floor(seconds / 3600);
-    return `TC ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')} // F${totalFrames}`;
-  };
 
   const toggleTrackState = (trackId: string, prop: 'isMuted' | 'isLocked' | 'isHidden' | 'isSoloed') => {
     setTrackStates((prev) => ({
@@ -569,30 +620,12 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
               className="absolute inset-0 pointer-events-none z-30"
               style={{ width: `${totalDuration * pps}px` }}
             >
-              {/* Smooth transition container with normalized playhead progress */}
-              <div
-                className={`absolute top-0 bottom-0 pointer-events-none ${
-                  isScrubbing ? 'transition-none' : 'transition-[left] duration-75 ease-out'
-                } will-change-[left]`}
-                style={{
-                  left: `${(currentTime / duration) * 100}%`,
-                  transform: 'translateX(-50%)'
-                }}
-              >
-                {/* Floating pill above playhead */}
-                <div className="absolute top-1 left-1/2 transform -translate-x-1/2 pointer-events-none whitespace-nowrap z-50">
-                  <div className="bg-[#0c0d10]/95 border border-[#F5A623]/50 text-[#F5A623] px-2.5 py-0.5 rounded-full text-[10px] font-mono shadow-[0_2px_10px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-none whitespace-nowrap flex items-center gap-1.5 animate-fade-in">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623] animate-pulse" />
-                    <span>{formatPlayheadBadge(currentTime)}</span>
-                  </div>
-                </div>
-
-                {/* Scrubber Needle (Red/Amber Gradient with Glowing Shadow) */}
-                <div className="w-0.5 h-full mx-auto bg-gradient-to-b from-[#F5A623] via-rose-500 to-rose-600 shadow-[0_0_10px_rgba(244,63,94,0.8)] relative">
-                  {/* Playhead Diamond Cap */}
-                  <div className="w-4 h-4 bg-gradient-to-br from-[#FFE066] to-rose-500 transform -translate-x-[7px] translate-y-6 rotate-45 shadow-[0_0_12px_rgba(245,166,35,0.9)] border border-white/80" />
-                </div>
-              </div>
+              <PlayheadTimecodeOverlay
+                currentTime={currentTime}
+                duration={duration}
+                isScrubbing={isScrubbing}
+                fps={24}
+              />
             </div>
 
           </div>

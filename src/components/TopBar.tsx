@@ -313,26 +313,106 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right: Tactical Action Cluster */}
         <div className="gap-2.5 sm:gap-3 flex items-center shrink-0">
-          {/* Immediate Trigger: [ 🎥 MULTI-CAM ] with amber hover glow */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onSelectView) onSelectView('STUDIO');
-              if (onSelectPanel) onSelectPanel('MULTICAM');
-            }}
-            className={`px-3.5 py-2 sm:px-4.5 sm:py-2.5 rounded-xl font-mono text-xs sm:text-sm font-extrabold flex items-center gap-2 cursor-pointer transition-all duration-200 border-2 active:scale-95 ${
-              activePanel === 'MULTICAM' && currentView === 'STUDIO'
-                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-[#F5A623] shadow-[0_0_20px_rgba(245,166,35,0.5)] ring-1 ring-[#F5A623]/60'
-                : 'bg-gradient-to-b from-[#181926] to-[#0e0f17] text-zinc-300 border-[#2f3246] hover:border-[#F5A623] hover:text-[#F5A623] hover:shadow-[0_0_16px_rgba(245,166,35,0.35)]'
-            }`}
-            title="Switch Main Viewport to CapCut Multi-Camera Cutting & Angle Grid (Shift+M)"
-          >
-            <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#F5A623]" />
-            <span className="tracking-wide">🎥 MULTI-CAM</span>
-            <span className="text-[10px] bg-amber-500/20 text-[#F5A623] px-1.5 py-0.5 rounded border border-amber-500/30 hidden xl:inline">
-              Shift+M
-            </span>
-          </button>
+          {/* Primary View Switcher Capsule Tabs: Stage, Reels, Monitor, and MULTI-CAM */}
+          <div className="hidden md:flex items-center p-1 rounded-2xl bg-[#090a10]/95 border-2 border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8),0_2px_8px_rgba(0,0,0,0.5)] gap-1 select-none font-mono">
+            {/* 1. Stage Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectView) onSelectView('STUDIO');
+                if (onSelectPanel) onSelectPanel('TACTILE_STAGE');
+              }}
+              className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
+                activePanel === 'TACTILE_STAGE' && currentView === 'STUDIO'
+                  ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
+              title="Director's Canvas (Stage View)"
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>Stage</span>
+            </button>
+
+            {/* 2. Reels Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectView) onSelectView('STUDIO');
+                if (onSelectPanel) onSelectPanel('SPLIT');
+              }}
+              className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
+                activePanel === 'SPLIT' && currentView === 'STUDIO'
+                  ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
+              title="12.0s Reels Timeline Sequence"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Reels</span>
+            </button>
+
+            {/* 3. Monitor Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectView) onSelectView('STUDIO');
+                if (onSelectPanel) onSelectPanel('OPTICAL');
+              }}
+              className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
+                activePanel === 'OPTICAL' && currentView === 'STUDIO'
+                  ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
+              title="2.39:1 Clean Optical Reference Monitor"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>Monitor</span>
+            </button>
+
+            {/* 4. MULTI-CAM Capsule Button with Prominent Amber Hover-Glow Effect */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectView) onSelectView('STUDIO');
+                if (onSelectPanel) onSelectPanel('MULTICAM');
+              }}
+              className={`px-4 py-1.5 sm:px-4.5 sm:py-2 rounded-xl text-xs font-black tracking-wider flex items-center gap-2 cursor-pointer transition-all duration-300 border-2 active:scale-95 ${
+                activePanel === 'MULTICAM' && currentView === 'STUDIO'
+                  ? 'bg-gradient-to-r from-amber-600/35 via-[#352208] to-amber-600/25 text-[#FFE066] border-[#F5A623] shadow-[0_0_24px_rgba(245,166,35,0.7),inset_0_1.5px_2px_rgba(255,220,120,0.5)] ring-2 ring-amber-500/50'
+                  : 'bg-gradient-to-r from-amber-950/40 via-[#16141a] to-amber-950/30 text-amber-300 border-amber-500/70 hover:border-amber-400 hover:text-amber-200 hover:bg-gradient-to-r hover:from-amber-600/25 hover:to-amber-500/15 hover:shadow-[0_0_24px_rgba(245,166,35,0.65),0_0_8px_rgba(245,166,35,0.4)]'
+              }`}
+              title="Switch Main Viewport to CapCut Multi-Camera Cutting & Angle Grid (Shift+M)"
+            >
+              <div className="relative flex items-center justify-center">
+                <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#F5A623] animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
+              </div>
+              <span className="tracking-wide">MULTI-CAM</span>
+              <span className="text-[10px] bg-amber-500/25 text-[#F5A623] px-1.5 py-0.5 rounded border border-amber-500/40 hidden xl:inline">
+                Shift+M
+              </span>
+            </button>
+          </div>
+
+          {/* Mobile Fallback: Direct [ MULTI-CAM ] Capsule Button with Amber Hover-Glow */}
+          <div className="md:hidden flex items-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectView) onSelectView('STUDIO');
+                if (onSelectPanel) onSelectPanel('MULTICAM');
+              }}
+              className={`px-3 py-1.5 rounded-xl font-mono text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all duration-300 border-2 active:scale-95 ${
+                activePanel === 'MULTICAM' && currentView === 'STUDIO'
+                  ? 'bg-gradient-to-b from-[#3a2810] to-[#120c04] text-[#F5A623] border-[#F5A623] shadow-[0_0_20px_rgba(245,166,35,0.6)]'
+                  : 'bg-gradient-to-b from-[#181926] to-[#0e0f17] text-amber-300 border-amber-500/70 hover:border-amber-400 hover:shadow-[0_0_18px_rgba(245,166,35,0.5)]'
+              }`}
+              title="Switch Main Viewport to Multi-Camera Grid (Shift+M)"
+            >
+              <Video className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span>CAM</span>
+            </button>
+          </div>
 
           {/* Tactical Screen Recorder Trigger [ ⏺ REC ] */}
           {onOpenScreenRecorder && (

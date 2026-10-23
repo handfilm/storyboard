@@ -177,8 +177,9 @@ export default function App() {
   const handleToggleMultiCam = useCallback(() => {
     setCurrentView('STUDIO');
     setWorkspaceMode('STAGE');
-    setActiveDualPanel(prev => prev === 'MULTICAM' ? 'TACTILE_STAGE' : 'MULTICAM');
-  }, []);
+    setIsDrawerOpen(false);
+    setActiveDualPanel(prev => (prev === 'MULTICAM' && workspaceMode === 'STAGE' && currentView === 'STUDIO' ? 'TACTILE_STAGE' : 'MULTICAM'));
+  }, [workspaceMode, currentView]);
 
   // ==========================================
   // Core Audio Engine Handlers (Declared upfront to prevent Temporal Dead Zone / ReferenceError)
@@ -1061,6 +1062,16 @@ export default function App() {
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
         setIsShortcutsOpen(prev => !prev);
+        return;
+      }
+
+      // Global Multi-Cam Mode Trigger: Shift+M (Instantly activates Multi-Cam viewport with MultiCamGridMonitor and MultiCamTimelineTrack)
+      if (e.shiftKey && (e.key === 'M' || e.key === 'm' || e.code === 'KeyM')) {
+        e.preventDefault();
+        setCurrentView('STUDIO');
+        setWorkspaceMode('STAGE');
+        setIsDrawerOpen(false);
+        setActiveDualPanel('MULTICAM');
         return;
       }
 

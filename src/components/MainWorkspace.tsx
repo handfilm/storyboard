@@ -268,7 +268,10 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   if (activeMode === 'CUT') {
     return (
       <main className="flex-1 w-full h-full overflow-hidden">
-        <CutStudio onOpenMultiCam={() => handleSelectPanel('MULTICAM')} />
+        <CutStudio onOpenMultiCam={() => {
+          if (onReturnToStage) onReturnToStage();
+          handleSelectPanel('MULTICAM');
+        }} />
       </main>
     );
   }

@@ -536,27 +536,41 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         </div>
       </div>
 
-      {/* Quick Toggle: [ ⊞ Multi-Cam Angle Grid (CapCut Mode) ] for 05 CUT EDITOR or 07 EDIT & CAM */}
+      {/* Floating Quick-Toggle: [ ⊞ Multi-Cam Angle Grid ] for 05 CUT EDITOR or 07 EDIT & CAM */}
       {(activeModule === 'EDIT/CUT' || activeModule === 'OPTICS') && (
-        <div className="w-full px-2 pt-2 shrink-0">
+        <div className="w-full px-2 pt-2 shrink-0 relative group/multicam-toggle">
+          {/* Main button in the rail */}
           <button
             type="button"
             onClick={onOpenMultiCam}
-            className={`w-full rounded bg-gradient-to-r from-[#2c1d0a] via-[#1f1508] to-[#120d05] hover:from-[#3a270e] hover:to-[#241708] border-2 border-[#F5A623] text-[#F5A623] hover:text-white font-mono font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-[0_0_14px_rgba(245,166,35,0.35)] cursor-pointer active:scale-95 ${
-              isCollapsed ? 'py-2 px-1 text-[8.5px]' : 'py-2 px-2 text-[10px]'
+            className={`w-full rounded-xl bg-gradient-to-r from-amber-950/80 via-[#1c1409] to-amber-950/80 hover:from-amber-900/90 hover:to-amber-950 border-2 border-amber-500/90 hover:border-amber-300 text-amber-300 hover:text-white font-mono font-extrabold flex items-center justify-center gap-1.5 transition-all duration-300 shadow-[0_0_18px_rgba(245,166,35,0.4)] hover:shadow-[0_0_28px_rgba(245,166,35,0.7)] cursor-pointer active:scale-95 ${
+              isCollapsed ? 'py-2.5 px-1 text-[9px]' : 'py-2 px-2 text-[10px]'
             }`}
-            title="Launch CapCut-Style Multi-Camera Angle Grid Monitor (Shift+M)"
+            title="Instantly switch main workspace to Multi-Camera monitor view (Shift+M)"
           >
-            <span className="text-xs sm:text-sm font-black leading-none text-[#F5A623]">⊞</span>
-            {!isCollapsed && (
-              <div className="flex items-center justify-between w-full">
-                <span className="truncate tracking-wide">Multi-Cam Angle Grid</span>
-                <span className="text-[8px] bg-amber-500/20 text-[#F5A623] px-1 py-0.2 rounded border border-amber-500/40 shrink-0 ml-1">
-                  CapCut
-                </span>
-              </div>
+            <span className="text-xs sm:text-sm font-black text-amber-400 leading-none">⊞</span>
+            {!isCollapsed ? (
+              <span className="truncate tracking-wide font-black">[ ⊞ Multi-Cam Angle Grid ]</span>
+            ) : (
+              <span className="text-[10px] font-black text-amber-300">GRID</span>
             )}
           </button>
+
+          {/* Floating Quick-Toggle Pill that extends alongside the StudioNavRail into the workspace */}
+          <div className="absolute left-[calc(100%+8px)] top-2 z-50 whitespace-nowrap pointer-events-auto">
+            <button
+              type="button"
+              onClick={onOpenMultiCam}
+              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#1b140a]/98 via-[#0d0d14]/98 to-[#1b140a]/98 border-2 border-amber-500 hover:border-amber-300 text-amber-300 hover:text-white font-mono text-xs font-black shadow-[0_0_24px_rgba(245,166,35,0.65),0_4px_20px_rgba(0,0,0,0.95)] backdrop-blur-2xl flex items-center gap-2 cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 group-hover/multicam-toggle:ring-2 group-hover/multicam-toggle:ring-amber-400/50"
+              title="Instantly switch main workspace to Multi-Camera monitor view (Shift+M)"
+            >
+              <span className="text-sm text-amber-400 font-bold leading-none">⊞</span>
+              <span className="tracking-wide">[ ⊞ Multi-Cam Angle Grid ]</span>
+              <span className="text-[9px] bg-amber-500/25 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/40 font-bold">
+                Shift+M
+              </span>
+            </button>
+          </div>
         </div>
       )}
 

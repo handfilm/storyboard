@@ -25,7 +25,7 @@
  */
 
 import React from 'react';
-import { Film, Sliders, Maximize2, Radio, Activity, Video } from 'lucide-react';
+import { Film, Sliders, SlidersHorizontal, Maximize2, Radio, Activity, Video } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
 
@@ -127,6 +127,42 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
               <span>12.000s QUANTIZED</span>
               <span className="text-sky-400 font-bold">100-SHOT SEQUENCE</span>
+            </div>
+          </div>
+        </div>
+
+        {/* [ SCRUB ] Chiseled 3D Metallic Tab */}
+        <div className="relative group/tab">
+          <button
+            type="button"
+            onClick={() => onSelectPanel('SEQUENCER')}
+            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
+              currentPanel === 'SEQUENCER'
+                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
+                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
+            }`}
+          >
+            <SlidersHorizontal className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'SEQUENCER' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
+            <span>SCRUB</span>
+          </button>
+
+          {/* Hover Card for SCRUB */}
+          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
+            <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
+                <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
+                  SUB-FRAME SCRUBBER
+                </span>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8.5px] font-mono font-bold">J / K / L</kbd>
+            </div>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Precision 1/24s timeline scrubbing, waveform alignment, and full-screen card sequence manager.
+            </p>
+            <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
+              <span>SPACE PLAY/PAUSE</span>
+              <span className="text-amber-400 font-bold">FRAME-ACCURATE</span>
             </div>
           </div>
         </div>

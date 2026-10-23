@@ -131,7 +131,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ SCRUB ] Chiseled 3D Metallic Tab */}
+        {/* [ Monitor ] Chiseled 3D Metallic Tab */}
         <div className="relative group/tab">
           <button
             type="button"
@@ -143,19 +143,19 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             }`}
           >
             <Maximize2 className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
-            <span>SCRUB</span>
+            <span>Monitor</span>
           </button>
 
-          {/* Hover Card for SCRUB */}
+          {/* Hover Card for Monitor */}
           <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
             <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
               <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
               <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                OPTICAL SCRUBBER
+                OPTICAL MONITOR
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Zero-latency sub-frame scrubbing, J-K-L playback deck, and reference optical framing.
+              Zero-UI theatrical reference monitor with 2.39:1 scope mask and sub-frame scrubber.
             </p>
             <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
               <span>ZERO INTERFERENCE</span>
@@ -164,22 +164,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ 🎥 MULTI-CAM ] Chiseled 3D Metallic Tab (NO HOTKEY ON BUTTON FACE) */}
+        {/* [ MULTI-CAM ] Compact Single-Icon Chiseled Tab */}
         <div className="relative group/tab">
           <button
             type="button"
             onClick={() => onSelectPanel('MULTICAM')}
-            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-300 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 border-2 ${
+            className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl text-xs font-extrabold tracking-wider transition-all duration-300 cursor-pointer select-none flex items-center gap-1.5 active:translate-y-0.5 border-2 ${
               currentPanel === 'MULTICAM'
                 ? 'bg-gradient-to-r from-amber-600/35 via-[#352208] to-amber-600/25 text-[#FFE066] border-[#F5A623] shadow-[0_0_24px_rgba(245,166,35,0.7),inset_0_1.5px_2px_rgba(255,220,120,0.5)] ring-2 ring-amber-500/50'
                 : 'bg-gradient-to-r from-amber-950/40 via-[#16141a] to-amber-950/30 text-amber-300 border-amber-500/70 hover:border-amber-400 hover:text-amber-200 hover:bg-gradient-to-r hover:from-amber-600/25 hover:to-amber-500/15 hover:shadow-[0_0_24px_rgba(245,166,35,0.65),0_0_8px_rgba(245,166,35,0.4)]'
             }`}
+            title="Multi-Camera Live Switching & Precision Angle Grid (Shift+M)"
+            aria-label="Multi-Camera Live View"
           >
-            <div className="relative flex items-center justify-center">
-              <Video className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'MULTICAM' ? 'text-[#F5A623] scale-110' : 'text-amber-400 animate-pulse'}`} />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
-            </div>
-            <span>🎥 MULTI-CAM</span>
+            <Video className={`w-4.5 h-4.5 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'MULTICAM' ? 'text-[#F5A623] scale-110' : 'text-amber-400'}`} />
+            <span className="text-[11px] sm:text-xs">CAM</span>
           </button>
 
           {/* Hover Card for Multi-Cam with Hotkey Details */}

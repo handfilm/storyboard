@@ -14,7 +14,7 @@ import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { PlaybackMode } from '../../types/editor';
 import { StageTextOverlay } from '../StageTextOverlay';
 import { studioDraftDb } from '../../services/db';
-import { getLutFilterCSS } from '../../utils/engine';
+import { getLutFilterCSS, calculateMultiLayerZoom } from '../../utils/engine';
 import { useStudioStore } from '../../core/store';
 import {
   Play,
@@ -28,10 +28,12 @@ import {
   Sliders,
   Volume2,
   VolumeX,
-  Type
+  Type,
+  ZoomIn
 } from 'lucide-react';
 import { StudioModuleId } from '../StudioNavRail';
 import { ReviewMarkupCanvas } from './ReviewMarkupCanvas';
+import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -106,6 +108,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
+  const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
+
+  const fgZoom = useStudioStore((s) => s.foregroundZoom);
+  const bgZoom = useStudioStore((s) => s.backgroundZoom);
+  const isVertigo = useStudioStore((s) => s.isVertigoLinked);
+  const zoomTransforms = calculateMultiLayerZoom(bgZoom, fgZoom, isVertigo);
 
   const storeTitleConfig = useStudioStore(s => s.titleConfig);
   const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
@@ -277,25 +285,30 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         className="relative w-full max-h-full max-w-6xl mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
       >
         {activeMediaUrl ? (
-          frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm') ? (
-            <video
-              ref={videoRef}
-              src={activeMediaUrl}
-              autoPlay={isAutoplay}
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover transition-opacity duration-150"
-              style={{ filter: lutFilterStyle }}
-            />
-          ) : (
-            <img
-              src={activeMediaUrl}
-              alt={frame?.title}
-              className="w-full h-full object-cover"
-              style={{ filter: lutFilterStyle }}
-            />
-          )
+          <div
+            className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center"
+            style={{ transform: zoomTransforms.bgTransform }}
+          >
+            {frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm') ? (
+              <video
+                ref={videoRef}
+                src={activeMediaUrl}
+                autoPlay={isAutoplay}
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover transition-opacity duration-150"
+                style={{ filter: lutFilterStyle }}
+              />
+            ) : (
+              <img
+                src={activeMediaUrl}
+                alt={frame?.title}
+                className="w-full h-full object-cover"
+                style={{ filter: lutFilterStyle }}
+              />
+            )}
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center">
             <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
@@ -329,18 +342,23 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
-        {/* Real-Time Bilingual Titles Overlay (Bangla Title + English Subtitle) */}
+        {/* Real-Time Bilingual Titles Overlay (Foreground Multi-Layer Zoom) */}
         {isTitlesActive && (
-          <StageTextOverlay
-            shotIndex={currentIndex}
-            banglaTitle={frame?.bengaliTitle}
-            englishTitle={frame?.title}
-            subtitle={frame?.tagline}
-            directorNotes={frame?.directorNotes}
-            cameraInfo={frame?.cameraSpec?.focalLength}
-            isVisible={true}
-            allowQuickControls={true}
-          />
+          <div
+            className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
+            style={{ transform: zoomTransforms.fgTransform }}
+          >
+            <StageTextOverlay
+              shotIndex={currentIndex}
+              banglaTitle={frame?.bengaliTitle}
+              englishTitle={frame?.title}
+              subtitle={frame?.tagline}
+              directorNotes={frame?.directorNotes}
+              cameraInfo={frame?.cameraSpec?.focalLength}
+              isVisible={true}
+              allowQuickControls={true}
+            />
+          </div>
         )}
 
         {/* Module 11: Review Visual Markup Canvas Overlay */}
@@ -383,6 +401,37 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             >
               <span>T</span>
             </button>
+
+            {/* Tactical Multi-Layer Zoom HUD Capsule */}
+            <div className="relative pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => setIsZoomControlsOpen((prev) => !prev)}
+                className={`px-2.5 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md ${
+                  isZoomControlsOpen || fgZoom !== 1.0 || bgZoom !== 1.0
+                    ? 'bg-[#d4af37]/30 border-[#d4af37] text-[#ffe066] font-bold shadow-[0_0_12px_rgba(212,175,55,0.45)]'
+                    : 'bg-black/80 border-white/20 text-zinc-300 hover:text-white hover:border-white/40'
+                }`}
+                title="Multi-Layer Zoom: Scale Foreground (titles) & Background (media) independently"
+              >
+                <ZoomIn className="w-3 h-3 text-[#d4af37]" />
+                <span className="hidden sm:inline">ZOOM</span>
+                <span className="text-[8px] text-[#ffe066] tabular-nums font-bold">
+                  {fgZoom.toFixed(1)}x / {bgZoom.toFixed(1)}x
+                </span>
+                {isVertigo && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="Vertigo Link Active" />
+                )}
+              </button>
+
+              {isZoomControlsOpen && (
+                <div className="absolute left-0 top-full mt-2 w-76 sm:w-80 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <MultiLayerZoomControls
+                    onClose={() => setIsZoomControlsOpen(false)}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {showHud && (

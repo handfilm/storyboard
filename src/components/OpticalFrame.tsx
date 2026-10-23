@@ -8,8 +8,9 @@
 import React, { useRef } from 'react';
 import { AnthologyFrame, AspectRatio } from '../types/anthology';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
-import { getLutFilterCSS } from '../utils/engine';
+import { getLutFilterCSS, calculateMultiLayerZoom } from '../utils/engine';
 import { StageTextOverlay } from './StageTextOverlay';
+import { useStudioStore } from '../core/store';
 import { Upload, Film, Sliders, Maximize2 } from 'lucide-react';
 
 export interface OpticalFrameProps {
@@ -40,6 +41,11 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   onToggleTitles
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fgZoom = useStudioStore((s) => s.foregroundZoom);
+  const bgZoom = useStudioStore((s) => s.backgroundZoom);
+  const isVertigo = useStudioStore((s) => s.isVertigoLinked);
+  const zoomTransforms = calculateMultiLayerZoom(bgZoom, fgZoom, isVertigo);
 
   const getAspectClass = (ar: string) => {
     switch (ar) {
@@ -94,24 +100,29 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
       {/* Media Layer */}
       {frame?.imageUrl ? (
-        frame.isVideo ? (
-          <video
-            src={frame.imageUrl}
-            autoPlay={isAutoplay}
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
-            style={{ filter: filterStyle }}
-          />
-        ) : (
-          <img
-            src={frame.imageUrl}
-            alt={frame.title}
-            className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
-            style={{ filter: filterStyle }}
-          />
-        )
+        <div
+          className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center"
+          style={{ transform: zoomTransforms.bgTransform }}
+        >
+          {frame.isVideo ? (
+            <video
+              src={frame.imageUrl}
+              autoPlay={isAutoplay}
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
+              style={{ filter: filterStyle }}
+            />
+          ) : (
+            <img
+              src={frame.imageUrl}
+              alt={frame.title}
+              className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
+              style={{ filter: filterStyle }}
+            />
+          )}
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center">
           <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
@@ -135,17 +146,22 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
         </div>
       )}
 
-      {/* Reactive Bilingual Typography Overlay */}
+      {/* Reactive Bilingual Typography Overlay (Foreground Multi-Layer Zoom) */}
       {componentsVisibility?.titlesAll !== false && (
-        <StageTextOverlay
-          shotIndex={frame?.id ?? 0}
-          banglaTitle={frame?.bengaliTitle}
-          englishTitle={frame?.title}
-          subtitle={frame?.tagline}
-          directorNotes={frame?.directorNotes}
-          cameraInfo={frame?.cameraSpec?.focalLength}
-          isVisible={true}
-        />
+        <div
+          className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
+          style={{ transform: zoomTransforms.fgTransform }}
+        >
+          <StageTextOverlay
+            shotIndex={frame?.id ?? 0}
+            banglaTitle={frame?.bengaliTitle}
+            englishTitle={frame?.title}
+            subtitle={frame?.tagline}
+            directorNotes={frame?.directorNotes}
+            cameraInfo={frame?.cameraSpec?.focalLength}
+            isVisible={true}
+          />
+        </div>
       )}
 
       {/* Directorial HUD Overlay */}

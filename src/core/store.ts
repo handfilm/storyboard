@@ -102,6 +102,9 @@ export interface StudioState {
   isLiquifyModalOpen: boolean;
   isGuidesActive: boolean;
   fitMode: 'cover' | 'contain' | 'crop-middle';
+  foregroundZoom: number;
+  backgroundZoom: number;
+  isVertigoLinked: boolean;
   
   // Component Visibility (12/13 items)
   visibility: ComponentVisibility;
@@ -141,6 +144,10 @@ export interface StudioState {
   setLiquifyModalOpen: (open: boolean) => void;
   toggleGuides: () => void;
   setFitMode: (mode: 'cover' | 'contain' | 'crop-middle') => void;
+  setForegroundZoom: (zoom: number) => void;
+  setBackgroundZoom: (zoom: number) => void;
+  setVertigoLinked: (linked: boolean) => void;
+  resetMultiLayerZoom: () => void;
   setAspectRatio: (ratio: '2.39:1' | '16:9' | '4:3' | '1:1' | '4:5' | '9:16') => void;
   setLut: (lut: string) => void;
   setLens: (lens: string) => void;
@@ -248,6 +255,9 @@ export const useStudioStore = create<StudioState>()(
     isLiquifyModalOpen: false,
     isGuidesActive: false,
     fitMode: 'crop-middle',
+    foregroundZoom: 1.0,
+    backgroundZoom: 1.0,
+    isVertigoLinked: false,
     
     visibility: { ...defaultVisibility },
     
@@ -457,6 +467,40 @@ export const useStudioStore = create<StudioState>()(
     setFitMode: (mode: 'cover' | 'contain' | 'crop-middle') => {
       set((state) => {
         state.fitMode = mode;
+      });
+    },
+
+    setForegroundZoom: (zoom: number) => {
+      set((state) => {
+        const clamped = Math.max(0.2, Math.min(3.5, Math.round(zoom * 100) / 100));
+        state.foregroundZoom = clamped;
+        if (state.isVertigoLinked && clamped > 0) {
+          state.backgroundZoom = Math.max(0.2, Math.min(3.5, Math.round((1.0 / clamped) * 100) / 100));
+        }
+      });
+    },
+
+    setBackgroundZoom: (zoom: number) => {
+      set((state) => {
+        const clamped = Math.max(0.2, Math.min(3.5, Math.round(zoom * 100) / 100));
+        state.backgroundZoom = clamped;
+        if (state.isVertigoLinked && clamped > 0) {
+          state.foregroundZoom = Math.max(0.2, Math.min(3.5, Math.round((1.0 / clamped) * 100) / 100));
+        }
+      });
+    },
+
+    setVertigoLinked: (linked: boolean) => {
+      set((state) => {
+        state.isVertigoLinked = linked;
+      });
+    },
+
+    resetMultiLayerZoom: () => {
+      set((state) => {
+        state.foregroundZoom = 1.0;
+        state.backgroundZoom = 1.0;
+        state.isVertigoLinked = false;
       });
     },
 

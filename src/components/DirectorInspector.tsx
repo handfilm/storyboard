@@ -33,8 +33,10 @@ import {
   Compass,
   Maximize2,
   Eye,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ZoomIn
 } from 'lucide-react';
+import { MultiLayerZoomControls } from './optics/MultiLayerZoomControls';
 
 interface DirectorInspectorProps {
   frame: AnthologyFrame;
@@ -335,6 +337,9 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Optical Multi-Layer Zoom Rack */}
+            <MultiLayerZoomControls variant="inspector" />
           </div>
         )}
 

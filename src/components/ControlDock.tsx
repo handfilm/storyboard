@@ -28,9 +28,11 @@ import {
   Flame,
   Sparkles,
   Eye,
-  Type
+  Type,
+  Activity
 } from 'lucide-react';
 import { TrackVuMeter } from './audio/TrackVuMeter';
+import { AudioFrequencyVisualizer } from './audio/AudioFrequencyVisualizer';
 
 export interface ControlDockProps {
   frames: AnthologyFrame[];
@@ -120,6 +122,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 }) => {
   const stripRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
+  const [isFreqVisualizerOpen, setIsFreqVisualizerOpen] = useState(false);
 
   const safeFrames = Array.isArray(frames) && frames.length > 0 ? frames : [];
   const currentFrame = safeFrames[currentIndex] || safeFrames[0];
@@ -285,8 +288,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </form>
       </div>
 
+      {/* Real-time Audio Frequency Visualizer Floating Overlay */}
+      {isFreqVisualizerOpen && (
+        <div className="w-full max-w-5xl mb-2 pointer-events-auto">
+          <AudioFrequencyVisualizer
+            isOpen={isFreqVisualizerOpen}
+            onClose={() => setIsFreqVisualizerOpen(false)}
+            isAudioMuted={isAudioMuted}
+            onToggleAudio={onToggleAudio}
+          />
+        </div>
+      )}
+
       {/* Main Transport & Optics Toolbar */}
-      <div className="w-full max-w-5xl pointer-events-auto bg-[#08080B]/95 backdrop-blur-xl border border-white/15 rounded-[3px] shadow-[0_8px_32px_rgba(0,0,0,0.85)] p-2 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
+      <div className="relative w-full max-w-5xl pointer-events-auto bg-[#08080B]/95 backdrop-blur-xl border border-white/15 rounded-[3px] shadow-[0_8px_32px_rgba(0,0,0,0.85)] p-2 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
+        {/* Subtle Ambient Gold Audio Reactivity Edge */}
+        <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
         {/* Left Section: Playback & Speed */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
@@ -452,6 +469,23 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onToggleMute={onToggleAudio}
             isMuted={isAudioMuted}
           />
+
+          {/* Real-Time Audio Frequency Visualizer Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsFreqVisualizerOpen((prev) => !prev)}
+            className={`px-2 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+              isFreqVisualizerOpen
+                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_12px_rgba(212,175,55,0.45)]'
+                : 'bg-white/5 border-white/10 text-white/60 hover:text-[#FFE066] hover:border-[#D4AF37]/50'
+            }`}
+            title="Toggle Real-Time Audio Frequency Visualizer Overlay"
+            aria-label="Toggle Audio Frequency Visualizer"
+          >
+            <Activity className="w-3 h-3 text-[#FFE066]" />
+            <span className="hidden sm:inline">FREQ</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FFE066] animate-pulse" />
+          </button>
 
           {/* Grid / Contact Sheet */}
           <button

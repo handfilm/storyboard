@@ -47,8 +47,12 @@ import {
   Repeat,
   Volume2,
   VolumeX,
-  Gauge
+  Gauge,
+  ZoomIn
 } from 'lucide-react';
+import { useStudioStore } from '../../core/store';
+import { calculateMultiLayerZoom } from '../../utils/engine';
+import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 
 export type TitleLayoutVariant =
   | 'center-low'
@@ -194,6 +198,12 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
   const [showTitles, setShowTitles] = useState<boolean>(true);
+  const [isZoomControlsOpen, setIsZoomControlsOpen] = useState<boolean>(false);
+
+  const fgZoom = useStudioStore((s) => s.foregroundZoom);
+  const bgZoom = useStudioStore((s) => s.backgroundZoom);
+  const isVertigo = useStudioStore((s) => s.isVertigoLinked);
+  const zoomTransforms = calculateMultiLayerZoom(bgZoom, fgZoom, isVertigo);
 
   // Frame calculation constants strictly at 24fps
   const FRAME_DURATION = 1 / 24;
@@ -498,37 +508,42 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       <div className="flex-1 w-full flex items-center justify-center min-h-0 relative">
         <div className={`relative ${getAspectClass()} w-full bg-[#0E0E12] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center transition-colors duration-150 ease-out`}>
           
-          {/* Active Media Display - Ultra Clean Display (Zero Synthetic Noise/Grain) */}
+          {/* Active Media Display - Ultra Clean Display with Multi-Layer Zoom */}
           {mediaUrl ? (
-            isVideo ? (
-              <video
-                key={mediaUrl}
-                ref={videoRef}
-                src={mediaUrl}
-                playsInline
-                muted={isMuted}
-                autoPlay
-                loop={isLooping && !engine.inOutRange.isActive}
-                preload="auto"
-                className="w-full h-full object-cover pointer-events-none"
-                style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
-                onLoadedMetadata={() => {
-                  if (videoRef.current && slideTimeSec > 0) {
-                    try {
-                      videoRef.current.currentTime = Math.min(slideTimeSec, videoRef.current.duration || slideTimeSec);
-                    } catch {}
-                  }
-                }}
-              />
-            ) : (
-              <div
-                className="w-full h-full bg-cover bg-no-repeat transition-colors duration-150 ease-out"
-                style={{
-                  backgroundImage: `url(${mediaUrl})`,
-                  backgroundPosition: `center ${currentSlide?.panY ?? 50}%`
-                }}
-              />
-            )
+            <div
+              className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center"
+              style={{ transform: zoomTransforms.bgTransform }}
+            >
+              {isVideo ? (
+                <video
+                  key={mediaUrl}
+                  ref={videoRef}
+                  src={mediaUrl}
+                  playsInline
+                  muted={isMuted}
+                  autoPlay
+                  loop={isLooping && !engine.inOutRange.isActive}
+                  preload="auto"
+                  className="w-full h-full object-cover pointer-events-none"
+                  style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
+                  onLoadedMetadata={() => {
+                    if (videoRef.current && slideTimeSec > 0) {
+                      try {
+                        videoRef.current.currentTime = Math.min(slideTimeSec, videoRef.current.duration || slideTimeSec);
+                      } catch {}
+                    }
+                  }}
+                />
+              ) : (
+                <div
+                  className="w-full h-full bg-cover bg-no-repeat transition-colors duration-150 ease-out"
+                  style={{
+                    backgroundImage: `url(${mediaUrl})`,
+                    backgroundPosition: `center ${currentSlide?.panY ?? 50}%`
+                  }}
+                />
+              )}
+            </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-[#0B0B0F] p-6 text-center">
               <Film className="w-12 h-12 text-white/20 mb-3" />
@@ -677,6 +692,35 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
               </button>
             </div>
 
+            {/* Multi-Layer Zoom Capsule */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsZoomControlsOpen(prev => !prev)}
+                className={`px-2.5 py-1.5 rounded-full text-[9.5px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md border cursor-pointer transition-all ${
+                  isZoomControlsOpen || fgZoom !== 1.0 || bgZoom !== 1.0
+                    ? 'bg-[#d4af37]/30 border-[#d4af37] text-[#ffe066] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
+                    : 'bg-[#0E0E12]/95 border-[#1C1C24] text-zinc-400 hover:text-white'
+                }`}
+                title="Multi-Layer Zoom: Scale Foreground vs. Background independently"
+              >
+                <ZoomIn className="w-3 h-3 text-[#FFE066]" />
+                <span>ZOOM</span>
+                <span className="text-[#FFE066] tabular-nums text-[8.5px]">
+                  {fgZoom.toFixed(1)}x/{bgZoom.toFixed(1)}x
+                </span>
+                {isVertigo && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
+              </button>
+
+              {isZoomControlsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-76 sm:w-80 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <MultiLayerZoomControls
+                    onClose={() => setIsZoomControlsOpen(false)}
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Mode & Aspect Capsule */}
             <div className="bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1.5 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md">
               <span className="text-[#F5A623]">{aspectRatio}</span>
@@ -688,20 +732,25 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* REAL-TIME DUAL-LANGUAGE TYPOGRAPHY (BANGLA + ENGLISH SUBTITLES)           */}
+          {/* REAL-TIME DUAL-LANGUAGE TYPOGRAPHY (FOREGROUND MULTI-LAYER ZOOM)          */}
           {/* ========================================================================= */}
           {showTitles && (
-            <StageTextOverlay
-              shotIndex={currentIndex}
-              banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
-              englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
-              subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
-              directorNotes={currentSlide?.directorNotes}
-              isVisible={showTitles}
-              variant={effectiveTitleVariant}
-              allowQuickControls={true}
-              onChangeVariant={(v) => setTitlePosition(v)}
-            />
+            <div
+              className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
+              style={{ transform: zoomTransforms.fgTransform }}
+            >
+              <StageTextOverlay
+                shotIndex={currentIndex}
+                banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
+                englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
+                subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
+                directorNotes={currentSlide?.directorNotes}
+                isVisible={showTitles}
+                variant={effectiveTitleVariant}
+                allowQuickControls={true}
+                onChangeVariant={(v) => setTitlePosition(v)}
+              />
+            </div>
           )}
 
         </div>

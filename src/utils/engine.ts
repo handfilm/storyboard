@@ -189,3 +189,42 @@ export function generateCSVExport(frames: AnthologyFrame[]): string {
 
   return [headers.join(','), ...rows].join('\n');
 }
+
+/**
+ * Multi-Layer Zoom Optical Lens Simulation Engine:
+ * Computes independent layer transforms for foreground elements (titles, typography, HUD)
+ * and background media plate (video/stills).
+ * 
+ * Supports Hitchcock Vertigo / Dolly Zoom coupling:
+ * When vertigoLock is active, background zoom is inversely coupled to foreground zoom,
+ * preserving perceived subject size while dramatically stretching or compressing background perspective.
+ */
+export interface MultiLayerZoomResult {
+  bgScale: number;
+  fgScale: number;
+  bgTransform: string;
+  fgTransform: string;
+  isVertigo: boolean;
+}
+
+export function calculateMultiLayerZoom(
+  backgroundZoom: number = 1.0,
+  foregroundZoom: number = 1.0,
+  vertigoLock: boolean = false
+): MultiLayerZoomResult {
+  const safeBg = Math.max(0.2, Math.min(3.5, backgroundZoom || 1.0));
+  let safeFg = Math.max(0.2, Math.min(3.5, foregroundZoom || 1.0));
+
+  if (vertigoLock && safeBg > 0) {
+    // Inverse scaling for Hitchcock dolly zoom effect
+    safeFg = Math.max(0.2, Math.min(3.5, 1.0 / safeBg));
+  }
+
+  return {
+    bgScale: safeBg,
+    fgScale: safeFg,
+    bgTransform: `scale(${safeBg.toFixed(3)})`,
+    fgTransform: `scale(${safeFg.toFixed(3)})`,
+    isVertigo: vertigoLock
+  };
+}

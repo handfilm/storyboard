@@ -36,6 +36,9 @@ export interface FrameAdjustments {
   grain: number;      // 0 to 50
   motionBlur: number; // 0 to 100
   vignette: number;   // 0 to 100
+  foregroundZoom?: number; // 0.2 to 3.0 (default 1.0)
+  backgroundZoom?: number; // 0.2 to 3.0 (default 1.0)
+  vertigoLock?: boolean;   // Dolly zoom inverse coupling
 }
 
 export type TitleAnimationStyle = 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'neon' | 'cinema-fade' | 'fade';

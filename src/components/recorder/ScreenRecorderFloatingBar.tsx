@@ -390,27 +390,30 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
               <button
                 type="button"
                 onClick={handleStart}
-                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(244,63,94,0.5)] cursor-pointer active:scale-95 transition-all"
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(244,63,94,0.5)] cursor-pointer active:scale-95 transition-all text-xs"
               >
                 <Circle className="w-3.5 h-3.5 fill-current" />
-                <span>START CAPTURE</span>
+                <span>⏺ REC</span>
+                <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded font-mono border border-white/20">Shift+R</span>
               </button>
             ) : (
               <>
                 <button
                   type="button"
                   onClick={handlePauseResume}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all text-xs"
                 >
                   {status === 'recording' ? (
                     <>
                       <Pause className="w-3.5 h-3.5 fill-current" />
                       <span>PAUSE</span>
+                      <span className="text-[9px] bg-black/30 px-1 py-0.5 rounded font-mono">Shift+R</span>
                     </>
                   ) : (
                     <>
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>RESUME</span>
+                      <span className="text-[9px] bg-black/30 px-1 py-0.5 rounded font-mono">Shift+R</span>
                     </>
                   )}
                 </button>
@@ -418,10 +421,11 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
                 <button
                   type="button"
                   onClick={handleStop}
-                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(244,63,94,0.6)] cursor-pointer active:scale-95 transition-all"
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(244,63,94,0.6)] cursor-pointer active:scale-95 transition-all text-xs"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>STOP & TRIM</span>
+                  <span>⏹ STOP</span>
+                  <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded font-mono border border-white/20">Shift+S</span>
                 </button>
               </>
             )}

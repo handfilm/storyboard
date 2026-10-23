@@ -227,12 +227,28 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
     return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
   };
 
+  const formatSMPTETimecode = (seconds: number, fps: number = 60) => {
+    const totalFrames = Math.floor(seconds * fps);
+    const ff = totalFrames % fps;
+    const ss = Math.floor(seconds) % 60;
+    const mm = Math.floor(seconds / 60) % 60;
+    const hh = Math.floor(seconds / 3600);
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
+  };
+
   const [showHotkeys, setShowHotkeys] = useState<boolean>(false);
 
   // Global Precision Hotkey Matrix with input guard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
         return;
       }
 
@@ -303,9 +319,9 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
         const forward = e.key === 'ArrowRight';
         let delta = 1 / 60; // 1 frame @ 60fps
         if (e.shiftKey) {
-          delta = 1.0; // 1 second
+          delta = 1.0; // 1 second jump
         } else if (e.ctrlKey || e.metaKey) {
-          delta = 5.0; // 5 seconds
+          delta = 5.0; // 5 seconds fast scrub
         }
 
         const nextTime = forward
@@ -321,42 +337,50 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentTime, duration, segments, selectedSegmentId, activeSegment, isPlaying]);
 
-  // Primary Local Disk Download (.mp4)
+  // Primary Local Disk Download (.mp4 / .webm)
   const handleDownloadToDisk = async () => {
     setIsExporting(true);
-    setExportProgress({ percent: 15, text: 'Rendering zero-freeze MP4...' });
+    setExportProgress({ percent: 15, text: 'Rendering zero-freeze export...' });
 
     try {
       const result = await videoTrimmerEngine.exportTrimmedVideo(
         captureResult.blob,
         segments,
         {
-          format: 'mp4',
+          format: captureResult.format,
           mergeIntoOne,
           applyAudioMicroFade,
           onProgress: (percent, text) => setExportProgress({ percent, text })
         }
       );
 
+      const shotStr = `SH${String(targetShotIndex + 1).padStart(3, '0')}`;
+      const ext = captureResult.format === 'mp4' ? 'mp4' : 'webm';
+      const fileName = `HANDFILM_REC_${Date.now()}_${shotStr}.${ext}`;
+
       const dlUrl = URL.createObjectURL(result.blob);
       const a = document.createElement('a');
       a.href = dlUrl;
-      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 8000);
       setIsExporting(false);
     } catch (err: any) {
       console.warn('[AdvancedTrimmer] Export fallback to raw blob download:', err);
+      const shotStr = `SH${String(targetShotIndex + 1).padStart(3, '0')}`;
+      const ext = captureResult.format === 'mp4' ? 'mp4' : 'webm';
+      const fileName = `HANDFILM_REC_${Date.now()}_${shotStr}.${ext}`;
+
       const dlUrl = URL.createObjectURL(captureResult.blob);
       const a = document.createElement('a');
       a.href = dlUrl;
-      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 8000);
       setIsExporting(false);
     }
   };
@@ -599,9 +623,9 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
                 className="max-h-full max-w-full object-contain cursor-pointer"
               />
 
-              {/* Timecode overlay badge */}
-              <div className="absolute top-4 left-4 bg-black/85 px-3 py-1 rounded-lg border border-white/20 text-xs text-[#FFE066] font-bold shadow-lg">
-                TC {formatTimecode(currentTime)} // F{Math.floor(currentTime * 24)}
+              {/* Floating Timecode overlay badge */}
+              <div className="absolute top-4 left-4 bg-black/85 px-3 py-1 rounded-lg border border-white/20 text-xs text-[#FFE066] font-bold shadow-lg font-mono">
+                TC {formatSMPTETimecode(currentTime, captureResult.fps || 60)} // {captureResult.fps || 60} FPS
               </div>
 
               {/* Center Play overlay */}
@@ -807,7 +831,7 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
               </div>
             )}
 
-            {/* Primary Download to Disk (.MP4) */}
+            {/* Primary Download to Disk (.MP4 / .WEBM) */}
             <button
               type="button"
               onClick={handleDownloadToDisk}
@@ -815,7 +839,7 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
               className="px-4 py-2 bg-gradient-to-r from-[#00F0FF]/20 to-[#00F0FF]/10 hover:from-[#00F0FF]/30 hover:to-[#00F0FF]/20 text-[#00F0FF] rounded-xl border border-[#00F0FF]/50 font-bold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_14px_rgba(0,240,255,0.25)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4 text-[#00F0FF]" />
-              <span>⤓ DOWNLOAD TO DISK (.MP4)</span>
+              <span>⤓ DOWNLOAD TO DISK (.MP4 / .WEBM)</span>
             </button>
 
             {/* Ingest to Master Shot */}

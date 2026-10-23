@@ -169,7 +169,14 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
   // Keyboard navigation & trimming hotkeys
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
         return;
       }
 
@@ -199,9 +206,9 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
         const forward = e.key === 'ArrowRight';
         let step = 1 / 24; // 1 frame
         if (e.shiftKey) {
-          step = 1.0; // 1 second
+          step = 1.0; // 1 second jump
         } else if (e.ctrlKey || e.metaKey) {
-          step = 5.0; // 5 seconds
+          step = 5.0; // 5 seconds fast scrub
         }
 
         const nextTime = forward
@@ -217,7 +224,7 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentTime, duration, startSec, endSec, isPlaying]);
 
-  // Primary Local Disk Download (.mp4)
+  // Primary Local Disk Download (.mp4 / .webm)
   const handleDownloadToDisk = async () => {
     try {
       const isUncut = startSec <= 0.05 && endSec >= duration - 0.05;
@@ -236,7 +243,7 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
             }
           ],
           {
-            format: 'mp4',
+            format: captureResult.format,
             mergeIntoOne: true,
             applyAudioMicroFade: true
           }
@@ -244,32 +251,42 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
         finalBlob = trimResult.blob;
       }
 
+      const shotStr = `SH${String(targetShot + 1).padStart(3, '0')}`;
+      const ext = captureResult.format === 'mp4' ? 'mp4' : 'webm';
+      const fileName = `HANDFILM_REC_${Date.now()}_${shotStr}.${ext}`;
+
       const dlUrl = URL.createObjectURL(finalBlob);
       const a = document.createElement('a');
       a.href = dlUrl;
-      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 8000);
     } catch (err) {
       console.warn('[QuickTrim] Export fallback to raw blob download:', err);
+      const shotStr = `SH${String(targetShot + 1).padStart(3, '0')}`;
+      const ext = captureResult.format === 'mp4' ? 'mp4' : 'webm';
+      const fileName = `HANDFILM_REC_${Date.now()}_${shotStr}.${ext}`;
+
       const dlUrl = URL.createObjectURL(captureResult.blob);
       const a = document.createElement('a');
       a.href = dlUrl;
-      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 8000);
     }
   };
 
   // Download raw recording file
   const handleDownload = () => {
+    const shotStr = `SH${String(targetShot + 1).padStart(3, '0')}`;
+    const ext = captureResult.format === 'mp4' ? 'mp4' : 'webm';
     const a = document.createElement('a');
     a.href = videoUrl;
-    a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+    a.download = `HANDFILM_REC_${Date.now()}_${shotStr}.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -377,7 +394,7 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
 
           {/* Timecode HUD Overlay */}
           <div className="absolute top-3 left-3 bg-black/80 px-2.5 py-1 rounded-md border border-white/15 text-[11px] text-[#FFE066] font-bold">
-            {formatTimecode(currentTime)}
+            TC {formatTimecode(currentTime)} // {captureResult.fps || 24} FPS
           </div>
         </div>
 
@@ -498,14 +515,14 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2.5">
-              {/* Primary Download to Disk (.MP4) */}
+              {/* Primary Download to Disk (.MP4 / .WEBM) */}
               <button
                 type="button"
                 onClick={handleDownloadToDisk}
                 className="px-4 py-2 bg-gradient-to-r from-[#00F0FF]/20 to-[#00F0FF]/10 hover:from-[#00F0FF]/30 hover:to-[#00F0FF]/20 text-[#00F0FF] rounded-xl border border-[#00F0FF]/50 font-bold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_14px_rgba(0,240,255,0.25)] active:scale-95"
               >
                 <Download className="w-4 h-4 text-[#00F0FF]" />
-                <span>⤓ DOWNLOAD TO DISK (.MP4)</span>
+                <span>⤓ DOWNLOAD TO DISK (.MP4 / .WEBM)</span>
               </button>
 
               {/* Commit to Shot */}

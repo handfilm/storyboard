@@ -795,7 +795,7 @@ export default function App() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Global Alt+R Screen Recorder Shortcut Listener
+  // Global Alt+R / Shift+R Screen Recorder Shortcut Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is inside text input/textarea
@@ -810,15 +810,21 @@ export default function App() {
         return;
       }
 
+      // Alt+R toggles dock; Shift+R opens dock if closed
       if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) {
         e.preventDefault();
         setIsScreenRecorderOpen(prev => !prev);
+      } else if (e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) {
+        if (!isScreenRecorderOpen) {
+          e.preventDefault();
+          setIsScreenRecorderOpen(true);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isScreenRecorderOpen]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {

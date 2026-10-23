@@ -486,3 +486,20 @@ class ScreenRecorderEngine {
 }
 
 export const screenRecorderEngine = new ScreenRecorderEngine();
+
+/**
+ * Trigger instant zero-freeze local disk download of a captured recording.
+ */
+export function downloadRecordedCapture(result: RecordedCaptureResult, shotIndex?: number): void {
+  const shotStr = shotIndex !== undefined ? `_SH${String(shotIndex + 1).padStart(3, '0')}` : '';
+  const ext = result.format === 'mp4' ? 'mp4' : 'webm';
+  const fileName = `HANDFILM_REC_${Date.now()}${shotStr}.${ext}`;
+  const url = URL.createObjectURL(result.blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 8000);
+}

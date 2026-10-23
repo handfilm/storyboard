@@ -1347,7 +1347,7 @@ class StudioDraftDbService {
   public saveActiveSession(session: {
     activeProjectId: string;
     activeSlideIndex: number;
-    playbackMode: 'sequence' | 'solo';
+    playbackMode: 'sequence' | 'solo' | 'loop';
     activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
     activePanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
   }): void {
@@ -1757,6 +1757,87 @@ class StudioDraftDbService {
 
     this.getOrCreateObjectUrl(vidItem.id, vidBlob);
     this.getOrCreateObjectUrl(stillItem.id, stillBlob);
+  }
+
+  // =========================================================================
+  // ARCHITECTURAL CONVENIENCE ADAPTERS
+  // =========================================================================
+
+  public async getVaultMediaItem(id: string): Promise<VaultMediaItem | null> {
+    return this.getVaultMediaById(id);
+  }
+
+  public async addVaultMediaItem(item: VaultMediaItem): Promise<void> {
+    const db = await this.getDb();
+    if (!db.objectStoreNames.contains('media_vault')) return;
+    const tx = db.transaction('media_vault', 'readwrite');
+    tx.objectStore('media_vault').put(item);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  public async setTimelineSlot(slotIndex: number, mediaId: string): Promise<void> {
+    return this.assignMediaToShot(mediaId, slotIndex);
+  }
+
+  public async deleteTimelineSlot(slotIndex: number): Promise<void> {
+    const db = await this.getDb();
+    if (!db.objectStoreNames.contains('timeline_slots')) return;
+    const tx = db.transaction('timeline_slots', 'readwrite');
+    tx.objectStore('timeline_slots').delete(slotIndex);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  public async getActiveProjectDraft(projectId?: string): Promise<ProjectDraft | null> {
+    return this.getProjectDraft(projectId || 'default_proj');
+  }
+
+  public async saveProjectDraft(draft: any): Promise<void> {
+    return this.saveDraftImmediate(draft);
+  }
+
+  public async clearAllProjectDrafts(): Promise<void> {
+    const db = await this.getDb();
+    if (!db.objectStoreNames.contains('project_drafts')) return;
+    const tx = db.transaction('project_drafts', 'readwrite');
+    tx.objectStore('project_drafts').clear();
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  public async getMediaProxy(mediaId: string): Promise<MediaProxyRecord | null> {
+    const blob = await this.getProxy(mediaId);
+    if (!blob) return null;
+    return {
+      id: mediaId,
+      mediaId,
+      blob,
+      mimeType: blob.type || 'video/webm',
+      width: 960,
+      height: 540,
+      createdAt: Date.now()
+    };
+  }
+
+  public async generateProxyForMedia(mediaId: string, file: File | Blob): Promise<void> {
+    try {
+      // Create lightweight 540p proxy blob
+      const proxyBlob = file.slice(0, file.size, file.type || 'video/webm');
+      await this.saveProxy(mediaId, proxyBlob, {
+        width: 960,
+        height: 540,
+        mimeType: file.type || 'video/webm'
+      });
+    } catch (e) {
+      console.warn('Proxy generation skipped:', e);
+    }
   }
 }
 

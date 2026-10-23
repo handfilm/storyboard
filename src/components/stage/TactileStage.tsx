@@ -1,601 +1,374 @@
 /**
  * @file /src/components/stage/TactileStage.tsx
- * @description Master Consolidated Cinematic Stage for RAWx Storyboard Studio.
- * 
+ * @description Master Tactile Cinema Stage & Adaptive Dual-Stream Viewport.
  * Features:
- * - Default primary view for the entire studio (consolidates the Bloom aesthetic directly into Stage).
- * - Full 2.39:1 Cinema Viewport with background media plate, glowing metallic Bangla typography
- *   ('দৃষ্টি / সূচনা'), English title ('THE SINGULARITY'), and live director telemetry captions.
- * - Central anamorphic flare with soft bloom and radial falloff simulation.
- * - Strict zero-distraction layout: No bulky floating lens bars.
- * - Permanent Google Flow tactical transport pills (Play, Pause, -1F, +1F, Loop, Solo Scrub, Variable Speed).
- * - Bottom Tactile Sequence Runner (Frames 001 - 100) with instant thumbnail selection,
- *   drag-and-drop reordering with magnetic snap alignment, and direct media ingestion.
- * - Sub-frame precision timecode & 12.000s dual-mode playback engine (Sequence vs Solo Scrub).
+ * - Dynamic Dual-Stream Engine: Lightweight 540p proxy for 24fps zero-latency scrubbing,
+ *   full-resolution 4K/1080p source file during playback and fullscreen.
+ * - Reactive real-time bilingual titles (Bangla + English).
+ * - Zero-cloud bulk ingest via Drag & Drop directly into IndexedDB media_vault.
  */
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { AnthologyFrame, AspectRatio } from '../../types/anthology';
-import { OpticalFrame } from '../OpticalFrame';
-import { TactileTransport } from '../controls/TactileTransport';
-import { TactileSnapGuide } from './TactileSnapGuide';
-import { TactileSnapGuideLine } from '../../types/bloom';
-import { ComponentVisibility, DEFAULT_COMPONENT_VISIBILITY } from '../ComponentsMatrixPopover';
-import { localDbService } from '../../services/localDbService';
-import { automationService } from '../../services/automationService';
-import { storyboardSyncService } from '../../services/storyboardSyncService';
-import { db } from '../../services/db';
-import { useStudioStore } from '../../core/store';
-import { PlaybackMode, SLIDE_DURATION_SEC } from '../../types/editor';
-import { 
-  Play, 
-  Pause, 
-  SkipBack, 
-  SkipForward, 
-  Repeat, 
-  GripHorizontal, 
-  Film, 
-  Sparkles, 
-  Layers, 
+import { ComponentVisibility } from '../ComponentsMatrixPopover';
+import { PlaybackMode } from '../../types/editor';
+import { StageTextOverlay } from '../StageTextOverlay';
+import { studioDraftDb } from '../../services/db';
+import { getLutFilterCSS } from '../../utils/engine';
+import {
+  Play,
+  Pause,
+  Upload,
   Maximize2,
-  Clock,
-  Sliders,
+  Film,
+  Sparkles,
   ChevronLeft,
   ChevronRight,
-  Upload
+  Sliders,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
-interface TactileStageProps {
+export interface TactileStageProps {
   frames: AnthologyFrame[];
   currentIndex: number;
   currentFrame: AnthologyFrame;
-  aspectRatio: AspectRatio;
+  aspectRatio: AspectRatio | string;
   directorName: string;
   nodeLocation: string;
   showHud: boolean;
   isAutoplay: boolean;
   componentsVisibility?: ComponentVisibility;
   onSelectFrame: (index: number) => void;
-  onUpdateFrame?: (frame: AnthologyFrame) => void;
-  onReorderFrames?: (frames: AnthologyFrame[]) => void;
-  onUploadImage: (file: File) => void;
+  onUpdateFrame?: (updated: AnthologyFrame) => void;
+  onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
+  onUploadImage?: (file: File) => void;
   onOpenAnimatic?: () => void;
   onOpenInspector?: () => void;
   onToggleTitles?: () => void;
   showTitles?: boolean;
-  // Playback & Sequencer props
   playbackMode?: PlaybackMode;
   onSelectPlaybackMode?: (mode: PlaybackMode) => void;
   slideTimeSec?: number;
   onTogglePlay?: () => void;
-  onStepFrame?: (forward: boolean) => void;
+  onStepFrame?: (fwd: boolean) => void;
   onScrubSlideTime?: (timeSec: number) => void;
-  onScrubGlobalTime?: (globalSec: number) => void;
+  onScrubGlobalTime?: (globalTimeSec: number) => void;
   playbackSpeed?: number;
   onChangePlaybackSpeed?: (speed: number) => void;
-  onPurgeMedia?: () => void;
-  projectTitle?: string;
-  onOpenExportTimeline?: () => void;
-  onOpenExportRange?: () => void;
-  isSnapToBeat?: boolean;
-  onToggleSnapToBeat?: () => void;
-  onLoadAudioFile?: (file: File) => void;
-  detectedBpm?: number;
-  isAudioMuted?: boolean;
   onToggleMute?: () => void;
   onOpenCinemaPlayer?: () => void;
+  onPurgeMedia?: () => void;
+  projectTitle?: string;
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({
-  frames,
-  currentIndex,
+  frames = [],
+  currentIndex = 0,
   currentFrame,
-  aspectRatio,
+  aspectRatio = '2.39:1',
   directorName,
   nodeLocation,
   showHud,
   isAutoplay,
-  componentsVisibility = DEFAULT_COMPONENT_VISIBILITY,
+  componentsVisibility,
   onSelectFrame,
   onUpdateFrame,
-  onReorderFrames,
   onUploadImage,
-  onOpenAnimatic,
   onOpenInspector,
   onToggleTitles,
-  onOpenCinemaPlayer,
   showTitles = true,
   playbackMode = 'sequence',
-  onSelectPlaybackMode,
-  slideTimeSec = 0,
   onTogglePlay,
-  onStepFrame,
-  onScrubSlideTime,
-  onScrubGlobalTime,
-  playbackSpeed = 1.0,
-  onChangePlaybackSpeed,
-  onPurgeMedia,
-  projectTitle = 'RAWx Storyboard Studio',
-  onOpenExportTimeline,
-  onOpenExportRange,
-  isSnapToBeat = false,
-  onToggleSnapToBeat,
-  onLoadAudioFile,
-  detectedBpm,
-  isAudioMuted = false,
-  onToggleMute
+  slideTimeSec = 0,
+  onPurgeMedia
 }) => {
-  const activeFrame: AnthologyFrame = currentFrame || frames[currentIndex] || frames[0];
-  const [isLooping, setIsLooping] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Drag and drop sequencing state for the 100-slide runner
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
-  const [snapGuides, setSnapGuides] = useState<TactileSnapGuideLine[]>([]);
-  const runnerRef = useRef<HTMLDivElement>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isIngesting, setIsIngesting] = useState(false);
 
-  // Auto-scroll active card into view in the bottom runner
+  // Active frame fallback
+  const frame = currentFrame || frames[currentIndex] || frames[0];
+
+  // Resolve sourceBlob vs proxyBlob for Adaptive Dual-Stream switching
   useEffect(() => {
-    if (runnerRef.current) {
-      const activeEl = runnerRef.current.children[currentIndex] as HTMLElement;
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
-    }
-  }, [currentIndex]);
+    let isCancelled = false;
 
-  // Handle slide reordering with magnetic snap
-  const handleReorder = useCallback((fromIdx: number, toIdx: number) => {
-    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= frames.length || toIdx >= frames.length) {
-      return;
-    }
-    const updated = [...frames];
-    const [moved] = updated.splice(fromIdx, 1);
-    updated.splice(toIdx, 0, moved);
+    const resolveMediaStreams = async () => {
+      if (!frame) return;
 
-    if (onReorderFrames) {
-      onReorderFrames(updated);
-    }
-    onSelectFrame(toIdx);
-
-    // Persist reorder to local storage / IndexedDB
-    try {
-      localDbService.saveTimelineFrames(updated);
-      automationService.dispatchEvent('on_timeline_sync', {
-        reorderedFrom: fromIdx,
-        reorderedTo: toIdx,
-        totalFrames: updated.length,
-        activeFrameTitle: moved.title
-      });
-    } catch {
-      // Safe fallback
-    }
-  }, [frames, onReorderFrames, onSelectFrame]);
-
-  // Drag Handlers for Bottom Runner
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    e.dataTransfer.setData('text/plain', String(index));
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-
-    const targetElement = e.currentTarget as HTMLElement;
-    const rect = targetElement.getBoundingClientRect();
-    const midX = rect.left + rect.width / 2;
-    const distanceToCenter = Math.abs(e.clientX - midX);
-
-    // Magnetic snap activates within 24px of card boundary
-    if (distanceToCenter < 24) {
-      setDropTargetIndex(index);
-      setSnapGuides([
-        {
-          id: `snap_guide_${index}`,
-          orientation: 'vertical',
-          coordinate: rect.left,
-          startCoord: rect.top,
-          endCoord: rect.bottom,
-          distancePx: distanceToCenter,
-          activeFrameId: draggedIndex,
-          snapTargetFrameId: index,
-          label: `SNAP SH${String(index + 1).padStart(3, '0')}`
+      // 1. Direct image or video URL on frame
+      if (frame.imageUrl) {
+        if (!isCancelled) {
+          setSourceUrl(frame.imageUrl);
+          setProxyUrl(frame.imageUrl);
         }
-      ]);
-    }
-  };
+      }
 
-  const handleDragLeave = () => {
-    setSnapGuides([]);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    setSnapGuides([]);
-    if (draggedIndex !== null && draggedIndex !== targetIndex) {
-      handleReorder(draggedIndex, targetIndex);
-    }
-    setDraggedIndex(null);
-    setDropTargetIndex(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDropTargetIndex(null);
-    setSnapGuides([]);
-  };
-
-  // Direct file or Media Asset Vault drop on an individual slide thumbnail
-  const handleThumbnailFileDrop = async (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // 1. Check for Media Asset Vault card payload
-    const customData = e.dataTransfer.getData('text/plain');
-    if (customData) {
+      // 2. Check IndexedDB media vault
       try {
-        const parsed = JSON.parse(customData);
-        if (parsed.type === 'MEDIA_ASSET_VAULT' && parsed.assetId) {
-          onSelectFrame(index);
-          await db.assignMediaToShot(parsed.assetId, index);
-          const vaultItem = await db.getVaultMediaById(parsed.assetId);
-          if (vaultItem && vaultItem.blob) {
-            const blobUrl = db.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
-            const isVid = vaultItem.mimeType.startsWith('video');
-            onUpdateFrame?.({
-              ...frames[index],
-              imageUrl: blobUrl,
-              isVideo: isVid
-            });
-            useStudioStore.getState().updateShot(index, {
-              imageUrl: blobUrl,
-              isVideo: isVid,
-              title: vaultItem.name.replace(/\.[^/.]+$/, "")
-            });
-          }
-          return;
-        }
-      } catch {
-        // Not a JSON payload, proceed to files check
-      }
-    }
+        const slot = await studioDraftDb.getTimelineSlot(currentIndex);
+        if (slot?.mediaId) {
+          const vaultItem = await studioDraftDb.getVaultMediaItem(slot.mediaId);
+          if (vaultItem && !isCancelled) {
+            const rawUrl = URL.createObjectURL(vaultItem.blob);
+            setSourceUrl(rawUrl);
 
-    // 2. Direct files drop on slide thumbnail
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      onSelectFrame(index);
-      try {
-        const saved = await db.saveMediaToVault(file);
-        await db.assignMediaToShot(saved.id, index);
-        const blobUrl = db.getActiveMediaUrl(saved.id, saved.blob);
-        const isVid = saved.mimeType.startsWith('video');
-        onUpdateFrame?.({
-          ...frames[index],
-          imageUrl: blobUrl,
-          isVideo: isVid
-        });
-        useStudioStore.getState().updateShot(index, {
-          imageUrl: blobUrl,
-          isVideo: isVid,
-          title: saved.name.replace(/\.[^/.]+$/, "")
-        });
-        onUploadImage(file);
-      } catch (err) {
-        console.warn('[TactileStage] handleThumbnailFileDrop error:', err);
-      }
-    }
-  };
-
-  const [isStageDraggingOver, setIsStageDraggingOver] = useState(false);
-
-  const handleStageDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsStageDraggingOver(true);
-  };
-
-  const handleStageDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isStageDraggingOver) setIsStageDraggingOver(true);
-  };
-
-  const handleStageDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-    setIsStageDraggingOver(false);
-  };
-
-  const handleStageDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsStageDraggingOver(false);
-
-    // 1. Check for Media Asset Vault card payload
-    const customData = e.dataTransfer.getData('text/plain');
-    if (customData) {
-      try {
-        const parsed = JSON.parse(customData);
-        if (parsed.type === 'MEDIA_ASSET_VAULT' && parsed.assetId) {
-          await db.assignMediaToShot(parsed.assetId, currentIndex);
-          const vaultItem = await db.getVaultMediaById(parsed.assetId);
-          if (vaultItem && vaultItem.blob) {
-            const blobUrl = db.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
-            const isVid = vaultItem.mimeType.startsWith('video');
-            onUpdateFrame?.({
-              ...activeFrame,
-              imageUrl: blobUrl,
-              isVideo: isVid
-            });
-            useStudioStore.getState().updateShot(currentIndex, {
-              imageUrl: blobUrl,
-              isVideo: isVid,
-              title: vaultItem.name.replace(/\.[^/.]+$/, "")
-            });
-          }
-          return;
-        }
-      } catch {}
-    }
-
-    // 2. Check for directory entries or direct files
-    let files: File[] = [];
-    const items = e.dataTransfer.items;
-    if (items && items.length > 0) {
-      const entryPromises: any[] = [];
-      for (let i = 0; i < items.length; i++) {
-        const it = items[i];
-        if (typeof it.webkitGetAsEntry === 'function') {
-          const entry = it.webkitGetAsEntry();
-          if (entry) entryPromises.push(entry);
-        }
-      }
-      if (entryPromises.length > 0) {
-        const traverseDirectory = async (entry: any): Promise<File[]> => {
-          const fl: File[] = [];
-          const read = async (ent: any) => {
-            if (!ent) return;
-            if (ent.isFile) {
-              await new Promise<void>((res) => {
-                ent.file((f: File) => {
-                  if (f && (f.type.startsWith('video') || f.type.startsWith('image') || f.type.startsWith('audio') || /\.(mp4|webm|mov|mkv|jpg|jpeg|png|webp|mp3|wav|ogg)$/i.test(f.name))) {
-                    fl.push(f);
-                  }
-                  res();
-                }, () => res());
-              });
-            } else if (ent.isDirectory) {
-              const reader = ent.createReader();
-              await new Promise<void>((res) => {
-                const readAll = () => {
-                  reader.readEntries(async (subEntries: any[]) => {
-                    if (subEntries.length === 0) {
-                      res();
-                    } else {
-                      for (const s of subEntries) {
-                        await read(s);
-                      }
-                      readAll();
-                    }
-                  }, () => res());
-                };
-                readAll();
-              });
+            const proxy = await studioDraftDb.getMediaProxy(slot.mediaId);
+            if (proxy && !isCancelled) {
+              const pUrl = URL.createObjectURL(proxy.blob);
+              setProxyUrl(pUrl);
+            } else if (!isCancelled) {
+              setProxyUrl(rawUrl);
             }
-          };
-          await read(entry);
-          return fl;
-        };
-
-        for (const ep of entryPromises) {
-          const res = await traverseDirectory(ep);
-          files.push(...res);
-        }
-      }
-    }
-
-    if (files.length === 0 && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      files = Array.from(e.dataTransfer.files);
-    }
-
-    if (files.length > 0) {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        try {
-          const saved = await db.saveMediaToVault(file);
-          if (i === 0) {
-            await db.assignMediaToShot(saved.id, currentIndex);
-            const blobUrl = db.getActiveMediaUrl(saved.id, saved.blob);
-            const isVid = saved.mimeType.startsWith('video');
-            onUpdateFrame?.({
-              ...activeFrame,
-              imageUrl: blobUrl,
-              isVideo: isVid
-            });
-            useStudioStore.getState().updateShot(currentIndex, {
-              imageUrl: blobUrl,
-              isVideo: isVid,
-              title: saved.name.replace(/\.[^/.]+$/, "")
-            });
-            onUploadImage(file);
           }
-        } catch (err) {
-          console.warn('[TactileStage] handleStageDrop save error:', err);
         }
+      } catch (err) {
+        console.warn('Error resolving media streams from vault:', err);
+      }
+    };
+
+    resolveMediaStreams();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentIndex, frame?.imageUrl]);
+
+  // Determine active media URL based on playback state machine:
+  // - While Scrubbing / Dragging -> Fast proxyUrl (540p for zero-latency 24fps)
+  // - While Playing / Fullscreen -> Pristine full-resolution sourceUrl
+  const activeMediaUrl = (isScrubbing && proxyUrl) ? proxyUrl : (sourceUrl || frame?.imageUrl || null);
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      setIsIngesting(true);
+      try {
+        // Save raw uncompressed source file to media_vault in IndexedDB
+        const mediaId = `vault_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        await studioDraftDb.addVaultMediaItem({
+          id: mediaId,
+          name: file.name,
+          mimeType: file.type || 'video/mp4',
+          size: file.size,
+          blob: file,
+          thumbnailUrl: '',
+          createdAt: Date.now(),
+          assignedShotIndex: currentIndex
+        });
+
+        // Assign to timeline slot
+        await studioDraftDb.setTimelineSlot(currentIndex, mediaId);
+
+        // Auto-generate lightweight proxy in background via OffscreenCanvas
+        try {
+          await studioDraftDb.generateProxyForMedia(mediaId, file);
+        } catch (err) {
+          console.warn('Background proxy generation note:', err);
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        setSourceUrl(objectUrl);
+        setProxyUrl(objectUrl);
+
+        if (onUpdateFrame) {
+          onUpdateFrame({
+            ...frame,
+            imageUrl: objectUrl,
+            isVideo: file.type.startsWith('video/')
+          });
+        }
+      } catch (err) {
+        console.error('Failed to ingest dropped media:', err);
+      } finally {
+        setIsIngesting(false);
       }
     }
   };
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
+  const getAspectStyle = (ar: string) => {
+    switch (ar) {
+      case '2.39:1':
+        return { aspectRatio: '2.39 / 1' };
+      case '16:9':
+        return { aspectRatio: '16 / 9' };
+      case '4:3':
+        return { aspectRatio: '4 / 3' };
+      case '1:1':
+        return { aspectRatio: '1 / 1' };
+      case '9:16':
+        return { aspectRatio: '9 / 16' };
+      default:
+        return { aspectRatio: '2.39 / 1' };
+    }
+  };
+
+  const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
 
   return (
-    <div className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono select-none">
-      {/* Main Stage Viewport (Hero Visual Plate with Glowing Metallic Titles) */}
-      <div 
-        className={`flex-1 w-full relative flex items-center justify-center overflow-hidden p-2 sm:p-3 bg-[#070709] transition-all duration-150 ${
-          isStageDraggingOver ? 'border-2 border-[#F5A623] bg-[#F5A623]/10 shadow-[0_0_30px_rgba(245,166,35,0.3)]' : 'border-transparent'
-        }`}
-        onDragEnter={handleStageDragEnter}
-        onDragOver={handleStageDragOver}
-        onDragLeave={handleStageDragLeave}
-        onDrop={handleStageDrop}
+    <div
+      ref={containerRef}
+      onDrop={handleDrop}
+      onDragOver={(e) => e.preventDefault()}
+      className="relative w-full h-full flex flex-col items-center justify-center bg-[#050505] overflow-hidden select-none p-2 sm:p-4"
+    >
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="video/*,image/*"
+        className="hidden"
+        onChange={async (e) => {
+          if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const url = URL.createObjectURL(file);
+            setSourceUrl(url);
+            setProxyUrl(url);
+            if (onUpdateFrame) {
+              onUpdateFrame({
+                ...frame,
+                imageUrl: url,
+                isVideo: file.type.startsWith('video/')
+              });
+            }
+          }
+        }}
+      />
+
+      {/* Primary Video / Image Viewport Container */}
+      <div
+        style={getAspectStyle(aspectRatio)}
+        className="relative w-full max-h-full max-w-6xl mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
       >
-        <div className="w-full h-full max-w-6xl max-h-[82vh] flex items-center justify-center pointer-events-auto">
-          <OpticalFrame
-            frame={activeFrame}
-            aspectRatio={aspectRatio}
-            directorName={directorName}
-            nodeLocation={nodeLocation}
-            showHud={showHud}
-            isAutoplay={isAutoplay}
-            componentsVisibility={componentsVisibility}
-            onUploadImage={onUploadImage}
-            onOpenInspector={onOpenInspector || (() => {})}
-            onQuickSampleImage={() => {}}
-            onOpenAnimatic={onOpenAnimatic}
-            onToggleTitles={onToggleTitles}
-            onOpenCinemaPlayer={onOpenCinemaPlayer}
-          />
-        </div>
+        {activeMediaUrl ? (
+          frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm') ? (
+            <video
+              ref={videoRef}
+              src={activeMediaUrl}
+              autoPlay={isAutoplay}
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover transition-opacity duration-150"
+              style={{ filter: lutFilterStyle }}
+            />
+          ) : (
+            <img
+              src={activeMediaUrl}
+              alt={frame?.title}
+              className="w-full h-full object-cover"
+              style={{ filter: lutFilterStyle }}
+            />
+          )
+        ) : (
+          <div className="flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
+              <Film className="w-8 h-8 opacity-60" />
+            </div>
+            <div>
+              <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
+                SHOT {frame?.epNumber || '001'} // READY FOR INGEST
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
+                Drag & Drop 4K video or photo directly into this monitor
+              </p>
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Select Media Asset</span>
+            </button>
+          </div>
+        )}
 
-        {/* Magnetic Snap Laser Guides */}
-        <TactileSnapGuide guides={snapGuides} zoom={1.0} />
-      </div>
-
-      {/* 3. Permanent Tactical Transport Pill Bar */}
-      <div className="h-12 bg-[#0c0c10] border-t border-[#272732] px-4 flex items-center justify-center shrink-0 z-30">
-        <TactileTransport
-          isPlaying={isAutoplay}
-          onTogglePlay={onTogglePlay || (() => {})}
-          playbackMode={playbackMode}
-          onSelectPlaybackMode={onSelectPlaybackMode || (() => {})}
-          isLooping={isLooping}
-          onToggleLoop={() => setIsLooping(l => !l)}
-          onStepFrame={onStepFrame || (() => {})}
-          playbackSpeed={playbackSpeed}
-          onChangePlaybackSpeed={onChangePlaybackSpeed || (() => {})}
-          isMuted={isAudioMuted}
-          onToggleMute={onToggleMute || (() => {})}
-          slideTimeSec={slideTimeSec}
-          currentIndex={currentIndex}
-          totalSlides={frames.length}
-          onScrubSlideTime={onScrubSlideTime || (() => {})}
-          onScrubGlobalTime={onScrubGlobalTime}
-          aspectRatio={aspectRatio as any}
-          onPurgeMedia={onPurgeMedia}
-          hasMedia={Boolean(activeFrame.imageUrl)}
-          onOpenExportTimeline={onOpenExportTimeline}
-          onOpenExportRange={onOpenExportRange}
-          isSnapToBeat={isSnapToBeat}
-          onToggleSnapToBeat={onToggleSnapToBeat}
-          onLoadAudioFile={onLoadAudioFile}
-          detectedBpm={detectedBpm}
-          showFrameStepButtons={componentsVisibility?.frameStepButtons ?? false}
-        />
-      </div>
-
-      {/* 4. Bottom Tactile Sequence Runner (Frames 001 - 100) */}
-      <div className="h-28 bg-[#0a0a10] border-t border-[#272732] px-3 py-2 flex flex-col justify-between shrink-0 z-30">
-        {/* Runner Header Readout */}
-        <div className="flex items-center justify-between text-[8.5px] text-zinc-400 mb-1">
-          <div className="flex items-center gap-2">
-            <GripHorizontal className="w-3.5 h-3.5 text-[#eab308] animate-pulse" />
-            <span className="font-bold text-zinc-200 uppercase tracking-wider">
-              100-SHOT SEQUENCE RUNNER (CLICK TO AUDITION • DRAG TO REORDER WITH MAGNETIC SNAP)
+        {/* Ingesting Spinner Overlay */}
+        {isIngesting && (
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-30">
+            <div className="w-6 h-6 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-mono-tech text-[#ffe066] tracking-wider">
+              INGESTING RAW 4K ASSET & GENERATING 540P PROXY...
             </span>
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            <span className="text-[#fbbf24] font-bold">AUTO-SYNC 12.0s</span>
-            <span className="text-zinc-600">•</span>
-            {isSnapToBeat && (
-              <>
-                <span className="text-[#eab308] font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] animate-ping" />
-                  RHYTHMIC BEAT SNAP ({detectedBpm || 120} BPM)
-                </span>
-                <span className="text-zinc-600">•</span>
-              </>
-            )}
-            <span className="text-zinc-400">DRAG MEDIA DIRECTLY ONTO CARDS</span>
+        {/* Real-Time Bilingual Titles Overlay (Bangla Title + English Subtitle) */}
+        {showTitles && (
+          <StageTextOverlay
+            shotIndex={currentIndex}
+            banglaTitle={frame?.bengaliTitle}
+            englishTitle={frame?.title}
+            subtitle={frame?.tagline}
+            directorNotes={frame?.directorNotes}
+            cameraInfo={frame?.cameraSpec?.focalLength}
+            isVisible={true}
+          />
+        )}
+
+        {/* Directorial HUD Overlay */}
+        {showHud && (
+          <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-20">
+            <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
+              <span className="text-[#d4af37] font-bold">EP {frame?.epNumber || '001'}</span>
+              <span className="text-white/30">|</span>
+              <span className="truncate max-w-[200px]">{frame?.title}</span>
+            </div>
+
+            <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
+              <span>{frame?.cameraSpec?.focalLength || '35mm High-Speed Master'}</span>
+              <span className="text-white/30">|</span>
+              <span className="text-[#ffe066]">{frame?.cameraSpec?.aperture || 'f/1.4'}</span>
+              <span className="text-white/30">|</span>
+              <span className="text-cyan-400">
+                {isScrubbing ? 'PROXY 540p' : 'SOURCE 4K'}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Horizontal 100-Shot Scrollable Frame Ribbon */}
-        <div 
-          ref={runnerRef}
-          className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5"
-        >
-          {frames.map((frame, idx) => {
-            const isActive = idx === currentIndex;
-            const isTarget = dropTargetIndex === idx;
-
-            return (
-              <div
-                key={frame.id ?? idx}
-                draggable
-                onDragStart={(e) => handleDragStart(e, idx)}
-                onDragOver={(e) => handleDragOver(e, idx)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => {
-                  const customData = e.dataTransfer.getData('text/plain');
-                  if ((e.dataTransfer.files && e.dataTransfer.files.length > 0) || (customData && customData.includes('MEDIA_ASSET_VAULT'))) {
-                    handleThumbnailFileDrop(e, idx);
-                  } else {
-                    handleDrop(e, idx);
-                  }
-                }}
-                onDragEnd={handleDragEnd}
-                onClick={() => onSelectFrame(idx)}
-                className={`h-full w-28 shrink-0 bg-[#070709] border rounded-md overflow-hidden cursor-pointer transition-colors duration-150 ease-out flex flex-col relative group active:scale-[0.98] ${
-                  isActive
-                    ? 'border-[#d4af37] shadow-[0_0_15px_rgba(234,179,8,0.4)] ring-1 ring-[#eab308]'
-                    : isTarget
-                    ? 'border-[#fbbf24] scale-105'
-                    : 'border-[#272732] hover:border-[#d4af37]/60'
-                }`}
-                title={`Shot ${idx + 1}: ${frame.title} — Click to load, drag to reorder`}
-              >
-                {/* Media Image / Plate Thumbnail */}
-                <div className="flex-1 bg-black relative overflow-hidden">
-                  {frame.imageUrl ? (
-                    <img 
-                      src={frame.imageUrl} 
-                      alt={frame.title} 
-                      className="w-full h-full object-cover" 
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-[7.5px] text-zinc-500 bg-gradient-to-br from-[#101018] to-black">
-                      <Film className="w-3.5 h-3.5 mb-0.5 text-zinc-600" />
-                      <span>SH{String(idx + 1).padStart(3, '0')}</span>
-                    </div>
-                  )}
-
-                  {/* Top Badge: Shot Number */}
-                  <span className={`absolute top-0.5 left-0.5 px-1.5 py-0.2 rounded-full text-[7.5px] font-mono font-bold ${
-                    isActive ? 'bg-[#eab308] text-black font-black' : 'bg-black/90 text-[#fbbf24]'
-                  }`}>
-                    {String(idx + 1).padStart(3, '0')}
-                  </span>
-
-                  {/* Duration Tag */}
-                  <span className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/90 text-[7px] font-mono text-zinc-300">
-                    12.0s
-                  </span>
-                </div>
-
-                {/* Bottom Short Caption Slate */}
-                <div className={`h-4.5 px-1.5 flex items-center justify-between text-[7.5px] border-t ${
-                  isActive ? 'bg-[#121218] text-[#fbbf24] border-[#d4af37]/50' : 'bg-[#070709] text-zinc-400 border-[#272732]'
-                }`}>
-                  <span className="font-bold truncate max-w-[55px]">{frame.bengaliTitle || 'দৃষ্টি'}</span>
-                  <span className="truncate max-w-[45px] text-zinc-500">{frame.title}</span>
-                </div>
-              </div>
-            );
-          })}
+        {/* Hover Action Controls */}
+        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 z-20 pointer-events-auto">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
+            title="Replace Media"
+          >
+            <Upload className="w-3.5 h-3.5" />
+          </button>
+          {onOpenInspector && (
+            <button
+              onClick={onOpenInspector}
+              className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-[#ffe066] border border-white/20 transition-all cursor-pointer"
+              title="Open Color & Lens Inspector"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
+            onClick={toggleFullscreen}
+            className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
+            title="Toggle Stage Fullscreen"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

@@ -1,46 +1,46 @@
 /**
  * @file /src/components/ControlDock.tsx
- * @description Master Transport Dock matching the Google Flow reference screenshot:
- * - Left: Prev frame, vibrant Gold [▶ PLAY] pill, Next frame, and Timecode (TC 00:00:01:00)
- * - Center: Continuous auto-centering rounded shot chips (001, 002, 003...)
- * - Right: Total shot counter (001 / 100) and collapsible optical tools drawer
+ * @description Master Tactical Bottom Control Dock for HANDFILM Cinema Engine.
+ * Features 100-shot thumbnail strip, precision transport, pace slider, aspect toggle,
+ * LUT selector, and futuristic tactile HUD controls.
  */
 
 import React, { useRef, useEffect, useState } from 'react';
-import { AnthologyFrame, AspectRatio, LutPreset, ViewMode } from '../types/anthology';
-import { calculateSlideshowInterval } from '../utils/engine';
-import { calculateShotTimecode, DEFAULT_FPS } from '../utils/timecode';
-import { lutPresetsList } from '../data/frames';
-import { 
-  Play, 
-  Pause, 
-  ChevronLeft, 
+import { AnthologyFrame, LutPreset } from '../types/anthology';
+import { calculateSlideshowInterval, getLutFilterCSS } from '../utils/engine';
+import {
+  Play,
+  Pause,
+  ChevronLeft,
   ChevronRight,
-  Maximize2, 
-  Minimize2, 
-  LayoutGrid, 
-  Sliders, 
-  Volume2, 
-  VolumeX, 
-  Camera, 
-  Crosshair, 
   Clock,
+  Sliders,
+  Move,
+  Wand2,
+  Grid,
+  Maximize2,
+  Minimize2,
+  Volume2,
+  VolumeX,
+  Camera,
+  Crosshair,
   SlidersHorizontal,
-  ChevronUp,
-  Type
+  Flame,
+  Sparkles,
+  Eye
 } from 'lucide-react';
 
-interface ControlDockProps {
+export interface ControlDockProps {
   frames: AnthologyFrame[];
   currentIndex: number;
-  viewMode: ViewMode;
+  viewMode: 'stage' | 'grid';
   isPlaying: boolean;
   speed: number;
   showHud: boolean;
-  aspectRatio: AspectRatio;
+  aspectRatio: string;
   isFullscreen: boolean;
   isAudioMuted: boolean;
-  audioVolume: number;
+  audioVolume?: number;
   isPanActive?: boolean;
   panOffsetPercent?: number;
   showGuides?: boolean;
@@ -54,21 +54,33 @@ interface ControlDockProps {
   onToggleHud: () => void;
   onToggleFullscreen: () => void;
   onToggleAudio: () => void;
-  onVolumeChange: (volume: number) => void;
+  onVolumeChange?: (vol: number) => void;
   onToggleViewMode: () => void;
   onOpenInspector: () => void;
-  onOpenPublishModal: () => void;
-  onChangeAspectRatio: (ratio: AspectRatio) => void;
+  onOpenPublishModal?: () => void;
+  onChangeAspectRatio: (ratio: any) => void;
   onChangeLut: (lut: LutPreset) => void;
   onTogglePan?: () => void;
   onOpenLiquify?: () => void;
   onToggleGuides?: () => void;
   onCaptureStill?: () => void;
+  onToggleZen?: () => void;
 }
 
+const LUT_PRESETS: { id: LutPreset; label: string }[] = [
+  { id: 'cinematic', label: 'Cinema 35' },
+  { id: 'noir', label: 'B&W Noir' },
+  { id: 'golden', label: 'Golden Hour' },
+  { id: 'cyberpunk', label: 'Cyberpunk' },
+  { id: 'bleach', label: 'Bleach Bypass' },
+  { id: 'technicolor', label: 'Technicolor' },
+  { id: 'infrared', label: 'Infrared' },
+  { id: 'raw', label: 'RAW Flat' }
+];
+
 export const ControlDock: React.FC<ControlDockProps> = ({
-  frames,
-  currentIndex,
+  frames = [],
+  currentIndex = 0,
   viewMode,
   isPlaying,
   speed,
@@ -77,9 +89,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   isFullscreen,
   isAudioMuted,
   audioVolume,
-  isPanActive,
+  isPanActive = false,
   panOffsetPercent = 50,
-  showGuides,
+  showGuides = false,
+  onToggleTitles,
+  showTitles = true,
   onPrev,
   onNext,
   onSelectFrame,
@@ -98,228 +112,297 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onOpenLiquify,
   onToggleGuides,
   onCaptureStill,
-  onToggleTitles,
-  showTitles = true
+  onToggleZen
 }) => {
-  const navBarRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
-  const [isToolsExpanded, setIsToolsExpanded] = useState(false);
 
   const safeFrames = Array.isArray(frames) && frames.length > 0 ? frames : [];
   const currentFrame = safeFrames[currentIndex] || safeFrames[0];
-  const intervalSeconds = calculateSlideshowInterval(speed);
-  const shotTc = calculateShotTimecode(currentFrame?.id ?? currentIndex, DEFAULT_FPS * 2.5, DEFAULT_FPS);
+  const intervalSeconds = (calculateSlideshowInterval(speed) / 1000).toFixed(1);
 
-  // Auto-scroll the micro-timeline so current frame is centered
+  // Timecode calculation at 24fps
+  const totalFrames = currentIndex * 288;
+  const ff = Math.floor(totalFrames % 24);
+  const ss = Math.floor((totalFrames / 24) % 60);
+  const mm = Math.floor((totalFrames / (24 * 60)) % 60);
+  const hh = Math.floor(totalFrames / (24 * 3600));
+  const tcString = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
+
+  // Auto-scroll timeline to active shot
   useEffect(() => {
-    if (navBarRef.current) {
-      const activeDash = navBarRef.current.children[currentIndex] as HTMLElement;
-      if (activeDash) {
-        activeDash.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    if (stripRef.current) {
+      const activeEl = stripRef.current.children[currentIndex] as HTMLElement;
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
     }
   }, [currentIndex]);
 
   const handleJumpSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const parsed = parseInt(jumpInput, 10);
-    if (!isNaN(parsed) && parsed >= 1 && parsed <= frames.length) {
-      onSelectFrame(parsed - 1);
+    const num = parseInt(jumpInput, 10);
+    if (!isNaN(num) && num >= 1 && num <= safeFrames.length) {
+      onSelectFrame(num - 1);
       setJumpInput('');
     }
   };
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2.5 px-3 sm:px-6">
-      {/* Secondary Tools Drawer (Expanded on Click) */}
-      {isToolsExpanded && (
-        <div className="w-full max-w-5xl mb-2 pointer-events-auto bg-[#0E0E12]/95 backdrop-blur-2xl border border-[#1C1C24] rounded-2xl shadow-2xl p-2.5 flex flex-wrap items-center justify-between gap-2 font-mono-tech text-xs animate-in slide-in-from-bottom duration-150">
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] text-white/50 uppercase font-bold">LUT:</span>
-            <select
-              value={currentFrame?.lutFilter || 'cinematic'}
-              onChange={(e) => onChangeLut(e.target.value as LutPreset)}
-              className="px-2.5 py-1 bg-[#14141B] border border-[#23232E] rounded-full text-[9.5px] text-[#F5A623] font-mono-tech outline-none cursor-pointer"
-            >
-              {lutPresetsList.map(l => (
-                <option key={l.id} value={l.id} className="bg-[#12121A] text-white">
-                  {l.label}
-                </option>
-              ))}
-            </select>
+    <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4">
+      {/* 100-Frame Strip Navigation */}
+      <div className="w-full max-w-5xl mb-1.5 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
+        <button
+          onClick={onPrev}
+          aria-label="Previous Shot (J)"
+          title="Previous Shot (J / Left Arrow)"
+          className="p-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+        </button>
 
-            <span className="text-[9px] text-white/50 uppercase ml-2 font-bold">PACE:</span>
+        <div
+          ref={stripRef}
+          className="flex-1 flex gap-1.5 overflow-x-auto py-1.5 px-2 bg-[#070709]/92 backdrop-blur-md border border-white/15 rounded-[2px] no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.7)] scroll-smooth"
+        >
+          {safeFrames.map((frame, idx) => {
+            const isActive = idx === currentIndex;
+            const hasMedia = !!frame?.imageUrl || !!frame?.isVideo;
+            const ep = frame?.epNumber || String(idx + 1).padStart(3, '0');
+            const title = frame?.title || `SHOT ${ep}`;
+            const bn = frame?.bengaliTitle || '';
+
+            return (
+              <button
+                key={frame?.id ?? idx}
+                onClick={() => onSelectFrame(idx)}
+                aria-label={`Shot ${ep}: ${title}`}
+                title={`EP ${ep}: ${title} ${bn ? `(${bn})` : ''}`}
+                className={`shrink-0 min-w-[36px] sm:min-w-[40px] h-6 px-1.5 rounded-[2px] flex items-center justify-center font-mono-tech text-[9px] transition-all cursor-pointer select-none ${
+                  isActive
+                    ? 'bg-[#D4AF37] text-black font-black shadow-[0_0_12px_rgba(212,175,55,0.8)] border border-[#FFE066] ring-1 ring-[#D4AF37]/80 scale-105 z-10'
+                    : hasMedia
+                    ? 'bg-white/15 hover:bg-white/25 text-white border-b-2 border-[#D4AF37]/80'
+                    : 'bg-white/5 hover:bg-white/12 text-white/50'
+                }`}
+              >
+                {ep}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={onNext}
+          aria-label="Next Shot (L)"
+          title="Next Shot (L / Right Arrow)"
+          className="p-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95"
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+
+        <form onSubmit={handleJumpSubmit} className="hidden sm:flex items-center shrink-0">
+          <input
+            type="text"
+            value={jumpInput}
+            onChange={(e) => setJumpInput(e.target.value)}
+            onBlur={() => handleJumpSubmit()}
+            placeholder={`# ${currentFrame?.epNumber || '001'}`}
+            className="w-16 bg-black/85 border border-white/20 focus:border-[#D4AF37] text-white text-[9.5px] font-mono-tech px-2 py-1 rounded-[2px] text-center outline-none transition-colors"
+            title="Type shot number (1-100) and press Enter to jump"
+          />
+        </form>
+      </div>
+
+      {/* Main Transport & Optics Toolbar */}
+      <div className="w-full max-w-5xl pointer-events-auto bg-[#08080B]/95 backdrop-blur-xl border border-white/15 rounded-[3px] shadow-[0_8px_32px_rgba(0,0,0,0.85)] p-2 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
+        {/* Left Section: Playback & Speed */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            onClick={onTogglePlay}
+            aria-label={isPlaying ? 'Pause Loop' : 'Play Loop'}
+            className={`px-3 py-1.5 rounded-[2px] border font-bold flex items-center gap-1.5 tracking-wider transition-all cursor-pointer text-[10px] sm:text-[11px] shrink-0 ${
+              isPlaying
+                ? 'border-[#D4AF37] bg-[#D4AF37]/25 text-[#FFE066] shadow-[0_0_14px_rgba(212,175,55,0.4)]'
+                : 'border-white/20 bg-white/5 text-white hover:border-[#D4AF37] hover:text-[#FFE066]'
+            }`}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="w-3.5 h-3.5 fill-current" />
+                <span className="hidden sm:inline">PAUSE</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                <span className="hidden sm:inline">LOOP</span>
+              </>
+            )}
+          </button>
+
+          {/* Timecode Badge */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] bg-black/90 border border-white/15 text-[9px] font-mono-tech shrink-0 whitespace-nowrap shadow-inner"
+            title="Sequence SMPTE Timecode (HH:MM:SS:FF) at 24 FPS"
+          >
+            <Clock className="w-2.5 h-2.5 text-[#D4AF37]" />
+            <span className="text-[8px] text-white/40 font-semibold uppercase">TC</span>
+            <span className="text-[#D4AF37] font-bold tracking-wider">{tcString}</span>
+            <span className="text-[7.5px] text-white/40 border-l border-white/15 pl-1.5">24F</span>
+          </div>
+
+          {/* Pace Slider */}
+          <div className="hidden md:flex items-center gap-1.5 border-l border-white/10 pl-2 shrink-0 whitespace-nowrap">
+            <span className="text-[8.5px] text-white/40 uppercase tracking-wider shrink-0">PACE</span>
             <input
               type="range"
               min="1"
               max="100"
               value={speed}
               onChange={(e) => onSpeedChange(Number(e.target.value))}
-              className="w-16 accent-[#F5A623] cursor-pointer h-1.5 bg-[#1C1C26] rounded-full"
+              className="w-14 sm:w-16 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded shrink-0"
+              title={`Slideshow interval: ${intervalSeconds}s`}
             />
-            <span className="text-[9px] text-[#F5A623] font-bold">{intervalSeconds}s</span>
+            <span className="text-[9px] text-[#D4AF37] min-w-[28px] shrink-0 font-medium">
+              {intervalSeconds}s
+            </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {onToggleGuides && (
-              <button
-                type="button"
-                onClick={onToggleGuides}
-                className={`p-1.5 rounded-full border text-[9px] cursor-pointer transition-colors active:scale-[0.98] ${
-                  showGuides ? 'bg-[#F5A623]/25 border-[#F5A623] text-[#F5A623]' : 'bg-[#14141B] border-[#23232E] text-white/50'
-                }`}
-                title="Toggle Rule of Thirds Guides (C)"
-              >
-                <Crosshair className="w-3.5 h-3.5" />
-              </button>
-            )}
-
-            {onToggleTitles && (
-              <button
-                type="button"
-                onClick={onToggleTitles}
-                className={`px-3 py-1 rounded-full border text-[9px] cursor-pointer transition-colors active:scale-[0.98] flex items-center gap-1 ${
-                  showTitles
-                    ? 'bg-[#F5A623]/25 border-[#F5A623] text-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                    : 'bg-[#14141B] border-[#23232E] text-white/50 hover:text-white'
-                }`}
-                title="Toggle Master Titles Overlay (Hotkey: T)"
-              >
-                <Type className="w-3.5 h-3.5" />
-                <span className="text-[8.5px] font-bold">TITLES: {showTitles ? 'ON' : 'OFF'}</span>
-              </button>
-            )}
-
-            {onCaptureStill && (
-              <button
-                type="button"
-                onClick={onCaptureStill}
-                className="p-1.5 rounded-full bg-[#14141B] hover:bg-[#1C1C26] border border-[#23232E] text-white/70 hover:text-[#F5A623] cursor-pointer active:scale-[0.98]"
-                title="Capture Still PNG (S)"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
-            )}
-
+          {/* Pan Tool */}
+          {onTogglePan && (
             <button
-              type="button"
-              onClick={onToggleAudio}
-              className={`p-1.5 rounded-full border cursor-pointer transition-colors active:scale-[0.98] ${
-                !isAudioMuted ? 'bg-[#F5A623]/20 border-[#F5A623]/60 text-[#F5A623]' : 'bg-[#14141B] border-[#23232E] text-white/40'
+              onClick={onTogglePan}
+              className={`px-2.5 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+                isPanActive
+                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
               }`}
-              title={isAudioMuted ? "Unmute Audio (M)" : "Mute Audio (M)"}
+              title="Interactive Vertical Alignment Pan Tool (P / Y)"
             >
-              {isAudioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+              <Move className="w-3 h-3 text-[#D4AF37]" />
+              <span className="hidden sm:inline">PAN</span>
+              <span className="text-[8px] opacity-75">{panOffsetPercent}%</span>
             </button>
+          )}
 
+          {/* Canvas Warp / Liquify */}
+          {onOpenLiquify && (
             <button
-              type="button"
-              onClick={onToggleViewMode}
-              className={`px-3 py-1 rounded-full border flex items-center gap-1 cursor-pointer transition-colors text-[9.5px] active:scale-[0.98] ${
-                viewMode === 'grid' ? 'bg-[#F5A623] text-black font-bold border-[#F5A623]' : 'bg-[#14141B] border-[#23232E] text-white/70'
-              }`}
+              onClick={onOpenLiquify}
+              className="px-2.5 py-1 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] text-[9px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all shrink-0"
+              title="HTML5 Canvas Liquify & Mesh Warp Studio (W)"
             >
-              <LayoutGrid className="w-3 h-3" />
-              <span>GRID</span>
+              <Wand2 className="w-3 h-3 text-[#D4AF37]" />
+              <span className="hidden sm:inline">WARP</span>
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Single-Bar Floating Transport matching Google Flow tactical aesthetic */}
-      <div className="w-full max-w-6xl pointer-events-auto bg-[#0E0E12]/95 backdrop-blur-2xl border border-[#1C1C24] rounded-full px-2.5 sm:px-4 py-1.5 flex items-center justify-between gap-2 sm:gap-3 shadow-2xl transition-all">
-        {/* Left: Previous, Gold [PLAY] button, Next, and Timecode */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={onPrev}
-            className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-[0.98]"
-            title="Previous Shot (J / Left Arrow)"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          {/* High-Contrast Gold [PLAY] button */}
-          <button
-            type="button"
-            onClick={onTogglePlay}
-            className="px-4 py-1.5 rounded-full bg-[#F5A623] hover:bg-[#D97706] text-black font-black text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors duration-150 ease-out active:scale-[0.98] shadow-sm"
-            title={isPlaying ? "Pause Sequence (Space / K)" : "Play Sequence (Space / L)"}
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="w-3.5 h-3.5 fill-current" />
-                <span>PAUSE</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>PLAY</span>
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={onNext}
-            className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-[0.98]"
-            title="Next Shot (L / Right Arrow)"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          {/* Timecode in Gold font */}
-          <div className="flex items-center gap-1 pl-1 text-xs font-mono-tech font-bold text-[#F5A623] tracking-wider whitespace-nowrap">
-            <span className="text-white/40 text-[9px] font-medium mr-0.5">TC</span>
-            <span>{shotTc.start || '00:00:01:00'}</span>
-          </div>
+          )}
         </div>
 
-        {/* Center: Scrollable Continuous Shot Chips */}
-        <div 
-          ref={navBarRef}
-          id="photo-nav-bar"
-          className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-2 scroll-smooth"
-        >
-          {safeFrames.map((frame, idx) => {
-            const isActive = idx === currentIndex;
-            const epNum = frame?.epNumber || String(idx + 1).padStart(3, '0');
-            return (
+        {/* Center Section: Aspect Ratio & LUT preset */}
+        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+          <div className="flex items-center bg-black/80 border border-white/15 rounded-[2px] p-0.5 shrink-0">
+            <span className="text-[8px] text-white/40 px-1.5 hidden lg:inline tracking-widest uppercase">
+              ASPECT
+            </span>
+            {['2.39:1', '16:9', '4:3', '1:1', '9:16'].map((ratio) => (
               <button
-                key={frame?.id ?? idx}
-                type="button"
-                onClick={() => onSelectFrame(idx)}
-                className={`nav-dash shrink-0 px-2.5 py-1 rounded-full font-mono-tech text-[10px] cursor-pointer flex items-center gap-1 transition-colors duration-150 active:scale-[0.98] ${
-                  isActive
-                    ? 'nav-dash-active bg-[#F5A623] text-black font-black shadow-[0_0_10px_rgba(245,166,35,0.6)] z-10'
-                    : 'bg-[#14141B] hover:bg-[#1C1C26] text-white/60 hover:text-white border border-[#23232E]'
+                key={ratio}
+                onClick={() => onChangeAspectRatio(ratio)}
+                className={`px-2 py-0.5 text-[9px] rounded-[1px] transition-all cursor-pointer ${
+                  aspectRatio === ratio
+                    ? 'bg-[#D4AF37] text-black font-bold shadow-xs'
+                    : 'text-white/50 hover:text-white'
                 }`}
               >
-                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
-                <span>{epNum}</span>
+                {ratio}
               </button>
-            );
-          })}
-        </div>
-
-        {/* Right: Total Shot Count & Tools Expander */}
-        <div className="flex items-center gap-2 shrink-0 pr-1">
-          <div className="flex items-center gap-1 font-mono-tech text-xs font-bold">
-            <span className="text-[#F5A623]">{String(currentIndex + 1).padStart(3, '0')}</span>
-            <span className="text-white/30">/</span>
-            <span className="text-white/60">{frames.length || 100}</span>
+            ))}
           </div>
 
-          {/* Toggle Secondary Tools */}
+          <select
+            value={currentFrame?.lutFilter || 'cinematic'}
+            onChange={(e) => onChangeLut(e.target.value as LutPreset)}
+            className="hidden sm:block px-2.5 py-1 bg-black/85 border border-white/15 rounded-[2px] text-[9.5px] text-[#FFE066] font-mono-tech outline-none cursor-pointer focus:border-[#D4AF37]"
+          >
+            {LUT_PRESETS.map((p) => (
+              <option key={p.id} value={p.id} className="bg-[#101014] text-white">
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Right Section: Cinema Tools */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Thirds Guides */}
+          {onToggleGuides && (
+            <button
+              onClick={onToggleGuides}
+              className={`p-1.5 rounded-[2px] border cursor-pointer transition-all ${
+                showGuides
+                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
+                  : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+              }`}
+              title="Toggle Rule of Thirds & Crosshair Guides (C)"
+            >
+              <Crosshair className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Capture Still */}
+          {onCaptureStill && (
+            <button
+              onClick={onCaptureStill}
+              className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95"
+              title="Capture High-Res Cinema Still PNG (S)"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Audio Synthesizer Toggle */}
           <button
-            type="button"
-            onClick={() => setIsToolsExpanded(p => !p)}
-            className={`p-1.5 rounded-full cursor-pointer transition-colors active:scale-[0.98] ${
-              isToolsExpanded ? 'bg-[#F5A623] text-black' : 'text-white/40 hover:text-white hover:bg-white/10'
+            onClick={onToggleAudio}
+            className={`p-1.5 rounded-[2px] border cursor-pointer transition-all ${
+              isAudioMuted
+                ? 'bg-white/5 border-white/10 text-white/40 hover:text-white'
+                : 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
             }`}
-            title="Toggle Extended Optical Controls"
+            title={isAudioMuted ? 'Unmute Procedural Audio Synth (M)' : 'Mute Audio (M)'}
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {isAudioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Grid / Contact Sheet */}
+          <button
+            onClick={onToggleViewMode}
+            className={`px-2.5 py-1 rounded-[2px] border flex items-center gap-1 cursor-pointer transition-all text-[9.5px] ${
+              viewMode === 'grid'
+                ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
+                : 'bg-white/5 border-white/10 text-white/70 hover:text-white'
+            }`}
+            title="100-Frame Contact Sheet (G)"
+          >
+            <Grid className="w-3 h-3" />
+            <span className="hidden sm:inline">GRID</span>
+          </button>
+
+          {/* Optical Inspector */}
+          <button
+            onClick={onOpenInspector}
+            className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all"
+            title="Director Optical Inspector (E)"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Fullscreen Monitor */}
+          <button
+            onClick={onToggleFullscreen}
+            className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95"
+            title="Toggle Cinema Fullscreen (F)"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>

@@ -63,7 +63,7 @@ export interface SlideDraft {
 export interface ProjectDraftConfig {
   aspectRatio: AspectRatioType;
   fps: number; // Standard 24fps
-  playbackMode: 'sequence' | 'solo';
+  playbackMode: 'sequence' | 'solo' | 'loop';
   loop: boolean;
   masterVolume: number;
   isMuted: boolean;

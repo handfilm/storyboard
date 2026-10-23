@@ -1,56 +1,65 @@
 /**
- * RAWx Studio — Fountain (.fountain) Screenplay Parser & Serializer
- * Public API: parseFountainScript, exportFountainScript
- * Parses industry standard Fountain syntax (Scene headings, Action, Character, Dialogue, Parenthetical).
+ * @file /src/data/fountainIO.ts
+ * @description Bilingual Screenplay Parser for Fountain format with Bengali and English support.
  */
 
-export interface ParsedScene {
-  sceneNumber: number;
-  heading: string;
-  action: string;
-  dialogueBlocks: { character: string; line: string }[];
+export interface DialogueBlock {
+  character: string;
+  line: string;
 }
 
-export function parseFountainScript(text: string): ParsedScene[] {
-  const lines = text.split('\n');
-  const scenes: ParsedScene[] = [];
-  let currentScene: ParsedScene | null = null;
+export interface ParsedScene {
+  heading: string;
+  body: string;
+  dialogueBlocks: DialogueBlock[];
+}
 
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
+/**
+ * Parses Fountain script into structured scene objects
+ */
+export function parseFountainScript(script: string): ParsedScene[] {
+  if (!script || typeof script !== 'string') return [];
 
-    // Scene heading: INT., EXT., দৃশ্য, SCENE
-    if (/^(INT\.|EXT\.|INT\/EXT\.|I\/E|দৃশ্য|SCENE\s+\d+)/i.test(trimmed)) {
-      if (currentScene) scenes.push(currentScene);
-      currentScene = {
-        sceneNumber: scenes.length + 1,
-        heading: trimmed,
-        action: '',
+  // Scene heading matching pattern (INT., EXT., দৃশ্য)
+  const sceneRegex = /(?:^|\n)(?:(দৃশ্য\s*\d+[^:\n]*|INT\.[^\n]+|EXT\.[^\n]+):?)/gi;
+  const matches = Array.from(script.matchAll(sceneRegex));
+
+  if (matches.length === 0) {
+    return [
+      {
+        heading: 'SCENE 01 // GENERAL',
+        body: script.trim(),
         dialogueBlocks: []
-      };
-    } else if (currentScene) {
-      // Character header (uppercase without period) or dialogue
-      if (/^[A-Z0-9\s_]{3,}$/.test(trimmed) && trimmed.length < 30) {
-        currentScene.dialogueBlocks.push({ character: trimmed, line: '' });
-      } else if (currentScene.dialogueBlocks.length > 0 && !currentScene.dialogueBlocks[currentScene.dialogueBlocks.length - 1].line) {
-        currentScene.dialogueBlocks[currentScene.dialogueBlocks.length - 1].line = trimmed;
-      } else {
-        currentScene.action += (currentScene.action ? ' ' : '') + trimmed;
+      }
+    ];
+  }
+
+  return matches.map((m, idx) => {
+    const heading = m[1].trim();
+    const startPos = m.index! + m[0].length;
+    const nextMatch = matches[idx + 1];
+    const endPos = nextMatch ? nextMatch.index! : script.length;
+    const body = script.slice(startPos, endPos).trim();
+
+    const lines = body.split('\n').map((l) => l.trim()).filter(Boolean);
+    const dialogueBlocks: DialogueBlock[] = [];
+
+    for (let i = 0; i < lines.length - 1; i++) {
+      const line = lines[i];
+      // Character cues are typically all uppercase words without punctuation
+      if (/^[A-Z0-9\s_'-]{2,}$/.test(line) && !line.includes('.')) {
+        dialogueBlocks.push({
+          character: line,
+          line: lines[i + 1]
+        });
+        i++; // skip next line as it is the speech line
       }
     }
+
+    return {
+      heading,
+      body,
+      dialogueBlocks
+    };
   });
-
-  if (currentScene) scenes.push(currentScene);
-  return scenes;
-}
-
-export function exportFountainScript(scenes: ParsedScene[]): string {
-  return scenes.map(s => {
-    let out = `${s.heading}\n\n${s.action}\n\n`;
-    s.dialogueBlocks.forEach(d => {
-      out += `${d.character}\n${d.line}\n\n`;
-    });
-    return out;
-  }).join('\n');
 }

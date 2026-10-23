@@ -1,19 +1,31 @@
 /**
  * @file /src/components/multicam/MultiCamViewportGrid.tsx
- * @description Multi-Cam Viewport Grid Component with 2x2, 1x3, and 1x1 Configurations.
+ * @description Multi-Cam Viewport Grid Component with 2x2, 1x3, and 1x1 Configurations,
+ * smooth layout morphing transition animations, and keyboard shortcuts ('1', '2', '3').
  * 
  * Capabilities:
  * 1. Visual Configuration Modes:
- *    - '2x2' Quad Grid: 4-quadrant layout for synchronized side-by-side comparison of active camera feeds.
- *    - '1x3' Director Grid: Prominent hero master program feed with 3 synchronized secondary angle feeds.
- *    - '1x1' Solo Monitor: Full-bleed single feed view with tactile angle switcher ribbon and A/B comparison.
- * 2. Active Feed Tally System: Glowing red/amber tally border ("● PROGRAM ON AIR") on the active cut.
- * 3. Live Angle Cutting: Click any active camera feed or press keys (1-4) to cut immediately at current playback time.
- * 4. Bound to App Shell: Synchronizes with sovereign multi-cam state in the App shell.
- * 5. Audio & Sync Offset Indicators: Real-time display of audio routing and millisecond timecode offsets.
+ *    - '1x1' Solo Monitor (Key '1'): Clean full-bleed single feed with tactile angle switcher & A/B comparison.
+ *    - '1x3' Director Grid (Key '2'): Dominant hero master program feed with 3 synchronized secondary angle feeds.
+ *    - '2x2' Quad Grid (Key '3'): 4-quadrant layout for synchronized side-by-side comparison of active camera feeds.
+ * 2. Layout Transition Animations:
+ *    - Smooth layout morphing: camera feeds smoothly morph and resize using GPU-accelerated CSS transitions
+ *      (`transition: all 480ms cubic-bezier(0.25, 1, 0.5, 1)`).
+ *    - Continuous video playback: video elements remain mounted without unmounting or restarting playback.
+ * 3. Keyboard Shortcuts '1', '2', and '3':
+ *    - '1': Instantly activates 1x1 Solo preset.
+ *    - '2': Instantly activates 1x3 Director preset.
+ *    - '3': Instantly activates 2x2 Quad preset.
+ * 4. Visual Indicator of Active Preset:
+ *    - Tactile key badges (`[1]`, `[2]`, `[3]`) and glowing active preset indicators.
+ *    - Dedicated active preset telemetry badge with live pulsing status indicator.
+ *    - Corner HUD badge showing current preset mode.
+ * 5. Broadcast Tally & Live Cutting:
+ *    - Glowing red tally border ("● PROGRAM ON AIR") on the active cut.
+ *    - Click any camera feed to cut to that angle instantly at the current timestamp.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   Grid2X2, 
   LayoutList, 
@@ -26,12 +38,13 @@ import {
   Video,
   Radio,
   Sliders,
-  Sparkles
+  Sparkles,
+  Check
 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
 import { samplePacks } from '../../data/frames';
 
-export type MultiCamGridConfig = '2x2' | '1x3' | '1x1';
+export type MultiCamGridConfig = '1x1' | '1x3' | '2x2';
 
 export interface MultiCamViewportGridProps {
   group: MultiCamGroup;
@@ -72,23 +85,27 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   onToggleExpand,
   className = ''
 }) => {
-  // Local fallbacks
+  // Video references fallback
   const internalVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const videoRefs = externalVideoRefs || internalVideoRefs;
 
   const [localConfig, setLocalConfig] = useState<MultiCamGridConfig>('2x2');
   const [localExpanded, setLocalExpanded] = useState<boolean>(false);
+  const [isCompact, setIsCompact] = useState<boolean>(false);
+  const [recentlySwitchedPreset, setRecentlySwitchedPreset] = useState<MultiCamGridConfig | null>(null);
 
   const activeConfig = controlledConfig !== undefined ? controlledConfig : localConfig;
   const isCurrentlyExpanded = controlledExpanded !== undefined ? controlledExpanded : localExpanded;
 
-  const setConfig = (newConfig: MultiCamGridConfig) => {
+  const setConfig = useCallback((newConfig: MultiCamGridConfig) => {
     if (onChangeConfig) {
       onChangeConfig(newConfig);
     } else {
       setLocalConfig(newConfig);
     }
-  };
+    setRecentlySwitchedPreset(newConfig);
+    setTimeout(() => setRecentlySwitchedPreset(null), 1800);
+  }, [onChangeConfig]);
 
   const handleToggleExpand = () => {
     if (onToggleExpand) {
@@ -98,21 +115,37 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     }
   };
 
-  // Keyboard shortcut listener: 1-4 for punch-in cuts
+  // Detect compact responsive layout
+  useEffect(() => {
+    const checkWidth = () => {
+      setIsCompact(window.innerWidth < 768);
+    };
+    checkWidth();
+    window.addEventListener('resize', checkWidth);
+    return () => window.removeEventListener('resize', checkWidth);
+  }, []);
+
+  // Keyboard shortcut listener: '1', '2', and '3' to instantly switch/cycle grid presets
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is typing in an input or textarea
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
-      if (e.key >= '1' && e.key <= '4') {
-        const targetIdx = parseInt(e.key, 10) - 1;
-        if (targetIdx < group.angles.length) {
-          e.preventDefault();
-          onSelectAngle(targetIdx);
-        }
+
+      if (e.key === '1') {
+        e.preventDefault();
+        setConfig('1x1');
+      } else if (e.key === '2') {
+        e.preventDefault();
+        setConfig('1x3');
+      } else if (e.key === '3') {
+        e.preventDefault();
+        setConfig('2x2');
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [group.angles.length, onSelectAngle]);
+  }, [setConfig]);
 
   // Format timecode
   const formatTimecode = (ms: number) => {
@@ -123,8 +156,144 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
   };
 
+  // Safe angles up to 4
+  const displayAngles = useMemo(() => {
+    return group.angles.slice(0, 4);
+  }, [group.angles]);
+
+  const heroIdx = currentActiveAngleIdx < displayAngles.length ? currentActiveAngleIdx : 0;
+  const secondaryIndices = useMemo(() => {
+    return [0, 1, 2, 3].slice(0, displayAngles.length).filter(i => i !== heroIdx);
+  }, [displayAngles.length, heroIdx]);
+
+  // Compute smooth morphing layout coordinates for angle `idx`
+  const getCardLayoutStyle = (idx: number): React.CSSProperties => {
+    const baseTransition = 'top 480ms cubic-bezier(0.25, 1, 0.5, 1), left 480ms cubic-bezier(0.25, 1, 0.5, 1), width 480ms cubic-bezier(0.25, 1, 0.5, 1), height 480ms cubic-bezier(0.25, 1, 0.5, 1), opacity 400ms ease, transform 480ms cubic-bezier(0.25, 1, 0.5, 1), border-color 200ms ease, box-shadow 200ms ease';
+
+    // 1. CONFIGURATION: 2x2 QUAD GRID
+    if (activeConfig === '2x2') {
+      const isLeft = idx % 2 === 0;
+      const isTop = idx < 2;
+
+      return {
+        position: 'absolute',
+        top: isTop ? '0%' : 'calc(50% + 5px)',
+        left: isLeft ? '0%' : 'calc(50% + 5px)',
+        width: 'calc(50% - 5px)',
+        height: 'calc(50% - 5px)',
+        opacity: 1,
+        transform: 'scale(1)',
+        pointerEvents: 'auto',
+        zIndex: idx === heroIdx ? 15 : 10,
+        transition: baseTransition
+      };
+    }
+
+    // 2. CONFIGURATION: 1x3 DIRECTOR SPLIT
+    if (activeConfig === '1x3') {
+      if (idx === heroIdx) {
+        // Dominant Hero Monitor
+        if (isCompact) {
+          return {
+            position: 'absolute',
+            top: '0%',
+            left: '0%',
+            width: '100%',
+            height: 'calc(65% - 4px)',
+            opacity: 1,
+            transform: 'scale(1)',
+            pointerEvents: 'auto',
+            zIndex: 20,
+            transition: baseTransition
+          };
+        }
+        return {
+          position: 'absolute',
+          top: '0%',
+          left: '0%',
+          width: 'calc(68% - 6px)',
+          height: '100%',
+          opacity: 1,
+          transform: 'scale(1)',
+          pointerEvents: 'auto',
+          zIndex: 20,
+          transition: baseTransition
+        };
+      } else {
+        // Secondary 3 comparison monitors
+        const slot = secondaryIndices.indexOf(idx);
+        const safeSlot = slot >= 0 ? slot : 0;
+
+        if (isCompact) {
+          const widthPct = 'calc(33.333% - 4px)';
+          const leftCalc = `calc(${safeSlot * 33.333}% + ${safeSlot === 0 ? 0 : safeSlot === 1 ? 2 : 4}px)`;
+          return {
+            position: 'absolute',
+            top: 'calc(65% + 4px)',
+            left: leftCalc,
+            width: widthPct,
+            height: 'calc(35% - 4px)',
+            opacity: 1,
+            transform: 'scale(1)',
+            pointerEvents: 'auto',
+            zIndex: 10,
+            transition: baseTransition
+          };
+        }
+
+        const heightPct = 'calc(33.333% - 6px)';
+        const topCalc = `calc(${safeSlot * 33.333}% + ${safeSlot === 0 ? 0 : safeSlot === 1 ? 3 : 6}px)`;
+        return {
+          position: 'absolute',
+          top: topCalc,
+          left: 'calc(68% + 6px)',
+          width: 'calc(32% - 6px)',
+          height: heightPct,
+          opacity: 1,
+          transform: 'scale(1)',
+          pointerEvents: 'auto',
+          zIndex: 10,
+          transition: baseTransition
+        };
+      }
+    }
+
+    // 3. CONFIGURATION: 1x1 SOLO FEED
+    if (activeConfig === '1x1') {
+      if (idx === heroIdx) {
+        return {
+          position: 'absolute',
+          top: '0%',
+          left: '0%',
+          width: '100%',
+          height: '100%',
+          opacity: 1,
+          transform: 'scale(1)',
+          pointerEvents: 'auto',
+          zIndex: 25,
+          transition: baseTransition
+        };
+      } else {
+        return {
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '25%',
+          height: '25%',
+          opacity: 0,
+          transform: 'translate(-50%, -50%) scale(0.75)',
+          pointerEvents: 'none',
+          zIndex: 1,
+          transition: baseTransition
+        };
+      }
+    }
+
+    return { transition: baseTransition };
+  };
+
   // Render video or image media element for a camera feed
-  const renderAngleMedia = (angle: MultiCamAngle, index: number, isFill = true) => {
+  const renderAngleMedia = (angle: MultiCamAngle, index: number) => {
     const isVideo = angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm'));
     const fallbackImage = samplePacks.cyberNoir[index % samplePacks.cyberNoir.length] || samplePacks.cosmicMacro[0];
 
@@ -135,7 +304,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           src={angle.blobUrl}
           playsInline
           muted={index !== masterAudioIndex || isMuted}
-          className={`w-full h-full ${isFill ? 'object-cover' : 'object-contain'} pointer-events-none select-none`}
+          className="w-full h-full object-cover pointer-events-none select-none transition-all duration-500"
         />
       );
     }
@@ -144,91 +313,116 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
       <img
         src={angle.blobUrl || fallbackImage}
         alt={angle.label}
-        className={`w-full h-full ${isFill ? 'object-cover' : 'object-contain'} pointer-events-none select-none`}
+        className="w-full h-full object-cover pointer-events-none select-none transition-all duration-500"
       />
     );
   };
 
   return (
-    <div className={`relative flex flex-col w-full h-full bg-[#070709] border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 font-sans ${isCurrentlyExpanded ? 'fixed inset-3 z-[150] shadow-2xl ring-2 ring-amber-500/40' : ''} ${className}`}>
+    <div className={`relative flex flex-col w-full h-full bg-[#070709] border border-white/10 rounded-2xl overflow-hidden font-sans select-none ${isCurrentlyExpanded ? 'fixed inset-3 z-[150] shadow-2xl ring-2 ring-amber-500/40' : ''} ${className}`}>
       
-      {/* Viewport Grid Control Header */}
-      <div className="h-11 px-4 bg-[#0D0E15] border-b border-white/10 flex items-center justify-between shrink-0 select-none">
+      {/* 1. Viewport Grid Control Header & Preset Switcher */}
+      <div className="h-12 px-4 bg-[#0D0E15] border-b border-white/10 flex items-center justify-between shrink-0 z-30">
         
-        {/* Left: Configuration Switcher (2x2, 1x3, 1x1) */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 pr-3 border-r border-white/10">
-            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#F5A623] animate-pulse" />
-            <span className="text-[11px] font-mono font-bold tracking-wider text-white uppercase">
-              VIEWPORT GRID
+        {/* Left: Configuration Switcher with Key Badges ('1', '2', '3') */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 pr-2.5 border-r border-white/10">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#F5A623] animate-pulse" />
+            <span className="text-[11px] font-mono font-bold tracking-wider text-white uppercase hidden sm:inline">
+              PRESET GRID
             </span>
           </div>
 
-          <div className="flex items-center p-0.5 bg-black/60 rounded-xl border border-white/10">
-            {/* 2x2 Quad Grid Button */}
+          {/* Interactive Preset Buttons with Keyboard Shortcuts [1], [2], [3] */}
+          <div className="flex items-center p-1 bg-black/70 rounded-xl border border-white/10 shadow-inner">
+            {/* 1x1 Solo Preset Button (Shortcut '1') */}
             <button
               type="button"
-              onClick={() => setConfig('2x2')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                activeConfig === '2x2'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-bold'
+              onClick={() => setConfig('1x1')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                activeConfig === '1x1'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
-              title="2x2 Quad Grid Configuration (4 synchronized camera angles side-by-side)"
+              title="Press '1' to activate 1x1 Solo Grid Preset"
             >
-              <Grid2X2 className="w-3.5 h-3.5" />
-              <span>2x2 QUAD</span>
+              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
+                activeConfig === '1x1' ? 'bg-black/40 text-amber-300' : 'bg-white/10 text-neutral-400'
+              }`}>
+                1
+              </kbd>
+              <Square className="w-3.5 h-3.5" />
+              <span>1x1 SOLO</span>
             </button>
 
-            {/* 1x3 Director Grid Button */}
+            {/* 1x3 Director Preset Button (Shortcut '2') */}
             <button
               type="button"
               onClick={() => setConfig('1x3')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                 activeConfig === '1x3'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-bold'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
-              title="1x3 Director Configuration (Dominant program monitor + 3 secondary angle feeds)"
+              title="Press '2' to activate 1x3 Director Grid Preset"
             >
+              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
+                activeConfig === '1x3' ? 'bg-black/40 text-amber-300' : 'bg-white/10 text-neutral-400'
+              }`}>
+                2
+              </kbd>
               <LayoutList className="w-3.5 h-3.5" />
               <span>1x3 DIRECTOR</span>
             </button>
 
-            {/* 1x1 Solo Monitor Button */}
+            {/* 2x2 Quad Preset Button (Shortcut '3') */}
             <button
               type="button"
-              onClick={() => setConfig('1x1')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                activeConfig === '1x1'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-bold'
+              onClick={() => setConfig('2x2')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                activeConfig === '2x2'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
-              title="1x1 Solo Configuration (Clean single feed with instant A/B angle comparison)"
+              title="Press '3' to activate 2x2 Quad Grid Preset"
             >
-              <Square className="w-3.5 h-3.5" />
-              <span>1x1 SOLO</span>
+              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
+                activeConfig === '2x2' ? 'bg-black/40 text-amber-300' : 'bg-white/10 text-neutral-400'
+              }`}>
+                3
+              </kbd>
+              <Grid2X2 className="w-3.5 h-3.5" />
+              <span>2x2 QUAD</span>
             </button>
           </div>
         </div>
 
-        {/* Center: Live Cut Telemetry */}
-        <div className="hidden md:flex items-center gap-3 text-[11px] font-mono">
-          <div className="flex items-center gap-1.5 bg-black/60 px-2.5 py-0.5 rounded-lg border border-white/5">
-            <span className="text-neutral-400">PROGRAM CUT:</span>
-            <span className="text-amber-400 font-bold">
-              {group.angles[currentActiveAngleIdx]?.label || `CAM 0${currentActiveAngleIdx + 1}`}
+        {/* Center: Prominent Visual Indicator of the Active Preset */}
+        <div className="hidden lg:flex items-center gap-2 font-mono text-[11px]">
+          <span className="text-neutral-500 text-[10px] tracking-wider uppercase font-semibold">
+            ACTIVE PRESET:
+          </span>
+          {activeConfig === '1x1' && (
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/50 text-amber-300 font-bold flex items-center gap-1.5 shadow-sm animate-in fade-in duration-200">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_6px_#F5A623]" />
+              1x1 SOLO MONITOR [KEY 1]
             </span>
-          </div>
-
-          <div className="text-neutral-500">·</div>
-
-          <div className="text-cyan-400 tabular-nums">
-            TC {formatTimecode(currentTimeMs)}
-          </div>
+          )}
+          {activeConfig === '1x3' && (
+            <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/50 text-cyan-300 font-bold flex items-center gap-1.5 shadow-sm animate-in fade-in duration-200">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_6px_#00E5FF]" />
+              1x3 DIRECTOR SPLIT [KEY 2]
+            </span>
+          )}
+          {activeConfig === '2x2' && (
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/50 text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm animate-in fade-in duration-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10B981]" />
+              2x2 QUAD COMPARISON [KEY 3]
+            </span>
+          )}
         </div>
 
-        {/* Right: Aspect Ratio & Fullscreen Expand */}
+        {/* Right: Aspect Ratio & Expand Controls */}
         <div className="flex items-center gap-2">
           {onChangeAspectRatio && (
             <div className="flex items-center p-0.5 bg-black/60 rounded-xl border border-white/10 text-[10px] font-mono">
@@ -273,240 +467,127 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         </div>
       </div>
 
-      {/* Main Grid Viewport based on activeConfig */}
-      <div className="flex-1 w-full bg-[#050608] p-3 overflow-hidden flex flex-col justify-center items-center">
+      {/* 2. Main Animated Viewport Canvas (Camera feeds smoothly morph and resize here) */}
+      <div className="relative flex-1 w-full h-full bg-[#050608] p-3 overflow-hidden">
         
-        {/* ==================================================================== */}
-        {/* 1. CONFIGURATION: 2x2 QUAD GRID                                     */}
-        {/* ==================================================================== */}
-        {activeConfig === '2x2' && (
-          <div className="w-full h-full max-h-full grid grid-cols-2 grid-rows-2 gap-3 p-1 overflow-hidden">
-            {group.angles.slice(0, 4).map((angle, idx) => {
-              const isActive = idx === currentActiveAngleIdx;
-              const isMaster = idx === masterAudioIndex;
+        {/* Unified morphing container holding all 4 camera feeds */}
+        <div className="relative w-full h-full overflow-hidden">
+          {displayAngles.map((angle, idx) => {
+            const isHero = idx === heroIdx;
+            const isMaster = idx === masterAudioIndex;
+            const layoutStyle = getCardLayoutStyle(idx);
 
-              return (
-                <div
-                  key={angle.id}
-                  onClick={() => onSelectAngle(idx)}
-                  className={`group relative w-full h-full bg-black rounded-xl overflow-hidden cursor-pointer transition-all duration-150 flex flex-col justify-between border-2 ${
-                    isActive
-                      ? 'border-[#F5A623] shadow-[0_0_20px_rgba(245,166,35,0.4)] ring-2 ring-[#F5A623]/40 z-10'
-                      : 'border-white/10 hover:border-white/30 opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  {/* Media Feed */}
-                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                    {renderAngleMedia(angle, idx, true)}
-                  </div>
-
-                  {/* Top Tally Bar */}
-                  <div className="relative z-10 p-2 flex items-center justify-between pointer-events-none">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
-                        isActive ? 'bg-[#F5A623] text-black shadow-md' : 'bg-black/80 text-white border border-white/20'
-                      }`}>
-                        {idx + 1}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md border border-white/15 text-white font-mono font-bold text-xs tracking-wider">
-                        {angle.label}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 pointer-events-auto">
-                      {isMaster && (
-                        <span className="p-1 rounded-md bg-black/80 border border-amber-500/30 text-amber-400" title="Master Audio Feed">
-                          <Volume2 className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-
-                      {isActive ? (
-                        <span className="px-2 py-0.5 rounded-md bg-[#EF4444] text-white font-black text-[10px] tracking-wider uppercase animate-pulse shadow-[0_0_10px_#EF4444]">
-                          ● PROGRAM ON AIR
-                        </span>
-                      ) : (
-                        <span className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded-md bg-black/80 border border-white/20 text-neutral-300 font-mono text-[9px] transition-opacity">
-                          CLICK TO CUT
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bottom Metas */}
-                  <div className="relative z-10 p-2 flex items-center justify-between text-[10px] font-mono bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
-                    <span className="text-neutral-300 font-medium truncate max-w-[140px]">
-                      {angle.name || `Angle 0${idx + 1}`}
-                    </span>
-                    <span className="text-amber-400/90 tabular-nums">
-                      {angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : '0ms SYNC'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ==================================================================== */}
-        {/* 2. CONFIGURATION: 1x3 DIRECTOR MULTI-ANGLE                          */}
-        {/* ==================================================================== */}
-        {activeConfig === '1x3' && (
-          <div className="w-full h-full flex flex-col lg:flex-row gap-3 overflow-hidden">
-            {/* Primary Hero Master Feed (70%) */}
-            <div className="flex-[2.2] relative bg-black rounded-xl overflow-hidden border-2 border-amber-400 shadow-[0_0_24px_rgba(245,166,35,0.35)] flex items-center justify-center">
-              <div className="absolute inset-0 flex items-center justify-center">
-                {renderAngleMedia(group.angles[currentActiveAngleIdx] || group.angles[0], currentActiveAngleIdx, false)}
-              </div>
-
-              {/* Hero Top Overlay */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-lg bg-amber-400 text-black font-mono font-black text-xs shadow-md tracking-wider">
-                    {group.angles[currentActiveAngleIdx]?.label || `CAM 0${currentActiveAngleIdx + 1}`}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md border border-red-500/50 text-red-400 font-mono font-bold text-[10px] tracking-widest flex items-center gap-1.5 animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                    PROGRAM ON AIR
-                  </span>
+            return (
+              <div
+                key={angle.id}
+                style={layoutStyle}
+                onClick={() => onSelectAngle(idx)}
+                className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl ${
+                  isHero
+                    ? 'border-[#EF4444] shadow-[0_0_24px_rgba(239,68,68,0.35)] ring-2 ring-[#EF4444]/40'
+                    : 'border-white/10 hover:border-white/30 opacity-75 hover:opacity-100'
+                }`}
+              >
+                {/* Media element with smooth resize */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
+                  {renderAngleMedia(angle, idx)}
                 </div>
 
-                <div className="px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 text-cyan-400 font-mono text-xs tabular-nums">
-                  TC {formatTimecode(currentTimeMs)}
-                </div>
-              </div>
-
-              {/* Hero Bottom Lens Overlay */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-mono text-white bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 pointer-events-none z-10">
-                <span className="truncate max-w-[220px]">
-                  {group.angles[currentActiveAngleIdx]?.name || `Angle ${currentActiveAngleIdx + 1}`}
-                </span>
-                <span className="text-neutral-400">
-                  SYNC {group.angles[currentActiveAngleIdx]?.syncOffsetMs || 0}ms · MASTER MIC {masterAudioIndex + 1}
-                </span>
-              </div>
-            </div>
-
-            {/* 3 Secondary Feeds (30%) */}
-            <div className="flex-1 flex flex-row lg:flex-col gap-2.5 overflow-x-auto lg:overflow-y-auto no-scrollbar">
-              {group.angles.map((angle, idx) => {
-                const isActive = idx === currentActiveAngleIdx;
-
-                return (
-                  <div
-                    key={angle.id}
-                    onClick={() => onSelectAngle(idx)}
-                    className={`relative flex-1 min-w-[140px] lg:min-w-0 bg-black rounded-xl overflow-hidden cursor-pointer transition-all border-2 flex items-center justify-center group ${
-                      isActive
-                        ? 'border-amber-400 ring-2 ring-amber-400/40 shadow-lg opacity-100 scale-[1.01]'
-                        : 'border-white/10 hover:border-white/30 opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <div className="absolute inset-0">
-                      {renderAngleMedia(angle, idx, true)}
-                    </div>
-
-                    <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center justify-between z-10 pointer-events-none">
-                      <div className="flex items-center gap-1">
-                        <span className={`w-4 h-4 rounded flex items-center justify-center font-mono font-bold text-[10px] ${
-                          isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'
-                        }`}>
-                          {idx + 1}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-black/80 text-white font-mono text-[9px]">
-                          {angle.label}
-                        </span>
-                      </div>
-
-                      {isActive && (
-                        <span className="px-1.5 py-0.5 rounded bg-red-500 text-white font-bold text-[8px] uppercase">
-                          ON AIR
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[8px] font-mono text-neutral-300 bg-black/70 px-1.5 py-0.5 rounded pointer-events-none">
-                      <span className="truncate max-w-[80px]">{angle.name || `Angle ${idx + 1}`}</span>
-                      <span>{angle.syncOffsetMs}ms</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ==================================================================== */}
-        {/* 3. CONFIGURATION: 1x1 SOLO MONITOR                                  */}
-        {/* ==================================================================== */}
-        {activeConfig === '1x1' && (
-          <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden">
-            <div className={`relative w-full max-h-[72vh] mx-auto bg-black rounded-xl overflow-hidden border-2 border-amber-400 shadow-[0_0_28px_rgba(245,166,35,0.3)] flex items-center justify-center ${
-              aspectRatio === '9:16' ? 'aspect-[9/16]' : aspectRatio === '2.39:1' ? 'aspect-[2.39/1]' : 'aspect-[16/9]'
-            }`}>
-              <div className="absolute inset-0 flex items-center justify-center">
-                {renderAngleMedia(group.angles[currentActiveAngleIdx] || group.angles[0], currentActiveAngleIdx, false)}
-              </div>
-
-              {/* Top Bar with A/B Toggle */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-xl bg-amber-400 text-black font-mono font-black text-xs shadow-md tracking-wider">
-                    {group.angles[currentActiveAngleIdx]?.label || `CAM 0${currentActiveAngleIdx + 1}`}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-xl bg-black/85 backdrop-blur-md border border-white/10 text-neutral-300 font-mono text-xs">
-                    SOLO FEED
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextIdx = (currentActiveAngleIdx + 1) % group.angles.length;
-                    onSelectAngle(nextIdx);
-                  }}
-                  className="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Flip to Next Angle for A/B Comparison"
-                >
-                  <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Next Angle</span>
-                </button>
-              </div>
-
-              {/* Bottom Angle Metas */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-mono text-white bg-black/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 pointer-events-none z-10">
-                <div>
-                  <span className="font-bold text-amber-400">{group.angles[currentActiveAngleIdx]?.name || `Angle ${currentActiveAngleIdx + 1}`}</span>
-                  <span className="text-neutral-400 ml-2">Sync: {group.angles[currentActiveAngleIdx]?.syncOffsetMs || 0}ms</span>
-                </div>
-                <div className="text-cyan-400 font-bold tabular-nums">
-                  TC {formatTimecode(currentTimeMs)}
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Dock Angle Selector Bar */}
-            <div className="mt-3 flex items-center gap-2 p-1.5 bg-[#0D0E15] border border-white/10 rounded-2xl shadow-xl">
-              {group.angles.map((a, idx) => {
-                const isSelected = idx === currentActiveAngleIdx;
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => onSelectAngle(idx)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono text-xs transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-400 text-black font-bold shadow-md'
-                        : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-black/30">
+                {/* Top Broadcast Tally Overlay */}
+                <div className="relative z-10 p-2.5 flex items-center justify-between pointer-events-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
+                      isHero ? 'bg-[#EF4444] text-white shadow-md' : 'bg-black/80 text-white border border-white/20'
+                    }`}>
                       {idx + 1}
                     </span>
-                    <span>{a.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+                    <span className="px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md border border-white/15 text-white font-mono font-bold text-xs tracking-wider">
+                      {angle.label}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 pointer-events-auto">
+                    {isMaster && (
+                      <span className="p-1 rounded-md bg-black/80 border border-amber-500/30 text-amber-400" title="Master Audio Feed">
+                        <Volume2 className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+
+                    {isHero ? (
+                      <span className="px-2 py-0.5 rounded-md bg-[#EF4444] text-white font-black text-[10px] tracking-wider uppercase animate-pulse shadow-[0_0_12px_#EF4444]">
+                        ● PROGRAM ON AIR
+                      </span>
+                    ) : (
+                      <span className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded-md bg-black/80 border border-white/20 text-neutral-300 font-mono text-[9px] transition-opacity">
+                        CLICK TO CUT
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Lens Specification Overlay */}
+                <div className="relative z-10 p-2.5 flex items-center justify-between text-[10px] font-mono bg-gradient-to-t from-black/95 via-black/70 to-transparent pointer-events-none">
+                  <span className="text-neutral-300 font-medium truncate max-w-[160px]">
+                    {angle.name || `Angle 0${idx + 1}`}
+                  </span>
+                  <span className="text-amber-400/90 tabular-nums">
+                    {angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : '0ms SYNC'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Transient Morph Transition HUD Confirmation Badge */}
+        {recentlySwitchedPreset && (
+          <div className="absolute top-6 right-6 z-40 bg-black/90 border border-amber-500/50 px-3.5 py-1.5 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+            <span className="font-mono text-xs font-bold text-amber-300">
+              MORPHED TO {recentlySwitchedPreset.toUpperCase()} GRID
+            </span>
+          </div>
+        )}
+
+        {/* Floating Quick Switcher Dock in 1x1 Solo Mode */}
+        {activeConfig === '1x1' && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 p-1.5 bg-[#0D0E15]/95 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {displayAngles.map((a, idx) => {
+              const isSelected = idx === heroIdx;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onSelectAngle(idx)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono text-xs transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-amber-400 text-black font-bold shadow-md'
+                      : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                  }`}
+                  title={`Switch solo view to ${a.label}`}
+                >
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-black/30">
+                    {idx + 1}
+                  </span>
+                  <span>{a.label}</span>
+                </button>
+              );
+            })}
+
+            <div className="h-4 w-px bg-white/10 mx-1" />
+
+            <button
+              type="button"
+              onClick={() => {
+                const nextIdx = (heroIdx + 1) % displayAngles.length;
+                onSelectAngle(nextIdx);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="A/B Flip to Next Angle"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" />
+              <span>A/B Flip</span>
+            </button>
           </div>
         )}
       </div>

@@ -227,8 +227,36 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         return;
       }
 
-      // Keys 1 through 9
-      if (e.key >= '1' && e.key <= '9') {
+      // Keys '1', '2', '3': Instantly switch between 1x1, 1x3, and 2x2 grid presets
+      if (e.key === '1') {
+        e.preventDefault();
+        setLayoutPreset('1x1');
+        onChangeLayoutConfig?.('1x1');
+        return;
+      }
+      if (e.key === '2') {
+        e.preventDefault();
+        setLayoutPreset('1x3');
+        onChangeLayoutConfig?.('1x3');
+        return;
+      }
+      if (e.key === '3') {
+        e.preventDefault();
+        setLayoutPreset('2x2');
+        onChangeLayoutConfig?.('2x2');
+        return;
+      }
+
+      // Keys 4 through 9 or Shift + 1-4: camera angle punch cutting
+      if (e.shiftKey && e.key >= '1' && e.key <= '4') {
+        const targetIndex = parseInt(e.key, 10) - 1;
+        if (targetIndex < group.angles.length) {
+          e.preventDefault();
+          switchAngle(targetIndex);
+          return;
+        }
+      }
+      if (e.key >= '4' && e.key <= '9') {
         const targetIndex = parseInt(e.key, 10) - 1;
         if (targetIndex < group.angles.length) {
           e.preventDefault();

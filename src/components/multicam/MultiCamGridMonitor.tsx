@@ -38,6 +38,7 @@ import {
 import { MultiCamGroup, MultiCamAngle, MultiCamCutEvent } from '../../types/multicam';
 import { MultiCamTimelineTrack } from './MultiCamTimelineTrack';
 import { ExpandableMultiCamLayout, MultiCamLayoutPreset } from './ExpandableMultiCamLayout';
+import { MultiCamViewportGrid, MultiCamGridConfig } from './MultiCamViewportGrid';
 import { multiCamRenderPipeline } from '../../services/multiCamRenderPipeline';
 import { VaultMediaItem, db } from '../../services/db';
 import { samplePacks } from '../../data/frames';
@@ -103,6 +104,8 @@ export interface MultiCamGridMonitorProps {
   onSaveGroup?: (updatedGroup: MultiCamGroup) => void;
   onExportSuccess?: (vaultItem: VaultMediaItem) => void;
   isInline?: boolean;
+  layoutConfig?: MultiCamGridConfig;
+  onChangeLayoutConfig?: (config: MultiCamGridConfig) => void;
 }
 
 export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
@@ -111,7 +114,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   onClose,
   onSaveGroup,
   onExportSuccess,
-  isInline = false
+  isInline = false,
+  layoutConfig: controlledConfig,
+  onChangeLayoutConfig
 }) => {
   const [group, setGroup] = useState<MultiCamGroup>(initialGroup || DEFAULT_SAMPLE_MULTICAM_GROUP);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -120,7 +125,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   const [programAspectRatio, setProgramAspectRatio] = useState<'9:16' | '2.39:1'>('9:16');
   const [isMuted, setIsMuted] = useState(false);
   const [masterVolume, setMasterVolume] = useState(0.85);
-  const [layoutPreset, setLayoutPreset] = useState<MultiCamLayoutPreset>('2x2');
+  const [layoutPreset, setLayoutPreset] = useState<MultiCamGridConfig>(controlledConfig || '2x2');
   const [isExpanded, setIsExpanded] = useState(false);
   const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(null);
 
@@ -480,9 +485,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         </div>
       )}
 
-      {/* Expandable Multi-Cam Layout Viewport with 2x2, 1x3, and 1x1 Presets */}
+      {/* Multi-Cam Viewport Grid with 2x2, 1x3, and 1x1 Configurations */}
       <div className="flex-1 w-full p-3 overflow-hidden flex flex-col min-h-0">
-        <ExpandableMultiCamLayout
+        <MultiCamViewportGrid
           group={group}
           currentActiveAngleIdx={currentActiveAngleIdx}
           currentTimeMs={currentTimeMs}
@@ -491,8 +496,11 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           masterAudioIndex={masterAudioIndex}
           onSelectAngle={switchAngle}
           videoRefs={videoRefs}
-          layoutPreset={layoutPreset}
-          onChangeLayoutPreset={setLayoutPreset}
+          config={controlledConfig !== undefined ? controlledConfig : layoutPreset}
+          onChangeConfig={(cfg) => {
+            setLayoutPreset(cfg);
+            onChangeLayoutConfig?.(cfg);
+          }}
           isExpanded={isExpanded}
           onToggleExpand={() => setIsExpanded(e => !e)}
           aspectRatio={programAspectRatio === '2.39:1' ? '2.39:1' : '9:16'}

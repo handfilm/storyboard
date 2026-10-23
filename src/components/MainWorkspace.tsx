@@ -27,6 +27,8 @@ import { BloomInteractiveCanvas } from './stage/BloomInteractiveCanvas';
 import { TactileStage } from './stage/TactileStage';
 import { StageHeader, StagePanelType } from './StageHeader';
 import { MultiCamGridMonitor } from './multicam/MultiCamGridMonitor';
+import { MultiCamGroup } from '../types/multicam';
+import { MultiCamGridConfig } from './multicam/MultiCamViewportGrid';
 import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode, SLIDE_DURATION_SEC } from '../types/editor';
 
@@ -93,6 +95,10 @@ interface MainWorkspaceProps {
   isAudioMuted?: boolean;
   onToggleMute?: () => void;
   onOpenCinemaPlayer?: () => void;
+  multiCamGroup?: MultiCamGroup;
+  onUpdateMultiCamGroup?: (group: MultiCamGroup) => void;
+  multiCamLayoutConfig?: MultiCamGridConfig;
+  onChangeMultiCamLayoutConfig?: (config: MultiCamGridConfig) => void;
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
@@ -156,7 +162,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   detectedBpm,
   isAudioMuted = false,
   onToggleMute,
-  onOpenCinemaPlayer
+  onOpenCinemaPlayer,
+  multiCamGroup,
+  onUpdateMultiCamGroup,
+  multiCamLayoutConfig,
+  onChangeMultiCamLayoutConfig
 }) => {
   // Local dual-panel view selection if not externally controlled (TACTILE STAGE is the default primary stage)
   const [localDualPanel, setLocalDualPanel] = useState<StagePanelType>(activeDualPanel || 'TACTILE_STAGE');
@@ -495,8 +505,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
             <MultiCamGridMonitor
               isInline={true}
               isOpen={true}
+              group={multiCamGroup}
+              layoutConfig={multiCamLayoutConfig}
+              onChangeLayoutConfig={onChangeMultiCamLayoutConfig}
               onClose={() => handleSelectPanel('TACTILE_STAGE')}
-              onSaveGroup={() => {}}
+              onSaveGroup={onUpdateMultiCamGroup}
             />
           </div>
         )}

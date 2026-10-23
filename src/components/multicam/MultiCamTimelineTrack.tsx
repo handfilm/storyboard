@@ -501,8 +501,26 @@ export const MultiCamTimelineTrack: React.FC<MultiCamTimelineTrackProps> = ({
                   )}
                 </div>
 
-                {/* Center: Live Air Status or Cut Prompt */}
-                <div className="z-10 pointer-events-none">
+                {/* Center: Live Air Status, Synchronized Playback Waveform, or Cut Prompt */}
+                <div className="z-10 pointer-events-none flex items-center gap-2">
+                  {/* Live Synchronized Audio/Playback Waveform Visualizer */}
+                  {isPlaying && (
+                    <div className="flex items-center gap-[2px] h-3">
+                      {[0.3, 0.7, 1.0, 0.5, 0.8, 0.4].map((h, i) => (
+                        <div
+                          key={i}
+                          className={`w-[2px] rounded-full transition-all duration-150 ${
+                            isLive ? 'bg-amber-400' : 'bg-cyan-400/50'
+                          }`}
+                          style={{
+                            height: `${Math.round(h * 12)}px`,
+                            animation: `pulse 0.8s ease-in-out infinite ${(i * 0.15)}s`
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
                   {isLive ? (
                     <span className="px-2 py-0.5 rounded bg-[#EF4444] text-white font-black text-[9px] tracking-wider uppercase animate-pulse shadow-[0_0_8px_#EF4444]">
                       ● ON AIR

@@ -58,6 +58,9 @@ import { QuickTrimPreviewModal } from './components/recorder/QuickTrimPreviewMod
 import { AdvancedTrimmerModal } from './components/recorder/AdvancedTrimmerModal';
 import { RecordedCaptureResult } from './services/screenRecorderEngine';
 import { StagePanelType } from './components/StageHeader';
+import { MultiCamGroup } from './types/multicam';
+import { MultiCamGridConfig } from './components/multicam/MultiCamViewportGrid';
+import { DEFAULT_SAMPLE_MULTICAM_GROUP } from './components/multicam/MultiCamGridMonitor';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -173,6 +176,10 @@ export default function App() {
       console.warn('Could not save rawx_walkthrough_seen to localStorage', e);
     }
   }, []);
+
+  // Multi-Cam Sovereign State in App Shell
+  const [multiCamGroup, setMultiCamGroup] = useState<MultiCamGroup>(() => DEFAULT_SAMPLE_MULTICAM_GROUP);
+  const [multiCamLayoutConfig, setMultiCamLayoutConfig] = useState<MultiCamGridConfig>('2x2');
 
   const handleToggleMultiCam = useCallback(() => {
     setCurrentView('STUDIO');
@@ -1640,6 +1647,10 @@ export default function App() {
           isAudioMuted={isAudioMuted}
           onToggleMute={toggleAudio}
           onOpenCinemaPlayer={() => setIsCinemaPlayerOpen(true)}
+          multiCamGroup={multiCamGroup}
+          onUpdateMultiCamGroup={setMultiCamGroup}
+          multiCamLayoutConfig={multiCamLayoutConfig}
+          onChangeMultiCamLayoutConfig={setMultiCamLayoutConfig}
         />
 
         {/* Director Inspector Sidebar Drawer */}

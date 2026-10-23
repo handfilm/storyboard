@@ -34,6 +34,7 @@ import {
   downloadXmlBlob 
 } from '../services/exportXml';
 import { exportFullIdbBackup } from '../utils/backup';
+import { exportDirectorsCutBundle } from '../services/directorsCutExport';
 import { 
   Film, 
   Video, 
@@ -55,10 +56,11 @@ import {
   Smartphone, 
   Printer,
   Copy,
-  Check
+  Check,
+  Archive
 } from 'lucide-react';
 
-export type ExportModalTab = 'mp4' | 'premiere' | 'fcpxml' | 'pdf' | 'backup';
+export type ExportModalTab = 'mp4' | 'premiere' | 'fcpxml' | 'pdf' | 'directors_cut' | 'backup';
 
 export interface CutNativeExportModalProps {
   isOpen: boolean;
@@ -795,6 +797,30 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     }
   }, []);
 
+  // Export Director's Cut ZIP Bundle (CSV shot list, Fountain screenplay, project master JSON)
+  const handleExportDirectorsCut = useCallback(async () => {
+    try {
+      setIsExporting(true);
+      setExportError(null);
+      const filename = await exportDirectorsCutBundle({
+        projectTitle,
+        directorName,
+        aspectRatio,
+        frames: selectedFrames.length > 0 ? selectedFrames : (frames || []),
+        fps: xmlFps,
+        customFilename: customFilename ? `${customFilename}_DirectorsCut` : undefined
+      });
+      playExportSuccessChime();
+      setDownloadedFileName(filename);
+      setIsFinished(true);
+    } catch (err: any) {
+      console.error('[DirectorsCut Error]', err);
+      setExportError(err?.message || 'Could not generate Director\'s Cut bundle.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [projectTitle, directorName, aspectRatio, selectedFrames, frames, xmlFps, customFilename]);
+
   const handleAbortExport = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -871,7 +897,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
           </div>
 
           {/* Unified Format Navigation Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded-xl text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded-xl text-center">
             {/* 1. MP4 VIDEO */}
             <button
               type="button"
@@ -932,7 +958,22 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               <span className="truncate">CONTACT SHEET</span>
             </button>
 
-            {/* 5. PROJECT BACKUP (.rawx) */}
+            {/* 5. DIRECTOR'S CUT (ZIP) */}
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => setActiveTab('directors_cut')}
+              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeTab === 'directors_cut'
+                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+              }`}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span className="truncate">DIRECTOR'S CUT</span>
+            </button>
+
+            {/* 6. PROJECT BACKUP (.rawx) */}
             <button
               type="button"
               disabled={isExporting}
@@ -944,7 +985,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               }`}
             >
               <HardDriveDownload className="w-3.5 h-3.5" />
-              <span className="truncate">PROJECT BACKUP (.rawx)</span>
+              <span className="truncate">BACKUP (.rawx)</span>
             </button>
           </div>
         </div>
@@ -1662,6 +1703,71 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
             </div>
           )}
 
+          {/* TAB: DIRECTOR'S CUT (ZIP BUNDLE) */}
+          {activeTab === 'directors_cut' && (
+            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
+                  <Archive className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Director's Cut Production Bundle (.zip)</h3>
+                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
+                    Bundles the production shot list (CSV), standard screenplay (Fountain), and master project metadata into a unified archive.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-1.5">
+                  <div className="flex items-center gap-2 text-[#F5A623] font-bold text-xs uppercase">
+                    <FileText className="w-4 h-4" />
+                    <span>shot_list.csv</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
+                    Full tabular CSV with SMPTE timecodes, durations, lens data, scenes, and action cues.
+                  </p>
+                  <span className="inline-block text-[9px] font-mono text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                    {selectedFrames.length > 0 ? selectedFrames.length : totalCount} Shots Indexed
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-1.5">
+                  <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase">
+                    <Film className="w-4 h-4" />
+                    <span>screenplay.fountain</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
+                    Industry standard Fountain screenplay script with scene headers, character cues, and dialogue.
+                  </p>
+                  <span className="inline-block text-[9px] font-mono text-cyan-400 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-800/40">
+                    Fountain 1.1 Spec
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-1.5">
+                  <div className="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase">
+                    <Layers className="w-4 h-4" />
+                    <span>project_master.json</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
+                    Complete project state tree with camera setups, markers, aspect ratio, and optical settings.
+                  </p>
+                  <span className="inline-block text-[9px] font-mono text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-800/40">
+                    v2.4 Cinema JSON
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <span className="text-zinc-400">Target Archive:</span>
+                <span className="text-[#F5A623] font-bold font-mono">
+                  {customFilename ? `${customFilename}_DirectorsCut.zip` : `HANDFILM_${projectTitle}_DirectorsCut_Bundle.zip`}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* TAB 5: FULL PROJECT BACKUP (.rawx) */}
           {activeTab === 'backup' && (
             <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
@@ -1840,6 +1946,18 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   >
                     <Printer className="w-4 h-4" />
                     <span>GENERATE CONTACT SHEET (PDF)</span>
+                  </button>
+                )}
+
+                {activeTab === 'directors_cut' && (
+                  <button
+                    type="button"
+                    onClick={handleExportDirectorsCut}
+                    disabled={isExporting}
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
+                  >
+                    <Archive className="w-4 h-4" />
+                    <span>DOWNLOAD DIRECTOR'S CUT (.ZIP)</span>
                   </button>
                 )}
 

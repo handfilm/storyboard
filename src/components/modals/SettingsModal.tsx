@@ -31,8 +31,19 @@ import {
   RefreshCw,
   Download,
   Zap,
-  Info
+  Info,
+  Search,
+  RotateCcw,
+  AlertTriangle,
+  Edit3,
+  Key
 } from 'lucide-react';
+import { 
+  customShortcutsService, 
+  ShortcutDefinition, 
+  ShortcutCategory, 
+  CATEGORY_LABELS 
+} from '../../services/customShortcutsService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -75,14 +86,108 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   ]);
   const [isRunningDiag, setIsRunningDiag] = useState(false);
 
+  // Shortcut Manager State
+  const [shortcutList, setShortcutList] = useState<ShortcutDefinition[]>(() =>
+    customShortcutsService.getShortcuts()
+  );
+  const [shortcutSearch, setShortcutSearch] = useState('');
+  const [shortcutCategory, setShortcutCategory] = useState<string>('all');
+  const [recordingId, setRecordingId] = useState<string | null>(null);
+  const [recordedKey, setRecordedKey] = useState<string | null>(null);
+  const [conflictWarning, setConflictWarning] = useState<{ id: string; name: string } | null>(null);
+  const [shortcutToast, setShortcutToast] = useState<string | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       studioDraftDb.getStorageQuota().then(setQuotaInfo);
       studioDraftDb.ensureStoragePersistence().then(persisted => {
         setQuotaInfo(prev => ({ ...prev, isPersisted: persisted }));
       });
+      setShortcutList(customShortcutsService.getShortcuts());
+      setRecordingId(null);
+      setRecordedKey(null);
+      setConflictWarning(null);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    return customShortcutsService.subscribe((updated) => setShortcutList(updated));
+  }, []);
+
+  // Live keypress recorder for remapping
+  useEffect(() => {
+    if (!recordingId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') {
+        setRecordingId(null);
+        setRecordedKey(null);
+        setConflictWarning(null);
+        return;
+      }
+
+      // Ignore bare modifiers
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+        return;
+      }
+
+      const parts: string[] = [];
+      if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+
+      let keyName = e.key;
+      if (keyName === ' ') keyName = 'Space';
+      else if (keyName === 'ArrowLeft') keyName = '←';
+      else if (keyName === 'ArrowRight') keyName = '→';
+      else if (keyName === 'ArrowUp') keyName = '↑';
+      else if (keyName === 'ArrowDown') keyName = '↓';
+      else if (keyName.length === 1) keyName = keyName.toUpperCase();
+
+      parts.push(keyName);
+      const combo = parts.join(' + ');
+
+      setRecordedKey(combo);
+      const conflict = customShortcutsService.checkConflict(combo, recordingId);
+      if (conflict) {
+        setConflictWarning({ id: conflict.id, name: conflict.name });
+      } else {
+        setConflictWarning(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [recordingId]);
+
+  const handleConfirmRebind = (id: string, keyToSave: string) => {
+    const res = customShortcutsService.rebindShortcut(id, keyToSave);
+    if (res.success) {
+      setShortcutList(customShortcutsService.getShortcuts());
+      setShortcutToast(`Remapped to "${keyToSave}"`);
+      setTimeout(() => setShortcutToast(null), 2500);
+    }
+    setRecordingId(null);
+    setRecordedKey(null);
+    setConflictWarning(null);
+  };
+
+  const handleResetSingle = (id: string) => {
+    customShortcutsService.resetShortcut(id);
+    setShortcutList(customShortcutsService.getShortcuts());
+    setShortcutToast('Restored default key');
+    setTimeout(() => setShortcutToast(null), 2500);
+  };
+
+  const handleResetAllShortcuts = () => {
+    customShortcutsService.resetAll();
+    setShortcutList(customShortcutsService.getShortcuts());
+    setShortcutToast('All shortcuts reset to factory defaults');
+    setTimeout(() => setShortcutToast(null), 2500);
+  };
 
   if (!isOpen) return null;
 
@@ -321,79 +426,270 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: SHORTCUTS */}
+          {/* TAB 2: VISUAL KEYBOARD SHORTCUT MANAGER */}
           {activeTab === 'shortcuts' && (
-            <div className="space-y-3">
-              <div className="text-[11px] text-zinc-400 pb-1">
-                Standard Hollywood NLE Transport & Keyboard Hotkeys:
+            <div className="space-y-3.5">
+              {/* Header & Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1 border-b border-[#272732]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Keyboard className="w-3.5 h-3.5 text-[#fbbf24]" />
+                      <span>VISUAL KEYBOARD SHORTCUT MANAGER</span>
+                    </h3>
+                    {shortcutList.filter(s => s.currentKey !== s.defaultKey).length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 font-bold">
+                        {shortcutList.filter(s => s.currentKey !== s.defaultKey).length} CUSTOMIZED
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">
+                    Search and reassign hotkeys across Playback, Navigation, Visual FX, and Export. Press Rebind to capture new keys.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                  <button
+                    onClick={handleResetAllShortcuts}
+                    className="px-2.5 py-1 rounded bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-rose-500/50 text-zinc-400 hover:text-rose-300 text-[10px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Restore all factory default shortcuts"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset All to Defaults</span>
+                  </button>
+                </div>
               </div>
-              <div className="border border-[#272732] rounded-[2px] overflow-hidden">
-                <table className="w-full text-left text-[11px]">
-                  <thead className="bg-[#0e0e16] text-[#fbbf24] border-b border-[#272732]">
-                    <tr>
-                      <th className="py-2 px-3 font-bold">Key / Combo</th>
-                      <th className="py-2 px-3 font-bold">Action</th>
-                      <th className="py-2 px-3 font-bold">Scope</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#1e1e28] text-zinc-300">
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">Space</td>
-                      <td className="py-2 px-3">Play / Pause 12.0s Loop</td>
-                      <td className="py-2 px-3 text-zinc-500">Stage / Monitor</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">J / K / L</td>
-                      <td className="py-2 px-3">2x Reverse Shuttle / Pause / 1x-2x Forward</td>
-                      <td className="py-2 px-3 text-zinc-500">NLE Transport</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">← / →</td>
-                      <td className="py-2 px-3">Previous / Next Storyboard Slide</td>
-                      <td className="py-2 px-3 text-zinc-500">Global</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">Shift + ← / →</td>
-                      <td className="py-2 px-3">Sub-Frame Nudge ±1 Frame (1/24s)</td>
-                      <td className="py-2 px-3 text-zinc-500">Stage</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">I / O</td>
-                      <td className="py-2 px-3">Mark In-Point / Mark Out-Point</td>
-                      <td className="py-2 px-3 text-zinc-500">Monitor</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">F</td>
-                      <td className="py-2 px-3">Fullscreen Clean Cinema Monitor</td>
-                      <td className="py-2 px-3 text-zinc-500">Global</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">G</td>
-                      <td className="py-2 px-3">Toggle 100-Shot Storyboard Grid</td>
-                      <td className="py-2 px-3 text-zinc-500">Global</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">W</td>
-                      <td className="py-2 px-3">Open Liquify Warp Brush Suite</td>
-                      <td className="py-2 px-3 text-zinc-500">Tools</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">T</td>
-                      <td className="py-2 px-3">Toggle Bilingual Super Titles Overlay</td>
-                      <td className="py-2 px-3 text-zinc-500">Stage</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">Shift + Delete</td>
-                      <td className="py-2 px-3">Instant Slot Media Purge</td>
-                      <td className="py-2 px-3 text-zinc-500">Stage</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-bold text-[#fbbf24]">Ctrl / Cmd + K</td>
-                      <td className="py-2 px-3">Command Palette Quick Action</td>
-                      <td className="py-2 px-3 text-zinc-500">Global</td>
-                    </tr>
-                  </tbody>
-                </table>
+
+              {/* Toast Feedback */}
+              {shortcutToast && (
+                <div className="px-3 py-1.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="font-mono">{shortcutToast}</span>
+                </div>
+              )}
+
+              {/* Search Bar & Category Filters */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-[#0e0e16] p-2.5 rounded border border-[#272732]">
+                <div className="relative w-full sm:w-72 shrink-0">
+                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={shortcutSearch}
+                    onChange={(e) => setShortcutSearch(e.target.value)}
+                    placeholder="Search controls (e.g. Space, Shuttle, FX, Split)..."
+                    className="w-full pl-8 pr-7 py-1 text-xs bg-black/60 border border-zinc-700/80 rounded text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-[#fbbf24] font-mono"
+                  />
+                  {shortcutSearch && (
+                    <button
+                      onClick={() => setShortcutSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto no-scrollbar pb-0.5">
+                  {(['all', 'playback', 'navigation', 'vfx', 'trimmer', 'export', 'system'] as const).map((cat) => {
+                    const count = cat === 'all' 
+                      ? shortcutList.length 
+                      : shortcutList.filter(s => s.category === cat).length;
+                    const isActive = shortcutCategory === cat;
+                    const label = cat === 'all' ? 'All' : cat === 'vfx' ? 'Optics' : cat.charAt(0).toUpperCase() + cat.slice(1);
+
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setShortcutCategory(cat)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors whitespace-nowrap cursor-pointer ${
+                          isActive
+                            ? 'bg-[#fbbf24] text-black font-bold'
+                            : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                        }`}
+                      >
+                        {label} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Shortcut Rows Table */}
+              <div className="border border-[#272732] rounded overflow-hidden max-h-[380px] overflow-y-auto">
+                {(() => {
+                  const q = shortcutSearch.toLowerCase().trim();
+                  const filtered = shortcutList.filter((item) => {
+                    const matchCat = shortcutCategory === 'all' || item.category === shortcutCategory;
+                    if (!matchCat) return false;
+                    if (!q) return true;
+                    return (
+                      item.name.toLowerCase().includes(q) ||
+                      item.description.toLowerCase().includes(q) ||
+                      item.currentKey.toLowerCase().includes(q) ||
+                      item.defaultKey.toLowerCase().includes(q) ||
+                      item.scope.toLowerCase().includes(q)
+                    );
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="py-12 text-center text-zinc-500 font-mono text-xs">
+                        <Keyboard className="w-7 h-7 mx-auto mb-2 opacity-30" />
+                        <p>No shortcuts match "{shortcutSearch}"</p>
+                        <button
+                          onClick={() => setShortcutSearch('')}
+                          className="mt-2 text-[#fbbf24] hover:underline"
+                        >
+                          Clear search filter
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <table className="w-full text-left text-xs font-mono">
+                      <thead className="bg-[#0e0e16] text-[#fbbf24] border-b border-[#272732] sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2 px-3 font-bold text-[10px] uppercase">Action & Description</th>
+                          <th className="py-2 px-2 font-bold text-[10px] uppercase text-center w-24">Scope</th>
+                          <th className="py-2 px-3 font-bold text-[10px] uppercase text-center w-36">Current Key</th>
+                          <th className="py-2 px-3 font-bold text-[10px] uppercase text-right w-44">Rebind & Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1e1e28] text-zinc-300 bg-[#09090E]">
+                        {filtered.map((item) => {
+                          const isRecording = recordingId === item.id;
+                          const isCustomized = item.currentKey !== item.defaultKey;
+
+                          return (
+                            <tr 
+                              key={item.id}
+                              className={`transition-colors ${
+                                isRecording 
+                                  ? 'bg-[#fbbf24]/10 border-l-2 border-[#fbbf24]' 
+                                  : 'hover:bg-white/[0.02]'
+                              }`}
+                            >
+                              {/* Name & Desc */}
+                              <td className="py-2.5 px-3">
+                                <div className="font-semibold text-zinc-100 flex items-center gap-2">
+                                  <span>{item.name}</span>
+                                  {isCustomized && (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60">
+                                      MODIFIED
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-zinc-400 mt-0.5 line-clamp-1">
+                                  {item.description}
+                                </div>
+                              </td>
+
+                              {/* Scope */}
+                              <td className="py-2.5 px-2 text-center">
+                                <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-black/60 border border-zinc-800 text-zinc-400">
+                                  {item.scope}
+                                </span>
+                              </td>
+
+                              {/* Key Display / Live Recording Box */}
+                              <td className="py-2.5 px-3 text-center">
+                                {isRecording ? (
+                                  <div className="inline-flex flex-col items-center">
+                                    <span className="px-2 py-0.5 rounded bg-rose-950/80 border border-rose-500 text-rose-200 text-xs font-bold animate-pulse">
+                                      {recordedKey || 'PRESS KEY...'}
+                                    </span>
+                                    {conflictWarning && (
+                                      <span className="text-[8.5px] text-rose-400 mt-1 flex items-center gap-0.5 font-bold">
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        Used by: {conflictWarning.name.slice(0, 14)}...
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center">
+                                    <kbd className={`px-2 py-0.5 rounded text-xs font-bold shadow-sm ${
+                                      isCustomized
+                                        ? 'bg-cyan-950 border border-cyan-500 text-cyan-200'
+                                        : 'bg-black border border-zinc-700 text-[#fbbf24]'
+                                    }`}>
+                                      {item.currentKey}
+                                    </kbd>
+                                    {isCustomized && (
+                                      <span className="text-[8px] text-zinc-500 mt-0.5">
+                                        def: {item.defaultKey}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Action Buttons */}
+                              <td className="py-2.5 px-3 text-right">
+                                {isRecording ? (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      onClick={() => recordedKey && handleConfirmRebind(item.id, recordedKey)}
+                                      disabled={!recordedKey}
+                                      className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                                        recordedKey
+                                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                          : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                                      }`}
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      <span>Save</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setRecordingId(null);
+                                        setRecordedKey(null);
+                                        setConflictWarning(null);
+                                      }}
+                                      className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      onClick={() => {
+                                        setRecordingId(item.id);
+                                        setRecordedKey(null);
+                                        setConflictWarning(null);
+                                      }}
+                                      className="px-2 py-1 rounded bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-[#fbbf24] text-[#fbbf24] text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
+                                      title="Record a new key combination"
+                                    >
+                                      <Edit3 className="w-2.5 h-2.5" />
+                                      <span>Rebind</span>
+                                    </button>
+                                    {isCustomized && (
+                                      <button
+                                        onClick={() => handleResetSingle(item.id)}
+                                        className="px-1.5 py-1 rounded bg-[#181824] hover:bg-zinc-800 text-zinc-400 hover:text-white border border-[#272732] text-[10px] cursor-pointer"
+                                        title="Restore default key"
+                                      >
+                                        <RotateCcw className="w-2.5 h-2.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })()}
+              </div>
+
+              {/* Bottom Instructions */}
+              <div className="px-3 py-2 bg-[#0e0e16] border border-[#272732] rounded flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-zinc-400 font-mono">
+                <span>Tip: Modifiers (Ctrl, Alt, Shift) are automatically captured while recording.</span>
+                <span className="text-zinc-500">Press <kbd className="px-1 py-0.2 bg-black rounded text-zinc-300">Esc</kbd> anytime to cancel rebind</span>
               </div>
             </div>
           )}

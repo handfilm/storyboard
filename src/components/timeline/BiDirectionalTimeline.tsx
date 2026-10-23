@@ -332,18 +332,35 @@ export const BiDirectionalTimeline: React.FC<BiDirectionalTimelineProps> = ({
       {/* ========================================================================= */}
       <div className="h-44 flex overflow-hidden relative">
         {/* Track Headers Column (Left) */}
-        <div className="w-36 bg-[#0B0B0F] border-r border-white/10 flex flex-col shrink-0 text-[8.5px] z-20">
+        <div className="w-44 bg-[#08090E] border-r border-[#1C1D2A] flex flex-col shrink-0 text-[8.5px] z-20">
           {DEFAULT_LANES.map(lane => (
-            <div key={lane.id} className="flex-1 px-2 border-b border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-1 font-bold">
-                <span className={lane.type === 'video' ? 'text-rose-400' : lane.type === 'text' ? 'text-cyan-400' : 'text-emerald-400'}>
+            <div key={lane.id} className="flex-1 px-2.5 border-b border-[#181926] flex items-center justify-between hover:bg-white/[0.02]">
+              <div className="flex items-center gap-1.5 font-bold font-mono">
+                <span className={`px-1 py-0.2 rounded text-[8px] font-bold ${
+                  lane.type === 'video' 
+                    ? 'text-[#F5A623] bg-amber-950/60 border border-amber-700/50' 
+                    : lane.type === 'text' 
+                    ? 'text-purple-300 bg-purple-950/60 border border-purple-700/50' 
+                    : 'text-emerald-400 bg-emerald-950/60 border border-emerald-700/50'
+                }`}>
                   {lane.id}
                 </span>
-                <span className="text-white/60 truncate">{lane.label.split(' ')[1]}</span>
+                <span className="text-zinc-300 truncate max-w-[60px] text-[8.5px]">
+                  {lane.label.replace(/^[A-Z0-9]+\s*/, '')}
+                </span>
               </div>
-              <div className="flex items-center gap-1 text-white/30">
-                <Lock className="w-2.5 h-2.5 hover:text-white cursor-pointer" />
-                <Eye className="w-2.5 h-2.5 hover:text-white cursor-pointer" />
+
+              {/* Pro VU Level Meter Indicator */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-0.5 h-1.5 w-6 bg-black/80 p-0.5 rounded border border-zinc-800">
+                  <div className={`flex-1 rounded-[0.5px] ${lane.type === 'audio' ? 'bg-emerald-500' : 'bg-cyan-400'} opacity-85`} />
+                  <div className={`flex-1 rounded-[0.5px] ${lane.type === 'audio' ? 'bg-emerald-500' : 'bg-cyan-400'} opacity-70`} />
+                  <div className="flex-1 rounded-[0.5px] bg-[#F5A623] opacity-50" />
+                </div>
+                <div className="flex items-center gap-1 text-zinc-500">
+                  <Lock className="w-2.5 h-2.5 hover:text-[#F5A623] cursor-pointer" />
+                  <Eye className="w-2.5 h-2.5 hover:text-white cursor-pointer" />
+                </div>
               </div>
             </div>
           ))}

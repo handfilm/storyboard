@@ -98,7 +98,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
   const storeTitleOpacity = useStudioStore((s) => s.titleConfig?.titleOpacity ?? 1.0);
   const titleOpacity = Math.max(
-    0.1,
+    0,
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
   );
 
@@ -465,7 +465,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             data-title-container="reels-view"
             data-title-cluster="true"
             data-repaint-rev={repaintRevision}
-            className={`absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl ${
+            className={`title-block absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl ${
               isReelsTitleVisible ? 'flex flex-col' : 'hidden opacity-0'
             } ${getSafeZoneClass()}`}
             style={{ opacity: isReelsTitleVisible ? titleOpacity : 0 }}

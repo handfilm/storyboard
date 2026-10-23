@@ -57,6 +57,8 @@ export interface ComponentVisibility {
   bloom: boolean;
   lensBlur: boolean;
   motionBlur: boolean;
+  frameStepButtons?: boolean;
+  titleOpacity: number;
 }
 
 export type HeroTitlePreset = 'molten-gold' | 'titanium-silver' | 'neon-crimson';
@@ -67,7 +69,7 @@ export interface HeroTitleConfig {
   glowIntensity: number; // 0.0 to 2.0 (default 1.0 = 100%)
   verticalOffset: number; // -150 to 150px (default 0)
   tracking: number; // 0.05 to 0.45em (default 0.15)
-  titleOpacity: number; // 0.1 to 1.0 (default 1.0 = 100%)
+  titleOpacity: number; // 0.0 to 1.0 (default 1.0 = 100%)
   showTitles: boolean;
 }
 
@@ -153,7 +155,7 @@ export interface StudioState {
   setAspectRatio: (ratio: '2.39:1' | '16:9' | '4:3' | '1:1' | '4:5' | '9:16') => void;
   setLut: (lut: string) => void;
   setLens: (lens: string) => void;
-  setVisibilityItem: (key: keyof ComponentVisibility, value: boolean) => void;
+  setVisibilityItem: <K extends keyof ComponentVisibility>(key: K, value: ComponentVisibility[K]) => void;
   togglePlay: () => void;
   setSpeed: (speed: number) => void;
   setSlideTimeSec: (time: number) => void;
@@ -166,7 +168,7 @@ export interface StudioState {
   redo: () => void;
 }
 
-const defaultVisibility: ComponentVisibility = {
+const baseDefaultVisibility: ComponentVisibility = {
   titlesAll: true,
   titleBn: true,
   titleEn: true,
@@ -180,8 +182,31 @@ const defaultVisibility: ComponentVisibility = {
   vignette: true,
   bloom: true,
   lensBlur: true,
-  motionBlur: true
+  motionBlur: true,
+  frameStepButtons: false,
+  titleOpacity: 1.0
 };
+
+function hydrateInitialStoreVisibility(): ComponentVisibility {
+  if (typeof window === 'undefined') return { ...baseDefaultVisibility };
+  try {
+    const raw = localStorage.getItem('rawx_components_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const parsedOpacity = typeof parsed.titleOpacity === 'number' ? parsed.titleOpacity : 1.0;
+      return {
+        ...baseDefaultVisibility,
+        ...parsed,
+        titleOpacity: Math.max(0, Math.min(1, Math.round(parsedOpacity * 100) / 100))
+      };
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return { ...baseDefaultVisibility };
+}
+
+const defaultVisibility: ComponentVisibility = hydrateInitialStoreVisibility();
 
 export function createDefaultStoreShots(): Shot[] {
   const baseFrames = generateInitialFrames();
@@ -283,8 +308,8 @@ export const useStudioStore = create<StudioState>()(
       glowIntensity: 1.0,
       verticalOffset: 0,
       tracking: 0.15,
-      titleOpacity: 1.0,
-      showTitles: true
+      titleOpacity: defaultVisibility.titleOpacity,
+      showTitles: defaultVisibility.titlesAll
     },
     setTitlePreset: (preset: HeroTitlePreset) => {
       set((state) => {
@@ -313,8 +338,10 @@ export const useStudioStore = create<StudioState>()(
       });
     },
     setTitleOpacity: (opacity: number) => {
+      const clamped = Math.max(0, Math.min(1, Math.round(opacity * 100) / 100));
       set((state) => {
-        state.titleConfig.titleOpacity = Math.max(0.1, Math.min(1.0, Math.round(opacity * 100) / 100));
+        state.titleConfig.titleOpacity = clamped;
+        state.visibility.titleOpacity = clamped;
       });
     },
     toggleTitles: () => {
@@ -330,6 +357,12 @@ export const useStudioStore = create<StudioState>()(
         Object.assign(state.titleConfig, partial);
         if (partial.showTitles !== undefined) {
           state.visibility.titlesAll = partial.showTitles;
+        }
+        if (partial.titleOpacity !== undefined) {
+          state.visibility.titleOpacity = Math.max(
+            0,
+            Math.min(1, Math.round(partial.titleOpacity * 100) / 100)
+          );
         }
       });
     },
@@ -531,9 +564,12 @@ export const useStudioStore = create<StudioState>()(
       });
     },
 
-    setVisibilityItem: (key: keyof ComponentVisibility, value: boolean) => {
+    setVisibilityItem: <K extends keyof ComponentVisibility>(key: K, value: ComponentVisibility[K]) => {
       set((state) => {
         state.visibility[key] = value;
+        if (key === 'titleOpacity' && typeof value === 'number') {
+          state.titleConfig.titleOpacity = Math.max(0, Math.min(1, Math.round(value * 100) / 100));
+        }
       });
     },
 

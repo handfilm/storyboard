@@ -57,8 +57,13 @@ function isElementVisuallyHidden(
   if (rect.width === 0 || rect.height === 0) {
     return { hidden: true, reason: `zero-bounds:${rect.width}x${rect.height}`, diagnostics };
   }
-  const minExpectedOpacity = Math.min(0.05, targetOpacity * 0.5);
-  if (checkOpacity && parsedOpacity < minExpectedOpacity) {
+  const isDirectTitleBlock = el.classList.contains('title-block');
+  const expectedElOpacity = isDirectTitleBlock ? targetOpacity : 1;
+  if (
+    checkOpacity &&
+    expectedElOpacity > 0.02 &&
+    parsedOpacity < Math.min(0.05, expectedElOpacity * 0.5)
+  ) {
     return { hidden: true, reason: `computed-opacity:${computed.opacity}`, diagnostics };
   }
   if (clusterEl && clusterComputed) {
@@ -66,7 +71,7 @@ function isElementVisuallyHidden(
       clusterComputed.display === 'none' ||
       clusterComputed.visibility === 'hidden' ||
       clusterEl.classList.contains('opacity-0') ||
-      (checkOpacity && clusterOpacity < 0.05)
+      (checkOpacity && targetOpacity > 0.02 && clusterOpacity < 0.05)
     ) {
       return { hidden: true, reason: 'inner-title-cluster-hidden', diagnostics };
     }
@@ -83,17 +88,25 @@ function forceTitleContainerRepaint(
 ): void {
   const computed = window.getComputedStyle(el);
   const previousTransform = el.style.transform;
+  const isDirectTitleBlock = el.classList.contains('title-block');
 
   el.classList.remove('hidden', 'opacity-0', 'invisible');
   if (computed.display === 'none') {
     el.style.display = 'flex';
   }
   el.style.visibility = 'visible';
-  el.style.opacity = String(targetOpacity);
+  el.style.opacity = String(isDirectTitleBlock ? targetOpacity : 1);
   el.style.willChange = 'transform, opacity';
 
+  const nestedTitleBlock = !isDirectTitleBlock ? el.querySelector<HTMLElement>('.title-block') : null;
+  if (nestedTitleBlock) {
+    nestedTitleBlock.classList.remove('hidden', 'opacity-0', 'invisible');
+    nestedTitleBlock.style.visibility = 'visible';
+    nestedTitleBlock.style.opacity = String(targetOpacity);
+  }
+
   const clusterEl = el.querySelector<HTMLElement>('[data-title-cluster]');
-  if (clusterEl) {
+  if (clusterEl && clusterEl !== el && !clusterEl.classList.contains('title-block')) {
     clusterEl.classList.remove('hidden', 'opacity-0', 'invisible');
     clusterEl.style.visibility = 'visible';
     clusterEl.style.opacity = '1';
@@ -131,7 +144,7 @@ export function useTitleContainerRepaint({
   const titleEn = visibility?.titleEn ?? true;
   const tagline = visibility?.tagline ?? true;
   const targetOpacity = Math.max(
-    0.1,
+    0,
     Math.min(1.0, visibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
   );
 

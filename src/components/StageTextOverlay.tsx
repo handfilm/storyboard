@@ -91,7 +91,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const titleSizePx = storeTitleConfig?.titleSize ?? 72;
   const scale = propScale ?? (titleSizePx / 72);
   const titleOpacity = Math.max(
-    0.1,
+    0,
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleConfig?.titleOpacity ?? 1.0)
   );
 
@@ -177,85 +177,92 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   return (
     <div
-      ref={titleContainerRef}
-      data-title-container="stage-text-overlay"
-      data-repaint-rev={repaintRevision}
-      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden transition-opacity duration-200 ${
+      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden ${
         isEnabled ? 'flex flex-col' : 'hidden opacity-0'
       } ${className}`}
-      style={{ opacity: isEnabled ? titleOpacity : 0 }}
       data-shot-index={shotIndex}
       data-preset={activePreset}
       aria-hidden={!isEnabled}
     >
-      {isEnabled && (
-        <>
-          {/* Centered Dead-Middle Dynamic Hero Title Cluster */}
-          <div 
-            key={`hero-title-cluster-${shotIndex}-${activePreset}-${repaintRevision}`}
-            data-title-cluster="true"
-            className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-kinetic-entrance transition-transform duration-200"
-            style={{
-              transform: `translateY(${verticalOffset}px)`
-            }}
-          >
-            <div className="flex flex-col items-center justify-center text-center max-w-5xl px-4">
-              
-              {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
-              {showBangla && (
-                <h1
-                  key={`bangla-title-${shotIndex}`}
-                  className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl animate-kinetic-entrance`}
-                  style={{
-                    fontSize: `${Math.round(titleSizePx * scale)}px`,
-                    letterSpacing: `${tracking}em`,
-                    filter: presetStyle.filter,
-                    transformOrigin: 'center center'
-                  }}
-                >
-                  {displayBangla}
-                </h1>
-              )}
-
-              {/* Subtitle (Tracked Monospace English) */}
-              {showEnglish && (
-                <div className="mt-4 sm:mt-5 flex flex-col items-center">
-                  <p
-                    className={`font-mono text-sm sm:text-base md:text-lg font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
+      {/* .title-block container controlled by Components Matrix Title Block Opacity slider */}
+      <div
+        ref={titleContainerRef}
+        data-title-container="stage-text-overlay"
+        data-repaint-rev={repaintRevision}
+        className={`title-block relative w-full h-full ${
+          isEnabled ? 'flex flex-col' : 'hidden opacity-0'
+        }`}
+        style={{ opacity: isEnabled ? titleOpacity : 0 }}
+      >
+        {isEnabled && (
+          <>
+            {/* Centered Dead-Middle Dynamic Hero Title Cluster */}
+            <div 
+              key={`hero-title-cluster-${shotIndex}-${activePreset}-${repaintRevision}`}
+              data-title-cluster="true"
+              className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-kinetic-entrance transition-transform duration-200"
+              style={{
+                transform: `translateY(${verticalOffset}px)`
+              }}
+            >
+              <div className="flex flex-col items-center justify-center text-center max-w-5xl px-4">
+                
+                {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
+                {showBangla && (
+                  <h1
+                    key={`bangla-title-${shotIndex}`}
+                    className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl animate-kinetic-entrance`}
                     style={{
-                      letterSpacing: `${Math.max(0.2, tracking + 0.2)}em`
+                      fontSize: `${Math.round(titleSizePx * scale)}px`,
+                      letterSpacing: `${tracking}em`,
+                      filter: presetStyle.filter,
+                      transformOrigin: 'center center'
                     }}
                   >
-                    {displayEnglish}
-                  </p>
+                    {displayBangla}
+                  </h1>
+                )}
 
-                  {/* Accent: Optical Anamorphic Streak Divider expanding horizontally (w-0 to w-32 over 600ms) */}
-                  <div 
-                    key={`anamorphic-streak-${shotIndex}`}
-                    className={`h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
-                  />
+                {/* Subtitle (Tracked Monospace English) */}
+                {showEnglish && (
+                  <div className="mt-4 sm:mt-5 flex flex-col items-center">
+                    <p
+                      className={`font-mono text-sm sm:text-base md:text-lg font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
+                      style={{
+                        letterSpacing: `${Math.max(0.2, tracking + 0.2)}em`
+                      }}
+                    >
+                      {displayEnglish}
+                    </p>
 
-                  {/* Camera Optical Spec / Focal Length Badge (Subtle) */}
-                  {cameraInfo && (
-                    <span className="font-mono text-[9px] text-white/50 tracking-[0.25em] uppercase mt-2">
-                      {cameraInfo}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+                    {/* Accent: Optical Anamorphic Streak Divider expanding horizontally (w-0 to w-32 over 600ms) */}
+                    <div 
+                      key={`anamorphic-streak-${shotIndex}`}
+                      className={`h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
+                    />
 
-          {/* Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule */}
-          {showDialogue && displayDialogue && (
-            <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none max-w-xl px-4 text-center w-full">
-              <div className={`mx-auto inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border ${presetStyle.capsuleBorder} px-6 py-2 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                <span>"{displayDialogue}"</span>
+                    {/* Camera Optical Spec / Focal Length Badge (Subtle) */}
+                    {cameraInfo && (
+                      <span className="font-mono text-[9px] text-white/50 tracking-[0.25em] uppercase mt-2">
+                        {cameraInfo}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </>
-      )}
+
+            {/* Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule */}
+            {showDialogue && displayDialogue && (
+              <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none max-w-xl px-4 text-center w-full">
+                <div className={`mx-auto inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border ${presetStyle.capsuleBorder} px-6 py-2 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                  <span>"{displayDialogue}"</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Optional Interactive Quick-HUD for on-stage tweaking */}
       {isEnabled && allowQuickControls && (

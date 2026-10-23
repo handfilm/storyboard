@@ -76,7 +76,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
 
   const storeTitleOpacity = useStudioStore((s) => s.titleConfig?.titleOpacity ?? 1.0);
   const titleOpacity = Math.max(
-    0.1,
+    0,
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
   );
 
@@ -174,13 +174,13 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
           key={`hero-content-${slideTransitionKey}-${currentSlideIndex}`}
           className={`max-w-2xl ${isTransitionActive ? 'animate-hero-fade' : 'opacity-0'}`}
         >
-          {/* Dedicated Hero Title Container targeted via ref for forced repaint */}
+          {/* Dedicated .title-block Container targeted via ref for forced repaint & opacity control */}
           <div
             ref={heroTitleContainerRef}
             data-title-container="hero-slider"
             data-title-cluster="true"
             data-repaint-rev={repaintRevision}
-            className={`transition-opacity duration-200 ${isHeroTitleVisible ? 'flex flex-col' : 'hidden opacity-0'}`}
+            className={`title-block ${isHeroTitleVisible ? 'flex flex-col' : 'hidden opacity-0'}`}
             style={{ opacity: isHeroTitleVisible ? titleOpacity : 0 }}
             aria-hidden={!isHeroTitleVisible}
           >

@@ -233,7 +233,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
                 </span>
               </div>
 
-              <div className="text-center">
+              <div className="title-block text-center">
                 <h1 className="font-cinzel text-2xl font-bold text-[#FFE066] drop-shadow-lg">
                   {activeFrame.title}
                 </h1>

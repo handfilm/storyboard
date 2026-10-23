@@ -34,7 +34,9 @@ import {
   ComponentVisibility, 
   loadSavedComponentVisibility, 
   saveComponentVisibility,
-  countActiveComponentToggles
+  countActiveComponentToggles,
+  clampTitleOpacity,
+  applyTitleBlockOpacityCssVar
 } from './components/ComponentsMatrixPopover';
 import { ThemeSettingsModal } from './components/ThemeSettingsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
@@ -1086,29 +1088,43 @@ export default function App() {
       const effectiveVisible = Boolean(
         vis.titlesAll && (vis.titleBn !== false || vis.titleEn !== false || vis.tagline !== false)
       );
-      const nextOpacity = Math.max(0.1, Math.min(1.0, vis.titleOpacity ?? 1.0));
+      const nextOpacity = clampTitleOpacity(vis.titleOpacity);
+      applyTitleBlockOpacityCssVar(nextOpacity);
       store.setTitleConfig({ showTitles: effectiveVisible, titleOpacity: nextOpacity });
       store.setVisibilityItem('titlesAll', effectiveVisible);
       store.setVisibilityItem('titleBn', vis.titleBn);
       store.setVisibilityItem('titleEn', vis.titleEn);
       store.setVisibilityItem('tagline', vis.tagline);
       store.setVisibilityItem('caption', vis.caption);
+      store.setVisibilityItem('badge', vis.badge);
+      store.setVisibilityItem('hudData', vis.hudData);
+      store.setVisibilityItem('reticles', vis.reticles);
+      store.setVisibilityItem('guides', vis.guides);
+      store.setVisibilityItem('grain', vis.grain);
+      store.setVisibilityItem('vignette', vis.vignette);
+      store.setVisibilityItem('bloom', vis.bloom);
+      store.setVisibilityItem('lensBlur', vis.lensBlur);
+      store.setVisibilityItem('motionBlur', vis.motionBlur);
+      store.setVisibilityItem('frameStepButtons', vis.frameStepButtons);
+      store.setVisibilityItem('titleOpacity', nextOpacity);
     } catch {}
   }, []);
 
   const syncComponentsVisibility = useCallback((next: ComponentVisibility, source: string) => {
+    const normalizedOpacity = clampTitleOpacity(next.titleOpacity);
+    const normalized: ComponentVisibility = { ...next, titleOpacity: normalizedOpacity };
     console.log(`[App] Syncing componentsVisibility (${source}) -> triggering title re-render:`, {
-      titlesAll: next.titlesAll,
-      titleBn: next.titleBn,
-      titleEn: next.titleEn,
-      tagline: next.tagline,
-      titleOpacity: next.titleOpacity ?? 1.0,
+      titlesAll: normalized.titlesAll,
+      titleBn: normalized.titleBn,
+      titleEn: normalized.titleEn,
+      tagline: normalized.tagline,
+      titleOpacity: normalizedOpacity,
       currentView,
       workspaceMode
     });
-    setComponentsVisibility(next);
-    saveComponentVisibility(next);
-    syncVisibilityToStore(next);
+    setComponentsVisibility(normalized);
+    saveComponentVisibility(normalized);
+    syncVisibilityToStore(normalized);
   }, [currentView, workspaceMode, syncVisibilityToStore]);
 
   // Keep useStudioStore titleConfig.showTitles & visibility channels synchronized on mount & state updates

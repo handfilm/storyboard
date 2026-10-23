@@ -769,7 +769,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           {/* ========================================================================= */}
           {showTitles && (
             <div className="absolute inset-0 pointer-events-none p-6 sm:p-12 flex flex-col justify-end z-20 select-none">
-              <div className="max-w-3xl text-left pb-6 animate-in fade-in slide-in-from-bottom duration-500">
+              <div className="title-block max-w-3xl text-left pb-6 animate-in fade-in slide-in-from-bottom duration-500">
                 {/* Bengali Glowing Title */}
                 {activeFrame?.bengaliTitle && (
                   <h1 className="text-4xl sm:text-6xl md:text-7xl font-serif font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-[#FFE066] via-[#D4AF37] to-[#E5A919] drop-shadow-[0_0_35px_rgba(212,175,55,0.7)] leading-tight">

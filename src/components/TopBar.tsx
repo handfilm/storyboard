@@ -313,119 +313,170 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right: Tactical Action Cluster */}
         <div className="gap-2.5 sm:gap-3 flex items-center shrink-0">
-          {/* Primary View Switcher Capsule Tabs: Stage, Reels, Monitor, and MULTI-CAM */}
-          <div className="hidden md:flex items-center p-1 rounded-2xl bg-[#090a10]/95 border-2 border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8),0_2px_8px_rgba(0,0,0,0.5)] gap-1 select-none font-mono">
+          {/* Primary View Switcher Capsule Tabs: Stage, 12s REELS, SCRUB, and MULTI-CAM */}
+          <div className="flex items-center p-1 rounded-2xl bg-[#090a10]/95 border-2 border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8),0_2px_8px_rgba(0,0,0,0.5)] gap-1 select-none font-mono">
             {/* 1. Stage Tab */}
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectView) onSelectView('STUDIO');
-                if (onSelectPanel) onSelectPanel('TACTILE_STAGE');
-              }}
-              className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
-                activePanel === 'TACTILE_STAGE' && currentView === 'STUDIO'
-                  ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
-              title="Director's Canvas (Stage View)"
-            >
-              <Film className="w-3.5 h-3.5" />
-              <span>Stage</span>
-            </button>
+            <div className="relative group/stage-tab">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSelectView) onSelectView('STUDIO');
+                  if (onSelectPanel) onSelectPanel('TACTILE_STAGE');
+                }}
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
+                  activePanel === 'TACTILE_STAGE' && currentView === 'STUDIO'
+                    ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+                title="Director's Canvas (Stage View)"
+              >
+                <Film className="w-3.5 h-3.5" />
+                <span>Stage</span>
+              </button>
 
-            {/* 2. Reels Tab */}
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectView) onSelectView('STUDIO');
-                if (onSelectPanel) onSelectPanel('SPLIT');
-              }}
-              className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
-                activePanel === 'SPLIT' && currentView === 'STUDIO'
-                  ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
-              title="12.0s Reels Timeline Sequence"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Reels</span>
-            </button>
-
-            {/* 3. Monitor Tab */}
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectView) onSelectView('STUDIO');
-                if (onSelectPanel) onSelectPanel('OPTICAL');
-              }}
-              className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
-                activePanel === 'OPTICAL' && currentView === 'STUDIO'
-                  ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
-              title="2.39:1 Clean Optical Reference Monitor"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>Monitor</span>
-            </button>
-
-            {/* 4. MULTI-CAM Capsule Button with Prominent Amber Hover-Glow Effect */}
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectView) onSelectView('STUDIO');
-                if (onSelectPanel) onSelectPanel('MULTICAM');
-              }}
-              className={`px-4 py-1.5 sm:px-4.5 sm:py-2 rounded-xl text-xs font-black tracking-wider flex items-center gap-2 cursor-pointer transition-all duration-300 border-2 active:scale-95 ${
-                activePanel === 'MULTICAM' && currentView === 'STUDIO'
-                  ? 'bg-gradient-to-r from-amber-600/35 via-[#352208] to-amber-600/25 text-[#FFE066] border-[#F5A623] shadow-[0_0_24px_rgba(245,166,35,0.7),inset_0_1.5px_2px_rgba(255,220,120,0.5)] ring-2 ring-amber-500/50'
-                  : 'bg-gradient-to-r from-amber-950/40 via-[#16141a] to-amber-950/30 text-amber-300 border-amber-500/70 hover:border-amber-400 hover:text-amber-200 hover:bg-gradient-to-r hover:from-amber-600/25 hover:to-amber-500/15 hover:shadow-[0_0_24px_rgba(245,166,35,0.65),0_0_8px_rgba(245,166,35,0.4)]'
-              }`}
-              title="Switch Main Viewport to CapCut Multi-Camera Cutting & Angle Grid (Shift+M)"
-            >
-              <div className="relative flex items-center justify-center">
-                <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#F5A623] animate-pulse" />
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
+              {/* Details Hover Card */}
+              <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-[#0a0a12]/98 border border-[#F5A623]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/stage-tab:opacity-100 group-hover/stage-tab:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9.5px] text-[#F5A623] font-bold uppercase tracking-wider">
+                  <span>DIRECTOR'S STAGE</span>
+                  <span className="text-zinc-500">CANVAS</span>
+                </div>
+                <p className="text-[10px] text-zinc-300 font-sans leading-relaxed">
+                  Single-shot composition, optical framing, and live bilingual subtitle overlays.
+                </p>
               </div>
-              <span className="tracking-wide">MULTI-CAM</span>
-              <span className="text-[10px] bg-amber-500/25 text-[#F5A623] px-1.5 py-0.5 rounded border border-amber-500/40 hidden xl:inline">
-                Shift+M
-              </span>
-            </button>
+            </div>
+
+            {/* 2. 12s REELS Tab */}
+            <div className="relative group/reels-tab">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSelectView) onSelectView('STUDIO');
+                  if (onSelectPanel) onSelectPanel('SPLIT');
+                }}
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
+                  activePanel === 'SPLIT' && currentView === 'STUDIO'
+                    ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+                title="12s Reels Timeline Sequence"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>12s REELS</span>
+              </button>
+
+              {/* Details Hover Card */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-3 bg-[#0a0a12]/98 border border-[#F5A623]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/reels-tab:opacity-100 group-hover/reels-tab:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9.5px] text-[#F5A623] font-bold uppercase tracking-wider">
+                  <span>12s REELS PACING</span>
+                  <span className="text-zinc-500">24 FPS</span>
+                </div>
+                <p className="text-[10px] text-zinc-300 font-sans leading-relaxed">
+                  Sequence rhythm audit, beat transitions, and 12.0s quantized card flow.
+                </p>
+              </div>
+            </div>
+
+            {/* 3. SCRUB Tab */}
+            <div className="relative group/scrub-tab">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSelectView) onSelectView('STUDIO');
+                  if (onSelectPanel) onSelectPanel('OPTICAL');
+                }}
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
+                  activePanel === 'OPTICAL' && currentView === 'STUDIO'
+                    ? 'bg-gradient-to-b from-[#2e2312] to-[#141008] text-[#F5A623] border border-[#F5A623]/80 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+                title="2.39:1 Sub-Frame Scrubber & Optical Reference Monitor"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>SCRUB</span>
+              </button>
+
+              {/* Details Hover Card */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-3 bg-[#0a0a12]/98 border border-[#F5A623]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/scrub-tab:opacity-100 group-hover/scrub-tab:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9.5px] text-[#F5A623] font-bold uppercase tracking-wider">
+                  <span>OPTICAL SCRUBBER</span>
+                  <span className="text-emerald-400 font-bold">2.39:1</span>
+                </div>
+                <p className="text-[10px] text-zinc-300 font-sans leading-relaxed">
+                  Zero-latency sub-frame scrubbing, J-K-L playback deck, and reference optical framing.
+                </p>
+              </div>
+            </div>
+
+            {/* 4. MULTI-CAM Capsule Button with Prominent Amber Hover-Glow Effect (NO HOTKEY ON FACE) */}
+            <div className="relative group/multicam-tab">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSelectView) onSelectView('STUDIO');
+                  if (onSelectPanel) onSelectPanel('MULTICAM');
+                }}
+                className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-black tracking-wider flex items-center gap-1.5 cursor-pointer transition-all duration-300 border-2 active:scale-95 ${
+                  activePanel === 'MULTICAM' && currentView === 'STUDIO'
+                    ? 'bg-gradient-to-r from-amber-600/35 via-[#352208] to-amber-600/25 text-[#FFE066] border-[#F5A623] shadow-[0_0_24px_rgba(245,166,35,0.7),inset_0_1.5px_2px_rgba(255,220,120,0.5)] ring-2 ring-amber-500/50'
+                    : 'bg-gradient-to-r from-amber-950/40 via-[#16141a] to-amber-950/30 text-amber-300 border-amber-500/70 hover:border-amber-400 hover:text-amber-200 hover:bg-gradient-to-r hover:from-amber-600/25 hover:to-amber-500/15 hover:shadow-[0_0_24px_rgba(245,166,35,0.65),0_0_8px_rgba(245,166,35,0.4)]'
+                }`}
+                title="Switch Main Viewport to CapCut Multi-Camera Cutting & Angle Grid (Shift+M)"
+              >
+                <div className="relative flex items-center justify-center">
+                  <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#F5A623] animate-pulse" />
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
+                </div>
+                <span className="tracking-wide">MULTI-CAM</span>
+              </button>
+
+              {/* Details Hover Card with Hotkey Details */}
+              <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-[#0a0a12]/98 border border-[#F5A623]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/multicam-tab:opacity-100 group-hover/multicam-tab:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9.5px] text-[#F5A623] font-bold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5" />
+                    MULTI-CAMERA CUTTER
+                  </span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8.5px] font-bold">Shift+M</kbd>
+                </div>
+                <p className="text-[10px] text-zinc-300 font-sans leading-relaxed">
+                  Real-time multi-angle live switching grid with broadcast tally, clock-locked audio playback, and punch-in live cutting.
+                </p>
+                <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[8.5px] text-zinc-400">
+                  <span>9:16 SHORTS READY</span>
+                  <span className="text-amber-400 font-bold">KEYS 1-9 CUT</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Mobile Fallback: Direct [ MULTI-CAM ] Capsule Button with Amber Hover-Glow */}
-          <div className="md:hidden flex items-center">
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectView) onSelectView('STUDIO');
-                if (onSelectPanel) onSelectPanel('MULTICAM');
-              }}
-              className={`px-3 py-1.5 rounded-xl font-mono text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all duration-300 border-2 active:scale-95 ${
-                activePanel === 'MULTICAM' && currentView === 'STUDIO'
-                  ? 'bg-gradient-to-b from-[#3a2810] to-[#120c04] text-[#F5A623] border-[#F5A623] shadow-[0_0_20px_rgba(245,166,35,0.6)]'
-                  : 'bg-gradient-to-b from-[#181926] to-[#0e0f17] text-amber-300 border-amber-500/70 hover:border-amber-400 hover:shadow-[0_0_18px_rgba(245,166,35,0.5)]'
-              }`}
-              title="Switch Main Viewport to Multi-Camera Grid (Shift+M)"
-            >
-              <Video className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span>CAM</span>
-            </button>
-          </div>
-
-          {/* Tactical Screen Recorder Trigger [ ⏺ REC ] */}
+          {/* Tactical Screen Recorder Trigger [ REC. ] (NO HOTKEY on face, shown in hover card) */}
           {onOpenScreenRecorder && (
-            <button
-              type="button"
-              onClick={onOpenScreenRecorder}
-              className="px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl bg-gradient-to-b from-rose-900/90 to-rose-950/90 hover:from-rose-800 hover:to-rose-900 border-2 border-rose-500/80 hover:border-rose-400 text-rose-200 hover:text-white font-mono font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_16px_rgba(244,63,94,0.35)] active:scale-[0.98]"
-              title="Record Screen & Audio at 4K/60fps (Alt+R)"
-            >
-              <Circle className="w-3 h-3 fill-rose-500 text-rose-500 animate-pulse" />
-              <span className="tracking-wide">REC</span>
-              <span className="text-[10px] text-rose-300/80 hidden lg:inline ml-0.5">Alt+R</span>
-            </button>
+            <div className="relative group/rec-btn">
+              <button
+                type="button"
+                onClick={onOpenScreenRecorder}
+                className="px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl bg-gradient-to-b from-rose-900/90 to-rose-950/90 hover:from-rose-800 hover:to-rose-900 border-2 border-rose-500/80 hover:border-rose-400 text-rose-200 hover:text-white font-mono font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_16px_rgba(244,63,94,0.35)] active:scale-[0.98]"
+                title="Screen & Audio Recorder (Alt+R)"
+              >
+                <Circle className="w-3 h-3 fill-rose-500 text-rose-500 animate-pulse" />
+                <span className="tracking-wide">REC.</span>
+              </button>
+
+              {/* Details Hover Card */}
+              <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-[#0a0a12]/98 border border-rose-500/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/rec-btn:opacity-100 group-hover/rec-btn:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9.5px] text-rose-400 font-bold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <Circle className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
+                    4K SCREEN RECORDER
+                  </span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[8.5px] font-bold">Alt+R</kbd>
+                </div>
+                <p className="text-[10px] text-zinc-300 font-sans leading-relaxed">
+                  Record system display and studio audio at 4K/60fps directly into the persistent Media Vault.
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Unified EXPORT ▾ Dropdown with Chiseled Tactical Border */}
@@ -564,22 +615,34 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          {/* Kinetic Hero Titles Quick Toggle */}
+          {/* Kinetic Hero Titles Toggle: Symbol "T" ONLY */}
           {onToggleTitles && (
-            <button
-              type="button"
-              onClick={onToggleTitles}
-              className={`px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl font-mono text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all border-2 shadow-sm active:scale-95 ${
-                showTitles
-                  ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#ffe066] shadow-[0_0_16px_rgba(212,175,55,0.4)]'
-                  : 'bg-[#12131d] hover:bg-[#1c1d2c] border-[#2f3246] text-zinc-300 hover:text-white'
-              }`}
-              title="Toggle Kinetic Hero Typography (T)"
-            >
-              <Type className={`w-4 h-4 ${showTitles ? 'text-[#ffe066]' : 'text-zinc-400'}`} />
-              <span className="hidden md:inline">{showTitles ? 'TITLES: ON' : 'TITLES: OFF'}</span>
-              <span className="md:hidden">TXT</span>
-            </button>
+            <div className="relative group/title-toggle">
+              <button
+                type="button"
+                onClick={onToggleTitles}
+                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl font-serif text-base sm:text-lg font-black flex items-center justify-center cursor-pointer transition-all border-2 shadow-sm active:scale-95 ${
+                  showTitles
+                    ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#ffe066] shadow-[0_0_16px_rgba(212,175,55,0.45)]'
+                    : 'bg-[#12131d] hover:bg-[#1c1d2c] border-[#2f3246] text-zinc-400 hover:text-white'
+                }`}
+                title="Toggle Kinetic Hero Typography (T)"
+                aria-label="Toggle Kinetic Hero Typography"
+              >
+                <span>T</span>
+              </button>
+
+              {/* Details Hover Card */}
+              <div className="absolute right-0 top-full mt-2 w-56 p-2.5 bg-[#0a0a12]/98 border border-[#d4af37]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/title-toggle:opacity-100 group-hover/title-toggle:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-white/10 text-[9px] text-[#fbbf24] font-bold uppercase tracking-wider">
+                  <span>KINETIC TITLES</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">T</kbd>
+                </div>
+                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">
+                  Status: <span className={showTitles ? 'text-amber-400 font-bold' : 'text-zinc-500 font-bold'}>{showTitles ? 'ON' : 'OFF'}</span>. Bilingual Bangla-English typography overlays.
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Shortcuts: Stylized icon-only button (⌘/⌨) displaying a floating hotkey cheat sheet on hover */}

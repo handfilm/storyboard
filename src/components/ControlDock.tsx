@@ -405,20 +405,19 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
         {/* Right Section: Cinema Tools */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Kinetic Hero Titles Toggle */}
+          {/* Kinetic Hero Titles Toggle: Symbol "T" ONLY */}
           {onToggleTitles && (
             <button
               onClick={onToggleTitles}
-              className={`px-2 py-1 rounded-[2px] border flex items-center gap-1 cursor-pointer transition-all text-[9.5px] font-bold ${
+              className={`w-6 h-6 rounded-[2px] border font-serif text-xs font-black flex items-center justify-center cursor-pointer transition-all ${
                 showTitles
                   ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.4)]'
                   : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
               }`}
               title="Toggle Kinetic Hero Typography (T)"
+              aria-label="Toggle Kinetic Hero Typography"
             >
-              <Type className="w-3 h-3 text-[#D4AF37]" />
-              <span className="hidden sm:inline">{showTitles ? 'TITLES: ON' : 'TITLES: OFF'}</span>
-              <span className="sm:hidden">TXT</span>
+              <span>T</span>
             </button>
           )}
           {/* Thirds Guides */}

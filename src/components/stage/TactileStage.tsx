@@ -366,23 +366,22 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               </div>
             )}
 
-            {/* Permanent Quick [ T TITLES: ON/OFF ] Toggle on Stage HUD */}
+            {/* Permanent Quick [ T ] Symbol Toggle on Stage HUD */}
             <button
               type="button"
               onClick={() => {
                 if (onToggleTitles) onToggleTitles();
                 else toggleTitlesStore();
               }}
-              className={`pointer-events-auto px-2.5 py-1 rounded-[2px] border font-mono text-[9px] font-bold tracking-wider flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md shadow-lg ${
+              className={`pointer-events-auto w-7 h-7 rounded-[3px] border font-serif text-xs font-black flex items-center justify-center transition-all cursor-pointer backdrop-blur-md shadow-lg ${
                 isTitlesActive
-                  ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#ffe066] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
+                  ? 'bg-[#d4af37]/30 border-[#d4af37] text-[#ffe066] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
                   : 'bg-black/80 border-white/20 text-zinc-400 hover:text-white hover:border-white/40'
               }`}
               title="Toggle Real-Time Kinetic Titles (T)"
+              aria-label="Toggle Kinetic Titles"
             >
-              <Type className={`w-3 h-3 ${isTitlesActive ? 'text-[#ffe066]' : 'text-zinc-500'}`} />
-              <span className={`w-1.5 h-1.5 rounded-full ${isTitlesActive ? 'bg-[#ffe066] animate-pulse' : 'bg-zinc-600'}`} />
-              <span>{isTitlesActive ? 'T TITLES: ON' : 'T TITLES: OFF'}</span>
+              <span>T</span>
             </button>
           </div>
 

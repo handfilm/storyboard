@@ -98,7 +98,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ 12.0s Reels ] Chiseled 3D Metallic Tab */}
+        {/* [ 12s REELS ] Chiseled 3D Metallic Tab */}
         <div className="relative group/tab">
           <button
             type="button"
@@ -110,10 +110,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             }`}
           >
             <Sliders className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'SPLIT' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
-            <span>12.0s Reels</span>
+            <span>12s REELS</span>
           </button>
 
-          {/* Hover Card for 12.0s Reels */}
+          {/* Hover Card for 12s REELS */}
           <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
             <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
               <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
@@ -131,7 +131,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ Monitor ] Chiseled 3D Metallic Tab */}
+        {/* [ SCRUB ] Chiseled 3D Metallic Tab */}
         <div className="relative group/tab">
           <button
             type="button"
@@ -143,19 +143,19 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             }`}
           >
             <Maximize2 className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
-            <span>Monitor</span>
+            <span>SCRUB</span>
           </button>
 
-          {/* Hover Card for Monitor */}
+          {/* Hover Card for SCRUB */}
           <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
             <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
               <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
               <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                CLEAN PREVIEW
+                OPTICAL SCRUBBER
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Zero-UI theatrical reference monitor with 2.39:1 scope mask.
+              Zero-latency sub-frame scrubbing, J-K-L playback deck, and reference optical framing.
             </p>
             <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
               <span>ZERO INTERFERENCE</span>
@@ -164,7 +164,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ 🎥 MULTI-CAM ] Chiseled 3D Metallic Tab */}
+        {/* [ 🎥 MULTI-CAM ] Chiseled 3D Metallic Tab (NO HOTKEY ON BUTTON FACE) */}
         <div className="relative group/tab">
           <button
             type="button"
@@ -180,18 +180,18 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
             </div>
             <span>🎥 MULTI-CAM</span>
-            <span className="text-[10px] bg-amber-500/25 text-[#F5A623] px-1.5 py-0.5 rounded border border-amber-500/40 hidden sm:inline">
-              Shift+M
-            </span>
           </button>
 
-          {/* Hover Card for Multi-Cam */}
+          {/* Hover Card for Multi-Cam with Hotkey Details */}
           <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-76 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
-            <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
-              <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
-              <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                MULTI-CAMERA CUTTER
-              </span>
+            <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
+                <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
+                  MULTI-CAMERA CUTTER
+                </span>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8.5px] font-mono font-bold">Shift+M</kbd>
             </div>
             <p className="text-xs text-slate-300 mt-2 leading-relaxed">
               Live CapCut-style 4-angle sync monitor with one-click real-time director switching.
@@ -216,7 +216,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             title="Toggle between 12s Sequence advance and Solo Scrub"
           >
             <Radio className="w-3 h-3" />
-            <span>{playbackMode === 'sequence' ? 'ANIMATIC (12s)' : 'SOLO SCRUB'}</span>
+            <span>{playbackMode === 'sequence' ? 'ANIMATIC (12s)' : 'SCRUB'}</span>
           </button>
         )}
       </div>

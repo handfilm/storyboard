@@ -618,12 +618,25 @@ export class CinematicAudioEngine {
     }
   }
 
+  public getVolume(): number {
+    return this.volume;
+  }
+
   public getFrequencyData(outputArray?: Uint8Array): Uint8Array {
     if (!this.analyserNode) {
       return outputArray || new Uint8Array(32);
     }
     const data = outputArray || new Uint8Array(this.analyserNode.frequencyBinCount);
     this.analyserNode.getByteFrequencyData(data as any);
+    return data;
+  }
+
+  public getTimeDomainData(outputArray?: Uint8Array): Uint8Array {
+    if (!this.analyserNode) {
+      return outputArray || new Uint8Array(64);
+    }
+    const data = outputArray || new Uint8Array(this.analyserNode.frequencyBinCount);
+    this.analyserNode.getByteTimeDomainData(data as any);
     return data;
   }
 

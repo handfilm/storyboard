@@ -1253,6 +1253,10 @@ export default function App() {
         onGoHome={handleGoHome}
         currentView={currentView}
         onSelectView={setCurrentView}
+        currentShotIndex={currentIndex}
+        totalShots={project.frames.length || 100}
+        activePanel={activeDualPanel}
+        onSelectPanel={setActiveDualPanel}
         onSelectMode={(mode) => {
           if (mode === 'STAGE') {
             handleGoHome();

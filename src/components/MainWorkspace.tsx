@@ -24,6 +24,7 @@ import { ChevronLeft, ChevronRight, Home, Film, SlidersHorizontal, Layers, Play,
 import { StudioModuleId } from './LeftRail';
 import { BloomInteractiveCanvas } from './stage/BloomInteractiveCanvas';
 import { TactileStage } from './stage/TactileStage';
+import { StageHeader } from './StageHeader';
 import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode, SLIDE_DURATION_SEC } from '../types/editor';
 
@@ -274,93 +275,18 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   // 4. Default Hero STAGE Mode with Dual-Panel Workflow (Exclusively renders the 2.39:1 anamorphic monitor)
   return (
     <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
-      {/* Consolidated Master Navigation Header */}
-      <div className="h-9 bg-[#0c0c10] border-b border-[#272732] px-4 flex items-center justify-between z-20 select-none shrink-0">
-        <div className="flex items-center gap-2">
-          {/* Panel Switcher Tabs */}
-          <div className="flex items-center gap-1 bg-[#0a0a10] border border-[#272732] rounded-full p-0.5">
-            <button
-              type="button"
-              onClick={() => handleSelectPanel('TACTILE_STAGE')}
-              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
-                currentPanel === 'TACTILE_STAGE'
-                  ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Stage Viewport with 100-Shot Sequence Runner"
-            >
-              <Film className="w-3 h-3 text-[#eab308]" />
-              <span>Stage</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectPanel('SPLIT')}
-              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
-                currentPanel === 'SPLIT'
-                  ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="12.0s Reels Viewport & Timeline Sequencer"
-            >
-              <Sliders className="w-3 h-3 text-[#38bdf8]" />
-              <span>12.0s Reels</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectPanel('OPTICAL')}
-              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
-                currentPanel === 'OPTICAL'
-                  ? 'bg-[#1a1a24] text-[#fbbf24] border border-[#d4af37]/40 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Advanced Monitor & JKL Transport"
-            >
-              <Maximize2 className="w-3 h-3 text-emerald-400" />
-              <span>Monitor</span>
-            </button>
-          </div>
-
-          <span className="text-zinc-700 hidden sm:inline">|</span>
-
-          {/* Active Shot Telemetry */}
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] truncate max-w-[240px] xl:max-w-[360px]">
-            <span className="text-[#fbbf24] font-bold shrink-0">
-              SH{String(currentIndex + 1).padStart(3, '0')} / {String(frames.length).padStart(3, '0')}
-            </span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-zinc-200 font-bold truncate">
-              {currentFrame?.bengaliTitle || 'দৃষ্টি'} // {currentFrame?.title || 'THE SINGULARITY'}
-            </span>
-          </div>
-        </div>
-
-        {/* Right Timing Spec & Mode Capsules */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden md:flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#0a0a10] border border-[#272732] text-[10px] text-zinc-400 font-mono">
-            <span className="text-[#fbbf24] font-bold">12.000s ALLOCATION</span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-zinc-300">288 FRAMES @ 24FPS</span>
-          </div>
-
-          {/* Solo / Sequence Mode Pill */}
-          {onSelectPlaybackMode && (
-            <button
-              type="button"
-              onClick={() => onSelectPlaybackMode(playbackMode === 'sequence' ? 'solo' : 'sequence')}
-              className={`px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider transition-colors duration-150 ease-out cursor-pointer border active:scale-[0.98] ${
-                playbackMode === 'sequence'
-                  ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300'
-                  : 'bg-amber-950/70 border-[#eab308]/60 text-[#fbbf24]'
-              }`}
-              title="Toggle between 12s Animatic Sequence advance and Solo Scrub"
-            >
-              {playbackMode === 'sequence' ? '▶ ANIMATIC (12s)' : '🔍 SOLO SCRUB'}
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Master Tactile Stage Top Bar */}
+      <StageHeader
+        currentPanel={currentPanel}
+        onSelectPanel={handleSelectPanel}
+        currentIndex={currentIndex}
+        totalShots={frames.length || 100}
+        currentFrame={currentFrame}
+        playbackMode={playbackMode}
+        onSelectPlaybackMode={onSelectPlaybackMode}
+        slideDurationSec={SLIDE_DURATION_SEC}
+        fps={24}
+      />
 
       {/* Main Viewport Content based on active panel */}
       <div className="flex-1 w-full relative flex flex-col overflow-hidden">

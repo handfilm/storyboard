@@ -82,6 +82,10 @@ export interface TopBarProps {
   onOpenSettingsModal?: () => void;
   currentView?: 'HOME' | 'STUDIO';
   onSelectView?: (view: 'HOME' | 'STUDIO') => void;
+  currentShotIndex?: number;
+  totalShots?: number;
+  activePanel?: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER';
+  onSelectPanel?: (panel: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER') => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -110,7 +114,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleTitles,
   showTitles = true,
   currentView = 'HOME',
-  onSelectView
+  onSelectView,
+  currentShotIndex = 0,
+  totalShots = 100,
+  activePanel = 'TACTILE_STAGE',
+  onSelectPanel
 }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isEcosystemMenuOpen, setIsEcosystemMenuOpen] = useState(false);
@@ -237,70 +245,243 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
           </div>
 
-          {/* Minimal Nav Links: Home, Top 10 Reels, Manifesto (Orbitron / Space Grotesk with gold underline and summary cards) */}
-          <nav className="flex items-center gap-5 sm:gap-7 text-xs font-space-grotesk font-semibold tracking-wide">
-            {/* 1. Home */}
-            <div className="relative group/nav py-1">
-              <button
-                type="button"
-                onClick={handleNavHome}
-                className={`transition-colors cursor-pointer py-0.5 ${
-                  currentView === 'HOME' ? 'text-white' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <span>Home</span>
-                {/* Animated Gold Underline */}
-                <span className={`absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 ${
-                  currentView === 'HOME' ? 'w-full' : 'w-0 group-hover/nav:w-full'
-                }`} />
-              </button>
-              {/* Hover Summary Card */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
-                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">DIRECTOR HOME</div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">10-Slide Cinema Hero Runner, Top 10 Master Shots & Anthology Specs.</div>
+          {/* If Studio Mode: Primary View Switcher Tabs; If Home Mode: Minimal Nav Links */}
+          {currentView === 'STUDIO' ? (
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* [ Stage ] */}
+              <div className="relative group/tab">
+                <button
+                  type="button"
+                  onClick={() => onSelectPanel ? onSelectPanel('TACTILE_STAGE') : onSelectMode?.('STAGE')}
+                  className={`px-5 py-2 rounded-xl text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+                    (activePanel === 'TACTILE_STAGE' || activeMode === 'STAGE')
+                      ? 'bg-[#F5A623]/15 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_15px_rgba(245,166,35,0.25)]'
+                      : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <Film className={`w-4 h-4 transition-transform duration-150 ${(activePanel === 'TACTILE_STAGE' || activeMode === 'STAGE') ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+                  <span>Stage</span>
+                </button>
+
+                {/* Hover Card for Stage */}
+                <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/30 p-3 rounded-xl shadow-2xl backdrop-blur-xl absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
+                    <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
+                    <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
+                      DIRECTOR'S CANVAS
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                    Single-shot composition, framing, and live overlays.
+                  </p>
+                  <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
+                    <span>2.39:1 ANAMORPHIC</span>
+                    <span className="text-amber-400 font-bold">LIVE COMPOSITOR</span>
+                  </div>
+                </div>
               </div>
+
+              {/* [ 12.0s Reels ] */}
+              <div className="relative group/tab">
+                <button
+                  type="button"
+                  onClick={() => onSelectPanel ? onSelectPanel('SPLIT') : onSelectMode?.('BOARD')}
+                  className={`px-5 py-2 rounded-xl text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+                    (activePanel === 'SPLIT' || activeMode === 'BOARD')
+                      ? 'bg-[#F5A623]/15 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_15px_rgba(245,166,35,0.25)]'
+                      : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <Sliders className={`w-4 h-4 transition-transform duration-150 ${(activePanel === 'SPLIT' || activeMode === 'BOARD') ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+                  <span>12.0s Reels</span>
+                </button>
+
+                {/* Hover Card for 12.0s Reels */}
+                <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/30 p-3 rounded-xl shadow-2xl backdrop-blur-xl absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
+                    <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
+                    <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
+                      TIMELINE PACING
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                    Full 100-shot sequence overview and rhythm audit.
+                  </p>
+                  <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
+                    <span>12.000s QUANTIZED</span>
+                    <span className="text-sky-400 font-bold">100-SHOT SEQUENCE</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* [ Monitor ] */}
+              <div className="relative group/tab">
+                <button
+                  type="button"
+                  onClick={() => onSelectPanel ? onSelectPanel('OPTICAL') : onSelectMode?.('STAGE')}
+                  className={`px-5 py-2 rounded-xl text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+                    activePanel === 'OPTICAL'
+                      ? 'bg-[#F5A623]/15 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_15px_rgba(245,166,35,0.25)]'
+                      : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <Maximize2 className={`w-4 h-4 transition-transform duration-150 ${activePanel === 'OPTICAL' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+                  <span>Monitor</span>
+                </button>
+
+                {/* Hover Card for Monitor */}
+                <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/30 p-3 rounded-xl shadow-2xl backdrop-blur-xl absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
+                    <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
+                    <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
+                      CLEAN PREVIEW
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                    Zero-UI theatrical reference output with 2.39:1 scope.
+                  </p>
+                  <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
+                    <span>ZERO INTERFERENCE</span>
+                    <span className="text-emerald-400 font-bold">2.39:1 REFERENCE</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Minimal Nav Links: Home, Top 10 Reels, Manifesto (Orbitron / Space Grotesk with gold underline and summary cards) */
+            <nav className="flex items-center gap-5 sm:gap-7 text-xs font-space-grotesk font-semibold tracking-wide">
+              {/* 1. Home */}
+              <div className="relative group/nav py-1">
+                <button
+                  type="button"
+                  onClick={handleNavHome}
+                  className={`transition-colors cursor-pointer py-0.5 ${
+                    currentView === 'HOME' ? 'text-white' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span>Home</span>
+                  {/* Animated Gold Underline */}
+                  <span className={`absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 ${
+                    currentView === 'HOME' ? 'w-full' : 'w-0 group-hover/nav:w-full'
+                  }`} />
+                </button>
+                {/* Hover Summary Card */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
+                  <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">DIRECTOR HOME</div>
+                  <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">10-Slide Cinema Hero Runner, Top 10 Master Shots & Anthology Specs.</div>
+                </div>
+              </div>
+
+              {/* 2. Top 10 Reels */}
+              <div className="relative group/nav py-1">
+                <button
+                  type="button"
+                  onClick={handleNavTop10}
+                  className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
+                >
+                  <span>Top 10 Reels</span>
+                  {/* Animated Gold Underline */}
+                  <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
+                </button>
+                {/* Hover Summary Card */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
+                  <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">TOP 10 MASTER REELS</div>
+                  <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Curated 24fps master shots with 2.39:1 scope framing and audio telemetry.</div>
+                </div>
+              </div>
+
+              {/* 3. Manifesto */}
+              <div className="relative group/nav py-1">
+                <button
+                  type="button"
+                  onClick={handleNavManifesto}
+                  className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
+                >
+                  <span>Manifesto</span>
+                  {/* Animated Gold Underline */}
+                  <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
+                </button>
+                {/* Hover Summary Card */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
+                  <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">SOVEREIGN MANIFESTO</div>
+                  <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Guiding tenets of 12.0s timing, zero-cloud architecture, and hardware GPU render.</div>
+                </div>
+              </div>
+            </nav>
+          )}
+        </div>
+
+        {/* Relocated Minimal Telemetry Strip (Pinned to the Far Right Cluster) */}
+        <div className="flex items-center space-x-3 ml-auto text-xs font-mono relative group/telemetry cursor-default mr-3 shrink-0">
+          {/* Minimal Default Display */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2">
+            {/* [ SH001 / 100 ] */}
+            <div className="px-2.5 py-1 rounded-lg bg-[#0c0d10]/90 border border-white/10 text-slate-300 font-mono text-xs flex items-center gap-1 group-hover/telemetry:border-[#F5A623]/50 group-hover/telemetry:text-white transition-all duration-150">
+              <span className="text-[#F5A623] font-bold">[</span>
+              <span className="text-[#F5A623] font-bold">SH{String(currentShotIndex + 1).padStart(3, '0')}</span>
+              <span className="text-slate-500">/</span>
+              <span>{totalShots}</span>
+              <span className="text-[#F5A623] font-bold">]</span>
             </div>
 
-            {/* 2. Top 10 Reels */}
-            <div className="relative group/nav py-1">
-              <button
-                type="button"
-                onClick={handleNavTop10}
-                className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
-              >
-                <span>Top 10 Reels</span>
-                {/* Animated Gold Underline */}
-                <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
-              </button>
-              {/* Hover Summary Card */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
-                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">TOP 10 MASTER REELS</div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Curated 24fps master shots with 2.39:1 scope framing and audio telemetry.</div>
-              </div>
+            {/* [ 288 F // 24 FPS ] */}
+            <div className="hidden sm:flex px-2.5 py-1 rounded-lg bg-[#0c0d10]/90 border border-white/10 text-slate-300 font-mono text-xs items-center gap-1 group-hover/telemetry:border-[#F5A623]/50 group-hover/telemetry:text-white transition-all duration-150">
+              <span className="text-slate-400 font-bold">[</span>
+              <span className="font-semibold">288 F</span>
+              <span className="text-slate-600">//</span>
+              <span className="text-slate-400">24 FPS</span>
+              <span className="text-slate-400 font-bold">]</span>
             </div>
 
-            {/* 3. Manifesto */}
-            <div className="relative group/nav py-1">
-              <button
-                type="button"
-                onClick={handleNavManifesto}
-                className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
-              >
-                <span>Manifesto</span>
-                {/* Animated Gold Underline */}
-                <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
-              </button>
-              {/* Hover Summary Card */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
-                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">SOVEREIGN MANIFESTO</div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Guiding tenets of 12.0s timing, zero-cloud architecture, and hardware GPU render.</div>
+            {/* [ 12.0s ] */}
+            <div className="px-2.5 py-1 rounded-lg bg-[#0c0d10]/90 border border-white/10 text-[#F5A623] font-mono text-xs flex items-center gap-1 font-bold group-hover/telemetry:border-[#F5A623]/50 shadow-sm transition-all duration-150">
+              <span className="text-slate-400 font-bold">[</span>
+              <span>12.0s</span>
+              <span className="text-slate-400 font-bold">]</span>
+            </div>
+          </div>
+
+          {/* Expanded Telemetry Hover Card */}
+          <div className="absolute right-0 top-full mt-2 w-80 pointer-events-none z-50 bg-[#08090C]/98 border border-[#F5A623]/40 p-4 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 group-hover/telemetry:opacity-100 group-hover/telemetry:translate-y-0 transition-all duration-150 ease-out text-left">
+            <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Activity className="w-3.5 h-3.5 text-[#F5A623]" />
+                <span className="text-xs font-bold text-[#F5A623] uppercase tracking-wider font-mono">
+                  TIMELINE TELEMETRY
+                </span>
+              </div>
+              <span className="text-[9px] bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] px-1.5 py-0.5 rounded font-bold">
+                LIVE
+              </span>
+            </div>
+            <div className="space-y-2 text-xs font-mono">
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-slate-400">Total Shots:</span>
+                <span className="text-white font-bold">{totalShots} Master Blocks</span>
+              </div>
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-slate-400">Current Shot:</span>
+                <span className="text-[#F5A623] font-bold">
+                  Shot {String(currentShotIndex + 1).padStart(3, '0')} (12.000s Allocated)
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-slate-400">Frame Budget:</span>
+                <span className="text-slate-200 font-bold">288 Frames @ 24.000 FPS Cinema Lock</span>
+              </div>
+              <div className="flex items-center justify-between py-0.5 border-t border-white/5 pt-2">
+                <span className="text-slate-400">Status:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse" />
+                  Local Cache Synced (IndexedDB)
+                </span>
               </div>
             </div>
-          </nav>
+          </div>
         </div>
 
         {/* Right: Tactical Action Cluster */}
-        <div className="gap-2.5 sm:gap-3 flex items-center shrink-0">
+        <div className="gap-2 sm:gap-2.5 flex items-center shrink-0">
           {/* Unified EXPORT ▾ Dropdown with Chiseled Tactical Border */}
           <div className="relative">
             <button

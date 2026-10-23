@@ -52,7 +52,10 @@ import {
   Film,
   Camera,
   Eye,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Video,
+  Music,
+  RefreshCw
 } from 'lucide-react';
 
 export interface ScrubPanelProps {
@@ -264,6 +267,73 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     }
   };
 
+  // Quick AI Direct Actions (Omni Flash & Lyria 3)
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+
+  const handleQuickAnimateOmni = async () => {
+    if (!currentSlide.remoteUrl) return;
+    setIsAiGenerating(true);
+    setAiMessage('Omni Flash: Animating video...');
+    try {
+      const res = await fetch('/api/ai/video/animate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: currentSlide.remoteUrl,
+          motionPrompt: 'Cinematic forward camera motion with atmospheric depth dynamics',
+          aspectRatio: '16:9'
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.videoUrl) {
+        onUpdateSlide(safeIndex, {
+          remoteUrl: data.videoUrl,
+          isVideo: true
+        });
+        setAiMessage('Video animated & auto-assigned!');
+      } else {
+        setAiMessage(data.error || 'Animation failed');
+      }
+    } catch {
+      setAiMessage('Animation request failed');
+    } finally {
+      setIsAiGenerating(false);
+      setTimeout(() => setAiMessage(null), 3000);
+    }
+  };
+
+  const handleQuickScoreLyria = async () => {
+    setIsAiGenerating(true);
+    setAiMessage('Lyria 3: Synthesizing 12s cue...');
+    try {
+      const res = await fetch('/api/ai/music/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Cinematic 12s background score for shot ${safeIndex + 1}: ${currentSlide.titleEn || 'Theatrical Scene'}`,
+          durationSec: 12.0
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.audioUrl) {
+        onUpdateSlide(safeIndex, {
+          soundCue: `Lyria 12s Score // ${currentSlide.titleEn || 'Thematic Cue'}`
+        });
+        const audio = new Audio(data.audioUrl);
+        audio.play().catch(() => {});
+        setAiMessage('12s Score generated & assigned!');
+      } else {
+        setAiMessage(data.error || 'Score generation failed');
+      }
+    } catch {
+      setAiMessage('Score request failed');
+    } finally {
+      setIsAiGenerating(false);
+      setTimeout(() => setAiMessage(null), 3000);
+    }
+  };
+
   // Filtered Cards
   const filteredSlides = useMemo(() => {
     if (!searchQuery.trim()) return slides;
@@ -458,17 +528,49 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                 F{String(currentFrameNum).padStart(3, '0')} // 288
               </div>
 
-              {/* Quick Ingest Button on hover */}
-              <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Quick AI Action Buttons on hover */}
+              <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                {currentSlide.remoteUrl && !currentSlide.isVideo && (
+                  <button
+                    type="button"
+                    onClick={handleQuickAnimateOmni}
+                    disabled={isAiGenerating}
+                    className="px-2.5 py-1 rounded bg-black/80 hover:bg-black border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 hover:text-white text-xs flex items-center gap-1.5 cursor-pointer backdrop-blur font-bold shadow-sm"
+                    title="Animate photo to 10s video using Gemini Omni Flash"
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Omni Video</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleQuickScoreLyria}
+                  disabled={isAiGenerating}
+                  className="px-2.5 py-1 rounded bg-black/80 hover:bg-black border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-white text-xs flex items-center gap-1.5 cursor-pointer backdrop-blur font-bold shadow-sm"
+                  title="Synthesize 12s film score stem with Lyria 3"
+                >
+                  <Music className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Lyria Score</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={(e) => handleTriggerUpload(safeIndex, e)}
                   className="px-2.5 py-1 rounded bg-black/80 hover:bg-black border border-white/20 hover:border-amber-400 text-slate-200 hover:text-amber-300 text-xs flex items-center gap-1.5 cursor-pointer backdrop-blur"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Replace Media</span>
+                  <span>Replace</span>
                 </button>
               </div>
+
+              {/* Real-time AI Generation Feedback Banner */}
+              {aiMessage && (
+                <div className="absolute top-10 right-2.5 px-3 py-1.5 rounded-lg bg-black/90 border border-amber-400/50 text-amber-300 text-xs font-bold font-mono shadow-xl backdrop-blur animate-fade-in flex items-center gap-2">
+                  {isAiGenerating && <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />}
+                  <span>{aiMessage}</span>
+                </div>
+              )}
             </div>
           </div>
         )}

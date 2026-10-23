@@ -14,7 +14,7 @@
  *     HUB, VAULT, R2 / STREAM, BLOOM-APP, DEEPER, LAB, SETTINGS
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WorkspaceMode } from '../core/theme';
 import { SaveState } from '../core/storage';
 import { exportFullIdbBackup } from '../utils/backup';
@@ -44,8 +44,13 @@ import {
   Keyboard,
   Type,
   Maximize2,
-  Circle
+  Circle,
+  LogIn,
+  LogOut
 } from 'lucide-react';
+import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/firebase';
+import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
+import { User } from 'firebase/auth';
 
 export interface TopBarProps {
   projectTitle?: string;
@@ -126,6 +131,19 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isEcosystemMenuOpen, setIsEcosystemMenuOpen] = useState(false);
+
+  // Firebase Auth & Cloud Sync State
+  const [authUser, setAuthUser] = useState<User | null>(auth.currentUser);
+  const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>({ isSynced: false, lastSyncedAt: null, error: null });
+
+  useEffect(() => {
+    const unsubAuth = onAuthChange(u => setAuthUser(u));
+    const unsubSync = firestoreSync.subscribeStatus(s => setCloudStatus(s));
+    return () => {
+      unsubAuth();
+      unsubSync();
+    };
+  }, []);
 
   const handleNavHome = () => {
     if (onSelectView) onSelectView('HOME');
@@ -313,6 +331,36 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right: Tactical Action Cluster */}
         <div className="gap-2.5 sm:gap-3 flex items-center shrink-0">
+          {/* Cloud Sync & Google Auth Pill */}
+          {authUser ? (
+            <div className="relative group/auth-user">
+              <button
+                type="button"
+                onClick={signOutUser}
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-black/60 border border-emerald-500/40 text-emerald-300 font-mono text-xs flex items-center gap-2 hover:border-emerald-400 cursor-pointer shadow-sm active:scale-95"
+                title={`Signed in as ${authUser.email}. Click to Sign Out.`}
+              >
+                {authUser.photoURL ? (
+                  <img src={authUser.photoURL} alt="User" className="w-4 h-4 rounded-full border border-emerald-400" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+                )}
+                <span className="hidden md:inline font-bold text-[11px] max-w-[90px] truncate">{authUser.displayName?.split(' ')[0] || 'Director'}</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">SYNCED</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={signInWithGoogle}
+              className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-b from-[#222234] via-[#161624] to-[#0c0c14] hover:from-[#2a2a40] hover:to-[#161624] border border-[#d4af37]/60 hover:border-[#fbbf24] text-zinc-100 hover:text-[#fbbf24] font-mono text-xs flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+              title="Sign in with Google to sync storyboards to Firestore"
+            >
+              <LogIn className="w-3.5 h-3.5 text-[#fbbf24]" />
+              <span className="hidden sm:inline font-bold text-[11px]">Sign In</span>
+            </button>
+          )}
+
           {/* Tactical Screen Recorder Trigger [ REC. ] (NO HOTKEY on face, shown in hover card) */}
           {onOpenScreenRecorder && (
             <div className="relative group/rec-btn">

@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 
 dotenv.config();
 
@@ -225,6 +225,210 @@ Add high-contrast visual juxtaposition and specify exact camera tilt or lighting
       console.error('Gemini Story Assistant error:', error);
       res.status(500).json({ success: false, error: error.message || 'Generation failed' });
     }
+  }
+});
+
+// 1. Image Creation (gemini-nano-banana-2.1)
+app.post('/api/ai/image/generate', async (req, res) => {
+  try {
+    const { prompt, aspectRatio = '16:9' } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ success: false, error: 'Prompt is required' });
+    }
+
+    let validAspect = '16:9';
+    if (aspectRatio === '9:16') validAspect = '9:16';
+    else if (aspectRatio === '1:1') validAspect = '1:1';
+    else if (aspectRatio === '4:3') validAspect = '4:3';
+    else if (aspectRatio === '3:4') validAspect = '3:4';
+    else if (aspectRatio === '2.39:1' || aspectRatio === '21:9') validAspect = '16:9';
+
+    const interaction = await ai.interactions.create({
+      model: 'gemini-nano-banana-2.1',
+      input: prompt,
+      response_modalities: ['image', 'text'],
+      generation_config: {
+        image_config: {
+          aspect_ratio: validAspect,
+          image_size: '1K'
+        }
+      }
+    });
+
+    let imageUrl = '';
+    for (const step of interaction.steps || []) {
+      if (step.type === 'model_output') {
+        const imageContent: any = step.content?.find((c: any) => c.type === 'image');
+        if (imageContent && imageContent.data) {
+          const mimeType = imageContent.mime_type || 'image/png';
+          imageUrl = `data:${mimeType};base64,${imageContent.data}`;
+          break;
+        }
+      }
+    }
+
+    if (!imageUrl) {
+      return res.status(500).json({ success: false, error: 'Model did not produce an image. Please refine your prompt.' });
+    }
+
+    res.json({ success: true, imageUrl });
+  } catch (error: any) {
+    console.error('Image generation error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Image generation failed' });
+  }
+});
+
+// 2. Image Editing (gemini-nano-banana-2.1)
+app.post('/api/ai/image/edit', async (req, res) => {
+  try {
+    const { imageBase64, mimeType = 'image/png', editPrompt } = req.body;
+    if (!imageBase64 || !editPrompt) {
+      return res.status(400).json({ success: false, error: 'Both imageBase64 and editPrompt are required' });
+    }
+
+    const cleanData = imageBase64.replace(/^data:[^;]+;base64,/, '');
+
+    const interaction = await ai.interactions.create({
+      model: 'gemini-nano-banana-2.1',
+      input: [
+        {
+          type: 'image',
+          data: cleanData,
+          mime_type: mimeType
+        },
+        {
+          type: 'text',
+          text: editPrompt
+        }
+      ],
+      response_modalities: ['image', 'text']
+    });
+
+    let imageUrl = '';
+    for (const step of interaction.steps || []) {
+      if (step.type === 'model_output') {
+        const imageContent: any = step.content?.find((c: any) => c.type === 'image');
+        if (imageContent && imageContent.data) {
+          const outMime = imageContent.mime_type || 'image/png';
+          imageUrl = `data:${outMime};base64,${imageContent.data}`;
+          break;
+        }
+      }
+    }
+
+    if (!imageUrl) {
+      return res.status(500).json({ success: false, error: 'Model did not return an edited image.' });
+    }
+
+    res.json({ success: true, imageUrl });
+  } catch (error: any) {
+    console.error('Image edit error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Image edit failed' });
+  }
+});
+
+// 3. Animate Photo to Video (gemini-omni-1.1-flash via Interactions API)
+app.post('/api/ai/video/animate', async (req, res) => {
+  try {
+    const { imageBase64, mimeType = 'image/png', motionPrompt, aspectRatio = '16:9' } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ success: false, error: 'Photo is required for animation' });
+    }
+
+    const cleanData = imageBase64.replace(/^data:[^;]+;base64,/, '');
+    const validAspect = aspectRatio === '9:16' ? '9:16' : '16:9';
+
+    const interaction = await ai.interactions.create({
+      model: 'gemini-omni-1.1-flash',
+      input: [
+        {
+          type: 'image',
+          mime_type: mimeType,
+          data: cleanData
+        },
+        {
+          type: 'text',
+          text: motionPrompt || 'Cinematic camera movement with natural atmospheric dynamics and subtle depth motion.'
+        }
+      ],
+      background: false,
+      store: false,
+      stream: false,
+      response_format: {
+        type: 'video',
+        aspect_ratio: validAspect,
+        duration: '10s'
+      }
+    }, { timeout: 300000 });
+
+    const videoPart = interaction.output_video;
+    if (!videoPart || (!videoPart.data && !(videoPart as any).uri)) {
+      return res.status(500).json({ success: false, error: 'Video generation failed or timed out.' });
+    }
+
+    let videoUrl = '';
+    if (videoPart.data) {
+      const vMime = videoPart.mime_type || 'video/mp4';
+      videoUrl = `data:${vMime};base64,${videoPart.data}`;
+    } else if ((videoPart as any).uri) {
+      videoUrl = (videoPart as any).uri;
+    }
+
+    res.json({ success: true, videoUrl });
+  } catch (error: any) {
+    console.error('Video animation error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Video animation failed' });
+  }
+});
+
+// 4. Music Generation (lyria-3-clip-preview for 12s-30s soundtrack stems)
+app.post('/api/ai/music/generate', async (req, res) => {
+  try {
+    const { prompt, durationSec = 12.0 } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ success: false, error: 'Prompt is required for film score generation' });
+    }
+
+    const cinematicPrompt = `Generate a cinematic film score cue lasting approx ${Math.min(30, Math.max(12, Math.round(durationSec)))} seconds: ${prompt}`;
+
+    const stream = await ai.models.generateContentStream({
+      model: 'lyria-3-clip-preview',
+      contents: cinematicPrompt,
+      config: {
+        responseModalities: [Modality.AUDIO]
+      }
+    });
+
+    let audioBase64 = '';
+    let lyrics = '';
+    let mimeType = 'audio/wav';
+
+    for await (const chunk of stream) {
+      const parts = chunk.candidates?.[0]?.content?.parts;
+      if (!parts) continue;
+
+      for (const part of parts) {
+        if (part.inlineData?.data) {
+          if (!audioBase64 && part.inlineData.mimeType) {
+            mimeType = part.inlineData.mimeType;
+          }
+          audioBase64 += part.inlineData.data;
+        }
+        if (part.text && !lyrics) {
+          lyrics = part.text;
+        }
+      }
+    }
+
+    if (!audioBase64) {
+      return res.status(500).json({ success: false, error: 'Lyria model did not produce audio data' });
+    }
+
+    const audioUrl = `data:${mimeType};base64,${audioBase64}`;
+    res.json({ success: true, audioUrl, lyrics });
+  } catch (error: any) {
+    console.error('Music generation error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Film score generation failed' });
   }
 });
 

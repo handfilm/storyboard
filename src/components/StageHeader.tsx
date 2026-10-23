@@ -2,23 +2,32 @@
  * @file /src/components/StageHeader.tsx
  * @description Master Tactile Stage Top Bar & View Switcher.
  * 
- * Features:
+ * Capabilities:
  * 1. Primary View Switcher Tabs (Left Cluster):
- *    - Prominent, tactile neomorphic/glassmorphism capsule buttons: [ Stage ], [ 12.0s Reels ], [ Monitor ].
- *    - Active State: Amber glow bg-[#F5A623]/15 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_15px_rgba(245,166,35,0.25)].
- *    - Inactive State: Dark obsidian glass bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/20.
- *    - High-legibility floating glass hover cards:
- *      - Stage: "DIRECTOR'S CANVAS" (Single-shot composition, framing, and live overlays).
- *      - 12.0s Reels: "TIMELINE PACING" (Full 100-shot sequence overview and rhythm audit).
- *      - Monitor: "CLEAN PREVIEW" (Zero-UI theatrical reference output with 2.39:1 scope).
- * 2. Relocated Minimal Telemetry Strip (Far Right Cluster):
- *    - Pinned ml-auto with minimal concise badges: [ SH001 / 100 ], [ 288 F // 24 FPS ], [ 12.0s ].
- *    - Expanded Telemetry Hover Card: High-contrast popover with full timeline metrics & IndexedDB status.
+ *    - Tactile neomorphic capsule buttons: [ Stage ], [ 12.0s Reels ], [ Monitor ].
+ *    - Base: `px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border`
+ *    - Active: `bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]`
+ *    - Inactive: `bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25`
+ *    - High-Contrast Hover Cards:
+ *      - Stage: "DIRECTOR'S CANVAS" (Single-shot composition, optical framing, and live bilingual overlays).
+ *      - 12.0s Reels: "TIMELINE PACING" (Full 100-shot sequence rhythm audit, beat transitions, and reel flow).
+ *      - Monitor: "CLEAN PREVIEW" (Zero-UI theatrical reference monitor with 2.39:1 scope mask).
+ * 2. Relocated Minimal Telemetry Strip (Far-Right Cluster):
+ *    - Pinned ml-auto with ultra-compact monospace badges:
+ *      - [ SH001 / 100 ]
+ *      - [ 288 F // 24 FPS ]
+ *      - [ 12.0s ]
+ *    - Telemetry Hover Popover:
+ *      - TIMELINE TELEMETRY diagnostic card
+ *      - Total Budget: 100 Master Blocks (1200.0s Total Runtime)
+ *      - Active Allocation: Shot 001 (Strict 12.000s / 288 Frames @ 24.000 FPS Cinema Lock)
+ *      - Storage Persistence: Local IndexedDB Sovereign Cache Synced
  */
 
-import React, { useState } from 'react';
-import { Film, Sliders, Maximize2, Database, Radio, Layers, Activity } from 'lucide-react';
+import React from 'react';
+import { Film, Sliders, Maximize2, Radio, Activity } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
+import { PlaybackMode } from '../types/editor';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER';
 
@@ -28,8 +37,8 @@ export interface StageHeaderProps {
   currentIndex?: number;
   totalShots?: number;
   currentFrame?: AnthologyFrame;
-  playbackMode?: 'sequence' | 'solo';
-  onSelectPlaybackMode?: (mode: 'sequence' | 'solo') => void;
+  playbackMode?: PlaybackMode;
+  onSelectPlaybackMode?: (mode: PlaybackMode) => void;
   slideDurationSec?: number;
   fps?: number;
   className?: string;
@@ -48,38 +57,39 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   className = ''
 }) => {
   const shotNumStr = String(currentIndex + 1).padStart(3, '0');
-  const totalShotsStr = String(totalShots).padStart(3, '0');
+  const totalShotsCount = totalShots || 100;
   const frameBudget = Math.round(slideDurationSec * fps);
+  const totalRuntimeSec = (totalShotsCount * slideDurationSec).toFixed(1);
 
   return (
     <header className={`h-14 bg-[#08090C]/95 backdrop-blur-md border-b border-white/10 px-4 md:px-6 flex items-center justify-between z-30 select-none shrink-0 font-mono transition-colors duration-150 ${className}`}>
       {/* 1. Primary View Switcher Tabs (Left Cluster) */}
       <div className="flex items-center space-x-2.5 sm:space-x-3">
-        {/* [ Stage ] Button */}
+        {/* [ Stage ] Capsule Tab */}
         <div className="relative group/tab">
           <button
             type="button"
             onClick={() => onSelectPanel('TACTILE_STAGE')}
-            className={`px-5 py-2 rounded-xl text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+            className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
               currentPanel === 'TACTILE_STAGE'
-                ? 'bg-[#F5A623]/15 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_15px_rgba(245,166,35,0.25)]'
-                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
+                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
             }`}
           >
-            <Film className={`w-4 h-4 transition-transform duration-150 ${currentPanel === 'TACTILE_STAGE' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+            <Film className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'TACTILE_STAGE' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
             <span>Stage</span>
           </button>
 
           {/* Hover Card for Stage */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/30 p-3 rounded-xl shadow-2xl backdrop-blur-xl absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out">
+          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
             <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
               <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
               <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
                 DIRECTOR'S CANVAS
               </span>
             </div>
-            <p className="text-xs text-slate-300 font-sans mt-2 leading-relaxed">
-              Single-shot composition, framing, and live overlays.
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Single-shot composition, optical framing, and live bilingual overlays.
             </p>
             <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
               <span>2.39:1 ANAMORPHIC</span>
@@ -88,31 +98,31 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ 12.0s Reels ] Button */}
+        {/* [ 12.0s Reels ] Capsule Tab */}
         <div className="relative group/tab">
           <button
             type="button"
             onClick={() => onSelectPanel('SPLIT')}
-            className={`px-5 py-2 rounded-xl text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+            className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
               currentPanel === 'SPLIT'
-                ? 'bg-[#F5A623]/15 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_15px_rgba(245,166,35,0.25)]'
-                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
+                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
             }`}
           >
-            <Sliders className={`w-4 h-4 transition-transform duration-150 ${currentPanel === 'SPLIT' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+            <Sliders className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'SPLIT' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
             <span>12.0s Reels</span>
           </button>
 
           {/* Hover Card for 12.0s Reels */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/30 p-3 rounded-xl shadow-2xl backdrop-blur-xl absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out">
+          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
             <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
               <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
               <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
                 TIMELINE PACING
               </span>
             </div>
-            <p className="text-xs text-slate-300 font-sans mt-2 leading-relaxed">
-              Full 100-shot sequence overview and rhythm audit.
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Full 100-shot sequence rhythm audit, beat transitions, and reel flow.
             </p>
             <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
               <span>12.000s QUANTIZED</span>
@@ -121,31 +131,31 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* [ Monitor ] Button */}
+        {/* [ Monitor ] Capsule Tab */}
         <div className="relative group/tab">
           <button
             type="button"
             onClick={() => onSelectPanel('OPTICAL')}
-            className={`px-5 py-2 rounded-xl text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
+            className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
               currentPanel === 'OPTICAL'
-                ? 'bg-[#F5A623]/15 text-[#F5A623] border-[#F5A623]/50 shadow-[0_0_15px_rgba(245,166,35,0.25)]'
-                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
+                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
             }`}
           >
-            <Maximize2 className={`w-4 h-4 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
+            <Maximize2 className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
             <span>Monitor</span>
           </button>
 
           {/* Hover Card for Monitor */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/30 p-3 rounded-xl shadow-2xl backdrop-blur-xl absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out">
+          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
             <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
               <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
               <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
                 CLEAN PREVIEW
               </span>
             </div>
-            <p className="text-xs text-slate-300 font-sans mt-2 leading-relaxed">
-              Zero-UI theatrical reference output with 2.39:1 scope.
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Zero-UI theatrical reference monitor with 2.39:1 scope mask.
             </p>
             <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
               <span>ZERO INTERFERENCE</span>
@@ -154,7 +164,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* Optional Solo / Sequence Mode Capsule */}
+        {/* Optional Playback Mode Indicator / Toggle */}
         {onSelectPlaybackMode && (
           <button
             type="button"
@@ -172,38 +182,38 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         )}
       </div>
 
-      {/* 2. Relocated Minimal Telemetry Strip (Far Right Cluster) */}
-      <div className="flex items-center space-x-3 ml-auto text-xs font-mono relative group/telemetry cursor-default">
-        {/* Minimal Default Display Badges */}
+      {/* 2. Relocated Minimal Telemetry Strip (Far-Right Cluster) */}
+      <div className="ml-auto flex items-center space-x-2.5 relative group/telemetry cursor-default text-xs font-mono">
+        {/* Minimal Default Display */}
         <div className="flex items-center space-x-2">
           {/* Badge 1: [ SH001 / 100 ] */}
-          <div className="px-2.5 py-1.5 rounded-lg bg-[#0c0d10]/90 border border-white/10 text-slate-300 font-mono text-xs flex items-center gap-1.5 group-hover/telemetry:border-[#F5A623]/50 group-hover/telemetry:text-white transition-all duration-150">
+          <div className="text-[11px] font-mono text-[#F5A623]/90 bg-black/60 border border-[#F5A623]/20 px-2.5 py-1 rounded-md flex items-center gap-1 group-hover/telemetry:border-[#F5A623]/50 transition-all duration-150">
             <span className="text-[#F5A623] font-bold">[</span>
             <span className="text-[#F5A623] font-bold">SH{shotNumStr}</span>
             <span className="text-slate-500">/</span>
-            <span>{totalShots}</span>
+            <span>{totalShotsCount}</span>
             <span className="text-[#F5A623] font-bold">]</span>
           </div>
 
           {/* Badge 2: [ 288 F // 24 FPS ] */}
-          <div className="hidden sm:flex px-2.5 py-1.5 rounded-lg bg-[#0c0d10]/90 border border-white/10 text-slate-300 font-mono text-xs items-center gap-1.5 group-hover/telemetry:border-[#F5A623]/50 group-hover/telemetry:text-white transition-all duration-150">
+          <div className="hidden sm:flex text-[11px] font-mono text-[#F5A623]/90 bg-black/60 border border-[#F5A623]/20 px-2.5 py-1 rounded-md items-center gap-1 group-hover/telemetry:border-[#F5A623]/50 transition-all duration-150">
             <span className="text-slate-400 font-bold">[</span>
             <span className="font-semibold">{frameBudget} F</span>
-            <span className="text-slate-600">//</span>
-            <span className="text-slate-400">{fps} FPS</span>
+            <span className="text-slate-500">//</span>
+            <span className="text-slate-300">{fps} FPS</span>
             <span className="text-slate-400 font-bold">]</span>
           </div>
 
           {/* Badge 3: [ 12.0s ] */}
-          <div className="px-2.5 py-1.5 rounded-lg bg-[#0c0d10]/90 border border-white/10 text-[#F5A623] font-mono text-xs flex items-center gap-1 font-bold group-hover/telemetry:border-[#F5A623]/50 shadow-sm transition-all duration-150">
+          <div className="text-[11px] font-mono text-[#F5A623]/90 bg-black/60 border border-[#F5A623]/20 px-2.5 py-1 rounded-md flex items-center gap-1 font-bold group-hover/telemetry:border-[#F5A623]/50 shadow-sm transition-all duration-150">
             <span className="text-slate-400 font-bold">[</span>
             <span>{slideDurationSec.toFixed(1)}s</span>
             <span className="text-slate-400 font-bold">]</span>
           </div>
         </div>
 
-        {/* Expanded Telemetry Hover Card */}
-        <div className="absolute right-0 top-full mt-2 w-80 pointer-events-none z-50 bg-[#08090C]/98 border border-[#F5A623]/40 p-4 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 group-hover/telemetry:opacity-100 group-hover/telemetry:translate-y-0 transition-all duration-150 ease-out text-left">
+        {/* Telemetry Hover Popover */}
+        <div className="pointer-events-none z-50 bg-[#08090C]/98 border border-[#F5A623]/35 p-4 rounded-xl shadow-2xl backdrop-blur-xl absolute right-0 top-full mt-2 w-80 text-left opacity-0 translate-y-1 group-hover/telemetry:opacity-100 group-hover/telemetry:translate-y-0 transition-all duration-150 ease-out font-mono text-xs">
           {/* Header */}
           <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
@@ -220,34 +230,27 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           {/* Metrics List */}
           <div className="space-y-2 text-xs font-mono">
             <div className="flex items-center justify-between py-0.5">
-              <span className="text-slate-400">Total Shots:</span>
-              <span className="text-white font-bold">{totalShots} Master Blocks</span>
+              <span className="text-slate-400">Total Budget:</span>
+              <span className="text-white font-bold">{totalShotsCount} Master Blocks ({totalRuntimeSec}s Total Runtime)</span>
             </div>
 
             <div className="flex items-center justify-between py-0.5">
-              <span className="text-slate-400">Current Shot:</span>
+              <span className="text-slate-400">Active Allocation:</span>
               <span className="text-[#F5A623] font-bold">
-                Shot {shotNumStr} ({slideDurationSec.toFixed(3)}s Allocated)
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-slate-400">Frame Budget:</span>
-              <span className="text-slate-200 font-bold">
-                {frameBudget} Frames @ {fps.toFixed(3)} FPS Cinema Lock
+                Shot {shotNumStr} (Strict {slideDurationSec.toFixed(3)}s / {frameBudget} Frames @ {fps.toFixed(3)} FPS Cinema Lock)
               </span>
             </div>
 
             <div className="flex items-center justify-between py-0.5 border-t border-white/5 pt-2">
-              <span className="text-slate-400">Status:</span>
+              <span className="text-slate-400">Storage Persistence:</span>
               <span className="text-emerald-400 font-bold flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse" />
-                Local Cache Synced (IndexedDB)
+                Local IndexedDB Sovereign Cache Synced
               </span>
             </div>
           </div>
 
-          {/* Shot Title Footer */}
+          {/* Active Shot Frame Title */}
           {currentFrame && (
             <div className="mt-3 pt-2 border-t border-white/10 text-[10px] text-slate-300 truncate font-mono">
               <span className="text-[#F5A623] font-bold mr-1.5">ACTIVE:</span>

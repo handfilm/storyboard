@@ -206,6 +206,19 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
     return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
   };
 
+  const currentTime = Math.max(0, playheadTime);
+  const duration = Math.max(0.1, totalDuration);
+
+  // Dynamic Floating Playhead Timecode Format: TC 00:00:04:12 // F108
+  const formatPlayheadBadge = (seconds: number) => {
+    const totalFrames = Math.floor(seconds * 24);
+    const ff = totalFrames % 24;
+    const ss = Math.floor(seconds) % 60;
+    const mm = Math.floor(seconds / 60) % 60;
+    const hh = Math.floor(seconds / 3600);
+    return `TC ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')} // F${totalFrames}`;
+  };
+
   const toggleTrackState = (trackId: string, prop: 'isMuted' | 'isLocked' | 'isHidden' | 'isSoloed') => {
     setTrackStates((prev) => ({
       ...prev,
@@ -551,13 +564,35 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
               );
             })}
 
-            {/* Glowing Pro NLE Playhead (Needle & Laser Guide) */}
-            <div
-              className="absolute top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#F5A623] via-rose-500 to-rose-600 z-30 pointer-events-none shadow-[0_0_10px_rgba(244,63,94,0.8)]"
-              style={{ left: `${playheadTime * pps}px` }}
+            {/* Dynamic Playhead & Floating Timecode Overlay Container */}
+            <div 
+              className="absolute inset-0 pointer-events-none z-30"
+              style={{ width: `${totalDuration * pps}px` }}
             >
-              {/* Playhead Diamond Cap */}
-              <div className="w-4 h-4 bg-gradient-to-br from-[#FFE066] to-rose-500 transform -translate-x-[7px] -translate-y-1.5 rotate-45 shadow-[0_0_12px_rgba(245,166,35,0.9)] border border-white/80" />
+              {/* Smooth transition container with normalized playhead progress */}
+              <div
+                className={`absolute top-0 bottom-0 pointer-events-none ${
+                  isScrubbing ? 'transition-none' : 'transition-[left] duration-75 ease-out'
+                } will-change-[left]`}
+                style={{
+                  left: `${(currentTime / duration) * 100}%`,
+                  transform: 'translateX(-50%)'
+                }}
+              >
+                {/* Floating pill above playhead */}
+                <div className="absolute top-1 left-1/2 transform -translate-x-1/2 pointer-events-none whitespace-nowrap z-50">
+                  <div className="bg-[#0c0d10]/95 border border-[#F5A623]/50 text-[#F5A623] px-2.5 py-0.5 rounded-full text-[10px] font-mono shadow-[0_2px_10px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-none whitespace-nowrap flex items-center gap-1.5 animate-fade-in">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623] animate-pulse" />
+                    <span>{formatPlayheadBadge(currentTime)}</span>
+                  </div>
+                </div>
+
+                {/* Scrubber Needle (Red/Amber Gradient with Glowing Shadow) */}
+                <div className="w-0.5 h-full mx-auto bg-gradient-to-b from-[#F5A623] via-rose-500 to-rose-600 shadow-[0_0_10px_rgba(244,63,94,0.8)] relative">
+                  {/* Playhead Diamond Cap */}
+                  <div className="w-4 h-4 bg-gradient-to-br from-[#FFE066] to-rose-500 transform -translate-x-[7px] translate-y-6 rotate-45 shadow-[0_0_12px_rgba(245,166,35,0.9)] border border-white/80" />
+                </div>
+              </div>
             </div>
 
           </div>

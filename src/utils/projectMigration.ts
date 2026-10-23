@@ -8,6 +8,7 @@ import { AnthologyFrame, AnthologyProject } from './../types/anthology';
 import { ProjectV1, ShotV1, CURRENT_PROJECT_SCHEMA_VERSION, isValidProjectV1 } from '../types/projectSchema';
 import { DEFAULT_COMPONENT_VISIBILITY } from '../components/ComponentsMatrixPopover';
 import { generateInitialFrames } from '../data/frames';
+import { clampShotDuration } from '../types/storyboard';
 
 /**
  * Converts an AnthologyFrame or partial legacy frame to a versioned ShotV1
@@ -27,6 +28,13 @@ export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, scene
   const adjustments = { ...base.adjustments, ...(frame?.adjustments || {}) };
   const tags = Array.isArray(frame?.tags) ? [...frame.tags] : Array.isArray(base.tags) ? [...base.tags] : [];
 
+  const resolvedDurationSec =
+    typeof frame?.durationSec === 'number' && frame.durationSec > 0
+      ? clampShotDuration(frame.durationSec)
+      : typeof frame?.slideHoldSec === 'number' && frame.slideHoldSec > 0
+      ? clampShotDuration(frame.slideHoldSec)
+      : 12.0;
+
   return {
     id: `shot-${epNumber}`,
     number: epNumber,
@@ -37,7 +45,7 @@ export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, scene
     directorNotes,
     soundCue,
     cameraSpec,
-    durationFrames: 60, // 2.5s @ 24fps
+    durationFrames: Math.max(1, Math.round(resolvedDurationSec * (frame?.targetFps || 24))),
     transition: 'DISSOLVE',
     move: 'PAN',
     lens: cameraSpec.focalLength || '50mm f/1.4',
@@ -55,7 +63,11 @@ export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, scene
     hoverStyle: typeof frame?.hoverStyle === 'number' ? frame.hoverStyle : (base.hoverStyle || 0),
     titleAnimation: frame?.titleAnimation || 'flare',
     adjustments,
-    tags
+    tags,
+    slideHoldSec: resolvedDurationSec,
+    durationSec: resolvedDurationSec,
+    subclipInSec: typeof frame?.subclipInSec === 'number' ? frame.subclipInSec : undefined,
+    subclipOutSec: typeof frame?.subclipOutSec === 'number' ? frame.subclipOutSec : undefined
   };
 }
 
@@ -75,6 +87,13 @@ export function convertShotV1ToFrame(shot: Partial<ShotV1> | any, index: number)
   const cameraSpec = { ...base.cameraSpec, ...(shot?.cameraSpec || {}) };
   const adjustments = { ...base.adjustments, ...(shot?.adjustments || {}) };
   const tags = Array.isArray(shot?.tags) ? [...shot.tags] : Array.isArray(base.tags) ? [...base.tags] : [];
+
+  const restoredDurationSec =
+    typeof shot?.durationSec === 'number' && shot.durationSec > 0
+      ? clampShotDuration(shot.durationSec)
+      : typeof shot?.slideHoldSec === 'number' && shot.slideHoldSec > 0
+      ? clampShotDuration(shot.slideHoldSec)
+      : 12.0;
 
   return {
     id: index,
@@ -101,7 +120,11 @@ export function convertShotV1ToFrame(shot: Partial<ShotV1> | any, index: number)
     lutFilter: shot?.filter || base.lutFilter || 'cinematic',
     aspectRatio: '2.39:1',
     adjustments,
-    tags
+    tags,
+    slideHoldSec: restoredDurationSec,
+    durationSec: restoredDurationSec,
+    subclipInSec: typeof shot?.subclipInSec === 'number' ? shot.subclipInSec : undefined,
+    subclipOutSec: typeof shot?.subclipOutSec === 'number' ? shot.subclipOutSec : undefined
   };
 }
 

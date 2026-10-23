@@ -21,8 +21,15 @@
  *    - Automatic strict looping between [In, Out] region when active.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS, PlaybackMode } from '../types/editor';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { SLIDE_DURATION_SEC, PlaybackMode } from '../types/editor';
+import {
+  calculateMasterSequenceDuration,
+  getCumulativeShotOffsets,
+  getShotDurationSec,
+  getShotFrameCount,
+  resolveGlobalTimeToShot
+} from '../types/storyboard';
 import { studioDraftDb } from '../services/db';
 
 export type JklVelocity = -2 | -1 | 0 | 1 | 2;
@@ -119,9 +126,10 @@ export interface UseVideoPlaybackEngineOptions {
   initialSlideIndex?: number;
   initialMode?: PlaybackMode;
   fps?: number;
+  activeSlideDurationSec?: number;
   onSlideChange?: (index: number) => void;
   onTimeUpdate?: (slideTimeSec: number, globalTimeSec: number) => void;
-  slides?: Array<{ id: string; mediaBlobId?: string; remoteUrl?: string }>;
+  slides?: Array<{ id: string; duration?: number; durationSec?: number; mediaBlobId?: string; remoteUrl?: string }>;
 }
 
 export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
@@ -130,6 +138,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     initialSlideIndex = 0,
     initialMode = 'sequence',
     fps = 24,
+    activeSlideDurationSec,
     onSlideChange,
     onTimeUpdate,
     slides
@@ -149,9 +158,6 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   const [shouldPrehydrate, setShouldPrehydrate] = useState<boolean>(false);
   const [cuedMediaUrl, setCuedMediaUrl] = useState<string | null>(null);
 
-  // Dynamic Dual-Stream Engine state:
-  // - proxyUrl: Lightweight 540p for 24fps zero-latency scrubbing
-  // - sourceUrl: Uncompressed 4K/1080p for full-res playback, fullscreen, & master export
   const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
@@ -162,13 +168,30 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   const rVfcIdRef = useRef<number | null>(null);
   const lastWallTimeRef = useRef<number>(performance.now());
 
-  const frameDurationSec = 1 / fps; // 0.041666...s
+  const activeDurationSec = useMemo(() => {
+    if (typeof activeSlideDurationSec === 'number' && activeSlideDurationSec > 0) {
+      return activeSlideDurationSec;
+    }
+    if (slides && slides[currentIndex]) {
+      return getShotDurationSec(slides[currentIndex], SLIDE_DURATION_SEC);
+    }
+    return SLIDE_DURATION_SEC;
+  }, [activeSlideDurationSec, slides, currentIndex]);
+
+  const shotOffsets = useMemo(() => (slides && slides.length > 0 ? getCumulativeShotOffsets(slides) : []), [slides]);
+  const currentShotStartSec = shotOffsets[currentIndex]?.startSec ?? currentIndex * activeDurationSec;
+  const totalFramesInSlide = getShotFrameCount(activeDurationSec, fps);
   const currentFrameInSlide = Math.min(
-    SLIDE_TOTAL_FRAMES_24FPS,
+    totalFramesInSlide,
     Math.max(1, Math.floor(slideTimeSec * fps) + 1)
   );
-  const globalTimeSec = currentIndex * SLIDE_DURATION_SEC + slideTimeSec;
-  const totalDurationSec = totalSlides * SLIDE_DURATION_SEC;
+  const globalTimeSec = currentShotStartSec + slideTimeSec;
+  const totalDurationSec = useMemo(() => {
+    if (slides && slides.length > 0) {
+      return calculateMasterSequenceDuration(slides);
+    }
+    return totalSlides * activeDurationSec;
+  }, [slides, totalSlides, activeDurationSec]);
 
   // Sync external index changes
   useEffect(() => {
@@ -197,8 +220,10 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     const video = videoElementRef.current;
     if (!video) return;
 
-    const clampedSec = Math.max(0, Math.min(SLIDE_DURATION_SEC, timeSec));
-    const targetVideoTime = video.duration ? (clampedSec / SLIDE_DURATION_SEC) * video.duration : clampedSec;
+    const clampedSec = Math.max(0, Math.min(activeDurationSec, timeSec));
+    const targetVideoTime = video.duration
+      ? clampedSec % Math.max(0.1, video.duration)
+      : clampedSec;
 
     if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
       try {
@@ -209,7 +234,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     } else {
       video.currentTime = targetVideoTime;
     }
-  }, []);
+  }, [activeDurationSec]);
 
   // =========================================================================
   // SUB-FRAME rVFC (requestVideoFrameCallback) TRACKING
@@ -220,14 +245,13 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
 
     let isMounted = true;
 
-    const onFrame = (now: DOMHighResTimeStamp, metadata: any) => {
+    const onFrame = (_now: DOMHighResTimeStamp, metadata: any) => {
       if (!isMounted) return;
 
       if (metadata && typeof metadata.mediaTime === 'number' && video.duration > 0) {
-        // Map native video media time to 12.0s slide space
-        const mappedSlideSec = (metadata.mediaTime / video.duration) * SLIDE_DURATION_SEC;
+        const mappedSlideSec = Math.min(activeDurationSec, metadata.mediaTime);
         setSlideTimeSec(mappedSlideSec);
-        onTimeUpdate?.(mappedSlideSec, currentIndex * SLIDE_DURATION_SEC + mappedSlideSec);
+        onTimeUpdate?.(mappedSlideSec, currentShotStartSec + mappedSlideSec);
       }
 
       if ('requestVideoFrameCallback' in video && typeof (video as any).requestVideoFrameCallback === 'function') {
@@ -245,7 +269,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
         (video as any).cancelVideoFrameCallback(rVfcIdRef.current);
       }
     };
-  }, [currentIndex, onTimeUpdate]);
+  }, [currentIndex, activeDurationSec, currentShotStartSec, onTimeUpdate]);
 
   // =========================================================================
   // JKL SHUTTLE & TRANSPORT CONTROLLER
@@ -281,7 +305,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
         setSlideTimeSec((prev) => {
           let next = prev - reverseStepSec;
           const minBound = inOutRange.isActive && inOutRange.inSec !== null ? inOutRange.inSec : 0;
-          const maxBound = inOutRange.isActive && inOutRange.outSec !== null ? inOutRange.outSec : SLIDE_DURATION_SEC;
+          const maxBound = inOutRange.isActive && inOutRange.outSec !== null ? inOutRange.outSec : activeDurationSec;
 
           if (next < minBound) {
             if (isLooping) {
@@ -299,7 +323,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
         });
       }, intervalMs);
     }
-  }, [inOutRange, isLooping, seekVideoToTime, stopReversePlayback]);
+  }, [inOutRange, isLooping, activeDurationSec, seekVideoToTime, stopReversePlayback]);
 
   // J: Reverse Playback Shuttle
   const handleShuttleReverse = useCallback(() => {
@@ -330,17 +354,15 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   }, [isPlaying, applyVelocity]);
 
   // =========================================================================
-  // =========================================================================
-  // SUB-FRAME STEPPING (±1 Frame @ 24fps = 41.666ms)
+  // SUB-FRAME STEPPING (±1 Frame)
   // =========================================================================
   const stepFrame = useCallback((forward: boolean) => {
-    // 1. Immediately halt all active playback, reverse intervals, and velocity
     stopReversePlayback();
     setIsPlaying(false);
     setJklVelocity(0);
 
-    const FRAME_DURATION = 1 / fps; // 0.041666...s (strictly 24fps)
-    const SLIDE_MAX_TIME = SLIDE_DURATION_SEC; // 12.0s
+    const FRAME_DURATION = 1 / fps;
+    const SLIDE_MAX_TIME = activeDurationSec;
 
     const video = videoElementRef.current;
     if (video) {
@@ -358,17 +380,17 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
         // Safe seek fallback
       }
       setSlideTimeSec(nextTime);
-      onTimeUpdate?.(nextTime, currentIndex * SLIDE_MAX_TIME + nextTime);
+      onTimeUpdate?.(nextTime, currentShotStartSec + nextTime);
     } else {
       setSlideTimeSec((prev) => {
         const nextTime = forward
           ? Math.min(prev + FRAME_DURATION, SLIDE_MAX_TIME)
           : Math.max(prev - FRAME_DURATION, 0);
-        onTimeUpdate?.(nextTime, currentIndex * SLIDE_MAX_TIME + nextTime);
+        onTimeUpdate?.(nextTime, currentShotStartSec + nextTime);
         return nextTime;
       });
     }
-  }, [fps, currentIndex, onTimeUpdate, slideTimeSec, stopReversePlayback]);
+  }, [fps, activeDurationSec, currentShotStartSec, onTimeUpdate, slideTimeSec, stopReversePlayback]);
 
   // =========================================================================
   // SUB-CLIP IN/OUT MARKERS (I & O Hotkeys)
@@ -454,13 +476,13 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
       setIsScrubbing(false);
     }, 180);
 
-    const clamped = Math.max(0, Math.min(SLIDE_DURATION_SEC, timeSec));
+    const clamped = Math.max(0, Math.min(activeDurationSec, timeSec));
     setSlideTimeSec(clamped);
     seekVideoToTime(clamped);
-    onTimeUpdate?.(clamped, currentIndex * SLIDE_DURATION_SEC + clamped);
-  }, [currentIndex, seekVideoToTime, onTimeUpdate]);
+    onTimeUpdate?.(clamped, currentShotStartSec + clamped);
+  }, [activeDurationSec, currentShotStartSec, seekVideoToTime, onTimeUpdate]);
 
-  // Scrub global time across 100 slides with auto-proxy switching
+  // Scrub global time across variable-duration slides with auto-proxy switching
   const scrubGlobalTime = useCallback((globalSec: number) => {
     setIsScrubbing(true);
     if (scrubbingTimerRef.current !== null) {
@@ -471,8 +493,17 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     }, 180);
 
     const clampedGlobal = Math.max(0, Math.min(totalDurationSec, globalSec));
-    const targetSlide = Math.min(totalSlides - 1, Math.floor(clampedGlobal / SLIDE_DURATION_SEC));
-    const localSec = clampedGlobal % SLIDE_DURATION_SEC;
+    let targetSlide = 0;
+    let localSec = 0;
+
+    if (slides && slides.length > 0) {
+      const resolved = resolveGlobalTimeToShot(slides, clampedGlobal);
+      targetSlide = resolved.shotIndex;
+      localSec = resolved.localTimeSec;
+    } else {
+      targetSlide = Math.min(totalSlides - 1, Math.floor(clampedGlobal / activeDurationSec));
+      localSec = clampedGlobal % activeDurationSec;
+    }
 
     if (targetSlide !== currentIndex) {
       setCurrentIndex(targetSlide);
@@ -481,7 +512,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     setSlideTimeSec(localSec);
     seekVideoToTime(localSec);
     onTimeUpdate?.(localSec, clampedGlobal);
-  }, [totalDurationSec, totalSlides, currentIndex, onSlideChange, seekVideoToTime, onTimeUpdate]);
+  }, [totalDurationSec, slides, totalSlides, activeDurationSec, currentIndex, onSlideChange, seekVideoToTime, onTimeUpdate]);
 
   // =========================================================================
   // MASTER PLAYBACK TICKER & DOUBLE-BUFFER PRE-HYDRATION
@@ -498,7 +529,6 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
       setSlideTimeSec((prev) => {
         let next = prev + deltaSec * jklVelocity;
 
-        // In/Out range check in Solo mode
         if (inOutRange.isActive && inOutRange.outSec !== null && inOutRange.inSec !== null) {
           if (next >= inOutRange.outSec) {
             next = inOutRange.inSec;
@@ -507,25 +537,22 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
           return next;
         }
 
-        // Check for double-buffering pre-hydration at 10.5s (1.5s prior to 12.0s boundary)
-        if (playbackMode === 'sequence' && next >= 10.5) {
+        const prehydrateThreshold = Math.max(0, activeDurationSec - 1.5);
+        if (playbackMode === 'sequence' && next >= prehydrateThreshold) {
           setShouldPrehydrate(true);
         } else {
           setShouldPrehydrate(false);
         }
 
-        // Slide boundary reached (12.000s)
-        if (next >= SLIDE_DURATION_SEC) {
+        if (next >= activeDurationSec) {
           if (playbackMode === 'sequence') {
-            // Mode A: HERO GLOBAL RUNNER -> Advance to next slide
             const nextIdx = (currentIndex + 1) % totalSlides;
             setCurrentIndex(nextIdx);
             onSlideChange?.(nextIdx);
             next = 0;
             seekVideoToTime(0);
           } else {
-            // Mode B: SOLO ADVANCED INSPECTOR -> Loop within isolated 12.0s
-            next = isLooping ? 0 : SLIDE_DURATION_SEC;
+            next = isLooping ? 0 : activeDurationSec;
             seekVideoToTime(next);
             if (!isLooping) {
               applyVelocity(0);
@@ -543,7 +570,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     animId = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(animId);
-  }, [isPlaying, jklVelocity, inOutRange, playbackMode, currentIndex, totalSlides, isLooping, onSlideChange, seekVideoToTime, applyVelocity]);
+  }, [isPlaying, jklVelocity, inOutRange, playbackMode, activeDurationSec, currentIndex, totalSlides, isLooping, onSlideChange, seekVideoToTime, applyVelocity]);
 
   /**
    * Two-Tier Media Resolver:
@@ -668,7 +695,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     slideTimeSec,
     globalTimeSec,
     currentFrameInSlide,
-    totalFramesInSlide: SLIDE_TOTAL_FRAMES_24FPS,
+    totalFramesInSlide,
     totalDurationSec,
     isPlaying,
     isLooping,

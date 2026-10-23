@@ -40,6 +40,13 @@ import {
   cleanupVideoElement 
 } from '../../services/thumbnailEngine';
 import { useTitleContainerRepaint } from '../../hooks/useTitleContainerRepaint';
+import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
+import {
+  clampShotDuration,
+  getShotDurationSec,
+  getShotFrameCount,
+  getShotTargetFps
+} from '../../types/storyboard';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -53,6 +60,9 @@ export interface TactileStageProps {
   componentsVisibility?: ComponentVisibility;
   onSelectFrame: (index: number) => void;
   onUpdateFrame?: (updated: AnthologyFrame) => void;
+  onUpdateFrameAtIndex?: (index: number, updated: AnthologyFrame) => void;
+  onApplyDurationToAll?: (durationSec: number) => void;
+  onMatchAudioBeats?: () => void;
   onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
   onUploadImage?: (file: File) => void;
   onOpenAnimatic?: () => void;
@@ -94,16 +104,21 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   componentsVisibility,
   onSelectFrame,
   onUpdateFrame,
+  onUpdateFrameAtIndex,
+  onApplyDurationToAll,
   onUploadImage,
   onOpenInspector,
   onToggleTitles,
   showTitles = true,
   playbackMode = 'sequence',
   onTogglePlay,
+  onStepFrame,
   slideTimeSec = 0,
   onPurgeMedia,
   activeModule,
-  onScrubSlideTime
+  onScrubSlideTime,
+  isSnapToBeat = false,
+  onToggleSnapToBeat
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -153,6 +168,44 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   // Active frame fallback
   const frame = currentFrame || frames[currentIndex] || frames[0];
+  const activeShotDurationSec = getShotDurationSec(frame, 12.0);
+  const activeShotFps = getShotTargetFps(frame, 24);
+  const activeTotalFrames = getShotFrameCount(activeShotDurationSec, activeShotFps);
+  const activeFrameNum = Math.min(
+    activeTotalFrames,
+    Math.max(1, Math.floor(Math.min(slideTimeSec, activeShotDurationSec) * activeShotFps) + 1)
+  );
+  const progressPercent = activeShotDurationSec > 0
+    ? Math.min(100, Math.max(0, (slideTimeSec / activeShotDurationSec) * 100))
+    : 0;
+
+  const handleChangeCurrentDuration = (newDurationSec: number) => {
+    if (!frame) return;
+    const clamped = clampShotDuration(newDurationSec);
+    const updated: AnthologyFrame = {
+      ...frame,
+      slideHoldSec: clamped,
+      durationSec: clamped
+    };
+    if (onUpdateFrameAtIndex) {
+      onUpdateFrameAtIndex(currentIndex, updated);
+    } else if (onUpdateFrame) {
+      onUpdateFrame(updated);
+    }
+  };
+
+  const handleChangeCurrentFps = (newFps: number) => {
+    if (!frame) return;
+    const updated: AnthologyFrame = {
+      ...frame,
+      targetFps: newFps === 60 ? 60 : 24
+    };
+    if (onUpdateFrameAtIndex) {
+      onUpdateFrameAtIndex(currentIndex, updated);
+    } else if (onUpdateFrame) {
+      onUpdateFrame(updated);
+    }
+  };
 
   useTitleContainerRepaint({
     containerRef: stageTitleContainerRef,
@@ -626,6 +679,77 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               </span>
             </div>
           )}
+        </div>
+
+        {/* In-Player Playhead Transport & Quick Cadence Selector Bar */}
+        <div className="absolute bottom-3 left-3 z-40 pointer-events-auto flex items-center gap-1.5 bg-black/80 backdrop-blur-md border border-white/15 rounded-lg px-2 py-1 shadow-xl">
+          {onTogglePlay && (
+            <button
+              type="button"
+              onClick={onTogglePlay}
+              className={`w-6 h-6 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                isAutoplay
+                  ? 'bg-[#F5A623] text-black font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-white'
+              }`}
+              title={isAutoplay ? 'Pause (Space)' : 'Play (Space)'}
+            >
+              {isAutoplay ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
+            </button>
+          )}
+          {onStepFrame && (
+            <div className="hidden sm:flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => onStepFrame(false)}
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[9px] font-mono text-zinc-300 hover:text-white cursor-pointer"
+                title="Step -1 Frame"
+              >
+                -1F
+              </button>
+              <button
+                type="button"
+                onClick={() => onStepFrame(true)}
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[9px] font-mono text-zinc-300 hover:text-white cursor-pointer"
+                title="Step +1 Frame"
+              >
+                +1F
+              </button>
+            </div>
+          )}
+
+          {/* Interactive Shot Scrub Track */}
+          <div
+            onClick={(e) => {
+              if (!onScrubSlideTime) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+              onScrubSlideTime(ratio * activeShotDurationSec);
+            }}
+            className="hidden md:flex items-center w-24 sm:w-32 h-2 bg-zinc-900 rounded-full overflow-hidden border border-white/10 cursor-pointer mx-1 relative"
+            title={`Scrub Shot (${slideTimeSec.toFixed(2)}s / ${activeShotDurationSec.toFixed(1)}s)`}
+          >
+            <div
+              className="h-full bg-gradient-to-r from-[#d4af37] to-[#FFE066] transition-[width] duration-75"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          <span className="hidden sm:inline text-[9.5px] font-mono text-zinc-300 tabular-nums px-1">
+            F{String(activeFrameNum).padStart(3, '0')}/{activeTotalFrames}
+          </span>
+
+          {/* Quick Cadence Selector Capsule Pill: [ ⏱ DURATION: 12.0s ▾ ] */}
+          <CadenceSelectorPill
+            durationSec={activeShotDurationSec}
+            targetFps={activeShotFps}
+            onChangeDuration={handleChangeCurrentDuration}
+            onChangeTargetFps={handleChangeCurrentFps}
+            onApplyDurationToAll={onApplyDurationToAll}
+            isSnapToBeat={isSnapToBeat}
+            onToggleSnapToBeat={onToggleSnapToBeat}
+            compact={true}
+          />
         </div>
 
         {/* Hover Action Controls */}

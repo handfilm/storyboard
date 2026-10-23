@@ -6,10 +6,11 @@
 
 import React from 'react';
 import { PlaybackMode } from '../../types/editor';
+import { clampShotDuration, formatDurationPillValue } from '../../types/storyboard';
+import { CadenceSelectorPill } from './CadenceSelectorPill';
 import {
   Play,
   Pause,
-  RotateCcw,
   SkipBack,
   SkipForward,
   Volume2,
@@ -18,9 +19,7 @@ import {
   Trash2,
   Maximize2,
   Minimize2,
-  Repeat,
-  Layers,
-  Sparkles
+  Repeat
 } from 'lucide-react';
 
 export interface TactileTransportProps {
@@ -36,6 +35,13 @@ export interface TactileTransportProps {
   isMuted?: boolean;
   onToggleMute?: () => void;
   slideTimeSec?: number;
+  slideDurationSec?: number;
+  targetFps?: number;
+  onChangeSlideDuration?: (durationSec: number) => void;
+  onChangeTargetFps?: (fps: number) => void;
+  onApplyDurationToAll?: (durationSec: number) => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
   currentIndex?: number;
   totalSlides?: number;
   onScrubSlideTime?: (timeSec: number) => void;
@@ -58,17 +64,17 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
   isLooping = false,
   onToggleLoop,
   onStepFrame,
-  playbackSpeed = 1.0,
-  onChangePlaybackSpeed,
   isMuted = true,
   onToggleMute,
   slideTimeSec = 0,
-  currentIndex = 0,
-  totalSlides = 100,
+  slideDurationSec = 12.0,
+  targetFps = 24,
+  onChangeSlideDuration,
+  onChangeTargetFps,
+  onApplyDurationToAll,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
   onScrubSlideTime,
-  onScrubGlobalTime,
-  aspectRatio = '2.39:1',
-  onChangeAspectRatio,
   isFullscreen = false,
   onToggleFullscreen,
   onCaptureStill,
@@ -76,14 +82,17 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
   hasMedia = false,
   className = ''
 }) => {
+  const effectiveDuration = clampShotDuration(slideDurationSec);
+  const safeFps = targetFps === 60 ? 60 : 24;
+
   return (
     <div className={`w-full bg-[#08080C]/95 backdrop-blur-xl border border-white/10 rounded-[3px] p-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech select-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] ${className}`}>
-      {/* Left: Transport buttons */}
+      {/* Left: Transport buttons & Quick Cadence Selector */}
       <div className="flex items-center gap-1.5 shrink-0">
         <button
           onClick={() => onStepFrame?.(false)}
           className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/15 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95"
-          title="Previous Frame (1/24s)"
+          title={`Previous Frame (1/${safeFps}s)`}
         >
           <SkipBack className="w-3.5 h-3.5" />
         </button>
@@ -112,7 +121,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
         <button
           onClick={() => onStepFrame?.(true)}
           className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/15 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95"
-          title="Next Frame (1/24s)"
+          title={`Next Frame (1/${safeFps}s)`}
         >
           <SkipForward className="w-3.5 h-3.5" />
         </button>
@@ -130,23 +139,38 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             <Repeat className="w-3.5 h-3.5" />
           </button>
         )}
+
+        {onChangeSlideDuration && (
+          <CadenceSelectorPill
+            durationSec={effectiveDuration}
+            targetFps={safeFps}
+            onChangeDuration={onChangeSlideDuration}
+            onChangeTargetFps={onChangeTargetFps}
+            onApplyDurationToAll={onApplyDurationToAll}
+            isSnapToBeat={isSnapToBeat}
+            onToggleSnapToBeat={onToggleSnapToBeat}
+            compact
+          />
+        )}
       </div>
 
       {/* Center: Slide timeline scrubber */}
-      <div className="flex-1 min-w-[200px] flex items-center gap-2 px-2">
+      <div className="flex-1 min-w-[200px] flex items-center gap-2 px-2 tabular-nums">
         <span className="text-[9px] text-[#D4AF37] font-semibold w-12 text-right">
           {slideTimeSec.toFixed(2)}s
         </span>
         <input
           type="range"
           min="0"
-          max="12"
-          step="0.0416"
-          value={slideTimeSec}
+          max={effectiveDuration}
+          step={1 / safeFps}
+          value={Math.min(effectiveDuration, slideTimeSec)}
           onChange={(e) => onScrubSlideTime?.(Number(e.target.value))}
           className="flex-1 accent-[#D4AF37] cursor-pointer h-1.5 bg-white/20 rounded"
         />
-        <span className="text-[9px] text-white/40 w-10">12.0s</span>
+        <span className="text-[9px] text-white/50 min-w-[36px]">
+          {formatDurationPillValue(effectiveDuration)}
+        </span>
       </div>
 
       {/* Right: Mode & Extras */}

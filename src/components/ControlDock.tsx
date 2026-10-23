@@ -5,9 +5,20 @@
  * LUT selector, and futuristic tactile HUD controls.
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { AnthologyFrame, LutPreset } from '../types/anthology';
-import { calculateSlideshowInterval, getLutFilterCSS } from '../utils/engine';
+import { calculateSlideshowInterval } from '../utils/engine';
+import {
+  clampShotDuration,
+  formatDurationPillValue,
+  formatFullSMPTETimecode,
+  getCumulativeShotOffsets,
+  getShotDurationSec,
+  getShotFrameCount,
+  getShotTargetFps
+} from '../types/storyboard';
+import { audioEngine } from '../services/audioEngine';
+import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import {
   Play,
   Pause,
@@ -24,13 +35,12 @@ import {
   VolumeX,
   Camera,
   Crosshair,
-  SlidersHorizontal,
-  Flame,
-  Sparkles,
   Eye,
   Type,
   Activity,
-  ZoomIn
+  ZoomIn,
+  Repeat,
+  Music
 } from 'lucide-react';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 import { AudioFrequencyVisualizer } from './audio/AudioFrequencyVisualizer';
@@ -57,6 +67,11 @@ export interface ControlDockProps {
   onPrev: () => void;
   onNext: () => void;
   onSelectFrame: (index: number) => void;
+  onUpdateFrameAtIndex?: (index: number, updatedFrame: AnthologyFrame) => void;
+  onApplyDurationToAll?: (durationSec: number) => void;
+  onMatchAudioBeats?: () => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
   onTogglePlay: () => void;
   onSpeedChange: (speed: number) => void;
   onToggleHud: () => void;
@@ -106,6 +121,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onPrev,
   onNext,
   onSelectFrame,
+  onUpdateFrameAtIndex,
+  onApplyDurationToAll,
+  onMatchAudioBeats,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
   onTogglePlay,
   onSpeedChange,
   onToggleHud,
@@ -127,21 +147,25 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const [jumpInput, setJumpInput] = useState('');
   const [isFreqVisualizerOpen, setIsFreqVisualizerOpen] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
+  const [dragShotState, setDragShotState] = useState<{
+    index: number;
+    durationSec: number;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
 
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
 
   const safeFrames = Array.isArray(frames) && frames.length > 0 ? frames : [];
   const currentFrame = safeFrames[currentIndex] || safeFrames[0];
+  const currentDurationSec = getShotDurationSec(currentFrame, 12.0);
+  const currentFps = getShotTargetFps(currentFrame, 24);
   const intervalSeconds = (calculateSlideshowInterval(speed) / 1000).toFixed(1);
 
-  // Timecode calculation at 24fps
-  const totalFrames = currentIndex * 288;
-  const ff = Math.floor(totalFrames % 24);
-  const ss = Math.floor((totalFrames / 24) % 60);
-  const mm = Math.floor((totalFrames / (24 * 60)) % 60);
-  const hh = Math.floor(totalFrames / (24 * 3600));
-  const tcString = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
+  const shotOffsets = useMemo(() => getCumulativeShotOffsets(safeFrames), [safeFrames]);
+  const currentShotStartSec = shotOffsets[currentIndex]?.startSec ?? 0;
+  const tcString = formatFullSMPTETimecode(currentShotStartSec + slideTimeSec, currentFps);
 
   // Scroll-based Virtualization State for bottom 100-shot sequence bar
   const [stripScroll, setStripScroll] = useState<{ scrollLeft: number; clientWidth: number }>({
@@ -193,9 +217,81 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     }
   };
 
+  const handleStartShotResize = (idx: number, e: React.MouseEvent) => {
+    if (!onUpdateFrameAtIndex) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const targetFrame = safeFrames[idx];
+    if (!targetFrame) return;
+
+    const startX = e.clientX;
+    const startDuration = getShotDurationSec(targetFrame, 12.0);
+    const shotStartSec = shotOffsets[idx]?.startSec ?? idx * 12.0;
+    const snapActive =
+      isSnapToBeat || Boolean(targetFrame.beatSnapEnabled) || audioEngine.getIsSnapToBeatEnabled();
+
+    setDragShotState({
+      index: idx,
+      durationSec: startDuration,
+      clientX: e.clientX,
+      clientY: e.clientY
+    });
+
+    const onMove = (moveEv: MouseEvent) => {
+      const deltaPx = moveEv.clientX - startX;
+      const secPerPx = moveEv.shiftKey ? 0.01 : moveEv.altKey ? 0.5 : startDuration >= 30 ? 0.25 : 0.06;
+      let candidate = clampShotDuration(startDuration + deltaPx * secPerPx);
+
+      if (snapActive) {
+        candidate = audioEngine.snapDurationToNearestBeat(shotStartSec, candidate, 0.5, 0.45);
+      } else {
+        candidate = clampShotDuration(Math.round(candidate * 20) / 20);
+      }
+
+      setDragShotState({
+        index: idx,
+        durationSec: candidate,
+        clientX: moveEv.clientX,
+        clientY: moveEv.clientY
+      });
+
+      onUpdateFrameAtIndex(idx, {
+        ...targetFrame,
+        slideHoldSec: candidate,
+        durationSec: candidate
+      });
+    };
+
+    const onUp = () => {
+      setDragShotState(null);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4">
-      {/* 100-Frame Strip Navigation with High-Throughput Virtualization */}
+      {/* Floating Real-Time Drag Handle Tooltip */}
+      {dragShotState && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${Math.max(80, Math.min(window.innerWidth - 180, dragShotState.clientX - 70))}px`,
+            top: `${Math.max(24, dragShotState.clientY - 42)}px`,
+            zIndex: 9999
+          }}
+          className="px-2.5 py-1 rounded-md bg-black/95 border border-[#F5A623] text-[10px] font-mono font-bold text-[#FFE066] whitespace-nowrap shadow-[0_8px_24px_rgba(0,0,0,0.9)] pointer-events-none tabular-nums"
+        >
+          DUR: {dragShotState.durationSec.toFixed(2)}s //{' '}
+          {getShotFrameCount(dragShotState.durationSec, getShotTargetFps(safeFrames[dragShotState.index], 24))} FRAMES
+        </div>
+      )}
+
+      {/* 100-Frame Strip Navigation with High-Throughput Virtualization & Per-Slide Duration Handles */}
       <div className="w-full max-w-5xl mb-1.5 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
         <button
           onClick={onPrev}
@@ -217,21 +313,34 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             const shotNumber = idx + 1;
             const title = frame?.title || `Shot ${shotNumber}`;
             const bn = frame?.bengaliTitle || '';
-            const holdSec = frame?.slideHoldSec ?? 12.0;
+            const holdSec =
+              dragShotState?.index === idx
+                ? dragShotState.durationSec
+                : getShotDurationSec(frame, 12.0);
+            const shotFps = getShotTargetFps(frame, 24);
+            const shotFrames = getShotFrameCount(holdSec, shotFps);
 
             // Real-time relative timecode for the active frame during playback
             const relSec = isActive ? slideTimeSec : 0;
-            const relFrames = Math.floor((relSec % 1) * 24);
+            const relFrames = Math.floor((relSec % 1) * shotFps);
             const relSecondsPart = Math.floor(relSec);
             const relativeTc = `+${String(relSecondsPart).padStart(2, '0')}:${String(relFrames).padStart(2, '0')}F`;
 
             return (
-              <button
+              <div
                 key={frame?.id ?? idx}
                 onClick={() => onSelectFrame(idx)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectFrame(idx);
+                  }
+                }}
                 aria-label={`Shot ${shotNumber}: ${title}`}
-                title={`Shot ${shotNumber}: ${title} ${bn ? `(${bn})` : ''} — Relative Time: ${isActive ? relativeTc : `${holdSec.toFixed(1)}s`}`}
-                className={`group relative shrink-0 w-12 sm:w-13 h-7.5 sm:h-8.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 border active:scale-95 ${
+                title={`Shot ${shotNumber}: ${title} ${bn ? `(${bn})` : ''} — DUR: ${holdSec.toFixed(2)}s // ${shotFrames} FRAMES`}
+                className={`group relative shrink-0 w-13 sm:w-14 h-7.5 sm:h-8.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 border ${
                   isActive
                     ? 'border-[#FFE066] ring-2 ring-[#D4AF37] shadow-[0_0_14px_rgba(212,175,55,0.7)] scale-105 z-20'
                     : hasMedia
@@ -244,6 +353,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   <img
                     src={frame.imageUrl}
                     alt={`Shot ${shotNumber}`}
+                    referrerPolicy="no-referrer"
                     loading="lazy"
                     decoding="async"
                     className="absolute inset-0 w-full h-full object-cover filter brightness-[0.7] group-hover:brightness-100 transition-all duration-200 group-hover:scale-110"
@@ -262,20 +372,17 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 {/* Contrast shade overlay */}
                 <div className="absolute inset-0 bg-black/45 group-hover:bg-black/20 transition-colors pointer-events-none" />
 
-                {/* Floating Real-Time Relative Timecode Overlay Badge */}
+                {/* Floating Real-Time Relative Timecode / Duration Overlay Badge */}
                 <div
                   className={`absolute top-0.5 inset-x-0.5 z-20 flex items-center justify-between px-1 py-0.2 rounded-[2px] backdrop-blur-md transition-all duration-150 pointer-events-none ${
                     isActive
                       ? 'bg-black/90 border border-[#FFE066] text-[#FFE066] shadow-[0_0_8px_rgba(245,166,35,0.7)]'
-                      : 'bg-black/75 border border-white/10 text-white/50 opacity-0 group-hover:opacity-100'
+                      : 'bg-black/75 border border-white/10 text-white/60 opacity-85 group-hover:opacity-100'
                   }`}
                 >
                   <span className="text-[6.5px] sm:text-[7px] font-mono font-bold tracking-tight leading-none tabular-nums">
-                    {isActive ? relativeTc : `${holdSec.toFixed(0)}s`}
+                    {isActive && isPlaying ? relativeTc : formatDurationPillValue(holdSec)}
                   </span>
-                  {isActive && (
-                    <span className={`w-1 h-1 rounded-full ${isPlaying ? 'bg-[#FFE066] animate-pulse' : 'bg-amber-400'}`} />
-                  )}
                 </div>
 
                 {/* Real-Time Slide Progress Baseline */}
@@ -295,17 +402,31 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   <span className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D4AF37]/80 pointer-events-none" />
                 )}
 
-                {/* Number overlay: strictly 1, 2, 3... transparent default, animated bold on mouse-over */}
+                {/* Number overlay */}
                 <span
-                  className={`relative z-10 font-mono transition-all duration-200 pointer-events-none select-none mt-1.5 ${
+                  className={`relative z-10 font-mono transition-all duration-200 pointer-events-none select-none mt-1.5 tabular-nums ${
                     isActive
                       ? 'text-[#FFE066] font-black text-[11px] scale-110 drop-shadow-[0_0_8px_rgba(245,166,35,0.95)]'
-                      : 'text-white/30 text-[9px] font-medium tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] group-hover:scale-130 group-hover:text-[#FFE066] group-hover:font-black group-hover:text-[11.5px] group-hover:drop-shadow-[0_0_8px_rgba(245,166,35,1)] group-hover:opacity-100'
+                      : 'text-white/35 text-[9px] font-medium tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] group-hover:scale-125 group-hover:text-[#FFE066] group-hover:font-black group-hover:text-[11px]'
                   }`}
                 >
                   {shotNumber}
                 </span>
-              </button>
+
+                {/* Right-Border Duration Drag Handle */}
+                {onUpdateFrameAtIndex && (
+                  <div
+                    onMouseDown={(e) => handleStartShotResize(idx, e)}
+                    onClick={(e) => e.stopPropagation()}
+                    title={`Drag right edge to resize SH${String(shotNumber).padStart(3, '0')} (${holdSec.toFixed(2)}s // ${shotFrames}F)`}
+                    className={`absolute top-0 bottom-0 right-0 w-1.5 z-30 cursor-ew-resize transition-colors ${
+                      dragShotState?.index === idx
+                        ? 'bg-[#FFE066]'
+                        : 'bg-transparent group-hover:bg-[#F5A623]/80 hover:!bg-[#FFE066]'
+                    }`}
+                  />
+                )}
+              </div>
             );
           })}
         </div>
@@ -319,6 +440,31 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
 
+        {/* Sequence Bar Quick Actions: Ripple Duration & Beat Match */}
+        {onApplyDurationToAll && (
+          <button
+            type="button"
+            onClick={() => onApplyDurationToAll(currentDurationSec)}
+            title={`Ripple Apply ${formatDurationPillValue(currentDurationSec)} to All Shots`}
+            className="hidden md:flex items-center gap-1 px-2 py-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/75 hover:text-[#FFE066] text-[9px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
+          >
+            <Repeat className="w-3 h-3 text-[#D4AF37]" />
+            <span>Ripple All</span>
+          </button>
+        )}
+
+        {onMatchAudioBeats && (
+          <button
+            type="button"
+            onClick={onMatchAudioBeats}
+            title="Match Audio Waveform Beats across all shots"
+            className="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-cyan-400 text-white/75 hover:text-cyan-200 text-[9px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
+          >
+            <Music className="w-3 h-3 text-cyan-400" />
+            <span>Match Beats</span>
+          </button>
+        )}
+
         <form onSubmit={handleJumpSubmit} className="hidden sm:flex items-center shrink-0">
           <input
             type="text"
@@ -326,8 +472,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onChange={(e) => setJumpInput(e.target.value)}
             onBlur={() => handleJumpSubmit()}
             placeholder={`# ${currentIndex + 1}`}
-            className="w-16 bg-black/85 border border-white/20 focus:border-[#D4AF37] text-white text-[9.5px] font-mono-tech px-2 py-1 rounded-[2px] text-center outline-none transition-colors"
-            title="Type shot number (1-100) and press Enter to jump"
+            className="w-14 bg-black/85 border border-white/20 focus:border-[#D4AF37] text-white text-[9.5px] font-mono-tech px-2 py-1 rounded-[2px] text-center outline-none transition-colors tabular-nums"
+            title="Type shot number and press Enter to jump"
           />
         </form>
       </div>
@@ -357,7 +503,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       <div className="relative w-full max-w-5xl pointer-events-auto bg-[#08080B]/95 backdrop-blur-xl border border-white/15 rounded-[3px] shadow-[0_8px_32px_rgba(0,0,0,0.85)] p-2 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
         {/* Subtle Ambient Gold Audio Reactivity Edge */}
         <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
-        {/* Left Section: Playback & Speed */}
+        {/* Left Section: Playback, Timecode & Quick Cadence Selector */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={onTogglePlay}
@@ -383,30 +529,52 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
           {/* Timecode Badge */}
           <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] bg-black/90 border border-white/15 text-[9px] font-mono-tech shrink-0 whitespace-nowrap shadow-inner"
-            title="Sequence SMPTE Timecode (HH:MM:SS:FF) at 24 FPS"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] bg-black/90 border border-white/15 text-[9px] font-mono-tech shrink-0 whitespace-nowrap shadow-inner tabular-nums"
+            title={`Sequence SMPTE Timecode (HH:MM:SS:FF) at ${currentFps} FPS`}
           >
             <Clock className="w-2.5 h-2.5 text-[#D4AF37]" />
-            <span className="text-[8px] text-white/40 font-semibold uppercase">TC</span>
+            <span className="text-[8px] text-white/40 font-semibold">TC</span>
             <span className="text-[#D4AF37] font-bold tracking-wider">{tcString}</span>
-            <span className="text-[7.5px] text-white/40 border-l border-white/15 pl-1.5">24F</span>
+            <span className="text-[7.5px] text-white/40 border-l border-white/15 pl-1.5">{currentFps}F</span>
           </div>
 
+          {/* In-Player Quick Cadence Selector Pill */}
+          {onUpdateFrameAtIndex && currentFrame && (
+            <CadenceSelectorPill
+              durationSec={currentDurationSec}
+              targetFps={currentFps}
+              onChangeDuration={(dur) =>
+                onUpdateFrameAtIndex(currentIndex, {
+                  ...currentFrame,
+                  slideHoldSec: dur,
+                  durationSec: dur
+                })
+              }
+              onChangeTargetFps={(fps) =>
+                onUpdateFrameAtIndex(currentIndex, {
+                  ...currentFrame,
+                  targetFps: fps
+                })
+              }
+              onApplyDurationToAll={onApplyDurationToAll}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
+              compact
+            />
+          )}
+
           {/* Pace Slider */}
-          <div className="hidden md:flex items-center gap-1.5 border-l border-white/10 pl-2 shrink-0 whitespace-nowrap">
-            <span className="text-[8.5px] text-white/40 uppercase tracking-wider shrink-0">PACE</span>
+          <div className="hidden xl:flex items-center gap-1.5 border-l border-white/10 pl-2 shrink-0 whitespace-nowrap tabular-nums">
+            <span className="text-[8.5px] text-white/40 tracking-wider shrink-0">SPEED</span>
             <input
               type="range"
               min="1"
               max="100"
               value={speed}
               onChange={(e) => onSpeedChange(Number(e.target.value))}
-              className="w-14 sm:w-16 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded shrink-0"
-              title={`Slideshow interval: ${intervalSeconds}s`}
+              className="w-12 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded shrink-0"
+              title={`Playback tempo scalar (${intervalSeconds}s ref)`}
             />
-            <span className="text-[9px] text-[#D4AF37] min-w-[28px] shrink-0 font-medium">
-              {intervalSeconds}s
-            </span>
           </div>
 
           {/* Pan Tool */}

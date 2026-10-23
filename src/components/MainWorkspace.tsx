@@ -31,7 +31,12 @@ import { MultiCamGridMonitor } from './multicam/MultiCamGridMonitor';
 import { MultiCamGroup } from '../types/multicam';
 import { MultiCamGridConfig } from './multicam/MultiCamViewportGrid';
 import { SlideDraft, AspectRatioType } from '../types/project';
-import { PlaybackMode, SLIDE_DURATION_SEC } from '../types/editor';
+import { PlaybackMode } from '../types/editor';
+import {
+  clampShotDuration,
+  getShotDurationSec,
+  getShotTargetFps
+} from '../types/storyboard';
 
 interface MainWorkspaceProps {
   activeMode: WorkspaceMode;
@@ -68,6 +73,9 @@ interface MainWorkspaceProps {
   onCycleTitleAnimation?: () => void;
   onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
   onUpdateFrame?: (frame: AnthologyFrame) => void;
+  onUpdateFrameAtIndex?: (index: number, frame: AnthologyFrame) => void;
+  onApplyDurationToAll?: (durationSec: number) => void;
+  onMatchAudioBeats?: () => void;
   // Dual-Panel Engine & Dual-Mode Playback
   playbackMode?: PlaybackMode;
   slideTimeSec?: number;
@@ -137,6 +145,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onCycleTitleAnimation,
   onReorderFrames,
   onUpdateFrame,
+  onUpdateFrameAtIndex,
+  onApplyDurationToAll,
+  onMatchAudioBeats,
   playbackMode = 'sequence',
   slideTimeSec = 0,
   activeDualPanel = 'TACTILE_STAGE',
@@ -224,43 +235,84 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
     currentIndex
   ]);
 
-  // Convert AnthologyFrames into SlideDrafts with strict 12.0s durations
+  // Convert AnthologyFrames into Elastic Multi-Cadence SlideDrafts
   const slides: SlideDraft[] = useMemo(() => {
-    return frames.map((f, i) => ({
-      id: `slide_${f.id ?? i}`,
-      orderIndex: i,
-      duration: SLIDE_DURATION_SEC, // Strictly 12.0s
-      remoteUrl: f.imageUrl,
-      titleBn: f.bengaliTitle,
-      titleEn: f.title,
-      tagline: f.tagline,
-      directorNotes: f.directorNotes,
-      soundCue: f.soundCue,
-      aspectRatio: aspectRatio as AspectRatioType,
-      colorAccent: f.colorAccent,
-      lutFilter: f.lutFilter,
-      isVideo: f.isVideo,
-      panY: panOffsetPercent,
-      cameraSpec: f.cameraSpec
-    }));
+    return frames.map((f, i) => {
+      const dur = getShotDurationSec(f, 12.0);
+      const fps = getShotTargetFps(f, 24);
+      return {
+        id: `slide_${f.id ?? i}`,
+        orderIndex: i,
+        duration: dur,
+        durationSec: dur,
+        targetFps: fps,
+        inPointMs: f.inPointMs,
+        outPointMs: f.outPointMs,
+        beatSnapEnabled: f.beatSnapEnabled,
+        remoteUrl: f.imageUrl,
+        titleBn: f.bengaliTitle,
+        titleEn: f.title,
+        tagline: f.tagline,
+        directorNotes: f.directorNotes,
+        soundCue: f.soundCue,
+        aspectRatio: aspectRatio as AspectRatioType,
+        colorAccent: f.colorAccent,
+        lutFilter: f.lutFilter,
+        isVideo: f.isVideo,
+        panY: panOffsetPercent,
+        cameraSpec: f.cameraSpec
+      };
+    });
   }, [frames, aspectRatio, panOffsetPercent]);
 
-  // Handle slide updates and reflect to parent frame
+  // Handle slide updates (including variable durationSec & targetFps) and reflect to parent frame
   const handleUpdateSlideInternal = (index: number, partial: Partial<SlideDraft>) => {
     if (onUpdateSlide) {
       onUpdateSlide(index, partial);
     }
-    if (onUpdateFrame && frames[index]) {
+    if (frames[index]) {
       const original = frames[index];
-      onUpdateFrame({
+      const nextDuration =
+        partial.durationSec !== undefined
+          ? clampShotDuration(partial.durationSec)
+          : partial.duration !== undefined
+          ? clampShotDuration(partial.duration)
+          : getShotDurationSec(original, 12.0);
+
+      const updatedFrame: AnthologyFrame = {
         ...original,
         title: partial.titleEn !== undefined ? partial.titleEn : original.title,
         bengaliTitle: partial.titleBn !== undefined ? partial.titleBn : original.bengaliTitle,
         directorNotes: partial.directorNotes !== undefined ? partial.directorNotes : original.directorNotes,
         soundCue: partial.soundCue !== undefined ? partial.soundCue : original.soundCue,
-        imageUrl: partial.remoteUrl !== undefined ? partial.remoteUrl : original.imageUrl
-      });
+        imageUrl: partial.remoteUrl !== undefined ? partial.remoteUrl : original.imageUrl,
+        slideHoldSec: nextDuration,
+        durationSec: nextDuration,
+        targetFps: partial.targetFps !== undefined ? partial.targetFps : original.targetFps,
+        inPointMs: partial.inPointMs !== undefined ? partial.inPointMs : original.inPointMs,
+        outPointMs: partial.outPointMs !== undefined ? partial.outPointMs : original.outPointMs,
+        beatSnapEnabled: partial.beatSnapEnabled !== undefined ? partial.beatSnapEnabled : original.beatSnapEnabled
+      };
+
+      if (onUpdateFrameAtIndex) {
+        onUpdateFrameAtIndex(index, updatedFrame);
+      } else if (onUpdateFrame) {
+        onUpdateFrame(updatedFrame);
+      }
     }
+  };
+
+  const handleActiveShotDurationChange = (newDurationSec: number) => {
+    handleUpdateSlideInternal(currentIndex, {
+      duration: clampShotDuration(newDurationSec),
+      durationSec: clampShotDuration(newDurationSec)
+    });
+  };
+
+  const handleActiveShotFpsChange = (newFps: number) => {
+    handleUpdateSlideInternal(currentIndex, {
+      targetFps: newFps === 60 ? 60 : 24
+    });
   };
 
   // 1. BLOOM VIEW (Consolidated with Tactile Cinema Stage)
@@ -279,6 +331,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           componentsVisibility={componentsVisibility}
           onSelectFrame={onSelectFrame}
           onUpdateFrame={onUpdateFrame}
+          onUpdateFrameAtIndex={onUpdateFrameAtIndex}
+          onApplyDurationToAll={onApplyDurationToAll}
+          onMatchAudioBeats={onMatchAudioBeats}
           onReorderFrames={onReorderFrames}
           onUploadImage={onUploadImage}
           onOpenAnimatic={onOpenAnimatic}
@@ -339,10 +394,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         currentIndex={currentIndex}
         totalShots={frames.length || 100}
         currentFrame={currentFrame}
+        frames={frames}
         playbackMode={playbackMode}
         onSelectPlaybackMode={onSelectPlaybackMode}
-        slideDurationSec={SLIDE_DURATION_SEC}
-        fps={24}
+        slideDurationSec={getShotDurationSec(currentFrame, 12.0)}
+        fps={getShotTargetFps(currentFrame, 24)}
       />
 
       {/* Main Viewport Content based on active panel */}
@@ -362,6 +418,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               componentsVisibility={componentsVisibility}
               onSelectFrame={onSelectFrame}
               onUpdateFrame={onUpdateFrame}
+              onUpdateFrameAtIndex={onUpdateFrameAtIndex}
+              onApplyDurationToAll={onApplyDurationToAll}
+              onMatchAudioBeats={onMatchAudioBeats}
               onReorderFrames={onReorderFrames}
               onUploadImage={onUploadImage}
               onOpenAnimatic={onOpenAnimatic}
@@ -393,10 +452,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           </div>
         )}
 
-        {/* VIEW 1: DUAL STUDIO SPLIT (Top: 12.0s Reels Viewport with Editorial Obsidian Capsule, Bottom: Timeline Sequencer) */}
+        {/* VIEW 1: DUAL STUDIO SPLIT (Top: Elastic Reels Viewport, Bottom: Timeline Sequencer) */}
         {currentPanel === 'SPLIT' && (
           <div className="w-full h-full flex flex-col overflow-hidden">
-            {/* Top: 12.0s Reels Mode Editorial Layout */}
             <div className="flex-1 min-h-[340px] w-full flex items-center justify-center overflow-hidden border-b border-[#1C1C24]">
               <ReelsView
                 currentSlide={slides[currentIndex]}
@@ -410,6 +468,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 slideTimeSec={slideTimeSec}
                 playbackSpeed={playbackSpeed}
                 onChangePlaybackSpeed={onChangePlaybackSpeed}
+                onChangeSlideDuration={handleActiveShotDurationChange}
+                onChangeTargetFps={handleActiveShotFpsChange}
+                onApplyDurationToAll={onApplyDurationToAll}
+                isSnapToBeat={isSnapToBeat}
+                onToggleSnapToBeat={onToggleSnapToBeat}
                 onTogglePlay={onTogglePlay || (() => {})}
                 onToggleLoop={() => setIsLooping(l => !l)}
                 onStepFrame={onStepFrame || (() => {})}
@@ -427,7 +490,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               />
             </div>
 
-            {/* Bottom: 12.0S Sequencer (Card Ordering, Scene Labels, Text Cues, Scrub) */}
+            {/* Bottom: Elastic Multi-Cadence Sequencer */}
             <div className="h-[275px] w-full shrink-0 overflow-hidden">
               <TimelineSequencer
                 slides={slides}
@@ -447,18 +510,27 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onReorderSlides={(reordered) => {
                   if (onReorderFrames) {
                     const newFrames = reordered.map((s, idx) => {
-                      const original = frames[idx] || frames[0];
+                      const original = frames[s.orderIndex ?? idx] || frames[idx] || frames[0];
+                      const dur = getShotDurationSec(s, getShotDurationSec(original, 12.0));
                       return {
                         ...original,
                         title: s.titleEn || original.title,
                         bengaliTitle: s.titleBn || original.bengaliTitle,
-                        imageUrl: s.remoteUrl || original.imageUrl
+                        imageUrl: s.remoteUrl || original.imageUrl,
+                        slideHoldSec: dur,
+                        durationSec: dur,
+                        targetFps: s.targetFps ?? original.targetFps
                       };
                     });
                     onReorderFrames(newFrames);
                   }
                 }}
                 onUpdateSlide={handleUpdateSlideInternal}
+                onApplyDurationToAll={onApplyDurationToAll}
+                onMatchAudioBeats={onMatchAudioBeats}
+                isSnapToBeat={isSnapToBeat}
+                onToggleSnapToBeat={onToggleSnapToBeat}
+                onLoadAudioFile={onLoadAudioFile}
                 onUploadMedia={(idx, file) => {
                   onSelectFrame(idx);
                   onUploadImage(file);
@@ -483,6 +555,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               slideTimeSec={slideTimeSec}
               playbackSpeed={playbackSpeed}
               onChangePlaybackSpeed={onChangePlaybackSpeed}
+              onChangeSlideDuration={handleActiveShotDurationChange}
+              onChangeTargetFps={handleActiveShotFpsChange}
+              onApplyDurationToAll={onApplyDurationToAll}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
               onTogglePlay={onTogglePlay || (() => {})}
               onToggleLoop={() => setIsLooping(l => !l)}
               onStepFrame={onStepFrame || (() => {})}
@@ -522,18 +599,25 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onReorderSlides={(reordered) => {
                 if (onReorderFrames) {
                   const newFrames = reordered.map((s, idx) => {
-                    const original = frames[idx] || frames[0];
+                    const original = frames[s.orderIndex ?? idx] || frames[idx] || frames[0];
+                    const dur = getShotDurationSec(s, getShotDurationSec(original, 12.0));
                     return {
                       ...original,
                       title: s.titleEn || original.title,
                       bengaliTitle: s.titleBn || original.bengaliTitle,
-                      imageUrl: s.remoteUrl || original.imageUrl
+                      imageUrl: s.remoteUrl || original.imageUrl,
+                      slideHoldSec: dur,
+                      durationSec: dur,
+                      targetFps: s.targetFps ?? original.targetFps
                     };
                   });
                   onReorderFrames(newFrames);
                 }
               }}
               onUpdateSlide={handleUpdateSlideInternal}
+              onApplyDurationToAll={onApplyDurationToAll}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
               onUploadMedia={(idx, file) => {
                 onSelectFrame(idx);
                 onUploadImage(file);

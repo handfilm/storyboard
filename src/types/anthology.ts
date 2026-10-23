@@ -71,6 +71,10 @@ export interface AnthologyFrame {
   omniDecisions?: any;
   slideHoldSec?: number;
   durationSec?: number;
+  targetFps?: number;
+  inPointMs?: number;
+  outPointMs?: number;
+  beatSnapEnabled?: boolean;
   subclipInSec?: number;
   subclipOutSec?: number;
 }

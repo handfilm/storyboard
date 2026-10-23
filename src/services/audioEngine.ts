@@ -37,6 +37,7 @@ export interface AudioTrackAnalysis {
   channels: number;
   detectedBpm: number;
   transients: BeatMarker[];
+  transientTimecodeMap: number[]; // Sorted peak timestamps (seconds) for fast magnetic beat-snapping
   averageEnergy: number;
   peakEnergy: number;
 }
@@ -70,8 +71,8 @@ export class CinematicAudioEngine {
   private isSnapToBeatEnabled: boolean = false;
 
   constructor() {
-    // Generate initial synthetic beat grid (120 BPM cinematic trailer pacing)
-    this.currentAnalysis = this.createSyntheticBeatGrid(120, 1200); // 20 minutes of 12.0s slides
+    // Generate initial synthetic beat grid (120 BPM cinematic pulse across 30 minutes)
+    this.currentAnalysis = this.createSyntheticBeatGrid(120, 1800);
   }
 
   /**
@@ -117,19 +118,24 @@ export class CinematicAudioEngine {
   // =========================================================================
 
   /**
-   * Loads an audio file (e.g. BGM or VO track), decodes its waveform buffer,
-   * runs the offline DSP transient peak detection, and configures playback.
+   * Loads an audio file (e.g. MP3/WAV rap beat or score), decodes its waveform buffer
+   * via AudioContext.decodeAudioData(), runs offline kick/snare transient peak detection,
+   * builds the transient timecode map, and configures synchronized playback.
    */
   public async loadAndAnalyzeAudioFile(file: File): Promise<AudioTrackAnalysis> {
     this.init();
     const arrayBuffer = await file.arrayBuffer();
 
-    // Use AudioContext to decode audio
-    if (!this.ctx) {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const decodeCtx = this.ctx || (AudioCtx ? new AudioCtx() : null);
+
+    if (!decodeCtx) {
       throw new Error('Web AudioContext is not supported in this browser.');
     }
 
-    const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer.slice(0));
+    const audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
     const analysis = this.analyzeAudioBuffer(audioBuffer, file.name);
 
     this.currentAnalysis = analysis;
@@ -142,84 +148,130 @@ export class CinematicAudioEngine {
   }
 
   /**
-   * High-Precision Offline Beat & Transient DSP Analyzer
-   * Computes sub-band kick energy (20-150Hz), mid-range snare snaps (200-2500Hz),
-   * and spectral flux to extract musically significant cut points.
+   * High-Precision Offline Rap Beat & Transient DSP Quantizer
+   * Separates low-band kick energy (one-pole ~140Hz LP) and mid/high snare attack (first-order diff)
+   * alongside wideband RMS spectral flux to generate a sharp transientTimecodeMap (number[]).
    */
   public analyzeAudioBuffer(buffer: AudioBuffer, fileName: string = 'Cinematic_Track.wav'): AudioTrackAnalysis {
     const sampleRate = buffer.sampleRate;
     const channelData = buffer.getChannelData(0);
+    const secondChannel = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
     const durationSec = buffer.duration;
 
-    // Window size: ~23.2ms (1024 samples @ 44.1kHz)
-    const windowSize = Math.floor(sampleRate * 0.025);
-    const totalWindows = Math.floor(channelData.length / windowSize);
+    // 20ms analysis window for tight rap staccato beat resolution
+    const windowSec = 0.02;
+    const windowSize = Math.max(256, Math.floor(sampleRate * windowSec));
+    const totalWindows = Math.max(1, Math.floor(channelData.length / windowSize));
 
-    // Step 1: Calculate short-time RMS energy and High-Frequency Content (HFC)
     const energies = new Float32Array(totalWindows);
+    const kickEnergies = new Float32Array(totalWindows);
+    const snareEnergies = new Float32Array(totalWindows);
+
+    // One-pole low-pass coefficient around 140Hz for sub/kick detection
+    const lpAlpha = Math.min(0.95, (2 * Math.PI * 140) / (sampleRate + 2 * Math.PI * 140));
+    let lpState = 0;
+    let prevSample = 0;
+
     let maxEnergy = 0.001;
+    let maxKick = 0.001;
+    let maxSnare = 0.001;
     let sumEnergy = 0;
 
     for (let w = 0; w < totalWindows; w++) {
       let sumSq = 0;
+      let sumKickSq = 0;
+      let sumSnareSq = 0;
       const startSample = w * windowSize;
       const endSample = Math.min(startSample + windowSize, channelData.length);
+      const count = Math.max(1, endSample - startSample);
 
       for (let s = startSample; s < endSample; s++) {
-        const val = channelData[s];
-        sumSq += val * val;
+        const mono = secondChannel ? 0.5 * (channelData[s] + secondChannel[s]) : channelData[s];
+        lpState = lpState + lpAlpha * (mono - lpState);
+        const hp = mono - prevSample;
+        prevSample = mono;
+
+        sumSq += mono * mono;
+        sumKickSq += lpState * lpState;
+        sumSnareSq += hp * hp;
       }
 
-      const rms = Math.sqrt(sumSq / windowSize);
+      const rms = Math.sqrt(sumSq / count);
+      const kickRms = Math.sqrt(sumKickSq / count);
+      const snareRms = Math.sqrt(sumSnareSq / count);
+
       energies[w] = rms;
+      kickEnergies[w] = kickRms;
+      snareEnergies[w] = snareRms;
+
       sumEnergy += rms;
       if (rms > maxEnergy) maxEnergy = rms;
+      if (kickRms > maxKick) maxKick = kickRms;
+      if (snareRms > maxSnare) maxSnare = snareRms;
     }
 
-    const avgEnergy = sumEnergy / Math.max(1, totalWindows);
+    const avgEnergy = sumEnergy / totalWindows;
 
-    // Step 2: Spectral flux / Energy Derivative (onset detection function)
+    // Combined dual-band onset flux (kick punch + snare crack + wideband rise)
     const flux = new Float32Array(totalWindows);
     for (let w = 1; w < totalWindows; w++) {
-      const diff = energies[w] - energies[w - 1];
-      flux[w] = diff > 0 ? diff : 0;
+      const fullDiff = Math.max(0, energies[w] - energies[w - 1]);
+      const kickDiff = Math.max(0, kickEnergies[w] - kickEnergies[w - 1]) / maxKick;
+      const snareDiff = Math.max(0, snareEnergies[w] - snareEnergies[w - 1]) / maxSnare;
+      flux[w] = fullDiff + 0.35 * maxEnergy * (0.6 * kickDiff + 0.4 * snareDiff);
     }
 
-    // Step 3: Adaptive threshold peak picking with 120ms lockout period
+    // Local moving-average adaptive threshold with 110ms minimum inter-beat lockout
     const transients: BeatMarker[] = [];
-    const minTimeBetweenBeatsSec = 0.12; // 120ms minimum between transients
-    const minSampleDistance = Math.floor(minTimeBetweenBeatsSec / 0.025);
-    let lastBeatWindow = -minSampleDistance;
+    const transientTimecodeMap: number[] = [];
+    const minTimeBetweenBeatsSec = 0.11;
+    const minWindowDistance = Math.max(2, Math.floor(minTimeBetweenBeatsSec / windowSec));
+    let lastBeatWindow = -minWindowDistance;
 
-    const thresholdMultiplier = 1.45;
-    const minAbsoluteThreshold = Math.max(0.04, avgEnergy * thresholdMultiplier);
-
+    const localRadius = 12;
     const onsetIntervals: number[] = [];
 
     for (let w = 2; w < totalWindows - 2; w++) {
       const val = flux[w];
-      const isPeak = val > flux[w - 1] && val > flux[w + 1] && val > flux[w - 2] && val > flux[w + 2];
+      const isPeak =
+        val > flux[w - 1] &&
+        val >= flux[w + 1] &&
+        val > flux[w - 2] &&
+        val >= flux[w + 2];
 
-      if (isPeak && val > minAbsoluteThreshold && (w - lastBeatWindow) >= minSampleDistance) {
-        const timeSec = (w * windowSize) / sampleRate;
+      if (!isPeak || w - lastBeatWindow < minWindowDistance) continue;
+
+      let localSum = 0;
+      let localCount = 0;
+      for (let k = Math.max(1, w - localRadius); k <= Math.min(totalWindows - 1, w + localRadius); k++) {
+        localSum += flux[k];
+        localCount++;
+      }
+      const localMean = localSum / Math.max(1, localCount);
+      const dynamicThreshold = Math.max(avgEnergy * 0.45, localMean * 1.45, 0.025);
+
+      if (val > dynamicThreshold) {
+        const timeSec = Number(((w * windowSize) / sampleRate).toFixed(4));
         const normalizedEnergy = Math.min(1.0, energies[w] / maxEnergy);
+        const kickNorm = kickEnergies[w] / maxKick;
+        const snareNorm = snareEnergies[w] / maxSnare;
 
-        // Classify transient type
-        const isKick = normalizedEnergy > 0.65;
-        const isDownbeat = (transients.length % 4 === 0) || normalizedEnergy > 0.85;
+        const isKick = kickNorm >= snareNorm * 0.95 && normalizedEnergy > 0.45;
+        const isDownbeat = transients.length % 4 === 0 || normalizedEnergy > 0.85;
 
         transients.push({
           id: `beat-${transients.length + 1}-${Math.round(timeSec * 1000)}`,
           timeSec,
           energy: normalizedEnergy,
           type: isDownbeat ? 'downbeat' : isKick ? 'kick' : 'snare',
-          confidence: Math.min(1.0, val / (maxEnergy * 0.8)),
+          confidence: Math.min(1.0, val / (maxEnergy * 0.85)),
           isDownbeat
         });
+        transientTimecodeMap.push(timeSec);
 
         if (lastBeatWindow > 0) {
           const deltaSec = ((w - lastBeatWindow) * windowSize) / sampleRate;
-          if (deltaSec > 0.25 && deltaSec < 1.5) {
+          if (deltaSec > 0.22 && deltaSec < 1.6) {
             onsetIntervals.push(deltaSec);
           }
         }
@@ -228,17 +280,15 @@ export class CinematicAudioEngine {
       }
     }
 
-    // Step 4: Estimate BPM from inter-onset intervals
+    // Estimate BPM from median inter-onset interval
     let detectedBpm = 120;
     if (onsetIntervals.length > 4) {
-      // Median interval calculation
       const sortedIntervals = [...onsetIntervals].sort((a, b) => a - b);
       const medianInterval = sortedIntervals[Math.floor(sortedIntervals.length / 2)];
       if (medianInterval > 0) {
         let rawBpm = 60 / medianInterval;
-        // Normalize to standard 70-170 musical range
         while (rawBpm < 70) rawBpm *= 2;
-        while (rawBpm > 170) rawBpm /= 2;
+        while (rawBpm > 175) rawBpm /= 2;
         detectedBpm = Math.round(rawBpm);
       }
     }
@@ -250,22 +300,24 @@ export class CinematicAudioEngine {
       channels: buffer.numberOfChannels,
       detectedBpm,
       transients,
+      transientTimecodeMap,
       averageEnergy: avgEnergy,
       peakEnergy: maxEnergy
     };
   }
 
   /**
-   * Generates a synthetic cinematic beat grid (default 120 BPM trailer tempo)
+   * Generates a synthetic cinematic beat grid (default 120 BPM = 0.5s beats)
    * used when no external audio track has been loaded yet.
    */
-  public createSyntheticBeatGrid(bpm: number = 120, totalDurationSec: number = 1200): AudioTrackAnalysis {
+  public createSyntheticBeatGrid(bpm: number = 120, totalDurationSec: number = 1800): AudioTrackAnalysis {
     const beatIntervalSec = 60 / bpm; // 0.5s at 120 BPM
     const totalBeats = Math.floor(totalDurationSec / beatIntervalSec);
     const transients: BeatMarker[] = [];
+    const transientTimecodeMap: number[] = [];
 
     for (let b = 0; b < totalBeats; b++) {
-      const timeSec = b * beatIntervalSec;
+      const timeSec = Number((b * beatIntervalSec).toFixed(4));
       const isBarDownbeat = b % 4 === 0;
       const isKick = b % 2 === 0;
 
@@ -277,6 +329,7 @@ export class CinematicAudioEngine {
         confidence: 0.9,
         isDownbeat: isBarDownbeat
       });
+      transientTimecodeMap.push(timeSec);
     }
 
     return {
@@ -286,6 +339,7 @@ export class CinematicAudioEngine {
       channels: 2,
       detectedBpm: bpm,
       transients,
+      transientTimecodeMap,
       averageEnergy: 0.5,
       peakEnergy: 1.0
     };
@@ -296,64 +350,124 @@ export class CinematicAudioEngine {
   // =========================================================================
 
   /**
-   * Snaps a timestamp (seconds) to the nearest transient beat marker
-   * within a given tolerance window (e.g. ±0.35s).
+   * Returns the raw peak transient timecode map (number[]) in seconds.
    */
-  public snapTimeToNearestBeat(timeSec: number, toleranceSec: number = 0.35): number {
-    if (!this.currentAnalysis || this.currentAnalysis.transients.length === 0) {
-      return timeSec;
-    }
-
-    let nearestTime = timeSec;
-    let minDiff = toleranceSec;
-
-    for (const marker of this.currentAnalysis.transients) {
-      const diff = Math.abs(marker.timeSec - timeSec);
-      if (diff < minDiff) {
-        minDiff = diff;
-        nearestTime = marker.timeSec;
-      }
-    }
-
-    return nearestTime;
+  public getTransientTimecodeMap(): number[] {
+    return this.currentAnalysis?.transientTimecodeMap ?? [];
   }
 
   /**
-   * Returns transient markers localized to a specific slide's 12.0s window
+   * Snaps a timestamp (seconds) to the nearest transient beat peak
+   * within a given tolerance window (default ±0.35s). Supports track looping if timeline > track duration.
    */
-  public getTransientsForSlide(slideIndex: number, slideDurationSec: number = 12.0): BeatMarker[] {
-    if (!this.currentAnalysis) return [];
+  public snapTimeToNearestBeat(timeSec: number, toleranceSec: number = 0.35): number {
+    const map = this.currentAnalysis?.transientTimecodeMap;
+    if (!map || map.length === 0) {
+      return timeSec;
+    }
 
-    const slideStart = slideIndex * slideDurationSec;
-    const slideEnd = slideStart + slideDurationSec;
+    const trackDur = Math.max(0.5, this.currentAnalysis?.durationSec || 1800);
+    const cycleIndex = timeSec >= trackDur ? Math.floor(timeSec / trackDur) : 0;
+    const localTarget = timeSec - cycleIndex * trackDur;
+
+    let nearestLocal = localTarget;
+    let minDiff = toleranceSec;
+
+    for (let i = 0; i < map.length; i++) {
+      const diff = Math.abs(map[i] - localTarget);
+      if (diff <= minDiff) {
+        minDiff = diff;
+        nearestLocal = map[i];
+      }
+    }
+
+    return Number((cycleIndex * trackDur + nearestLocal).toFixed(3));
+  }
+
+  /**
+   * Magnetically snaps a shot's stretched/compressed duration so its Out-point
+   * lands cleanly on the nearest audio transient peak (>= 0.5s minimum).
+   */
+  public snapDurationToNearestBeat(
+    shotStartSec: number,
+    rawDurationSec: number,
+    minDurationSec: number = 0.5,
+    toleranceSec: number = 0.45
+  ): number {
+    const clampedRaw = Math.max(minDurationSec, Math.min(1800, rawDurationSec));
+    const targetOutSec = shotStartSec + clampedRaw;
+    const snappedOutSec = this.snapTimeToNearestBeat(targetOutSec, toleranceSec);
+    const snappedDur = snappedOutSec - shotStartSec;
+
+    if (snappedDur >= minDurationSec) {
+      return Number(Math.min(1800, snappedDur).toFixed(3));
+    }
+
+    // Search forward for the first transient >= shotStartSec + minDurationSec
+    const map = this.getTransientTimecodeMap();
+    const trackDur = Math.max(0.5, this.currentAnalysis?.durationSec || 1800);
+    const cycleIndex = shotStartSec >= trackDur ? Math.floor(shotStartSec / trackDur) : 0;
+    const minLocalOut = shotStartSec - cycleIndex * trackDur + minDurationSec;
+
+    for (let i = 0; i < map.length; i++) {
+      if (map[i] >= minLocalOut && map[i] - minLocalOut <= toleranceSec) {
+        return Number(Math.min(1800, cycleIndex * trackDur + map[i] - shotStartSec).toFixed(3));
+      }
+    }
+
+    return Number(clampedRaw.toFixed(3));
+  }
+
+  /**
+   * Returns transient markers localized to an arbitrary [startSec, startSec + durationSec] window.
+   */
+  public getTransientsInWindow(startSec: number, durationSec: number): BeatMarker[] {
+    if (!this.currentAnalysis || durationSec <= 0) return [];
+    const trackDur = Math.max(0.5, this.currentAnalysis.durationSec || 1800);
+    const localStart = startSec % trackDur;
+    const localEnd = localStart + durationSec;
 
     return this.currentAnalysis.transients
-      .filter(m => m.timeSec >= slideStart && m.timeSec < slideEnd)
-      .map(m => ({
+      .filter((m) => m.timeSec >= localStart && m.timeSec < localEnd)
+      .map((m) => ({
         ...m,
-        timeSec: m.timeSec - slideStart // relative to 0..slideDurationSec
+        timeSec: m.timeSec - localStart
       }));
   }
 
   /**
-   * Computes punchy beat-quantized cut durations across all slides so that
-   * every transition hits an exact musical downbeat.
+   * Returns transient markers localized to a slide's window (supports legacy index*dur or explicit startSec).
+   */
+  public getTransientsForSlide(
+    slideIndex: number,
+    slideDurationSec: number = 12.0,
+    explicitSlideStartSec?: number
+  ): BeatMarker[] {
+    const slideStart =
+      typeof explicitSlideStartSec === 'number'
+        ? explicitSlideStartSec
+        : slideIndex * slideDurationSec;
+    return this.getTransientsInWindow(slideStart, slideDurationSec);
+  }
+
+  /**
+   * Computes beat-quantized cut durations across all slides (supporting 0.5s rap staccato cuts up to long holds)
+   * so that every cut boundary lands on a detected kick/snare/downbeat transient.
    */
   public calculateAutoCutDurations(totalShots: number, baseShotDuration: number = 12.0): number[] {
+    const safeBase = Math.max(0.5, Math.min(1800, baseShotDuration));
     if (!this.currentAnalysis || this.currentAnalysis.transients.length === 0) {
-      return Array(totalShots).fill(baseShotDuration);
+      return Array(totalShots).fill(safeBase);
     }
 
+    const tolerance = Math.max(0.25, Math.min(1.5, safeBase * 0.45));
     const durations: number[] = [];
     let currentTime = 0;
 
     for (let i = 0; i < totalShots; i++) {
-      const targetEndTime = currentTime + baseShotDuration;
-      const snappedEndTime = this.snapTimeToNearestBeat(targetEndTime, 1.5);
-      const shotDuration = Math.max(2.0, snappedEndTime - currentTime);
-
-      durations.push(Number(shotDuration.toFixed(3)));
-      currentTime += shotDuration;
+      const shotDuration = this.snapDurationToNearestBeat(currentTime, safeBase, 0.5, tolerance);
+      durations.push(shotDuration);
+      currentTime = Number((currentTime + shotDuration).toFixed(3));
     }
 
     return durations;

@@ -235,6 +235,21 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isExporting, onClose]);
 
+  // Per-shot variable durations across sequence
+  const shotDurationsSec = useMemo(() => {
+    return Array.from({ length: totalCount }, (_, idx) => {
+      const s: any = slides?.[idx];
+      const f: any = frames?.[idx];
+      const cands = [s?.durationSec, s?.duration, f?.durationSec, f?.slideHoldSec];
+      for (const c of cands) {
+        if (typeof c === 'number' && Number.isFinite(c) && c > 0) {
+          return Math.max(0.5, Math.min(1800.0, c));
+        }
+      }
+      return 12.0;
+    });
+  }, [totalCount, slides, frames]);
+
   // Candidate selection in active range before exclusions
   const candidateSelection = useMemo(() => {
     return parseShotSelection(
@@ -245,9 +260,10 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       totalCount,
       currentSlideIndex,
       288,
-      []
+      [],
+      shotDurationsSec
     );
-  }, [selectionMode, rangeStart, rangeEnd, customListText, totalCount, currentSlideIndex]);
+  }, [selectionMode, rangeStart, rangeEnd, customListText, totalCount, currentSlideIndex, shotDurationsSec]);
 
   // Final active selection after exclusions
   const activeSelection = useMemo(() => {
@@ -259,21 +275,27 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       totalCount,
       currentSlideIndex,
       288,
-      excludedIndices
+      excludedIndices,
+      shotDurationsSec
     );
-  }, [selectionMode, rangeStart, rangeEnd, customListText, totalCount, currentSlideIndex, excludedIndices]);
+  }, [selectionMode, rangeStart, rangeEnd, customListText, totalCount, currentSlideIndex, excludedIndices, shotDurationsSec]);
 
   // Dimension details for active resolution preset
   const dimensionInfo = useMemo(() => {
     return getExportPresetDimensions(resolutionPreset);
   }, [resolutionPreset]);
 
-  // Dynamic runtime display mm:ss.ff
+  // Dynamic runtime display mm:ss.ff (or hh:mm:ss.ff for long sequences)
   const dynamicRuntime = useMemo(() => {
     const totalSec = activeSelection.durationSec;
-    const mins = Math.floor(totalSec / 60);
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
     const secs = Math.floor(totalSec % 60);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.00`;
+    const centis = Math.round((totalSec - Math.floor(totalSec)) * 100) % 100;
+    if (hrs > 0) {
+      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(centis).padStart(2, '0')}`;
+    }
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(centis).padStart(2, '0')}`;
   }, [activeSelection.durationSec]);
 
   // Selected frames filtered by matrix

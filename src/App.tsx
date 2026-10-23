@@ -63,6 +63,13 @@ import { AdvancedTrimmerModal } from './components/recorder/AdvancedTrimmerModal
 import { RecordedCaptureResult } from './services/screenRecorderEngine';
 import { StagePanelType } from './components/StageHeader';
 import { MultiCamGroup } from './types/multicam';
+import {
+  clampShotDuration,
+  getCumulativeShotOffsets,
+  getShotDurationSec,
+  getShotTargetFps,
+  resolveGlobalTimeToShot
+} from './types/storyboard';
 import { MultiCamGridConfig } from './components/multicam/MultiCamViewportGrid';
 import { DEFAULT_SAMPLE_MULTICAM_GROUP } from './components/multicam/MultiCamGridMonitor';
 import { projectStorageEngine, SovereignProjectState } from './services/projectStorageEngine';
@@ -466,13 +473,23 @@ export default function App() {
       setProject(prev => {
         const nextFrames = [...prev.frames];
         if (nextFrames[index]) {
+          const nextDur =
+            typeof partial.durationSec === 'number' && partial.durationSec > 0
+              ? clampShotDuration(partial.durationSec)
+              : typeof partial.slideHoldSec === 'number' && partial.slideHoldSec > 0
+              ? clampShotDuration(partial.slideHoldSec)
+              : typeof partial.durationSeconds === 'number' && partial.durationSeconds > 0
+              ? clampShotDuration(partial.durationSeconds)
+              : nextFrames[index].durationSec;
           nextFrames[index] = {
             ...nextFrames[index],
             imageUrl: partial.imageUrl !== undefined ? partial.imageUrl : nextFrames[index].imageUrl,
             isVideo: partial.isVideo !== undefined ? partial.isVideo : nextFrames[index].isVideo,
             title: partial.title !== undefined ? partial.title : nextFrames[index].title,
             bengaliTitle: partial.bengaliTitle !== undefined ? partial.bengaliTitle : nextFrames[index].bengaliTitle,
-            tagline: partial.tagline !== undefined ? partial.tagline : nextFrames[index].tagline
+            tagline: partial.tagline !== undefined ? partial.tagline : nextFrames[index].tagline,
+            slideHoldSec: nextDur !== undefined ? nextDur : nextFrames[index].slideHoldSec,
+            durationSec: nextDur !== undefined ? nextDur : nextFrames[index].durationSec
           };
         }
         return { ...prev, frames: nextFrames };
@@ -631,23 +648,31 @@ export default function App() {
 
     storageManager.saveProjectDebounced(v1);
 
-    // 2. CapCut-Style Local Project Draft (v4) with strict 12.0s slides
-    const slideDrafts: SlideDraft[] = project.frames.map((f, i) => ({
-      id: `slide_${f.id ?? i}`,
-      orderIndex: i,
-      duration: 12.0, // Strictly 12.0s per slide
-      remoteUrl: f.imageUrl,
-      titleBn: f.bengaliTitle,
-      titleEn: f.title,
-      tagline: f.tagline,
-      directorNotes: f.directorNotes,
-      soundCue: f.soundCue,
-      aspectRatio: aspectRatio as AspectRatioType,
-      colorAccent: f.colorAccent,
-      lutFilter: f.lutFilter,
-      isVideo: f.isVideo,
-      panY: panOffsets[i] ?? 50
-    }));
+    // 2. CapCut-Style Local Project Draft (v4) with Elastic Multi-Cadence slide durations
+    const slideDrafts: SlideDraft[] = project.frames.map((f, i) => {
+      const dur = getShotDurationSec(f, project.defaultSlideHoldSec ?? 12.0);
+      return {
+        id: `slide_${f.id ?? i}`,
+        orderIndex: i,
+        duration: dur,
+        durationSec: dur,
+        targetFps: getShotTargetFps(f, 24),
+        inPointMs: f.inPointMs,
+        outPointMs: f.outPointMs,
+        beatSnapEnabled: f.beatSnapEnabled,
+        remoteUrl: f.imageUrl,
+        titleBn: f.bengaliTitle,
+        titleEn: f.title,
+        tagline: f.tagline,
+        directorNotes: f.directorNotes,
+        soundCue: f.soundCue,
+        aspectRatio: aspectRatio as AspectRatioType,
+        colorAccent: f.colorAccent,
+        lutFilter: f.lutFilter,
+        isVideo: f.isVideo,
+        panY: panOffsets[i] ?? 50
+      };
+    });
 
     const draft: ProjectDraft = {
       projectId: activeProjectId,
@@ -684,40 +709,49 @@ export default function App() {
         setProject(prev => ({
           ...prev,
           title: loadedDraft.projectId,
-          frames: loadedDraft.slides.map((s, idx) => ({
-            id: idx + 1,
-            epNumber: String(idx + 1).padStart(3, '0'),
-            title: s.titleEn || `Shot ${idx + 1}`,
-            bengaliTitle: s.titleBn || '',
-            tagline: s.tagline || '',
-            directorNotes: s.directorNotes || '',
-            soundCue: s.soundCue || '',
-            cameraSpec: s.cameraSpec as any || {
-              focalLength: '35mm High-Speed Master',
-              aperture: 'f/1.4',
-              shutter: '1/48s 180°',
-              iso: 'ISO 400',
-              sensor: 'Full-Frame Cine',
-              format: 'RAW 14-BIT ARRI'
-            },
-            imageUrl: s.remoteUrl || '',
-            isVideo: s.isVideo || false,
-            panY: s.panY ?? 50,
-            colorAccent: s.colorAccent || '#D4AF37',
-            hoverStyle: 0,
-            lutFilter: (s.lutFilter as any) || 'cinematic',
-            aspectRatio: s.aspectRatio as any || '2.39:1',
-            adjustments: s.adjustments || {
-              brightness: 100,
-              contrast: 100,
-              saturation: 100,
-              bloom: 30,
-              grain: 15,
-              motionBlur: 50,
-              vignette: 40
-            },
-            tags: ['Scene', '12s']
-          }))
+          frames: loadedDraft.slides.map((s, idx) => {
+            const restoredDur = getShotDurationSec(s, 12.0);
+            return {
+              id: idx + 1,
+              epNumber: String(idx + 1).padStart(3, '0'),
+              title: s.titleEn || `Shot ${idx + 1}`,
+              bengaliTitle: s.titleBn || '',
+              tagline: s.tagline || '',
+              directorNotes: s.directorNotes || '',
+              soundCue: s.soundCue || '',
+              cameraSpec: s.cameraSpec as any || {
+                focalLength: '35mm High-Speed Master',
+                aperture: 'f/1.4',
+                shutter: '1/48s 180°',
+                iso: 'ISO 400',
+                sensor: 'Full-Frame Cine',
+                format: 'RAW 14-BIT ARRI'
+              },
+              imageUrl: s.remoteUrl || '',
+              isVideo: s.isVideo || false,
+              panY: s.panY ?? 50,
+              colorAccent: s.colorAccent || '#D4AF37',
+              hoverStyle: 0,
+              lutFilter: (s.lutFilter as any) || 'cinematic',
+              aspectRatio: s.aspectRatio as any || '2.39:1',
+              slideHoldSec: restoredDur,
+              durationSec: restoredDur,
+              targetFps: getShotTargetFps(s, 24),
+              inPointMs: s.inPointMs,
+              outPointMs: s.outPointMs,
+              beatSnapEnabled: s.beatSnapEnabled,
+              adjustments: s.adjustments || {
+                brightness: 100,
+                contrast: 100,
+                saturation: 100,
+                bloom: 30,
+                grain: 15,
+                motionBlur: 50,
+                vignette: 40
+              },
+              tags: ['Scene', `${restoredDur}s`]
+            };
+          })
         }));
       }
     } else {
@@ -757,16 +791,17 @@ export default function App() {
   const nextFrame = useCallback(() => goToFrame(currentIndex + 1), [goToFrame, currentIndex]);
   const prevFrame = useCallback(() => goToFrame(currentIndex - 1), [goToFrame, currentIndex]);
 
-  // Frame Stepping (-1F / +1F at 24fps)
+  // Frame Stepping (-1F / +1F at active shot's targetFps)
   const handleStepFrame = useCallback((forward: boolean) => {
-    // Immediately pause playback to prevent sequence timer collision with playhead
     setIsPlaying(false);
 
-    const FRAME_DELTA = 1 / 24; // 1 frame at 24fps
-    const SLIDE_DURATION = 12.0;
+    const activeShot = project.frames[currentIndex] || project.frames[0];
+    const shotFps = getShotTargetFps(activeShot, 24);
+    const FRAME_DELTA = 1 / shotFps;
+    const SLIDE_DURATION = getShotDurationSec(activeShot, project.defaultSlideHoldSec ?? 12.0);
+    const totalCount = Math.max(1, project.frames.length);
 
     if (playbackMode === 'solo') {
-      // Solo scrub mode: strictly isolated within 0 to 12.0s without jumping cuts
       setSlideTimeSec(prev => {
         let updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
         if (updated < 0) updated = 0;
@@ -777,11 +812,10 @@ export default function App() {
         return updated;
       });
     } else {
-      // Sequence mode: steps across cuts when crossing 12.0s boundaries
       setSlideTimeSec(prev => {
         const updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
         if (updated >= SLIDE_DURATION) {
-          const nextIdx = (currentIndex + 1) % project.frames.length;
+          const nextIdx = (currentIndex + 1) % totalCount;
           setCurrentIndex(nextIdx);
           try {
             useStudioStore.getState().setActiveShotIndex(nextIdx);
@@ -789,9 +823,12 @@ export default function App() {
           } catch {}
           return 0;
         } else if (updated < 0) {
-          const prevIdx = (currentIndex - 1 + project.frames.length) % project.frames.length;
+          const prevIdx = (currentIndex - 1 + totalCount) % totalCount;
+          const prevShot = project.frames[prevIdx] || activeShot;
+          const prevShotDur = getShotDurationSec(prevShot, project.defaultSlideHoldSec ?? 12.0);
+          const prevShotFps = getShotTargetFps(prevShot, 24);
           setCurrentIndex(prevIdx);
-          const loopTime = Math.max(0, SLIDE_DURATION - FRAME_DELTA);
+          const loopTime = Math.max(0, prevShotDur - 1 / prevShotFps);
           try {
             useStudioStore.getState().setActiveShotIndex(prevIdx);
             useStudioStore.getState().setSlideTimeSec(loopTime);
@@ -805,34 +842,35 @@ export default function App() {
       });
     }
     audioEngine.playShutterClick();
-  }, [playbackMode, project.frames.length, currentIndex]);
+  }, [playbackMode, project.frames, project.defaultSlideHoldSec, currentIndex]);
 
-  // Local slide time scrubbing (0 to 12.000s)
+  // Local slide time scrubbing (0 to active shot's durationSec)
   const handleScrubSlideTime = useCallback((timeSec: number) => {
-    const clamped = Math.max(0, Math.min(12.0, timeSec));
+    const activeShot = project.frames[currentIndex] || project.frames[0];
+    const maxDur = getShotDurationSec(activeShot, project.defaultSlideHoldSec ?? 12.0);
+    const clamped = Math.max(0, Math.min(maxDur, timeSec));
     setSlideTimeSec(clamped);
     try {
       useStudioStore.getState().setSlideTimeSec(clamped);
     } catch {}
-  }, []);
+  }, [project.frames, project.defaultSlideHoldSec, currentIndex]);
 
-  // Global animatic time scrubbing (0 to N * 12.0s)
+  // Global Elastic Sequence time scrubbing (0 to sum(shots.map(s => s.durationSec)))
   const handleScrubGlobalTime = useCallback((globalSec: number) => {
-    const SLIDE_DURATION = 12.0;
-    const totalSlides = project.frames.length || 1;
-    const totalDuration = totalSlides * SLIDE_DURATION;
-    const clamped = Math.max(0, Math.min(totalDuration, globalSec));
-    const targetIndex = Math.min(totalSlides - 1, Math.floor(clamped / SLIDE_DURATION));
-    const localTime = clamped - (targetIndex * SLIDE_DURATION);
-    setCurrentIndex(targetIndex);
-    setSlideTimeSec(localTime);
+    const resolved = resolveGlobalTimeToShot(
+      project.frames,
+      globalSec,
+      project.defaultSlideHoldSec ?? 12.0
+    );
+    setCurrentIndex(resolved.shotIndex);
+    setSlideTimeSec(resolved.localTimeSec);
     try {
-      useStudioStore.getState().setActiveShotIndex(targetIndex);
-      useStudioStore.getState().setSlideTimeSec(localTime);
+      useStudioStore.getState().setActiveShotIndex(resolved.shotIndex);
+      useStudioStore.getState().setSlideTimeSec(resolved.localTimeSec);
     } catch {}
-  }, [project.frames.length]);
+  }, [project.frames, project.defaultSlideHoldSec]);
 
-  // 12.0s Dual-Mode Playback Engine (288 frames @ 24fps per card)
+  // Elastic Multi-Cadence Dual-Mode Playback Engine (0.5s rap cuts up to 30m holds)
   const animFrameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
 
@@ -851,17 +889,20 @@ export default function App() {
       audioEngine.playAudio();
     }
 
+    const shotOffsets = getCumulativeShotOffsets(project.frames, project.defaultSlideHoldSec ?? 12.0);
     const currentFrame = project.frames[currentIndex] || project.frames[0];
-    const shotSlideHold = currentFrame?.slideHoldSec ?? project.defaultSlideHoldSec ?? 12.0;
+    const currentOffset = shotOffsets[currentIndex];
+    const shotSlideHold = currentOffset?.durationSec ?? getShotDurationSec(currentFrame, project.defaultSlideHoldSec ?? 12.0);
+    const shotStartSec = currentOffset?.startSec ?? 0;
 
     const tick = (now: number) => {
       if (lastTimestampRef.current !== null) {
         const deltaSec = ((now - lastTimestampRef.current) / 1000) * playbackSpeed;
-        const safeDelta = Math.min(deltaSec, 0.5);
+        const safeDelta = Math.min(deltaSec, 0.25);
 
         setSlideTimeSec(prevTime => {
           const nextTime = prevTime + safeDelta;
-          const globalPlaybackSec = (currentIndex * 12.0) + nextTime;
+          const globalPlaybackSec = shotStartSec + nextTime;
           audioEngine.syncPlaybackTime(globalPlaybackSec);
 
           try {
@@ -869,14 +910,17 @@ export default function App() {
           } catch {}
 
           if (playbackMode === 'sequence') {
-            // Sequence (Animatic) mode: auto-advance across Slide 1 through Slide N every shotSlideHold time
-            // If snap-to-beat is enabled, boundary check triggers on musical downbeat
-            const boundaryDuration = isSnapToBeat ? 12.0 : shotSlideHold;
+            // Elastic Sequence mode: respect per-shot durationSec and snap to nearest audio beat when enabled
+            const boundaryDuration = (isSnapToBeat || currentFrame?.beatSnapEnabled)
+              ? audioEngine.snapDurationToNearestBeat(shotStartSec, shotSlideHold)
+              : shotSlideHold;
+
             if (nextTime >= boundaryDuration) {
-              const framesLength = project.frames.length || 1;
+              const framesLength = Math.max(1, project.frames.length);
               const nextIdx = (currentIndex + 1) % framesLength;
+              const nextShotDur = shotOffsets[nextIdx]?.durationSec ?? 12.0;
+              const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
               setCurrentIndex(nextIdx);
-              const remainderTime = nextTime % boundaryDuration;
               try {
                 useStudioStore.getState().setActiveShotIndex(nextIdx);
                 useStudioStore.getState().setSlideTimeSec(remainderTime);
@@ -885,9 +929,9 @@ export default function App() {
             }
             return nextTime;
           } else {
-            // Solo Scrub mode: loops strictly within this slide's hold window
+            // Solo Scrub mode: loops strictly within this shot's elastic durationSec
             if (nextTime >= shotSlideHold) {
-              const loopTime = nextTime % shotSlideHold;
+              const loopTime = shotSlideHold > 0 ? nextTime % shotSlideHold : 0;
               try {
                 useStudioStore.getState().setSlideTimeSec(loopTime);
               } catch {}
@@ -1200,6 +1244,7 @@ export default function App() {
     setProject(prev => {
       const idx = prev.frames.findIndex(f => f.id === updated.id);
       if (idx !== -1) {
+        const nextDur = getShotDurationSec(updated, getShotDurationSec(prev.frames[idx], 12.0));
         try {
           useStudioStore.getState().updateShot(idx, {
             title: updated.title,
@@ -1209,6 +1254,7 @@ export default function App() {
             soundCue: updated.soundCue,
             imageUrl: updated.imageUrl,
             isVideo: updated.isVideo,
+            durationSeconds: nextDur,
             adjustments: updated.adjustments ? {
               halations: 0,
               anamorphicStreak: 0,
@@ -1226,6 +1272,82 @@ export default function App() {
       };
     });
   }, []);
+
+  const handleUpdateFrameAtIndex = useCallback((index: number, updated: AnthologyFrame) => {
+    setProject(prev => {
+      if (index < 0 || index >= prev.frames.length) return prev;
+      const nextFrames = [...prev.frames];
+      const nextDur = getShotDurationSec(updated, getShotDurationSec(nextFrames[index], 12.0));
+      nextFrames[index] = {
+        ...updated,
+        slideHoldSec: nextDur,
+        durationSec: nextDur
+      };
+      try {
+        useStudioStore.getState().updateShot(index, {
+          title: updated.title,
+          bengaliTitle: updated.bengaliTitle,
+          tagline: updated.tagline,
+          directorNotes: updated.directorNotes,
+          soundCue: updated.soundCue,
+          imageUrl: updated.imageUrl,
+          isVideo: updated.isVideo,
+          durationSeconds: nextDur,
+          lutFilter: updated.lutFilter
+        });
+      } catch {}
+      return { ...prev, frames: nextFrames };
+    });
+  }, []);
+
+  const handleApplyDurationToAll = useCallback((durationSec: number) => {
+    const clamped = clampShotDuration(durationSec);
+    setProject(prev => {
+      const nextFrames = prev.frames.map((f, idx) => {
+        try {
+          useStudioStore.getState().updateShot(idx, { durationSeconds: clamped });
+        } catch {}
+        return {
+          ...f,
+          slideHoldSec: clamped,
+          durationSec: clamped
+        };
+      });
+      return {
+        ...prev,
+        defaultSlideHoldSec: clamped,
+        frames: nextFrames
+      };
+    });
+    setSlideTimeSec(prev => Math.min(prev, clamped));
+  }, []);
+
+  const handleMatchAudioBeats = useCallback(() => {
+    setProject(prev => {
+      const activeDur = getShotDurationSec(prev.frames[currentIndex], 12.0);
+      const beatDurations = audioEngine.calculateAutoCutDurations(
+        prev.frames.length,
+        Math.min(activeDur, 4.0)
+      );
+      const nextFrames = prev.frames.map((f, idx) => {
+        const dur = clampShotDuration(beatDurations[idx] ?? activeDur);
+        try {
+          useStudioStore.getState().updateShot(idx, { durationSeconds: dur });
+        } catch {}
+        return {
+          ...f,
+          slideHoldSec: dur,
+          durationSec: dur,
+          beatSnapEnabled: true
+        };
+      });
+      return { ...prev, frames: nextFrames };
+    });
+    setIsSnapToBeat(true);
+    try {
+      audioEngine.setSnapToBeatEnabled(true);
+    } catch {}
+  }, [currentIndex]);
 
   // Rapid Ingestion Pipeline: Direct IndexedDB Storage + High-Impact Overlays
   const handleUploadImage = useCallback(async (file: File) => {
@@ -1636,6 +1758,8 @@ export default function App() {
         onOpenExportTimeline={() => handleOpenExportStudio('premiere')}
         onOpenExportRange={() => handleOpenExportStudio('mp4')}
         frames={project.frames}
+        playbackMode={playbackMode}
+        onSelectPlaybackMode={setPlaybackMode}
         onOpenContactSheet={() => setIsContactSheetOpen(true)}
         onOpenWalkthrough={() => setShowWalkthrough(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
@@ -1828,6 +1952,9 @@ export default function App() {
           }}
           onReorderFrames={handleReorderFrames}
           onUpdateFrame={handleUpdateFrame}
+          onUpdateFrameAtIndex={handleUpdateFrameAtIndex}
+          onApplyDurationToAll={handleApplyDurationToAll}
+          onMatchAudioBeats={handleMatchAudioBeats}
           playbackMode={playbackMode}
           slideTimeSec={slideTimeSec}
           activeDualPanel={activeDualPanel}
@@ -1954,6 +2081,11 @@ export default function App() {
         onPrev={prevFrame}
         onNext={nextFrame}
         onSelectFrame={goToFrame}
+        onUpdateFrameAtIndex={handleUpdateFrameAtIndex}
+        onApplyDurationToAll={handleApplyDurationToAll}
+        onMatchAudioBeats={handleMatchAudioBeats}
+        isSnapToBeat={isSnapToBeat}
+        onToggleSnapToBeat={handleToggleSnapToBeat}
         onTogglePlay={() => setIsPlaying(p => !p)}
         onSpeedChange={setSpeed}
         onToggleHud={() => setShowHud(h => !h)}

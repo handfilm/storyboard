@@ -16,6 +16,8 @@ import { convertShotV1ToFrame } from '../../utils/projectMigration';
 import { exportToOTIO, exportToCMX3600EDL, exportToSRT, triggerFileDownload } from '../../data/hollywoodExporters';
 import { audioEngine } from '../../utils/audioEngine';
 import { CutEditorTimeline } from '../../components/CutEditorTimeline';
+import { getShotDurationSec, MIN_SHOT_DURATION_SEC } from '../../types/storyboard';
+import { eventBus } from '../../core/eventBus';
 import {
   Scissors,
   Play,
@@ -110,7 +112,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
     let currentTimelineTime = 0;
 
     baseShots.slice(0, 16).forEach((shot: any, index: number) => {
-      const duration = shot.durationSeconds || 3.0;
+      const duration = getShotDurationSec(shot, 3.0);
       const theme = baseThemesData[index % baseThemesData.length];
       const imageUrl = shot.imageUrl || samplePacks.cosmicMacro[index % samplePacks.cosmicMacro.length];
       const isVid = Boolean(shot.isVideo);
@@ -307,16 +309,28 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
     return clips.find(c => c.trackId === 'T1' && playheadTime >= c.start && playheadTime <= c.start + c.duration) || null;
   }, [clips, playheadTime]);
 
-  // Split Clip at Playhead (S)
+  // Split Clip at Playhead (S) — magnetically snaps split cut to nearest audio beat when active
   const handleSplitAtPlayhead = () => {
     const targetClip = selectedClip || activeMonitorV1Clip;
     if (!targetClip) return;
-    if (playheadTime <= targetClip.start || playheadTime >= targetClip.start + targetClip.duration) return;
+
+    let splitTimelineSec = playheadTime;
+    if (audioEngine.getIsSnapToBeatEnabled()) {
+      const snapped = audioEngine.snapTimeToNearestBeat(playheadTime, 0.35);
+      if (
+        snapped >= targetClip.start + MIN_SHOT_DURATION_SEC &&
+        snapped <= targetClip.start + targetClip.duration - MIN_SHOT_DURATION_SEC
+      ) {
+        splitTimelineSec = snapped;
+      }
+    }
+
+    if (splitTimelineSec <= targetClip.start + 0.05 || splitTimelineSec >= targetClip.start + targetClip.duration - 0.05) return;
 
     pushUndo(clips);
-    const splitPoint = playheadTime - targetClip.start;
+    const splitPoint = Math.round((splitTimelineSec - targetClip.start) * 1000) / 1000;
     const part1Duration = splitPoint;
-    const part2Duration = targetClip.duration - splitPoint;
+    const part2Duration = Math.round((targetClip.duration - splitPoint) * 1000) / 1000;
 
     const part1: TimelineClip = {
       ...targetClip,
@@ -328,7 +342,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
       ...targetClip,
       id: `clip-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: `${targetClip.name} (Part 2)`,
-      start: playheadTime,
+      start: splitTimelineSec,
       duration: part2Duration,
       inPoint: targetClip.inPoint + part1Duration,
       outPoint: targetClip.outPoint
@@ -336,6 +350,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
 
     setClips(prev => prev.map(c => c.id === targetClip.id ? part1 : c).concat(part2));
     setSelectedClipId(part2.id);
+    setPlayheadTime(splitTimelineSec);
     audioEngine.playShutterClick();
   };
 
@@ -366,7 +381,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
     let currentTimelineTime = 0;
 
     project.shots.forEach((shot, idx) => {
-      const duration = shot.durationSeconds || 3.0;
+      const duration = getShotDurationSec(shot, 3.0);
       const theme = baseThemesData[idx % baseThemesData.length];
       const imageUrl = shot.imageUrl || samplePacks.cosmicMacro[idx % samplePacks.cosmicMacro.length];
       const isVid = Boolean(shot.isVideo);
@@ -413,9 +428,20 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
         imageUrl: c.url,
         isVideo: c.type === 'video'
       });
+      eventBus.emit('shot:updated', {
+        index: idx,
+        partial: {
+          durationSec: c.duration,
+          slideHoldSec: c.duration,
+          title: c.text,
+          bengaliTitle: c.bengaliText,
+          imageUrl: c.url,
+          isVideo: c.type === 'video'
+        }
+      });
     });
     setSaveStatus('saved');
-    setExportNotification(`Synced ${v1Clips.length} sequence clips back to Storyboard Board!`);
+    setExportNotification(`Synced ${v1Clips.length} variable-duration clips back to Storyboard!`);
     setTimeout(() => setExportNotification(null), 3000);
   };
 

@@ -26,7 +26,12 @@ export interface SlideTextLayer {
 export interface SlideDraft {
   id: string; // e.g. "slide_001" or "sh_001"
   orderIndex: number;
-  duration: number; // Fixed at 12.0 seconds
+  duration: number; // Dynamic slide duration in seconds (0.5s - 1800.0s, default 12.0s)
+  durationSec?: number;
+  targetFps?: number; // 24.0 or 60.0
+  inPointMs?: number;
+  outPointMs?: number;
+  beatSnapEnabled?: boolean;
   mediaBlobId?: string; // Key in media_blobs store
   remoteUrl?: string; // Pre-signed Cloudflare R2 URL or Edge CDN stream
   titleBn?: string;

@@ -95,7 +95,8 @@ export interface ParsedSelectionResult {
 
 /**
  * Robust natural syntax parser for shot selection:
- * Supports ranges ('1-5'), comma-separated numbers ('1, 3, 7'), whitespace, and cleans duplicates.
+ * Supports ranges ('1-5'), comma-separated numbers ('1, 3, 7'), whitespace, cleans duplicates,
+ * and computes exact variable-duration frame budgets when `shotDurationsSec` is provided.
  */
 export function parseShotSelection(
   mode: ShotSelectionMode,
@@ -105,7 +106,8 @@ export function parseShotSelection(
   totalAvailable: number,
   currentIdx: number = 0,
   framesPerShot: number = 288,
-  excludedIndices: number[] = []
+  excludedIndices: number[] = [],
+  shotDurationsSec?: number[]
 ): ParsedSelectionResult {
   const maxShots = Math.max(1, totalAvailable);
   let resolvedIndices: number[] = [];
@@ -120,7 +122,6 @@ export function parseShotSelection(
     const e = Math.max(s, Math.min(maxShots, Math.floor(end)));
     resolvedIndices = Array.from({ length: e - s + 1 }, (_, i) => s - 1 + i);
   } else if (mode === 'custom') {
-    // Parse tags like: "1, 4, 7-12, 19, 88"
     const cleaned = (customText || '').trim();
     const tokens = cleaned.split(/[,;\s]+/).filter(Boolean);
     const indexSet = new Set<number>();
@@ -145,7 +146,6 @@ export function parseShotSelection(
 
     resolvedIndices = Array.from(indexSet).sort((a, b) => a - b);
     if (resolvedIndices.length === 0) {
-      // Default to current shot if custom input parsed to nothing
       resolvedIndices = [Math.max(0, Math.min(maxShots - 1, currentIdx))];
     }
   }
@@ -157,7 +157,15 @@ export function parseShotSelection(
   }
 
   const totalShots = resolvedIndices.length;
-  const totalFrames = totalShots * framesPerShot;
+  const totalFrames = shotDurationsSec && shotDurationsSec.length > 0
+    ? resolvedIndices.reduce((sum, idx) => {
+        const dur = shotDurationsSec[idx];
+        const shotFrames = typeof dur === 'number' && Number.isFinite(dur) && dur > 0
+          ? Math.max(1, Math.round(dur * 24))
+          : framesPerShot;
+        return sum + shotFrames;
+      }, 0)
+    : totalShots * framesPerShot;
   const durationSec = totalFrames / 24.0;
 
   let label = '';
@@ -283,8 +291,10 @@ export interface FrameCompositeProps {
   height: number;
   preset: CinemaResolutionPreset;
   shotIndex: number; // 0-indexed
-  frameInShot: number; // 0 to 287
-  totalFramesInShot: number; // 288
+  frameInShot: number; // 0 to totalFramesInShot - 1
+  totalFramesInShot: number; // Variable: e.g. 12 frames (0.5s) up to 43,200 frames (30m)
+  shotStartTimeSec?: number; // Cumulative timeline start time in seconds for frame-accurate SMPTE
+  fps?: number;
   sourceElement: HTMLVideoElement | ImageBitmap | HTMLImageElement | null;
   titleBn?: string;
   titleEn?: string;
@@ -304,6 +314,8 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     shotIndex,
     frameInShot,
     totalFramesInShot,
+    shotStartTimeSec,
+    fps = 24,
     sourceElement,
     titleBn = 'আলোর স্মৃতি',
     titleEn = `SHOT ${String(shotIndex + 1).padStart(3, '0')}`,
@@ -504,15 +516,19 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
 
-  // 5. Burn-In Glowing Bilingual Typography with Animated Fade-In & Multi-Pass Molten Gold
+  // 5. Burn-In Glowing Bilingual Typography with Elastic Variable-Duration Fade-In/Out & Molten Gold
   if (burnInTitles) {
-    const titleFade = Math.min(1.0, Math.max(0.05, (frameInShot + 1) / 16.0));
+    const rampFrames = Math.min(16, Math.max(3, Math.floor(totalFramesInShot * 0.25)));
+    const fadeIn = Math.min(1.0, Math.max(0.08, (frameInShot + 1) / rampFrames));
+    const fadeOutFrames = Math.min(8, Math.max(2, Math.floor(totalFramesInShot * 0.12)));
+    const remainingFrames = Math.max(1, totalFramesInShot - frameInShot);
+    const fadeOut = remainingFrames <= fadeOutFrames ? Math.max(0.15, remainingFrames / fadeOutFrames) : 1.0;
+    const titleFade = Math.min(fadeIn, fadeOut);
     const scaleFactor = is4K ? 2.0 : (width / 1920);
     const fontSize = isVertical ? Math.round(52 * (width / 1080)) : Math.round(68 * scaleFactor);
     const subFontSize = isVertical ? Math.round(18 * (width / 1080)) : Math.round(20 * scaleFactor);
 
-    // Subtle cinematic ease-scale on shot change: scale-95 to scale-100 over first 15 frames (~600ms at 24fps)
-    const entranceProgress = Math.min(1.0, frameInShot / 15.0);
+    const entranceProgress = Math.min(1.0, frameInShot / Math.max(1, rampFrames - 1));
     const easeScale = 0.95 + 0.05 * Math.sin((entranceProgress * Math.PI) / 2);
 
     ctx.save();
@@ -605,22 +621,24 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.restore();
   }
 
-  // 6. Top Telemetry Slates & Corner Reticles
+  // 6. Top Telemetry Slates & Corner Reticles (Variable-Duration SMPTE Sync)
   const pad = is4K ? 60 : 30;
-  const timeSec = (shotIndex * 12.0) + (frameInShot / 24.0);
-  const smpte = formatTimecode(timeSec, 24);
+  const activeFps = fps > 0 ? fps : 24;
+  const timeSec = (typeof shotStartTimeSec === 'number' ? shotStartTimeSec : shotIndex * 12.0) + (frameInShot / activeFps);
+  const smpte = formatTimecode(timeSec, activeFps);
+  const shotDurSec = (totalFramesInShot / activeFps).toFixed(1);
 
   // Top Left: Project & Shot Slate
   ctx.save();
   ctx.fillStyle = '#F5A623';
   ctx.font = `bold ${is4K ? 22 : 12}px monospace`;
   ctx.textAlign = 'left';
-  ctx.fillText(`HANDFILM // SHOT ${String(shotIndex + 1).padStart(3, '0')} // TC: ${smpte}`, pad, pad + (is4K ? 20 : 12));
+  ctx.fillText(`HANDFILM // SHOT ${String(shotIndex + 1).padStart(3, '0')} (${shotDurSec}s) // TC: ${smpte}`, pad, pad + (is4K ? 20 : 12));
 
-  // Top Right: 24.0 FPS & Master Status
+  // Top Right: FPS & Master Status
   ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-  ctx.fillText(`24.00 FPS • ACEScg • DCI 4K RAW`, width - pad, pad + (is4K ? 20 : 12));
+  ctx.fillText(`${activeFps.toFixed(2)} FPS • ACEScg • DCI 4K RAW`, width - pad, pad + (is4K ? 20 : 12));
   ctx.restore();
 
   // Subtle corner brackets
@@ -671,11 +689,15 @@ function formatTimecode(seconds: number, fps: number = 24): string {
 }
 
 /**
- * Synthesizes an ambient cinema soundtrack buffer with rhythmic 24fps hit markers
+ * Synthesizes an ambient cinema soundtrack buffer with rhythmic cut-boundary hit markers
  */
-export function synthesizeAmbientAudioBuffer(durationSec: number, sampleRate: number = 48000): AudioBuffer {
+export function synthesizeAmbientAudioBuffer(
+  durationSec: number,
+  sampleRate: number = 48000,
+  shotBoundaryTimesSec?: number[]
+): AudioBuffer {
   const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate });
-  const totalSamples = Math.ceil(durationSec * sampleRate);
+  const totalSamples = Math.max(1, Math.ceil(durationSec * sampleRate));
   const buffer = ctx.createBuffer(2, totalSamples, sampleRate);
 
   const leftChannel = buffer.getChannelData(0);
@@ -683,6 +705,8 @@ export function synthesizeAmbientAudioBuffer(durationSec: number, sampleRate: nu
 
   const droneFreq = 55.0; // Low cinematic A1 drone (55 Hz)
   const harmonicFreq = 110.0; // A2 (110 Hz)
+  const boundaries = shotBoundaryTimesSec && shotBoundaryTimesSec.length > 0 ? shotBoundaryTimesSec : null;
+  let boundaryCursor = 0;
 
   for (let i = 0; i < totalSamples; i++) {
     const t = i / sampleRate;
@@ -692,8 +716,17 @@ export function synthesizeAmbientAudioBuffer(durationSec: number, sampleRate: nu
     const drone = (Math.sin(2 * Math.PI * droneFreq * t) * 0.15 +
                    Math.sin(2 * Math.PI * harmonicFreq * t) * 0.08) * subLfo;
 
-    // Gentle tactile hit marker every 12.0 seconds (shot boundary)
-    const shotTime = t % 12.0;
+    // Tactile hit marker at every variable shot cut boundary
+    let shotTime = 1.0;
+    if (boundaries) {
+      while (boundaryCursor + 1 < boundaries.length && t >= boundaries[boundaryCursor + 1]) {
+        boundaryCursor++;
+      }
+      shotTime = Math.max(0, t - boundaries[boundaryCursor]);
+    } else {
+      shotTime = t % 12.0;
+    }
+
     let hit = 0;
     if (shotTime < 0.4) {
       const hitEnv = Math.exp(-shotTime * 8.0);
@@ -710,8 +743,26 @@ export function synthesizeAmbientAudioBuffer(durationSec: number, sampleRate: nu
 }
 
 /**
+ * Resolves flexible shot duration in seconds for WebCodecs rendering (0.5s to 1800.0s).
+ */
+function resolveExportShotDurationSec(slide: any, frame: any): number {
+  const candidates = [
+    slide?.durationSec,
+    slide?.duration,
+    frame?.durationSec,
+    frame?.slideHoldSec
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'number' && Number.isFinite(c) && c > 0) {
+      return Math.max(0.5, Math.min(1800.0, c));
+    }
+  }
+  return 12.0;
+}
+
+/**
  * MASTER OFFLINE EXPORT PIPELINE:
- * Executes the frame-by-frame offline rendering loop with WebCodecs, mp4-muxer, and live telemetry.
+ * Executes the frame-by-frame offline rendering loop with WebCodecs, mp4-muxer, and variable shot durations.
  */
 export async function exportCinemaMasterMp4(
   options: CinemaExportPipelineOptions
@@ -740,18 +791,28 @@ export async function exportCinemaMasterMp4(
     abortSignal
   } = options;
 
-  // 1. Calculate and parse target shot indices
+  // 1. Calculate and parse target shot indices + per-shot variable durations
   const count = Math.max(1, totalSlides || slides.length || frames.length || 1);
+  const allShotDurations = Array.from({ length: count }, (_, idx) =>
+    resolveExportShotDurationSec(slides[idx], frames[idx])
+  );
+
   const parsedRange = overrideShotIndices && overrideShotIndices.length > 0
-    ? {
-        indices: overrideShotIndices,
-        totalShots: overrideShotIndices.length,
-        totalFrames: overrideShotIndices.length * 288,
-        durationSec: (overrideShotIndices.length * 288) / 24.0,
-        label: overrideShotIndices.length === 1 
-          ? `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}`
-          : `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}-SH${String(overrideShotIndices[overrideShotIndices.length - 1] + 1).padStart(3, '0')}`
-      }
+    ? (() => {
+        const totalOverrideFrames = overrideShotIndices.reduce(
+          (sum, idx) => sum + Math.max(1, Math.round((allShotDurations[idx] ?? 12.0) * 24)),
+          0
+        );
+        return {
+          indices: overrideShotIndices,
+          totalShots: overrideShotIndices.length,
+          totalFrames: totalOverrideFrames,
+          durationSec: totalOverrideFrames / 24.0,
+          label: overrideShotIndices.length === 1 
+            ? `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}`
+            : `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}-SH${String(overrideShotIndices[overrideShotIndices.length - 1] + 1).padStart(3, '0')}`
+        };
+      })()
     : parseShotSelection(
         selectionMode,
         rangeStart,
@@ -759,8 +820,9 @@ export async function exportCinemaMasterMp4(
         customListText,
         count,
         currentSlideIndex,
-        288, // 12.0s master duration @ 24fps
-        excludedShotIndices
+        288,
+        excludedShotIndices,
+        allShotDurations
       );
 
   const shotIndices = parsedRange.indices;
@@ -768,8 +830,16 @@ export async function exportCinemaMasterMp4(
     throw new Error('No shots selected for export. Please select or include at least one shot in the sequence matrix.');
   }
   const fps = 24;
-  const framesPerShot = 288; // Full 12.0s Master
-  const totalFrames = shotIndices.length * framesPerShot;
+  const perShotDurationsSec = shotIndices.map(idx => resolveExportShotDurationSec(slides[idx], frames[idx]));
+  const perShotFrameCounts = perShotDurationsSec.map(dur => Math.max(1, Math.round(dur * fps)));
+  const shotBoundaryTimesSec: number[] = [];
+  let runningBoundarySec = 0;
+  for (let i = 0; i < perShotFrameCounts.length; i++) {
+    shotBoundaryTimesSec.push(runningBoundarySec);
+    runningBoundarySec += perShotFrameCounts[i] / fps;
+  }
+  const totalFrames = perShotFrameCounts.reduce((acc, n) => acc + n, 0);
+  const totalExportDurationSec = totalFrames / fps;
 
   // 2. Setup Dimensions & Bitrates
   const dimensions = getExportPresetDimensions(resolutionPreset);
@@ -798,7 +868,7 @@ export async function exportCinemaMasterMp4(
 
   if (shouldMuxAudio) {
     try {
-      audioBuffer = synthesizeAmbientAudioBuffer(parsedRange.durationSec, 48000);
+      audioBuffer = synthesizeAmbientAudioBuffer(totalExportDurationSec, 48000, shotBoundaryTimesSec);
       muxer = new Muxer({
         target,
         video: {
@@ -951,21 +1021,28 @@ export async function exportCinemaMasterMp4(
       } catch {}
     }
 
-    // Step through each of the 288 frames for this shot
-    for (let f = 0; f < framesPerShot; f++) {
+    const shotDurationSec = perShotDurationsSec[shotListIdx];
+    const shotFramesCount = perShotFrameCounts[shotListIdx];
+    const shotStartTimeSec = shotBoundaryTimesSec[shotListIdx] ?? 0;
+
+    // Step through each frame of this shot's exact variable duration
+    for (let f = 0; f < shotFramesCount; f++) {
       if (abortSignal?.aborted) {
         if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
         if (activeBitmap) activeBitmap.close();
         throw new Error('Export cancelled by user.');
       }
 
-      // Step headless video element accurately if present
+      // Step headless video element accurately across variable shot duration (looping if shot is longer than clip)
       if (activeVideoElement && activeVideoElement.duration > 0) {
-        const targetVideoSec = (f / framesPerShot) * Math.min(activeVideoElement.duration, 12.0);
+        const localSec = (f / fps);
+        const targetVideoSec = activeVideoElement.duration > 0
+          ? localSec % activeVideoElement.duration
+          : Math.min(localSec, shotDurationSec);
         await waitForSeek(activeVideoElement, targetVideoSec, 600);
       }
 
-      // Composite onto master export canvas
+      // Composite onto master export canvas with exact shotStartTimeSec & totalFramesInShot
       compositeCinemaFrame({
         ctx,
         width,
@@ -973,7 +1050,9 @@ export async function exportCinemaMasterMp4(
         preset: resolutionPreset,
         shotIndex: shotIdx,
         frameInShot: f,
-        totalFramesInShot: framesPerShot,
+        totalFramesInShot: shotFramesCount,
+        shotStartTimeSec,
+        fps,
         sourceElement: activeVideoElement || activeBitmap,
         titleBn: bTitle,
         titleEn: eTitle,
@@ -1033,7 +1112,7 @@ export async function exportCinemaMasterMp4(
             previewCtx.fillStyle = '#F5A623';
             previewCtx.font = 'bold 9.5px "JetBrains Mono", monospace';
             previewCtx.textAlign = 'center';
-            const hudText = `[ SHOT ${String(currentShotNum).padStart(3, '0')} • FRAME ${f + 1}/${framesPerShot} • 24 FPS • ENCODING ]`;
+            const hudText = `[ SHOT ${String(currentShotNum).padStart(3, '0')} • FRAME ${f + 1}/${shotFramesCount} (${shotDurationSec.toFixed(1)}s) • ${fps} FPS ]`;
             previewCtx.fillText(hudText, 160, 134 - 8);
           }
         } catch {

@@ -25,7 +25,12 @@
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { SlideDraft, AspectRatioType } from '../../types/project';
-import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../../types/editor';
+import { PlaybackMode } from '../../types/editor';
+import {
+  getShotDurationSec,
+  getShotFrameCount,
+  getShotTargetFps
+} from '../../types/storyboard';
 import { r2StorageService } from '../../services/r2StorageService';
 import { studioDraftDb } from '../../services/db';
 import { TactileTransport } from '../controls/TactileTransport';
@@ -150,6 +155,11 @@ interface OpticalMonitorProps {
   slideTimeSec: number; // 0.0s to 12.0s
   playbackSpeed?: number;
   onChangePlaybackSpeed?: (speed: number) => void;
+  onChangeSlideDuration?: (durationSec: number) => void;
+  onChangeTargetFps?: (fps: number) => void;
+  onApplyDurationToAll?: (durationSec: number) => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
   onTogglePlay: () => void;
   onToggleLoop: () => void;
   onStepFrame: (forward: boolean) => void;
@@ -179,6 +189,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   slideTimeSec,
   playbackSpeed = 1.0,
   onChangePlaybackSpeed,
+  onChangeSlideDuration,
+  onChangeTargetFps,
+  onApplyDurationToAll,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
   onTogglePlay,
   onToggleLoop,
   onStepFrame,
@@ -231,12 +246,14 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const isVertigo = useStudioStore((s) => s.isVertigoLinked);
   const zoomTransforms = calculateMultiLayerZoom(bgZoom, fgZoom, isVertigo);
 
-  // Frame calculation constants strictly at 24fps
-  const FRAME_DURATION = 1 / 24;
-  const SLIDE_MAX_TIME = 12.0;
+  // Elastic frame calculation per active slide
+  const activeFps = getShotTargetFps(currentSlide, 24);
+  const FRAME_DURATION = 1 / activeFps;
+  const SLIDE_MAX_TIME = getShotDurationSec(currentSlide, 12.0);
+  const SLIDE_TOTAL_FRAMES = getShotFrameCount(SLIDE_MAX_TIME, activeFps);
 
-  // Active slide frame state (0 to 287)
-  const [currentFrame, setCurrentFrame] = useState<number>(() => Math.floor(slideTimeSec * 24));
+  // Active slide frame state
+  const [currentFrame, setCurrentFrame] = useState<number>(() => Math.floor(slideTimeSec * activeFps));
 
   // Dynamic multi-position animated title placement per shot with interactive override
   const [titlePosition, setTitlePosition] = useState<'left-bottom' | 'mid-bottom' | 'right-bottom' | 'auto'>('auto');
@@ -251,19 +268,18 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
 
   // Sync frame with slide time changes
   useEffect(() => {
-    setCurrentFrame(Math.floor(slideTimeSec * 24));
-  }, [slideTimeSec]);
+    setCurrentFrame(Math.floor(slideTimeSec * activeFps));
+  }, [slideTimeSec, activeFps]);
 
   // Hook 1: Professional Video Playback Engine
   const engine = useVideoPlaybackEngine({
     totalSlides,
     initialSlideIndex: currentIndex,
     initialMode: playbackMode,
-    fps: 24,
-    onSlideChange: (idx) => {
-      // Trigger slide change in parent if available
-    },
-    onTimeUpdate: (sSec, gSec) => {
+    fps: activeFps,
+    activeSlideDurationSec: SLIDE_MAX_TIME,
+    onSlideChange: () => {},
+    onTimeUpdate: (sSec) => {
       onScrubSlideTime(sSec);
     }
   });
@@ -694,19 +710,18 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           {/* ========================================================================= */}
           
           {/* Top Left: Scene ID, Frame Telemetry, SMPTE Timecode */}
-          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-40">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] animate-pulse" />
+          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-40 tabular-nums">
             <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
-            <span className="text-white/30">//</span>
-            <span className="text-white font-bold tabular-nums">
-              F{String(Math.min(288, Math.max(1, currentFrame + 1))).padStart(3, '0')} / 288
+            <span className="text-white/30">·</span>
+            <span className="text-white font-bold">
+              F{String(Math.min(SLIDE_TOTAL_FRAMES, Math.max(1, currentFrame + 1))).padStart(3, '0')} / {SLIDE_TOTAL_FRAMES}
             </span>
-            <span className="text-white/30">//</span>
-            <span className="text-white/90 font-mono tabular-nums">
+            <span className="text-white/30">·</span>
+            <span className="text-white/90 font-mono">
               {formatSMPTE(slideTimeSec)}
             </span>
-            <span className="text-white/30">//</span>
-            <span className="text-emerald-400 text-[9.5px]">24.0 fps locked</span>
+            <span className="text-white/30">·</span>
+            <span className="text-emerald-400 text-[9.5px]">{activeFps}.0 fps</span>
           </div>
 
           {/* Top Right: Transport Velocity & NLE Status */}
@@ -888,6 +903,13 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
         isMuted={isMuted}
         onToggleMute={() => setIsMuted(m => !m)}
         slideTimeSec={slideTimeSec}
+        slideDurationSec={SLIDE_MAX_TIME}
+        targetFps={activeFps}
+        onChangeSlideDuration={onChangeSlideDuration}
+        onChangeTargetFps={onChangeTargetFps}
+        onApplyDurationToAll={onApplyDurationToAll}
+        isSnapToBeat={isSnapToBeat}
+        onToggleSnapToBeat={onToggleSnapToBeat}
         currentIndex={currentIndex}
         totalSlides={totalSlides}
         onScrubSlideTime={(t) => {

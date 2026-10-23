@@ -24,7 +24,16 @@
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { SlideDraft, AspectRatioType } from '../../types/project';
-import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../../types/editor';
+import { PlaybackMode } from '../../types/editor';
+import {
+  calculateMasterSequenceDuration,
+  formatDurationPillValue,
+  getCumulativeShotOffsets,
+  getShotDurationSec,
+  getShotFrameCount,
+  getShotTargetFps
+} from '../../types/storyboard';
+import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
 import { audioEngine } from '../../utils/audioEngine';
 import { 
   Play, 
@@ -76,6 +85,9 @@ export interface ScrubPanelProps {
   onDeleteSlide: (index: number) => void;
   onReorderSlides: (reordered: SlideDraft[]) => void;
   onUpdateSlide: (index: number, partial: Partial<SlideDraft>) => void;
+  onApplyDurationToAll?: (durationSec: number) => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
   onUploadMedia?: (index: number, file: File) => void;
   playbackSpeed?: number;
   onChangePlaybackSpeed?: (speed: number) => void;
@@ -101,10 +113,12 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   onDeleteSlide,
   onReorderSlides,
   onUpdateSlide,
+  onApplyDurationToAll,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
   onUploadMedia,
   playbackSpeed = 1.0,
   onChangePlaybackSpeed,
-  projectTitle = 'RAWx Storyboard Studio',
   className = ''
 }) => {
   // Navigation & Card View State
@@ -130,13 +144,14 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
   const safeIndex = Math.max(0, Math.min(slides.length - 1, activeSlideIndex));
   const currentSlide = slides[safeIndex] || slides[0];
+  const activeSlideDurationSec = getShotDurationSec(currentSlide, 12.0);
+  const activeSlideFps = getShotTargetFps(currentSlide, 24);
+  const activeSlideTotalFrames = getShotFrameCount(activeSlideDurationSec, activeSlideFps);
 
-  // Current Frame Calculations (24 fps)
-  const currentFrameNum = Math.min(SLIDE_TOTAL_FRAMES_24FPS, Math.floor(slideTimeSec * 24) + 1);
-  const globalTotalFrames = slides.length * SLIDE_TOTAL_FRAMES_24FPS;
-  const globalCurrentFrame = (safeIndex * SLIDE_TOTAL_FRAMES_24FPS) + currentFrameNum;
-  const globalCurrentSec = (safeIndex * SLIDE_DURATION_SEC) + slideTimeSec;
-  const totalDurationSec = slides.length * SLIDE_DURATION_SEC;
+  const shotOffsets = useMemo(() => getCumulativeShotOffsets(slides), [slides]);
+  const totalDurationSec = useMemo(() => calculateMasterSequenceDuration(slides), [slides]);
+  const currentFrameNum = Math.min(activeSlideTotalFrames, Math.max(1, Math.floor(slideTimeSec * activeSlideFps) + 1));
+  const globalCurrentSec = (shotOffsets[safeIndex]?.startSec ?? 0) + slideTimeSec;
 
   // Auto-scroll active card into view in filmstrip mode
   useEffect(() => {
@@ -149,7 +164,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   }, [safeIndex, cardLayout]);
 
   // Format Timecode to SMPTE HH:MM:SS:FF
-  const formatSMPTE = (sec: number, fps = 24) => {
+  const formatSMPTE = (sec: number, fps = activeSlideFps) => {
     const totalFrames = Math.max(0, Math.floor(sec * fps));
     const ff = String(totalFrames % fps).padStart(2, '0');
     const ss = String(Math.floor(sec) % 60).padStart(2, '0');
@@ -163,12 +178,11 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     if (!scrubTrackRef.current) return;
     const rect = scrubTrackRef.current.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    let rawSec = ratio * SLIDE_DURATION_SEC;
+    let rawSec = ratio * activeSlideDurationSec;
 
     if (isMagneticSnap) {
-      // Magnetic 1/24s cinema frame snap
-      const frameIndex = Math.round(rawSec * 24);
-      rawSec = Math.max(0, Math.min(SLIDE_DURATION_SEC, frameIndex / 24));
+      const frameIndex = Math.round(rawSec * activeSlideFps);
+      rawSec = Math.max(0, Math.min(activeSlideDurationSec, frameIndex / activeSlideFps));
     }
 
     onScrubSlideTime(rawSec);
@@ -177,7 +191,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     } catch {
       // Safe fallback
     }
-  }, [isMagneticSnap, onScrubSlideTime]);
+  }, [activeSlideDurationSec, activeSlideFps, isMagneticSnap, onScrubSlideTime]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingScrubRef.current = true;
@@ -202,8 +216,8 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
   // Fine Jog-Wheel Nudge
   const handleJogNudge = (deltaFrames: number) => {
-    const frameDuration = 1 / 24;
-    const nextTime = Math.max(0, Math.min(SLIDE_DURATION_SEC, slideTimeSec + (deltaFrames * frameDuration)));
+    const frameDuration = 1 / activeSlideFps;
+    const nextTime = Math.max(0, Math.min(activeSlideDurationSec, slideTimeSec + (deltaFrames * frameDuration)));
     onScrubSlideTime(nextTime);
     setJogRotation(r => r + (deltaFrames * 15));
     try {
@@ -393,23 +407,23 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         </div>
 
         {/* Center: Live Frame & SMPTE Timecode Badges */}
-        <div className="hidden lg:flex items-center gap-2.5 text-xs">
+        <div className="hidden lg:flex items-center gap-2.5 text-xs tabular-nums">
           <div className="bg-black/60 border border-white/10 px-3 py-1 rounded-lg flex items-center gap-2">
             <span className="text-slate-400 text-[10px]">SHOT:</span>
             <span className="font-bold text-[#F5A623]">{formatSMPTE(slideTimeSec)}</span>
-            <span className="text-slate-500 text-[10px]">/ 12.0s</span>
+            <span className="text-slate-500 text-[10px]">/ {formatDurationPillValue(activeSlideDurationSec)}</span>
           </div>
 
           <div className="bg-black/60 border border-white/10 px-3 py-1 rounded-lg flex items-center gap-2">
             <span className="text-slate-400 text-[10px]">MASTER:</span>
             <span className="font-semibold text-white">{formatSMPTE(globalCurrentSec)}</span>
-            <span className="text-slate-500 text-[10px]">/ {totalDurationSec.toFixed(0)}s</span>
+            <span className="text-slate-500 text-[10px]">/ {totalDurationSec.toFixed(1)}s</span>
           </div>
 
           <div className="bg-black/60 border border-white/10 px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-bold">
             <span className="text-amber-400">{currentFrameNum}</span>
             <span className="text-slate-500">/</span>
-            <span className="text-slate-400">288 F</span>
+            <span className="text-slate-400">{activeSlideTotalFrames} F</span>
           </div>
         </div>
 
@@ -524,8 +538,8 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               </div>
 
               {/* Frame Counter HUD Tag */}
-              <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/80 border border-white/20 text-[10px] font-mono text-[#F5A623] pointer-events-none font-bold">
-                F{String(currentFrameNum).padStart(3, '0')} // 288
+              <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/80 border border-white/20 text-[10px] font-mono text-[#F5A623] pointer-events-none font-bold tabular-nums">
+                F{String(currentFrameNum).padStart(3, '0')} · {activeSlideTotalFrames}F
               </div>
 
               {/* Quick AI Action Buttons on hover */}
@@ -658,13 +672,15 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                 >
                   {/* Card Header Strip: Shot #, Order Arrows, Duplicate, Delete */}
                   <div className="p-2 bg-black/40 border-b border-white/5 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5 font-bold">
+                    <div className="flex items-center gap-1.5 font-bold tabular-nums">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                         isSelected ? 'bg-[#F5A623] text-black' : 'bg-white/10 text-slate-300'
                       }`}>
                         SH{shotNumStr}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-mono">12.0s</span>
+                      <span className="text-[10px] text-[#F5A623] font-mono">
+                        {formatDurationPillValue(getShotDurationSec(slide, 12.0))}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -741,7 +757,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                       <div className="absolute inset-x-0 bottom-0 h-1 bg-black/60">
                         <div 
                           className="h-full bg-[#F5A623] shadow-[0_0_8px_#F5A623]" 
-                          style={{ width: `${(slideTimeSec / SLIDE_DURATION_SEC) * 100}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, (slideTimeSec / getShotDurationSec(slide, 12.0)) * 100))}%` }}
                         />
                       </div>
                     )}
@@ -930,22 +946,32 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             {/* Jump to End of Shot */}
             <button
               type="button"
-              onClick={() => onScrubSlideTime(SLIDE_DURATION_SEC)}
+              onClick={() => onScrubSlideTime(activeSlideDurationSec)}
               className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-              title="Jump to End of Shot (12.0s)"
+              title={`Jump to End of Shot (${formatDurationPillValue(activeSlideDurationSec)})`}
             >
               <SkipForward className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
+
+            <CadenceSelectorPill
+              durationSec={activeSlideDurationSec}
+              targetFps={activeSlideFps}
+              onChangeDuration={(dur) => onUpdateSlide(safeIndex, { duration: dur, durationSec: dur })}
+              onChangeTargetFps={(fps) => onUpdateSlide(safeIndex, { targetFps: fps })}
+              onApplyDurationToAll={onApplyDurationToAll}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
+            />
           </div>
 
           {/* Center Jog Strip / Nudge Slider (Frame Fine-Tuner) */}
           <div className="hidden md:flex items-center gap-2 bg-black/60 border border-white/10 px-3 py-1 rounded-xl text-xs">
-            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">JOG WHEEL:</span>
+            <span className="text-slate-400 text-[10px] font-bold tracking-wider">JOG:</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => handleJogNudge(-5)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-[10px]"
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-[10px] cursor-pointer"
                 title="-5 Frames"
               >
                 « -5F
@@ -953,20 +979,20 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               <button
                 type="button"
                 onClick={() => handleJogNudge(-1)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-amber-400 hover:text-white text-[10px]"
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-amber-400 hover:text-white text-[10px] cursor-pointer"
                 title="-1 Frame"
               >
                 ‹ -1F
               </button>
-              <div 
-                className="w-12 h-6 rounded bg-[#151620] border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-[11px] shadow-inner"
+              <div
+                className="min-w-[48px] px-1.5 h-6 rounded bg-[#151620] border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-[11px] shadow-inner tabular-nums"
               >
                 F{String(currentFrameNum).padStart(3, '0')}
               </div>
               <button
                 type="button"
                 onClick={() => handleJogNudge(1)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-amber-400 hover:text-white text-[10px]"
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-amber-400 hover:text-white text-[10px] cursor-pointer"
                 title="+1 Frame"
               >
                 +1F ›
@@ -974,7 +1000,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               <button
                 type="button"
                 onClick={() => handleJogNudge(5)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-[10px]"
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-[10px] cursor-pointer"
                 title="+5 Frames"
               >
                 +5F »
@@ -1005,12 +1031,20 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         {/* Master Interactive Sub-Frame Timeline Track (Ruler + Waveform + Playhead) */}
         <div className="flex-1 mt-2 flex flex-col justify-end">
           {/* Timeline Time Indicators */}
-          <div className="flex justify-between text-[10px] text-slate-400 font-mono pb-1 px-1">
-            <span>0.000s [F001]</span>
-            <span className="text-slate-500 hidden sm:inline">3.000s [F072]</span>
-            <span className="text-amber-400/90 font-bold">6.000s [F144]</span>
-            <span className="text-slate-500 hidden sm:inline">9.000s [F216]</span>
-            <span>12.000s [F288]</span>
+          <div className="flex justify-between text-[10px] text-slate-400 font-mono pb-1 px-1 tabular-nums">
+            <span>0.00s [F001]</span>
+            <span className="text-slate-500 hidden sm:inline">
+              {(activeSlideDurationSec * 0.25).toFixed(2)}s [F{Math.max(1, Math.round(activeSlideTotalFrames * 0.25))}]
+            </span>
+            <span className="text-amber-400/90 font-bold">
+              {(activeSlideDurationSec * 0.5).toFixed(2)}s [F{Math.max(1, Math.round(activeSlideTotalFrames * 0.5))}]
+            </span>
+            <span className="text-slate-500 hidden sm:inline">
+              {(activeSlideDurationSec * 0.75).toFixed(2)}s [F{Math.max(1, Math.round(activeSlideTotalFrames * 0.75))}]
+            </span>
+            <span>
+              {activeSlideDurationSec.toFixed(2)}s [F{activeSlideTotalFrames}]
+            </span>
           </div>
 
           {/* Interactive Scrub Track Box */}
@@ -1025,7 +1059,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             <div className="absolute inset-0 flex items-center justify-between px-1.5 opacity-60 pointer-events-none">
               {waveformBars.map((h, i) => {
                 const barRatio = i / waveformBars.length;
-                const isPlayed = barRatio <= (slideTimeSec / SLIDE_DURATION_SEC);
+                const isPlayed = barRatio <= (slideTimeSec / activeSlideDurationSec);
                 return (
                   <div
                     key={i}
@@ -1038,40 +1072,36 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               })}
             </div>
 
-            {/* Frame Tick Ruler (Major Seconds + Half Seconds + 6-Frame Ticks) */}
-            <div className="absolute inset-x-0 top-0 h-4 flex justify-between px-1 pointer-events-none">
-              {Array.from({ length: 13 }).map((_, sec) => (
-                <div key={sec} className="flex flex-col items-center">
-                  <div className="w-[1px] h-3 bg-white/40" />
-                  <span className="text-[8px] text-slate-400 font-mono -mt-0.5">{sec}s</span>
-                </div>
-              ))}
+            {/* Adaptive Frame Tick Ruler */}
+            <div className="absolute inset-x-0 top-0 h-4 flex justify-between px-1 pointer-events-none tabular-nums">
+              {Array.from({ length: 13 }).map((_, idx) => {
+                const tickSec = (idx / 12) * activeSlideDurationSec;
+                return (
+                  <div key={idx} className="flex flex-col items-center">
+                    <div className="w-[1px] h-3 bg-white/40" />
+                    <span className="text-[8px] text-slate-400 font-mono -mt-0.5">
+                      {activeSlideDurationSec >= 60 ? `${Math.round(tickSec)}s` : `${tickSec.toFixed(1)}s`}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Quarter-Second Sub-Ticks */}
+            {/* Quarter-Interval Sub-Ticks */}
             <div className="absolute inset-x-0 top-0 h-2 flex justify-between px-1 pointer-events-none opacity-40">
               {Array.from({ length: 49 }).map((_, tick) => (
                 <div key={tick} className="w-[1px] h-1.5 bg-slate-500" />
               ))}
             </div>
 
-            {/* Downbeat Beat Pulse Markers */}
-            <div className="absolute inset-x-0 bottom-0 h-1.5 flex justify-between px-1 pointer-events-none opacity-50">
-              {Array.from({ length: 13 }).map((_, b) => (
-                <div key={b} className="w-1 h-1 rounded-full bg-amber-400" />
-              ))}
-            </div>
-
             {/* Active Playhead Needle with Floating Flag */}
             <div
               className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#F5A623] via-[#FFE066] to-[#F5A623] shadow-[0_0_12px_#F5A623] pointer-events-none transition-all duration-75"
-              style={{ left: `${(slideTimeSec / SLIDE_DURATION_SEC) * 100}%` }}
+              style={{ left: `${Math.min(100, Math.max(0, (slideTimeSec / activeSlideDurationSec) * 100))}%` }}
             >
-              {/* Floating Flag Badge */}
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full px-1.5 py-0.5 rounded bg-black/95 border border-[#F5A623] text-[#F5A623] font-bold text-[9px] font-mono whitespace-nowrap shadow-lg">
-                F{String(currentFrameNum).padStart(3, '0')} // {slideTimeSec.toFixed(3)}s
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full px-1.5 py-0.5 rounded bg-black/95 border border-[#F5A623] text-[#F5A623] font-bold text-[9px] font-mono whitespace-nowrap shadow-lg tabular-nums">
+                F{String(currentFrameNum).padStart(3, '0')} · {slideTimeSec.toFixed(3)}s
               </div>
-              {/* Diamond Head */}
               <div className="w-2.5 h-2.5 bg-[#F5A623] rotate-45 -ml-[4.5px] -mt-1 shadow-[0_0_8px_#F5A623]" />
             </div>
           </div>

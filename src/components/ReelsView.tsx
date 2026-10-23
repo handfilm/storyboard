@@ -14,24 +14,27 @@
  * - Non-destructive video playback and media ingestion
  */
 
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode } from '../types/editor';
+import {
+  formatDurationPillValue,
+  getShotDurationSec,
+  getShotFrameCount,
+  getShotTargetFps
+} from '../types/storyboard';
+import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { useStudioStore } from '../core/store';
-import { 
-  Film, 
-  Upload, 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  Layers, 
-  Sparkles,
+import {
+  Film,
+  Upload,
+  Play,
+  Pause,
   Maximize2,
   Volume2,
   VolumeX,
-  Sliders,
   Compass,
   ArrowDownCircle
 } from 'lucide-react';
@@ -50,6 +53,11 @@ export interface ReelsViewProps {
   slideTimeSec: number;
   playbackSpeed?: number;
   onChangePlaybackSpeed?: (speed: number) => void;
+  onChangeSlideDuration?: (durationSec: number) => void;
+  onChangeTargetFps?: (fps: number) => void;
+  onApplyDurationToAll?: (durationSec: number) => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
   onTogglePlay: () => void;
   onToggleLoop: () => void;
   onStepFrame: (forward: boolean) => void;
@@ -71,22 +79,20 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   currentIndex,
   totalSlides,
   aspectRatio,
-  playbackMode,
   isPlaying,
   isLooping,
   slideTimeSec,
-  playbackSpeed = 1.0,
-  onChangePlaybackSpeed,
+  onChangeSlideDuration,
+  onChangeTargetFps,
+  onApplyDurationToAll,
+  isSnapToBeat = false,
+  onToggleSnapToBeat,
   onTogglePlay,
   onToggleLoop,
   onStepFrame,
   onScrubSlideTime,
-  onScrubGlobalTime,
-  onSelectPlaybackMode,
-  onChangeAspectRatio,
   onUploadMedia,
   onOpenCinemaPlayer,
-  projectTitle = '12.0S CINEMA REEL',
   showTitles = true,
   componentsVisibility,
   defaultSafeZone = 'bottom'
@@ -120,27 +126,31 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     activeKey: currentIndex
   });
 
-  // Safe-Zone Positioning State: 'bottom' default as confirmed by user
   const [safeZone, setSafeZone] = useState<ReelsSafeZonePosition>(defaultSafeZone);
   const [isMuted, setIsMuted] = useState(true);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  // 24fps frame index calculation (F001 to F288)
+  const activeDurationSec = getShotDurationSec(currentSlide, 12.0);
+  const activeFps = getShotTargetFps(currentSlide, 24);
+  const activeTotalFrames = getShotFrameCount(activeDurationSec, activeFps);
+
+  // Dynamic frame index calculation (F001 to F{activeTotalFrames})
   const currentFrame = useMemo(() => {
-    const rawFrame = Math.floor(slideTimeSec * 24);
-    return Math.min(288, Math.max(1, rawFrame + 1));
-  }, [slideTimeSec]);
+    const rawFrame = Math.floor(slideTimeSec * activeFps);
+    return Math.min(activeTotalFrames, Math.max(1, rawFrame + 1));
+  }, [slideTimeSec, activeFps, activeTotalFrames]);
 
-  // Frame tag string: [ F001/288 • 12.0s ]
+  // Frame tag string: [ F001/288 • 12.0s ] (adapts dynamically to shot duration)
   const frameCounterTag = useMemo(() => {
-    const paddedFrame = String(currentFrame).padStart(3, '0');
-    return `[ F${paddedFrame}/288 • 12.0s ]`;
-  }, [currentFrame]);
+    const padWidth = Math.max(3, String(activeTotalFrames).length);
+    const paddedFrame = String(currentFrame).padStart(padWidth, '0');
+    return `[ F${paddedFrame}/${activeTotalFrames} • ${formatDurationPillValue(activeDurationSec)} ]`;
+  }, [currentFrame, activeTotalFrames, activeDurationSec]);
 
-  // Progress percentage across 12-second block (0% to 100%)
+  // Progress percentage across active slide duration (0% to 100%)
   const progressPercent = useMemo(() => {
-    return Math.min(100, Math.max(0, (slideTimeSec / 12.0) * 100));
-  }, [slideTimeSec]);
+    return Math.min(100, Math.max(0, (slideTimeSec / activeDurationSec) * 100));
+  }, [slideTimeSec, activeDurationSec]);
 
   // Media source resolution
   const mediaUrl = currentSlide?.remoteUrl || (currentSlide as any)?.imageUrl;
@@ -380,16 +390,15 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             </div>
           )}
 
-          {/* Top Left: Scene & Locked Specs Monospace Badge */}
-          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#232332] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-30">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E50914] animate-pulse" />
+          {/* Top Left: Scene & Elastic Specs Monospace Badge */}
+          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#232332] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-30 tabular-nums">
             <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
-            <span className="text-white/30">•</span>
-            <span className="text-white font-mono tabular-nums">
-              {slideTimeSec.toFixed(2)}s / 12.00s
+            <span className="text-white/30">·</span>
+            <span className="text-white font-mono">
+              {slideTimeSec.toFixed(2)}s / {activeDurationSec.toFixed(2)}s
             </span>
-            <span className="text-white/30">•</span>
-            <span className="text-emerald-400 font-bold">24FPS LOCKED</span>
+            <span className="text-white/30">·</span>
+            <span className="text-emerald-400 font-bold">{activeFps}FPS</span>
           </div>
 
           {/* Top Right: On-Screen 3-Position Safe-Zone Switcher Pill (User Clarification Answer) */}
@@ -484,10 +493,9 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest hidden sm:inline">
-                      EDIT CUT {String(currentIndex + 1).padStart(2, '0')}/100
+                    <span className="text-[10px] font-mono text-zinc-400 tracking-wider hidden sm:inline tabular-nums">
+                      EDIT CUT {String(currentIndex + 1).padStart(2, '0')}/{totalSlides}
                     </span>
-                    <span className="w-2 h-2 rounded-full bg-[#E50914] animate-pulse" />
                   </div>
                 </div>
 
@@ -529,8 +537,8 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
       </div>
 
       {/* Bottom Compact Transport Pill for Reels Workspace */}
-      <div className="h-12 w-full px-6 flex items-center justify-between border-t border-[#1C1C24] bg-[#0A0A0E] text-zinc-400 text-xs font-mono">
-        <div className="flex items-center gap-3">
+      <div className="min-h-[48px] w-full px-4 sm:px-6 py-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#1C1C24] bg-[#0A0A0E] text-zinc-400 text-xs font-mono">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onTogglePlay}
@@ -544,7 +552,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             type="button"
             onClick={() => onStepFrame(false)}
             className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer text-[10px]"
-            title="Step -1 Frame (41.6ms)"
+            title={`Step -1 Frame (1/${activeFps}s)`}
           >
             -1F
           </button>
@@ -553,7 +561,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             type="button"
             onClick={() => onStepFrame(true)}
             className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer text-[10px]"
-            title="Step +1 Frame (41.6ms)"
+            title={`Step +1 Frame (1/${activeFps}s)`}
           >
             +1F
           </button>
@@ -561,32 +569,47 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           <button
             type="button"
             onClick={onToggleLoop}
-            className={`px-2.5 py-1 rounded-full transition-colors cursor-pointer text-[10px] ${
+            className={`px-2.5 py-1 rounded-full transition-colors cursor-pointer text-[10px] tabular-nums ${
               isLooping ? 'bg-amber-950/70 text-[#F5A623] border border-[#F5A623]/40' : 'text-zinc-500 hover:text-zinc-300'
             }`}
-            title="Toggle 12s Loop"
+            title="Toggle Shot Loop"
           >
-            LOOP 12.0S
+            LOOP {formatDurationPillValue(activeDurationSec)}
           </button>
+
+          {onChangeSlideDuration && (
+            <CadenceSelectorPill
+              durationSec={activeDurationSec}
+              targetFps={activeFps}
+              onChangeDuration={onChangeSlideDuration}
+              onChangeTargetFps={onChangeTargetFps}
+              onApplyDurationToAll={onApplyDurationToAll}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
+              compact
+            />
+          )}
         </div>
 
-        {/* 12.0s Scrub Bar */}
-        <div className="flex-1 max-w-md mx-6 flex items-center gap-2">
+        {/* Elastic Scrub Bar */}
+        <div className="flex-1 min-w-[180px] max-w-md mx-2 sm:mx-6 flex items-center gap-2 tabular-nums">
           <span className="text-[10px] text-zinc-500">0.0s</span>
           <input
             type="range"
             min="0"
-            max="12.0"
-            step="0.0416"
-            value={slideTimeSec}
+            max={activeDurationSec}
+            step={1 / activeFps}
+            value={Math.min(activeDurationSec, slideTimeSec)}
             onChange={(e) => onScrubSlideTime(parseFloat(e.target.value))}
             className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#F5A623]"
           />
-          <span className="text-[10px] text-[#F5A623] font-bold">12.0s</span>
+          <span className="text-[10px] text-[#F5A623] font-bold">
+            {formatDurationPillValue(activeDurationSec)}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-zinc-500 text-[10px]">REELS EDITORIAL</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-zinc-500 text-[10px] hidden sm:inline">REELS EDITORIAL</span>
           <span className="px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300 text-[10px] border border-zinc-700">
             {aspectRatio}
           </span>

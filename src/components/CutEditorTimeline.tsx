@@ -11,26 +11,28 @@
  * - Tactile zoom controls with step buttons and magnetic snapping
  */
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TimelineClip, TrackLane } from '../types/cut';
+import { clampShotDuration, getShotFrameCount } from '../types/storyboard';
+import { audioEngine } from '../services/audioEngine';
 import { studioDraftDb } from '../services/db';
 import { useStudioStore } from '../core/store';
-import { 
-  Scissors, 
-  ZoomIn, 
-  ZoomOut, 
-  Eye, 
-  EyeOff, 
-  Lock, 
-  Unlock, 
-  Volume2, 
-  VolumeX, 
-  Film, 
-  Image as ImageIcon,
+import {
+  Scissors,
+  ZoomIn,
+  ZoomOut,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
+  Volume2,
+  VolumeX,
+  Film,
   Sparkles,
-  Layers,
   Magnet,
-  Maximize2
+  Maximize2,
+  Music,
+  Upload
 } from 'lucide-react';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 
@@ -44,6 +46,9 @@ export interface CutEditorTimelineProps {
   onSeek: (timeSec: number) => void;
   onSplitClip?: () => void;
   onUpdateClips?: (clips: TimelineClip[]) => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
+  onLoadAudioFile?: (file: File) => void;
   className?: string;
 }
 
@@ -144,13 +149,25 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
   onSelectClip,
   onSeek,
   onSplitClip,
+  onUpdateClips,
+  isSnapToBeat: propSnapToBeat,
+  onToggleSnapToBeat,
+  onLoadAudioFile,
   className = ''
 }) => {
   const { project, setActiveShotIndex } = useStudioStore();
-  const [zoomScale, setZoomScale] = useState<number>(100); // 20 to 180%
+  const [zoomScale, setZoomScale] = useState<number>(100); // 10 to 200%
   const [isMagneticSnap, setIsMagneticSnap] = useState<boolean>(true);
+  const [localSnapToBeat, setLocalSnapToBeat] = useState<boolean>(() => audioEngine.getIsSnapToBeatEnabled());
+  const [beatMap, setBeatMap] = useState<number[]>(() => audioEngine.getTransientTimecodeMap());
   const [vaultMediaMap, setVaultMediaMap] = useState<Record<string, string>>({});
   const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
+  const [trimTooltip, setTrimTooltip] = useState<{
+    clipId: string;
+    durationSec: number;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
   const [trackStates, setTrackStates] = useState<Record<string, { isMuted: boolean; isLocked: boolean; isHidden: boolean; isSoloed: boolean }>>(() => {
     const map: Record<string, any> = {};
     tracks.forEach((t) => {
@@ -160,6 +177,36 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
   });
 
   const timelineTracksRef = useRef<HTMLDivElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const isBeatSnapActive = propSnapToBeat !== undefined ? propSnapToBeat : localSnapToBeat;
+
+  useEffect(() => {
+    return audioEngine.subscribeToAnalysis((analysis) => {
+      setBeatMap(analysis.transientTimecodeMap || []);
+    });
+  }, []);
+
+  const handleToggleBeatSnapInternal = () => {
+    if (onToggleSnapToBeat) {
+      onToggleSnapToBeat();
+    } else {
+      const next = !localSnapToBeat;
+      audioEngine.setSnapToBeatEnabled(next);
+      setLocalSnapToBeat(next);
+    }
+  };
+
+  const handleUploadBeatTrackInternal = async (file: File) => {
+    if (onLoadAudioFile) {
+      onLoadAudioFile(file);
+    } else {
+      try {
+        await audioEngine.loadAndAnalyzeAudioFile(file);
+      } catch (err) {
+        console.warn('[CutEditorTimeline] Failed to decode audio track:', err);
+      }
+    }
+  };
 
   // Baseline 50px per second scaled by zoom
   const pps = (zoomScale / 100) * 50;
@@ -222,8 +269,10 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
     const clickX = clientX - rect.left + scrollLeft;
     let newTime = Math.max(0, Math.min(totalDuration, clickX / pps));
 
-    // Magnetic snapping to clip boundaries (within 0.3s)
-    if (isMagneticSnap) {
+    // Magnetic snapping to audio beat transients or clip boundaries
+    if (isBeatSnapActive) {
+      newTime = audioEngine.snapTimeToNearestBeat(newTime, 0.35);
+    } else if (isMagneticSnap) {
       const snapThreshold = 0.3;
       for (const c of clips) {
         if (Math.abs(newTime - c.start) < snapThreshold) {
@@ -240,7 +289,7 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
 
     setDragTime(newTime);
     onSeek(newTime);
-  }, [totalDuration, pps, onSeek, isMagneticSnap, clips]);
+  }, [totalDuration, pps, onSeek, isMagneticSnap, isBeatSnapActive, clips]);
 
   const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement> | React.MouseEvent) => {
     setIsScrubbing(true);
@@ -309,18 +358,127 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
     }));
   };
 
+  const handleClipTrimMouseDown = (
+    clip: TimelineClip,
+    edge: 'left' | 'right',
+    e: React.MouseEvent
+  ) => {
+    if (!onUpdateClips) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startMouseX = e.clientX;
+    const origStart = clip.start;
+    const origDur = clip.duration;
+    const origEnd = origStart + origDur;
+    const baseClips = [...clips];
+
+    setTrimTooltip({
+      clipId: clip.id,
+      durationSec: origDur,
+      clientX: e.clientX,
+      clientY: e.clientY
+    });
+
+    const onMove = (moveEv: MouseEvent) => {
+      const deltaSec = (moveEv.clientX - startMouseX) / Math.max(1, pps);
+
+      if (edge === 'right') {
+        let nextDur = clampShotDuration(origDur + deltaSec);
+        if (isBeatSnapActive) {
+          nextDur = audioEngine.snapDurationToNearestBeat(origStart, nextDur, 0.5, 0.4);
+        }
+        const durationDelta = nextDur - origDur;
+
+        // Ripple downstream V1/T1 clips if trimming primary V1 master shot
+        const updated = baseClips.map((c) => {
+          if (c.id === clip.id) {
+            return { ...c, duration: nextDur, outPoint: (c.inPoint || 0) + nextDur };
+          }
+          if (clip.trackId === 'V1' && (c.trackId === 'V1' || c.trackId === 'T1') && c.start >= origEnd - 0.01) {
+            return { ...c, start: Math.max(0, Number((c.start + durationDelta).toFixed(3))) };
+          }
+          if (clip.trackId === 'V1' && c.trackId === 'T1' && Math.abs(c.start - origStart) < 0.05) {
+            return { ...c, duration: nextDur, outPoint: (c.inPoint || 0) + nextDur };
+          }
+          return c;
+        });
+
+        setTrimTooltip({
+          clipId: clip.id,
+          durationSec: nextDur,
+          clientX: moveEv.clientX,
+          clientY: moveEv.clientY
+        });
+        onUpdateClips(updated);
+      } else {
+        let nextStart = Math.max(0, Math.min(origEnd - 0.5, origStart + deltaSec));
+        if (isBeatSnapActive) {
+          const snappedStart = audioEngine.snapTimeToNearestBeat(nextStart, 0.35);
+          if (origEnd - snappedStart >= 0.5) {
+            nextStart = Math.max(0, snappedStart);
+          }
+        }
+        const nextDur = clampShotDuration(origEnd - nextStart);
+        const updated = baseClips.map((c) =>
+          c.id === clip.id
+            ? {
+                ...c,
+                start: Number(nextStart.toFixed(3)),
+                duration: nextDur,
+                inPoint: Math.max(0, (c.inPoint || 0) + (nextStart - origStart))
+              }
+            : c
+        );
+
+        setTrimTooltip({
+          clipId: clip.id,
+          durationSec: nextDur,
+          clientX: moveEv.clientX,
+          clientY: moveEv.clientY
+        });
+        onUpdateClips(updated);
+      }
+    };
+
+    const onUp = () => {
+      setTrimTooltip(null);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const rulerStepSec = pps < 6 ? 60 : pps < 15 ? 15 : pps < 30 ? 5 : 1;
+  const rulerTicksCount = Math.min(2000, Math.floor(totalDuration / rulerStepSec) + 1);
   const totalContentWidth = Math.max(1400, totalDuration * pps + 350);
 
   return (
     <div className={`w-full flex flex-col bg-[#050609] border-t border-[#1C1D2A] select-none text-zinc-300 ${className}`}>
+      {trimTooltip && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${Math.max(80, Math.min(window.innerWidth - 190, trimTooltip.clientX - 75))}px`,
+            top: `${Math.max(24, trimTooltip.clientY - 40)}px`,
+            zIndex: 9999
+          }}
+          className="px-2.5 py-1 rounded-md bg-black/95 border border-[#F5A623] text-[10px] font-mono font-bold text-[#FFE066] whitespace-nowrap shadow-[0_8px_24px_rgba(0,0,0,0.9)] pointer-events-none tabular-nums"
+        >
+          DUR: {trimTooltip.durationSec.toFixed(2)}s // {getShotFrameCount(trimTooltip.durationSec, 24)} FRAMES
+        </div>
+      )}
+
       {/* 1. Pro NLE Control Dock */}
-      <div className="h-10 bg-[#090A0F] border-b border-[#1C1D2A] px-4 flex items-center justify-between text-xs shrink-0">
-        <div className="flex items-center gap-2.5">
+      <div className="min-h-[40px] bg-[#090A0F] border-b border-[#1C1D2A] px-4 py-1 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
           {onSplitClip && (
             <button
               type="button"
               onClick={onSplitClip}
-              className="px-2.5 py-1 bg-[#141520] hover:bg-[#F5A623] hover:text-black rounded border border-[#27283C] text-[10px] font-bold font-mono flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+              className="px-2.5 py-1 bg-[#141520] hover:bg-[#F5A623] hover:text-black rounded border border-[#27283C] text-[10px] font-bold font-mono flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
               title="Perform razor cut at playhead (S)"
             >
               <Scissors className="w-3.5 h-3.5" />
@@ -331,9 +489,9 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
           <button
             type="button"
             onClick={() => setIsMagneticSnap(!isMagneticSnap)}
-            className={`px-2.5 py-1 rounded border text-[10px] font-bold font-mono cursor-pointer transition-all flex items-center gap-1.5 ${
+            className={`px-2.5 py-1 rounded border text-[10px] font-bold font-mono cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
               isMagneticSnap
-                ? 'bg-[#F5A623]/20 border-[#F5A623]/80 text-[#FFE066] shadow-[0_0_10px_rgba(245,166,35,0.2)]'
+                ? 'bg-[#F5A623]/20 border-[#F5A623]/80 text-[#FFE066]'
                 : 'bg-[#141520] border-[#27283C] text-zinc-500 hover:text-zinc-300'
             }`}
             title="Toggle magnetic snapping to cut points"
@@ -342,11 +500,47 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
             <span>SNAP {isMagneticSnap ? 'ON' : 'OFF'}</span>
           </button>
 
-          <div className="h-4 w-px bg-[#1C1D2A] mx-1" />
+          <button
+            type="button"
+            onClick={handleToggleBeatSnapInternal}
+            className={`px-2.5 py-1 rounded border text-[10px] font-bold font-mono cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              isBeatSnapActive
+                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
+                : 'bg-[#141520] border-[#27283C] text-zinc-400 hover:text-white'
+            }`}
+            title="Magnetically snap clip stretches and splits to detected audio kick/snare beats"
+          >
+            <Music className="w-3 h-3 text-cyan-400" />
+            <span>SNAP CUTS TO BEATS</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => audioInputRef.current?.click()}
+            className="px-2 py-1 rounded bg-[#141520] hover:bg-[#1E2030] border border-[#27283C] text-[10px] font-mono text-zinc-300 hover:text-[#FFE066] flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+            title="Attach MP3/WAV track for offline AudioContext beat detection"
+          >
+            <Upload className="w-3 h-3 text-[#F5A623]" />
+            <span>Beat Track</span>
+          </button>
+          <input
+            ref={audioInputRef}
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.[0]) {
+                handleUploadBeatTrackInternal(e.target.files[0]);
+              }
+              e.target.value = '';
+            }}
+          />
+
+          <div className="h-4 w-px bg-[#1C1D2A] mx-0.5 hidden sm:block" />
 
           {/* Precision SMPTE Timecode Display */}
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-black/80 border border-[#27283C]">
-            <span className="text-[9px] font-mono text-zinc-500 uppercase">SMPTE</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-black/80 border border-[#27283C] tabular-nums">
+            <span className="text-[9px] font-mono text-zinc-500">SMPTE</span>
             <span className="font-mono text-xs text-[#FFE066] font-bold tracking-wider">
               {formatSMPTE(playheadTime)}
             </span>
@@ -355,7 +549,6 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
             </span>
           </div>
 
-          {/* Real-Time Master Audio Throughput VU Meter */}
           <TrackVuMeter variant="mini" />
         </div>
 
@@ -499,11 +692,11 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
         >
           <div style={{ width: `${totalContentWidth}px` }} className="relative h-full">
             
-            {/* Precision Timecode Ruler */}
+            {/* Precision Adaptive Timecode Ruler + Beat Transient Ticks */}
             <div className="h-7 border-b border-[#1C1D2A] bg-gradient-to-b from-[#0C0D14] to-[#08080C] relative select-none flex items-center">
-              {Array.from({ length: Math.ceil(totalDuration) + 1 }).map((_, sec) => {
-                const isMajor = sec % 5 === 0;
-                const isSecond = true;
+              {Array.from({ length: rulerTicksCount }).map((_, idx) => {
+                const sec = idx * rulerStepSec;
+                const isMajor = sec % (rulerStepSec * 5) === 0;
 
                 return (
                   <div
@@ -513,12 +706,15 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                     }`}
                     style={{ left: `${sec * pps}px` }}
                   >
-                    <span className={`text-[8px] font-mono tabular-nums leading-none pt-0.5 ${
-                      isMajor ? 'text-[#FFE066] font-bold' : 'text-zinc-500 font-medium'
-                    }`}>
-                      {isMajor ? `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}:00` : `${sec}s`}
+                    <span
+                      className={`text-[8px] font-mono tabular-nums leading-none pt-0.5 ${
+                        isMajor ? 'text-[#FFE066] font-bold' : 'text-zinc-500 font-medium'
+                      }`}
+                    >
+                      {isMajor
+                        ? `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}:00`
+                        : `${sec}s`}
                     </span>
-                    {/* Sub-frame ticks */}
                     <div className="flex gap-1 items-end h-1.5 pb-0.5">
                       <div className="w-px h-1 bg-zinc-700" />
                       <div className="w-px h-1 bg-zinc-700" />
@@ -526,6 +722,19 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                   </div>
                 );
               })}
+
+              {/* Beat Transient Peak Markers when Beat Snap Active */}
+              {isBeatSnapActive &&
+                beatMap
+                  .filter((t) => t <= totalDuration && pps >= 12)
+                  .slice(0, 600)
+                  .map((beatSec, bIdx) => (
+                    <div
+                      key={`bt-${bIdx}`}
+                      className="absolute bottom-0 w-[1.5px] h-2 bg-cyan-400/80 pointer-events-none"
+                      style={{ left: `${beatSec * pps}px` }}
+                    />
+                  ))}
             </div>
 
             {/* Dedicated Track Lanes */}
@@ -541,10 +750,8 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                     state.isHidden ? 'opacity-30' : ''
                   } ${theme.bg}`}
                 >
-                  {/* Subtle Background Guide Stripes */}
                   <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_100%] pointer-events-none" />
 
-                  {/* Clips on this track */}
                   {clips
                     .filter((c) => c.trackId === track.id)
                     .map((clip) => {
@@ -579,35 +786,31 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                           }`}
                           style={{
                             left: `${leftPos}px`,
-                            width: `${Math.max(34, clipWidth)}px`
+                            width: `${Math.max(24, clipWidth)}px`
                           }}
                         >
-                          {/* Filmstrip / Media Thumbnail Strip on Video Clips */}
                           {isVideoTrack && mediaUrl && (
                             <div className="absolute inset-0 flex overflow-hidden opacity-85 group-hover:opacity-100 transition-opacity">
-                              {Array.from({ length: Math.max(1, Math.ceil(clipWidth / 52)) }).map((_, thumbIdx) => (
+                              {Array.from({ length: Math.min(24, Math.max(1, Math.ceil(clipWidth / 52))) }).map((_, thumbIdx) => (
                                 <img
                                   key={thumbIdx}
                                   src={mediaUrl}
                                   alt=""
+                                  referrerPolicy="no-referrer"
                                   className="h-full w-14 object-cover shrink-0 border-r border-black/50"
                                 />
                               ))}
-                              {/* Scrim overlay for crisp title readability */}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
                             </div>
                           )}
 
-                          {/* Floating Real-Time Relative Timecode Badge */}
                           {isUnderPlayhead && (
-                            <div className="absolute top-1 right-2 z-30 pointer-events-none flex items-center gap-1 bg-black/90 border border-[#FFE066] text-[#FFE066] text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] shadow-[0_0_8px_rgba(255,224,102,0.8)] tabular-nums animate-fadeIn">
-                              <span className="w-1 h-1 rounded-full bg-[#FFE066] animate-pulse" />
+                            <div className="absolute top-1 right-2.5 z-30 pointer-events-none flex items-center gap-1 bg-black/90 border border-[#FFE066] text-[#FFE066] text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] shadow-[0_0_8px_rgba(255,224,102,0.8)] tabular-nums">
                               <span>{relativeTc}</span>
                             </div>
                           )}
 
-                          {/* Clip Label & Duration Badge */}
-                          <div className="relative z-10 w-full h-full px-2.5 flex items-center justify-between text-[10px] font-mono pointer-events-none">
+                          <div className="relative z-10 w-full h-full px-2.5 flex items-center justify-between text-[10px] font-mono pointer-events-none tabular-nums">
                             <div className="flex items-center gap-1.5 min-w-0">
                               {isVideoTrack ? (
                                 <Film className="w-3 h-3 text-[#fbbf24] shrink-0" />
@@ -628,12 +831,22 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                             )}
                           </div>
 
-                          {/* Tactile Trim Handles with Grip Ribs */}
-                          <div className="absolute left-0 top-0 bottom-0 w-2 bg-white/20 group-hover:bg-[#FFE066]/60 hover:!bg-[#FFE066] cursor-ew-resize z-20 flex flex-col justify-center items-center gap-0.5">
+                          {/* Interactive Left & Right Trim Handles */}
+                          <div
+                            onMouseDown={(e) => !state.isLocked && handleClipTrimMouseDown(clip, 'left', e)}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Drag left edge to trim clip In-point"
+                            className="absolute left-0 top-0 bottom-0 w-2 bg-white/20 group-hover:bg-[#FFE066]/70 hover:!bg-[#FFE066] cursor-ew-resize z-20 flex flex-col justify-center items-center gap-0.5"
+                          >
                             <div className="w-0.5 h-1 bg-black/70 rounded-full" />
                             <div className="w-0.5 h-1 bg-black/70 rounded-full" />
                           </div>
-                          <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/20 group-hover:bg-[#FFE066]/60 hover:!bg-[#FFE066] cursor-ew-resize z-20 flex flex-col justify-center items-center gap-0.5">
+                          <div
+                            onMouseDown={(e) => !state.isLocked && handleClipTrimMouseDown(clip, 'right', e)}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Drag right edge to stretch/compress clip duration"
+                            className="absolute right-0 top-0 bottom-0 w-2 bg-white/20 group-hover:bg-[#FFE066]/70 hover:!bg-[#FFE066] cursor-ew-resize z-20 flex flex-col justify-center items-center gap-0.5"
+                          >
                             <div className="w-0.5 h-1 bg-black/70 rounded-full" />
                             <div className="w-0.5 h-1 bg-black/70 rounded-full" />
                           </div>

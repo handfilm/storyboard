@@ -163,6 +163,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
             directorNotes={frame?.directorNotes}
             cameraInfo={frame?.cameraSpec?.focalLength}
             isVisible={true}
+            componentsVisibility={componentsVisibility}
           />
         </div>
       )}

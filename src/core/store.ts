@@ -67,6 +67,7 @@ export interface HeroTitleConfig {
   glowIntensity: number; // 0.0 to 2.0 (default 1.0 = 100%)
   verticalOffset: number; // -150 to 150px (default 0)
   tracking: number; // 0.05 to 0.45em (default 0.15)
+  titleOpacity: number; // 0.1 to 1.0 (default 1.0 = 100%)
   showTitles: boolean;
 }
 
@@ -82,6 +83,7 @@ export interface StudioState {
   setTitleGlowIntensity: (intensity: number) => void;
   setTitleVerticalOffset: (offset: number) => void;
   setTitleTracking: (tracking: number) => void;
+  setTitleOpacity: (opacity: number) => void;
   toggleTitles: () => void;
   setTitleConfig: (partial: Partial<HeroTitleConfig>) => void;
   
@@ -281,6 +283,7 @@ export const useStudioStore = create<StudioState>()(
       glowIntensity: 1.0,
       verticalOffset: 0,
       tracking: 0.15,
+      titleOpacity: 1.0,
       showTitles: true
     },
     setTitlePreset: (preset: HeroTitlePreset) => {
@@ -307,6 +310,11 @@ export const useStudioStore = create<StudioState>()(
     setTitleTracking: (tracking: number) => {
       set((state) => {
         state.titleConfig.tracking = Math.max(0.02, Math.min(0.6, tracking));
+      });
+    },
+    setTitleOpacity: (opacity: number) => {
+      set((state) => {
+        state.titleConfig.titleOpacity = Math.max(0.1, Math.min(1.0, Math.round(opacity * 100) / 100));
       });
     },
     toggleTitles: () => {

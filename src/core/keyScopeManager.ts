@@ -20,6 +20,7 @@ export interface StageShortcutHandlers {
   onToggleGrid: () => void;
   onOpenCinema: () => void;
   onToggleMute?: () => void;
+  onToggleComponentsMatrix?: () => void;
 }
 
 export interface CinemaShortcutHandlers {
@@ -219,6 +220,15 @@ class KeyScopeManager {
       if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && this.stageHandlers.onToggleMute) {
         e.preventDefault();
         this.stageHandlers.onToggleMute();
+        return;
+      }
+    }
+
+    // V: Toggle Components Visibility Matrix Popover
+    if (e.key === 'v' || e.key === 'V') {
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && this.stageHandlers.onToggleComponentsMatrix) {
+        e.preventDefault();
+        this.stageHandlers.onToggleComponentsMatrix();
         return;
       }
     }

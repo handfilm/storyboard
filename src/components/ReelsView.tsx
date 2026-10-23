@@ -19,6 +19,7 @@ import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode } from '../types/editor';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
+import { useStudioStore } from '../core/store';
 import { 
   Film, 
   Upload, 
@@ -94,6 +95,12 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reelsTitleContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const storeTitleOpacity = useStudioStore((s) => s.titleConfig?.titleOpacity ?? 1.0);
+  const titleOpacity = Math.max(
+    0.1,
+    Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
+  );
 
   const isReelsTitleVisible = componentsVisibility !== undefined
     ? Boolean(
@@ -461,6 +468,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             className={`absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl ${
               isReelsTitleVisible ? 'flex flex-col' : 'hidden opacity-0'
             } ${getSafeZoneClass()}`}
+            style={{ opacity: isReelsTitleVisible ? titleOpacity : 0 }}
             aria-hidden={!isReelsTitleVisible}
           >
             {isReelsTitleVisible && (

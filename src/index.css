@@ -248,4 +248,42 @@
   animation: crossDissolveFadeOut 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Smooth CSS Grid Slide-Down Reveal for Components Matrix Categories & Sub-Options */
+.matrix-slide-reveal {
+  display: grid;
+  transition:
+    grid-template-rows 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
 
+.matrix-slide-reveal-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.matrix-slide-reveal-closed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.matrix-slide-inner {
+  overflow: hidden;
+  min-height: 0;
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.matrix-slide-reveal-open > .matrix-slide-inner {
+  transform: translateY(0);
+}
+
+.matrix-slide-reveal-closed > .matrix-slide-inner {
+  transform: translateY(-6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .matrix-slide-reveal,
+  .matrix-slide-inner {
+    transition-duration: 0ms !important;
+  }
+}

@@ -9,6 +9,7 @@ import { AnthologyFrame } from '../types/anthology';
 import { SLIDES_DATA } from './landing/LandingWalkthrough';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
+import { useStudioStore } from '../core/store';
 import { 
   Zap, 
   ChevronLeft, 
@@ -72,6 +73,12 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
 
   const activeSlide = SLIDES_DATA[currentSlideIndex] || SLIDES_DATA[0];
   const activeFrame = frames.length > 0 ? frames[currentSlideIndex % frames.length] : undefined;
+
+  const storeTitleOpacity = useStudioStore((s) => s.titleConfig?.titleOpacity ?? 1.0);
+  const titleOpacity = Math.max(
+    0.1,
+    Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
+  );
 
   const isHeroTitleVisible = componentsVisibility !== undefined
     ? Boolean(
@@ -173,7 +180,8 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
             data-title-container="hero-slider"
             data-title-cluster="true"
             data-repaint-rev={repaintRevision}
-            className={isHeroTitleVisible ? 'flex flex-col' : 'hidden opacity-0'}
+            className={`transition-opacity duration-200 ${isHeroTitleVisible ? 'flex flex-col' : 'hidden opacity-0'}`}
+            style={{ opacity: isHeroTitleVisible ? titleOpacity : 0 }}
             aria-hidden={!isHeroTitleVisible}
           >
             {isHeroTitleVisible && (

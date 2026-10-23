@@ -33,7 +33,8 @@ import {
   ComponentsMatrixPopover, 
   ComponentVisibility, 
   loadSavedComponentVisibility, 
-  saveComponentVisibility 
+  saveComponentVisibility,
+  countActiveComponentToggles
 } from './components/ComponentsMatrixPopover';
 import { ThemeSettingsModal } from './components/ThemeSettingsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
@@ -962,6 +963,9 @@ export default function App() {
       },
       onToggleMute: () => {
         if (!isBlockingOverlayOpen) toggleAudio();
+      },
+      onToggleComponentsMatrix: () => {
+        if (!isBlockingOverlayOpen) setIsComponentsOpen(p => !p);
       }
     });
   }, [nextFrame, prevFrame, handleStepFrame, toggleAudio, isBlockingOverlayOpen, currentView, isContactSheetOpen]);
@@ -1082,7 +1086,8 @@ export default function App() {
       const effectiveVisible = Boolean(
         vis.titlesAll && (vis.titleBn !== false || vis.titleEn !== false || vis.tagline !== false)
       );
-      store.setTitleConfig({ showTitles: effectiveVisible });
+      const nextOpacity = Math.max(0.1, Math.min(1.0, vis.titleOpacity ?? 1.0));
+      store.setTitleConfig({ showTitles: effectiveVisible, titleOpacity: nextOpacity });
       store.setVisibilityItem('titlesAll', effectiveVisible);
       store.setVisibilityItem('titleBn', vis.titleBn);
       store.setVisibilityItem('titleEn', vis.titleEn);
@@ -1097,6 +1102,7 @@ export default function App() {
       titleBn: next.titleBn,
       titleEn: next.titleEn,
       tagline: next.tagline,
+      titleOpacity: next.titleOpacity ?? 1.0,
       currentView,
       workspaceMode
     });
@@ -1534,8 +1540,7 @@ export default function App() {
     }
   };
 
-  const activeCompCount = Object.values(componentsVisibility).filter(Boolean).length;
-  const totalCompCount = Object.keys(componentsVisibility).length;
+  const { active: activeCompCount, total: totalCompCount } = countActiveComponentToggles(componentsVisibility);
   const componentsBadgeText = `${activeCompCount}/${totalCompCount} ON`;
 
   // Central Stage / Home Navigation Handler: Returns immediately to Hero Viewport from ANY module

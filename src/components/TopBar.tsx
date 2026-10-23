@@ -639,6 +639,31 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
           )}
 
+          {/* Components Visibility Matrix Trigger (V) */}
+          {onToggleComponentsPopover && (
+            <div className="relative group/matrix-toggle">
+              <button
+                type="button"
+                onClick={onToggleComponentsPopover}
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#12131d] hover:bg-[#1c1d2c] border-2 border-[#2f3246] hover:border-[#d4af37] text-[#fbbf24] flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95"
+                title="Components Visibility Matrix & Title Opacity (V)"
+                aria-label="Open Components Visibility Matrix"
+              >
+                <Layers className="w-4 h-4 text-[#fbbf24]" />
+              </button>
+
+              <div className="absolute right-0 top-full mt-2 w-56 p-2.5 bg-[#0a0a12]/98 border border-[#d4af37]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/matrix-toggle:opacity-100 group-hover/matrix-toggle:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-white/10 text-[9px] text-[#fbbf24] font-bold uppercase tracking-wider">
+                  <span>COMPONENTS MATRIX</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">V</kbd>
+                </div>
+                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">
+                  Layers: <span className="text-amber-400 font-bold tabular-nums">{componentsBadgeText}</span>. Toggle Titles, Telemetry HUD, Post FX & Title Opacity.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Shortcuts: Stylized icon-only button (⌘/⌨) displaying a floating hotkey cheat sheet on hover */}
           <div className="relative group/shortcuts">
             <button

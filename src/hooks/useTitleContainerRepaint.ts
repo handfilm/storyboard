@@ -17,7 +17,11 @@ export interface UseTitleContainerRepaintOptions {
   activeKey?: string | number;
 }
 
-function isElementVisuallyHidden(el: HTMLElement, checkOpacity: boolean): {
+function isElementVisuallyHidden(
+  el: HTMLElement,
+  checkOpacity: boolean,
+  targetOpacity: number
+): {
   hidden: boolean;
   reason: string;
   diagnostics: Record<string, unknown>;
@@ -53,7 +57,8 @@ function isElementVisuallyHidden(el: HTMLElement, checkOpacity: boolean): {
   if (rect.width === 0 || rect.height === 0) {
     return { hidden: true, reason: `zero-bounds:${rect.width}x${rect.height}`, diagnostics };
   }
-  if (checkOpacity && parsedOpacity < 0.05) {
+  const minExpectedOpacity = Math.min(0.05, targetOpacity * 0.5);
+  if (checkOpacity && parsedOpacity < minExpectedOpacity) {
     return { hidden: true, reason: `computed-opacity:${computed.opacity}`, diagnostics };
   }
   if (clusterEl && clusterComputed) {
@@ -70,7 +75,12 @@ function isElementVisuallyHidden(el: HTMLElement, checkOpacity: boolean): {
   return { hidden: false, reason: 'visible', diagnostics };
 }
 
-function forceTitleContainerRepaint(el: HTMLElement, label: string, reason: string): void {
+function forceTitleContainerRepaint(
+  el: HTMLElement,
+  label: string,
+  reason: string,
+  targetOpacity: number
+): void {
   const computed = window.getComputedStyle(el);
   const previousTransform = el.style.transform;
 
@@ -79,7 +89,7 @@ function forceTitleContainerRepaint(el: HTMLElement, label: string, reason: stri
     el.style.display = 'flex';
   }
   el.style.visibility = 'visible';
-  el.style.opacity = '1';
+  el.style.opacity = String(targetOpacity);
   el.style.willChange = 'transform, opacity';
 
   const clusterEl = el.querySelector<HTMLElement>('[data-title-cluster]');
@@ -114,11 +124,16 @@ export function useTitleContainerRepaint({
 
   const storeTitlesAll = useStudioStore((s) => s.visibility.titlesAll);
   const storeShowTitles = useStudioStore((s) => s.titleConfig?.showTitles ?? true);
+  const storeTitleOpacity = useStudioStore((s) => s.titleConfig?.titleOpacity ?? 1.0);
 
   const titlesAll = visibility?.titlesAll ?? storeTitlesAll;
   const titleBn = visibility?.titleBn ?? true;
   const titleEn = visibility?.titleEn ?? true;
   const tagline = visibility?.tagline ?? true;
+  const targetOpacity = Math.max(
+    0.1,
+    Math.min(1.0, visibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
+  );
 
   useEffect(() => {
     console.log(`[useTitleContainerRepaint:${label}] Visibility state evaluated:`, {
@@ -127,6 +142,7 @@ export function useTitleContainerRepaint({
       titleBn,
       titleEn,
       tagline,
+      targetOpacity,
       storeTitlesAll,
       storeShowTitles,
       activeKey,
@@ -147,13 +163,13 @@ export function useTitleContainerRepaint({
         return;
       }
 
-      const check = isElementVisuallyHidden(el, checkOpacity);
+      const check = isElementVisuallyHidden(el, checkOpacity, targetOpacity);
       if (check.hidden) {
         console.warn(
           `[useTitleContainerRepaint:${label}] (${phase}) State is ON but title container DOM remained hidden (${check.reason}) — forcing repaint.`,
           check.diagnostics
         );
-        forceTitleContainerRepaint(el, label, check.reason);
+        forceTitleContainerRepaint(el, label, check.reason, targetOpacity);
         setRepaintRevision((rev) => rev + 1);
       } else {
         console.log(
@@ -183,6 +199,7 @@ export function useTitleContainerRepaint({
     titleBn,
     titleEn,
     tagline,
+    targetOpacity,
     storeTitlesAll,
     storeShowTitles,
     activeKey,

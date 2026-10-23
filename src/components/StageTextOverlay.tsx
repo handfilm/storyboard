@@ -90,6 +90,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const verticalOffset = propOffset ?? storeTitleConfig?.verticalOffset ?? 0;
   const titleSizePx = storeTitleConfig?.titleSize ?? 72;
   const scale = propScale ?? (titleSizePx / 72);
+  const titleOpacity = Math.max(
+    0.1,
+    Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleConfig?.titleOpacity ?? 1.0)
+  );
 
   // Explicit component visibility check for title elements
   const showBangla = componentsVisibility ? componentsVisibility.titleBn !== false : true;
@@ -126,13 +130,14 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       shotIndex,
       isEnabled,
       effectiveTitlesAll,
+      titleOpacity,
       showBangla,
       showEnglish,
       displayBangla,
       displayEnglish,
       repaintRevision
     });
-  }, [shotIndex, isEnabled, effectiveTitlesAll, showBangla, showEnglish, displayBangla, displayEnglish, repaintRevision]);
+  }, [shotIndex, isEnabled, effectiveTitlesAll, titleOpacity, showBangla, showEnglish, displayBangla, displayEnglish, repaintRevision]);
 
   // Preset Visual Treatments
   const getPresetStyles = () => {
@@ -175,9 +180,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       ref={titleContainerRef}
       data-title-container="stage-text-overlay"
       data-repaint-rev={repaintRevision}
-      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden ${
+      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden transition-opacity duration-200 ${
         isEnabled ? 'flex flex-col' : 'hidden opacity-0'
       } ${className}`}
+      style={{ opacity: isEnabled ? titleOpacity : 0 }}
       data-shot-index={shotIndex}
       data-preset={activePreset}
       aria-hidden={!isEnabled}

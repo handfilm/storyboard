@@ -54,6 +54,7 @@ export interface AnthologyFrame {
   directorNotes: string;
   cameraSpec: CameraSpec;
   imageUrl?: string;
+  thumbnailUrl?: string;
   isVideo?: boolean;
   colorAccent: string;
   hoverStyle: number;

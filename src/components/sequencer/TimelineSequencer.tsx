@@ -17,6 +17,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import { SlideDraft, AspectRatioType } from '../../types/project';
 import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../../types/editor';
 import { studioDraftDb } from '../../services/db';
+import { ReelsSequenceBoard } from '../ReelsSequenceBoard';
+import { extractVideoPoster, thumbnailMemoryCache } from '../../services/thumbnailEngine';
 import { 
   Play, 
   Pause, 
@@ -181,6 +183,14 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       const file = e.dataTransfer.files[0];
       try {
         await studioDraftDb.putMediaBlob(`media_shot_${idx + 1}_${Date.now()}`, file, file.type, file.name);
+        if (file.type.startsWith('video/')) {
+          try {
+            const poster = await extractVideoPoster(file);
+            thumbnailMemoryCache.set(slides[idx]?.id || `shot_${idx}`, poster.base64);
+          } catch (pErr) {
+            console.warn('[TimelineSequencer] Poster extract note:', pErr);
+          }
+        }
       } catch (err) {
         console.warn('[TimelineSequencer] Blob storage error:', err);
       }
@@ -343,154 +353,31 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
         </div>
       </div>
 
-      {/* Main 100-Slide Contextual Ribbon (Strictly NO Hover Scaling, High Visual Contrast) */}
-      <div 
-        ref={containerRef}
-        className="flex-1 p-3 overflow-x-auto no-scrollbar flex items-center gap-3 bg-[#0B0B0F]"
-      >
-        {slides.map((slide, idx) => {
-          const isActive = idx === safeIndex;
-          const epNum = String(idx + 1).padStart(3, '0');
-          const isDropActive = dragTargetIndex === idx;
-
-          return (
-            <div
-              key={slide.id || idx}
-              data-card-index={idx}
-              onClick={() => onSelectSlide(idx)}
-              onDragOver={(e) => handleCardDragOver(idx, e)}
-              onDragLeave={(e) => handleCardDragLeave(idx, e)}
-              onDrop={(e) => handleCardDrop(idx, e)}
-              className={`shrink-0 w-64 h-44 rounded-xl border transition-colors duration-150 ease-out cursor-pointer relative flex flex-col justify-between p-3 overflow-hidden ${
-                isDropActive
-                  ? 'border-2 border-dashed border-[#F5A623] bg-[#14141B]'
-                  : isActive
-                  ? 'bg-[#14141C] border-[#F5A623] shadow-[0_4px_20px_rgba(245,166,35,0.25)]'
-                  : 'bg-[#101016] hover:bg-[#15151F] border-[#1C1C26]'
-              }`}
-            >
-              {/* Media Thumbnail Backdrop */}
-              {slide.remoteUrl && (
-                <div 
-                  className="absolute inset-0 bg-cover bg-center opacity-30 pointer-events-none"
-                  style={{ backgroundImage: `url(${slide.remoteUrl})` }}
-                />
-              )}
-
-              {/* Top Row: Scene ID Tactical Badge, 12.0s Duration Badge, Order Move Buttons */}
-              <div className="relative z-10 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] ${
-                    isActive ? 'bg-[#F5A623] text-black font-black' : 'bg-[#1C1C26] text-white/80'
-                  }`}>
-                    SH{epNum}
-                  </span>
-                  <span className="text-[#F5A623] text-[10px] font-bold">12.0s</span>
-                  <span className="text-white/40 text-[9px]">(288F)</span>
-                </div>
-
-                <div className="flex items-center gap-0.5">
-                  {idx > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => handleMove(idx, idx - 1, e)}
-                      className="p-1 rounded-full text-white/40 hover:text-white transition-colors active:scale-[0.98]"
-                      title="Move card left"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {idx < slides.length - 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => handleMove(idx, idx + 1, e)}
-                      className="p-1 rounded-full text-white/40 hover:text-white transition-colors active:scale-[0.98]"
-                      title="Move card right"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Middle: Scene Labels & Text Cues */}
-              <div className="relative z-10 my-auto flex flex-col gap-0.5">
-                {slide.titleBn && (
-                  <p className="text-xs text-[#F5A623] font-serif font-bold truncate">
-                    {slide.titleBn}
-                  </p>
-                )}
-                <p className="text-xs text-[#EDEDED] font-mono font-bold truncate">
-                  {slide.titleEn || `Scene Shot ${epNum}`}
-                </p>
-
-                {/* Text Cues: Director Notes & Sound Cue */}
-                {slide.directorNotes && (
-                  <p className="text-[10px] text-white/50 font-mono line-clamp-1">
-                    Dir: {slide.directorNotes}
-                  </p>
-                )}
-                {slide.soundCue && (
-                  <p className="text-[9.5px] text-[#38BDF8] font-mono line-clamp-1 flex items-center gap-1">
-                    <Volume2 className="w-3 h-3 shrink-0" />
-                    <span>{slide.soundCue}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Bottom: Asset Binding & Card Action Buttons */}
-              <div className="relative z-10 flex items-center justify-between text-[10px] text-white/40 border-t border-[#1C1C26] pt-1.5">
-                <button
-                  type="button"
-                  onClick={(e) => handleTriggerUpload(idx, e)}
-                  className="hover:text-[#F5A623] transition-colors flex items-center gap-1 font-bold active:scale-[0.98]"
-                  title="Bind media asset (image/video)"
-                >
-                  <Upload className="w-3 h-3 text-[#F5A623]" />
-                  <span>{slide.remoteUrl ? 'REPLACE' : 'BIND MEDIA'}</span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={(e) => handleStartEdit(idx, e)}
-                    className="hover:text-[#F5A623] text-white/50 transition-colors p-1 rounded-full active:scale-[0.98]"
-                    title="Edit scene labels & text cues"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDuplicateSlide(idx);
-                    }}
-                    className="hover:text-[#F5A623] text-white/50 transition-colors p-1 rounded-full active:scale-[0.98]"
-                    title="Duplicate 12.0s card"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
-
-                  {slides.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteSlide(idx);
-                      }}
-                      className="hover:text-red-400 text-white/50 transition-colors p-1 rounded-full active:scale-[0.98]"
-                      title="Delete card"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Main 100-Slide Contextual Ribbon with Viewport Virtualization & Hover Scrubbing */}
+      <ReelsSequenceBoard
+        slides={slides}
+        activeSlideIndex={safeIndex}
+        playbackMode={playbackMode}
+        isPlaying={isPlaying}
+        slideTimeSec={slideTimeSec}
+        onSelectSlide={onSelectSlide}
+        onReorderSlides={onReorderSlides}
+        onUploadMedia={onUploadMedia}
+        onDuplicateSlide={onDuplicateSlide}
+        onDeleteSlide={onDeleteSlide}
+        onEditSlide={(idx) => {
+          const target = slides[idx];
+          if (target) {
+            setEditingIndex(idx);
+            setEditTitleEn(target.titleEn || '');
+            setEditTitleBn(target.titleBn || '');
+            setEditNotes(target.directorNotes || '');
+            setEditSoundCue(target.soundCue || '');
+          }
+        }}
+        onStepFrame={onStepFrame}
+        className="flex-1"
+      />
 
       <input
         ref={fileInputRef}

@@ -34,6 +34,11 @@ import {
 import { StudioModuleId } from '../StudioNavRail';
 import { ReviewMarkupCanvas } from './ReviewMarkupCanvas';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
+import { 
+  extractVideoPoster, 
+  thumbnailMemoryCache, 
+  cleanupVideoElement 
+} from '../../services/thumbnailEngine';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -106,6 +111,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [cachedPosterUrl, setCachedPosterUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
@@ -138,9 +144,15 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   // Active frame fallback
   const frame = currentFrame || frames[currentIndex] || frames[0];
 
-  // Resolve sourceBlob vs proxyBlob for Adaptive Dual-Stream switching
+  // Resolve sourceBlob vs proxyBlob for Adaptive Dual-Stream switching & cached poster fallback
   useEffect(() => {
     let isCancelled = false;
+
+    // Check memory cache or frame thumbnail first to instantly prevent black slate
+    const initialPoster = thumbnailMemoryCache.get(String(frame?.id)) || frame?.thumbnailUrl;
+    if (initialPoster) {
+      setCachedPosterUrl(initialPoster);
+    }
 
     const resolveMediaStreams = async () => {
       if (!frame) return;
@@ -159,6 +171,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         if (slot?.mediaId) {
           const vaultItem = await studioDraftDb.getVaultMediaItem(slot.mediaId);
           if (vaultItem && !isCancelled) {
+            if (vaultItem.thumbnailUrl) {
+              setCachedPosterUrl(vaultItem.thumbnailUrl);
+              thumbnailMemoryCache.set(slot.mediaId, vaultItem.thumbnailUrl);
+            }
             const rawUrl = URL.createObjectURL(vaultItem.blob);
             setSourceUrl(rawUrl);
 
@@ -181,7 +197,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [currentIndex, frame?.imageUrl]);
+  }, [currentIndex, frame?.imageUrl, frame?.thumbnailUrl, frame?.id]);
+
+  // Video decoder teardown on unmount (4GB Guard)
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        cleanupVideoElement(videoRef.current);
+      }
+    };
+  }, []);
 
   // Determine active media URL based on playback state machine:
   // - While Scrubbing / Dragging -> Fast proxyUrl (540p for zero-latency 24fps)
@@ -238,15 +263,28 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       const file = e.dataTransfer.files[0];
       setIsIngesting(true);
       try {
-        // Save raw uncompressed source file to media_vault in IndexedDB
         const mediaId = `vault_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        let posterDataUrl = '';
+
+        if (file.type.startsWith('video/')) {
+          try {
+            const posterResult = await extractVideoPoster(file);
+            posterDataUrl = posterResult.base64;
+            thumbnailMemoryCache.set(mediaId, posterDataUrl);
+            setCachedPosterUrl(posterDataUrl);
+          } catch (err) {
+            console.warn('Poster extraction during drop:', err);
+          }
+        }
+
+        // Save raw source file with authentic non-black poster to media_vault in IndexedDB
         await studioDraftDb.addVaultMediaItem({
           id: mediaId,
           name: file.name,
           mimeType: file.type || 'video/mp4',
           size: file.size,
           blob: file,
-          thumbnailUrl: '',
+          thumbnailUrl: posterDataUrl,
           createdAt: Date.now(),
           assignedShotIndex: currentIndex
         });
@@ -325,10 +363,22 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             const url = URL.createObjectURL(file);
             setSourceUrl(url);
             setProxyUrl(url);
+            let posterDataUrl = '';
+            if (file.type.startsWith('video/')) {
+              try {
+                const posterResult = await extractVideoPoster(file);
+                posterDataUrl = posterResult.base64;
+                thumbnailMemoryCache.set(String(frame?.id || currentIndex), posterDataUrl);
+                setCachedPosterUrl(posterDataUrl);
+              } catch (err) {
+                console.warn('Poster extraction during file select:', err);
+              }
+            }
             if (onUpdateFrame) {
               onUpdateFrame({
                 ...frame,
                 imageUrl: url,
+                thumbnailUrl: posterDataUrl || undefined,
                 isVideo: file.type.startsWith('video/')
               });
             }
@@ -375,25 +425,48 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             }`}
             style={{ transform: zoomTransforms.bgTransform }}
           >
+            {/* Underlying cached thumbnail plate ensures zero black frames while master stream loads */}
+            {cachedPosterUrl && (
+              <img
+                src={cachedPosterUrl}
+                alt="Thumbnail Plate Fallback"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                style={{ filter: combinedMediaFilter }}
+              />
+            )}
             {frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm') ? (
               <video
                 ref={videoRef}
                 src={activeMediaUrl}
+                poster={cachedPosterUrl || undefined}
                 autoPlay={isAutoplay}
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover transition-opacity duration-150"
+                className="w-full h-full object-cover transition-opacity duration-150 relative z-1"
                 style={{ filter: combinedMediaFilter }}
               />
             ) : (
               <img
                 src={activeMediaUrl}
                 alt={frame?.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover relative z-1"
                 style={{ filter: combinedMediaFilter }}
               />
             )}
+          </div>
+        ) : cachedPosterUrl ? (
+          <div
+            key={`cached_shot_${currentIndex}`}
+            className="w-full h-full flex items-center justify-center overflow-hidden z-10"
+            style={{ transform: zoomTransforms.bgTransform }}
+          >
+            <img
+              src={cachedPosterUrl}
+              alt="Cached Shot Poster"
+              className="w-full h-full object-cover"
+              style={{ filter: combinedMediaFilter }}
+            />
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center">

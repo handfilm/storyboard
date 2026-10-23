@@ -1,16 +1,29 @@
 /**
  * @file /src/components/MediaCard.tsx
  * @description Master Filmstrip Media Card for RAWx Storyboard & HANDFILM Media Vault.
- * Features:
- * 1. Horizontal filmstrip hover scrubbing through 6 extracted keyframes (0%, 20%, 40%, 60%, 80%, 100%)
- * 2. Dynamic cursor timecode badge tracking horizontal position
- * 3. Dynamic shot assignment label: [+ ASSIGN TO SHOT ${targetIndex + 1}] with quick dropdown selector for Shots 1-100
- * 4. Multi-select support (Shift+Click / Cmd+Click) with drag support for sequential bulk mapping
- * 5. Complete telemetry: 4K/1080P resolution, duration, file size, IDB STORED badge, MIME type
+ * 
+ * Enhanced Capabilities:
+ * 1. Dynamic Hover-Scrubbing Video Thumbnail Engine with RAF 60fps tracking.
+ * 2. Tactile Hover Zoom:
+ *    - Preview container: `relative overflow-hidden rounded-lg border border-white/10 transition-all duration-300 ease-out`
+ *    - On Hover: `scale-125 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.9),0_0_15px_rgba(245,166,35,0.45)] border-[#F5A623]`
+ *    - Edge-safe transform origin (`origin-left`, `origin-right`, or `origin-center`) to prevent boundary clipping.
+ * 3. Cinematic Micro-HUD at bottom:
+ *    - Broadcast SMPTE timecode (`TC 00:00:03:12` @ 24fps)
+ *    - Shot index badge (`SH001` / target shot)
+ *    - Playback status indicator badge (`SCRUB`, `24FPS`, `IDB CACHED`)
+ * 4. RAM Virtualization & 4GB Guard:
+ *    - Mounts HTML5 video decoder context only during hover inspection.
+ *    - Full cleanup on unmount: pauses, calls `video.removeAttribute('src')`, `video.load()`, and revokes blob URLs.
  */
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { VaultMediaItem } from '../services/db';
+import { 
+  formatSMPTETimecode, 
+  cleanupVideoElement, 
+  thumbnailMemoryCache 
+} from '../services/thumbnailEngine';
 import { 
   Video, 
   Image as ImageIcon, 
@@ -19,8 +32,7 @@ import {
   Square, 
   Trash2, 
   Play, 
-  CheckCircle2,
-  ChevronDown
+  CheckCircle2
 } from 'lucide-react';
 
 export interface MediaCardProps {
@@ -50,12 +62,18 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   formatDuration,
   onContextMenu
 }) => {
-  const [scrubIndex, setScrubIndex] = useState<number | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const [cursorX, setCursorX] = useState<number | null>(null);
-  const [cursorTimecode, setCursorTimecode] = useState<string | null>(null);
+  const [cursorNormalized, setCursorNormalized] = useState<number>(0);
+  const [smpteTimecode, setSmpteTimecode] = useState<string>('TC 00:00:00:00');
   const [targetShotIndex, setTargetShotIndex] = useState<number>(activeShotIndex);
+  const [transformOrigin, setTransformOrigin] = useState<'origin-center' | 'origin-left' | 'origin-right'>('origin-center');
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
 
   const thumbContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const latestMouseXRef = useRef<number>(0);
 
   const isVid = item.mimeType?.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(item.name);
   const isAud = item.mimeType?.startsWith('audio') || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(item.name);
@@ -63,8 +81,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   const isAssignedToActive = assignedIndex === activeShotIndex;
   const resolution = item.resolution || (isVid ? '4K' : isAud ? 'AUDIO' : 'STILL');
   const duration = formatDuration(item.duration);
+  const totalDurationSec = item.duration && !isNaN(item.duration) && item.duration > 0 ? item.duration : 12.0;
 
-  // 6 Filmstrip Keyframes Array
+  // Filmstrip keyframes fallback
   const filmstripFrames = useMemo(() => {
     if (item.thumbnails && item.thumbnails.length > 0) {
       return item.thumbnails;
@@ -72,44 +91,117 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     if (item.thumbnailUrl) {
       return Array(6).fill(item.thumbnailUrl);
     }
-    return [];
-  }, [item.thumbnails, item.thumbnailUrl]);
-
-  // Current active display frame (hover scrub or primary)
-  const activeThumbnail = useMemo(() => {
-    if (scrubIndex !== null && filmstripFrames[scrubIndex]) {
-      return filmstripFrames[scrubIndex];
+    const cached = thumbnailMemoryCache.get(item.id);
+    if (cached) {
+      return Array(6).fill(cached);
     }
-    return item.thumbnailUrl || filmstripFrames[0] || '';
-  }, [scrubIndex, filmstripFrames, item.thumbnailUrl]);
+    return [];
+  }, [item.thumbnails, item.thumbnailUrl, item.id]);
 
-  // Handle horizontal mouse scrubbing across 6 frames
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!thumbContainerRef.current || filmstripFrames.length === 0) return;
+  // Fallback static thumbnail (never black)
+  const staticFallbackThumbnail = useMemo(() => {
+    return item.thumbnailUrl || filmstripFrames[0] || thumbnailMemoryCache.get(item.id) || '';
+  }, [item.thumbnailUrl, filmstripFrames, item.id]);
+
+  // Compute transform origin based on card's horizontal viewport position to prevent edge clipping
+  const updateTransformOrigin = useCallback(() => {
+    if (!thumbContainerRef.current) return;
     const rect = thumbContainerRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-    const ratio = x / rect.width;
+    const windowWidth = window.innerWidth;
+    if (rect.left < 160) {
+      setTransformOrigin('origin-left');
+    } else if (windowWidth - rect.right < 160) {
+      setTransformOrigin('origin-right');
+    } else {
+      setTransformOrigin('origin-center');
+    }
+  }, []);
 
-    // Pick 1 of 6 frames (0 to 5)
-    const frameIndex = Math.min(filmstripFrames.length - 1, Math.floor(ratio * filmstripFrames.length));
-    setScrubIndex(frameIndex);
-    setCursorX(x);
+  // Handle RAF-throttled position update
+  const triggerRafScrub = useCallback(() => {
+    if (rafIdRef.current !== null) return;
 
-    // Calculate dynamic timecode badge
-    const totalSec = item.duration && !isNaN(item.duration) ? item.duration : 12.0;
-    const currentSec = ratio * totalSec;
-    const mins = Math.floor(currentSec / 60);
-    const secs = Math.floor(currentSec % 60);
-    const frames = Math.floor((currentSec % 1) * 24);
-    const tc = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
-    setCursorTimecode(tc);
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      if (!thumbContainerRef.current) return;
+
+      const rect = thumbContainerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(rect.width, latestMouseXRef.current));
+      const normalized = rect.width > 0 ? x / rect.width : 0;
+      const targetSec = normalized * totalDurationSec;
+
+      setCursorX(x);
+      setCursorNormalized(normalized);
+      setSmpteTimecode(formatSMPTETimecode(targetSec, 24));
+
+      // Scrub HTML5 video element without audio
+      if (videoRef.current && videoRef.current.readyState >= 1) {
+        try {
+          videoRef.current.muted = true;
+          videoRef.current.currentTime = targetSec;
+        } catch {
+          // ignore seek collisions
+        }
+      }
+    });
+  }, [totalDurationSec]);
+
+  // Mouse Enter: mount video element if video file, calculate boundary clamping
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    updateTransformOrigin();
+
+    if (isVid && item.blob && !videoBlobUrl) {
+      try {
+        const url = URL.createObjectURL(item.blob);
+        setVideoBlobUrl(url);
+      } catch {
+        // ignore
+      }
+    }
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!thumbContainerRef.current) return;
+    const rect = thumbContainerRef.current.getBoundingClientRect();
+    latestMouseXRef.current = e.clientX - rect.left;
+    triggerRafScrub();
+  };
+
+  // Mouse Leave: unmount video tag, release decoder context
   const handleMouseLeave = () => {
-    setScrubIndex(null);
+    setIsHovered(false);
     setCursorX(null);
-    setCursorTimecode(null);
+    setCursorNormalized(0);
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+
+    // Cleanup video element on leave to enforce 4GB guard
+    if (videoRef.current) {
+      cleanupVideoElement(videoRef.current, videoBlobUrl);
+    }
+    if (videoBlobUrl) {
+      URL.revokeObjectURL(videoBlobUrl);
+      setVideoBlobUrl(null);
+    }
   };
+
+  // Teardown cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+      if (videoRef.current) {
+        cleanupVideoElement(videoRef.current, videoBlobUrl);
+      }
+      if (videoBlobUrl) {
+        URL.revokeObjectURL(videoBlobUrl);
+      }
+    };
+  }, [videoBlobUrl]);
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -131,69 +223,86 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           onContextMenu(e, item);
         }
       }}
-      onTouchEnd={(e) => {
-        if ((e.target as HTMLElement).tagName !== 'BUTTON' && !(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('select')) {
-          onAssignToShot(item, targetShotIndex);
-        }
-      }}
-      className={`group relative bg-[#0c0c12] border rounded-[2px] overflow-hidden flex flex-col transition-all duration-150 hover:border-[#fbbf24] cursor-pointer shadow-md select-none ${
+      className={`group relative bg-[#0c0c12] border rounded-[2px] overflow-visible flex flex-col transition-colors duration-150 cursor-pointer select-none ${
         isSelected 
           ? 'ring-2 ring-[#fbbf24] border-[#fbbf24]' 
           : isAssignedToActive 
           ? 'border-[#fbbf24] ring-1 ring-[#fbbf24]/50' 
-          : 'border-[#272732]'
+          : 'border-[#272732] hover:border-[#fbbf24]'
       }`}
     >
-      {/* 1. Thumbnail Plate (240x135 aspect-video) with Filmstrip Hover Scrubbing */}
+      {/* 1. Tactical Hover Zoom Container with Dynamic Hover Scrubbing & Micro-HUD */}
       <div 
         ref={thumbContainerRef}
+        onMouseEnter={handleMouseEnter}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative w-full aspect-video bg-[#050508] overflow-hidden flex items-center justify-center cursor-ew-resize"
+        className={`relative w-full aspect-video bg-[#050508] cursor-ew-resize transition-all duration-300 ease-out rounded-lg border ${transformOrigin} ${
+          isHovered
+            ? 'scale-125 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.9),0_0_15px_rgba(245,166,35,0.45)] border-[#F5A623]'
+            : 'border-white/10 z-0 overflow-hidden'
+        }`}
       >
-        {activeThumbnail ? (
+        {/* Active Viewport Media: HTML5 Video when hovered, Lightweight JPEG Fallback otherwise */}
+        {isHovered && isVid && videoBlobUrl ? (
+          <video
+            ref={videoRef}
+            src={videoBlobUrl}
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover"
+          />
+        ) : staticFallbackThumbnail ? (
           <img
-            src={activeThumbnail}
+            src={staticFallbackThumbnail}
             alt={item.name}
-            className="w-full h-full object-cover transition-transform duration-100 ease-out"
+            className="w-full h-full object-cover transition-opacity duration-150"
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600">
+          <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-[#09090E]">
             {isVid ? <Video className="w-6 h-6 mb-1 text-cyan-400" /> : isAud ? <Music className="w-6 h-6 mb-1 text-purple-400" /> : <ImageIcon className="w-6 h-6 mb-1 text-[#fbbf24]" />}
-            <span className="text-[8px]">IDB STORED</span>
+            <span className="text-[8px] font-mono tracking-widest text-zinc-400">RAWx MEDIA</span>
           </div>
         )}
 
-        {/* Dynamic Cursor Scrub Needle & Timecode Badge */}
-        {cursorX !== null && cursorTimecode && (
-          <>
-            {/* Vertical Scrubber Needle Line */}
-            <div 
-              className="absolute top-0 bottom-0 w-[1.5px] bg-[#fbbf24] z-20 pointer-events-none shadow-[0_0_6px_#fbbf24]"
-              style={{ left: `${cursorX}px` }}
-            />
-            {/* Dynamic Timecode Badge pinned to cursor */}
-            <div 
-              className="absolute top-2 z-30 pointer-events-none -translate-x-1/2 px-1.5 py-0.5 rounded bg-black/90 border border-[#fbbf24] text-[8.5px] font-mono font-bold text-[#fbbf24] shadow-lg whitespace-nowrap"
-              style={{ left: `${cursorX}px` }}
-            >
-              {cursorTimecode} • FRAME {((scrubIndex || 0) * 48) + 1}
-            </div>
-          </>
+        {/* Dynamic Cursor Scrub Needle */}
+        {cursorX !== null && (
+          <div 
+            className="absolute top-0 bottom-0 w-[1.5px] bg-[#F5A623] z-20 pointer-events-none shadow-[0_0_8px_#F5A623]"
+            style={{ left: `${cursorX}px` }}
+          />
         )}
 
-        {/* 6-Segment Filmstrip Indicator Bar along bottom of thumbnail */}
-        <div className="absolute bottom-0 inset-x-0 h-1 bg-black/60 flex z-10 pointer-events-none">
-          {filmstripFrames.slice(0, 6).map((_, idx) => (
-            <div
-              key={idx}
-              className={`flex-1 h-full border-r border-black/40 transition-colors ${
-                scrubIndex === idx ? 'bg-[#fbbf24]' : 'bg-white/20'
-              }`}
-            />
-          ))}
-        </div>
+        {/* Tactical Hover Micro-HUD (Floating Monospace Bar at Bottom) */}
+        {isHovered ? (
+          <div className="absolute inset-x-0 bottom-0 bg-black/90 backdrop-blur-md border-t border-[#F5A623]/60 px-2 py-1 flex items-center justify-between text-[9px] font-mono z-30 pointer-events-none">
+            <div className="flex items-center gap-1.5 font-bold text-[#FFE066]">
+              <span>{smpteTimecode}</span>
+              <span className="text-white/40">·</span>
+              <span className="text-white/80">SH{String((assignedIndex !== undefined && assignedIndex !== null ? assignedIndex : targetShotIndex) + 1).padStart(3, '0')}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="px-1 py-0.2 bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] text-[7.5px] font-bold rounded-[2px] tracking-wider animate-pulse">
+                SCRUB
+              </span>
+              <span className="text-zinc-400 text-[8px]">24FPS</span>
+            </div>
+          </div>
+        ) : (
+          /* Bottom-Right Static Badges when not hovered */
+          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 z-10 pointer-events-none">
+            <span className="px-1 py-0.2 bg-black/80 text-[7px] font-bold text-amber-300 border border-amber-500/30 rounded-[1px]">
+              {resolution}
+            </span>
+            {isVid && (
+              <span className="px-1 py-0.2 bg-black/80 text-[7px] font-mono text-zinc-300 rounded-[1px]">
+                {duration}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Top-Left: Multi-select Checkbox & Type Badge */}
         <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-10">
@@ -204,14 +313,14 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             title={isSelected ? "Deselect" : "Select (Shift/Cmd+Click for Multi-Select)"}
           >
             {isSelected ? (
-              <CheckSquare className="w-3 h-3 text-[#fbbf24]" />
+              <CheckSquare className="w-3 h-3 text-[#F5A623]" />
             ) : (
               <Square className="w-3 h-3 text-zinc-400 hover:text-white" />
             )}
           </button>
 
           <span className="px-1 py-0.2 bg-black/80 backdrop-blur-xs text-[7.5px] font-bold text-white rounded-[1px] flex items-center gap-0.5 border border-white/10">
-            {isVid ? <Video className="w-2.5 h-2.5 text-cyan-400" /> : isAud ? <Music className="w-2.5 h-2.5 text-purple-400" /> : <ImageIcon className="w-2.5 h-2.5 text-[#fbbf24]" />}
+            {isVid ? <Video className="w-2.5 h-2.5 text-cyan-400" /> : isAud ? <Music className="w-2.5 h-2.5 text-purple-400" /> : <ImageIcon className="w-2.5 h-2.5 text-[#F5A623]" />}
             {isVid ? 'VIDEO' : isAud ? 'AUDIO' : 'STILL'}
           </span>
         </div>
@@ -234,34 +343,24 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           </button>
         </div>
 
-        {/* Bottom-Right Thumbnail Badge: Resolution & Duration */}
-        <div className="absolute bottom-2 right-1.5 flex items-center gap-1 z-10">
-          <span className="px-1 py-0.2 bg-black/80 text-[7px] font-bold text-amber-300 border border-amber-500/30 rounded-[1px]">
-            {resolution}
-          </span>
-          {isVid && (
-            <span className="px-1 py-0.2 bg-black/80 text-[7px] font-mono text-zinc-300 rounded-[1px]">
-              {duration}
-            </span>
-          )}
-        </div>
-
-        {/* Hover Play / Preview Button (Centered) */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenPreview(item);
-          }}
-          className="absolute inset-0 m-auto w-8 h-8 rounded-full bg-black/75 hover:bg-black border border-white/25 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer shadow-lg"
-          title="Preview Media Modal"
-        >
-          <Play className="w-3.5 h-3.5 text-[#fbbf24] ml-0.5" />
-        </button>
+        {/* Hover Center Play Button for Full Preview Modal */}
+        {isHovered && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenPreview(item);
+            }}
+            className="absolute inset-0 m-auto w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-[#F5A623] text-white flex items-center justify-center z-40 cursor-pointer shadow-[0_0_12px_rgba(245,166,35,0.4)] transition-transform hover:scale-110"
+            title="Open Full Cinema Preview Modal"
+          >
+            <Play className="w-4 h-4 text-[#F5A623] ml-0.5 fill-[#F5A623]" />
+          </button>
+        )}
       </div>
 
       {/* 2. Metadata & Status Strip */}
-      <div className="p-2 flex flex-col gap-1.5">
+      <div className="p-2 flex flex-col gap-1.5 bg-[#0c0c12]">
         <div className="flex items-center justify-between text-[9px] min-w-0">
           <p className="font-bold text-zinc-100 truncate pr-1" title={item.name}>
             {item.name}
@@ -279,7 +378,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           </div>
 
           {assignedIndex !== null && assignedIndex !== undefined ? (
-            <span className="text-[#fbbf24] font-bold flex items-center gap-0.5">
+            <span className="text-[#F5A623] font-bold flex items-center gap-0.5">
               <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
               SH{String(assignedIndex + 1).padStart(3, '0')}
             </span>
@@ -316,7 +415,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 setTargetShotIndex(val);
                 onAssignToShot(item, val);
               }}
-              className="bg-[#12121c] border border-[#272732] hover:border-[#fbbf24] text-[#fbbf24] text-[8px] font-mono font-bold py-1 px-1 rounded-[1px] outline-none cursor-pointer"
+              className="bg-[#12121c] border border-[#272732] hover:border-[#F5A623] text-[#F5A623] text-[8px] font-mono font-bold py-1 px-1 rounded-[1px] outline-none cursor-pointer"
               title="Target Shot Index (1-100)"
             >
               {Array.from({ length: 100 }, (_, i) => (

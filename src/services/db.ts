@@ -141,7 +141,8 @@ export async function extractMediaMetadataAndThumbnail(
         resolve({ thumbnailUrl: thumbUrl, thumbnails: finalFrames, duration, resolution });
       };
 
-      const percentages = [0.0, 0.2, 0.4, 0.6, 0.8, 0.98];
+      // Bypass black intro frames by starting at t >= 0.5s or 10% duration
+      const percentages = [0.08, 0.25, 0.45, 0.65, 0.85, 0.98];
       let currentSeekIndex = 0;
       let detectedDuration = 12.0;
       let detectedResolution = '1080P';
@@ -174,7 +175,7 @@ export async function extractMediaMetadataAndThumbnail(
             }
           }
 
-          // Advance to next frame in filmstrip (0%, 20%, 40%, 60%, 80%, 100%)
+          // Advance to next frame in filmstrip (8%, 25%, 45%, 65%, 85%, 98%)
           currentSeekIndex++;
           if (currentSeekIndex < percentages.length) {
             video.currentTime = Math.max(0, Math.min(detectedDuration - 0.05, percentages[currentSeekIndex] * detectedDuration));
@@ -192,7 +193,8 @@ export async function extractMediaMetadataAndThumbnail(
           if (video.duration && !isNaN(video.duration)) {
             detectedDuration = Math.round(video.duration * 10) / 10;
           }
-          video.currentTime = percentages[0] * detectedDuration;
+          const firstSeek = Math.min(Math.max(detectedDuration - 0.05, 0.05), Math.max(0.5, detectedDuration * 0.08));
+          video.currentTime = firstSeek;
         } catch {
           captureCurrentFrame();
         }

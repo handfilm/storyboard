@@ -32,6 +32,7 @@ import {
   Magnet,
   Maximize2
 } from 'lucide-react';
+import { TrackVuMeter } from './audio/TrackVuMeter';
 
 export interface CutEditorTimelineProps {
   clips: TimelineClip[];
@@ -260,6 +261,9 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
               / {formatSMPTE(totalDuration)}
             </span>
           </div>
+
+          {/* Real-Time Master Audio Throughput VU Meter */}
+          <TrackVuMeter variant="mini" />
         </div>
 
         {/* Tactile Zoom & Fit Controls */}
@@ -452,6 +456,11 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                     .filter((c) => c.trackId === track.id)
                     .map((clip) => {
                       const isSelected = selectedClipId === clip.id;
+                      const isUnderPlayhead = playheadTime >= clip.start && playheadTime < clip.start + clip.duration;
+                      const clipRelSec = isUnderPlayhead ? Math.max(0, playheadTime - clip.start) : 0;
+                      const relFrames = Math.floor((clipRelSec % 1) * 24);
+                      const relSecPart = Math.floor(clipRelSec);
+                      const relativeTc = `+${String(relSecPart).padStart(2, '0')}:${String(relFrames).padStart(2, '0')}F`;
                       const leftPos = clip.start * pps;
                       const clipWidth = clip.duration * pps;
                       const mediaUrl = resolveClipMediaUrl(clip);
@@ -496,6 +505,14 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                             </div>
                           )}
 
+                          {/* Floating Real-Time Relative Timecode Badge */}
+                          {isUnderPlayhead && (
+                            <div className="absolute top-1 right-2 z-30 pointer-events-none flex items-center gap-1 bg-black/90 border border-[#FFE066] text-[#FFE066] text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] shadow-[0_0_8px_rgba(255,224,102,0.8)] tabular-nums animate-fadeIn">
+                              <span className="w-1 h-1 rounded-full bg-[#FFE066] animate-pulse" />
+                              <span>{relativeTc}</span>
+                            </div>
+                          )}
+
                           {/* Clip Label & Duration Badge */}
                           <div className="relative z-10 w-full h-full px-2.5 flex items-center justify-between text-[10px] font-mono pointer-events-none">
                             <div className="flex items-center gap-1.5 min-w-0">
@@ -511,9 +528,11 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                               </span>
                             </div>
 
-                            <span className="text-[8.5px] font-bold text-zinc-300 bg-black/80 px-1.5 py-0.5 rounded border border-white/10 shrink-0 ml-1">
-                              {clip.duration.toFixed(1)}s
-                            </span>
+                            {!isUnderPlayhead && (
+                              <span className="text-[8.5px] font-bold text-zinc-300 bg-black/80 px-1.5 py-0.5 rounded border border-white/10 shrink-0 ml-1">
+                                {clip.duration.toFixed(1)}s
+                              </span>
+                            )}
                           </div>
 
                           {/* Tactile Trim Handles with Grip Ribs */}

@@ -568,6 +568,10 @@ export default function App() {
     const nextIndex = ((index % total) + total) % total;
     setCurrentIndex(nextIndex);
     setSlideTimeSec(0);
+    try {
+      useStudioStore.getState().setActiveShotIndex(nextIndex);
+      useStudioStore.getState().setSlideTimeSec(0);
+    } catch {}
     audioEngine.playShutterClick();
   }, [project.frames.length]);
 
@@ -588,6 +592,9 @@ export default function App() {
         let updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
         if (updated < 0) updated = 0;
         if (updated > SLIDE_DURATION) updated = SLIDE_DURATION;
+        try {
+          useStudioStore.getState().setSlideTimeSec(updated);
+        } catch {}
         return updated;
       });
     } else {
@@ -595,21 +602,39 @@ export default function App() {
       setSlideTimeSec(prev => {
         const updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
         if (updated >= SLIDE_DURATION) {
-          setCurrentIndex(i => (i + 1) % project.frames.length);
+          const nextIdx = (currentIndex + 1) % project.frames.length;
+          setCurrentIndex(nextIdx);
+          try {
+            useStudioStore.getState().setActiveShotIndex(nextIdx);
+            useStudioStore.getState().setSlideTimeSec(0);
+          } catch {}
           return 0;
         } else if (updated < 0) {
-          setCurrentIndex(i => (i - 1 + project.frames.length) % project.frames.length);
-          return Math.max(0, SLIDE_DURATION - FRAME_DELTA);
+          const prevIdx = (currentIndex - 1 + project.frames.length) % project.frames.length;
+          setCurrentIndex(prevIdx);
+          const loopTime = Math.max(0, SLIDE_DURATION - FRAME_DELTA);
+          try {
+            useStudioStore.getState().setActiveShotIndex(prevIdx);
+            useStudioStore.getState().setSlideTimeSec(loopTime);
+          } catch {}
+          return loopTime;
         }
+        try {
+          useStudioStore.getState().setSlideTimeSec(updated);
+        } catch {}
         return updated;
       });
     }
     audioEngine.playShutterClick();
-  }, [playbackMode, project.frames.length]);
+  }, [playbackMode, project.frames.length, currentIndex]);
 
   // Local slide time scrubbing (0 to 12.000s)
   const handleScrubSlideTime = useCallback((timeSec: number) => {
-    setSlideTimeSec(Math.max(0, Math.min(12.0, timeSec)));
+    const clamped = Math.max(0, Math.min(12.0, timeSec));
+    setSlideTimeSec(clamped);
+    try {
+      useStudioStore.getState().setSlideTimeSec(clamped);
+    } catch {}
   }, []);
 
   // Global animatic time scrubbing (0 to N * 12.0s)
@@ -622,6 +647,10 @@ export default function App() {
     const localTime = clamped - (targetIndex * SLIDE_DURATION);
     setCurrentIndex(targetIndex);
     setSlideTimeSec(localTime);
+    try {
+      useStudioStore.getState().setActiveShotIndex(targetIndex);
+      useStudioStore.getState().setSlideTimeSec(localTime);
+    } catch {}
   }, [project.frames.length]);
 
   // 12.0s Dual-Mode Playback Engine (288 frames @ 24fps per card)
@@ -656,20 +685,34 @@ export default function App() {
           const globalPlaybackSec = (currentIndex * 12.0) + nextTime;
           audioEngine.syncPlaybackTime(globalPlaybackSec);
 
+          try {
+            useStudioStore.getState().setSlideTimeSec(nextTime);
+          } catch {}
+
           if (playbackMode === 'sequence') {
             // Sequence (Animatic) mode: auto-advance across Slide 1 through Slide N every shotSlideHold time
             // If snap-to-beat is enabled, boundary check triggers on musical downbeat
             const boundaryDuration = isSnapToBeat ? 12.0 : shotSlideHold;
             if (nextTime >= boundaryDuration) {
               const framesLength = project.frames.length || 1;
-              setCurrentIndex(prevIdx => (prevIdx + 1) % framesLength);
-              return nextTime % boundaryDuration;
+              const nextIdx = (currentIndex + 1) % framesLength;
+              setCurrentIndex(nextIdx);
+              const remainderTime = nextTime % boundaryDuration;
+              try {
+                useStudioStore.getState().setActiveShotIndex(nextIdx);
+                useStudioStore.getState().setSlideTimeSec(remainderTime);
+              } catch {}
+              return remainderTime;
             }
             return nextTime;
           } else {
             // Solo Scrub mode: loops strictly within this slide's hold window
             if (nextTime >= shotSlideHold) {
-              return nextTime % shotSlideHold;
+              const loopTime = nextTime % shotSlideHold;
+              try {
+                useStudioStore.getState().setSlideTimeSec(loopTime);
+              } catch {}
+              return loopTime;
             }
             return nextTime;
           }
@@ -1526,6 +1569,7 @@ export default function App() {
       <ControlDock
         frames={project.frames}
         currentIndex={currentIndex}
+        slideTimeSec={slideTimeSec}
         viewMode={workspaceMode === 'BOARD' ? 'grid' : 'stage'}
         isPlaying={isPlaying}
         speed={speed}

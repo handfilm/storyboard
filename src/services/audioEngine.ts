@@ -627,6 +627,88 @@ export class CinematicAudioEngine {
     return data;
   }
 
+  /**
+   * Computes real-time stereo levels, peak energy, and frequency band distribution
+   * for Track VU meters and audio HUD visualizers.
+   */
+  public getVuMeterLevels(): {
+    leftRms: number;       // 0.0 to 1.0 (left stereo or low-mid energy)
+    rightRms: number;      // 0.0 to 1.0 (right stereo or mid-high energy)
+    peak: number;          // 0.0 to 1.0 overall peak
+    leftDb: number;        // -60 to 0 dB
+    rightDb: number;       // -60 to 0 dB
+    bands: number[];       // 8-band normalized spectrum [0..1]
+    isMuted: boolean;
+    isActive: boolean;
+  } {
+    if (!this.analyserNode || this.isMuted) {
+      return {
+        leftRms: 0,
+        rightRms: 0,
+        peak: 0,
+        leftDb: -60,
+        rightDb: -60,
+        bands: [0, 0, 0, 0, 0, 0, 0, 0],
+        isMuted: this.isMuted,
+        isActive: false
+      };
+    }
+
+    const binCount = this.analyserNode.frequencyBinCount;
+    const data = new Uint8Array(binCount);
+    this.analyserNode.getByteFrequencyData(data);
+
+    let sumL = 0;
+    let sumR = 0;
+    let maxVal = 0;
+    const half = Math.floor(binCount / 2);
+
+    for (let i = 0; i < binCount; i++) {
+      const v = data[i] / 255;
+      if (v > maxVal) maxVal = v;
+      if (i < half) {
+        sumL += v * v;
+      } else {
+        sumR += v * v;
+      }
+    }
+
+    const rmsL = Math.sqrt(sumL / (half || 1));
+    const rmsR = Math.sqrt(sumR / ((binCount - half) || 1));
+
+    // Calculate 8-band representation
+    const bandCount = 8;
+    const bands: number[] = new Array(bandCount).fill(0);
+    const binsPerBand = Math.max(1, Math.floor(binCount / bandCount));
+    for (let b = 0; b < bandCount; b++) {
+      let bSum = 0;
+      const start = b * binsPerBand;
+      const end = Math.min(binCount, start + binsPerBand);
+      for (let i = start; i < end; i++) {
+        bSum += data[i] / 255;
+      }
+      bands[b] = Math.min(1, (bSum / (end - start)) * 1.3);
+    }
+
+    // Convert RMS to dB (-60 dB noise floor to 0 dB full scale)
+    const toDb = (rms: number) => {
+      if (rms <= 0.001) return -60;
+      const db = 20 * Math.log10(rms);
+      return Math.max(-60, Math.min(0, Math.round(db)));
+    };
+
+    return {
+      leftRms: Math.min(1, rmsL * 1.8),
+      rightRms: Math.min(1, rmsR * 1.8),
+      peak: maxVal,
+      leftDb: toDb(rmsL * 1.8),
+      rightDb: toDb(rmsR * 1.8),
+      bands,
+      isMuted: this.isMuted,
+      isActive: maxVal > 0.01
+    };
+  }
+
   public getAnalyser(): AnalyserNode | null {
     return this.analyserNode;
   }
@@ -643,3 +725,4 @@ export class CinematicAudioEngine {
 }
 
 export const audioEngine = new CinematicAudioEngine();
+

@@ -20,6 +20,7 @@ import {
   Sliders,
   Ratio
 } from 'lucide-react';
+import { TrackVuMeter } from '../../components/audio/TrackVuMeter';
 
 const lutPresets = [
   { id: 'cinematic', label: 'RAWx Cinema 35' },
@@ -44,6 +45,7 @@ export const BottomDock: React.FC = () => {
   const {
     activeShotIndex,
     setActiveShotIndex,
+    slideTimeSec,
     nextShot,
     prevShot,
     isPlaying,
@@ -121,18 +123,37 @@ export const BottomDock: React.FC = () => {
           {Array.from({ length: 100 }, (_, i) => {
             const num = String(i + 1).padStart(3, '0');
             const isActive = i === activeShotIndex;
+            const currentSec = isActive ? (slideTimeSec || 0) : 0;
+            const relFrames = Math.floor((currentSec % 1) * 24);
+            const relSecPart = Math.floor(currentSec);
+            const relativeTc = `+${String(relSecPart).padStart(2, '0')}:${String(relFrames).padStart(2, '0')}F`;
+
             return (
               <button
                 key={i}
                 onClick={() => setActiveShotIndex(i)}
-                className={`nav-dash flex-shrink-0 px-1.5 py-0.5 text-[9px] font-mono rounded-xs border cursor-pointer ${
+                className={`nav-dash relative flex-shrink-0 px-2 py-1 text-[9px] font-mono rounded-[2px] border cursor-pointer select-none transition-all group ${
                   isActive
-                    ? 'nav-dash-active bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
+                    ? 'nav-dash-active bg-[#0E0F17] text-[#FFE066] font-bold border-[#FFE066] shadow-[0_0_12px_rgba(212,175,55,0.6)] ring-1 ring-[#D4AF37]'
                     : 'bg-[#121212] text-[#8A8A8A] border-white/5 hover:text-[#EDEDED] hover:border-[#D4AF37]/40'
                 }`}
-                title={`Shot ${num}`}
+                title={`Shot ${num} — Relative Time: ${isActive ? relativeTc : '12.0s'}`}
               >
-                {num}
+                {/* Floating Real-Time Relative Timecode Overlay Badge */}
+                {isActive && (
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-black/95 border border-[#FFE066] text-[#FFE066] text-[7px] font-mono font-bold px-1 py-0.2 rounded-[2px] shadow-[0_0_8px_rgba(255,224,102,0.8)] whitespace-nowrap pointer-events-none flex items-center gap-1 z-30 tabular-nums">
+                    <span className={`w-1 h-1 rounded-full ${isPlaying ? 'bg-[#FFE066] animate-pulse' : 'bg-amber-400'}`} />
+                    <span>{relativeTc}</span>
+                  </span>
+                )}
+                <span className="relative z-10">{num}</span>
+                {/* Real-time hold progress indicator */}
+                {isActive && (
+                  <span 
+                    className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-[#D4AF37] to-[#FFE066] shadow-[0_0_6px_rgba(255,224,102,0.8)] pointer-events-none"
+                    style={{ width: `${Math.min(100, Math.max(0, ((slideTimeSec || 0) / 12.0) * 100))}%` }}
+                  />
+                )}
               </button>
             );
           })}
@@ -237,20 +258,13 @@ export const BottomDock: React.FC = () => {
           </select>
         </div>
 
-        {/* Mode Toggles: Audio, Zen, Fullscreen */}
+        {/* Mode Toggles: Track VU Meter, Zen, Fullscreen */}
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={toggleAudio}
-            className={`p-1.5 rounded flex items-center gap-1 border transition-colors ${
-              !isAudioMuted 
-                ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#FFE066]' 
-                : 'bg-[#121212] border-white/5 text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="Toggle Ambient Audio Synth (M)"
-          >
-            {isAudioMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3 text-[#D4AF37]" />}
-            <span className="hidden sm:inline text-[10px]">AUDIO</span>
-          </button>
+          <TrackVuMeter
+            variant="dock"
+            onToggleMute={toggleAudio}
+            isMuted={isAudioMuted}
+          />
 
           <button
             onClick={toggleZenMode}

@@ -30,10 +30,12 @@ import {
   Eye,
   Type
 } from 'lucide-react';
+import { TrackVuMeter } from './audio/TrackVuMeter';
 
 export interface ControlDockProps {
   frames: AnthologyFrame[];
   currentIndex: number;
+  slideTimeSec?: number;
   viewMode: 'stage' | 'grid';
   isPlaying: boolean;
   speed: number;
@@ -82,6 +84,7 @@ const LUT_PRESETS: { id: LutPreset; label: string }[] = [
 export const ControlDock: React.FC<ControlDockProps> = ({
   frames = [],
   currentIndex = 0,
+  slideTimeSec = 0,
   viewMode,
   isPlaying,
   speed,
@@ -172,14 +175,21 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             const shotNumber = idx + 1;
             const title = frame?.title || `Shot ${shotNumber}`;
             const bn = frame?.bengaliTitle || '';
+            const holdSec = frame?.slideHoldSec ?? 12.0;
+
+            // Real-time relative timecode for the active frame during playback
+            const relSec = isActive ? slideTimeSec : 0;
+            const relFrames = Math.floor((relSec % 1) * 24);
+            const relSecondsPart = Math.floor(relSec);
+            const relativeTc = `+${String(relSecondsPart).padStart(2, '0')}:${String(relFrames).padStart(2, '0')}F`;
 
             return (
               <button
                 key={frame?.id ?? idx}
                 onClick={() => onSelectFrame(idx)}
                 aria-label={`Shot ${shotNumber}: ${title}`}
-                title={`Shot ${shotNumber}: ${title} ${bn ? `(${bn})` : ''}`}
-                className={`group relative shrink-0 w-11 sm:w-12 h-7 sm:h-8 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 border active:scale-95 ${
+                title={`Shot ${shotNumber}: ${title} ${bn ? `(${bn})` : ''} — Relative Time: ${isActive ? relativeTc : `${holdSec.toFixed(1)}s`}`}
+                className={`group relative shrink-0 w-12 sm:w-13 h-7.5 sm:h-8.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 border active:scale-95 ${
                   isActive
                     ? 'border-[#FFE066] ring-2 ring-[#D4AF37] shadow-[0_0_14px_rgba(212,175,55,0.7)] scale-105 z-20'
                     : hasMedia
@@ -205,14 +215,42 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 {/* Contrast shade overlay */}
                 <div className="absolute inset-0 bg-black/45 group-hover:bg-black/20 transition-colors pointer-events-none" />
 
-                {/* Bottom media indicator accent */}
+                {/* Floating Real-Time Relative Timecode Overlay Badge */}
+                <div
+                  className={`absolute top-0.5 inset-x-0.5 z-20 flex items-center justify-between px-1 py-0.2 rounded-[2px] backdrop-blur-md transition-all duration-150 pointer-events-none ${
+                    isActive
+                      ? 'bg-black/90 border border-[#FFE066] text-[#FFE066] shadow-[0_0_8px_rgba(245,166,35,0.7)]'
+                      : 'bg-black/75 border border-white/10 text-white/50 opacity-0 group-hover:opacity-100'
+                  }`}
+                >
+                  <span className="text-[6.5px] sm:text-[7px] font-mono font-bold tracking-tight leading-none tabular-nums">
+                    {isActive ? relativeTc : `${holdSec.toFixed(0)}s`}
+                  </span>
+                  {isActive && (
+                    <span className={`w-1 h-1 rounded-full ${isPlaying ? 'bg-[#FFE066] animate-pulse' : 'bg-amber-400'}`} />
+                  )}
+                </div>
+
+                {/* Real-Time Slide Progress Baseline */}
+                {isActive && (
+                  <div className="absolute bottom-0 inset-x-0 h-[2px] bg-black/80 overflow-hidden pointer-events-none z-20">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFE066] shadow-[0_0_6px_rgba(255,224,102,0.9)]"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, (slideTimeSec / holdSec) * 100))}%`
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Bottom media indicator accent for inactive shots */}
                 {hasMedia && !isActive && (
                   <span className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D4AF37]/80 pointer-events-none" />
                 )}
 
                 {/* Number overlay: strictly 1, 2, 3... transparent default, animated bold on mouse-over */}
                 <span
-                  className={`relative z-10 font-mono transition-all duration-200 pointer-events-none select-none ${
+                  className={`relative z-10 font-mono transition-all duration-200 pointer-events-none select-none mt-1.5 ${
                     isActive
                       ? 'text-[#FFE066] font-black text-[11px] scale-110 drop-shadow-[0_0_8px_rgba(245,166,35,0.95)]'
                       : 'text-white/30 text-[9px] font-medium tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] group-hover:scale-130 group-hover:text-[#FFE066] group-hover:font-black group-hover:text-[11.5px] group-hover:drop-shadow-[0_0_8px_rgba(245,166,35,1)] group-hover:opacity-100'
@@ -409,18 +447,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </button>
           )}
 
-          {/* Audio Synthesizer Toggle */}
-          <button
-            onClick={onToggleAudio}
-            className={`p-1.5 rounded-[2px] border cursor-pointer transition-all ${
-              isAudioMuted
-                ? 'bg-white/5 border-white/10 text-white/40 hover:text-white'
-                : 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
-            }`}
-            title={isAudioMuted ? 'Unmute Procedural Audio Synth (M)' : 'Mute Audio (M)'}
-          >
-            {isAudioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-          </button>
+          {/* Track VU Meter & Master Audio Engine */}
+          <TrackVuMeter
+            variant="dock"
+            onToggleMute={onToggleAudio}
+            isMuted={isAudioMuted}
+          />
 
           {/* Grid / Contact Sheet */}
           <button

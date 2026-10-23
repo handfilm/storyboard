@@ -109,6 +109,7 @@ export interface StudioState {
   // Playback & Timing
   isPlaying: boolean;
   speed: number; // 1-100
+  slideTimeSec: number;
   aspectRatio: '2.39:1' | '16:9' | '4:3' | '1:1' | '4:5' | '9:16';
   activeLut: string;
   activeLens: string;
@@ -146,6 +147,7 @@ export interface StudioState {
   setVisibilityItem: (key: keyof ComponentVisibility, value: boolean) => void;
   togglePlay: () => void;
   setSpeed: (speed: number) => void;
+  setSlideTimeSec: (time: number) => void;
   toggleAudio: () => void;
   setAudioVolume: (vol: number) => void;
   updateShot: (index: number, partial: Partial<Shot>) => void;
@@ -251,6 +253,7 @@ export const useStudioStore = create<StudioState>()(
     
     isPlaying: false,
     speed: 50,
+    slideTimeSec: 0,
     aspectRatio: '16:9',
     activeLut: 'cinematic',
     activeLens: '50mm f/1.4 Human Eye',
@@ -492,6 +495,12 @@ export const useStudioStore = create<StudioState>()(
       set((state) => {
         state.speed = speed;
         state.project.playbackSpeed = speed;
+      });
+    },
+
+    setSlideTimeSec: (time: number) => {
+      set((state) => {
+        state.slideTimeSec = Math.max(0, time);
       });
     },
 

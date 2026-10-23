@@ -164,30 +164,62 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
         <div
           ref={stripRef}
-          className="flex-1 flex gap-1.5 overflow-x-auto py-1.5 px-2 bg-[#070709]/92 backdrop-blur-md border border-white/15 rounded-[2px] no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.7)] scroll-smooth"
+          className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1.5 px-2 bg-[#060609]/95 backdrop-blur-md border border-white/15 rounded-[4px] no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.85)] scroll-smooth h-11"
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
             const hasMedia = !!frame?.imageUrl || !!frame?.isVideo;
-            const ep = frame?.epNumber || String(idx + 1).padStart(3, '0');
-            const title = frame?.title || `SHOT ${ep}`;
+            const shotNumber = idx + 1;
+            const title = frame?.title || `Shot ${shotNumber}`;
             const bn = frame?.bengaliTitle || '';
 
             return (
               <button
                 key={frame?.id ?? idx}
                 onClick={() => onSelectFrame(idx)}
-                aria-label={`Shot ${ep}: ${title}`}
-                title={`EP ${ep}: ${title} ${bn ? `(${bn})` : ''}`}
-                className={`shrink-0 min-w-[36px] sm:min-w-[40px] h-6 px-1.5 rounded-[2px] flex items-center justify-center font-mono-tech text-[9px] transition-all cursor-pointer select-none ${
+                aria-label={`Shot ${shotNumber}: ${title}`}
+                title={`Shot ${shotNumber}: ${title} ${bn ? `(${bn})` : ''}`}
+                className={`group relative shrink-0 w-11 sm:w-12 h-7 sm:h-8 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 border active:scale-95 ${
                   isActive
-                    ? 'bg-[#D4AF37] text-black font-black shadow-[0_0_12px_rgba(212,175,55,0.8)] border border-[#FFE066] ring-1 ring-[#D4AF37]/80 scale-105 z-10'
+                    ? 'border-[#FFE066] ring-2 ring-[#D4AF37] shadow-[0_0_14px_rgba(212,175,55,0.7)] scale-105 z-20'
                     : hasMedia
-                    ? 'bg-white/15 hover:bg-white/25 text-white border-b-2 border-[#D4AF37]/80'
-                    : 'bg-white/5 hover:bg-white/12 text-white/50'
+                    ? 'border-white/20 hover:border-[#FFE066]/90 hover:scale-105 bg-[#121218]'
+                    : 'border-white/10 hover:border-white/30 hover:scale-105 bg-[#0e0e14]'
                 }`}
               >
-                {ep}
+                {/* Media thumbnail preview */}
+                {hasMedia && frame?.imageUrl ? (
+                  <img
+                    src={frame.imageUrl}
+                    alt={`Shot ${shotNumber}`}
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.7] group-hover:brightness-100 transition-all duration-200 group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#181824] via-[#101018] to-[#08080e] flex items-center justify-center">
+                    <div className="w-full h-full opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:4px_4px]" />
+                    <Camera className="w-3 h-3 text-white/20 group-hover:text-amber-400/50 transition-colors pointer-events-none" />
+                  </div>
+                )}
+
+                {/* Contrast shade overlay */}
+                <div className="absolute inset-0 bg-black/45 group-hover:bg-black/20 transition-colors pointer-events-none" />
+
+                {/* Bottom media indicator accent */}
+                {hasMedia && !isActive && (
+                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D4AF37]/80 pointer-events-none" />
+                )}
+
+                {/* Number overlay: strictly 1, 2, 3... transparent default, animated bold on mouse-over */}
+                <span
+                  className={`relative z-10 font-mono transition-all duration-200 pointer-events-none select-none ${
+                    isActive
+                      ? 'text-[#FFE066] font-black text-[11px] scale-110 drop-shadow-[0_0_8px_rgba(245,166,35,0.95)]'
+                      : 'text-white/30 text-[9px] font-medium tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] group-hover:scale-130 group-hover:text-[#FFE066] group-hover:font-black group-hover:text-[11.5px] group-hover:drop-shadow-[0_0_8px_rgba(245,166,35,1)] group-hover:opacity-100'
+                  }`}
+                >
+                  {shotNumber}
+                </span>
               </button>
             );
           })}
@@ -208,7 +240,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             value={jumpInput}
             onChange={(e) => setJumpInput(e.target.value)}
             onBlur={() => handleJumpSubmit()}
-            placeholder={`# ${currentFrame?.epNumber || '001'}`}
+            placeholder={`# ${currentIndex + 1}`}
             className="w-16 bg-black/85 border border-white/20 focus:border-[#D4AF37] text-white text-[9.5px] font-mono-tech px-2 py-1 rounded-[2px] text-center outline-none transition-colors"
             title="Type shot number (1-100) and press Enter to jump"
           />

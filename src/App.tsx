@@ -70,7 +70,7 @@ export default function App() {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('STAGE');
   const [activeModule, setActiveModule] = useState<StudioModuleId>('PLAYER');
   const [isProMode, setIsProMode] = useState(false);
-  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
+  const [isRailCollapsed, setIsRailCollapsed] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(50);
   const [showHud, setShowHud] = useState(true);

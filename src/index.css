@@ -3,8 +3,14 @@
 @layer base {
   :root {
     --ease-hypersonic: cubic-bezier(0.16, 1, 0.3, 1);
-    --gold: #d4af37;
-    --gold-bright: #ffe066;
+    --gold: #F5A623;
+    --gold-bright: #FFE066;
+    --crimson: #E50914;
+    --crimson-dark: #D02027;
+    --slate-border: #1F2430;
+    --slate-border-light: #2D3342;
+    --obsidian-bg: #08090C;
+    --obsidian-surface: #0C0D10;
     --font-mono: 'JetBrains Mono', monospace;
     --font-cinzel: 'Cinzel', serif;
     --font-bangla: 'Noto Serif Bengali', 'Anek Bangla', serif;
@@ -17,7 +23,8 @@
   body, html {
     width: 100vw;
     height: 100vh;
-    background-color: #050505;
+    background-color: #08090C;
+    background-image: radial-gradient(circle at 50% 12%, #0D1117 0%, #08090C 65%, #050608 100%);
     color: #ffffff;
     font-family: 'JetBrains Mono', monospace;
     overflow: hidden;

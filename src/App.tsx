@@ -1334,6 +1334,9 @@ export default function App() {
           onOpenVaultMode={() => setIsProjectManagerOpen(true)}
           onOpenSelfTest={() => setIsSelfTestOpen(true)}
           onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+          totalShots={project.frames?.length || 100}
+          currentShotIndex={currentIndex}
+          saveState={saveState}
         />
 
         {/* Functional Studio Drawer in STAGE Mode */}

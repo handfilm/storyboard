@@ -149,43 +149,62 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     setCursorNormalized(normalizedX);
     setSmpteTimecode(formatSMPTETimecode(targetSec, 24));
 
-    // Filmstrip keyframe instant response
+    // Instant filmstrip keyframe feedback
     if (filmstripFrames.length > 0) {
       const fIdx = Math.min(filmstripFrames.length - 1, Math.floor(normalizedX * filmstripFrames.length));
       setScrubFrame(filmstripFrames[fIdx]);
     }
 
-    // Smooth, non-audio video scrubbing throttled with requestAnimationFrame
-    hoverScrubThumbnailSource(
-      container,
-      clientX,
-      videoRef.current,
-      totalDurationSec,
-      (state) => {
-        if (state.thumbnailSource) {
-          setDynamicThumbnail(state.thumbnailSource);
+    // Use requestAnimationFrame to map mouse X to video duration and seek the hidden <video> element without audio
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      if (videoRef.current) {
+        // Strictly prevent any audio triggering
+        videoRef.current.muted = true;
+        videoRef.current.volume = 0;
+        try {
+          videoRef.current.currentTime = targetSec;
+          if (videoRef.current.readyState >= 2) {
+            const captured = captureVideoFrameAsBase64(videoRef.current);
+            if (captured) {
+              setDynamicThumbnail(captured);
+            }
+          }
+        } catch {
+          // ignore fast seek collisions
         }
-      },
-      rafIdRef
-    );
+      }
+    });
   }, [totalDurationSec, filmstripFrames]);
 
-  // Mouse Enter: mount video element if video file, calculate boundary clamping
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-    updateTransformOrigin();
-
-    if (isVid && item.blob && !videoBlobUrl) {
+  // Mount video blob URL when item is available
+  useEffect(() => {
+    let url: string | null = null;
+    if (isVid && item.blob) {
       try {
-        const url = URL.createObjectURL(item.blob);
+        url = URL.createObjectURL(item.blob);
         setVideoBlobUrl(url);
       } catch {
         // ignore
       }
     }
+    return () => {
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [isVid, item.blob]);
+
+  // Mouse Enter: calculate boundary clamping
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    updateTransformOrigin();
   };
 
-  // Mouse Leave: unmount video tag, release decoder context
+  // Mouse Leave: reset hover, release seek state
   const handleMouseLeave = () => {
     setIsHovered(false);
     setCursorX(null);
@@ -198,13 +217,13 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       rafIdRef.current = null;
     }
 
-    // Cleanup video element on leave to enforce 4GB guard
     if (videoRef.current) {
-      cleanupVideoElement(videoRef.current, videoBlobUrl);
-    }
-    if (videoBlobUrl) {
-      URL.revokeObjectURL(videoBlobUrl);
-      setVideoBlobUrl(null);
+      try {
+        videoRef.current.pause();
+        videoRef.current.muted = true;
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -216,9 +235,6 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       }
       if (videoRef.current) {
         cleanupVideoElement(videoRef.current, videoBlobUrl);
-      }
-      if (videoBlobUrl) {
-        URL.revokeObjectURL(videoBlobUrl);
       }
     };
   }, [videoBlobUrl]);

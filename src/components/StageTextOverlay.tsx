@@ -90,8 +90,11 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const isEnabled = isVisible && (storeTitleConfig?.showTitles ?? true) && storeVisibility;
   if (!isEnabled) return null;
 
-  // Resolving text fallbacks
-  const displayBangla = (banglaTitle && banglaTitle.trim().length > 0) ? banglaTitle : 'দৃষ্টির সীমানা';
+  // Iconic headline fallbacks for dynamic Bangla hero typography
+  const DEFAULT_BANGLA_HEADLINES = ['শূন্য', 'আলো', 'সংঘাত', 'দৃষ্টির সীমানা'];
+  const fallbackHeadline = DEFAULT_BANGLA_HEADLINES[shotIndex % DEFAULT_BANGLA_HEADLINES.length];
+
+  const displayBangla = (banglaTitle && banglaTitle.trim().length > 0) ? banglaTitle : fallbackHeadline;
   const displayEnglish = (englishTitle && englishTitle.trim().length > 0) 
     ? englishTitle 
     : `SHOT ${String(shotIndex + 1).padStart(3, '0')} // MASTER SEQUENCE`;
@@ -142,16 +145,17 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       {/* Centered Dead-Middle Dynamic Hero Title Cluster */}
       <div 
         key={`hero-title-cluster-${shotIndex}-${activePreset}`}
-        className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-hero-entrance transition-transform duration-200"
+        className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-kinetic-entrance transition-transform duration-200"
         style={{
           transform: `translateY(${verticalOffset}px)`
         }}
       >
         <div className="flex flex-col items-center justify-center text-center max-w-5xl px-4">
           
-          {/* Primary Title (Bangla Dynamic Hero Font) */}
+          {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
           <h1
-            className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl`}
+            key={`bangla-title-${shotIndex}`}
+            className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl animate-kinetic-entrance`}
             style={{
               fontSize: `${Math.round(titleSizePx * scale)}px`,
               letterSpacing: `${tracking}em`,
@@ -173,9 +177,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
               {displayEnglish}
             </p>
 
-            {/* Accent: Sub-glow with subtle golden reflection bar or horizontal optical flare divider */}
+            {/* Accent: Optical Anamorphic Streak Divider expanding horizontally (w-0 to w-32 over 600ms) */}
             <div 
-              className={`w-48 sm:w-80 md:w-96 h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-anamorphic-streak`}
+              key={`anamorphic-streak-${shotIndex}`}
+              className={`h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
             />
 
             {/* Camera Optical Spec / Focal Length Badge (Subtle) */}

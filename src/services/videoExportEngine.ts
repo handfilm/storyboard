@@ -523,29 +523,30 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     const subTitleY = centerY + 40 * scaleFactor;
 
     // Multi-Pass Volumetric Bloom & Molten Gold Base
-    // Pass 1: Outer Volumetric Rim Shadow
+    const scale = scaleFactor;
+    // Pass 1: Broad ambient diffuse glow
     ctx.save();
     ctx.shadowColor = 'rgba(245, 166, 35, 0.45)';
-    ctx.shadowBlur = 50 * scaleFactor;
+    ctx.shadowBlur = 48 * scale;
     ctx.fillStyle = '#FFD54F';
     ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(titleBn, width / 2, titleY);
     ctx.restore();
 
-    // Pass 2: Ambient Bloom Layer
+    // Pass 2: High-intensity inner core rim
     ctx.save();
-    ctx.shadowColor = '#F5A623';
-    ctx.shadowBlur = 24 * scaleFactor;
-    ctx.fillStyle = '#FFD54F';
-    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText(titleBn, width / 2, titleY);
-    ctx.restore();
-
-    // Pass 3: Core Solid Layer (Gradient-like rich warm gold fill)
-    ctx.save();
+    ctx.shadowColor = 'rgba(255, 213, 79, 0.95)';
+    ctx.shadowBlur = 12 * scale;
     ctx.fillStyle = '#FFF8E1';
+    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(titleBn, width / 2, titleY);
+    ctx.restore();
+
+    // Pass 3: Crisp Core Layer (Gradient-like rich warm gold fill)
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(titleBn, width / 2, titleY);

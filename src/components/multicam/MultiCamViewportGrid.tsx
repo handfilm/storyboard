@@ -129,7 +129,18 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     return () => window.removeEventListener('resize', checkWidth);
   }, []);
 
-  // Keyboard shortcut listener: '1', '2', and '3' to instantly switch/cycle grid presets
+  const [flashingAngleIdx, setFlashingAngleIdx] = useState<number | null>(null);
+
+  // Wrap angle selection with tactical 60ms white flash feedback before locking into cyan tally
+  const handleSelectAngleWithFlash = useCallback((angleIdx: number) => {
+    setFlashingAngleIdx(angleIdx);
+    setTimeout(() => {
+      setFlashingAngleIdx(null);
+    }, 60);
+    onSelectAngle(angleIdx);
+  }, [onSelectAngle]);
+
+  // Keyboard shortcut listener: '1', '2', '3', '4' for instant camera switching; Alt+1/2/3 or 'c' for layout presets
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input or textarea
@@ -144,26 +155,45 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         return;
       }
 
-      if (e.key === '1') {
+      // Alt + 1/2/3: Layout preset selection
+      if (e.altKey && e.key === '1') {
         e.preventDefault();
-        setConfig(activeConfig === '1x1' ? '1x3' : '1x1');
-      } else if (e.key === '2') {
+        setConfig('1x1');
+        return;
+      }
+      if (e.altKey && e.key === '2') {
         e.preventDefault();
-        setConfig(activeConfig === '1x3' ? '2x2' : '1x3');
-      } else if (e.key === '3') {
+        setConfig('1x3');
+        return;
+      }
+      if (e.altKey && e.key === '3') {
         e.preventDefault();
-        setConfig(activeConfig === '2x2' ? '1x1' : '2x2');
-      } else if (e.key === 'c' || e.key === 'C') {
+        setConfig('2x2');
+        return;
+      }
+
+      // Hotkey 'c' cycles layout presets
+      if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         const cycleOrder: MultiCamGridConfig[] = ['1x1', '1x3', '2x2'];
         const nextIdx = (cycleOrder.indexOf(activeConfig) + 1) % cycleOrder.length;
         setConfig(cycleOrder[nextIdx]);
+        return;
+      }
+
+      // Direct punch-in camera switching: Number keys '1', '2', '3', '4' (and Numpad 1-4)
+      if (['1', '2', '3', '4'].includes(e.key) && !e.metaKey && !e.ctrlKey) {
+        const targetIndex = parseInt(e.key, 10) - 1;
+        if (targetIndex < group.angles.length) {
+          e.preventDefault();
+          handleSelectAngleWithFlash(targetIndex);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setConfig, activeConfig]);
+  }, [setConfig, activeConfig, group.angles.length, handleSelectAngleWithFlash]);
 
   // Format timecode
   const formatTimecode = (ms: number) => {
@@ -497,24 +527,28 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             const isMaster = idx === masterAudioIndex;
             const layoutStyle = getCardLayoutStyle(idx);
 
+            const isFlashing = idx === flashingAngleIdx;
+
             return (
               <div
                 key={angle.id}
                 style={layoutStyle}
-                onClick={() => onSelectAngle(idx)}
-                className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl transition-all ${
-                  isHero
-                    ? 'border-[3px] border-[#FFE066] animate-gold-focus-border shadow-[0_0_35px_rgba(255,224,102,0.6)] ring-2 ring-[#FFE066]/80 ring-offset-2 ring-offset-black z-20'
-                    : 'border-white/10 hover:border-amber-400/50 opacity-75 hover:opacity-100 z-10'
+                onClick={() => handleSelectAngleWithFlash(idx)}
+                className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl transition-all duration-75 ${
+                  isFlashing
+                    ? 'border-[4px] border-white shadow-[0_0_45px_#FFFFFF] ring-4 ring-white z-30 scale-[1.01]'
+                    : isHero
+                    ? 'border-[3px] border-[#00F0FF] shadow-[0_0_35px_rgba(0,240,255,0.75)] ring-2 ring-[#00F0FF]/80 ring-offset-2 ring-offset-black z-20'
+                    : 'border-white/10 hover:border-[#00F0FF]/50 opacity-75 hover:opacity-100 z-10'
                 }`}
               >
-                {/* Traveling Golden Border Beam for Active Camera Feed */}
-                {isHero && (
+                {/* Traveling Cyan Broadcast Border Beam for Active Camera Feed */}
+                {isHero && !isFlashing && (
                   <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden z-20">
                     <div 
                       className="absolute -inset-[150%] animate-gold-beam"
                       style={{
-                        background: 'conic-gradient(from 0deg, transparent 0 320deg, #FFE066 345deg, #F5A623 360deg)',
+                        background: 'conic-gradient(from 0deg, transparent 0 320deg, #00F0FF 345deg, #38BDF8 360deg)',
                         opacity: 0.85
                       }}
                     />
@@ -522,13 +556,13 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                   </div>
                 )}
 
-                {/* Optical Viewfinder Golden Focus Reticles on Selected Feed */}
+                {/* Optical Viewfinder Cyan Focus Reticles on Selected Feed */}
                 {isHero && (
                   <div className="absolute inset-2.5 pointer-events-none z-20">
-                    <div className="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
-                    <div className="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
-                    <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                    <div className="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
+                    <div className="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
+                    <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
+                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
                   </div>
                 )}
 
@@ -537,11 +571,15 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                   {renderAngleMedia(angle, idx)}
                 </div>
 
-                {/* Top Broadcast Tally & Golden Focus Indicator Overlay */}
+                {/* Top Broadcast Tally & Cyan Focus Indicator Overlay */}
                 <div className="relative z-20 p-2.5 flex items-center justify-between pointer-events-none">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
-                      isHero ? 'bg-[#FFE066] text-black shadow-[0_0_10px_#FFE066]' : 'bg-black/80 text-white border border-white/20'
+                      isFlashing
+                        ? 'bg-white text-black shadow-[0_0_15px_#FFFFFF]'
+                        : isHero
+                        ? 'bg-[#00F0FF] text-black shadow-[0_0_10px_#00F0FF]'
+                        : 'bg-black/80 text-white border border-white/20'
                     }`}>
                       {idx + 1}
                     </span>
@@ -552,18 +590,18 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
 
                   <div className="flex items-center gap-1.5 pointer-events-auto">
                     {isMaster && (
-                      <span className="p-1 rounded-md bg-black/80 border border-amber-500/30 text-amber-400" title="Master Audio Feed">
+                      <span className="p-1 rounded-md bg-black/80 border border-cyan-500/30 text-cyan-400" title="Master Audio Feed">
                         <Volume2 className="w-3.5 h-3.5" />
                       </span>
                     )}
 
                     {isHero ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_12px_rgba(255,224,102,0.8)] border border-amber-200 flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-cyan-400 via-cyan-500 to-sky-500 text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_12px_rgba(0,240,255,0.8)] border border-cyan-200 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
-                          FOCUS ACTIVE
+                          BROADCAST TALLY
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#EF4444] text-white font-black text-[10px] tracking-wider uppercase animate-pulse shadow-[0_0_12px_#EF4444]">
+                        <span className="px-2 py-0.5 rounded-md bg-[#00F0FF] text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_12px_#00F0FF]">
                           ● ON AIR
                         </span>
                       </div>

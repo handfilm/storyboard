@@ -129,8 +129,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(null);
 
-  // Undo stack for cuts
-  const [cutHistory, setCutHistory] = useState<MultiCamCutEvent[][]>([]);
+  // Undo/Redo append-only cut log stack
+  const [cutStack, setCutStack] = useState<MultiCamCutEvent[]>([]);
+  const [redoStack, setRedoStack] = useState<MultiCamCutEvent[]>([]);
 
   // Export State
   const [isExporting, setIsExporting] = useState(false);
@@ -151,8 +152,8 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     setGroup(initialGroup);
   }, [initialGroup]);
 
-  // Master audio angle index
-  const masterAudioIndex = Math.max(0, Math.min(group.angles.length - 1, group.masterAudioAngleIndex));
+  // Master audio angle index (CAM 01 by default / index 0)
+  const masterAudioIndex = Math.max(0, Math.min(group.angles.length - 1, group.masterAudioAngleIndex || 0));
 
   // Determine active angle for current playhead
   const currentActiveAngleIdx = useMemo(() => {
@@ -172,26 +173,36 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
   };
 
-  // Switch camera angle (Live punch-in or paused re-assignment)
+  // Instant Punch-In Switching without pausing the media stream
   const switchAngle = useCallback((angleIndex: number) => {
     if (angleIndex < 0 || angleIndex >= group.angles.length) return;
 
     setGroup(prev => {
-      // Save current cuts for undo
-      setCutHistory(hist => [...hist, prev.cutEvents]);
+      const prevAngle = prev.activeAngleIndex || 0;
+      const frameNum = Math.floor((currentTimeMs / 1000) * 30);
 
-      // If cut at current time already exists, update it, else insert new cut
-      const existingIdx = prev.cutEvents.findIndex(c => Math.abs(c.timeMs - currentTimeMs) < 150);
+      // Create new CutEvent
+      const newCut: MultiCamCutEvent = {
+        id: `cut-${Date.now()}-${angleIndex}`,
+        timeMs: Math.max(0, Math.min(durationMs, currentTimeMs)),
+        angleIndex,
+        timestampMs: currentTimeMs,
+        frame: frameNum,
+        previousAngle: prevAngle,
+        newAngle: angleIndex
+      };
+
+      // Push to append-only undo stack
+      setCutStack(stack => [...stack, newCut]);
+      setRedoStack([]); // Clear redo on fresh cut
+
+      // Check for existing cut at current timestamp window (within 120ms)
+      const existingIdx = prev.cutEvents.findIndex(c => Math.abs(c.timeMs - currentTimeMs) < 120);
       let updatedCuts: MultiCamCutEvent[];
 
       if (existingIdx >= 0) {
         updatedCuts = prev.cutEvents.map((c, i) => i === existingIdx ? { ...c, angleIndex } : c);
       } else {
-        const newCut: MultiCamCutEvent = {
-          id: `cut-${Date.now()}-${angleIndex}`,
-          timeMs: Math.max(0, Math.min(durationMs, currentTimeMs)),
-          angleIndex
-        };
         updatedCuts = [...prev.cutEvents, newCut].sort((a, b) => a.timeMs - b.timeMs);
       }
 
@@ -206,18 +217,48 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     });
   }, [currentTimeMs, durationMs, group.angles.length, onSaveGroup]);
 
-  // Undo last cut event
+  // Undo last cut event (Ctrl+Z) - seamlessly restores previous angle duration without desyncing playhead
   const undoLastCut = useCallback(() => {
-    if (cutHistory.length === 0) return;
-    const previous = cutHistory[cutHistory.length - 1];
-    setCutHistory(hist => hist.slice(0, hist.length - 1));
-    setGroup(prev => ({
-      ...prev,
-      cutEvents: previous
-    }));
-  }, [cutHistory]);
+    if (cutStack.length === 0) return;
+    const lastCut = cutStack[cutStack.length - 1];
 
-  // Keyboard shortcut listener for camera switching (1-9), spacebar, undo
+    setCutStack(stack => stack.slice(0, stack.length - 1));
+    setRedoStack(redo => [...redo, lastCut]);
+
+    setGroup(prev => {
+      const updatedCuts = prev.cutEvents.filter(c => c.id !== lastCut.id && Math.abs(c.timeMs - (lastCut.timestampMs ?? lastCut.timeMs)) > 50);
+      const safeCuts = updatedCuts.length > 0 ? updatedCuts : [{ id: 'cut-init', timeMs: 0, angleIndex: lastCut.previousAngle ?? 0 }];
+      const next = {
+        ...prev,
+        activeAngleIndex: lastCut.previousAngle ?? 0,
+        cutEvents: safeCuts
+      };
+      onSaveGroup?.(next);
+      return next;
+    });
+  }, [cutStack, onSaveGroup]);
+
+  // Redo cut event (Ctrl+Y / Ctrl+Shift+Z)
+  const redoCut = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const cutToRedo = redoStack[redoStack.length - 1];
+
+    setRedoStack(redo => redo.slice(0, redo.length - 1));
+    setCutStack(stack => [...stack, cutToRedo]);
+
+    setGroup(prev => {
+      const updatedCuts = [...prev.cutEvents.filter(c => c.id !== cutToRedo.id), cutToRedo].sort((a, b) => a.timeMs - b.timeMs);
+      const next = {
+        ...prev,
+        activeAngleIndex: cutToRedo.newAngle ?? cutToRedo.angleIndex,
+        cutEvents: updatedCuts
+      };
+      onSaveGroup?.(next);
+      return next;
+    });
+  }, [redoStack, onSaveGroup]);
+
+  // Keyboard shortcut listener for camera switching (1-4), spacebar, undo/redo, layout presets
   useEffect(() => {
     if (!isOpen) return;
 
@@ -227,28 +268,28 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         return;
       }
 
-      // Keys '1', '2', '3': Instantly switch between 1x1, 1x3, and 2x2 grid presets
-      if (e.key === '1') {
+      // Alt + 1, 2, 3: Layout presets
+      if (e.altKey && e.key === '1') {
         e.preventDefault();
         setLayoutPreset('1x1');
         onChangeLayoutConfig?.('1x1');
         return;
       }
-      if (e.key === '2') {
+      if (e.altKey && e.key === '2') {
         e.preventDefault();
         setLayoutPreset('1x3');
         onChangeLayoutConfig?.('1x3');
         return;
       }
-      if (e.key === '3') {
+      if (e.altKey && e.key === '3') {
         e.preventDefault();
         setLayoutPreset('2x2');
         onChangeLayoutConfig?.('2x2');
         return;
       }
 
-      // Keys 4 through 9 or Shift + 1-4: camera angle punch cutting
-      if (e.shiftKey && e.key >= '1' && e.key <= '4') {
+      // Number keys '1', '2', '3', '4' (and Numpad 1-4): Instant punch-in hard cut to camera angle
+      if (['1', '2', '3', '4'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const targetIndex = parseInt(e.key, 10) - 1;
         if (targetIndex < group.angles.length) {
           e.preventDefault();
@@ -256,15 +297,8 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           return;
         }
       }
-      if (e.key >= '4' && e.key <= '9') {
-        const targetIndex = parseInt(e.key, 10) - 1;
-        if (targetIndex < group.angles.length) {
-          e.preventDefault();
-          switchAngle(targetIndex);
-        }
-      }
 
-      // Spacebar toggles Play/Pause
+      // Spacebar toggles Play/Pause with zero latency
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         setIsPlaying(p => !p);
@@ -273,7 +307,19 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
       // Undo: Cmd+Z or Ctrl+Z
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        undoLastCut();
+        if (e.shiftKey) {
+          redoCut();
+        } else {
+          undoLastCut();
+        }
+        return;
+      }
+
+      // Redo: Cmd+Y or Ctrl+Y
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redoCut();
+        return;
       }
 
       // Frame stepping with Arrow keys
@@ -289,25 +335,37 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, group.angles.length, switchAngle, undoLastCut, durationMs]);
+  }, [isOpen, group.angles.length, switchAngle, undoLastCut, redoCut, durationMs, onChangeLayoutConfig]);
 
-  // Master Clock Synchronization Loop
+  // Master Clock Synchronization Loop & Continuous Audio Bus Lock
   useEffect(() => {
     if (!isOpen) return;
 
     const syncVideosToTime = (timeMs: number) => {
+      const isSoloMode = (controlledConfig || layoutPreset) === '1x1';
+
       videoRefs.current.forEach((video, idx) => {
         if (!video) return;
         const angle = group.angles[idx];
         if (!angle) return;
 
-        // Apply audio offset
+        // Dynamic GPU decode release: in 1x1 SOLO mode, pause off-screen angles unless it is the active angle or master audio
+        if (isSoloMode && idx !== currentActiveAngleIdx && idx !== masterAudioIndex) {
+          if (!video.paused) {
+            video.pause();
+          }
+          return;
+        }
+
+        // Apply audio offset with continuous master clock
         const targetSec = Math.max(0, (timeMs - (angle.syncOffsetMs || 0)) / 1000);
-        if (Math.abs(video.currentTime - targetSec) > 0.08) {
+
+        // Relaxed 0.18s drift threshold to guarantee continuous master audio without popping or seek micro-stutters
+        if (Math.abs(video.currentTime - targetSec) > 0.18) {
           video.currentTime = targetSec;
         }
 
-        // Configure audio routing: strictly unmute master audio angle
+        // Configure continuous audio routing: strictly unmute master audio angle without reset
         if (idx === masterAudioIndex) {
           video.muted = isMuted;
           video.volume = masterVolume;
@@ -321,7 +379,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         const activeAngle = group.angles[currentActiveAngleIdx] || group.angles[0];
         if (activeAngle) {
           const targetSec = Math.max(0, (timeMs - (activeAngle.syncOffsetMs || 0)) / 1000);
-          if (Math.abs(programVideoRef.current.currentTime - targetSec) > 0.08) {
+          if (Math.abs(programVideoRef.current.currentTime - targetSec) > 0.15) {
             programVideoRef.current.currentTime = targetSec;
           }
         }
@@ -330,11 +388,17 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
     if (isPlaying) {
       lastTimeRef.current = performance.now();
+      const isSoloMode = (controlledConfig || layoutPreset) === '1x1';
 
-      // Play video elements
-      videoRefs.current.forEach(v => {
-        if (v && v.paused) {
-          v.play().catch(() => {});
+      // Play active video elements (in solo mode, only play active angle and master audio)
+      videoRefs.current.forEach((v, idx) => {
+        if (!v) return;
+        if (isSoloMode && idx !== currentActiveAngleIdx && idx !== masterAudioIndex) {
+          if (!v.paused) v.pause();
+        } else {
+          if (v.paused) {
+            v.play().catch(() => {});
+          }
         }
       });
       if (programVideoRef.current && programVideoRef.current.paused) {
@@ -384,7 +448,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [isPlaying, isLooping, durationMs, group.angles, masterAudioIndex, isMuted, masterVolume, isOpen]);
+  }, [isPlaying, isLooping, durationMs, group.angles, masterAudioIndex, isMuted, masterVolume, isOpen, layoutPreset, controlledConfig, currentActiveAngleIdx]);
 
   // Handle Scrubbing
   const handleSeekMs = (targetMs: number) => {
@@ -476,12 +540,22 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
           <button
             onClick={undoLastCut}
-            disabled={cutHistory.length === 0}
+            disabled={cutStack.length === 0}
             className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-30 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Undo last live cut (Cmd+Z)"
+            title="Undo last live cut (Ctrl+Z / Cmd+Z)"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Undo Cut</span>
+            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+            <span>↶ Undo Cut</span>
+          </button>
+
+          <button
+            onClick={redoCut}
+            disabled={redoStack.length === 0}
+            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-30 transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Redo cut (Ctrl+Y / Cmd+Y / Ctrl+Shift+Z)"
+          >
+            <RotateCw className="w-3.5 h-3.5 text-cyan-400" />
+            <span>↷ Redo Cut</span>
           </button>
 
           <button

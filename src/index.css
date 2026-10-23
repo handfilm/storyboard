@@ -88,7 +88,40 @@
 }
 
 .animate-hero-entrance {
-  animation: heroEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: heroEntrance 0.48s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes heroKineticEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-kinetic-entrance {
+  animation: heroKineticEntrance 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes streakExpand {
+  0% {
+    width: 0;
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.8;
+  }
+  100% {
+    width: 8rem; /* w-32 */
+    opacity: 1;
+  }
+}
+
+.animate-streak-expand {
+  animation: streakExpand 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes anamorphicStreakPulse {

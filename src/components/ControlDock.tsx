@@ -143,6 +143,37 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const hh = Math.floor(totalFrames / (24 * 3600));
   const tcString = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
 
+  // Scroll-based Virtualization State for bottom 100-shot sequence bar
+  const [stripScroll, setStripScroll] = useState<{ scrollLeft: number; clientWidth: number }>({
+    scrollLeft: 0,
+    clientWidth: 768
+  });
+
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      setStripScroll({ scrollLeft: el.scrollLeft, clientWidth: el.clientWidth });
+    };
+
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+
+  // Compute visible shot range + 5-shot buffer window
+  const shotWidthApprox = 56;
+  const visibleStartShot = Math.max(0, Math.floor(stripScroll.scrollLeft / shotWidthApprox) - 5);
+  const visibleEndShot = Math.min(
+    safeFrames.length - 1,
+    Math.ceil((stripScroll.scrollLeft + stripScroll.clientWidth) / shotWidthApprox) + 5
+  );
+
   // Auto-scroll timeline to active shot
   useEffect(() => {
     if (stripRef.current) {
@@ -164,7 +195,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4">
-      {/* 100-Frame Strip Navigation */}
+      {/* 100-Frame Strip Navigation with High-Throughput Virtualization */}
       <div className="w-full max-w-5xl mb-1.5 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
         <button
           onClick={onPrev}
@@ -182,6 +213,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
             const hasMedia = !!frame?.imageUrl || !!frame?.isVideo;
+            const isThumbnailVisible = idx >= visibleStartShot && idx <= visibleEndShot;
             const shotNumber = idx + 1;
             const title = frame?.title || `Shot ${shotNumber}`;
             const bn = frame?.bengaliTitle || '';
@@ -207,14 +239,19 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     : 'border-white/10 hover:border-white/30 hover:scale-105 bg-[#0e0e14]'
                 }`}
               >
-                {/* Media thumbnail preview */}
-                {hasMedia && frame?.imageUrl ? (
+                {/* Virtualized Media thumbnail preview: only decoded within visible + 5-shot buffer window */}
+                {hasMedia && frame?.imageUrl && isThumbnailVisible ? (
                   <img
                     src={frame.imageUrl}
                     alt={`Shot ${shotNumber}`}
                     loading="lazy"
+                    decoding="async"
                     className="absolute inset-0 w-full h-full object-cover filter brightness-[0.7] group-hover:brightness-100 transition-all duration-200 group-hover:scale-110"
                   />
+                ) : hasMedia ? (
+                  <div className="absolute inset-0 bg-[#12121a] flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/40 pointer-events-none" />
+                  </div>
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-b from-[#181824] via-[#101018] to-[#08080e] flex items-center justify-center">
                     <div className="w-full h-full opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:4px_4px]" />

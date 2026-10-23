@@ -20,6 +20,9 @@ export interface MultiCamRenderOptions {
   height?: number; // Default 1920 for 9:16 Shorts
   fps?: number; // Default 30 or 60
   bitrate?: number; // Default 12_000_000 (12 Mbps)
+  burnInTitles?: boolean;
+  banglaTitle?: string;
+  englishTitle?: string;
   onProgress?: (progressPercent: number, statusMessage: string) => void;
 }
 
@@ -253,6 +256,43 @@ export class MultiCamRenderPipeline {
       }
 
       drawVideoCover(targetVideo);
+
+      // Render burnt-in title with multi-pass shadow bloom if enabled
+      if (options.burnInTitles) {
+        const banglaText = options.banglaTitle || 'শূন্য';
+        const englishText = options.englishTitle || `${group.name} // CAM 0${activeAngleIdx + 1}`;
+        const scale = targetW / 1920;
+        const fontSize = Math.round(54 * (targetW / 1080));
+        const subFontSize = Math.round(18 * (targetW / 1080));
+        const titleY = isVertical ? targetH * 0.46 : targetH / 2 - 20 * scale;
+        const subTitleY = isVertical ? targetH * 0.46 + 45 : targetH / 2 + 35 * scale;
+
+        ctx.save();
+        // Pass 1: Broad ambient diffuse glow
+        ctx.shadowColor = 'rgba(245, 166, 35, 0.45)';
+        ctx.shadowBlur = 48 * scale;
+        ctx.fillStyle = '#FFD54F';
+        ctx.font = `bold ${fontSize}px "Anek Bangla", "Noto Serif Bengali", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(banglaText, targetW / 2, titleY);
+
+        // Pass 2: High-intensity inner core rim
+        ctx.shadowColor = 'rgba(255, 213, 79, 0.95)';
+        ctx.shadowBlur = 12 * scale;
+        ctx.fillText(banglaText, targetW / 2, titleY);
+
+        // Pass 3: Crisp core text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(banglaText, targetW / 2, titleY);
+
+        // Monospace tracked english subtitle
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 8 * scale;
+        ctx.fillStyle = '#E2E8F0';
+        ctx.font = `bold ${subFontSize}px "JetBrains Mono", monospace`;
+        ctx.fillText(englishText.toUpperCase(), targetW / 2, subTitleY);
+        ctx.restore();
+      }
 
       // Report progress
       if (frameIdx % 15 === 0 || frameIdx === totalFrames - 1) {

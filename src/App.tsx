@@ -61,6 +61,7 @@ import { StagePanelType } from './components/StageHeader';
 import { MultiCamGroup } from './types/multicam';
 import { MultiCamGridConfig } from './components/multicam/MultiCamViewportGrid';
 import { DEFAULT_SAMPLE_MULTICAM_GROUP } from './components/multicam/MultiCamGridMonitor';
+import { projectStorageEngine, SovereignProjectState } from './services/projectStorageEngine';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -187,6 +188,150 @@ export default function App() {
     setIsDrawerOpen(false);
     setActiveDualPanel(prev => (prev === 'MULTICAM' && workspaceMode === 'STAGE' && currentView === 'STUDIO' ? 'TACTILE_STAGE' : 'MULTICAM'));
   }, [workspaceMode, currentView]);
+
+  const sessionRestoreInputRef = useRef<HTMLInputElement>(null);
+
+  // 1. Hard Reload Recovery: Automatically hydrate state from IndexedDB
+  useEffect(() => {
+    projectStorageEngine.loadSession().then(session => {
+      if (!session) return;
+      if (typeof session.activeShotIndex === 'number') {
+        setCurrentIndex(session.activeShotIndex);
+      }
+      if (session.multiCamGroup) {
+        setMultiCamGroup(session.multiCamGroup);
+      }
+      if (Array.isArray(session.shots) && session.shots.length > 0) {
+        setProject(prev => {
+          const mergedFrames = prev.frames.map((f, i) => {
+            const saved = session.shots.find(s => s.shotIndex === i);
+            if (saved) {
+              return {
+                ...f,
+                title: saved.title || f.title,
+                bengaliTitle: saved.bengaliTitle || f.bengaliTitle,
+                tagline: saved.tagline || f.tagline,
+                directorNotes: saved.directorNotes || f.directorNotes,
+                soundCue: saved.soundCue || f.soundCue,
+                slideHoldSec: saved.durationSeconds || f.slideHoldSec,
+                imageUrl: saved.imageUrl || f.imageUrl,
+                isVideo: saved.isVideo ?? f.isVideo
+              };
+            }
+            return f;
+          });
+          return {
+            ...prev,
+            title: session.projectTitle || prev.title,
+            frames: mergedFrames
+          };
+        });
+      }
+    }).catch(err => console.warn('[App] Session load error:', err));
+  }, []);
+
+  // 2. Seamless IndexedDB Autosave: Debounce timeline mutations by 1.5 seconds
+  useEffect(() => {
+    const stateToSave: SovereignProjectState = {
+      version: '1.0.0',
+      updatedAt: Date.now(),
+      activeShotIndex: currentIndex,
+      projectTitle: project.title,
+      shots: project.frames.map((f, i) => ({
+        id: String(f.id ?? i),
+        shotIndex: i,
+        title: f.title,
+        bengaliTitle: f.bengaliTitle || '',
+        englishTitle: f.title,
+        tagline: f.tagline,
+        directorNotes: f.directorNotes,
+        soundCue: f.soundCue,
+        durationSeconds: f.slideHoldSec ?? 12.0,
+        imageUrl: f.imageUrl,
+        isVideo: f.isVideo,
+        aspectRatio: f.aspectRatio,
+        lutFilter: f.lutFilter
+      })),
+      multiCamGroup: multiCamGroup
+    };
+
+    projectStorageEngine.scheduleAutosave(stateToSave, 1500);
+  }, [currentIndex, project.title, project.frames, multiCamGroup]);
+
+  // 3. Quick Project Backup (.JSON) Handlers
+  const handleSaveProjectJson = useCallback(() => {
+    const stateToSave: SovereignProjectState = {
+      version: '1.0.0',
+      updatedAt: Date.now(),
+      activeShotIndex: currentIndex,
+      projectTitle: project.title,
+      shots: project.frames.map((f, i) => ({
+        id: String(f.id ?? i),
+        shotIndex: i,
+        title: f.title,
+        bengaliTitle: f.bengaliTitle || '',
+        englishTitle: f.title,
+        tagline: f.tagline,
+        directorNotes: f.directorNotes,
+        soundCue: f.soundCue,
+        durationSeconds: f.slideHoldSec ?? 12.0,
+        imageUrl: f.imageUrl,
+        isVideo: f.isVideo,
+        aspectRatio: f.aspectRatio,
+        lutFilter: f.lutFilter
+      })),
+      multiCamGroup: multiCamGroup
+    };
+    projectStorageEngine.exportProjectJson(stateToSave, 'handfilm_sovereign_project');
+  }, [currentIndex, project.title, project.frames, multiCamGroup]);
+
+  const handleRestoreProjectJson = useCallback(() => {
+    sessionRestoreInputRef.current?.click();
+  }, []);
+
+  const handleFileRestoreChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = await projectStorageEngine.importProjectJson(file);
+      if (typeof imported.activeShotIndex === 'number') {
+        setCurrentIndex(imported.activeShotIndex);
+      }
+      if (imported.multiCamGroup) {
+        setMultiCamGroup(imported.multiCamGroup);
+      }
+      if (Array.isArray(imported.shots) && imported.shots.length > 0) {
+        setProject(prev => {
+          const merged = prev.frames.map((f, i) => {
+            const s = imported.shots.find(shot => shot.shotIndex === i);
+            if (s) {
+              return {
+                ...f,
+                title: s.title || f.title,
+                bengaliTitle: s.bengaliTitle || f.bengaliTitle,
+                tagline: s.tagline || f.tagline,
+                directorNotes: s.directorNotes || f.directorNotes,
+                soundCue: s.soundCue || f.soundCue,
+                slideHoldSec: s.durationSeconds || f.slideHoldSec,
+                imageUrl: s.imageUrl || f.imageUrl,
+                isVideo: s.isVideo ?? f.isVideo
+              };
+            }
+            return f;
+          });
+          return {
+            ...prev,
+            title: imported.projectTitle || prev.title,
+            frames: merged
+          };
+        });
+      }
+    } catch (err: any) {
+      console.warn('[App] Failed to restore project JSON:', err);
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  }, []);
 
   // ==========================================
   // Core Audio Engine Handlers (Declared upfront to prevent Temporal Dead Zone / ReferenceError)
@@ -1389,6 +1534,18 @@ export default function App() {
           setWorkspaceMode('BLOOM');
           setIsDrawerOpen(false);
         }}
+        onSaveProjectJson={handleSaveProjectJson}
+        onRestoreProjectJson={handleRestoreProjectJson}
+      />
+
+      {/* Hidden Sovereign Session JSON Restore File Input */}
+      <input
+        ref={sessionRestoreInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={handleFileRestoreChange}
+        className="hidden"
+        aria-hidden="true"
       />
 
       {/* Main Studio Viewport: HandfilmHome or Full Pro Studio */}

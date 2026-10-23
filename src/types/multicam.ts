@@ -15,10 +15,22 @@ export interface MultiCamAngle {
   name?: string;
 }
 
+export interface CutEvent {
+  id: string;
+  timestampMs: number;
+  frame: number;
+  previousAngle: number;
+  newAngle: number;
+}
+
 export interface MultiCamCutEvent {
   id: string;
   timeMs: number;
   angleIndex: number;
+  timestampMs?: number;
+  frame?: number;
+  previousAngle?: number;
+  newAngle?: number;
 }
 
 export interface MultiCamGroup {

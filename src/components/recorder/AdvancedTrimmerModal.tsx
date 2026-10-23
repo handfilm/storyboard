@@ -229,9 +229,13 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
     }
   };
 
-  // Delete Segment
+  // Delete Segment & Free Memory
   const handleDeleteSegment = (id: string) => {
     if (segments.length <= 1) return;
+    const target = segments.find(s => s.id === id);
+    if (target?.thumbnailUrl && target.thumbnailUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(target.thumbnailUrl);
+    }
     const next = segments.filter(s => s.id !== id);
     setSegments(next);
     setSelectedSegmentId(next[0].id);

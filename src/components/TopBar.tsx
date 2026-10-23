@@ -94,6 +94,8 @@ export interface TopBarProps {
   totalShots?: number;
   activePanel?: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
   onSelectPanel?: (panel: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM') => void;
+  onSaveProjectJson?: () => void;
+  onRestoreProjectJson?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -125,9 +127,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   currentView = 'HOME',
   onSelectView,
   currentShotIndex = 0,
-  totalShots = 100,
   activePanel = 'TACTILE_STAGE',
-  onSelectPanel
+  onSelectPanel,
+  onSaveProjectJson,
+  onRestoreProjectJson
 }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isEcosystemMenuOpen, setIsEcosystemMenuOpen] = useState(false);
@@ -744,6 +747,46 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </div>
                   <span className="text-[8.5px] text-zinc-500">Quotas & Diagnostics</span>
                 </button>
+
+                {/* SOVEREIGN SESSION PERSISTENCE & BACKUP */}
+                <div className="pt-1.5 mt-1 border-t border-[#272732] flex flex-col gap-1">
+                  <div className="px-2 py-0.5 text-[8.5px] font-bold text-cyan-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>SOVEREIGN SESSION</span>
+                    <span className="text-[7.5px] bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 px-1 rounded">AUTOSAVED</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSaveProjectJson?.();
+                      setIsEcosystemMenuOpen(false);
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded text-left hover:bg-cyan-500/15 text-cyan-300 hover:text-white flex items-center justify-between cursor-pointer transition-colors border border-cyan-500/30"
+                    title="Export full project session state to JSON file"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Download className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="font-bold">💾 Save Project State (.JSON)</span>
+                    </div>
+                    <span className="text-[8px] text-cyan-400/80 font-mono">.JSON</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRestoreProjectJson?.();
+                      setIsEcosystemMenuOpen(false);
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded text-left hover:bg-amber-500/15 text-amber-300 hover:text-white flex items-center justify-between cursor-pointer transition-colors border border-amber-500/30"
+                    title="Restore project session from JSON file"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="font-bold">📁 Restore JSON</span>
+                    </div>
+                    <span className="text-[8px] text-amber-400/80 font-mono">IMPORT</span>
+                  </button>
+                </div>
 
                 {/* 8. KEYBOARD SHORTCUTS (?) */}
                 <button

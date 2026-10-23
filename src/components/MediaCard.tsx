@@ -34,6 +34,7 @@ export interface MediaCardProps {
   onCardDragStart: (e: React.DragEvent, item: VaultMediaItem) => void;
   formatBytes: (bytes?: number) => string;
   formatDuration: (sec?: number) => string;
+  onContextMenu?: (e: React.MouseEvent, item: VaultMediaItem) => void;
 }
 
 export const MediaCard: React.FC<MediaCardProps> = ({
@@ -46,7 +47,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   onOpenPreview,
   onCardDragStart,
   formatBytes,
-  formatDuration
+  formatDuration,
+  onContextMenu
 }) => {
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [cursorX, setCursorX] = useState<number | null>(null);
@@ -109,11 +111,26 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     setCursorTimecode(null);
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      onToggleSelect(e, item.id);
+      return;
+    }
+    onAssignToShot(item, targetShotIndex);
+  };
+
   return (
     <div
       draggable
       onDragStart={(e) => onCardDragStart(e, item)}
-      onClick={() => onAssignToShot(item, targetShotIndex)}
+      onClick={handleCardClick}
+      onContextMenu={(e) => {
+        if (onContextMenu) {
+          e.preventDefault();
+          onContextMenu(e, item);
+        }
+      }}
       onTouchEnd={(e) => {
         if ((e.target as HTMLElement).tagName !== 'BUTTON' && !(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('select')) {
           onAssignToShot(item, targetShotIndex);

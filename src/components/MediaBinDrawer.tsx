@@ -44,6 +44,9 @@ import { db, VaultMediaItem } from '../services/db';
 import { useStudioStore } from '../core/store';
 import { eventBus } from '../core/eventBus';
 import { MediaCard } from './MediaCard';
+import { MultiCamBinMenu } from './multicam/MultiCamBinMenu';
+import { MultiCamGridMonitor } from './multicam/MultiCamGridMonitor';
+import { MultiCamGroup } from '../types/multicam';
 
 export interface MediaBinDrawerProps {
   onAssignToShot?: (assetId: string, shotIndex: number, filename: string) => void;
@@ -69,6 +72,11 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
 
   // Multi-selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Multi-Cam Studio state
+  const [isMultiCamModalOpen, setIsMultiCamModalOpen] = useState(false);
+  const [activeMultiCamGroup, setActiveMultiCamGroup] = useState<MultiCamGroup | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: VaultMediaItem } | null>(null);
 
   // Batch Ingestion HUD State
   const [isIngesting, setIsIngesting] = useState(false);
@@ -413,6 +421,27 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     }
   };
 
+  // Context Menu Handler
+  const handleContextMenu = (e: React.MouseEvent, item: VaultMediaItem) => {
+    e.preventDefault();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.add(item.id);
+      return next;
+    });
+    setContextMenu({
+      x: Math.min(window.innerWidth - 220, e.clientX),
+      y: Math.min(window.innerHeight - 150, e.clientY),
+      item
+    });
+  };
+
+  useEffect(() => {
+    const handleGlobalClick = () => setContextMenu(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
   // Bulk Actions
   const handleBulkAssignToSequence = async () => {
     const selectedList = vaultItems.filter(it => selectedIds.has(it.id));
@@ -690,6 +719,18 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {selectedIds.size >= 2 && (
+              <button
+                type="button"
+                onClick={() => setIsMultiCamModalOpen(true)}
+                className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-[8.5px] font-black rounded-[1px] flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_10px_rgba(245,166,35,0.4)]"
+                title="Create Multi-Camera Clip from selected media"
+              >
+                <Video className="w-2.5 h-2.5 fill-current" />
+                <span>🎥 CREATE MULTI-CAM ({selectedIds.size})</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleBulkAssignToSequence}

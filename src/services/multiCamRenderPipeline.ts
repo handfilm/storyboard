@@ -12,6 +12,8 @@
 
 import { MultiCamGroup, MultiCamCutEvent } from '../types/multicam';
 import { db, VaultMediaItem } from './db';
+import { useStudioStore } from '../core/store';
+import { eventBus } from '../core/eventBus';
 
 export interface MultiCamRenderOptions {
   width?: number; // Default 1080 for 9:16 Shorts
@@ -44,6 +46,62 @@ export class MultiCamRenderPipeline {
       }
     }
     return active;
+  }
+
+  /**
+   * Slices the MultiCamGroup sequence and maps each cut segment into the Master Timeline (Shots 001-100).
+   */
+  public sendMultiCamSequenceToMasterTimeline(group: MultiCamGroup): number {
+    const durationMs = group.durationMs || Math.round((group.duration || 15) * 1000);
+    const cuts = [...group.cutEvents].sort((a, b) => a.timeMs - b.timeMs);
+    if (cuts.length === 0 || cuts[0].timeMs > 0) {
+      cuts.unshift({ id: 'cut-init', timeMs: 0, angleIndex: group.activeAngleIndex || 0 });
+    }
+
+    const segments: Array<{
+      startMs: number;
+      endMs: number;
+      durationMs: number;
+      angleIndex: number;
+    }> = [];
+
+    for (let i = 0; i < cuts.length; i++) {
+      const current = cuts[i];
+      const nextTime = (i < cuts.length - 1) ? cuts[i + 1].timeMs : durationMs;
+      const segDuration = Math.max(500, nextTime - current.timeMs);
+      segments.push({
+        startMs: current.timeMs,
+        endMs: nextTime,
+        durationMs: segDuration,
+        angleIndex: current.angleIndex,
+      });
+    }
+
+    // Map segments to shots 001-100 in master store
+    const store = useStudioStore.getState();
+    const count = Math.min(segments.length, 100);
+
+    for (let i = 0; i < count; i++) {
+      const seg = segments[i];
+      const angle = group.angles[seg.angleIndex] || group.angles[0];
+      const durSec = +(seg.durationMs / 1000).toFixed(1);
+
+      store.updateShot(i, {
+        imageUrl: angle.blobUrl,
+        isVideo: true,
+        title: `${group.name} - ${angle.label}`,
+        tagline: `CAM ${seg.angleIndex + 1} // IN: ${(seg.startMs / 1000).toFixed(2)}s - OUT: ${(seg.endMs / 1000).toFixed(2)}s`,
+        directorNotes: `Multi-camera live switched angle (${angle.label}). Duration: ${durSec}s. Sync offset: ${angle.syncOffsetMs || 0}ms.`,
+        durationSeconds: Math.max(1.0, durSec),
+        aspectRatio: group.aspectRatio === '9:16' ? '9:16' : (group.aspectRatio === '1:1' ? '1:1' : '16:9'),
+        status: 'planned'
+      });
+    }
+
+    // Set first shot as active
+    store.setActiveShotIndex(0);
+    eventBus.emit('multicam:sent_to_timeline', { count, groupName: group.name });
+    return count;
   }
 
   /**

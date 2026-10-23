@@ -227,6 +227,140 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
     return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
   };
 
+  const [showHotkeys, setShowHotkeys] = useState<boolean>(false);
+
+  // Global Precision Hotkey Matrix with input guard
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      // Space: Play / Pause
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleTogglePlay();
+        return;
+      }
+
+      // Shift + A: Add Segment
+      if (e.shiftKey && e.key.toUpperCase() === 'A') {
+        e.preventDefault();
+        handleAddSegment();
+        return;
+      }
+
+      // S or X: Split at Playhead
+      if ((e.key === 's' || e.key === 'S' || e.key === 'x' || e.key === 'X') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault();
+        handleSplitAtPlayhead();
+        return;
+      }
+
+      // I: Set In-Point of active segment
+      if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (activeSegment) {
+          const newStart = Math.min(currentTime, activeSegment.endTime - 0.05);
+          const updated: TrimSegment = {
+            ...activeSegment,
+            startTime: newStart,
+            duration: activeSegment.endTime - newStart
+          };
+          setSegments(segments.map(s => s.id === activeSegment.id ? updated : s));
+        }
+        return;
+      }
+
+      // O: Set Out-Point of active segment
+      if ((e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (activeSegment) {
+          const newEnd = Math.max(currentTime, activeSegment.startTime + 0.05);
+          const updated: TrimSegment = {
+            ...activeSegment,
+            endTime: newEnd,
+            duration: newEnd - activeSegment.startTime
+          };
+          setSegments(segments.map(s => s.id === activeSegment.id ? updated : s));
+        }
+        return;
+      }
+
+      // Delete / Backspace: Remove active segment
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedSegmentId && segments.length > 1) {
+          e.preventDefault();
+          handleDeleteSegment(selectedSegmentId);
+          return;
+        }
+      }
+
+      // ArrowLeft / ArrowRight Navigation
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (!videoRef.current) return;
+        const forward = e.key === 'ArrowRight';
+        let delta = 1 / 60; // 1 frame @ 60fps
+        if (e.shiftKey) {
+          delta = 1.0; // 1 second
+        } else if (e.ctrlKey || e.metaKey) {
+          delta = 5.0; // 5 seconds
+        }
+
+        const nextTime = forward
+          ? Math.min(duration, (videoRef.current.currentTime || currentTime) + delta)
+          : Math.max(0, (videoRef.current.currentTime || currentTime) - delta);
+
+        videoRef.current.currentTime = nextTime;
+        setCurrentTime(nextTime);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentTime, duration, segments, selectedSegmentId, activeSegment, isPlaying]);
+
+  // Primary Local Disk Download (.mp4)
+  const handleDownloadToDisk = async () => {
+    setIsExporting(true);
+    setExportProgress({ percent: 15, text: 'Rendering zero-freeze MP4...' });
+
+    try {
+      const result = await videoTrimmerEngine.exportTrimmedVideo(
+        captureResult.blob,
+        segments,
+        {
+          format: 'mp4',
+          mergeIntoOne,
+          applyAudioMicroFade,
+          onProgress: (percent, text) => setExportProgress({ percent, text })
+        }
+      );
+
+      const dlUrl = URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+      setIsExporting(false);
+    } catch (err: any) {
+      console.warn('[AdvancedTrimmer] Export fallback to raw blob download:', err);
+      const dlUrl = URL.createObjectURL(captureResult.blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+      setIsExporting(false);
+    }
+  };
+
   // Execute Hardware Splice & Export
   const handleExport = async () => {
     setIsExporting(true);
@@ -283,6 +417,65 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
               <span className="text-zinc-400">Total Cut Time:</span>
               <span className="text-emerald-400 font-bold">{totalSegmentsDuration.toFixed(2)}s</span>
             </div>
+
+            {/* Hotkeys HUD Button & Popover */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHotkeys(!showHotkeys)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showHotkeys
+                    ? 'bg-[#F5A623] text-black border-[#F5A623] shadow-[0_0_10px_rgba(245,166,35,0.4)]'
+                    : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/15'
+                }`}
+              >
+                <span>⌨ HOTKEYS</span>
+              </button>
+
+              {showHotkeys && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-[#0C0D14] border border-[#F5A623]/40 rounded-xl p-3.5 shadow-2xl z-50 text-[11px] text-zinc-300 flex flex-col gap-2.5 backdrop-blur-md">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                    <span className="font-bold text-[#FFE066]">PRECISION TRIMMER SHORTCUTS</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowHotkeys(false)}
+                      className="text-zinc-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-[10px]">
+                    <span className="text-zinc-400">Play / Pause:</span>
+                    <span className="text-white font-bold text-right">Space</span>
+
+                    <span className="text-zinc-400">Split at Playhead:</span>
+                    <span className="text-white font-bold text-right">S or X</span>
+
+                    <span className="text-zinc-400">+ Add Segment:</span>
+                    <span className="text-white font-bold text-right">Shift + A</span>
+
+                    <span className="text-zinc-400">Set In Point:</span>
+                    <span className="text-white font-bold text-right">I</span>
+
+                    <span className="text-zinc-400">Set Out Point:</span>
+                    <span className="text-white font-bold text-right">O</span>
+
+                    <span className="text-zinc-400">Delete Segment:</span>
+                    <span className="text-white font-bold text-right">Del / Backspace</span>
+
+                    <span className="text-zinc-400">Step 1 Frame:</span>
+                    <span className="text-white font-bold text-right">← / → (1/60s)</span>
+
+                    <span className="text-zinc-400">Shuttle 1.0s:</span>
+                    <span className="text-white font-bold text-right">Shift + ← / →</span>
+
+                    <span className="text-zinc-400">Fast Scrub 5.0s:</span>
+                    <span className="text-white font-bold text-right">Ctrl/Cmd + ← / →</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={onClose}
@@ -614,6 +807,18 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
               </div>
             )}
 
+            {/* Primary Download to Disk (.MP4) */}
+            <button
+              type="button"
+              onClick={handleDownloadToDisk}
+              disabled={isExporting}
+              className="px-4 py-2 bg-gradient-to-r from-[#00F0FF]/20 to-[#00F0FF]/10 hover:from-[#00F0FF]/30 hover:to-[#00F0FF]/20 text-[#00F0FF] rounded-xl border border-[#00F0FF]/50 font-bold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_14px_rgba(0,240,255,0.25)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4 text-[#00F0FF]" />
+              <span>⤓ DOWNLOAD TO DISK (.MP4)</span>
+            </button>
+
+            {/* Ingest to Master Shot */}
             <button
               type="button"
               onClick={handleExport}

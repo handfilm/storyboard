@@ -164,11 +164,112 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
     }
   };
 
+  const [showHotkeys, setShowHotkeys] = useState<boolean>(false);
+
+  // Keyboard navigation & trimming hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      // Space: Toggle Play
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleTogglePlay();
+        return;
+      }
+
+      // I / O: Set Start / End Boundaries
+      if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        handleSetStartAtCurrent();
+        return;
+      }
+      if (e.key === 'o' || e.key === 'O') {
+        e.preventDefault();
+        handleSetEndAtCurrent();
+        return;
+      }
+
+      // Arrow navigation
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (!videoRef.current) return;
+        const forward = e.key === 'ArrowRight';
+        let step = 1 / 24; // 1 frame
+        if (e.shiftKey) {
+          step = 1.0; // 1 second
+        } else if (e.ctrlKey || e.metaKey) {
+          step = 5.0; // 5 seconds
+        }
+
+        const nextTime = forward
+          ? Math.min(duration, (videoRef.current.currentTime || currentTime) + step)
+          : Math.max(0, (videoRef.current.currentTime || currentTime) - step);
+
+        videoRef.current.currentTime = nextTime;
+        setCurrentTime(nextTime);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentTime, duration, startSec, endSec, isPlaying]);
+
+  // Primary Local Disk Download (.mp4)
+  const handleDownloadToDisk = async () => {
+    try {
+      const isUncut = startSec <= 0.05 && endSec >= duration - 0.05;
+      let finalBlob = captureResult.blob;
+
+      if (!isUncut) {
+        const trimResult = await videoTrimmerEngine.exportTrimmedVideo(
+          captureResult.blob,
+          [
+            {
+              id: 'dl-seg',
+              name: 'Quick Trim',
+              startTime: startSec,
+              endTime: endSec,
+              duration: endSec - startSec
+            }
+          ],
+          {
+            format: 'mp4',
+            mergeIntoOne: true,
+            applyAudioMicroFade: true
+          }
+        );
+        finalBlob = trimResult.blob;
+      }
+
+      const dlUrl = URL.createObjectURL(finalBlob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+    } catch (err) {
+      console.warn('[QuickTrim] Export fallback to raw blob download:', err);
+      const dlUrl = URL.createObjectURL(captureResult.blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = `HANDFILM_REC_${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 6000);
+    }
+  };
+
   // Download raw recording file
   const handleDownload = () => {
     const a = document.createElement('a');
     a.href = videoUrl;
-    a.download = `Raw_Recording_${Date.now()}.${captureResult.format}`;
+    a.download = `HANDFILM_REC_${Date.now()}.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -191,13 +292,64 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Hotkeys HUD Button & Popover */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHotkeys(!showHotkeys)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showHotkeys
+                    ? 'bg-[#F5A623] text-black border-[#F5A623] shadow-[0_0_10px_rgba(245,166,35,0.4)]'
+                    : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/15'
+                }`}
+              >
+                <span>⌨ HOTKEYS</span>
+              </button>
+
+              {showHotkeys && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-[#0C0D14] border border-[#F5A623]/40 rounded-xl p-3 shadow-2xl z-50 text-[11px] text-zinc-300 flex flex-col gap-2 backdrop-blur-md">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                    <span className="font-bold text-[#FFE066]">QUICK TRIM SHORTCUTS</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowHotkeys(false)}
+                      className="text-zinc-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[10px]">
+                    <span className="text-zinc-400">Play / Pause:</span>
+                    <span className="text-white font-bold text-right">Space</span>
+
+                    <span className="text-zinc-400">Set In Point:</span>
+                    <span className="text-white font-bold text-right">I</span>
+
+                    <span className="text-zinc-400">Set Out Point:</span>
+                    <span className="text-white font-bold text-right">O</span>
+
+                    <span className="text-zinc-400">Step 1 Frame:</span>
+                    <span className="text-white font-bold text-right">← / → (1/24s)</span>
+
+                    <span className="text-zinc-400">Shuttle 1.0s:</span>
+                    <span className="text-white font-bold text-right">Shift + ← / →</span>
+
+                    <span className="text-zinc-400">Scrub 5.0s:</span>
+                    <span className="text-white font-bold text-right">Ctrl/Cmd + ← / →</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Video Monitor Stage */}
@@ -333,56 +485,60 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
           </div>
 
           {/* Action Row */}
-          <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-3">
+          <div className="flex items-center justify-between pt-2.5 border-t border-white/10 gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleDownload}
-                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white rounded-xl border border-white/15 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download RAW</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => onOpenAdvancedTrimmer(captureResult, startSec, endSec)}
-                className="px-3.5 py-1.5 bg-[#F5A623]/20 hover:bg-[#F5A623]/35 text-[#FFE066] rounded-xl border border-[#F5A623]/60 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.2)]"
+                className="px-3 py-1.5 bg-[#F5A623]/15 hover:bg-[#F5A623]/25 text-[#FFE066] rounded-xl border border-[#F5A623]/40 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_10px_rgba(245,166,35,0.15)]"
               >
                 <Scissors className="w-3.5 h-3.5 text-[#F5A623]" />
                 <span>✂ Advanced Trimmer</span>
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleSaveAndCommit}
-              disabled={isSaving || saveSuccess}
-              className={`px-5 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg transition-all ${
-                saveSuccess
-                  ? 'bg-emerald-600 text-white'
-                  : isSaving
-                  ? 'bg-amber-600 text-black opacity-80 cursor-wait'
-                  : 'bg-[#F5A623] hover:bg-[#FFE066] text-black shadow-[0_0_16px_rgba(245,166,35,0.4)] cursor-pointer active:scale-95'
-              }`}
-            >
-              {saveSuccess ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>COMMITTED TO SHOT {String(targetShot + 1).padStart(3, '0')}!</span>
-                </>
-              ) : isSaving ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  <span>SPLICING & INJECTING...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>SAVE & COMMIT TO SHOT</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2.5">
+              {/* Primary Download to Disk (.MP4) */}
+              <button
+                type="button"
+                onClick={handleDownloadToDisk}
+                className="px-4 py-2 bg-gradient-to-r from-[#00F0FF]/20 to-[#00F0FF]/10 hover:from-[#00F0FF]/30 hover:to-[#00F0FF]/20 text-[#00F0FF] rounded-xl border border-[#00F0FF]/50 font-bold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_14px_rgba(0,240,255,0.25)] active:scale-95"
+              >
+                <Download className="w-4 h-4 text-[#00F0FF]" />
+                <span>⤓ DOWNLOAD TO DISK (.MP4)</span>
+              </button>
+
+              {/* Commit to Shot */}
+              <button
+                type="button"
+                onClick={handleSaveAndCommit}
+                disabled={isSaving || saveSuccess}
+                className={`px-5 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg transition-all ${
+                  saveSuccess
+                    ? 'bg-emerald-600 text-white'
+                    : isSaving
+                    ? 'bg-amber-600 text-black opacity-80 cursor-wait'
+                    : 'bg-[#F5A623] hover:bg-[#FFE066] text-black shadow-[0_0_16px_rgba(245,166,35,0.4)] cursor-pointer active:scale-95'
+                }`}
+              >
+                {saveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>COMMITTED TO SHOT {String(targetShot + 1).padStart(3, '0')}!</span>
+                  </>
+                ) : isSaving ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <span>SPLICING & INJECTING...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>COMMIT TO SHOT {String(targetShot + 1).padStart(3, '0')}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

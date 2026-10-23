@@ -727,7 +727,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
                 title="Create Multi-Camera Clip from selected media"
               >
                 <Video className="w-2.5 h-2.5 fill-current" />
-                <span>🎥 CREATE MULTI-CAM ({selectedIds.size})</span>
+                <span>🎥 Create Multi-Camera Clip ({selectedIds.size})</span>
               </button>
             )}
 
@@ -856,6 +856,34 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MULTI-CAMERA GROUPING CONFIGURATION MODAL                             */}
+      {/* ===================================================================== */}
+      <MultiCamBinMenu
+        isOpen={isMultiCamModalOpen}
+        selectedItems={vaultItems.filter((it) => selectedIds.has(it.id))}
+        onClose={() => setIsMultiCamModalOpen(false)}
+        onCreateGroup={(group) => {
+          setActiveMultiCamGroup(group);
+          setIsMultiCamModalOpen(false);
+        }}
+      />
+
+      {/* ===================================================================== */}
+      {/* MULTI-CAMERA LIVE SWITCHING & PRECISION SHORTS GRID MONITOR          */}
+      {/* ===================================================================== */}
+      {activeMultiCamGroup && (
+        <MultiCamGridMonitor
+          group={activeMultiCamGroup}
+          isOpen={!!activeMultiCamGroup}
+          onClose={() => setActiveMultiCamGroup(null)}
+          onSaveGroup={(updated) => setActiveMultiCamGroup(updated)}
+          onExportSuccess={(_vaultItem) => {
+            loadStoredMedia();
+          }}
+        />
       )}
     </div>
   );

@@ -132,6 +132,40 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
     }
   };
 
+  const [showHotkeys, setShowHotkeys] = useState(false);
+
+  // Global Precision Hotkey Matrix for Screen Recorder with input guard
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      // Shift + R: Start / Pause / Resume
+      if (e.shiftKey && e.key.toUpperCase() === 'R') {
+        e.preventDefault();
+        if (status === 'idle') {
+          handleStart();
+        } else {
+          handlePauseResume();
+        }
+      }
+
+      // Shift + S: Stop & Launch Trimmer
+      if (e.shiftKey && e.key.toUpperCase() === 'S') {
+        e.preventDefault();
+        if (status === 'recording' || status === 'paused') {
+          handleStop();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, status, resolution, format, systemAudio, microphone, mouseClicks]);
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 MB';
     const mb = bytes / (1024 * 1024);
@@ -186,6 +220,38 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
                 </div>
               </>
             )}
+
+            {/* Floating HOTKEYS HUD Badge */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHotkeys(!showHotkeys)}
+                className="px-2 py-0.5 rounded bg-[#F5A623]/15 hover:bg-[#F5A623]/30 border border-[#F5A623]/40 text-[#FFE066] font-mono text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                title="View recording keyboard shortcuts"
+              >
+                <span>⌨ HOTKEYS</span>
+              </button>
+
+              {showHotkeys && (
+                <div 
+                  className="absolute right-0 top-7 z-50 w-64 bg-[#0a0b12] border border-[#F5A623]/50 rounded-xl p-3 shadow-2xl text-[10px] font-mono flex flex-col gap-2"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between text-white font-bold border-b border-white/10 pb-1">
+                    <span>RECORDER SHORTCUTS</span>
+                    <button onClick={() => setShowHotkeys(false)} className="text-neutral-400 hover:text-white">×</button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Start / Pause / Resume</span>
+                    <span className="bg-black/60 px-1.5 py-0.5 rounded text-[#FFE066] border border-white/10">Shift + R</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Stop & Launch Trimmer</span>
+                    <span className="bg-black/60 px-1.5 py-0.5 rounded text-rose-300 border border-white/10">Shift + S</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <button
               type="button"

@@ -59,9 +59,10 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
-  const [viewMode, setViewMode] = useState<'GRID' | 'PROGRAM'>('GRID');
+  const [programAspectRatio, setProgramAspectRatio] = useState<'9:16' | '2.39:1'>('9:16');
   const [isMuted, setIsMuted] = useState(false);
   const [masterVolume, setMasterVolume] = useState(0.85);
+  const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(null);
 
   // Undo stack for cuts
   const [cutHistory, setCutHistory] = useState<MultiCamCutEvent[][]>([]);
@@ -72,8 +73,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   const [exportStatus, setExportStatus] = useState('');
   const [exportedItem, setExportedItem] = useState<VaultMediaItem | null>(null);
 
-  // References for angle video elements
+  // References for angle video elements and program video
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const programVideoRef = useRef<HTMLVideoElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(performance.now());
 
@@ -220,6 +222,17 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           video.muted = true;
         }
       });
+
+      // Synchronize Master Program Output video element
+      if (programVideoRef.current) {
+        const activeAngle = group.angles[currentActiveAngleIdx] || group.angles[0];
+        if (activeAngle) {
+          const targetSec = Math.max(0, (timeMs - (activeAngle.syncOffsetMs || 0)) / 1000);
+          if (Math.abs(programVideoRef.current.currentTime - targetSec) > 0.08) {
+            programVideoRef.current.currentTime = targetSec;
+          }
+        }
+      }
     };
 
     if (isPlaying) {
@@ -231,6 +244,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           v.play().catch(() => {});
         }
       });
+      if (programVideoRef.current && programVideoRef.current.paused) {
+        programVideoRef.current.play().catch(() => {});
+      }
 
       const tick = (now: number) => {
         const deltaMs = now - lastTimeRef.current;
@@ -264,6 +280,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           v.pause();
         }
       });
+      if (programVideoRef.current && !programVideoRef.current.paused) {
+        programVideoRef.current.pause();
+      }
       syncVideosToTime(currentTimeMs);
     }
 
@@ -345,31 +364,27 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           </div>
         </div>
 
-        {/* View Mode Toggle & Actions */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center p-1 bg-[#14151F] border border-white/10 rounded-xl text-xs">
-            <button
-              onClick={() => setViewMode('GRID')}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                viewMode === 'GRID' ? 'bg-amber-500 text-black font-semibold' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Quad-Split Monitor
-            </button>
-            <button
-              onClick={() => setViewMode('PROGRAM')}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                viewMode === 'PROGRAM' ? 'bg-amber-500 text-black font-semibold' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Program On-Air
-            </button>
-          </div>
+        {/* Header Actions */}
+        <div className="flex items-center gap-2.5">
+          {/* Direct Send to Master Storyboard Timeline */}
+          <button
+            type="button"
+            onClick={() => {
+              const count = multiCamRenderPipeline.sendMultiCamSequenceToMasterTimeline(group);
+              setSendSuccessMessage(`⚡ Sequenced ${count} cuts into Storyboard Shots 001-${String(count).padStart(3, '0')}!`);
+              setTimeout(() => setSendSuccessMessage(null), 3500);
+            }}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            title="Send multi-camera live cuts directly to Master Storyboard Shots 001-100"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>⚡ Send Multi-Cam Sequence to Master Timeline (Shots 001-100)</span>
+          </button>
 
           <button
             onClick={undoLastCut}
             disabled={cutHistory.length === 0}
-            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-30 transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-30 transition-colors flex items-center gap-1.5 cursor-pointer"
             title="Undo last live cut (Cmd+Z)"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -379,26 +394,47 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           <button
             onClick={handleExportShort}
             disabled={isExporting}
-            className="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+            className="px-4 py-1.5 bg-[#141520] hover:bg-[#1f2133] border border-cyan-500/40 text-cyan-300 hover:text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
             <span>Render 9:16 Short</span>
           </button>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* Main Viewport: Multi-Angle Quad-Split vs Program On-Air */}
-      <div className="flex-1 w-full bg-[#050608] p-4 flex items-center justify-center overflow-hidden">
-        {viewMode === 'GRID' ? (
-          /* Multi-Angle Quad Grid */
-          <div className={`w-full max-w-5xl h-full grid ${getGridColsClass()} gap-3 items-center justify-center p-2`}>
+      {/* Success Notification Banner */}
+      {sendSuccessMessage && (
+        <div className="bg-amber-500/15 border-b border-amber-500/40 px-6 py-2 flex items-center justify-between text-xs text-amber-300 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-amber-400" />
+            <span className="font-semibold">{sendSuccessMessage}</span>
+          </div>
+          <span className="text-[10px] text-amber-400/80 font-mono">STORYBOARD SLOTS 1-100 POPULATED</span>
+        </div>
+      )}
+
+      {/* Main Dual-Pane Viewport: Left Angle Matrix vs Right Switched Master Program Output */}
+      <div className="flex-1 w-full bg-[#050608] p-4 flex flex-col lg:flex-row items-center justify-between gap-4 overflow-hidden">
+        {/* Left Pane: Multi-Angle Input Matrix (2x2 or 3x3) */}
+        <div className="flex-1 w-full h-full min-w-0 flex flex-col bg-[#0A0B10] border border-white/10 rounded-2xl p-3 overflow-hidden shadow-xl">
+          <div className="flex items-center justify-between px-2 pb-2 border-b border-white/5 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white text-[11px] tracking-wider uppercase">INPUT ANGLE MATRIX</span>
+              <span className="text-[10px] font-mono text-neutral-400">({group.angles.length} CAMERAS)</span>
+            </div>
+            <span className="text-[10px] text-neutral-500 font-mono">
+              CLICK CELL OR PRESS [1-{group.angles.length}] TO CUT LIVE
+            </span>
+          </div>
+
+          <div className={`w-full flex-1 grid ${getGridColsClass()} gap-2.5 items-center justify-center p-2 overflow-y-auto no-scrollbar`}>
             {group.angles.map((angle, idx) => {
               const isActive = idx === currentActiveAngleIdx;
               const isMasterAudio = idx === masterAudioIndex;
@@ -407,10 +443,10 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
                 <div
                   key={angle.id}
                   onClick={() => switchAngle(idx)}
-                  className={`relative w-full h-full max-h-[75vh] aspect-[9/16] mx-auto bg-black rounded-2xl overflow-hidden cursor-pointer transition-all duration-150 flex items-center justify-center ${
+                  className={`relative w-full h-full max-h-[38vh] aspect-[9/16] mx-auto bg-black rounded-xl overflow-hidden cursor-pointer transition-all duration-100 flex items-center justify-center ${
                     isActive
-                      ? 'border-2 border-amber-500 shadow-[0_0_24px_rgba(245,166,35,0.45)] ring-2 ring-amber-500/20'
-                      : 'border border-white/10 hover:border-white/30 opacity-70 hover:opacity-100'
+                      ? 'border-2 border-[#00F0FF] shadow-[0_0_12px_rgba(0,240,255,0.4)] ring-2 ring-[#00F0FF]/30 opacity-100 scale-[1.01]'
+                      : 'border border-white/10 hover:border-white/30 opacity-65 hover:opacity-95'
                   }`}
                 >
                   {/* Angle Video Element */}
@@ -423,12 +459,14 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
                   />
 
                   {/* Top Bar Overlay */}
-                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
+                  <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-md bg-black/80 border border-white/20 flex items-center justify-center font-mono font-bold text-xs text-white">
+                      <span className={`w-5 h-5 rounded-md flex items-center justify-center font-mono font-bold text-xs ${
+                        isActive ? 'bg-[#00F0FF] text-black shadow-sm' : 'bg-black/80 border border-white/20 text-white'
+                      }`}>
                         {idx + 1}
                       </span>
-                      <span className="text-xs font-semibold tracking-wider text-white bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10">
+                      <span className="text-xs font-semibold tracking-wider text-white bg-black/70 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10">
                         {angle.label}
                       </span>
                     </div>
@@ -436,12 +474,12 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
                     {/* Active Tally or Master Mic Badge */}
                     <div className="flex items-center gap-1">
                       {isMasterAudio && (
-                        <span className="p-1 rounded-md bg-black/60 border border-white/10 text-amber-400" title="Master Audio Feed">
-                          <Volume2 className="w-3.5 h-3.5" />
+                        <span className="p-1 rounded bg-black/70 border border-white/10 text-amber-400" title="Master Audio Feed">
+                          <Volume2 className="w-3 h-3" />
                         </span>
                       )}
                       {isActive && (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500 text-black font-bold text-[10px] tracking-widest uppercase animate-pulse">
+                        <span className="px-1.5 py-0.5 rounded bg-[#00F0FF] text-black font-black text-[9px] tracking-wider uppercase animate-pulse shadow-[0_0_8px_#00F0FF]">
                           ON AIR
                         </span>
                       )}
@@ -449,9 +487,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
                   </div>
 
                   {/* Bottom Camera Label */}
-                  <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-[10px] font-mono text-neutral-400 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10">
-                    <span className="truncate max-w-[120px]">{angle.name || `Angle ${idx + 1}`}</span>
-                    <span className="text-neutral-500 tabular-nums">
+                  <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-mono text-neutral-300 bg-black/70 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 pointer-events-none">
+                    <span className="truncate max-w-[100px]">{angle.name || `Angle ${idx + 1}`}</span>
+                    <span className="text-neutral-400 tabular-nums">
                       {angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : '0ms'}
                     </span>
                   </div>
@@ -459,28 +497,83 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
               );
             })}
           </div>
-        ) : (
-          /* Single Clean Program (On-Air) View */
-          <div className="relative h-full max-h-[75vh] aspect-[9/16] bg-black rounded-2xl overflow-hidden border-2 border-amber-500/80 shadow-[0_0_30px_rgba(245,166,35,0.3)] flex items-center justify-center">
-            {group.angles[currentActiveAngleIdx] && (
-              <video
-                src={group.angles[currentActiveAngleIdx].blobUrl}
-                playsInline
-                autoPlay
-                muted
-                className="w-full h-full object-cover"
-              />
-            )}
-            <div className="absolute top-4 left-4 flex items-center gap-2">
-              <span className="px-2.5 py-1 bg-amber-500 text-black font-bold text-xs rounded-md shadow-md">
-                {group.angles[currentActiveAngleIdx]?.label || 'PROGRAM'}
-              </span>
-              <span className="px-2 py-1 bg-black/80 backdrop-blur-md text-amber-300 font-mono text-xs rounded-md border border-amber-500/30">
-                ON AIR
+        </div>
+
+        {/* Right Pane: Switched Master Program Output */}
+        <div className="w-full lg:w-[420px] xl:w-[480px] h-full flex flex-col bg-[#0A0B10] border border-white/10 rounded-2xl p-3 shrink-0 shadow-xl overflow-hidden">
+          {/* Header with Aspect Ratio Toggle */}
+          <div className="flex items-center justify-between px-2 pb-2 border-b border-white/5 text-xs shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white text-[11px] tracking-wider uppercase">MASTER PROGRAM OUTPUT</span>
+              <span className="px-1.5 py-0.2 bg-[#00F0FF]/20 text-[#00F0FF] font-mono font-bold text-[9px] rounded border border-[#00F0FF]/40 animate-pulse">
+                LIVE
               </span>
             </div>
+
+            {/* Toggle 9:16 Shorts vs 2.39:1 Cinema Scope */}
+            <div className="flex items-center p-0.5 bg-[#14151F] border border-white/10 rounded-lg text-[10px]">
+              <button
+                type="button"
+                onClick={() => setProgramAspectRatio('9:16')}
+                className={`px-2 py-0.5 rounded font-medium transition-colors cursor-pointer ${
+                  programAspectRatio === '9:16'
+                    ? 'bg-[#00F0FF] text-black font-bold shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                9:16 Shorts
+              </button>
+              <button
+                type="button"
+                onClick={() => setProgramAspectRatio('2.39:1')}
+                className={`px-2 py-0.5 rounded font-medium transition-colors cursor-pointer ${
+                  programAspectRatio === '2.39:1'
+                    ? 'bg-[#00F0FF] text-black font-bold shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                2.39:1 Cinema Scope
+              </button>
+            </div>
           </div>
-        )}
+
+          {/* Master Program Viewport */}
+          <div className="flex-1 w-full flex items-center justify-center p-2 overflow-hidden bg-black/40 rounded-xl mt-2">
+            <div className={`relative w-full mx-auto bg-black rounded-xl overflow-hidden border-2 border-[#00F0FF]/80 shadow-[0_0_24px_rgba(0,240,255,0.3)] flex items-center justify-center transition-all ${
+              programAspectRatio === '9:16'
+                ? 'aspect-[9/16] max-h-[62vh]'
+                : 'aspect-[2.39/1] max-w-full'
+            }`}>
+              {/* Program Output Video */}
+              <video
+                ref={programVideoRef}
+                src={group.angles[currentActiveAngleIdx]?.blobUrl || group.angles[0]?.blobUrl}
+                playsInline
+                muted
+                className="w-full h-full object-cover pointer-events-none"
+              />
+
+              {/* Program Overlays */}
+              <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none z-10">
+                <span className="px-2 py-0.5 bg-[#00F0FF] text-black font-black text-xs rounded shadow-md tracking-wider">
+                  {group.angles[currentActiveAngleIdx]?.label || 'PROGRAM'}
+                </span>
+                <span className="px-2 py-0.5 bg-black/80 backdrop-blur-md text-[#00F0FF] font-mono text-[10px] font-bold rounded border border-[#00F0FF]/40">
+                  ON AIR
+                </span>
+              </div>
+
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[10px] font-mono text-white bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 pointer-events-none z-10">
+                <span className="truncate max-w-[180px]">
+                  {group.angles[currentActiveAngleIdx]?.name || `Angle ${currentActiveAngleIdx + 1}`}
+                </span>
+                <span className="text-cyan-400 font-bold tabular-nums">
+                  TC {formatTimecode(currentTimeMs)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Floating Control Transport & Timecode Bar */}

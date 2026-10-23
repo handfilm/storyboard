@@ -415,7 +415,7 @@ test('CapCut-Style Draft Engine & 12.0s Sequencer invariants', async () => {
 
   // 2. Verify IndexedDB database metadata and payload limits
   assert.equal(DB_NAME, 'rawx_storyboard_studio_db');
-  assert.equal(DB_VERSION, 4);
+  assert.equal(DB_VERSION, 6);
   assert.equal(MAX_SERIALIZED_SNAPSHOT_BYTES, 2 * 1024 * 1024);
 
   // 3. Verify Federation Ecosystem apps

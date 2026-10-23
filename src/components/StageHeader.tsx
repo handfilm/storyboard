@@ -72,8 +72,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             onClick={() => onSelectPanel('TACTILE_STAGE')}
             className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
               currentPanel === 'TACTILE_STAGE'
-                ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
-                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
+                ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
+                : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
             }`}
           >
             <Film className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'TACTILE_STAGE' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
@@ -105,8 +105,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             onClick={() => onSelectPanel('SPLIT')}
             className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
               currentPanel === 'SPLIT'
-                ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
-                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
+                ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
+                : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
             }`}
           >
             <Sliders className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'SPLIT' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
@@ -138,8 +138,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             onClick={() => onSelectPanel('OPTICAL')}
             className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
               currentPanel === 'OPTICAL'
-                ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
-                : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
+                ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
+                : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
             }`}
           >
             <Maximize2 className={`w-3.5 h-3.5 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />

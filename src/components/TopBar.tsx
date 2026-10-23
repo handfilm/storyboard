@@ -249,25 +249,29 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
           </div>
 
-          {/* If Studio Mode: Primary View Switcher Tabs; If Home Mode: Minimal Nav Links */}
+          {/* Primary View Switcher Tabs (Stage Header) */}
           {currentView === 'STUDIO' ? (
             <div className="flex items-center space-x-2 sm:space-x-3">
               {/* [ Stage ] Capsule Tab */}
               <div className="relative group/tab">
                 <button
                   type="button"
-                  onClick={() => onSelectPanel ? onSelectPanel('TACTILE_STAGE') : onSelectMode?.('STAGE')}
+                  onClick={() => {
+                    if (currentView !== 'STUDIO') onSelectView?.('STUDIO');
+                    if (onSelectPanel) onSelectPanel('TACTILE_STAGE');
+                    else onSelectMode?.('STAGE');
+                  }}
                   className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
                     (activePanel === 'TACTILE_STAGE' || activeMode === 'STAGE')
-                      ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
-                      : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
+                      ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
+                      : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
                   }`}
                 >
                   <Film className={`w-3.5 h-3.5 transition-transform duration-150 ${(activePanel === 'TACTILE_STAGE' || activeMode === 'STAGE') ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
                   <span>Stage</span>
                 </button>
 
-                {/* Hover Card for Stage */}
+                {/* Glassmorphism Hover Card for Stage */}
                 <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
                     <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
@@ -289,18 +293,22 @@ export const TopBar: React.FC<TopBarProps> = ({
               <div className="relative group/tab">
                 <button
                   type="button"
-                  onClick={() => onSelectPanel ? onSelectPanel('SPLIT') : onSelectMode?.('BOARD')}
+                  onClick={() => {
+                    if (currentView !== 'STUDIO') onSelectView?.('STUDIO');
+                    if (onSelectPanel) onSelectPanel('SPLIT');
+                    else onSelectMode?.('BOARD');
+                  }}
                   className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
                     (activePanel === 'SPLIT' || activeMode === 'BOARD')
-                      ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
-                      : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
+                      ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
+                      : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
                   }`}
                 >
                   <Sliders className={`w-3.5 h-3.5 transition-transform duration-150 ${(activePanel === 'SPLIT' || activeMode === 'BOARD') ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
                   <span>12.0s Reels</span>
                 </button>
 
-                {/* Hover Card for 12.0s Reels */}
+                {/* Glassmorphism Hover Card for 12.0s Reels */}
                 <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
                     <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
@@ -322,18 +330,22 @@ export const TopBar: React.FC<TopBarProps> = ({
               <div className="relative group/tab">
                 <button
                   type="button"
-                  onClick={() => onSelectPanel ? onSelectPanel('OPTICAL') : onSelectMode?.('STAGE')}
+                  onClick={() => {
+                    if (currentView !== 'STUDIO') onSelectView?.('STUDIO');
+                    if (onSelectPanel) onSelectPanel('OPTICAL');
+                    else onSelectMode?.('STAGE');
+                  }}
                   className={`px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border cursor-pointer select-none flex items-center gap-2 active:scale-[0.98] ${
                     activePanel === 'OPTICAL'
-                      ? 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]'
-                      : 'bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25'
+                      ? 'bg-gradient-to-b from-[#F5A623]/25 via-[#F5A623]/15 to-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/70 shadow-[0_0_18px_rgba(245,166,35,0.4),inset_0_1px_2px_rgba(255,255,255,0.25)] ring-1 ring-[#F5A623]/30'
+                      : 'bg-[#0c0d10]/90 text-slate-400 border-white/10 hover:text-white hover:border-white/30 hover:bg-[#141520]/90 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.6)]'
                   }`}
                 >
                   <Maximize2 className={`w-3.5 h-3.5 transition-transform duration-150 ${activePanel === 'OPTICAL' ? 'text-[#F5A623] scale-105' : 'text-slate-400'}`} />
                   <span>Monitor</span>
                 </button>
 
-                {/* Hover Card for Monitor */}
+                {/* Glassmorphism Hover Card for Monitor */}
                 <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
                     <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />

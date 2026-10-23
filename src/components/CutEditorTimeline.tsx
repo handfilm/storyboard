@@ -75,25 +75,27 @@ export interface PlayheadTimecodeOverlayProps {
   isScrubbing?: boolean;
   fps?: number;
   className?: string;
+  onScrubStart?: (e: React.MouseEvent) => void;
 }
 
 /**
- * PlayheadTimecodeOverlay renders a dynamic pill element bound to the playhead's
- * normalized currentTime position with CSS transitions for smooth interpolation during
- * playback and instant tracking during active scrubbing.
+ * PlayheadTimecodeOverlay renders a dynamic timecode badge anchored to the playhead scrubber
+ * using absolute positioning. Displays timecode as 'TC 00:00:04:12 // F108' and updates at 60fps
+ * during playback and dragging with smooth CSS interpolation.
  */
 export const PlayheadTimecodeOverlay: React.FC<PlayheadTimecodeOverlayProps> = ({
   currentTime,
   duration,
   isScrubbing = false,
   fps = 24,
-  className = ''
+  className = '',
+  onScrubStart
 }) => {
   const safeCurrentTime = Math.max(0, currentTime);
   const safeDuration = Math.max(0.01, duration);
   const normalizedProgress = Math.min(100, Math.max(0, (safeCurrentTime / safeDuration) * 100));
 
-  // Compute exact SMPTE & frame index: TC 00:00:04:12 // F108
+  // Compute exact SMPTE & frame index: 'TC 00:00:04:12 // F108'
   const totalFrames = Math.floor(safeCurrentTime * fps);
   const ff = totalFrames % fps;
   const ss = Math.floor(safeCurrentTime) % 60;
@@ -112,18 +114,22 @@ export const PlayheadTimecodeOverlay: React.FC<PlayheadTimecodeOverlayProps> = (
         transform: 'translateX(-50%)'
       }}
     >
-      {/* Floating pill above playhead */}
+      {/* Dynamic Timecode Badge anchored to playhead scrubber */}
       <div className="absolute top-1 left-1/2 transform -translate-x-1/2 pointer-events-none whitespace-nowrap z-50">
-        <div className="bg-[#0c0d10]/95 border border-[#F5A623]/50 text-[#F5A623] px-2.5 py-0.5 rounded-full text-[10px] font-mono shadow-[0_2px_10px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-none whitespace-nowrap flex items-center gap-1.5 animate-fade-in">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623] animate-pulse" />
-          <span>{timecodeString}</span>
+        <div className="bg-[#0c0d10]/95 border border-[#F5A623]/60 text-[#F5A623] px-2.5 py-0.5 rounded-full text-[10px] font-mono shadow-[0_2px_10px_rgba(0,0,0,0.85),0_0_14px_rgba(245,166,35,0.3)] backdrop-blur-md pointer-events-none whitespace-nowrap flex items-center gap-1.5 animate-fade-in tracking-wider">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623] shadow-[0_0_8px_#F5A623] animate-pulse" />
+          <span className="font-semibold">{timecodeString}</span>
         </div>
       </div>
 
       {/* Scrubber Needle (Red/Amber Gradient with Glowing Shadow) */}
-      <div className="w-0.5 h-full mx-auto bg-gradient-to-b from-[#F5A623] via-rose-500 to-rose-600 shadow-[0_0_10px_rgba(244,63,94,0.8)] relative">
-        {/* Playhead Diamond Cap */}
-        <div className="w-4 h-4 bg-gradient-to-br from-[#FFE066] to-rose-500 transform -translate-x-[7px] translate-y-6 rotate-45 shadow-[0_0_12px_rgba(245,166,35,0.9)] border border-white/80" />
+      <div className="w-0.5 h-full mx-auto bg-gradient-to-b from-[#F5A623] via-rose-500 to-rose-600 shadow-[0_0_10px_rgba(244,63,94,0.8)] relative pointer-events-auto cursor-ew-resize">
+        {/* Playhead Diamond Cap (Interactive Drag Handle) */}
+        <div
+          onMouseDown={onScrubStart}
+          className="w-4 h-4 bg-gradient-to-br from-[#FFE066] to-rose-500 transform -translate-x-[7px] translate-y-6 rotate-45 shadow-[0_0_12px_rgba(245,166,35,0.9)] border border-white/90 pointer-events-auto cursor-ew-resize active:scale-110 transition-transform"
+          title="Drag Playhead (60fps)"
+        />
       </div>
     </div>
   );
@@ -204,17 +210,16 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
     return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="40" viewBox="0 0 96 40"><rect width="96" height="40" fill="%2312131e"/><rect x="2" y="2" width="92" height="36" fill="none" stroke="%23f5a623" stroke-width="1" opacity="0.4"/><text x="50%" y="45%" text-anchor="middle" fill="%23f5a623" font-family="monospace" font-size="8.5" font-weight="bold">SH${shotNum}</text><text x="50%" y="75%" text-anchor="middle" fill="%2371717a" font-family="monospace" font-size="6.5">24FPS V1</text></svg>`;
   }, [vaultMediaMap, project.shots]);
 
-  // Handle timeline scrubber drag
-  const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    setIsScrubbing(true);
-    handleTimelineSeek(e);
-  };
+  // 60FPS RAF-synced timeline scrubber drag & playback tracking
+  const [dragTime, setDragTime] = useState<number | null>(null);
+  const rafSeekRef = useRef<number | null>(null);
+  const pendingClientXRef = useRef<number | null>(null);
 
-  const handleTimelineSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+  const applySeekPosition = useCallback((clientX: number) => {
     if (!timelineTracksRef.current) return;
     const rect = timelineTracksRef.current.getBoundingClientRect();
     const scrollLeft = timelineTracksRef.current.scrollLeft;
-    const clickX = e.clientX - rect.left + scrollLeft;
+    const clickX = clientX - rect.left + scrollLeft;
     let newTime = Math.max(0, Math.min(totalDuration, clickX / pps));
 
     // Magnetic snapping to clip boundaries (within 0.3s)
@@ -233,28 +238,52 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
       }
     }
 
+    setDragTime(newTime);
     onSeek(newTime);
   }, [totalDuration, pps, onSeek, isMagneticSnap, clips]);
 
+  const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement> | React.MouseEvent) => {
+    setIsScrubbing(true);
+    applySeekPosition(e.clientX);
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (isScrubbing) {
-        handleTimelineSeek(e);
+      if (!isScrubbing) return;
+      pendingClientXRef.current = e.clientX;
+
+      if (rafSeekRef.current === null) {
+        rafSeekRef.current = requestAnimationFrame(() => {
+          if (pendingClientXRef.current !== null) {
+            applySeekPosition(pendingClientXRef.current);
+          }
+          rafSeekRef.current = null;
+        });
       }
     };
+
     const handleMouseUp = () => {
+      if (rafSeekRef.current !== null) {
+        cancelAnimationFrame(rafSeekRef.current);
+        rafSeekRef.current = null;
+      }
       setIsScrubbing(false);
+      setDragTime(null);
     };
 
     if (isScrubbing) {
-      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mousemove', handleMouseMove, { passive: true });
       window.addEventListener('mouseup', handleMouseUp);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      if (rafSeekRef.current !== null) {
+        cancelAnimationFrame(rafSeekRef.current);
+        rafSeekRef.current = null;
+      }
     };
-  }, [isScrubbing, handleTimelineSeek]);
+  }, [isScrubbing, applySeekPosition]);
 
   // Format seconds to SMPTE Timecode
   const formatSMPTE = (seconds: number) => {
@@ -266,7 +295,7 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
     return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
   };
 
-  const currentTime = Math.max(0, playheadTime);
+  const currentTime = dragTime !== null ? dragTime : Math.max(0, playheadTime);
   const duration = Math.max(0.1, totalDuration);
 
 
@@ -625,6 +654,7 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                 duration={duration}
                 isScrubbing={isScrubbing}
                 fps={24}
+                onScrubStart={handleTimelineMouseDown}
               />
             </div>
 

@@ -1,20 +1,27 @@
 /**
  * @file /src/components/StageTextOverlay.tsx
- * @description Real-Time Dual-Language Typography & Subtitle Synchronization Overlay.
+ * @description Master Dynamic "Hero Title" Kinetic Typography Engine.
  * 
  * Features:
- * - Dual-language typography: Glowing Bangla title + Cinematic English subtitle/tagline.
- * - Reactive 0ms latency adjustments for scale, glow intensity, and letter tracking.
- * - Auto-binds dynamically to active timeline shot index.
- * - Clean tactile HUD typography with zero noise/grain interference.
+ * - Dead-center stage hero title layout (z-30 pointer-events-none).
+ * - Multi-layer Molten Gold bloom (solid gradient base, ambient bloom, volumetric rim).
+ * - Titanium Silver & Neon Crimson kinetic presets.
+ * - Ultra-wide tracked monospace English subtitle (tracking-[0.35em]).
+ * - Anamorphic optical flare divider reflection bar.
+ * - Floating obsidian narrative dialogue capsule.
+ * - 600ms cinematic ease-scale entrance motion (scale-95 to scale-100).
+ * - 0ms reactive synchronization with useStudioStore.
  */
 
 import React, { useState } from 'react';
-import { Type, Sparkles, Sliders, Eye, EyeOff } from 'lucide-react';
+import { useStudioStore, HeroTitlePreset } from '../core/store';
+import { Sparkles, Sliders, Eye, EyeOff, Zap, Flame, Snowflake } from 'lucide-react';
 
 export type StageTitleVariant =
-  | 'left-bottom'
+  | 'center'
+  | 'auto'
   | 'mid-bottom'
+  | 'left-bottom'
   | 'right-bottom'
   | 'center-low'
   | 'bottom-left'
@@ -34,10 +41,12 @@ export interface StageTextOverlayProps {
   scale?: number;
   glowIntensity?: number;
   tracking?: number;
-  variant?: StageTitleVariant;
+  verticalOffset?: number;
+  preset?: HeroTitlePreset;
+  variant?: StageTitleVariant | string;
   className?: string;
   allowQuickControls?: boolean;
-  onChangeVariant?: (variant: 'left-bottom' | 'mid-bottom' | 'right-bottom') => void;
+  onChangeVariant?: (variant: any) => void;
 }
 
 export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
@@ -48,188 +57,218 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   directorNotes,
   cameraInfo,
   isVisible = true,
-  scale: initialScale = 1.0,
-  glowIntensity: initialGlow = 1.0,
-  tracking: initialTracking = 0.15,
-  variant = 'mid-bottom',
+  scale: propScale,
+  glowIntensity: propGlow,
+  tracking: propTracking,
+  verticalOffset: propOffset,
+  preset: propPreset,
+  variant = 'center',
   className = '',
   allowQuickControls = false,
   onChangeVariant
 }) => {
-  const [scale, setScale] = useState<number>(initialScale);
-  const [glow, setGlow] = useState<number>(initialGlow);
-  const [tracking, setTracking] = useState<number>(initialTracking);
-  const [showControls, setShowControls] = useState<boolean>(false);
+  const storeTitleConfig = useStudioStore(s => s.titleConfig);
+  const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
+  const setTitlePreset = useStudioStore(s => s.setTitlePreset);
+  const setTitleSize = useStudioStore(s => s.setTitleSize);
+  const setTitleGlowIntensity = useStudioStore(s => s.setTitleGlowIntensity);
+  const setTitleVerticalOffset = useStudioStore(s => s.setTitleVerticalOffset);
+  const setTitleTracking = useStudioStore(s => s.setTitleTracking);
+  const toggleTitlesStore = useStudioStore(s => s.toggleTitles);
 
-  if (!isVisible) return null;
+  const [showQuickHud, setShowQuickHud] = useState(false);
 
-  // Resolving typography text
-  const displayBangla = banglaTitle || 'আলোর স্মৃতি';
-  const displayEnglish = englishTitle || `SHOT ${String(shotIndex + 1).padStart(3, '0')} // SEQUENCE ARCHIVE`;
-  const displaySubtitle = subtitle || directorNotes || '24.0 FPS RAW • MASTER CINE PROJECTION';
+  // Active configurations (props override store if explicitly given)
+  const activePreset: HeroTitlePreset = propPreset || storeTitleConfig?.preset || 'molten-gold';
+  const glow = propGlow ?? storeTitleConfig?.glowIntensity ?? 1.0;
+  const tracking = propTracking ?? storeTitleConfig?.tracking ?? 0.15;
+  const verticalOffset = propOffset ?? storeTitleConfig?.verticalOffset ?? 0;
+  const titleSizePx = storeTitleConfig?.titleSize ?? 72;
+  const scale = propScale ?? (titleSizePx / 72);
 
-  // Normalize variant into standard 3 primary monitor positions
-  const normalizedVariant = 
-    variant === 'left-bottom' || variant === 'bottom-left' ? 'left-bottom' :
-    variant === 'right-bottom' || variant === 'bottom-right' ? 'right-bottom' :
-    variant === 'center-low' ? 'mid-bottom' : variant;
+  // Title visibility check
+  const isEnabled = isVisible && (storeTitleConfig?.showTitles ?? true) && storeVisibility;
+  if (!isEnabled) return null;
 
-  // Glow styles with user adjustability + CSS keyframe golden bloom support
-  const banglaGlowStyle = {
-    letterSpacing: `${tracking}em`,
-    transform: `scale(${scale})`,
-    transformOrigin: normalizedVariant === 'mid-bottom' ? 'center center' : normalizedVariant === 'right-bottom' ? 'right center' : 'left center'
-  };
+  // Resolving text fallbacks
+  const displayBangla = (banglaTitle && banglaTitle.trim().length > 0) ? banglaTitle : 'দৃষ্টির সীমানা';
+  const displayEnglish = (englishTitle && englishTitle.trim().length > 0) 
+    ? englishTitle 
+    : `SHOT ${String(shotIndex + 1).padStart(3, '0')} // MASTER SEQUENCE`;
+  const displayDialogue = directorNotes || subtitle;
 
-  const englishGlowStyle = {
-    letterSpacing: `${(tracking + 0.12).toFixed(2)}em`,
-    textShadow: '0 2px 8px rgba(0,0,0,0.95), 0 0 10px rgba(255,255,255,0.2)'
-  };
-
-  const getPositionClasses = () => {
-    switch (normalizedVariant) {
-      case 'left-bottom':
-        // Traditional slate alignment with horizontal amber flare trailing right
-        return 'bottom-10 left-8 sm:bottom-14 sm:left-12 text-left items-start';
-      case 'right-bottom':
-        // Editorial alignment, text anchored to the lower-right boundary
-        return 'bottom-10 right-8 sm:bottom-14 sm:right-12 text-right items-end';
-      case 'top-right-split':
-        return 'top-10 right-8 sm:top-14 sm:right-12 text-right items-end';
-      case 'asymmetric-split':
-        return 'top-10 left-8 sm:top-14 sm:left-12 text-left items-start';
-      case 'middle-right':
-        return 'top-1/2 -translate-y-1/2 right-8 sm:right-14 text-right items-end';
-      case 'mid-bottom':
+  // Preset Visual Treatments
+  const getPresetStyles = () => {
+    switch (activePreset) {
+      case 'titanium-silver':
+        return {
+          titleGradient: 'from-slate-100 via-slate-300 to-cyan-200 bg-clip-text text-transparent',
+          filter: `drop-shadow(0 0 ${Math.round(25 * glow)}px rgba(56,189,248,0.85)) drop-shadow(0 0 ${Math.round(50 * glow)}px rgba(14,165,233,0.4))`,
+          flareGradient: 'bg-gradient-to-r from-transparent via-[#38BDF8] to-transparent shadow-[0_0_20px_#38BDF8]',
+          subtitleColor: 'text-slate-100',
+          capsuleBorder: 'border-cyan-400/30 text-cyan-200/90',
+          badgeText: 'TITANIUM SILVER'
+        };
+      case 'neon-crimson':
+        return {
+          titleGradient: 'from-rose-200 via-red-500 to-rose-700 bg-clip-text text-transparent',
+          filter: `drop-shadow(0 0 ${Math.round(25 * glow)}px rgba(239,68,68,0.9)) drop-shadow(0 0 ${Math.round(50 * glow)}px rgba(220,38,38,0.5))`,
+          flareGradient: 'bg-gradient-to-r from-transparent via-[#EF4444] to-transparent shadow-[0_0_20px_#EF4444]',
+          subtitleColor: 'text-rose-100',
+          capsuleBorder: 'border-rose-500/30 text-rose-300/90',
+          badgeText: 'NEON CRIMSON'
+        };
+      case 'molten-gold':
       default:
-        // Symmetrical cinema title alignment centered above the 2.39:1 lower letterbox matte
-        return 'bottom-10 sm:bottom-14 left-1/2 -translate-x-1/2 text-center items-center';
+        return {
+          titleGradient: 'from-amber-200 via-amber-400 to-amber-600 bg-clip-text text-transparent',
+          filter: `drop-shadow(0 0 ${Math.round(25 * glow)}px rgba(245,166,35,0.85)) drop-shadow(0 0 ${Math.round(50 * glow)}px rgba(245,166,35,0.4))`,
+          flareGradient: 'bg-gradient-to-r from-transparent via-[#F5A623] to-transparent shadow-[0_0_25px_#F5A623]',
+          subtitleColor: 'text-slate-200',
+          capsuleBorder: 'border-[#F5A623]/25 text-[#F5A623]/90',
+          badgeText: 'MOLTEN GOLD'
+        };
     }
   };
 
-  const isLeftBottom = normalizedVariant === 'left-bottom';
+  const presetStyle = getPresetStyles();
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-end p-6 select-none ${className}`}
+      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden flex flex-col ${className}`}
       data-shot-index={shotIndex}
+      data-preset={activePreset}
     >
-      {/* Floating typography cluster with 450ms CSS Keyframe Entrance Motion */}
+      {/* Centered Dead-Middle Dynamic Hero Title Cluster */}
       <div 
-        key={`stage-title-${shotIndex}-${normalizedVariant}`}
-        className={`absolute flex flex-col animate-title-entrance max-w-3xl ${getPositionClasses()}`}
+        key={`hero-title-cluster-${shotIndex}-${activePreset}`}
+        className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-hero-entrance transition-transform duration-200"
+        style={{
+          transform: `translateY(${verticalOffset}px)`
+        }}
       >
-        
-        {/* Glowing Bangla Title with 450ms Golden Bloom Burst to Crisp Glow */}
-        <h1
-          className="font-bangla font-black text-2xl sm:text-3xl md:text-4xl text-[#F5A623] tracking-wide leading-none animate-golden-bloom"
-          style={banglaGlowStyle}
-        >
-          {displayBangla}
-        </h1>
-
-        {/* English Cinematic Subtitle */}
-        <div className={`mt-2 flex flex-col gap-1 ${normalizedVariant === 'mid-bottom' ? 'items-center' : normalizedVariant === 'right-bottom' ? 'items-end' : 'items-start'}`}>
-          <p
-            className="font-cinzel font-bold text-xs sm:text-sm md:text-base text-white/95 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-            style={englishGlowStyle}
+        <div className="flex flex-col items-center justify-center text-center max-w-5xl px-4">
+          
+          {/* Primary Title (Bangla Dynamic Hero Font) */}
+          <h1
+            className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl`}
+            style={{
+              fontSize: `${Math.round(titleSizePx * scale)}px`,
+              letterSpacing: `${tracking}em`,
+              filter: presetStyle.filter,
+              transformOrigin: 'center center'
+            }}
           >
-            {displayEnglish}
-          </p>
+            {displayBangla}
+          </h1>
 
-          {/* Director / Sequence Note */}
-          {displaySubtitle && (
-            <p className="font-mono text-[9px] sm:text-[10px] text-white/70 tracking-wider uppercase drop-shadow-md">
-              {displaySubtitle}
+          {/* Subtitle (Tracked Monospace English) */}
+          <div className="mt-4 sm:mt-5 flex flex-col items-center">
+            <p
+              className={`font-mono text-sm sm:text-base md:text-lg font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
+              style={{
+                letterSpacing: `${Math.max(0.2, tracking + 0.2)}em`
+              }}
+            >
+              {displayEnglish}
             </p>
-          )}
 
-          {cameraInfo && (
-            <span className="font-mono text-[8px] text-[#fbbf24]/90 tracking-widest mt-0.5">
-              {cameraInfo}
-            </span>
-          )}
+            {/* Accent: Sub-glow with subtle golden reflection bar or horizontal optical flare divider */}
+            <div 
+              className={`w-48 sm:w-80 md:w-96 h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-anamorphic-streak`}
+            />
 
-          {/* Left-Bottom Slate Trailing Horizontal Amber Flare */}
-          {isLeftBottom && (
-            <div className="w-64 sm:w-80 h-[1.5px] bg-gradient-to-r from-[#F5A623] via-[#F5A623]/70 to-transparent mt-2 shadow-[0_0_10px_#F5A623] animate-amber-flare" />
-          )}
+            {/* Camera Optical Spec / Focal Length Badge (Subtle) */}
+            {cameraInfo && (
+              <span className="font-mono text-[9px] text-white/50 tracking-[0.25em] uppercase mt-2">
+                {cameraInfo}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Optional Interactive Mini Quick-Adjuster (pointer-events-auto) */}
-      {allowQuickControls && (
-        <div className="absolute top-3 right-3 pointer-events-auto z-30 flex items-center gap-2">
-          {/* 3-Position Quick Switcher Pill */}
-          <div className="flex items-center p-0.5 rounded-full bg-black/70 border border-[#F5A623]/30 backdrop-blur-md text-[9px] font-mono shadow-lg">
-            <button
-              type="button"
-              onClick={() => onChangeVariant?.('left-bottom')}
-              className={`px-2 py-0.5 rounded-full transition-colors ${
-                normalizedVariant === 'left-bottom'
-                  ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Traditional Slate (Left-Bottom with Flare)"
-            >
-              LEFT
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeVariant?.('mid-bottom')}
-              className={`px-2 py-0.5 rounded-full transition-colors ${
-                normalizedVariant === 'mid-bottom'
-                  ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Cinema Center (Mid-Bottom above Matte)"
-            >
-              MID
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeVariant?.('right-bottom')}
-              className={`px-2 py-0.5 rounded-full transition-colors ${
-                normalizedVariant === 'right-bottom'
-                  ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Editorial Slate (Right-Bottom Anchor)"
-            >
-              RIGHT
-            </button>
+      {/* Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule */}
+      {displayDialogue && (
+        <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none max-w-xl px-4 text-center w-full">
+          <div className={`mx-auto inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border ${presetStyle.capsuleBorder} px-6 py-2 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+            <span>"{displayDialogue}"</span>
           </div>
+        </div>
+      )}
 
+      {/* Optional Interactive Quick-HUD for on-stage tweaking */}
+      {allowQuickControls && (
+        <div className="absolute top-3 right-3 pointer-events-auto z-40 flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setShowControls(c => !c)}
-            className="p-1.5 rounded-full bg-black/70 hover:bg-black/90 border border-white/15 hover:border-[#F5A623]/60 text-white/80 hover:text-[#F5A623] text-[10px] flex items-center gap-1 transition-all backdrop-blur-md"
-            title="Adjust Stage Typography"
+            onClick={() => setShowQuickHud(v => !v)}
+            className="p-1.5 rounded-full bg-black/80 hover:bg-black border border-white/20 hover:border-[#F5A623] text-white/80 hover:text-[#F5A623] text-[10px] font-mono flex items-center gap-1 transition-all backdrop-blur-md shadow-lg cursor-pointer"
+            title="Adjust Hero Title Kinetics"
           >
             <Sliders className="w-3 h-3 text-[#F5A623]" />
-            <span className="font-mono text-[9px]">TXT</span>
+            <span className="text-[9px] font-bold">TITLE FX</span>
           </button>
 
-          {showControls && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-[#0E0E14]/95 border border-[#272732] rounded p-2.5 font-mono text-[10px] text-zinc-300 space-y-2 backdrop-blur-xl shadow-2xl animate-in fade-in duration-150">
-              <div className="flex items-center justify-between text-[#F5A623] font-bold text-[9px] border-b border-white/10 pb-1">
-                <span>STAGE TYPOGRAPHY HUD</span>
-                <span>SH{String(shotIndex + 1).padStart(3, '0')}</span>
+          {showQuickHud && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a10]/95 border border-[#272732] rounded-md p-3 font-mono text-[10px] text-zinc-300 space-y-2.5 backdrop-blur-2xl shadow-2xl animate-in fade-in duration-150">
+              <div className="flex items-center justify-between text-[#F5A623] font-bold text-[9px] border-b border-white/10 pb-1.5">
+                <span>HERO TITLE ENGINE</span>
+                <span className="text-[8px] bg-[#F5A623]/20 px-1 py-0.2 rounded text-[#F5A623] font-mono">
+                  {presetStyle.badgeText}
+                </span>
               </div>
 
-              {/* Scale Slider */}
+              {/* Preset Selector */}
+              <div className="grid grid-cols-3 gap-1 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setTitlePreset('molten-gold')}
+                  className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
+                    activePreset === 'molten-gold' 
+                      ? 'bg-amber-500/25 border-amber-400 text-amber-300' 
+                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  ⚡ GOLD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTitlePreset('titanium-silver')}
+                  className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
+                    activePreset === 'titanium-silver' 
+                      ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300' 
+                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  ❄ SILVER
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTitlePreset('neon-crimson')}
+                  className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
+                    activePreset === 'neon-crimson' 
+                      ? 'bg-rose-500/25 border-rose-400 text-rose-300' 
+                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  🩸 CRIMSON
+                </button>
+              </div>
+
+              {/* Title Size Slider */}
               <div>
                 <div className="flex justify-between text-[8.5px] text-white/60">
-                  <span>SCALE</span>
-                  <span>{scale.toFixed(2)}x</span>
+                  <span>TITLE SIZE</span>
+                  <span className="text-[#F5A623] font-bold">{titleSizePx}px</span>
                 </div>
                 <input
                   type="range"
-                  min="0.8"
-                  max="1.6"
-                  step="0.05"
-                  value={scale}
-                  onChange={(e) => setScale(parseFloat(e.target.value))}
+                  min="48"
+                  max="120"
+                  step="2"
+                  value={titleSizePx}
+                  onChange={(e) => setTitleSize(parseInt(e.target.value, 10))}
                   className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
                 />
               </div>
@@ -237,16 +276,33 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
               {/* Glow Intensity Slider */}
               <div>
                 <div className="flex justify-between text-[8.5px] text-white/60">
-                  <span>GLOW</span>
-                  <span>{glow.toFixed(1)}x</span>
+                  <span>GLOW INTENSITY</span>
+                  <span className="text-[#F5A623] font-bold">{Math.round(glow * 100)}%</span>
                 </div>
                 <input
                   type="range"
                   min="0.0"
                   max="2.0"
-                  step="0.1"
+                  step="0.05"
                   value={glow}
-                  onChange={(e) => setGlow(parseFloat(e.target.value))}
+                  onChange={(e) => setTitleGlowIntensity(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
+                />
+              </div>
+
+              {/* Vertical Offset Slider */}
+              <div>
+                <div className="flex justify-between text-[8.5px] text-white/60">
+                  <span>VERTICAL OFFSET</span>
+                  <span className="text-[#F5A623] font-bold">{verticalOffset}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="-120"
+                  max="120"
+                  step="5"
+                  value={verticalOffset}
+                  onChange={(e) => setTitleVerticalOffset(parseInt(e.target.value, 10))}
                   className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
                 />
               </div>
@@ -255,15 +311,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
               <div>
                 <div className="flex justify-between text-[8.5px] text-white/60">
                   <span>TRACKING</span>
-                  <span>{tracking.toFixed(2)}em</span>
+                  <span className="text-[#F5A623] font-bold">{tracking.toFixed(2)}em</span>
                 </div>
                 <input
                   type="range"
                   min="0.05"
-                  max="0.4"
+                  max="0.45"
                   step="0.02"
                   value={tracking}
-                  onChange={(e) => setTracking(parseFloat(e.target.value))}
+                  onChange={(e) => setTitleTracking(parseFloat(e.target.value))}
                   className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
                 />
               </div>

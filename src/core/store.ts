@@ -59,10 +59,31 @@ export interface ComponentVisibility {
   motionBlur: boolean;
 }
 
+export type HeroTitlePreset = 'molten-gold' | 'titanium-silver' | 'neon-crimson';
+
+export interface HeroTitleConfig {
+  preset: HeroTitlePreset;
+  titleSize: number; // 36 to 120 (default 72)
+  glowIntensity: number; // 0.0 to 2.0 (default 1.0 = 100%)
+  verticalOffset: number; // -150 to 150px (default 0)
+  tracking: number; // 0.05 to 0.45em (default 0.15)
+  showTitles: boolean;
+}
+
 export interface StudioState {
   // Project & Content
   project: StudioProject;
   activeShotIndex: number;
+  
+  // Kinetic Hero Title Typography Engine
+  titleConfig: HeroTitleConfig;
+  setTitlePreset: (preset: HeroTitlePreset) => void;
+  setTitleSize: (size: number) => void;
+  setTitleGlowIntensity: (intensity: number) => void;
+  setTitleVerticalOffset: (offset: number) => void;
+  setTitleTracking: (tracking: number) => void;
+  toggleTitles: () => void;
+  setTitleConfig: (partial: Partial<HeroTitleConfig>) => void;
   
   // Workspace Layout & Navigation
   activeModule: StudioModule;
@@ -239,6 +260,58 @@ export const useStudioStore = create<StudioState>()(
     
     history: new HistoryManager<any>({ index: 0 }),
     saveStatus: 'IDB SYNCED',
+
+    // Kinetic Hero Title Typography Engine
+    titleConfig: {
+      preset: 'molten-gold',
+      titleSize: 72,
+      glowIntensity: 1.0,
+      verticalOffset: 0,
+      tracking: 0.15,
+      showTitles: true
+    },
+    setTitlePreset: (preset: HeroTitlePreset) => {
+      set((state) => {
+        state.titleConfig.preset = preset;
+      });
+      eventBus.emit('title:preset', preset);
+    },
+    setTitleSize: (size: number) => {
+      set((state) => {
+        state.titleConfig.titleSize = Math.max(28, Math.min(140, Math.round(size)));
+      });
+    },
+    setTitleGlowIntensity: (intensity: number) => {
+      set((state) => {
+        state.titleConfig.glowIntensity = Math.max(0, Math.min(2.0, intensity));
+      });
+    },
+    setTitleVerticalOffset: (offset: number) => {
+      set((state) => {
+        state.titleConfig.verticalOffset = Math.max(-200, Math.min(200, Math.round(offset)));
+      });
+    },
+    setTitleTracking: (tracking: number) => {
+      set((state) => {
+        state.titleConfig.tracking = Math.max(0.02, Math.min(0.6, tracking));
+      });
+    },
+    toggleTitles: () => {
+      set((state) => {
+        const next = !state.titleConfig.showTitles;
+        state.titleConfig.showTitles = next;
+        state.visibility.titlesAll = next;
+      });
+      eventBus.emit('titles:toggle', get().titleConfig.showTitles);
+    },
+    setTitleConfig: (partial: Partial<HeroTitleConfig>) => {
+      set((state) => {
+        Object.assign(state.titleConfig, partial);
+        if (partial.showTitles !== undefined) {
+          state.visibility.titlesAll = partial.showTitles;
+        }
+      });
+    },
 
     setActiveShotIndex: (index: number) => {
       set((state) => {

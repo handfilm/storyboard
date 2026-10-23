@@ -65,6 +65,40 @@
   font-family: 'Cinzel', serif;
 }
 
+.font-bangla {
+  font-family: 'Anek Bangla', 'Noto Serif Bengali', sans-serif;
+}
+
+@keyframes heroEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-hero-entrance {
+  animation: heroEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes anamorphicStreakPulse {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.08);
+  }
+}
+
+.animate-anamorphic-streak {
+  animation: anamorphicStreakPulse 3s ease-in-out infinite;
+}
+
 @keyframes modalFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -82,3 +116,4 @@
 .animate-modal-slide-up {
   animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+

@@ -504,56 +504,102 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
 
-  // 5. Burn-In Glowing Bilingual Typography with Animated Fade-In
+  // 5. Burn-In Glowing Bilingual Typography with Animated Fade-In & Multi-Pass Molten Gold
   if (burnInTitles) {
-    const titleFade = Math.min(1.0, Math.max(0.05, (frameInShot + 1) / 20.0));
+    const titleFade = Math.min(1.0, Math.max(0.05, (frameInShot + 1) / 16.0));
+    const scaleFactor = is4K ? 2.0 : (width / 1920);
+    const fontSize = isVertical ? Math.round(52 * (width / 1080)) : Math.round(68 * scaleFactor);
+    const subFontSize = isVertical ? Math.round(18 * (width / 1080)) : Math.round(20 * scaleFactor);
 
-    // Bottom Gradient Scrim for maximum legibility
-    const scrimH = isVertical ? height * 0.38 : height * 0.42;
-    const scrim = ctx.createLinearGradient(0, height - scrimH, 0, height);
-    scrim.addColorStop(0, 'rgba(0,0,0,0)');
-    scrim.addColorStop(0.5, 'rgba(0,0,0,0.55)');
-    scrim.addColorStop(1, 'rgba(0,0,0,0.92)');
-    ctx.fillStyle = scrim;
-    ctx.fillRect(0, height - scrimH, width, scrimH);
-
-    const baseFontSize = is4K ? 68 : (isVertical ? 42 : 36);
+    // Subtle cinematic ease-scale on shot change: scale-95 to scale-100 over first 15 frames (~600ms at 24fps)
+    const entranceProgress = Math.min(1.0, frameInShot / 15.0);
+    const easeScale = 0.95 + 0.05 * Math.sin((entranceProgress * Math.PI) / 2);
 
     ctx.save();
     ctx.globalAlpha = titleFade;
 
-    // Bengali Headline with Golden Bloom Shadow
+    const centerY = isVertical ? height * 0.48 : height / 2;
+    const titleY = centerY - 20 * scaleFactor;
+    const subTitleY = centerY + 40 * scaleFactor;
+
+    // Multi-Pass Volumetric Bloom & Molten Gold Base
+    // Pass 1: Outer Volumetric Rim Shadow
     ctx.save();
-    ctx.shadowColor = 'rgba(245, 166, 35, 0.85)';
-    ctx.shadowBlur = is4K ? 32 : 18;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.fillStyle = '#F5A623';
-    ctx.font = `bold ${baseFontSize}px 'Anek Bangla', 'Noto Sans Bengali', sans-serif`;
+    ctx.shadowColor = 'rgba(245, 166, 35, 0.45)';
+    ctx.shadowBlur = 50 * scaleFactor;
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
     ctx.textAlign = 'center';
-    const bY = isVertical ? height * 0.75 : height - (is4K ? 180 : 96);
-    ctx.fillText(titleBn, width / 2, bY);
+    ctx.fillText(titleBn, width / 2, titleY);
     ctx.restore();
 
-    // English Subtitle
+    // Pass 2: Ambient Bloom Layer
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.95)';
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${Math.round(baseFontSize * 0.45)}px 'Cinzel', serif`;
+    ctx.shadowColor = '#F5A623';
+    ctx.shadowBlur = 24 * scaleFactor;
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
     ctx.textAlign = 'center';
-    const eY = isVertical ? height * 0.75 + baseFontSize * 0.6 : height - (is4K ? 122 : 64);
-    ctx.fillText(titleEn.toUpperCase(), width / 2, eY);
+    ctx.fillText(titleBn, width / 2, titleY);
     ctx.restore();
 
-    // Secondary Tagline / Specs
+    // Pass 3: Core Solid Layer (Gradient-like rich warm gold fill)
     ctx.save();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.font = `${Math.round(baseFontSize * 0.28)}px monospace`;
+    ctx.fillStyle = '#FFF8E1';
+    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
     ctx.textAlign = 'center';
-    const tY = isVertical ? height * 0.75 + baseFontSize * 1.1 : height - (is4K ? 76 : 38);
-    ctx.fillText(tagline.toUpperCase(), width / 2, tY);
+    ctx.fillText(titleBn, width / 2, titleY);
     ctx.restore();
+
+    // English Tracked Subtitle
+    ctx.save();
+    ctx.fillStyle = '#E2E8F0';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 10 * scaleFactor;
+    ctx.font = `600 ${Math.round(subFontSize * easeScale)}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(titleEn.toUpperCase(), width / 2, subTitleY);
+    ctx.restore();
+
+    // Horizontal Anamorphic Optical Flare Divider
+    const flareW = Math.min(width * 0.45, 420 * scaleFactor);
+    const flareY = centerY + 58 * scaleFactor;
+    const flareGrad = ctx.createLinearGradient((width - flareW) / 2, flareY, (width + flareW) / 2, flareY);
+    flareGrad.addColorStop(0, 'rgba(245, 166, 35, 0)');
+    flareGrad.addColorStop(0.5, 'rgba(245, 166, 35, 0.85)');
+    flareGrad.addColorStop(1, 'rgba(245, 166, 35, 0)');
+    ctx.fillStyle = flareGrad;
+    ctx.fillRect((width - flareW) / 2, flareY, flareW, Math.max(2, 2.5 * scaleFactor));
+
+    // Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule
+    const dialogueLine = tagline || '24.0 FPS RAW • MASTER CINE PROJECTION';
+    if (dialogueLine) {
+      ctx.save();
+      const cardFontSize = Math.round(14 * scaleFactor);
+      ctx.font = `italic ${cardFontSize}px "JetBrains Mono", monospace`;
+      const lineText = `"${dialogueLine}"`;
+      const textW = ctx.measureText(lineText).width;
+      const capW = textW + (44 * scaleFactor);
+      const capH = 34 * scaleFactor;
+      const capX = (width - capW) / 2;
+      const capY = height - (isVertical ? 160 * scaleFactor : (is4K ? 180 : 96));
+      const radius = 17 * scaleFactor;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.beginPath();
+      ctx.roundRect(capX, capY, capW, capH, radius);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(245, 166, 35, 0.25)';
+      ctx.lineWidth = 1 * scaleFactor;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(245, 166, 35, 0.92)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(lineText, width / 2, capY + (capH / 2));
+      ctx.restore();
+    }
 
     ctx.restore();
   }

@@ -399,28 +399,55 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         ctx.fillRect(0, flareY - 12, w, 24);
       }
 
-      // Title Burn-in preview
+      // Centered Hero Title Burn-in Preview
       if (burnInTitles) {
-        const scrimH = Math.round(h * 0.35);
-        const scrim = ctx.createLinearGradient(0, h - scrimH, 0, h);
-        scrim.addColorStop(0, 'rgba(0,0,0,0)');
-        scrim.addColorStop(0.5, 'rgba(0,0,0,0.6)');
-        scrim.addColorStop(1, 'rgba(0,0,0,0.95)');
-        ctx.fillStyle = scrim;
-        ctx.fillRect(0, h - scrimH, w, scrimH);
-
         ctx.save();
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#F5A623';
-        ctx.shadowColor = '#F5A623';
-        ctx.shadowBlur = 8;
-        ctx.font = 'bold 15px "Noto Sans Bengali", sans-serif';
-        ctx.fillText(titleBn, w / 2, h - 34);
 
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '600 11px system-ui, sans-serif';
-        ctx.fillText(titleEn.toUpperCase(), w / 2, h - 16);
+        // Outer Volumetric Rim
+        ctx.save();
+        ctx.shadowColor = 'rgba(245, 166, 35, 0.45)';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = '#FFD54F';
+        ctx.font = 'bold 24px "Noto Sans Bengali", "Anek Bangla", sans-serif';
+        ctx.fillText(titleBn, w / 2, h / 2 - 8);
+        ctx.restore();
+
+        // Ambient Bloom
+        ctx.save();
+        ctx.shadowColor = '#F5A623';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#FFD54F';
+        ctx.font = 'bold 24px "Noto Sans Bengali", "Anek Bangla", sans-serif';
+        ctx.fillText(titleBn, w / 2, h / 2 - 8);
+        ctx.restore();
+
+        // Core Solid
+        ctx.save();
+        ctx.fillStyle = '#FFF8E1';
+        ctx.font = 'bold 24px "Noto Sans Bengali", "Anek Bangla", sans-serif';
+        ctx.fillText(titleBn, w / 2, h / 2 - 8);
+        ctx.restore();
+
+        // Tracked English Subtitle
+        ctx.save();
+        ctx.fillStyle = '#E2E8F0';
+        ctx.shadowColor = 'rgba(0,0,0,0.9)';
+        ctx.shadowBlur = 6;
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.fillText(titleEn.toUpperCase(), w / 2, h / 2 + 15);
+        ctx.restore();
+
+        // Flare divider
+        const flareW = 120;
+        const flareY = h / 2 + 22;
+        const grad = ctx.createLinearGradient((w - flareW) / 2, flareY, (w + flareW) / 2, flareY);
+        grad.addColorStop(0, 'rgba(245,166,35,0)');
+        grad.addColorStop(0.5, 'rgba(245,166,35,0.85)');
+        grad.addColorStop(1, 'rgba(245,166,35,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect((w - flareW) / 2, flareY, flareW, 1.5);
+
         ctx.restore();
       }
 
@@ -1438,8 +1465,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   <div className="space-y-2 text-xs">
                     <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
                       <div>
-                        <div className="font-bold text-white text-[11px]">Burn-in Titles</div>
-                        <div className="text-[9px] text-zinc-500">Bangla gold bloom + English subtitle</div>
+                        <div className="font-bold text-white text-[11px]">Burn-in Cinematic Titles (Bangla + English)</div>
+                        <div className="text-[9px] text-[#F5A623]">Molten Gold bloom + tracked monospace subtitle</div>
                       </div>
                       <button
                         type="button"

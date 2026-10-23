@@ -27,7 +27,8 @@ import {
   SlidersHorizontal,
   Flame,
   Sparkles,
-  Eye
+  Eye,
+  Type
 } from 'lucide-react';
 
 export interface ControlDockProps {
@@ -334,6 +335,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
         {/* Right Section: Cinema Tools */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Kinetic Hero Titles Toggle */}
+          {onToggleTitles && (
+            <button
+              onClick={onToggleTitles}
+              className={`px-2 py-1 rounded-[2px] border flex items-center gap-1 cursor-pointer transition-all text-[9.5px] font-bold ${
+                showTitles
+                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                  : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+              }`}
+              title="Toggle Kinetic Hero Typography (T)"
+            >
+              <Type className="w-3 h-3 text-[#D4AF37]" />
+              <span className="hidden sm:inline">{showTitles ? 'TITLES: ON' : 'TITLES: OFF'}</span>
+              <span className="sm:hidden">TXT</span>
+            </button>
+          )}
           {/* Thirds Guides */}
           {onToggleGuides && (
             <button

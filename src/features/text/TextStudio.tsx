@@ -2,18 +2,21 @@
  * RAWx Studio — Real-Time Text & Super Title Inspector
  * Public API: TextStudio component
  * 
- * Complies with Step 3 Specification:
- * - Real-Time Text Properties Tab with 0ms two-way binding to stage canvas.
+ * Complies with Principal Motion Graphics & Kinetic Typography Engine:
+ * - Real-Time Hero Title Kinetic Typography with 0ms two-way binding to stage canvas.
+ * - Quick style presets:
+ *   [ ⚡ MOLTEN GOLD ]: Deep amber glow with anamorphic streak.
+ *   [ ❄ TITANIUM SILVER ]: Shiny liquid chrome with blue-hour rim light.
+ *   [ 🩸 NEON CRIMSON ]: Blade Runner cyberpunk pulse.
+ * - Sliders for Title Size, Glow Intensity (0%–200%), Vertical Offset (Y-axis), and Tracking.
  * - Live input fields for Bangla Title, English Headline, and Dialogue / Subtitle.
- * - Quick curated bilingual suggestions & presets.
+ * - Live interactive [ T TITLES: ON/OFF ] toggle.
  * - Instant synchronization to IndexedDB draft storage and useStudioStore.
- * - Maintains anamorphic horizontal light streak, gold metallic gradient, and breathing glow.
  */
 
 import React, { useState } from 'react';
-import { useStudioStore } from '../../core/store';
+import { useStudioStore, HeroTitlePreset } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
-import { toBengaliNumerals } from '../../utils/engine';
 import { TitleAnimationStyle, AnthologyFrame } from '../../types/anthology';
 import { eventBus } from '../../core/eventBus';
 import { 
@@ -21,22 +24,15 @@ import {
   Sliders, 
   Sparkles, 
   Download, 
-  Eye, 
   Zap,
-  Check,
-  Film
+  Flame,
+  Snowflake,
+  Activity,
+  SlidersHorizontal,
+  MoveVertical
 } from 'lucide-react';
 
-const titlePresets = [
-  { name: 'RAWx Gold Blockbuster', font: 'Cinzel', color: '#FFE066', glow: '0 0 20px rgba(212,175,55,0.6)', letterSpacing: '0.25em' },
-  { name: 'Dhaka Cyber Neon', font: 'JetBrains Mono', color: '#00FFCC', glow: '0 0 15px rgba(0,255,204,0.7)', letterSpacing: '0.15em' },
-  { name: 'Bengali Heritage Serif', font: 'Noto Serif Bengali', color: '#FFFFFF', glow: '0 0 10px rgba(255,255,255,0.4)', letterSpacing: '0.05em' },
-  { name: 'Noir Crime Typewriter', font: 'Courier New', color: '#E0E0E0', glow: 'none', letterSpacing: '0.1em' },
-  { name: 'Anamorphic Red Flare', font: 'Cinzel', color: '#FF4B4B', glow: '0 0 25px rgba(255,75,75,0.8)', letterSpacing: '0.3em' },
-  { name: 'Minimalist Tokyo Sub', font: 'Inter', color: '#FFE066', glow: '0 2px 4px rgba(0,0,0,0.9)', letterSpacing: '0.05em' }
-];
-
-const banglaSuggestions = ["দৃষ্টি", "সূচনা", "সীমানা", "আলো", "সংঘাত", "উন্মোচন", "অন্ধকার", "মহাকর্ষ", "গভীরতা", "শূন্য"];
+const banglaSuggestions = ["দৃষ্টির সীমানা", "আলোর স্মৃতি", "মহাজাগতিক শূন্যতা", "সূচনার প্রতিধ্বনি", "সীমানাহীন কাল", "সংঘাতের রেখা", "অন্ধকারের বিস্তার", "মহাকর্ষের টান"];
 const englishSuggestions = ["THE SINGULARITY", "EVENT HORIZON", "PHOTON SPHERE", "SHOCK // CORE", "SPATIAL DISTORTION", "THE APERTURE", "DARK MATTER", "THE ABYSS"];
 
 export interface TextStudioProps {
@@ -51,7 +47,14 @@ export const TextStudio: React.FC<TextStudioProps> = ({
   const {
     activeShotIndex,
     project,
-    updateShot
+    updateShot,
+    titleConfig,
+    setTitlePreset,
+    setTitleSize,
+    setTitleGlowIntensity,
+    setTitleVerticalOffset,
+    setTitleTracking,
+    toggleTitles
   } = useStudioStore();
 
   const currentShot = project.shots[activeShotIndex] || {};
@@ -64,9 +67,6 @@ export const TextStudio: React.FC<TextStudioProps> = ({
   const dialogue = currentFrame ? (currentFrame.directorNotes || '') : (currentShot.directorNotes || '');
   const soundCue = currentFrame ? (currentFrame.soundCue || '') : (currentShot.soundCue || '');
 
-  const [fontSize, setFontSize] = useState(36);
-  const [fontSizeBn, setFontSizeBn] = useState(56);
-  const [textColor, setTextColor] = useState('#FFE066');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
   const [animationStyle, setAnimationStyle] = useState<TitleAnimationStyle>(
     (currentFrame?.titleAnimation as any) || (currentShot.titleAnimation as any) || 'flare'
@@ -136,11 +136,6 @@ export const TextStudio: React.FC<TextStudioProps> = ({
     });
   };
 
-  const handleApplyPreset = (preset: typeof titlePresets[0]) => {
-    setSelectedFont(preset.font);
-    setTextColor(preset.color);
-  };
-
   const handleExportSRT = () => {
     let srtContent = '';
     const total = Math.max(100, project.shots.length);
@@ -149,7 +144,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
     for (let i = 0; i < total; i++) {
       const shot = project.shots[i] || {};
       const theme = baseThemesData[i % baseThemesData.length];
-      const duration = shot.durationSeconds || 12.0; // 12.0s standard slide
+      const duration = shot.durationSeconds || 12.0;
       const startTimeStr = formatSRTTime(currentTime);
       currentTime += duration;
       const endTimeStr = formatSRTTime(currentTime);
@@ -165,7 +160,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `RAWx_Subtitles_Master.srt`;
+    a.download = `HANDFILM_Subtitles_Master.srt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -178,104 +173,341 @@ export const TextStudio: React.FC<TextStudioProps> = ({
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
   };
 
+  // Preview styling based on active preset
+  const getPreviewPresetInfo = () => {
+    switch (titleConfig.preset) {
+      case 'titanium-silver':
+        return {
+          titleClass: 'bg-gradient-to-r from-slate-100 via-slate-300 to-cyan-200 bg-clip-text text-transparent',
+          glowStyle: {
+            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px rgba(56,189,248,0.85)) drop-shadow(0 0 ${Math.round(35 * titleConfig.glowIntensity)}px rgba(14,165,233,0.4))`
+          },
+          streakClass: 'bg-gradient-to-r from-transparent via-[#38BDF8] to-transparent shadow-[0_0_15px_#38BDF8]',
+          capsuleClass: 'border-cyan-400/30 text-cyan-200'
+        };
+      case 'neon-crimson':
+        return {
+          titleClass: 'bg-gradient-to-r from-rose-200 via-red-500 to-rose-700 bg-clip-text text-transparent',
+          glowStyle: {
+            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px rgba(239,68,68,0.9)) drop-shadow(0 0 ${Math.round(35 * titleConfig.glowIntensity)}px rgba(220,38,38,0.5))`
+          },
+          streakClass: 'bg-gradient-to-r from-transparent via-[#EF4444] to-transparent shadow-[0_0_15px_#EF4444]',
+          capsuleClass: 'border-rose-500/30 text-rose-300'
+        };
+      case 'molten-gold':
+      default:
+        return {
+          titleClass: 'bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600 bg-clip-text text-transparent',
+          glowStyle: {
+            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px rgba(245,166,35,0.85)) drop-shadow(0 0 ${Math.round(35 * titleConfig.glowIntensity)}px rgba(245,166,35,0.4))`
+          },
+          streakClass: 'bg-gradient-to-r from-transparent via-[#F5A623] to-transparent shadow-[0_0_15px_#F5A623]',
+          capsuleClass: 'border-[#F5A623]/25 text-[#F5A623]'
+        };
+    }
+  };
+
+  const previewInfo = getPreviewPresetInfo();
+
   return (
     <div className="w-full h-full flex flex-col bg-[#07070a] text-[#EDEDED] font-mono-tech select-none overflow-y-auto no-scrollbar">
       {/* Top Header & Quick Action Strip */}
       <div className="h-10 border-b border-[#272732] bg-[#0c0c10] px-3.5 flex items-center justify-between text-xs shrink-0 sticky top-0 z-20">
         <div className="flex items-center gap-2 min-w-0">
-          <Type className="w-3.5 h-3.5 text-[#eab308]" />
-          <span className="font-bold text-[#fbbf24] text-[11px] tracking-wider uppercase truncate">
-            REAL-TIME TEXT INSPECTOR
+          <Type className="w-3.5 h-3.5 text-[#F5A623]" />
+          <span className="font-bold text-[#F5A623] text-[11px] tracking-wider uppercase truncate">
+            HERO TITLE KINETIC STUDIO
           </span>
           <span className="text-zinc-500 text-[10px]">
             SH{String(activeShotIndex + 1).padStart(3, '0')}
           </span>
         </div>
 
-        <button
-          onClick={handleExportSRT}
-          className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 hover:bg-[#d4af37]/20 hover:text-[#fbbf24] border border-[#272732] hover:border-[#d4af37]/40 rounded-[1px] text-[9.5px] transition-colors cursor-pointer"
-          title="Export 100-Shot Subtitles as .SRT file"
-        >
-          <Download className="w-3 h-3 text-[#d4af37]" />
-          <span>.SRT</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Quick [ T TITLES: ON/OFF ] Toggle */}
+          <button
+            type="button"
+            onClick={toggleTitles}
+            className={`px-2.5 py-1 rounded-[2px] border text-[9.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              titleConfig.showTitles
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,166,35,0.3)]'
+                : 'bg-black/80 border-white/15 text-zinc-500 hover:text-white'
+            }`}
+            title="Toggle Stage Hero Typography (T)"
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${titleConfig.showTitles ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'}`} />
+            <span>{titleConfig.showTitles ? 'T TITLES: ON' : 'T TITLES: OFF'}</span>
+          </button>
+
+          <button
+            onClick={handleExportSRT}
+            className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-[#d4af37]/20 hover:text-[#fbbf24] border border-[#272732] hover:border-[#d4af37]/40 rounded-[1px] text-[9.5px] transition-colors cursor-pointer"
+            title="Export 100-Shot Subtitles as .SRT file"
+          >
+            <Download className="w-3 h-3 text-[#d4af37]" />
+            <span>.SRT</span>
+          </button>
+        </div>
       </div>
 
       <div className="p-3.5 sm:p-4 flex flex-col gap-4">
-        {/* Live Title Card Preview (compact anamorphic preview) */}
-        <div className="p-3 rounded-[2px] bg-[#030304] border border-[#272732] relative overflow-hidden shadow-inner flex flex-col items-center justify-center min-h-[105px]">
-          {/* Anamorphic Gold Flare Background Streak */}
-          <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 h-[1px] bg-gradient-to-r from-transparent via-[#FFE066]/50 to-transparent blur-[0.5px]" />
-          <div className="absolute top-1/2 left-1/4 right-1/4 -translate-y-1/2 h-2.5 bg-gradient-to-r from-transparent via-[#D4AF37]/20 to-transparent blur-sm" />
+        {/* Dynamic Hero Title Live Stage Simulator Card */}
+        <div className="p-4 rounded-[3px] bg-[#020204] border border-[#F5A623]/30 relative overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[140px] text-center">
+          {/* Anamorphic Reflection Streak */}
+          <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 h-[1px] bg-gradient-to-r from-transparent via-[#FFE066]/30 to-transparent blur-[0.5px]" />
+          <div className={`absolute top-1/2 left-1/4 right-1/4 -translate-y-1/2 h-2 rounded-full ${previewInfo.streakClass} opacity-80 blur-xs`} />
 
-          {/* Bengali Title */}
+          {/* Bengali Hero Headline with 3-Layer Bloom */}
           <span 
-            className="font-bengali font-black text-metallic-gold super-title-breathe drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] transition-all text-center leading-tight select-none"
-            style={{ fontSize: `${Math.min(fontSizeBn * 0.5, 34)}px` }}
+            className={`font-bangla font-black ${previewInfo.titleClass} select-none leading-none transition-all drop-shadow-2xl`}
+            style={{ 
+              fontSize: `${Math.round(titleConfig.titleSize * 0.42)}px`,
+              letterSpacing: `${titleConfig.tracking}em`,
+              transform: `translateY(${titleConfig.verticalOffset * 0.15}px)`,
+              ...previewInfo.glowStyle
+            }}
           >
-            {titleBn || 'দৃষ্টি'}
+            {titleBn || 'দৃষ্টির সীমানা'}
           </span>
 
-          {/* English Headline */}
+          {/* Ultra-Wide Tracked English Subtitle */}
           <span 
-            className="font-cinzel font-bold text-white tracking-[0.2em] uppercase drop-shadow-md text-center mt-1 select-none"
+            className="font-mono font-bold text-slate-200 uppercase drop-shadow-md text-center mt-2.5 select-none"
             style={{ 
-              fontFamily: selectedFont,
-              fontSize: `${Math.min(fontSize * 0.45, 18)}px`,
-              color: textColor
+              fontSize: `${Math.max(9, Math.round(titleConfig.titleSize * 0.16))}px`,
+              letterSpacing: `${(titleConfig.tracking + 0.25).toFixed(2)}em`
             }}
           >
             {titleEn || 'THE SINGULARITY'}
           </span>
 
-          {/* Dialogue / Tagline Subtitle */}
-          {caption && (
-            <span className="font-mono-tech text-[8px] text-[#fbbf24]/80 tracking-wider uppercase mt-1 text-center truncate max-w-[90%]">
-              {caption}
-            </span>
+          {/* Dialogue / Tagline Subtitle in Floating Obsidian Capsule */}
+          {(caption || dialogue) && (
+            <div className={`mt-3 px-3.5 py-1 rounded-full bg-black/70 backdrop-blur-md border ${previewInfo.capsuleClass} text-[8.5px] italic max-w-[85%] truncate shadow-lg`}>
+              "{dialogue || caption}"
+            </div>
           )}
 
-          <div className="absolute bottom-1 right-2 text-[7.5px] text-zinc-500 font-mono-tech">
-            LIVE 0ms CANVAS LINKED
+          <div className="absolute top-2 right-2 flex items-center gap-1.5 text-[8px] text-zinc-500 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>0ms LIVE STAGE COMPOSITED</span>
           </div>
         </div>
 
-        {/* 1. Real-Time Bilingual Text Properties */}
-        <div className="flex flex-col gap-3 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
+        {/* 1. Quick Style Presets: Molten Gold, Titanium Silver, Neon Crimson */}
+        <div className="flex flex-col gap-2.5 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
           <div className="flex items-center justify-between border-b border-[#272732] pb-1.5">
-            <span className="text-[10px] font-bold text-[#fbbf24] uppercase tracking-wider flex items-center gap-1.5">
-              <Zap className="w-3 h-3 text-[#eab308]" />
-              TEXT PROPERTIES & TWO-WAY BINDING
+            <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-[#F5A623]" />
+              HERO STYLE PRESETS
             </span>
-            <span className="text-[8px] text-emerald-400 font-mono-tech bg-emerald-950/60 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+            <span className="text-[8.5px] text-zinc-400 font-mono">
+              3-LAYER COMPOSITOR
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {/* [ ⚡ MOLTEN GOLD ] */}
+            <button
+              type="button"
+              onClick={() => setTitlePreset('molten-gold')}
+              className={`p-2.5 rounded-[2px] border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                titleConfig.preset === 'molten-gold'
+                  ? 'bg-amber-950/40 border-amber-400 text-amber-300 shadow-[0_0_15px_rgba(245,166,35,0.35)] ring-1 ring-amber-400/50'
+                  : 'bg-[#121218] border-[#272732] text-zinc-400 hover:text-white hover:border-zinc-600'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs flex items-center gap-1 text-amber-300">
+                  <Flame className="w-3.5 h-3.5" />
+                  ⚡ MOLTEN GOLD
+                </span>
+                {titleConfig.preset === 'molten-gold' && (
+                  <span className="text-[8px] bg-amber-400/20 text-amber-300 px-1 rounded font-mono">ACTIVE</span>
+                )}
+              </div>
+              <span className="text-[8px] text-amber-200/60 leading-tight">
+                Deep amber glow with anamorphic streak
+              </span>
+            </button>
+
+            {/* [ ❄ TITANIUM SILVER ] */}
+            <button
+              type="button"
+              onClick={() => setTitlePreset('titanium-silver')}
+              className={`p-2.5 rounded-[2px] border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                titleConfig.preset === 'titanium-silver'
+                  ? 'bg-cyan-950/40 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(56,189,248,0.35)] ring-1 ring-cyan-400/50'
+                  : 'bg-[#121218] border-[#272732] text-zinc-400 hover:text-white hover:border-zinc-600'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs flex items-center gap-1 text-cyan-300">
+                  <Snowflake className="w-3.5 h-3.5" />
+                  ❄ TITANIUM SILVER
+                </span>
+                {titleConfig.preset === 'titanium-silver' && (
+                  <span className="text-[8px] bg-cyan-400/20 text-cyan-300 px-1 rounded font-mono">ACTIVE</span>
+                )}
+              </div>
+              <span className="text-[8px] text-cyan-200/60 leading-tight">
+                Liquid chrome with blue-hour rim light
+              </span>
+            </button>
+
+            {/* [ 🩸 NEON CRIMSON ] */}
+            <button
+              type="button"
+              onClick={() => setTitlePreset('neon-crimson')}
+              className={`p-2.5 rounded-[2px] border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                titleConfig.preset === 'neon-crimson'
+                  ? 'bg-rose-950/40 border-rose-500 text-rose-300 shadow-[0_0_15px_rgba(239,68,68,0.35)] ring-1 ring-rose-500/50'
+                  : 'bg-[#121218] border-[#272732] text-zinc-400 hover:text-white hover:border-zinc-600'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs flex items-center gap-1 text-rose-300">
+                  <Activity className="w-3.5 h-3.5" />
+                  🩸 NEON CRIMSON
+                </span>
+                {titleConfig.preset === 'neon-crimson' && (
+                  <span className="text-[8px] bg-rose-500/20 text-rose-300 px-1 rounded font-mono">ACTIVE</span>
+                )}
+              </div>
+              <span className="text-[8px] text-rose-200/60 leading-tight">
+                Blade Runner cyberpunk laser pulse
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Interactive Geometry & Volumetric Sliders */}
+        <div className="flex flex-col gap-3.5 bg-[#0a0a10] border border-[#272732] p-3.5 rounded-[2px]">
+          <div className="flex items-center justify-between border-b border-[#272732] pb-1.5">
+            <span className="text-[10px] font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-[#F5A623]" />
+              KINETIC TITLE CONTROLS
+            </span>
+            <span className="text-[8px] text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-1.5 py-0.2 rounded font-mono">
               0ms STAGE SYNC
+            </span>
+          </div>
+
+          {/* Title Size Slider (48px - 120px) */}
+          <div>
+            <div className="flex justify-between text-[9.5px] text-zinc-300 mb-1">
+              <span className="flex items-center gap-1.5">
+                <Type className="w-3 h-3 text-[#F5A623]" />
+                TITLE SCALE (PRIMARY HERO)
+              </span>
+              <span className="text-[#F5A623] font-bold font-mono">{titleConfig.titleSize}px</span>
+            </div>
+            <input
+              type="range"
+              min="48"
+              max="120"
+              step="2"
+              value={titleConfig.titleSize}
+              onChange={(e) => setTitleSize(parseInt(e.target.value, 10))}
+              className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
+            />
+          </div>
+
+          {/* Glow Intensity Slider (0% - 200%) */}
+          <div>
+            <div className="flex justify-between text-[9.5px] text-zinc-300 mb-1">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-[#F5A623]" />
+                GLOW INTENSITY (BLOOM & RIM)
+              </span>
+              <span className="text-[#F5A623] font-bold font-mono">
+                {Math.round(titleConfig.glowIntensity * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.0"
+              max="2.0"
+              step="0.05"
+              value={titleConfig.glowIntensity}
+              onChange={(e) => setTitleGlowIntensity(parseFloat(e.target.value))}
+              className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
+            />
+          </div>
+
+          {/* Vertical Offset Slider (Y-axis: -150px to +150px) */}
+          <div>
+            <div className="flex justify-between text-[9.5px] text-zinc-300 mb-1">
+              <span className="flex items-center gap-1.5">
+                <MoveVertical className="w-3 h-3 text-[#F5A623]" />
+                VERTICAL OFFSET (Y-AXIS POSITION)
+              </span>
+              <span className="text-[#F5A623] font-bold font-mono">{titleConfig.verticalOffset}px</span>
+            </div>
+            <input
+              type="range"
+              min="-150"
+              max="150"
+              step="5"
+              value={titleConfig.verticalOffset}
+              onChange={(e) => setTitleVerticalOffset(parseInt(e.target.value, 10))}
+              className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
+            />
+          </div>
+
+          {/* Letter Tracking Slider (0.05em - 0.45em) */}
+          <div>
+            <div className="flex justify-between text-[9.5px] text-zinc-300 mb-1">
+              <span className="flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3 h-3 text-[#F5A623]" />
+                LETTER TRACKING (MONOSPACE SPREAD)
+              </span>
+              <span className="text-[#F5A623] font-bold font-mono">{titleConfig.tracking.toFixed(2)}em</span>
+            </div>
+            <input
+              type="range"
+              min="0.05"
+              max="0.45"
+              step="0.02"
+              value={titleConfig.tracking}
+              onChange={(e) => setTitleTracking(parseFloat(e.target.value))}
+              className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
+            />
+          </div>
+        </div>
+
+        {/* 3. Real-Time Bilingual Text Content */}
+        <div className="flex flex-col gap-3 bg-[#0a0a10] border border-[#272732] p-3.5 rounded-[2px]">
+          <div className="flex items-center justify-between border-b border-[#272732] pb-1.5">
+            <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-3 h-3 text-[#F5A623]" />
+              BILINGUAL TEXT REPOSITORY
             </span>
           </div>
 
           {/* Bangla Title Input */}
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-[10px] text-zinc-400 font-mono-tech uppercase">
-                বাংলা শীর্ষক (Bangla Title)
+              <label className="text-[10px] text-zinc-400 uppercase font-mono">
+                বাংলা শীর্ষক (Primary Hero Bangla Title)
               </label>
-              <span className="text-[8px] text-[#eab308] font-mono-tech">Noto Serif / Anek</span>
+              <span className="text-[8px] text-[#F5A623] font-mono">Anek / Noto Serif</span>
             </div>
             <input
               type="text"
               value={titleBn || ''}
               onChange={(e) => handleUpdate({ bengaliTitle: e.target.value })}
-              placeholder="যেমন: দৃষ্টি, সূচনা, সীমানা"
-              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-sm font-bengali font-bold text-[#ffe58f] outline-none transition-colors"
+              placeholder="যেমন: দৃষ্টির সীমানা, আলোর স্মৃতি"
+              className="w-full bg-[#121218] border border-[#272732] focus:border-[#F5A623] rounded-[1px] p-2 text-sm font-bangla font-black text-[#ffe58f] outline-none transition-colors"
             />
             {/* Quick Suggestions for Bangla */}
             <div className="flex flex-wrap gap-1 mt-1.5">
-              {banglaSuggestions.slice(0, 5).map(sug => (
+              {banglaSuggestions.slice(0, 6).map(sug => (
                 <button
                   key={sug}
                   type="button"
                   onClick={() => handleUpdate({ bengaliTitle: sug })}
-                  className="px-1.5 py-0.5 rounded-[1px] bg-white/5 hover:bg-[#d4af37]/20 border border-[#272732] hover:border-[#d4af37]/50 text-[9px] font-bengali text-zinc-300 hover:text-[#fbbf24] cursor-pointer transition-colors"
+                  className="px-1.5 py-0.5 rounded-[1px] bg-white/5 hover:bg-[#d4af37]/20 border border-[#272732] hover:border-[#d4af37]/50 text-[9px] font-bangla text-zinc-300 hover:text-[#fbbf24] cursor-pointer transition-colors"
                 >
                   {sug}
                 </button>
@@ -286,26 +518,26 @@ export const TextStudio: React.FC<TextStudioProps> = ({
           {/* English Headline Input */}
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-[10px] text-zinc-400 font-mono-tech uppercase">
-                English Headline (Cinematic Title)
+              <label className="text-[10px] text-zinc-400 uppercase font-mono">
+                English Subtitle (Ultra-Wide Tracked)
               </label>
-              <span className="text-[8px] text-[#eab308] font-mono-tech">Cinzel 35mm</span>
+              <span className="text-[8px] text-[#F5A623] font-mono">JetBrains Mono</span>
             </div>
             <input
               type="text"
               value={titleEn || ''}
               onChange={(e) => handleUpdate({ title: e.target.value })}
               placeholder="e.g. THE SINGULARITY"
-              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-xs font-cinzel font-bold text-white tracking-wider outline-none transition-colors uppercase"
+              className="w-full bg-[#121218] border border-[#272732] focus:border-[#F5A623] rounded-[1px] p-2 text-xs font-mono font-bold text-white tracking-wider outline-none transition-colors uppercase"
             />
             {/* Quick Suggestions for English */}
             <div className="flex flex-wrap gap-1 mt-1.5">
-              {englishSuggestions.slice(0, 4).map(sug => (
+              {englishSuggestions.slice(0, 6).map(sug => (
                 <button
                   key={sug}
                   type="button"
                   onClick={() => handleUpdate({ title: sug })}
-                  className="px-1.5 py-0.5 rounded-[1px] bg-white/5 hover:bg-[#d4af37]/20 border border-[#272732] hover:border-[#d4af37]/50 text-[8px] font-mono-tech text-zinc-300 hover:text-white cursor-pointer transition-colors"
+                  className="px-1.5 py-0.5 rounded-[1px] bg-white/5 hover:bg-[#d4af37]/20 border border-[#272732] hover:border-[#d4af37]/50 text-[8px] font-mono text-zinc-300 hover:text-white cursor-pointer transition-colors"
                 >
                   {sug}
                 </button>
@@ -313,56 +545,41 @@ export const TextStudio: React.FC<TextStudioProps> = ({
             </div>
           </div>
 
-          {/* Dialogue / Subtitle Textarea */}
+          {/* Dialogue / Tagline Subtitle Textarea */}
           <div>
-            <label className="text-[10px] text-zinc-400 font-mono-tech uppercase block mb-1">
-              Dialogue / Curatorial Subtitle
+            <label className="text-[10px] text-zinc-400 uppercase font-mono block mb-1">
+              Dialogue Card / Floating Obsidian Capsule
             </label>
             <textarea
               rows={2}
-              value={caption || ''}
-              onChange={(e) => handleUpdate({ tagline: e.target.value })}
-              placeholder="Dialogue, scene subtitle, or voiceover cue..."
-              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-xs font-mono-tech text-zinc-200 outline-none transition-colors resize-none leading-relaxed"
-            />
-          </div>
-
-          {/* Screenplay & Lighting Notes */}
-          <div>
-            <label className="text-[10px] text-zinc-400 font-mono-tech uppercase block mb-1">
-              Screenplay & Director Notes
-            </label>
-            <textarea
-              rows={3}
-              value={dialogue || ''}
-              onChange={(e) => handleUpdate({ directorNotes: e.target.value })}
-              placeholder="Directorial notes on performance, lighting, or blocking..."
-              className="w-full bg-[#121218] border border-[#272732] focus:border-[#fbbf24] rounded-[1px] p-2 text-xs font-mono-tech text-zinc-300 outline-none transition-colors resize-none leading-relaxed"
+              value={dialogue || caption || ''}
+              onChange={(e) => handleUpdate({ directorNotes: e.target.value, tagline: e.target.value })}
+              placeholder="Directorial line, quote, or narrative dialogue..."
+              className="w-full bg-[#121218] border border-[#272732] focus:border-[#F5A623] rounded-[1px] p-2 text-xs font-mono text-zinc-200 outline-none transition-colors resize-none leading-relaxed"
             />
           </div>
         </div>
 
-        {/* 2. Super Title Kinetic Animation Selector */}
-        <div className="flex flex-col gap-2.5 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
+        {/* 4. Super Title Kinetic Animation Style */}
+        <div className="flex flex-col gap-2.5 bg-[#0a0a10] border border-[#272732] p-3.5 rounded-[2px]">
           <div className="flex items-center justify-between">
-            <label className="text-[10px] text-zinc-400 font-mono-tech uppercase flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-[#eab308]" />
-              Super Title Animation Style
+            <label className="text-[10px] text-zinc-400 uppercase font-mono flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-[#F5A623]" />
+              Kinetic Entrance Transition
             </label>
-            <span className="text-[8.5px] text-[#fbbf24] font-mono-tech font-bold uppercase">
-              {animationStyle}
+            <span className="text-[8.5px] text-[#F5A623] font-mono font-bold uppercase">
+              600ms Ease-Scale (95% → 100%)
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5">
             {[
-              { id: 'flare', label: 'Anamorphic Gold Flare' },
-              { id: 'kinetic', label: 'Kinetic Snap' },
-              { id: 'glitch', label: 'Celluloid Glitch' },
-              { id: 'breathe', label: 'Aura Breathe' },
-              { id: 'typewriter', label: 'Typewriter Reveal' },
-              { id: 'neon', label: 'Dhaka Cyber Neon' },
-              { id: 'cinema-fade', label: '70mm Dissolve' }
+              { id: 'flare', label: '⚡ Anamorphic Flare' },
+              { id: 'kinetic', label: '🚀 Kinetic Snap' },
+              { id: 'glitch', label: '📼 Celluloid Glitch' },
+              { id: 'breathe', label: '✨ Aura Breathe' },
+              { id: 'typewriter', label: '⌨ Screenplay Typewriter' },
+              { id: 'neon', label: '🌆 Blade Runner Cyber' }
             ].map(opt => (
               <button
                 key={opt.id}
@@ -373,86 +590,11 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                 }}
                 className={`p-1.5 rounded-[1px] border text-[9.5px] text-left transition-colors cursor-pointer ${
                   animationStyle === opt.id 
-                    ? 'border-[#fbbf24] bg-[#d4af37]/20 text-[#fbbf24] font-bold shadow-[0_0_8px_rgba(234,179,8,0.3)]' 
+                    ? 'border-[#F5A623] bg-[#d4af37]/20 text-[#fbbf24] font-bold shadow-[0_0_8px_rgba(245,166,35,0.3)]' 
                     : 'border-[#272732] bg-[#121218] text-zinc-400 hover:text-white hover:border-zinc-700'
                 }`}
               >
                 {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 3. Typography Size & Font Stack */}
-        <div className="flex flex-col gap-3 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
-          <div className="flex items-center justify-between border-b border-[#272732] pb-1.5">
-            <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Sliders className="w-3 h-3 text-[#eab308]" />
-              Typography Geometry & Font
-            </span>
-          </div>
-
-          <div>
-            <label className="text-[9.5px] text-zinc-400 uppercase block mb-1">Headline Font Family</label>
-            <select
-              value={selectedFont}
-              onChange={(e) => setSelectedFont(e.target.value)}
-              className="w-full bg-[#121218] border border-[#272732] rounded-[1px] p-1.5 text-xs text-zinc-200 outline-none cursor-pointer"
-            >
-              <option value="Cinzel">Cinzel (Cinematic Master)</option>
-              <option value="JetBrains Mono">JetBrains Mono (Technical HUD)</option>
-              <option value="Noto Serif Bengali">Noto Serif Bengali (Heritage)</option>
-              <option value="Anek Bangla">Anek Bangla (Bold Display)</option>
-              <option value="Courier New">Courier New (Screenplay Typewriter)</option>
-            </select>
-          </div>
-
-          <div>
-            <div className="flex justify-between text-[9.5px] text-zinc-400 mb-1">
-              <span>BANGLA HEADLINE SCALE</span>
-              <span className="text-[#fbbf24] font-bold">{fontSizeBn}px</span>
-            </div>
-            <input
-              type="range"
-              min="24"
-              max="96"
-              value={fontSizeBn}
-              onChange={(e) => setFontSizeBn(Number(e.target.value))}
-              className="w-full accent-[#fbbf24]"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between text-[9.5px] text-zinc-400 mb-1">
-              <span>ENGLISH TITLE SCALE</span>
-              <span className="text-[#fbbf24] font-bold">{fontSize}px</span>
-            </div>
-            <input
-              type="range"
-              min="16"
-              max="64"
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-              className="w-full accent-[#fbbf24]"
-            />
-          </div>
-        </div>
-
-        {/* 4. Cinema Typography Style Presets */}
-        <div className="flex flex-col gap-2 bg-[#0a0a10] border border-[#272732] p-3 rounded-[2px]">
-          <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
-            Curated Film Presets
-          </span>
-          <div className="flex flex-col gap-1.5">
-            {titlePresets.map(preset => (
-              <button
-                key={preset.name}
-                type="button"
-                onClick={() => handleApplyPreset(preset)}
-                className="p-2 bg-[#121218] hover:bg-[#181822] border border-[#272732] hover:border-[#fbbf24]/50 rounded-[1px] text-left flex items-center justify-between cursor-pointer transition-colors"
-              >
-                <span className="font-bold text-xs truncate" style={{ color: preset.color }}>{preset.name}</span>
-                <span className="text-[8.5px] text-zinc-400 font-mono-tech">{preset.font}</span>
               </button>
             ))}
           </div>

@@ -15,6 +15,7 @@ import { PlaybackMode } from '../../types/editor';
 import { StageTextOverlay } from '../StageTextOverlay';
 import { studioDraftDb } from '../../services/db';
 import { getLutFilterCSS } from '../../utils/engine';
+import { useStudioStore } from '../../core/store';
 import {
   Play,
   Pause,
@@ -26,7 +27,8 @@ import {
   ChevronRight,
   Sliders,
   Volume2,
-  VolumeX
+  VolumeX,
+  Type
 } from 'lucide-react';
 import { StudioModuleId } from '../StudioNavRail';
 import { ReviewMarkupCanvas } from './ReviewMarkupCanvas';
@@ -104,6 +106,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
+
+  const storeTitleConfig = useStudioStore(s => s.titleConfig);
+  const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
+  const toggleTitlesStore = useStudioStore(s => s.toggleTitles);
+  const isTitlesActive = (showTitles !== false) && (storeTitleConfig?.showTitles ?? true) && (storeVisibility ?? true);
 
   // Active frame fallback
   const frame = currentFrame || frames[currentIndex] || frames[0];
@@ -323,7 +330,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         )}
 
         {/* Real-Time Bilingual Titles Overlay (Bangla Title + English Subtitle) */}
-        {showTitles && (
+        {isTitlesActive && (
           <StageTextOverlay
             shotIndex={currentIndex}
             banglaTitle={frame?.bengaliTitle}
@@ -332,6 +339,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             directorNotes={frame?.directorNotes}
             cameraInfo={frame?.cameraSpec?.focalLength}
             isVisible={true}
+            allowQuickControls={true}
           />
         )}
 
@@ -347,15 +355,38 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           />
         )}
 
-        {/* Directorial HUD Overlay */}
-        {showHud && (
-          <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-20">
-            <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
-              <span className="text-[#d4af37] font-bold">EP {frame?.epNumber || '001'}</span>
-              <span className="text-white/30">|</span>
-              <span className="truncate max-w-[200px]">{frame?.title}</span>
-            </div>
+        {/* Directorial HUD Overlay + Stage HUD Quick T TITLES Toggle */}
+        <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-20">
+          <div className="flex items-center gap-2">
+            {showHud && (
+              <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
+                <span className="text-[#d4af37] font-bold">EP {frame?.epNumber || '001'}</span>
+                <span className="text-white/30">|</span>
+                <span className="truncate max-w-[200px]">{frame?.title}</span>
+              </div>
+            )}
 
+            {/* Permanent Quick [ T TITLES: ON/OFF ] Toggle on Stage HUD */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onToggleTitles) onToggleTitles();
+                else toggleTitlesStore();
+              }}
+              className={`pointer-events-auto px-2.5 py-1 rounded-[2px] border font-mono text-[9px] font-bold tracking-wider flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md shadow-lg ${
+                isTitlesActive
+                  ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#ffe066] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
+                  : 'bg-black/80 border-white/20 text-zinc-400 hover:text-white hover:border-white/40'
+              }`}
+              title="Toggle Real-Time Kinetic Titles (T)"
+            >
+              <Type className={`w-3 h-3 ${isTitlesActive ? 'text-[#ffe066]' : 'text-zinc-500'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isTitlesActive ? 'bg-[#ffe066] animate-pulse' : 'bg-zinc-600'}`} />
+              <span>{isTitlesActive ? 'T TITLES: ON' : 'T TITLES: OFF'}</span>
+            </button>
+          </div>
+
+          {showHud && (
             <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
               <span>{frame?.cameraSpec?.focalLength || '35mm High-Speed Master'}</span>
               <span className="text-white/30">|</span>
@@ -365,8 +396,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 {isScrubbing ? 'PROXY 540p' : 'SOURCE 4K'}
               </span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Hover Action Controls */}
         <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 z-20 pointer-events-auto">

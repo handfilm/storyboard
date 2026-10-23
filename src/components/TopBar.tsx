@@ -41,7 +41,8 @@ import {
   Settings,
   Sliders,
   ChevronDown,
-  Keyboard
+  Keyboard,
+  Type
 } from 'lucide-react';
 
 export interface TopBarProps {
@@ -106,6 +107,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenAiStudio,
   onOpenBloomSequencer,
   onOpenSettingsModal,
+  onToggleTitles,
+  showTitles = true,
   currentView = 'HOME',
   onSelectView
 }) => {
@@ -431,6 +434,24 @@ export const TopBar: React.FC<TopBarProps> = ({
             >
               <Home className="w-3 h-3 text-[#E50914]" />
               <span className="tracking-wider">HOME</span>
+            </button>
+          )}
+
+          {/* Kinetic Hero Titles Quick Toggle */}
+          {onToggleTitles && (
+            <button
+              type="button"
+              onClick={onToggleTitles}
+              className={`px-3 py-1.5 rounded-full font-mono text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all border shadow-sm active:scale-95 ${
+                showTitles
+                  ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#ffe066] shadow-[0_0_12px_rgba(212,175,55,0.35)]'
+                  : 'bg-[#101018]/90 hover:bg-[#181824] border-[#272732] text-zinc-400 hover:text-white'
+              }`}
+              title="Toggle Kinetic Hero Typography (T)"
+            >
+              <Type className={`w-3.5 h-3.5 ${showTitles ? 'text-[#ffe066]' : 'text-zinc-500'}`} />
+              <span className="hidden md:inline">{showTitles ? 'TITLES: ON' : 'TITLES: OFF'}</span>
+              <span className="md:hidden">TXT</span>
             </button>
           )}
 

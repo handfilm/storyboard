@@ -1076,22 +1076,55 @@ export default function App() {
     }
   };
 
-  // Keep useStudioStore titleConfig.showTitles & visibility.titlesAll synchronized with componentsVisibility.titlesAll
-  useEffect(() => {
+  const syncVisibilityToStore = useCallback((vis: ComponentVisibility) => {
     try {
       const store = useStudioStore.getState();
-      if (store.titleConfig.showTitles !== componentsVisibility.titlesAll || store.visibility.titlesAll !== componentsVisibility.titlesAll) {
-        store.setTitleConfig({ showTitles: componentsVisibility.titlesAll });
-      }
+      const effectiveVisible = Boolean(
+        vis.titlesAll && (vis.titleBn !== false || vis.titleEn !== false || vis.tagline !== false)
+      );
+      store.setTitleConfig({ showTitles: effectiveVisible });
+      store.setVisibilityItem('titlesAll', effectiveVisible);
+      store.setVisibilityItem('titleBn', vis.titleBn);
+      store.setVisibilityItem('titleEn', vis.titleEn);
+      store.setVisibilityItem('tagline', vis.tagline);
+      store.setVisibilityItem('caption', vis.caption);
     } catch {}
-  }, [componentsVisibility.titlesAll]);
+  }, []);
 
-  // Also listen to store-driven title toggles (e.g., Stage fallback toggleTitlesStore)
+  const syncComponentsVisibility = useCallback((next: ComponentVisibility, source: string) => {
+    console.log(`[App] Syncing componentsVisibility (${source}) -> triggering title re-render:`, {
+      titlesAll: next.titlesAll,
+      titleBn: next.titleBn,
+      titleEn: next.titleEn,
+      tagline: next.tagline,
+      currentView,
+      workspaceMode
+    });
+    setComponentsVisibility(next);
+    saveComponentVisibility(next);
+    syncVisibilityToStore(next);
+  }, [currentView, workspaceMode, syncVisibilityToStore]);
+
+  // Keep useStudioStore titleConfig.showTitles & visibility channels synchronized on mount & state updates
+  useEffect(() => {
+    syncVisibilityToStore(componentsVisibility);
+  }, [componentsVisibility, syncVisibilityToStore]);
+
+  // Also listen to store-driven title toggles (e.g., Stage or OpticalMonitor shortcut toggleTitles)
   useEffect(() => {
     return eventBus.on('titles:toggle', (visible: boolean) => {
       setComponentsVisibility(prev => {
         if (prev.titlesAll === visible) return prev;
-        const next = { ...prev, titlesAll: visible };
+        const allSubChannelsOff =
+          prev.titleBn === false && prev.titleEn === false && prev.tagline === false;
+        const next: ComponentVisibility = {
+          ...prev,
+          titlesAll: visible,
+          titleBn: visible && allSubChannelsOff ? true : prev.titleBn,
+          titleEn: visible && allSubChannelsOff ? true : prev.titleEn,
+          tagline: visible && allSubChannelsOff ? true : prev.tagline
+        };
+        console.log('[App] eventBus titles:toggle received -> syncing componentsVisibility:', next);
         saveComponentVisibility(next);
         return next;
       });
@@ -1101,15 +1134,29 @@ export default function App() {
   // Title Toggle Handler
   const handleToggleTitles = useCallback(() => {
     setComponentsVisibility(prev => {
-      const nextVal = !prev.titlesAll;
-      const next = { ...prev, titlesAll: nextVal };
+      const currentEffective = Boolean(
+        prev.titlesAll && (prev.titleBn !== false || prev.titleEn !== false || prev.tagline !== false)
+      );
+      const nextVal = !currentEffective;
+      const allSubChannelsOff =
+        prev.titleBn === false && prev.titleEn === false && prev.tagline === false;
+      const next: ComponentVisibility = {
+        ...prev,
+        titlesAll: nextVal,
+        titleBn: nextVal && allSubChannelsOff ? true : prev.titleBn,
+        titleEn: nextVal && allSubChannelsOff ? true : prev.titleEn,
+        tagline: nextVal && allSubChannelsOff ? true : prev.tagline
+      };
+      console.log('[App] handleToggleTitles -> updating componentsVisibility:', {
+        previous: currentEffective,
+        next: nextVal,
+        updatedVisibility: next
+      });
       saveComponentVisibility(next);
-      try {
-        useStudioStore.getState().setTitleConfig({ showTitles: nextVal });
-      } catch {}
+      syncVisibilityToStore(next);
       return next;
     });
-  }, []);
+  }, [syncVisibilityToStore]);
 
   const handleUndo = useCallback(() => {
     if (historyStack.length === 0) return;
@@ -1556,6 +1603,8 @@ export default function App() {
         onToggleFullscreen={toggleFullscreen}
         onToggleTitles={handleToggleTitles}
         showTitles={componentsVisibility.titlesAll}
+        componentsVisibility={componentsVisibility}
+        onChangeComponentsVisibility={(next) => syncComponentsVisibility(next, 'TopBar')}
         saveState={saveState}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -1613,6 +1662,7 @@ export default function App() {
           onOpenExportRange={() => handleOpenExportStudio('mp4')}
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
           showTitles={componentsVisibility.titlesAll}
+          componentsVisibility={componentsVisibility}
         />
       ) : (
         <>
@@ -1909,10 +1959,7 @@ export default function App() {
         isOpen={isComponentsOpen}
         onClose={() => setIsComponentsOpen(false)}
         visibility={componentsVisibility}
-        onChange={(next) => {
-          setComponentsVisibility(next);
-          saveComponentVisibility(next);
-        }}
+        onChange={(next) => syncComponentsVisibility(next, 'ComponentsMatrixPopover')}
       />
 
       {/* Global Command Palette (Ctrl+K) */}

@@ -13,8 +13,10 @@
  * - 0ms reactive synchronization with useStudioStore.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useStudioStore, HeroTitlePreset } from '../core/store';
+import { ComponentVisibility } from './ComponentsMatrixPopover';
+import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { Sparkles, Sliders, Eye, EyeOff, Zap, Flame, Snowflake } from 'lucide-react';
 
 export type StageTitleVariant =
@@ -47,6 +49,7 @@ export interface StageTextOverlayProps {
   className?: string;
   allowQuickControls?: boolean;
   onChangeVariant?: (variant: any) => void;
+  componentsVisibility?: ComponentVisibility;
 }
 
 export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
@@ -65,8 +68,11 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   variant = 'center',
   className = '',
   allowQuickControls = false,
-  onChangeVariant
+  onChangeVariant,
+  componentsVisibility
 }) => {
+  const titleContainerRef = useRef<HTMLDivElement | null>(null);
+
   const storeTitleConfig = useStudioStore(s => s.titleConfig);
   const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
   const setTitlePreset = useStudioStore(s => s.setTitlePreset);
@@ -74,7 +80,6 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const setTitleGlowIntensity = useStudioStore(s => s.setTitleGlowIntensity);
   const setTitleVerticalOffset = useStudioStore(s => s.setTitleVerticalOffset);
   const setTitleTracking = useStudioStore(s => s.setTitleTracking);
-  const toggleTitlesStore = useStudioStore(s => s.toggleTitles);
 
   const [showQuickHud, setShowQuickHud] = useState(false);
 
@@ -86,9 +91,17 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const titleSizePx = storeTitleConfig?.titleSize ?? 72;
   const scale = propScale ?? (titleSizePx / 72);
 
-  // Title visibility check
-  const isEnabled = isVisible && (storeTitleConfig?.showTitles ?? true) && storeVisibility;
-  if (!isEnabled) return null;
+  // Explicit component visibility check for title elements
+  const showBangla = componentsVisibility ? componentsVisibility.titleBn !== false : true;
+  const showEnglish = componentsVisibility ? componentsVisibility.titleEn !== false : true;
+  const showDialogue = componentsVisibility
+    ? (componentsVisibility.tagline !== false || componentsVisibility.caption !== false)
+    : true;
+  const effectiveTitlesAll = componentsVisibility !== undefined
+    ? Boolean(componentsVisibility.titlesAll && (showBangla || showEnglish || showDialogue))
+    : Boolean((storeTitleConfig?.showTitles ?? true) && storeVisibility);
+
+  const isEnabled = Boolean(isVisible && effectiveTitlesAll);
 
   // Iconic headline fallbacks for dynamic Bangla hero typography
   const DEFAULT_BANGLA_HEADLINES = ['শূন্য', 'আলো', 'সংঘাত', 'দৃষ্টির সীমানা'];
@@ -99,6 +112,27 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     ? englishTitle 
     : `SHOT ${String(shotIndex + 1).padStart(3, '0')} // MASTER SEQUENCE`;
   const displayDialogue = directorNotes || subtitle;
+
+  const repaintRevision = useTitleContainerRepaint({
+    containerRef: titleContainerRef,
+    visibility: componentsVisibility,
+    isVisible: isEnabled,
+    label: 'StageTextOverlay',
+    activeKey: `${shotIndex}-${activePreset}`
+  });
+
+  useEffect(() => {
+    console.log('[StageTextOverlay] Re-rendering title elements:', {
+      shotIndex,
+      isEnabled,
+      effectiveTitlesAll,
+      showBangla,
+      showEnglish,
+      displayBangla,
+      displayEnglish,
+      repaintRevision
+    });
+  }, [shotIndex, isEnabled, effectiveTitlesAll, showBangla, showEnglish, displayBangla, displayEnglish, repaintRevision]);
 
   // Preset Visual Treatments
   const getPresetStyles = () => {
@@ -138,72 +172,87 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden flex flex-col ${className}`}
+      ref={titleContainerRef}
+      data-title-container="stage-text-overlay"
+      data-repaint-rev={repaintRevision}
+      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden ${
+        isEnabled ? 'flex flex-col' : 'hidden opacity-0'
+      } ${className}`}
       data-shot-index={shotIndex}
       data-preset={activePreset}
+      aria-hidden={!isEnabled}
     >
-      {/* Centered Dead-Middle Dynamic Hero Title Cluster */}
-      <div 
-        key={`hero-title-cluster-${shotIndex}-${activePreset}`}
-        className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-kinetic-entrance transition-transform duration-200"
-        style={{
-          transform: `translateY(${verticalOffset}px)`
-        }}
-      >
-        <div className="flex flex-col items-center justify-center text-center max-w-5xl px-4">
-          
-          {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
-          <h1
-            key={`bangla-title-${shotIndex}`}
-            className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl animate-kinetic-entrance`}
+      {isEnabled && (
+        <>
+          {/* Centered Dead-Middle Dynamic Hero Title Cluster */}
+          <div 
+            key={`hero-title-cluster-${shotIndex}-${activePreset}-${repaintRevision}`}
+            data-title-cluster="true"
+            className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-kinetic-entrance transition-transform duration-200"
             style={{
-              fontSize: `${Math.round(titleSizePx * scale)}px`,
-              letterSpacing: `${tracking}em`,
-              filter: presetStyle.filter,
-              transformOrigin: 'center center'
+              transform: `translateY(${verticalOffset}px)`
             }}
           >
-            {displayBangla}
-          </h1>
+            <div className="flex flex-col items-center justify-center text-center max-w-5xl px-4">
+              
+              {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
+              {showBangla && (
+                <h1
+                  key={`bangla-title-${shotIndex}`}
+                  className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl animate-kinetic-entrance`}
+                  style={{
+                    fontSize: `${Math.round(titleSizePx * scale)}px`,
+                    letterSpacing: `${tracking}em`,
+                    filter: presetStyle.filter,
+                    transformOrigin: 'center center'
+                  }}
+                >
+                  {displayBangla}
+                </h1>
+              )}
 
-          {/* Subtitle (Tracked Monospace English) */}
-          <div className="mt-4 sm:mt-5 flex flex-col items-center">
-            <p
-              className={`font-mono text-sm sm:text-base md:text-lg font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
-              style={{
-                letterSpacing: `${Math.max(0.2, tracking + 0.2)}em`
-              }}
-            >
-              {displayEnglish}
-            </p>
+              {/* Subtitle (Tracked Monospace English) */}
+              {showEnglish && (
+                <div className="mt-4 sm:mt-5 flex flex-col items-center">
+                  <p
+                    className={`font-mono text-sm sm:text-base md:text-lg font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
+                    style={{
+                      letterSpacing: `${Math.max(0.2, tracking + 0.2)}em`
+                    }}
+                  >
+                    {displayEnglish}
+                  </p>
 
-            {/* Accent: Optical Anamorphic Streak Divider expanding horizontally (w-0 to w-32 over 600ms) */}
-            <div 
-              key={`anamorphic-streak-${shotIndex}`}
-              className={`h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
-            />
+                  {/* Accent: Optical Anamorphic Streak Divider expanding horizontally (w-0 to w-32 over 600ms) */}
+                  <div 
+                    key={`anamorphic-streak-${shotIndex}`}
+                    className={`h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
+                  />
 
-            {/* Camera Optical Spec / Focal Length Badge (Subtle) */}
-            {cameraInfo && (
-              <span className="font-mono text-[9px] text-white/50 tracking-[0.25em] uppercase mt-2">
-                {cameraInfo}
-              </span>
-            )}
+                  {/* Camera Optical Spec / Focal Length Badge (Subtle) */}
+                  {cameraInfo && (
+                    <span className="font-mono text-[9px] text-white/50 tracking-[0.25em] uppercase mt-2">
+                      {cameraInfo}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule */}
-      {displayDialogue && (
-        <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none max-w-xl px-4 text-center w-full">
-          <div className={`mx-auto inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border ${presetStyle.capsuleBorder} px-6 py-2 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-            <span>"{displayDialogue}"</span>
-          </div>
-        </div>
+          {/* Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule */}
+          {showDialogue && displayDialogue && (
+            <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none max-w-xl px-4 text-center w-full">
+              <div className={`mx-auto inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border ${presetStyle.capsuleBorder} px-6 py-2 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                <span>"{displayDialogue}"</span>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Optional Interactive Quick-HUD for on-stage tweaking */}
-      {allowQuickControls && (
+      {isEnabled && allowQuickControls && (
         <div className="absolute top-12 right-3 pointer-events-auto z-40 flex items-center gap-1.5">
           <button
             type="button"

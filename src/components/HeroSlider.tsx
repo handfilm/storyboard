@@ -7,6 +7,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnthologyFrame } from '../types/anthology';
 import { SLIDES_DATA } from './landing/LandingWalkthrough';
+import { ComponentVisibility } from './ComponentsMatrixPopover';
+import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { 
   Zap, 
   ChevronLeft, 
@@ -22,6 +24,7 @@ export interface HeroSliderProps {
   onOpenExportXml?: () => void;
   onScrollToSpecs?: () => void;
   showTitles?: boolean;
+  componentsVisibility?: ComponentVisibility;
 }
 
 export const HeroSlider: React.FC<HeroSliderProps> = ({
@@ -29,13 +32,15 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
   onLaunchStudio,
   onOpenExportXml,
   onScrollToSpecs,
-  showTitles = true
+  showTitles = true,
+  componentsVisibility
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isHeroPaused, setIsHeroPaused] = useState(false);
   const [isTransitionActive, setIsTransitionActive] = useState(true);
   const [slideTransitionKey, setSlideTransitionKey] = useState(0);
 
+  const heroTitleContainerRef = useRef<HTMLDivElement | null>(null);
   const heroCycleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const transitionResetTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -67,6 +72,44 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
 
   const activeSlide = SLIDES_DATA[currentSlideIndex] || SLIDES_DATA[0];
   const activeFrame = frames.length > 0 ? frames[currentSlideIndex % frames.length] : undefined;
+
+  const isHeroTitleVisible = componentsVisibility !== undefined
+    ? Boolean(
+        showTitles &&
+        componentsVisibility.titlesAll &&
+        (componentsVisibility.titleBn !== false ||
+          componentsVisibility.titleEn !== false ||
+          componentsVisibility.tagline !== false)
+      )
+    : Boolean(showTitles);
+
+  const repaintRevision = useTitleContainerRepaint({
+    containerRef: heroTitleContainerRef,
+    visibility: componentsVisibility,
+    isVisible: isHeroTitleVisible,
+    label: 'HeroSlider',
+    activeKey: `${slideTransitionKey}-${currentSlideIndex}`
+  });
+
+  useEffect(() => {
+    console.log('[HeroSlider] Re-rendering Home hero title elements:', {
+      isHeroTitleVisible,
+      showTitles,
+      titlesAll: componentsVisibility?.titlesAll,
+      slideIndex: currentSlideIndex,
+      title: activeSlide.title,
+      bengaliTitle: activeFrame?.bengaliTitle,
+      repaintRevision
+    });
+  }, [
+    isHeroTitleVisible,
+    showTitles,
+    componentsVisibility?.titlesAll,
+    currentSlideIndex,
+    activeSlide.title,
+    activeFrame?.bengaliTitle,
+    repaintRevision
+  ]);
 
   const handlePrevSlide = () => {
     triggerSlideTransition((prev) => (prev - 1 + SLIDES_DATA.length) % SLIDES_DATA.length);
@@ -124,43 +167,57 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
           key={`hero-content-${slideTransitionKey}-${currentSlideIndex}`}
           className={`max-w-2xl ${isTransitionActive ? 'animate-hero-fade' : 'opacity-0'}`}
         >
-          {showTitles && (
-            <>
-              {/* Eyebrow */}
-              <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#F5A623] mb-3 flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
-                  {activeSlide.tag}
-                </span>
-                <span className="text-zinc-600 font-bold">•</span>
-                <span className="text-zinc-300 font-mono text-[11px] tracking-widest">
-                  SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
-                </span>
-                {activeFrame?.bengaliTitle && (
-                  <>
-                    <span className="text-zinc-600 font-bold">•</span>
-                    <span className="font-bangla text-sm text-[#FFE066] font-bold tracking-normal glow-gold">
-                      {activeFrame.bengaliTitle}
-                    </span>
-                  </>
+          {/* Dedicated Hero Title Container targeted via ref for forced repaint */}
+          <div
+            ref={heroTitleContainerRef}
+            data-title-container="hero-slider"
+            data-title-cluster="true"
+            data-repaint-rev={repaintRevision}
+            className={isHeroTitleVisible ? 'flex flex-col' : 'hidden opacity-0'}
+            aria-hidden={!isHeroTitleVisible}
+          >
+            {isHeroTitleVisible && (
+              <>
+                {/* Eyebrow */}
+                <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#F5A623] mb-3 flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
+                    {activeSlide.tag}
+                  </span>
+                  <span className="text-zinc-600 font-bold">•</span>
+                  <span className="text-zinc-300 font-mono text-[11px] tracking-widest">
+                    SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
+                  </span>
+                  {(componentsVisibility?.titleBn ?? true) && activeFrame?.bengaliTitle && (
+                    <>
+                      <span className="text-zinc-600 font-bold">•</span>
+                      <span className="font-bangla text-sm text-[#FFE066] font-bold tracking-normal glow-gold">
+                        {activeFrame.bengaliTitle}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Main Headline */}
+                {(componentsVisibility?.titleEn ?? true) && (
+                  <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight font-cinzel leading-none drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
+                    {activeSlide.title}
+                  </h1>
                 )}
-              </div>
 
-              {/* Main Headline */}
-              <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight font-cinzel leading-none drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
-                {activeSlide.title}
-              </h1>
+                {/* Subtitle */}
+                {(componentsVisibility?.tagline ?? true) && (
+                  <div className="mt-3 mb-4 text-lg md:text-xl font-semibold text-zinc-200 font-sans tracking-wide">
+                    // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
+                  </div>
+                )}
 
-              {/* Subtitle */}
-              <div className="mt-3 mb-4 text-lg md:text-xl font-semibold text-zinc-200 font-sans tracking-wide">
-                // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
-              </div>
-
-              {/* Description */}
-              <p className="max-w-xl text-zinc-300 text-sm md:text-base leading-relaxed mb-6 font-sans line-clamp-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
-                {activeSlide.body}
-              </p>
-            </>
-          )}
+                {/* Description */}
+                <p className="max-w-xl text-zinc-300 text-sm md:text-base leading-relaxed mb-6 font-sans line-clamp-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
+                  {activeSlide.body}
+                </p>
+              </>
+            )}
+          </div>
 
           {/* Action CTA Buttons: Master [ ⚡ TRY STUDIO ] + Compact [ ⓘ INFO ] & [ ⤓ EXPORT ] */}
           <div className="gap-3 sm:gap-4 flex items-center flex-wrap">

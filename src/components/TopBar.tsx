@@ -55,6 +55,8 @@ import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/f
 import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
 import { User } from 'firebase/auth';
 import { ExportModalTab } from './CutNativeExportModal';
+import { ComponentVisibility } from './ComponentsMatrixPopover';
+import { useStudioStore } from '../core/store';
 
 export interface TopBarProps {
   projectTitle?: string;
@@ -77,6 +79,8 @@ export interface TopBarProps {
   onToggleFullscreen?: () => void;
   onToggleTitles?: () => void;
   showTitles?: boolean;
+  componentsVisibility?: ComponentVisibility;
+  onChangeComponentsVisibility?: (next: ComponentVisibility) => void;
   saveState?: SaveState;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -132,6 +136,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenSettingsModal,
   onToggleTitles,
   showTitles = true,
+  componentsVisibility,
+  onChangeComponentsVisibility,
   currentView = 'HOME',
   onSelectView,
   currentShotIndex = 0,
@@ -142,6 +148,45 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isEcosystemMenuOpen, setIsEcosystemMenuOpen] = useState(false);
+
+  // Explicit check of component visibility state for TopBar title toggle button
+  const effectiveShowTitles = componentsVisibility !== undefined
+    ? Boolean(
+        componentsVisibility.titlesAll &&
+        (componentsVisibility.titleBn !== false ||
+          componentsVisibility.titleEn !== false ||
+          componentsVisibility.tagline !== false)
+      )
+    : Boolean(showTitles);
+
+  const handleTitleToggleClick = () => {
+    const nextVisible = !effectiveShowTitles;
+    console.log('[TopBar] Title toggle clicked — syncing with componentVisibility:', {
+      previousTitlesVisible: effectiveShowTitles,
+      nextTitlesVisible: nextVisible,
+      componentsVisibility
+    });
+
+    if (onChangeComponentsVisibility && componentsVisibility) {
+      const allSubChannelsOff =
+        componentsVisibility.titleBn === false &&
+        componentsVisibility.titleEn === false &&
+        componentsVisibility.tagline === false;
+
+      const nextVisibility: ComponentVisibility = {
+        ...componentsVisibility,
+        titlesAll: nextVisible,
+        titleBn: nextVisible && allSubChannelsOff ? true : componentsVisibility.titleBn,
+        titleEn: nextVisible && allSubChannelsOff ? true : componentsVisibility.titleEn,
+        tagline: nextVisible && allSubChannelsOff ? true : componentsVisibility.tagline
+      };
+      onChangeComponentsVisibility(nextVisibility);
+    } else if (onToggleTitles) {
+      onToggleTitles();
+    } else {
+      useStudioStore.getState().toggleTitles();
+    }
+  };
 
   // Firebase Auth & Cloud Sync State
   const [authUser, setAuthUser] = useState<User | null>(auth.currentUser);
@@ -564,13 +609,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           )}
 
           {/* Kinetic Hero Titles Toggle: Symbol "T" ONLY */}
-          {onToggleTitles && (
+          {(onToggleTitles || onChangeComponentsVisibility) && (
             <div className="relative group/title-toggle">
               <button
                 type="button"
-                onClick={onToggleTitles}
+                onClick={handleTitleToggleClick}
+                aria-pressed={effectiveShowTitles}
                 className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl font-serif text-base sm:text-lg font-black flex items-center justify-center cursor-pointer transition-all border-2 shadow-sm active:scale-95 ${
-                  showTitles
+                  effectiveShowTitles
                     ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#ffe066] shadow-[0_0_16px_rgba(212,175,55,0.45)]'
                     : 'bg-[#12131d] hover:bg-[#1c1d2c] border-[#2f3246] text-zinc-400 hover:text-white'
                 }`}
@@ -587,7 +633,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">T</kbd>
                 </div>
                 <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">
-                  Status: <span className={showTitles ? 'text-amber-400 font-bold' : 'text-zinc-500 font-bold'}>{showTitles ? 'ON' : 'OFF'}</span>. Bilingual Bangla-English typography overlays.
+                  Status: <span className={effectiveShowTitles ? 'text-amber-400 font-bold' : 'text-zinc-500 font-bold'}>{effectiveShowTitles ? 'ON' : 'OFF'}</span>. Bilingual Bangla-English typography overlays.
                 </div>
               </div>
             </div>

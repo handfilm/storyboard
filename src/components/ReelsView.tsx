@@ -17,6 +17,8 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode } from '../types/editor';
+import { ComponentVisibility } from './ComponentsMatrixPopover';
+import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { 
   Film, 
   Upload, 
@@ -59,6 +61,7 @@ export interface ReelsViewProps {
   onOpenCinemaPlayer?: () => void;
   projectTitle?: string;
   showTitles?: boolean;
+  componentsVisibility?: ComponentVisibility;
   defaultSafeZone?: ReelsSafeZonePosition;
 }
 
@@ -84,11 +87,31 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   onOpenCinemaPlayer,
   projectTitle = '12.0S CINEMA REEL',
   showTitles = true,
+  componentsVisibility,
   defaultSafeZone = 'bottom'
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reelsTitleContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const isReelsTitleVisible = componentsVisibility !== undefined
+    ? Boolean(
+        showTitles &&
+        componentsVisibility.titlesAll &&
+        (componentsVisibility.titleBn !== false ||
+          componentsVisibility.titleEn !== false ||
+          componentsVisibility.tagline !== false)
+      )
+    : Boolean(showTitles);
+
+  const repaintRevision = useTitleContainerRepaint({
+    containerRef: reelsTitleContainerRef,
+    visibility: componentsVisibility,
+    isVisible: isReelsTitleVisible,
+    label: 'ReelsView',
+    activeKey: currentIndex
+  });
 
   // Safe-Zone Positioning State: 'bottom' default as confirmed by user
   const [safeZone, setSafeZone] = useState<ReelsSafeZonePosition>(defaultSafeZone);
@@ -122,6 +145,16 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const displayBangla = currentSlide?.titleBn || 'আলোর স্মৃতি';
   const displayEnglish = currentSlide?.titleEn || `SHOT ${String(currentIndex + 1).padStart(3, '0')} // MASTER REEL`;
   const displaySubtitle = currentSlide?.tagline || currentSlide?.directorNotes || '24.0 FPS RAW • MASTER CINE PROJECTION';
+
+  useEffect(() => {
+    console.log('[ReelsView] Re-rendering title elements:', {
+      isReelsTitleVisible,
+      currentIndex,
+      displayBangla,
+      displayEnglish,
+      repaintRevision
+    });
+  }, [isReelsTitleVisible, currentIndex, displayBangla, displayEnglish, repaintRevision]);
 
   // Subtle Cross-Dissolve Transition State
   const [outgoingPlate, setOutgoingPlate] = useState<{
@@ -420,58 +453,69 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           {/* ========================================================================= */}
           {/* FROSTED OBSIDIAN CAPSULE EDITORIAL SUITE                                  */}
           {/* ========================================================================= */}
-          {showTitles && (
           <div 
-            className={`absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl flex flex-col ${getSafeZoneClass()}`}
+            ref={reelsTitleContainerRef}
+            data-title-container="reels-view"
+            data-title-cluster="true"
+            data-repaint-rev={repaintRevision}
+            className={`absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl ${
+              isReelsTitleVisible ? 'flex flex-col' : 'hidden opacity-0'
+            } ${getSafeZoneClass()}`}
+            aria-hidden={!isReelsTitleVisible}
           >
-            <div className="w-full backdrop-blur-md bg-black/60 border border-[#F5A623]/30 rounded-xl px-6 py-4 shadow-[0_12px_40px_rgba(0,0,0,0.85)] relative overflow-hidden animate-title-entrance">
-              
-              {/* Header Meta Row: Integrated Frame Counter Tag + Sequence Pill */}
-              <div className="flex items-center justify-between gap-3 mb-2.5">
-                {/* Integrated Frame Counter Tag: [ F001/288 • 12.0s ] in Gold Monospace */}
-                <div className="font-mono text-[#F5A623] font-bold text-xs tracking-wider flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded bg-[#F5A623]/15 border border-[#F5A623]/40">
-                    {frameCounterTag}
-                  </span>
+            {isReelsTitleVisible && (
+              <div className="w-full backdrop-blur-md bg-black/60 border border-[#F5A623]/30 rounded-xl px-6 py-4 shadow-[0_12px_40px_rgba(0,0,0,0.85)] relative overflow-hidden animate-title-entrance">
+                
+                {/* Header Meta Row: Integrated Frame Counter Tag + Sequence Pill */}
+                <div className="flex items-center justify-between gap-3 mb-2.5">
+                  {/* Integrated Frame Counter Tag: [ F001/288 • 12.0s ] in Gold Monospace */}
+                  <div className="font-mono text-[#F5A623] font-bold text-xs tracking-wider flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded bg-[#F5A623]/15 border border-[#F5A623]/40">
+                      {frameCounterTag}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest hidden sm:inline">
+                      EDIT CUT {String(currentIndex + 1).padStart(2, '0')}/100
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-[#E50914] animate-pulse" />
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest hidden sm:inline">
-                    EDIT CUT {String(currentIndex + 1).padStart(2, '0')}/100
-                  </span>
-                  <span className="w-2 h-2 rounded-full bg-[#E50914] animate-pulse" />
-                </div>
-              </div>
-
-              {/* Glowing Bangla Title */}
-              <h2 className="font-bangla font-black text-2xl sm:text-3xl text-[#F5A623] tracking-wide leading-tight animate-golden-bloom">
-                {displayBangla}
-              </h2>
-
-              {/* English Subtitle / Tagline */}
-              <div className="mt-1 space-y-1">
-                <p className="font-cinzel font-bold text-xs sm:text-sm text-white/95 uppercase tracking-wider drop-shadow-md">
-                  {displayEnglish}
-                </p>
-
-                {displaySubtitle && (
-                  <p className="font-mono text-[10px] text-zinc-300 tracking-wide line-clamp-2 leading-relaxed">
-                    {displaySubtitle}
-                  </p>
+                {/* Glowing Bangla Title */}
+                {(componentsVisibility?.titleBn ?? true) && (
+                  <h2 className="font-bangla font-black text-2xl sm:text-3xl text-[#F5A623] tracking-wide leading-tight animate-golden-bloom">
+                    {displayBangla}
+                  </h2>
                 )}
-              </div>
 
-              {/* Pulsing Amber Progress Line along bottom border syncing to 12.0s block */}
-              <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-[#F5A623] via-[#ffc048] to-[#E50914] animate-amber-progress-pulse transition-all duration-100 ease-linear shadow-[0_0_12px_#F5A623]"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
+                {/* English Subtitle / Tagline */}
+                <div className="mt-1 space-y-1">
+                  {(componentsVisibility?.titleEn ?? true) && (
+                    <p className="font-cinzel font-bold text-xs sm:text-sm text-white/95 uppercase tracking-wider drop-shadow-md">
+                      {displayEnglish}
+                    </p>
+                  )}
 
-            </div>
+                  {(componentsVisibility?.tagline ?? true) && displaySubtitle && (
+                    <p className="font-mono text-[10px] text-zinc-300 tracking-wide line-clamp-2 leading-relaxed">
+                      {displaySubtitle}
+                    </p>
+                  )}
+                </div>
+
+                {/* Pulsing Amber Progress Line along bottom border syncing to 12.0s block */}
+                <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#F5A623] via-[#ffc048] to-[#E50914] animate-amber-progress-pulse transition-all duration-100 ease-linear shadow-[0_0_12px_#F5A623]"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+
+              </div>
+            )}
           </div>
-          )}
 
         </div>
       </div>

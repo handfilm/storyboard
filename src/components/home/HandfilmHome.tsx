@@ -9,6 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AnthologyFrame } from '../../types/anthology';
 import { SLIDES_DATA } from '../landing/LandingWalkthrough';
 import { HeroSlider } from '../HeroSlider';
+import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { 
   Play, 
   ChevronLeft, 
@@ -38,6 +39,7 @@ interface HandfilmHomeProps {
   onOpenExportRange?: () => void;
   onOpenShortcuts?: () => void;
   showTitles?: boolean;
+  componentsVisibility?: ComponentVisibility;
 }
 
 export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
@@ -47,7 +49,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   onOpenExportXml,
   onOpenExportRange,
   onOpenShortcuts,
-  showTitles = true
+  showTitles = true,
+  componentsVisibility
 }) => {
   // Top 10 Shots
   const top10Shots = frames.slice(0, 10);
@@ -103,6 +106,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         onOpenExportXml={onOpenExportXml}
         onScrollToSpecs={handleScrollToSpecs}
         showTitles={showTitles}
+        componentsVisibility={componentsVisibility}
       />
 
       {/* ========================================================= */}

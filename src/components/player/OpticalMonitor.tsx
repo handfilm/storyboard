@@ -53,6 +53,8 @@ import {
 import { useStudioStore } from '../../core/store';
 import { calculateMultiLayerZoom } from '../../utils/engine';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
+import { ComponentVisibility } from '../ComponentsMatrixPopover';
+import { useTitleContainerRepaint } from '../../hooks/useTitleContainerRepaint';
 
 export type TitleLayoutVariant =
   | 'center-low'
@@ -161,6 +163,7 @@ interface OpticalMonitorProps {
   onOpenCinemaPlayer?: () => void;
   projectTitle?: string;
   showTitles?: boolean;
+  componentsVisibility?: ComponentVisibility;
   className?: string;
 }
 
@@ -189,12 +192,14 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   onOpenCinemaPlayer,
   projectTitle = 'RAWx Storyboard',
   showTitles: propShowTitles,
+  componentsVisibility,
   className = ''
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const prebufferVideoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const monitorTitleContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [isMuted, setIsMuted] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -203,7 +208,23 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
 
   const storeShowTitles = useStudioStore((s) => s.titleConfig?.showTitles ?? true);
   const storeTitlesAll = useStudioStore((s) => s.visibility.titlesAll);
-  const showTitles = (propShowTitles ?? true) && storeShowTitles && storeTitlesAll;
+  const showTitles = componentsVisibility !== undefined
+    ? Boolean(
+        (propShowTitles ?? true) &&
+        componentsVisibility.titlesAll &&
+        (componentsVisibility.titleBn !== false ||
+          componentsVisibility.titleEn !== false ||
+          componentsVisibility.tagline !== false)
+      )
+    : Boolean((propShowTitles ?? true) && storeShowTitles && storeTitlesAll);
+
+  useTitleContainerRepaint({
+    containerRef: monitorTitleContainerRef,
+    visibility: componentsVisibility,
+    isVisible: showTitles,
+    label: 'OpticalMonitor',
+    activeKey: currentIndex
+  });
 
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
@@ -812,24 +833,28 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           {/* ========================================================================= */}
           {/* REAL-TIME DUAL-LANGUAGE TYPOGRAPHY (FOREGROUND MULTI-LAYER ZOOM)          */}
           {/* ========================================================================= */}
-          {showTitles && (
-            <div
-              className="absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center"
-              style={{ transform: zoomTransforms.fgTransform }}
-            >
-              <StageTextOverlay
-                shotIndex={currentIndex}
-                banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
-                englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
-                subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
-                directorNotes={currentSlide?.directorNotes}
-                isVisible={showTitles}
-                variant={effectiveTitleVariant}
-                allowQuickControls={true}
-                onChangeVariant={(v) => setTitlePosition(v)}
-              />
-            </div>
-          )}
+          <div
+            ref={monitorTitleContainerRef}
+            data-title-container="optical-monitor"
+            className={`absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center ${
+              showTitles ? 'flex flex-col' : 'hidden opacity-0'
+            }`}
+            style={{ transform: zoomTransforms.fgTransform }}
+            aria-hidden={!showTitles}
+          >
+            <StageTextOverlay
+              shotIndex={currentIndex}
+              banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
+              englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
+              subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
+              directorNotes={currentSlide?.directorNotes}
+              isVisible={showTitles}
+              variant={effectiveTitleVariant}
+              allowQuickControls={true}
+              onChangeVariant={(v) => setTitlePosition(v)}
+              componentsVisibility={componentsVisibility}
+            />
+          </div>
 
         </div>
       </div>

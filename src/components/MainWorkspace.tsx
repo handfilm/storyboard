@@ -10,8 +10,9 @@
  * - BOARD (7-view storyboard engines) and CUT (CapCut-style multi-track editor).
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { WorkspaceMode } from '../core/theme';
+import { useStudioStore } from '../core/store';
 import { AnthologyFrame, AspectRatio } from '../types/anthology';
 import { OpticalFrame } from './OpticalFrame';
 import { OpticalMonitor } from './player/OpticalMonitor';
@@ -182,6 +183,47 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
   const [isLooping, setIsLooping] = useState(true);
 
+  const storeTitlesAll = useStudioStore((s) => s.visibility.titlesAll);
+  const storeShowTitles = useStudioStore((s) => s.titleConfig?.showTitles ?? true);
+
+  // Explicitly evaluate component visibility state for title elements in MainWorkspace
+  const isTitleVisible = useMemo(() => {
+    if (componentsVisibility !== undefined) {
+      const hasEnabledTitleLayer =
+        componentsVisibility.titleBn !== false ||
+        componentsVisibility.titleEn !== false ||
+        componentsVisibility.tagline !== false;
+      return Boolean(componentsVisibility.titlesAll && hasEnabledTitleLayer);
+    }
+    return Boolean(storeTitlesAll && storeShowTitles);
+  }, [componentsVisibility, storeTitlesAll, storeShowTitles]);
+
+  useEffect(() => {
+    console.log('[MainWorkspace] Title visibility state change -> triggering workspace title re-render:', {
+      isTitleVisible,
+      titlesAll: componentsVisibility?.titlesAll,
+      titleBn: componentsVisibility?.titleBn,
+      titleEn: componentsVisibility?.titleEn,
+      tagline: componentsVisibility?.tagline,
+      storeTitlesAll,
+      storeShowTitles,
+      activeMode,
+      currentPanel,
+      currentIndex
+    });
+  }, [
+    isTitleVisible,
+    componentsVisibility?.titlesAll,
+    componentsVisibility?.titleBn,
+    componentsVisibility?.titleEn,
+    componentsVisibility?.tagline,
+    storeTitlesAll,
+    storeShowTitles,
+    activeMode,
+    currentPanel,
+    currentIndex
+  ]);
+
   // Convert AnthologyFrames into SlideDrafts with strict 12.0s durations
   const slides: SlideDraft[] = useMemo(() => {
     return frames.map((f, i) => ({
@@ -242,7 +284,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           onOpenAnimatic={onOpenAnimatic}
           onOpenInspector={onOpenInspector}
           onToggleTitles={onToggleTitles}
-          showTitles={componentsVisibility?.titlesAll ?? true}
+          showTitles={isTitleVisible}
           playbackMode={playbackMode}
           onSelectPlaybackMode={onSelectPlaybackMode}
           slideTimeSec={slideTimeSec}
@@ -325,7 +367,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onOpenAnimatic={onOpenAnimatic}
               onOpenInspector={onOpenInspector}
               onToggleTitles={onToggleTitles}
-              showTitles={componentsVisibility?.titlesAll ?? true}
+              showTitles={isTitleVisible}
               playbackMode={playbackMode}
               onSelectPlaybackMode={onSelectPlaybackMode}
               slideTimeSec={slideTimeSec}
@@ -379,7 +421,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onPurgeMedia={onPurgeMedia}
                 onOpenCinemaPlayer={onOpenCinemaPlayer}
                 projectTitle={projectTitle}
-                showTitles={componentsVisibility?.titlesAll ?? true}
+                showTitles={isTitleVisible}
+                componentsVisibility={componentsVisibility}
                 defaultSafeZone="bottom"
               />
             </div>
@@ -451,7 +494,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onPurgeMedia={onPurgeMedia}
               onOpenCinemaPlayer={onOpenCinemaPlayer}
               projectTitle={projectTitle}
-              showTitles={componentsVisibility?.titlesAll ?? true}
+              showTitles={isTitleVisible}
+              componentsVisibility={componentsVisibility}
             />
           </div>
         )}

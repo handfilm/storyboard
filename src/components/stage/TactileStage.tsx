@@ -39,6 +39,7 @@ import {
   thumbnailMemoryCache, 
   cleanupVideoElement 
 } from '../../services/thumbnailEngine';
+import { useTitleContainerRepaint } from '../../hooks/useTitleContainerRepaint';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -107,6 +108,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stageTitleContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
@@ -139,10 +141,26 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const storeTitleConfig = useStudioStore(s => s.titleConfig);
   const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
   const toggleTitlesStore = useStudioStore(s => s.toggleTitles);
-  const isTitlesActive = (showTitles !== false) && (storeTitleConfig?.showTitles ?? true) && (storeVisibility ?? true);
+  const isTitlesActive = componentsVisibility !== undefined
+    ? Boolean(
+        showTitles !== false &&
+        componentsVisibility.titlesAll &&
+        (componentsVisibility.titleBn !== false ||
+          componentsVisibility.titleEn !== false ||
+          componentsVisibility.tagline !== false)
+      )
+    : Boolean((showTitles !== false) && (storeTitleConfig?.showTitles ?? true) && (storeVisibility ?? true));
 
   // Active frame fallback
   const frame = currentFrame || frames[currentIndex] || frames[0];
+
+  useTitleContainerRepaint({
+    containerRef: stageTitleContainerRef,
+    visibility: componentsVisibility,
+    isVisible: isTitlesActive,
+    label: 'TactileStage',
+    activeKey: currentIndex
+  });
 
   // Resolve sourceBlob vs proxyBlob for Adaptive Dual-Stream switching & cached poster fallback
   useEffect(() => {
@@ -502,23 +520,27 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         )}
 
         {/* Real-Time Bilingual Titles Overlay (Foreground Multi-Layer Zoom) */}
-        {isTitlesActive && (
-          <div
-            className="absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center"
-            style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
-          >
-            <StageTextOverlay
-              shotIndex={currentIndex}
-              banglaTitle={frame?.bengaliTitle}
-              englishTitle={frame?.title}
-              subtitle={frame?.tagline}
-              directorNotes={frame?.directorNotes}
-              cameraInfo={frame?.cameraSpec?.focalLength}
-              isVisible={true}
-              allowQuickControls={true}
-            />
-          </div>
-        )}
+        <div
+          ref={stageTitleContainerRef}
+          data-title-container="tactile-stage"
+          className={`absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center ${
+            isTitlesActive ? 'flex flex-col' : 'hidden opacity-0'
+          }`}
+          style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
+          aria-hidden={!isTitlesActive}
+        >
+          <StageTextOverlay
+            shotIndex={currentIndex}
+            banglaTitle={frame?.bengaliTitle}
+            englishTitle={frame?.title}
+            subtitle={frame?.tagline}
+            directorNotes={frame?.directorNotes}
+            cameraInfo={frame?.cameraSpec?.focalLength}
+            isVisible={isTitlesActive}
+            allowQuickControls={true}
+            componentsVisibility={componentsVisibility}
+          />
+        </div>
 
         {/* Module 11: Review Visual Markup Canvas Overlay */}
         {activeModule === 'REVIEW' && (

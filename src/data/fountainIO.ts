@@ -11,6 +11,7 @@ export interface DialogueBlock {
 export interface ParsedScene {
   heading: string;
   body: string;
+  action: string;
   dialogueBlocks: DialogueBlock[];
 }
 
@@ -25,10 +26,12 @@ export function parseFountainScript(script: string): ParsedScene[] {
   const matches = Array.from(script.matchAll(sceneRegex));
 
   if (matches.length === 0) {
+    const trimmed = script.trim();
     return [
       {
         heading: 'SCENE 01 // GENERAL',
-        body: script.trim(),
+        body: trimmed,
+        action: trimmed,
         dialogueBlocks: []
       }
     ];
@@ -59,7 +62,25 @@ export function parseFountainScript(script: string): ParsedScene[] {
     return {
       heading,
       body,
+      action: body,
       dialogueBlocks
     };
   });
 }
+
+/**
+ * Exports structured scene objects back into a Fountain screenplay format string
+ */
+export function exportFountainScript(scenes: ParsedScene[]): string {
+  if (!scenes || scenes.length === 0) return '';
+  return scenes.map(s => {
+    let out = `${s.heading}\n\n${s.action || s.body || ''}\n`;
+    if (s.dialogueBlocks && s.dialogueBlocks.length > 0) {
+      for (const d of s.dialogueBlocks) {
+        out += `\n${d.character}\n${d.line}\n`;
+      }
+    }
+    return out;
+  }).join('\n\n');
+}
+

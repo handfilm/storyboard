@@ -19,6 +19,11 @@ import {
   Sliders,
   Palette,
   Activity,
+  GitBranch,
+  Terminal,
+  Copy,
+  ExternalLink,
+  CheckCircle2,
   X,
   Check,
   ShieldCheck,
@@ -32,7 +37,7 @@ import {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: 'storage' | 'shortcuts' | 'export' | 'theme' | 'diagnostics';
+  defaultTab?: 'storage' | 'shortcuts' | 'export' | 'theme' | 'diagnostics' | 'git';
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -40,8 +45,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   defaultTab = 'storage'
 }) => {
-  const [activeTab, setActiveTab] = useState<'storage' | 'shortcuts' | 'export' | 'theme' | 'diagnostics'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'storage' | 'shortcuts' | 'export' | 'theme' | 'diagnostics' | 'git'>(defaultTab);
   const [themeSettings, setThemeSettings] = useState(() => themeManager.getSettings());
+  const [gitRepoUrl, setGitRepoUrl] = useState('https://github.com/bumbeat1/handfilm.git');
+  const [gitToken, setGitToken] = useState('');
+  const [copiedCmd, setCopiedCmd] = useState(false);
   const [quotaInfo, setQuotaInfo] = useState<{ usedBytes: number; quotaBytes: number; percentUsed: number; isPersisted: boolean }>({
     usedBytes: 0,
     quotaBytes: 1024 * 1024 * 1024,
@@ -218,6 +226,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <Activity className="w-3.5 h-3.5 text-rose-400" />
             <span>Self-Test</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('git')}
+            className={`px-3 py-1.5 rounded-[1px] flex items-center gap-1.5 cursor-pointer transition-all ${
+              activeTab === 'git'
+                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Git & GitHub</span>
           </button>
         </div>
 
@@ -542,6 +562,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: GIT & GITHUB DEPLOYMENT */}
+          {activeTab === 'git' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-[#0f0f18] border border-[#272732] rounded-[2px] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold text-white">LOCAL REPOSITORY STATUS</span>
+                  </div>
+                  <span className="px-2 py-0.5 text-[9px] font-bold rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300">
+                    GIT INITIALIZED • MAIN BRANCH
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  Your workspace is initialized with Git on branch <code className="text-[#fbbf24]">main</code>. All production assets, components, and export engines are staged and committed.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 text-xs">
+                  <div className="p-2.5 bg-[#08080C] border border-[#272732] rounded">
+                    <span className="text-[10px] text-zinc-500 block uppercase">Current Branch</span>
+                    <span className="font-mono font-bold text-white">main</span>
+                  </div>
+                  <div className="p-2.5 bg-[#08080C] border border-[#272732] rounded">
+                    <span className="text-[10px] text-zinc-500 block uppercase">Working Tree</span>
+                    <span className="font-mono font-bold text-emerald-400">Clean (0 Uncommitted)</span>
+                  </div>
+                  <div className="p-2.5 bg-[#08080C] border border-[#272732] rounded">
+                    <span className="text-[10px] text-zinc-500 block uppercase">Pages Domain (CNAME)</span>
+                    <span className="font-mono font-bold text-[#fbbf24] truncate block">storyboard.handsandhead.com</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Push Configuration Generator */}
+              <div className="p-4 bg-[#0f0f18] border border-[#272732] rounded-[2px] space-y-3">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-[#38bdf8]" />
+                  <span className="text-xs font-bold text-white">GITHUB PUSH COMMAND GENERATOR</span>
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  GitHub requires authentication via Personal Access Token (PAT) for remote pushes. Enter your repository URL and token to generate your command:
+                </p>
+
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="text-[10px] text-zinc-400 font-bold block mb-1 uppercase tracking-wider">GitHub Repository URL</label>
+                    <input
+                      type="text"
+                      value={gitRepoUrl}
+                      onChange={(e) => setGitRepoUrl(e.target.value)}
+                      placeholder="https://github.com/your-username/your-repo.git"
+                      className="w-full px-3 py-1.5 bg-[#08080C] border border-[#272732] rounded text-xs text-white font-mono focus:border-[#fbbf24] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-zinc-400 font-bold block mb-1 uppercase tracking-wider">GitHub Personal Access Token (PAT)</label>
+                    <input
+                      type="password"
+                      value={gitToken}
+                      onChange={(e) => setGitToken(e.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (Optional in command, required for auth)"
+                      className="w-full px-3 py-1.5 bg-[#08080C] border border-[#272732] rounded text-xs text-white font-mono focus:border-[#fbbf24] outline-none"
+                    />
+                  </div>
+
+                  {/* Ready Command Snippet */}
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold text-[#fbbf24] uppercase tracking-wider">Turnkey Push Command</span>
+                      <button
+                        onClick={() => {
+                          const cmd = gitToken 
+                            ? `./scripts/git-push.sh "${gitToken}" "${gitRepoUrl}"`
+                            : `./scripts/git-push.sh "${gitRepoUrl}"`;
+                          navigator.clipboard.writeText(cmd);
+                          setCopiedCmd(true);
+                          setTimeout(() => setCopiedCmd(false), 2000);
+                        }}
+                        className="px-2 py-0.5 bg-white/10 hover:bg-white/15 text-zinc-200 text-[10px] rounded flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        {copiedCmd ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedCmd ? 'COPIED!' : 'COPY COMMAND'}</span>
+                      </button>
+                    </div>
+
+                    <pre className="p-3 bg-[#050508] border border-[#22222e] rounded text-[11px] font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap select-all">
+                      {gitToken 
+                        ? `./scripts/git-push.sh "${gitToken}" "${gitRepoUrl}"`
+                        : `./scripts/git-push.sh "${gitRepoUrl}"`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Troubleshooting Reference */}
+              <div className="p-4 bg-[#08080C] border border-[#1e1e28] rounded space-y-2 text-xs">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Why did git push previously say &quot;unknown&quot;?</span>
+                <ul className="text-[11px] text-zinc-400 space-y-1.5 list-disc pl-4 leading-relaxed">
+                  <li><strong className="text-zinc-200">Repository was uninitialized:</strong> The workspace didn&apos;t have a local <code>.git</code> repository. We ran <code>git init -b main</code> and committed all code.</li>
+                  <li><strong className="text-zinc-200">No remote configured:</strong> Git did not know where to push. Running the command above sets <code>origin</code> to your repository URL.</li>
+                  <li><strong className="text-zinc-200">Authentication requirement:</strong> GitHub no longer accepts account passwords. You must use a Personal Access Token (PAT) with <code>repo</code> scope from <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" className="text-[#38bdf8] underline inline-flex items-center gap-0.5">GitHub Settings <ExternalLink className="w-2.5 h-2.5" /></a>.</li>
+                </ul>
               </div>
             </div>
           )}

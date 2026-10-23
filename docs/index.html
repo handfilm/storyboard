@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAWx Storyboard Engine</title>
+    <meta name="description" content="Next-level cinematic film anthology and storyboard engine with multi-layer optical lens simulation, Depth of Field aperture control, audio synthesizer, and Git-ready publication suite." />
+    <meta property="og:title" content="RAWx Storyboard Engine" />
+    <meta property="og:description" content="Next-level cinematic film anthology and storyboard engine with multi-layer optical lens simulation, Depth of Field aperture control, audio synthesizer, and Git-ready publication suite." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@600;700;800&family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@100;300;400;500;600;700&family=Noto+Serif+Bengali:wght@500;600;700;900&display=swap" rel="stylesheet">
+    <style>:root{--ease-hypersonic:cubic-bezier(.16, 1, .3, 1);--gold:#d4af37;--gold-bright:#ffe066}*{box-sizing:border-box;-webkit-user-select:none;user-select:none;margin:0;padding:0}body,html{color:#fff;overscroll-behavior:none;background-color:#050505;width:100vw;height:100vh;font-family:JetBrains Mono,monospace;overflow:hidden}#root{width:100vw;height:100vh;overflow:hidden}</style>
+    <script>
+      // Fallback for static hosting if root index.html is served directly on GitHub Pages without Vite dev server
+      window.addEventListener('error', function(event) {
+        if (event && event.target && event.target.tagName === 'SCRIPT' && event.target.src && event.target.src.indexOf('main.tsx') !== -1) {
+          if (!document.getElementById('rawx-fallback-bundle')) {
+            console.warn('[RAWx] Static deployment detected without Vite dev server. Loading compiled bundle ./assets/index.js');
+            var css = document.createElement('link');
+            css.rel = 'stylesheet';
+            css.crossOrigin = 'anonymous';
+            css.href = './assets/index.css';
+            document.head.appendChild(css);
+
+            var js = document.createElement('script');
+            js.id = 'rawx-fallback-bundle';
+            js.type = 'module';
+            js.crossOrigin = 'anonymous';
+            js.src = './assets/index.js';
+            document.body.appendChild(js);
+          }
+        }
+      }, true);
+    </script>
+  <script type="module" crossorigin src="./assets/index.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index.css">
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>

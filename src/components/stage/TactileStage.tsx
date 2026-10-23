@@ -60,6 +60,13 @@ export interface TactileStageProps {
   onOpenCinemaPlayer?: () => void;
   onPurgeMedia?: () => void;
   projectTitle?: string;
+  onOpenExportTimeline?: () => void;
+  onOpenExportRange?: () => void;
+  isSnapToBeat?: boolean;
+  onToggleSnapToBeat?: () => void;
+  onLoadAudioFile?: (file: File) => void;
+  detectedBpm?: number;
+  isAudioMuted?: boolean;
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({

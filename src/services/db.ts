@@ -41,6 +41,7 @@ export interface VaultMediaItem {
   size: number;
   blob: Blob; // Raw binary file (never convert multi-GB files to base64)
   thumbnailUrl: string; // Resilient WebP/JPEG data URL or SVG placeholder
+  thumbnails?: string[]; // 6 thumbnail keyframes (0%, 20%, 40%, 60%, 80%, 100%)
   duration?: number;
   resolution?: string;
   createdAt: number;
@@ -76,7 +77,7 @@ export function createFallbackSvgThumbnail(
  */
 export async function extractMediaMetadataAndThumbnail(
   file: File | Blob
-): Promise<{ thumbnailUrl: string; duration?: number; resolution?: string }> {
+): Promise<{ thumbnailUrl: string; thumbnails: string[]; duration?: number; resolution?: string }> {
   const isVideo = file.type.startsWith('video') || (file instanceof File && /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name));
   const isAudio = file.type.startsWith('audio') || (file instanceof File && /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(file.name));
   const filename = file instanceof File ? file.name : (isVideo ? 'video.mp4' : isAudio ? 'audio.mp3' : 'image.jpg');
@@ -84,13 +85,14 @@ export async function extractMediaMetadataAndThumbnail(
 
   if (isAudio) {
     const thumb = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="135" viewBox="0 0 240 135"><rect width="240" height="135" fill="%23130d1e"/><text x="50%" y="45%" text-anchor="middle" fill="%23c084fc" font-family="monospace" font-size="13" font-weight="bold">♫ AUDIO TRACK</text><text x="50%" y="65%" text-anchor="middle" fill="%23a1a1aa" font-family="monospace" font-size="9.5">${encodeURIComponent(filename.slice(0, 18))}</text></svg>`;
-    return { thumbnailUrl: thumb, duration: 12.0, resolution: 'AUDIO' };
+    return { thumbnailUrl: thumb, thumbnails: Array(6).fill(thumb), duration: 12.0, resolution: 'AUDIO' };
   }
 
   if (isVideo) {
     return new Promise((resolve) => {
       let settled = false;
       let tempUrl = '';
+      const framesCaptured: string[] = [];
 
       const fallback = () => {
         if (settled) return;
@@ -98,15 +100,20 @@ export async function extractMediaMetadataAndThumbnail(
         if (tempUrl) {
           try { URL.revokeObjectURL(tempUrl); } catch {}
         }
+        const fallbackThumb = framesCaptured[0] || createFallbackSvgThumbnail(filename, true, file.size, ext);
+        const finalFrames = framesCaptured.length >= 6 
+          ? framesCaptured 
+          : Array.from({ length: 6 }, (_, i) => framesCaptured[i % framesCaptured.length] || fallbackThumb);
         resolve({
-          thumbnailUrl: createFallbackSvgThumbnail(filename, true, file.size, ext),
+          thumbnailUrl: fallbackThumb,
+          thumbnails: finalFrames,
           duration: 12.0,
           resolution: '4K'
         });
       };
 
-      // Strict 1.2-second timeout: NEVER block upload pipeline!
-      const timer = setTimeout(fallback, 1200);
+      // 2.2-second resilience timeout for multi-frame extraction
+      const timer = setTimeout(fallback, 2200);
 
       try {
         tempUrl = URL.createObjectURL(file);
@@ -121,28 +128,37 @@ export async function extractMediaMetadataAndThumbnail(
       video.preload = 'metadata';
       video.src = tempUrl;
 
-      const finishSuccess = (thumbUrl: string, duration?: number, resolution?: string) => {
+      const finishSuccess = (thumbUrl: string, frames: string[], duration?: number, resolution?: string) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         if (tempUrl) {
           try { URL.revokeObjectURL(tempUrl); } catch {}
         }
-        resolve({ thumbnailUrl: thumbUrl, duration, resolution });
+        const finalFrames = frames.length >= 6 
+          ? frames.slice(0, 6) 
+          : Array.from({ length: 6 }, (_, i) => frames[i % frames.length] || thumbUrl);
+        resolve({ thumbnailUrl: thumbUrl, thumbnails: finalFrames, duration, resolution });
       };
 
-      const captureFrame = () => {
+      const percentages = [0.0, 0.2, 0.4, 0.6, 0.8, 0.98];
+      let currentSeekIndex = 0;
+      let detectedDuration = 12.0;
+      let detectedResolution = '1080P';
+
+      const captureCurrentFrame = () => {
         try {
           const vw = video.videoWidth || 640;
           const vh = video.videoHeight || 360;
-          let resolution = '1080P';
-          if (vw >= 3840 || vh >= 2160) resolution = '4K';
-          else if (vw >= 2560 || vh >= 1440) resolution = '2K';
-          else if (vw >= 1920 || vh >= 1080) resolution = '1080P';
-          else if (vw >= 1280 || vh >= 720) resolution = '720P';
-          else resolution = `${vw}x${vh}`;
+          if (vw >= 3840 || vh >= 2160) detectedResolution = '4K';
+          else if (vw >= 2560 || vh >= 1440) detectedResolution = '2K';
+          else if (vw >= 1920 || vh >= 1080) detectedResolution = '1080P';
+          else if (vw >= 1280 || vh >= 720) detectedResolution = '720P';
+          else detectedResolution = `${vw}x${vh}`;
 
-          const duration = video.duration && !isNaN(video.duration) ? Math.round(video.duration * 10) / 10 : 12.0;
+          if (video.duration && !isNaN(video.duration)) {
+            detectedDuration = Math.round(video.duration * 10) / 10;
+          }
 
           const targetW = 240;
           const targetH = Math.round(targetW * (vh / vw)) || 135;
@@ -152,24 +168,40 @@ export async function extractMediaMetadataAndThumbnail(
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(video, 0, 0, targetW, targetH);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-            if (dataUrl && dataUrl.length > 60) {
-              return finishSuccess(dataUrl, duration, resolution);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+            if (dataUrl && dataUrl.length > 50) {
+              framesCaptured.push(dataUrl);
             }
           }
-        } catch {}
-        fallback();
+
+          // Advance to next frame in filmstrip (0%, 20%, 40%, 60%, 80%, 100%)
+          currentSeekIndex++;
+          if (currentSeekIndex < percentages.length) {
+            video.currentTime = Math.max(0, Math.min(detectedDuration - 0.05, percentages[currentSeekIndex] * detectedDuration));
+          } else {
+            // All 6 frames successfully captured
+            finishSuccess(framesCaptured[0], framesCaptured, detectedDuration, detectedResolution);
+          }
+        } catch {
+          fallback();
+        }
       };
 
       video.onloadedmetadata = () => {
         try {
-          video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
+          if (video.duration && !isNaN(video.duration)) {
+            detectedDuration = Math.round(video.duration * 10) / 10;
+          }
+          video.currentTime = percentages[0] * detectedDuration;
         } catch {
-          captureFrame();
+          captureCurrentFrame();
         }
       };
 
-      video.onseeked = () => captureFrame();
+      video.onseeked = () => {
+        captureCurrentFrame();
+      };
+
       video.onerror = () => fallback();
     });
   } else {
@@ -184,8 +216,10 @@ export async function extractMediaMetadataAndThumbnail(
         if (tempUrl) {
           try { URL.revokeObjectURL(tempUrl); } catch {}
         }
+        const fallbackThumb = createFallbackSvgThumbnail(filename, false, file.size, ext);
         resolve({
-          thumbnailUrl: createFallbackSvgThumbnail(filename, false, file.size, ext),
+          thumbnailUrl: fallbackThumb,
+          thumbnails: Array(6).fill(fallbackThumb),
           resolution: 'STILL'
         });
       };
@@ -227,7 +261,11 @@ export async function extractMediaMetadataAndThumbnail(
               if (tempUrl) {
                 try { URL.revokeObjectURL(tempUrl); } catch {}
               }
-              return resolve({ thumbnailUrl: dataUrl, resolution });
+              return resolve({ 
+                thumbnailUrl: dataUrl, 
+                thumbnails: Array(6).fill(dataUrl), 
+                resolution 
+              });
             }
           }
         } catch {}
@@ -1397,12 +1435,14 @@ class StudioDraftDbService {
     const mimeType = file.type || (isVideo ? 'video/mp4' : isAudio ? 'audio/mpeg' : 'image/jpeg');
 
     // 1. Resilient metadata extraction with strict 1.2s timeout (never blocks upload)
-    let metaResult: { thumbnailUrl: string; duration?: number; resolution?: string };
+    let metaResult: { thumbnailUrl: string; thumbnails?: string[]; duration?: number; resolution?: string };
     try {
       metaResult = await extractMediaMetadataAndThumbnail(file);
     } catch {
+      const fallbackUrl = createFallbackSvgThumbnail(file.name, isVideo, file.size);
       metaResult = {
-        thumbnailUrl: createFallbackSvgThumbnail(file.name, isVideo, file.size),
+        thumbnailUrl: fallbackUrl,
+        thumbnails: [fallbackUrl],
         duration: isVideo ? 12.0 : undefined,
         resolution: isVideo ? '4K' : 'STILL'
       };
@@ -1416,6 +1456,7 @@ class StudioDraftDbService {
       size: file.size,
       blob: file, // Store raw Blob/File directly in IndexedDB
       thumbnailUrl: metaResult.thumbnailUrl,
+      thumbnails: metaResult.thumbnails || [metaResult.thumbnailUrl],
       duration: metaResult.duration,
       resolution: metaResult.resolution,
       createdAt: Date.now(),

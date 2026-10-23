@@ -784,7 +784,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
   const modalNode = (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden animate-modal-backdrop"
+      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 select-none font-sans overflow-hidden animate-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isExporting) {
           onClose();
@@ -844,7 +844,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
           </div>
 
           {/* Unified Format Navigation Tabs */}
-          <div className="grid grid-cols-5 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded-xl text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded-xl text-center">
             {/* 1. MP4 VIDEO */}
             <button
               type="button"
@@ -860,7 +860,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               <span className="truncate">MP4 VIDEO</span>
             </button>
 
-            {/* 2. PREMIERE PRO */}
+            {/* 2. PREMIERE XML */}
             <button
               type="button"
               disabled={isExporting}
@@ -872,10 +872,10 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               }`}
             >
               <Film className="w-3.5 h-3.5" />
-              <span className="truncate">PREMIERE (XML)</span>
+              <span className="truncate">PREMIERE XML</span>
             </button>
 
-            {/* 3. CAPCUT / DAVINCI */}
+            {/* 3. CAPCUT FCPXML */}
             <button
               type="button"
               disabled={isExporting}
@@ -887,7 +887,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               }`}
             >
               <Scissors className="w-3.5 h-3.5" />
-              <span className="truncate">CAPCUT / DAVINCI</span>
+              <span className="truncate">CAPCUT FCPXML</span>
             </button>
 
             {/* 4. CONTACT SHEET (PDF) */}
@@ -905,7 +905,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               <span className="truncate">CONTACT SHEET</span>
             </button>
 
-            {/* 5. FULL BACKUP */}
+            {/* 5. PROJECT BACKUP (.rawx) */}
             <button
               type="button"
               disabled={isExporting}
@@ -917,7 +917,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               }`}
             >
               <HardDriveDownload className="w-3.5 h-3.5" />
-              <span className="truncate">BACKUP (.rawx)</span>
+              <span className="truncate">PROJECT BACKUP (.rawx)</span>
             </button>
           </div>
         </div>

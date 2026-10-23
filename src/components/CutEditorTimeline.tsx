@@ -103,6 +103,7 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
   // 1. Check if clip has direct URL
   // 2. Check if clip has mediaBlobId or mediaId in vault
   // 3. Check corresponding shot in project
+  // 4. Return procedural SVG filmstrip plate so it NEVER renders as a solid blank block
   const resolveClipMediaUrl = useCallback((clip: TimelineClip): string => {
     if (clip.url && clip.url.trim().length > 0) {
       return clip.url;
@@ -110,11 +111,17 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
     if ((clip as any).mediaId && vaultMediaMap[(clip as any).mediaId]) {
       return vaultMediaMap[(clip as any).mediaId];
     }
-    if (typeof clip.shotIndex === 'number' && project.shots[clip.shotIndex]) {
-      const shot = project.shots[clip.shotIndex];
+    const shotIdx = typeof clip.shotIndex === 'number' 
+      ? clip.shotIndex 
+      : Math.floor(clip.start / 12.0);
+
+    if (project.shots && project.shots[shotIdx]) {
+      const shot = project.shots[shotIdx];
       if (shot.imageUrl) return shot.imageUrl;
     }
-    return '';
+
+    const shotNum = String(shotIdx + 1).padStart(3, '0');
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="40" viewBox="0 0 96 40"><rect width="96" height="40" fill="%2312131e"/><rect x="2" y="2" width="92" height="36" fill="none" stroke="%23f5a623" stroke-width="1" opacity="0.4"/><text x="50%" y="45%" text-anchor="middle" fill="%23f5a623" font-family="monospace" font-size="8.5" font-weight="bold">SH${shotNum}</text><text x="50%" y="75%" text-anchor="middle" fill="%2371717a" font-family="monospace" font-size="6.5">24FPS V1</text></svg>`;
   }, [vaultMediaMap, project.shots]);
 
   // Handle timeline scrubber drag

@@ -423,6 +423,40 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       ctx.lineTo(width, y);
       ctx.stroke();
     }
+
+    // Central subtle cinematic emblem badge for standalone graphic slate
+    ctx.save();
+    ctx.strokeStyle = 'rgba(245, 166, 35, 0.25)';
+    ctx.lineWidth = 1;
+    const centerBadgeW = is4K ? 360 : 180;
+    const centerBadgeH = is4K ? 160 : 80;
+    ctx.strokeRect((width - centerBadgeW) / 2, (height - centerBadgeH) / 2, centerBadgeW, centerBadgeH);
+    ctx.restore();
+  }
+
+  // 2b. Theatrical 2.39:1 Scope Mattes (Letterbox boundaries) for Standard 16:9 or standalone slates
+  const isStandard16_9 = preset === '1080p_standard' || preset === '4k_standard';
+  if (isStandard16_9 && !isVertical) {
+    const scopeH = Math.round(width / 2.39);
+    const matteH = Math.max(0, Math.round((height - scopeH) / 2));
+    if (matteH > 0) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, matteH);
+      ctx.fillRect(0, height - matteH, width, matteH);
+
+      // Distinctive gold accent letterbox boundary line
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.35)';
+      ctx.lineWidth = is4K ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(0, matteH);
+      ctx.lineTo(width, matteH);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, height - matteH);
+      ctx.lineTo(width, height - matteH);
+      ctx.stroke();
+    }
   }
 
   // If Clean Plates is toggled ON, skip typography & overlays
@@ -441,8 +475,9 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, width, height);
 
-  // 4. Anamorphic Flare & Light Streak Simulation
-  if (simulateFlare) {
+  // 4. Anamorphic Flare & Light Streak Simulation (Guaranteed for standalone slates or when enabled)
+  const shouldRenderFlare = simulateFlare || !sourceElement;
+  if (shouldRenderFlare) {
     const flareY = isVertical ? height * 0.5 : height * 0.48;
     const flareH = Math.max(8, height * 0.035);
 
@@ -456,20 +491,23 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillStyle = flareGrad;
     ctx.fillRect(0, flareY - flareH, width, flareH * 2);
 
-    // Core filament
+    // Core filament with animated breathing intensity
+    const pulse = 0.85 + 0.15 * Math.sin((frameInShot / Math.max(1, totalFramesInShot)) * Math.PI * 2);
     const coreH = Math.max(2, height * 0.004);
     const coreGrad = ctx.createLinearGradient(width * 0.15, flareY, width * 0.85, flareY);
     coreGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
-    coreGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.5)');
-    coreGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)');
-    coreGrad.addColorStop(0.65, 'rgba(245, 166, 35, 0.5)');
+    coreGrad.addColorStop(0.35, `rgba(56, 189, 248, ${0.5 * pulse})`);
+    coreGrad.addColorStop(0.5, `rgba(255, 255, 255, ${0.9 * pulse})`);
+    coreGrad.addColorStop(0.65, `rgba(245, 166, 35, ${0.5 * pulse})`);
     coreGrad.addColorStop(1, 'rgba(245, 166, 35, 0)');
     ctx.fillStyle = coreGrad;
     ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
 
-  // 5. Burn-In Glowing Bilingual Typography
+  // 5. Burn-In Glowing Bilingual Typography with Animated Fade-In
   if (burnInTitles) {
+    const titleFade = Math.min(1.0, Math.max(0.05, (frameInShot + 1) / 20.0));
+
     // Bottom Gradient Scrim for maximum legibility
     const scrimH = isVertical ? height * 0.38 : height * 0.42;
     const scrim = ctx.createLinearGradient(0, height - scrimH, 0, height);
@@ -480,6 +518,9 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillRect(0, height - scrimH, width, scrimH);
 
     const baseFontSize = is4K ? 68 : (isVertical ? 42 : 36);
+
+    ctx.save();
+    ctx.globalAlpha = titleFade;
 
     // Bengali Headline with Golden Bloom Shadow
     ctx.save();
@@ -512,6 +553,8 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.textAlign = 'center';
     const tY = isVertical ? height * 0.75 + baseFontSize * 1.1 : height - (is4K ? 76 : 38);
     ctx.fillText(tagline.toUpperCase(), width / 2, tY);
+    ctx.restore();
+
     ctx.restore();
   }
 

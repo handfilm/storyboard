@@ -367,9 +367,9 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 {item.num}
               </span>
 
-              {/* Module Icon */}
+              {/* Module Icon with subtle scale-110 on hover */}
               <Icon
-                className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                className={`w-3.5 h-3.5 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
                   isActive ? 'text-[#fbbf24] scale-110' : 'text-zinc-400 group-hover:text-white'
                 }`}
               />
@@ -389,6 +389,24 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Docked Description Card on Hover (Rich Obsidian Floating Card) */}
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-64 p-3 bg-[#0a0a14]/98 border border-[#d4af37]/40 rounded-[3px] shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 z-50 text-left font-mono">
+                <div className="flex items-center justify-between pb-1 mb-1 border-b border-white/10 text-[9px] text-[#fbbf24] font-bold uppercase">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shadow-[0_0_6px_#fbbf24]" />
+                    {item.num} // {item.name}
+                  </span>
+                  {isActive && <span className="text-emerald-400 text-[8px]">ACTIVE</span>}
+                </div>
+                <p className="text-[10px] text-zinc-300 font-sans leading-relaxed">
+                  {item.desc}
+                </p>
+                <div className="mt-1.5 pt-1 border-t border-white/5 flex items-center justify-between text-[7.5px] text-zinc-500">
+                  <span>MODULE {item.num} OF 15</span>
+                  <span className="text-[#fbbf24]">HANDFILM CORE</span>
+                </div>
+              </div>
             </button>
           );
         })}

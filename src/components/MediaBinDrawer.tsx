@@ -43,6 +43,7 @@ import {
 import { db, VaultMediaItem } from '../services/db';
 import { useStudioStore } from '../core/store';
 import { eventBus } from '../core/eventBus';
+import { MediaCard } from './MediaCard';
 
 export interface MediaBinDrawerProps {
   onAssignToShot?: (assetId: string, shotIndex: number, filename: string) => void;
@@ -311,9 +312,9 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     }
   };
 
-  // Single Tap / Click to Assign directly to the active shot
-  const handleAssignToShot = async (item: VaultMediaItem) => {
-    const targetShot = activeShotIndex;
+  // Single Tap / Click to Assign directly to target shot
+  const handleAssignToShot = async (item: VaultMediaItem, explicitShotIndex?: number) => {
+    const targetShot = explicitShotIndex !== undefined ? explicitShotIndex : activeShotIndex;
     await db.assignMediaToShot(item.id, targetShot);
     
     // Resolve durable Object URL using LRU cache
@@ -340,14 +341,26 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     setVaultItems(updated);
   };
 
-  // Drag Start for timeline slot target
+  // Drag Start for timeline slot target (supports multi-selection sequential drop)
   const handleCardDragStart = (e: React.DragEvent, item: VaultMediaItem) => {
+    const isMulti = selectedIds.has(item.id) && selectedIds.size > 1;
+    const itemsToDrag = isMulti
+      ? vaultItems.filter(it => selectedIds.has(it.id))
+      : [item];
+
     e.dataTransfer.setData('text/plain', JSON.stringify({
-      type: 'MEDIA_ASSET_VAULT',
+      type: isMulti ? 'MEDIA_ASSETS_BULK' : 'MEDIA_ASSET_VAULT',
       assetId: item.id,
+      assetIds: itemsToDrag.map(it => it.id),
       filename: item.name,
       mimeType: item.mimeType,
-      isVideo: item.mimeType?.startsWith('video')
+      isVideo: item.mimeType?.startsWith('video'),
+      items: itemsToDrag.map(it => ({
+        id: it.id,
+        name: it.name,
+        mimeType: it.mimeType,
+        isVideo: it.mimeType?.startsWith('video')
+      }))
     }));
     e.dataTransfer.effectAllowed = 'copyMove';
   };
@@ -746,169 +759,21 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {filteredItems.map((item) => {
-              const isVid = item.mimeType?.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(item.name);
-              const isAud = item.mimeType?.startsWith('audio') || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(item.name);
-              const assignedIndex = item.assignedShotIndex !== undefined ? item.assignedShotIndex : item.shotIndex;
-              const isAssignedToActive = assignedIndex === activeShotIndex;
-              const isSelected = selectedIds.has(item.id);
-              const resolution = item.resolution || (isVid ? '4K' : isAud ? 'AUDIO' : 'STILL');
-              const duration = formatDuration(item.duration);
-
-              return (
-                <div
-                  key={item.id}
-                  draggable
-                  onDragStart={(e) => handleCardDragStart(e, item)}
-                  onClick={() => handleAssignToShot(item)}
-                  onTouchEnd={(e) => {
-                    if ((e.target as HTMLElement).tagName !== 'BUTTON' && !(e.target as HTMLElement).closest('button')) {
-                      handleAssignToShot(item);
-                    }
-                  }}
-                  className={`group relative bg-[#0c0c12] border rounded-[2px] overflow-hidden flex flex-col transition-all duration-150 hover:border-[#fbbf24] cursor-pointer shadow-md ${
-                    isSelected ? 'ring-2 ring-[#fbbf24] border-[#fbbf24]' : isAssignedToActive ? 'border-[#fbbf24] ring-1 ring-[#fbbf24]/50' : 'border-[#272732]'
-                  }`}
-                >
-                  {/* Thumbnail Plate (240x135 aspect-video) */}
-                  <div className="relative w-full aspect-video bg-[#050508] overflow-hidden flex items-center justify-center">
-                    {item.thumbnailUrl ? (
-                      <img
-                        src={item.thumbnailUrl}
-                        alt={item.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600">
-                        {isVid ? <Video className="w-6 h-6 mb-1 text-cyan-400" /> : isAud ? <Music className="w-6 h-6 mb-1 text-purple-400" /> : <ImageIcon className="w-6 h-6 mb-1 text-[#fbbf24]" />}
-                        <span className="text-[8px]">IDB STORED</span>
-                      </div>
-                    )}
-
-                    {/* Top-Left: Multi-select Checkbox & Type Badge */}
-                    <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-10">
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleSelect(e, item.id)}
-                        className="p-0.5 bg-black/80 hover:bg-black rounded-[1px] border border-white/20 text-white cursor-pointer"
-                        title={isSelected ? "Deselect" : "Select"}
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="w-3 h-3 text-[#fbbf24]" />
-                        ) : (
-                          <Square className="w-3 h-3 text-zinc-400 hover:text-white" />
-                        )}
-                      </button>
-
-                      <span className="px-1 py-0.2 bg-black/80 backdrop-blur-xs text-[7.5px] font-bold text-white rounded-[1px] flex items-center gap-0.5 border border-white/10">
-                        {isVid ? <Video className="w-2.5 h-2.5 text-cyan-400" /> : isAud ? <Music className="w-2.5 h-2.5 text-purple-400" /> : <ImageIcon className="w-2.5 h-2.5 text-[#fbbf24]" />}
-                        {isVid ? 'VIDEO' : isAud ? 'AUDIO' : 'STILL'}
-                      </span>
-                    </div>
-
-                    {/* Top-Right: IDB STORED Badge & Delete Button */}
-                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
-                      {/* Green IDB STORED Telemetry Badge */}
-                      <span className="px-1.5 py-0.2 bg-[#062c1d]/95 text-[7px] font-bold text-emerald-400 border border-emerald-500/50 rounded-[1px] tracking-wider shadow-sm">
-                        IDB STORED
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteAsset(item.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 rounded-[1px] cursor-pointer transition-opacity"
-                        title="Delete asset from IndexedDB"
-                      >
-                        <Trash2 className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-
-                    {/* Bottom-Right Thumbnail Badge: Resolution & Duration */}
-                    <div className="absolute bottom-1 right-1 flex items-center gap-1 z-10">
-                      <span className="px-1 py-0.2 bg-black/80 text-[7px] font-bold text-amber-300 border border-amber-500/30 rounded-[1px]">
-                        {resolution}
-                      </span>
-                      {isVid && (
-                        <span className="px-1 py-0.2 bg-black/80 text-[7px] font-mono text-zinc-300 rounded-[1px]">
-                          {duration}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Hover Play / Preview Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenPreview(item);
-                      }}
-                      className="absolute inset-0 m-auto w-8 h-8 rounded-full bg-black/70 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer shadow-lg"
-                      title="Preview Media"
-                    >
-                      <Play className="w-3.5 h-3.5 text-[#fbbf24] ml-0.5" />
-                    </button>
-                  </div>
-
-                  {/* Metadata & Status Strip */}
-                  <div className="p-2 flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between text-[9px] min-w-0">
-                      <p className="font-bold text-zinc-100 truncate pr-1" title={item.name}>
-                        {item.name}
-                      </p>
-                      {/* File Size Telemetry Badge */}
-                      <span className="text-[8px] text-zinc-300 bg-white/5 px-1 py-0.2 rounded border border-white/10 shrink-0 tabular-nums font-mono">
-                        {formatBytes(item.size)}
-                      </span>
-                    </div>
-
-                    {/* Tactical Status Badges */}
-                    <div className="flex items-center justify-between text-[8px] text-zinc-400 border-t border-[#1c1c24] pt-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-zinc-500">MIME:</span>
-                        <span className="text-zinc-300 font-bold truncate max-w-[80px]">{item.mimeType}</span>
-                      </div>
-
-                      {assignedIndex !== null && assignedIndex !== undefined ? (
-                        <span className="text-[#fbbf24] font-bold flex items-center gap-0.5">
-                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
-                          SH{String(assignedIndex + 1).padStart(3, '0')}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-500">UNASSIGNED</span>
-                      )}
-                    </div>
-
-                    {/* Single Tap / Click Assign Action Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAssignToShot(item);
-                      }}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleAssignToShot(item);
-                      }}
-                      className={`w-full py-1.5 px-1.5 rounded-[1px] text-[8.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                        isAssignedToActive
-                          ? 'bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 hover:bg-emerald-900'
-                          : 'bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-[#F5A623] text-[#F5A623]'
-                      }`}
-                    >
-                      <span>
-                        {isAssignedToActive 
-                          ? `✓ ASSIGNED TO SH${String(activeShotIndex + 1).padStart(3, '0')}`
-                          : `+ ASSIGN TO SHOT ${String(activeShotIndex + 1).padStart(3, '0')}`}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            {filteredItems.map((item) => (
+              <MediaCard
+                key={item.id}
+                item={item}
+                isSelected={selectedIds.has(item.id)}
+                activeShotIndex={activeShotIndex}
+                onToggleSelect={handleToggleSelect}
+                onAssignToShot={handleAssignToShot}
+                onDeleteAsset={handleDeleteAsset}
+                onOpenPreview={handleOpenPreview}
+                onCardDragStart={handleCardDragStart}
+                formatBytes={formatBytes}
+                formatDuration={formatDuration}
+              />
+            ))}
           </div>
         )}
       </div>

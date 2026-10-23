@@ -189,58 +189,116 @@ export const TopBar: React.FC<TopBarProps> = ({
       <div className="max-w-7xl mx-auto px-6 md:px-12 w-full h-full flex items-center justify-between">
         {/* Left: Brand HANDFILM + Minimal Nav Links */}
         <div className="flex items-center gap-6 sm:gap-8 min-w-0">
-          {/* Brand Logo & Name */}
-          <div 
-            onClick={handleNavHome}
-            className="flex items-center gap-3 cursor-pointer group shrink-0"
-            title="HANDFILM — Return to Home"
-          >
-            {/* Diamond Monogram in HANDFILM Cinema Red */}
-            <div className="w-5 h-5 rotate-45 border border-[#E50914] bg-gradient-to-tr from-[#8B0000] via-[#E50914] to-[#ff4d4d] flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.5)] group-hover:shadow-[0_0_20px_rgba(229,9,20,0.8)] transition-all">
-              <Film className="w-2.5 h-2.5 text-white font-black -rotate-45" />
+          {/* Brand Logo & Name with Obsidian Frosted Glass Hover Popover */}
+          <div className="relative group/brand shrink-0">
+            <div 
+              onClick={handleNavHome}
+              className="flex items-center gap-3 cursor-pointer py-1"
+              title="HANDFILM — Sovereign NLE"
+            >
+              {/* Diamond Monogram in HANDFILM Cinema Red */}
+              <div className="w-5 h-5 rotate-45 border border-[#E50914] bg-gradient-to-tr from-[#8B0000] via-[#E50914] to-[#ff4d4d] flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.6)] group-hover/brand:shadow-[0_0_22px_rgba(229,9,20,0.95)] group-hover/brand:scale-105 transition-all">
+                <Film className="w-2.5 h-2.5 text-white font-black -rotate-45" />
+              </div>
+
+              <div className="flex flex-col leading-tight select-none">
+                <div className="flex items-center tracking-wider text-sm sm:text-base">
+                  <span className="font-cinzel text-red-600 drop-shadow-[0_2px_12px_rgba(220,38,38,0.85)] font-black tracking-wider">
+                    HAND
+                  </span>
+                  <span className="font-cinzel bg-gradient-to-b from-white via-slate-200 to-slate-400 bg-clip-text text-transparent font-black tracking-wider">
+                    FILM
+                  </span>
+                </div>
+                <span className="font-mono text-[7px] sm:text-[7.5px] text-[#F5A623] tracking-[0.18em] uppercase font-bold">
+                  AI REELS STUDIO
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-col leading-tight">
-              <span className="font-cinzel font-black text-sm sm:text-base text-[#E50914] tracking-[0.22em] group-hover:text-white transition-colors">
-                HANDFILM
-              </span>
-              <span className="font-mono text-[7px] sm:text-[7.5px] text-[#F5A623] tracking-[0.18em] uppercase">
-                24FPS PREVIS & NLE
-              </span>
+            {/* Brand Hover Popover: Obsidian frosted glass card */}
+            <div className="absolute left-0 top-full mt-2 w-72 p-3.5 bg-[#0a0a12]/95 border border-[#d4af37]/40 rounded-[4px] shadow-[0_8px_32px_rgba(0,0,0,0.9)] backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/brand:opacity-100 group-hover/brand:translate-y-0 transition-all duration-200 z-50">
+              <div className="flex items-center gap-2 mb-1.5 pb-1 border-b border-white/10">
+                <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_6px_#dc2626]" />
+                <span className="text-[10px] font-mono font-bold text-[#fbbf24] uppercase tracking-wider">
+                  HANDFILM // SOVEREIGN ENGINE
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-300 font-sans leading-relaxed">
+                Zero-cloud sovereign NLE designed for 12.0s cinematic rhythm, local browser GPU acceleration, and bilingual title design.
+              </p>
+              <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[8.5px] font-mono text-zinc-400">
+                <span>24.0 FPS LOCKED</span>
+                <span className="text-emerald-400 font-bold">LOCAL SILICON</span>
+              </div>
             </div>
           </div>
 
-          {/* Minimal Nav Links: Home, Top 10 Reels, Manifesto */}
-          <nav className="flex items-center gap-6 text-xs text-zinc-400 font-medium">
-            <button
-              type="button"
-              onClick={handleNavHome}
-              className={`transition-colors cursor-pointer hover:text-white ${
-                currentView === 'HOME' ? 'text-white font-semibold' : ''
-              }`}
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              onClick={handleNavTop10}
-              className="transition-colors cursor-pointer hover:text-white"
-            >
-              Top 10 Reels
-            </button>
-            <button
-              type="button"
-              onClick={handleNavManifesto}
-              className="transition-colors cursor-pointer hover:text-white"
-            >
-              Manifesto
-            </button>
+          {/* Minimal Nav Links: Home, Top 10 Reels, Manifesto (Orbitron / Space Grotesk with gold underline and summary cards) */}
+          <nav className="flex items-center gap-5 sm:gap-7 text-xs font-space-grotesk font-semibold tracking-wide">
+            {/* 1. Home */}
+            <div className="relative group/nav py-1">
+              <button
+                type="button"
+                onClick={handleNavHome}
+                className={`transition-colors cursor-pointer py-0.5 ${
+                  currentView === 'HOME' ? 'text-white' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <span>Home</span>
+                {/* Animated Gold Underline */}
+                <span className={`absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 ${
+                  currentView === 'HOME' ? 'w-full' : 'w-0 group-hover/nav:w-full'
+                }`} />
+              </button>
+              {/* Hover Summary Card */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
+                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">DIRECTOR HOME</div>
+                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">10-Slide Cinema Hero Runner, Top 10 Master Shots & Anthology Specs.</div>
+              </div>
+            </div>
+
+            {/* 2. Top 10 Reels */}
+            <div className="relative group/nav py-1">
+              <button
+                type="button"
+                onClick={handleNavTop10}
+                className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
+              >
+                <span>Top 10 Reels</span>
+                {/* Animated Gold Underline */}
+                <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
+              </button>
+              {/* Hover Summary Card */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
+                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">TOP 10 MASTER REELS</div>
+                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Curated 24fps master shots with 2.39:1 scope framing and audio telemetry.</div>
+              </div>
+            </div>
+
+            {/* 3. Manifesto */}
+            <div className="relative group/nav py-1">
+              <button
+                type="button"
+                onClick={handleNavManifesto}
+                className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
+              >
+                <span>Manifesto</span>
+                {/* Animated Gold Underline */}
+                <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
+              </button>
+              {/* Hover Summary Card */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
+                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">SOVEREIGN MANIFESTO</div>
+                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Guiding tenets of 12.0s timing, zero-cloud architecture, and hardware GPU render.</div>
+              </div>
+            </div>
           </nav>
         </div>
 
         {/* Right: Tactical Action Cluster */}
-        <div className="gap-3 flex items-center shrink-0">
-          {/* Unified EXPORT ▾ Dropdown */}
+        <div className="gap-2.5 sm:gap-3 flex items-center shrink-0">
+          {/* Unified EXPORT ▾ Dropdown with Chiseled Tactical Border */}
           <div className="relative">
             <button
               type="button"
@@ -248,11 +306,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                 setIsExportMenuOpen(prev => !prev);
                 setIsEcosystemMenuOpen(false);
               }}
-              className="px-3.5 py-1.5 rounded-[3px] bg-gradient-to-b from-[#181824] to-[#0c0c14] hover:from-[#202030] hover:to-[#12121c] border border-[#d4af37]/60 hover:border-[#fbbf24] text-zinc-100 hover:text-[#fbbf24] font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-[0_0_12px_rgba(245,166,35,0.15)] active:scale-[0.98]"
+              className="px-3.5 py-1.5 rounded-[3px] bg-gradient-to-b from-[#181824] to-[#0c0c14] hover:from-[#202030] hover:to-[#12121c] border-2 border-[#d4af37]/70 hover:border-[#fbbf24] text-zinc-100 hover:text-[#fbbf24] font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-[0_0_12px_rgba(245,166,35,0.2)] active:scale-[0.98]"
               title="Hollywood NLE Timelines, Video Master & Backup Exporters"
             >
               <Download className="w-3.5 h-3.5 text-[#fbbf24]" />
-              <span>EXPORT ▾</span>
+              <span className="tracking-wide">EXPORT ▾</span>
             </button>
 
             {isExportMenuOpen && (
@@ -353,42 +411,75 @@ export const TopBar: React.FC<TopBarProps> = ({
             )}
           </div>
 
-          {/* PRO STUDIO or HOME toggle (tactile HUD style, zero third brackets) */}
+          {/* STUDIO or HOME toggle (Clean gradient pill with active glow, 'Pro' strictly removed) */}
           {currentView === 'HOME' ? (
             <button
               type="button"
               onClick={() => onSelectView?.('STUDIO')}
-              className="px-4 py-1.5 rounded-[3px] bg-gradient-to-b from-[#ff1e2b] to-[#b3000b] hover:from-[#ff3843] hover:to-[#cc000d] border border-red-400/80 text-white font-mono font-black text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_18px_rgba(229,9,20,0.6)] active:scale-[0.98]"
-              title="Launch Active 12.0s 24fps Previs & Cut Engine"
+              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 border border-red-400/80 text-white font-mono font-black text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-[0_0_20px_rgba(220,38,38,0.65)] hover:shadow-[0_0_26px_rgba(220,38,38,0.9)] active:scale-[0.98]"
+              title="Launch Active 12.0s 24fps Previs & Cut Studio"
             >
               <Play className="w-3 h-3 fill-current" />
-              <span>▶ PRO STUDIO</span>
+              <span className="tracking-wider">STUDIO</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => onSelectView?.('HOME')}
-              className="px-4 py-1.5 rounded-[3px] bg-gradient-to-b from-[#1c1c28] to-[#101018] hover:from-[#242434] hover:to-[#141420] border border-[#E50914]/70 hover:border-[#E50914] text-white font-mono font-bold text-[11px] sm:text-xs flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_12px_rgba(229,9,20,0.3)] active:scale-[0.98]"
+              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-[#1c1c28] to-[#101018] hover:from-[#242434] hover:to-[#141420] border border-[#E50914]/70 hover:border-[#E50914] text-white font-mono font-bold text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-[0_0_12px_rgba(229,9,20,0.3)] active:scale-[0.98]"
               title="Return to HANDFILM Home Page"
             >
               <Home className="w-3 h-3 text-[#E50914]" />
-              <span>HOME</span>
+              <span className="tracking-wider">HOME</span>
             </button>
           )}
 
-          {/* Keyboard Shortcuts Trigger Button ('?' Cheat Sheet) */}
-          <button
-            type="button"
-            onClick={onOpenShortcuts}
-            className="px-2.5 py-1.5 rounded-full bg-[#101018]/90 hover:bg-[#181824] border border-[#272732] hover:border-[#F5A623]/60 text-zinc-300 hover:text-[#F5A623] font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
-            title="Keyboard Shortcuts Cheat Sheet (Press ?)"
-          >
-            <Keyboard className="w-3.5 h-3.5 text-[#F5A623]" />
-            <span className="hidden sm:inline font-bold text-[10px]">SHORTCUTS</span>
-            <kbd className="px-1 py-0.2 rounded bg-black/60 border border-zinc-700/70 text-[9px] text-[#F5A623] font-mono font-bold">?</kbd>
-          </button>
+          {/* Shortcuts: Stylized icon-only button (⌘/⌨) displaying a floating hotkey cheat sheet on hover */}
+          <div className="relative group/shortcuts">
+            <button
+              type="button"
+              onClick={onOpenShortcuts}
+              className="w-8 h-8 rounded-full bg-[#101018]/90 hover:bg-[#181824] border border-[#272732] hover:border-[#F5A623]/80 text-[#F5A623] font-mono text-xs flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95"
+              title="Keyboard Shortcuts Cheat Sheet (⌘ / ⌨)"
+            >
+              <span className="font-bold text-[13px] leading-none select-none">⌘</span>
+            </button>
 
-          {/* Right Ecosystem Menu: HUB, VAULT, R2 / STREAM, BLOOM-APP, DEEPER, LAB, SETTINGS */}
+            {/* Floating Hotkey Cheat Sheet Popover on Hover */}
+            <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-[#0a0a12]/98 border border-[#F5A623]/40 rounded-[4px] shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/shortcuts:opacity-100 group-hover/shortcuts:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
+              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9px] text-[#F5A623] font-bold uppercase tracking-wider">
+                <span className="flex items-center gap-1">
+                  <Keyboard className="w-3 h-3" />
+                  HOTKEY CHEAT SHEET
+                </span>
+                <span className="text-zinc-500">PRESS ?</span>
+              </div>
+              <div className="space-y-1.5 text-[9.5px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Play / Pause</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">SPACE</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Prev / Next Shot</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">← / →</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">NLE Transport Scrub</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">J • K • L</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Export Studio</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">⌘ + E</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Command Palette</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">⌘ + K</kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right APPS Menu (Replaces ECOSYSTEM): HUB, VAULT, R2 / STREAM, BLOOM-APP, DEEPER, LAB, SETTINGS */}
           <div className="relative">
             <button
               onClick={() => {
@@ -396,10 +487,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                 setIsExportMenuOpen(false);
               }}
               className="px-3 py-1.5 rounded-full bg-[#101018]/90 hover:bg-[#181824] border border-[#272732] hover:border-zinc-400 text-zinc-300 hover:text-white font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
-              title="Ecosystem Sub-Apps & Master Hub"
+              title="Creative Suite Applications & Master Hub"
             >
               <Globe className="w-3.5 h-3.5 text-[#fbbf24]" />
-              <span className="hidden sm:inline font-bold">ECOSYSTEM</span>
+              <span className="hidden sm:inline font-bold tracking-wider">APPS</span>
               <ChevronDown className="w-3 h-3 text-zinc-400" />
             </button>
 
@@ -409,9 +500,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                 onMouseLeave={() => setIsEcosystemMenuOpen(false)}
               >
                 <div className="px-2.5 py-1 text-[8.5px] font-bold text-[#fbbf24] border-b border-[#272732] uppercase tracking-wider flex items-center justify-between">
-                  <span>FEDERATED ECOSYSTEM</span>
+                  <span>CREATIVE SUITE APPS</span>
                   <span className="text-zinc-500">LIVE</span>
                 </div>
+
 
                 {/* 1. HUB */}
                 <a

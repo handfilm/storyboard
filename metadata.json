@@ -1,0 +1,8 @@
+{
+  "name": "RAWx Storyboard Engine",
+  "description": "Next-level cinematic film anthology and storyboard engine with multi-layer optical lens simulation, Depth of Field aperture control, audio synthesizer, and Git-ready publication suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

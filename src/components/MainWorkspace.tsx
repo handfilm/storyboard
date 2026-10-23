@@ -17,6 +17,7 @@ import { OpticalFrame } from './OpticalFrame';
 import { OpticalMonitor } from './player/OpticalMonitor';
 import { ReelsView } from './ReelsView';
 import { TimelineSequencer } from './sequencer/TimelineSequencer';
+import { ScrubPanel } from './scrub/ScrubPanel';
 import { BoardStudio } from '../features/board/BoardStudio';
 import { CutStudio } from '../features/cut/CutStudio';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
@@ -443,15 +444,16 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           </div>
         )}
 
-        {/* VIEW 3: 12.0S SEQUENCER (Expanded Full-Screen Manager) */}
+        {/* VIEW 3: SCRUB PANEL (Full-Screen Sub-Frame Precision Timeline & Card Management) */}
         {currentPanel === 'SEQUENCER' && (
           <div className="w-full h-full overflow-hidden">
-            <TimelineSequencer
+            <ScrubPanel
               slides={slides}
               activeSlideIndex={currentIndex}
               playbackMode={playbackMode}
               isPlaying={isAutoplay}
               slideTimeSec={slideTimeSec}
+              aspectRatio={aspectRatio as AspectRatioType}
               onSelectSlide={onSelectFrame}
               onTogglePlay={onTogglePlay || (() => {})}
               onStepFrame={onStepFrame || (() => {})}
@@ -480,6 +482,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onSelectFrame(idx);
                 onUploadImage(file);
               }}
+              playbackSpeed={playbackSpeed}
+              onChangePlaybackSpeed={onChangePlaybackSpeed}
+              projectTitle={projectTitle}
             />
           </div>
         )}

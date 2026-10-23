@@ -7,9 +7,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStudioStore } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
-import { toBengaliNumerals } from '../../utils/engine';
-import { Sliders, Crop, Volume2, VolumeX, Upload, MoveVertical, Play, Pause, Video, Pin, PinOff, X, Sparkles, Type } from 'lucide-react';
+import { toBengaliNumerals, calculateMultiLayerZoom } from '../../utils/engine';
+import { Sliders, Crop, Volume2, VolumeX, Upload, MoveVertical, Play, Pause, Video, Pin, PinOff, X, Sparkles, Type, ZoomIn } from 'lucide-react';
 import { TechnicalJargonOverlay } from '../../components/TechnicalJargonOverlay';
+import { MultiLayerZoomControls } from '../../components/optics/MultiLayerZoomControls';
 
 const sampleCinemaImages = [
   "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
@@ -40,8 +41,14 @@ export const CinemaStage: React.FC = () => {
     activeLut,
     activeLens,
     updateShot,
-    setVisibilityItem
+    setVisibilityItem,
+    foregroundZoom,
+    backgroundZoom,
+    isVertigoLinked
   } = useStudioStore();
+
+  const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
+  const zoomTransforms = calculateMultiLayerZoom(backgroundZoom, foregroundZoom, isVertigoLinked);
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartY, setDragStartY] = useState(0);
@@ -198,37 +205,45 @@ export const CinemaStage: React.FC = () => {
           isPanToolActive ? 'cursor-ns-resize' : ''
         }`}
       >
-        {/* Base Media Layer */}
-        {isVideo ? (
-          <video
-            key={imageUrl}
-            ref={videoRef}
-            src={imageUrl}
-            autoPlay
-            loop
-            muted={isVideoMuted}
-            playsInline
-            preload="auto"
-            onTimeUpdate={handleVideoTimeUpdate}
-            onPlay={() => setIsVideoPlaying(true)}
-            onPause={() => setIsVideoPlaying(false)}
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{
-              objectPosition: `center ${panY}%`,
-              objectFit: fitMode === 'contain' ? 'contain' : 'cover'
-            }}
-          />
-        ) : (
-          <div 
-            className="absolute inset-0 w-full h-full bg-cover transition-all"
-            style={{
-              backgroundImage: `url('${imageUrl}')`,
-              backgroundPosition: `center ${panY}%`,
-              backgroundSize: fitMode === 'contain' ? 'contain' : 'cover',
-              backgroundRepeat: 'no-repeat'
-            }}
-          />
-        )}
+        {/* Base Media Layer with Background Multi-Layer Zoom & Optical Depth of Field */}
+        <div
+          className="absolute inset-0 w-full h-full overflow-hidden transition-transform duration-200 ease-out origin-center pointer-events-none"
+          style={{
+            transform: zoomTransforms.bgTransform,
+            filter: zoomTransforms.bgDepthBlur !== 'none' ? zoomTransforms.bgDepthBlur : undefined
+          }}
+        >
+          {isVideo ? (
+            <video
+              key={imageUrl}
+              ref={videoRef}
+              src={imageUrl}
+              autoPlay
+              loop
+              muted={isVideoMuted}
+              playsInline
+              preload="auto"
+              onTimeUpdate={handleVideoTimeUpdate}
+              onPlay={() => setIsVideoPlaying(true)}
+              onPause={() => setIsVideoPlaying(false)}
+              className="w-full h-full object-cover"
+              style={{
+                objectPosition: `center ${panY}%`,
+                objectFit: fitMode === 'contain' ? 'contain' : 'cover'
+              }}
+            />
+          ) : (
+            <div 
+              className="w-full h-full bg-cover transition-all"
+              style={{
+                backgroundImage: `url('${imageUrl}')`,
+                backgroundPosition: `center ${panY}%`,
+                backgroundSize: fitMode === 'contain' ? 'contain' : 'cover',
+                backgroundRepeat: 'no-repeat'
+              }}
+            />
+          )}
+        </div>
 
         {/* Optical Post FX: Edge Motion Blur (photo-motion-edges) */}
         {visibility.motionBlur && (
@@ -588,9 +603,15 @@ export const CinemaStage: React.FC = () => {
           </>
         )}
 
-        {/* Bengali + English Cinema Title Lockup (Clean Stage by Default) */}
+        {/* Bengali + English Cinema Title Lockup with Foreground Multi-Layer Zoom & Optical Depth Shadow */}
         {visibility.titlesAll && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 text-center px-4">
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 text-center px-4 transition-transform duration-200 ease-out origin-center"
+            style={{
+              transform: zoomTransforms.fgTransform,
+              filter: zoomTransforms.fgShadow
+            }}
+          >
             {/* Episode Badge */}
             {visibility.badge && (
               <div className="mb-2 px-2.5 py-0.5 rounded-xs bg-black/60 border border-[#D4AF37]/40 text-[10px] font-mono tracking-widest text-[#D4AF37] flex items-center gap-1.5">
@@ -787,6 +808,37 @@ export const CinemaStage: React.FC = () => {
 
         {/* Floating Quick Media Upload & Title Toggle Trigger */}
         <div className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsZoomControlsOpen(prev => !prev);
+              }}
+              className={`px-2.5 py-1 border rounded text-[10px] font-mono flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer transition-colors ${
+                isZoomControlsOpen
+                  ? 'bg-black/90 border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.5)]'
+                  : 'bg-black/70 border-white/20 text-white/60 hover:text-white'
+              }`}
+              title="Multi-Layer Zoom: Scale Foreground & Background independently with optical depth perception"
+            >
+              <ZoomIn className="w-3 h-3 text-[#D4AF37]" />
+              <span>ZOOM</span>
+              <span className="text-[#FFE066] font-bold tabular-nums">
+                {foregroundZoom.toFixed(1)}x/{backgroundZoom.toFixed(1)}x
+              </span>
+            </button>
+
+            {isZoomControlsOpen && (
+              <div 
+                className="absolute right-0 top-full mt-2 w-80 z-50 animate-in fade-in zoom-in-95 duration-150"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MultiLayerZoomControls
+                  onClose={() => setIsZoomControlsOpen(false)}
+                />
+              </div>
+            )}
+          </div>
           <button
             onClick={(e) => {
               e.stopPropagation();

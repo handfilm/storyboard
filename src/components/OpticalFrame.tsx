@@ -76,6 +76,9 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
   };
 
   const filterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
+  const combinedMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
+    ? `${filterStyle} ${zoomTransforms.bgDepthBlur}`
+    : filterStyle;
 
   return (
     <div
@@ -112,14 +115,14 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
               muted
               playsInline
               className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
-              style={{ filter: filterStyle }}
+              style={{ filter: combinedMediaFilter }}
             />
           ) : (
             <img
               src={frame.imageUrl}
               alt={frame.title}
               className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
-              style={{ filter: filterStyle }}
+              style={{ filter: combinedMediaFilter }}
             />
           )}
         </div>
@@ -150,7 +153,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
       {componentsVisibility?.titlesAll !== false && (
         <div
           className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
-          style={{ transform: zoomTransforms.fgTransform }}
+          style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
         >
           <StageTextOverlay
             shotIndex={frame?.id ?? 0}

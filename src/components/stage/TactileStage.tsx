@@ -248,6 +248,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
+  const combinedMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
+    ? `${lutFilterStyle} ${zoomTransforms.bgDepthBlur}`
+    : lutFilterStyle;
 
   return (
     <div
@@ -298,14 +301,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 muted
                 playsInline
                 className="w-full h-full object-cover transition-opacity duration-150"
-                style={{ filter: lutFilterStyle }}
+                style={{ filter: combinedMediaFilter }}
               />
             ) : (
               <img
                 src={activeMediaUrl}
                 alt={frame?.title}
                 className="w-full h-full object-cover"
-                style={{ filter: lutFilterStyle }}
+                style={{ filter: combinedMediaFilter }}
               />
             )}
           </div>
@@ -346,7 +349,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         {isTitlesActive && (
           <div
             className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
-            style={{ transform: zoomTransforms.fgTransform }}
+            style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
           >
             <StageTextOverlay
               shotIndex={currentIndex}

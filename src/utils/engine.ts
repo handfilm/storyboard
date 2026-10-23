@@ -205,6 +205,11 @@ export interface MultiLayerZoomResult {
   bgTransform: string;
   fgTransform: string;
   isVertigo: boolean;
+  depthDelta: number;
+  depthSeparation: number;
+  bgDepthBlur: string;
+  fgShadow: string;
+  depthFieldLabel: string;
 }
 
 export function calculateMultiLayerZoom(
@@ -220,11 +225,43 @@ export function calculateMultiLayerZoom(
     safeFg = Math.max(0.2, Math.min(3.5, 1.0 / safeBg));
   }
 
+  // Optical lens depth separation math
+  const depthDelta = safeFg - safeBg;
+  const depthSeparation = Math.abs(depthDelta);
+
+  // 3D perspective depth translation along Z axis (pixels in 1000px perspective space)
+  const fgZ = Math.round((safeFg - 1.0) * 120);
+  const bgZ = Math.round((safeBg - 1.0) * 80);
+
+  // When foreground is closer than background, optical lens simulation introduces
+  // shallow depth-of-field background bokeh blur (up to 3.5px)
+  let depthBlurPx = 0;
+  if (depthDelta > 0.08) {
+    depthBlurPx = Math.min(3.5, depthDelta * 2.2);
+  }
+  const bgDepthBlur = depthBlurPx > 0.1 ? `blur(${depthBlurPx.toFixed(1)}px)` : 'none';
+
+  // Dynamic optical drop-shadow cast by foreground elements onto background plate
+  const shadowDist = Math.max(2, Math.round(depthSeparation * 16 + 4));
+  const shadowBlur = Math.max(4, Math.round(depthSeparation * 24 + 6));
+  const shadowAlpha = Math.min(0.85, Math.max(0.35, depthSeparation * 0.4 + 0.35));
+  const fgShadow = `drop-shadow(0 ${shadowDist}px ${shadowBlur}px rgba(0,0,0,${shadowAlpha})) drop-shadow(0 0 16px rgba(212,175,55,0.25))`;
+
+  let depthFieldLabel = 'FLAT 1:1';
+  if (depthDelta > 0.35) depthFieldLabel = 'SHALLOW DOF (FG POP)';
+  else if (depthDelta < -0.35) depthFieldLabel = 'DEEP FOCUS (BG PUSH)';
+  else if (vertigoLock) depthFieldLabel = 'VERTIGO DOLLY LINK';
+
   return {
     bgScale: safeBg,
     fgScale: safeFg,
-    bgTransform: `scale(${safeBg.toFixed(3)})`,
-    fgTransform: `scale(${safeFg.toFixed(3)})`,
-    isVertigo: vertigoLock
+    bgTransform: `perspective(1000px) translateZ(${bgZ}px) scale(${safeBg.toFixed(3)})`,
+    fgTransform: `perspective(1000px) translateZ(${fgZ}px) scale(${safeFg.toFixed(3)})`,
+    isVertigo: vertigoLock,
+    depthDelta: Number(depthDelta.toFixed(2)),
+    depthSeparation: Number(depthSeparation.toFixed(2)),
+    bgDepthBlur,
+    fgShadow,
+    depthFieldLabel
   };
 }

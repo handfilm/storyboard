@@ -18,9 +18,13 @@ import {
   Eye, 
   Sparkles,
   Sliders,
-  Ratio
+  Ratio,
+  Activity,
+  ZoomIn
 } from 'lucide-react';
 import { TrackVuMeter } from '../../components/audio/TrackVuMeter';
+import { AudioFrequencyVisualizer } from '../../components/audio/AudioFrequencyVisualizer';
+import { MultiLayerZoomControls } from '../../components/optics/MultiLayerZoomControls';
 
 const lutPresets = [
   { id: 'cinematic', label: 'RAWx Cinema 35' },
@@ -61,11 +65,15 @@ export const BottomDock: React.FC = () => {
     isAudioMuted,
     toggleAudio,
     toggleZenMode,
+    foregroundZoom,
+    backgroundZoom,
     project
   } = useStudioStore();
 
   const stripRef = useRef<HTMLDivElement>(null);
   const [goToInput, setGoToInput] = useState('');
+  const [isFreqVisualizerOpen, setIsFreqVisualizerOpen] = useState(false);
+  const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
 
   // Rate calculation matching exact pace formula: (0.25 to 3.0x / 4.0x)
   const rateVal = (0.25 + (speed - 1) * (2.75 / 99)).toFixed(2);
@@ -99,7 +107,28 @@ export const BottomDock: React.FC = () => {
   };
 
   return (
-    <footer className="bg-[#0B0B0B] border-t border-[#D4AF37]/20 flex flex-col px-3 py-1.5 select-none z-30">
+    <footer className="relative bg-[#0B0B0B] border-t border-[#D4AF37]/20 flex flex-col px-3 py-1.5 select-none z-30">
+      {/* Real-time Audio Frequency Visualizer Floating Overlay */}
+      {isFreqVisualizerOpen && (
+        <div className="w-full max-w-5xl mx-auto mb-2 pointer-events-auto">
+          <AudioFrequencyVisualizer
+            isOpen={isFreqVisualizerOpen}
+            onClose={() => setIsFreqVisualizerOpen(false)}
+            isAudioMuted={isAudioMuted}
+            onToggleAudio={toggleAudio}
+          />
+        </div>
+      )}
+
+      {/* Multi-Layer Zoom HUD Floating Overlay */}
+      {isZoomControlsOpen && (
+        <div className="w-full max-w-md mx-auto mb-2 pointer-events-auto">
+          <MultiLayerZoomControls
+            onClose={() => setIsZoomControlsOpen(false)}
+          />
+        </div>
+      )}
+
       {/* 100-Frame Scrubber Timeline Strip */}
       <div className="w-full flex items-center gap-2 mb-1.5 overflow-hidden">
         <form onSubmit={handleGoToShot} className="hidden sm:flex items-center gap-1 font-mono text-[10px]">
@@ -258,13 +287,49 @@ export const BottomDock: React.FC = () => {
           </select>
         </div>
 
-        {/* Mode Toggles: Track VU Meter, Zen, Fullscreen */}
+        {/* Mode Toggles: Track VU Meter, FREQ, ZOOM, Zen, Fullscreen */}
         <div className="flex items-center gap-1.5">
           <TrackVuMeter
             variant="dock"
             onToggleMute={toggleAudio}
             isMuted={isAudioMuted}
           />
+
+          {/* Real-Time Audio Frequency Visualizer Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsFreqVisualizerOpen(prev => !prev)}
+            className={`px-2 py-1 rounded text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer border ${
+              isFreqVisualizerOpen
+                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_12px_rgba(212,175,55,0.45)]'
+                : 'bg-[#121212] border-white/5 text-[#8A8A8A] hover:text-[#FFE066] hover:border-[#D4AF37]/40'
+            }`}
+            title="Toggle Real-Time Audio Frequency Visualizer Overlay"
+            aria-label="Toggle Audio Frequency Visualizer"
+          >
+            <Activity className="w-3 h-3 text-[#FFE066]" />
+            <span className="hidden sm:inline">FREQ</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FFE066] animate-pulse" />
+          </button>
+
+          {/* Multi-Layer Zoom HUD Button */}
+          <button
+            type="button"
+            onClick={() => setIsZoomControlsOpen(prev => !prev)}
+            className={`px-2 py-1 rounded text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer border ${
+              isZoomControlsOpen
+                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_12px_rgba(212,175,55,0.45)]'
+                : 'bg-[#121212] border-white/5 text-[#8A8A8A] hover:text-[#FFE066] hover:border-[#D4AF37]/40'
+            }`}
+            title="Multi-Layer Zoom: Scale Foreground & Background independently with optical depth perception"
+            aria-label="Toggle Multi-Layer Zoom Controls"
+          >
+            <ZoomIn className="w-3 h-3 text-[#D4AF37]" />
+            <span className="hidden sm:inline">ZOOM</span>
+            <span className="text-[9px] text-[#FFE066] font-bold tabular-nums">
+              {foregroundZoom.toFixed(1)}x/{backgroundZoom.toFixed(1)}x
+            </span>
+          </button>
 
           <button
             onClick={toggleZenMode}

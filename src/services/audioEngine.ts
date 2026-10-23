@@ -528,7 +528,8 @@ export class CinematicAudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      const target = this.analyserNode || this.ctx.destination;
+      gain.connect(target);
       osc.start(now);
       osc.stop(now + 0.16);
     } catch {
@@ -552,7 +553,8 @@ export class CinematicAudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      const target = this.analyserNode || this.ctx.destination;
+      gain.connect(target);
       osc.start(now);
       osc.stop(now + 0.35);
     } catch {
@@ -576,11 +578,50 @@ export class CinematicAudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      const target = this.analyserNode || this.ctx.destination;
+      gain.connect(target);
       osc.start(now);
       osc.stop(now + 0.07);
     } catch {
       // Shutter click fail silent
+    }
+  }
+
+  /**
+   * Procedurally synthesizes a precise frequency tone through the DSP pipeline
+   * to provide instant real-time visualization on the Audio Frequency Visualizer.
+   */
+  public synthesizeTone(
+    frequencyHz: number,
+    durationSec: number = 0.35,
+    type: OscillatorType = 'sine',
+    gainMultiplier: number = 0.45
+  ) {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    try {
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(frequencyHz, now);
+
+      const peakGain = (this.isMuted ? 0.25 : this.volume) * gainMultiplier;
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(peakGain, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+      osc.connect(gain);
+      const target = this.analyserNode || this.ctx.destination;
+      gain.connect(target);
+      osc.start(now);
+      osc.stop(now + durationSec + 0.05);
+    } catch {
+      // Fail silent
     }
   }
 

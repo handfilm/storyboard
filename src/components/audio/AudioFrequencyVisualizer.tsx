@@ -55,6 +55,15 @@ export const AudioFrequencyVisualizer: React.FC<AudioFrequencyVisualizerProps> =
   const peakValuesRef = useRef<number[]>(new Array(36).fill(0));
   const peakDecaySpeed = 1.8;
 
+  // Initialize audio engine on mount
+  useEffect(() => {
+    try {
+      audioEngine.init();
+    } catch {
+      // AudioContext init fallback
+    }
+  }, []);
+
   // Real-time animation loop
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -275,6 +284,18 @@ export const AudioFrequencyVisualizer: React.FC<AudioFrequencyVisualizerProps> =
     setTimeout(() => setIsSynthTriggered(false), 300);
   };
 
+  const triggerDrone = () => {
+    audioEngine.synthesizeTone(43.65, 0.45, 'sine', 0.6);
+    setIsSynthTriggered(true);
+    setTimeout(() => setIsSynthTriggered(false), 300);
+  };
+
+  const triggerTone = () => {
+    audioEngine.synthesizeTone(440, 0.35, 'triangle', 0.5);
+    setIsSynthTriggered(true);
+    setTimeout(() => setIsSynthTriggered(false), 300);
+  };
+
   if (!isOpen && variant !== 'inline-strip') {
     return null;
   }
@@ -296,7 +317,7 @@ export const AudioFrequencyVisualizer: React.FC<AudioFrequencyVisualizerProps> =
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs">
         {/* Left: Brand & Frequency Centroid */}
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#FFE066] shadow-[0_0_8px_#FFE066] animate-pulse" />
+          <Activity className="w-3.5 h-3.5 text-[#FFE066]" />
           <span className="font-bold text-[#FFE066] tracking-wider text-[10px] sm:text-[11px] uppercase">
             AUDIO FREQUENCY ANALYZER
           </span>
@@ -333,19 +354,35 @@ export const AudioFrequencyVisualizer: React.FC<AudioFrequencyVisualizerProps> =
           {/* Quick DSP triggers */}
           <button
             type="button"
-            onClick={triggerShutter}
-            className="hidden sm:inline-flex px-2 py-0.5 rounded-[2px] bg-white/5 hover:bg-white/15 border border-white/10 text-[8.5px] text-zinc-300 hover:text-[#FFE066] cursor-pointer active:scale-95"
-            title="Fire 35mm Shutter Click Synth FX"
+            onClick={triggerDrone}
+            className="hidden sm:inline-flex px-2 py-0.5 rounded-[2px] bg-[#D4AF37]/20 hover:bg-[#D4AF37]/40 border border-[#D4AF37]/50 text-[8.5px] text-[#FFE066] cursor-pointer active:scale-95"
+            title="Synthesize 43.65Hz Sub-Bass Drone Frequency"
           >
-            35mm SHUTTER
+            43Hz DRONE
           </button>
           <button
             type="button"
             onClick={triggerImpact}
-            className="hidden sm:inline-flex px-2 py-0.5 rounded-[2px] bg-[#D4AF37]/20 hover:bg-[#D4AF37]/40 border border-[#D4AF37]/50 text-[8.5px] text-[#FFE066] cursor-pointer active:scale-95"
-            title="Fire Low-Frequency Sub-Impact Synth FX"
+            className="hidden sm:inline-flex px-2 py-0.5 rounded-[2px] bg-white/5 hover:bg-white/15 border border-white/10 text-[8.5px] text-zinc-300 hover:text-[#FFE066] cursor-pointer active:scale-95"
+            title="Fire 110Hz Sub-Impact Synth Wave"
           >
-            SUB-BASS BOOM
+            110Hz BOOM
+          </button>
+          <button
+            type="button"
+            onClick={triggerTone}
+            className="hidden sm:inline-flex px-2 py-0.5 rounded-[2px] bg-white/5 hover:bg-white/15 border border-white/10 text-[8.5px] text-zinc-300 hover:text-[#FFE066] cursor-pointer active:scale-95"
+            title="Synthesize 440Hz Concert A Reference Frequency"
+          >
+            440Hz TONE
+          </button>
+          <button
+            type="button"
+            onClick={triggerShutter}
+            className="hidden sm:inline-flex px-2 py-0.5 rounded-[2px] bg-white/5 hover:bg-white/15 border border-white/10 text-[8.5px] text-zinc-300 hover:text-[#FFE066] cursor-pointer active:scale-95"
+            title="Fire 800Hz 35mm Shutter Click Transient"
+          >
+            35mm SHUTTER
           </button>
 
           {/* Sensitivity */}

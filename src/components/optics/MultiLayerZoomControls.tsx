@@ -178,6 +178,43 @@ export const MultiLayerZoomControls: React.FC<MultiLayerZoomControlsProps> = ({
             <ZoomIn className="w-3 h-3 text-zinc-400 shrink-0" />
           </div>
         </div>
+
+        {/* Optical Lens Depth Perception Gauge */}
+        <div className="bg-[#0B0C12] p-2 rounded-[2px] border border-[#D4AF37]/30 flex flex-col gap-1">
+          <div className="flex items-center justify-between text-[8.5px] font-mono">
+            <span className="text-zinc-400 uppercase font-semibold">OPTICAL DEPTH SEPARATION</span>
+            <span className="text-[#FFE066] font-bold tabular-nums">
+              {(fgZoom - bgZoom) >= 0 ? `+${(fgZoom - bgZoom).toFixed(2)}` : (fgZoom - bgZoom).toFixed(2)}
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-black/80 rounded-full overflow-hidden flex relative border border-white/10">
+            {/* Center zero mark */}
+            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/40 z-10 -translate-x-1/2" />
+            {/* Left or Right fill */}
+            {(fgZoom - bgZoom) >= 0 ? (
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-[#FFE066] rounded-r-full shadow-[0_0_8px_rgba(255,224,102,0.8)]"
+                style={{
+                  marginLeft: '50%',
+                  width: `${Math.min(50, Math.max(0, ((fgZoom - bgZoom) / 1.5) * 50))}%`
+                }}
+              />
+            ) : (
+              <div
+                className="h-full bg-gradient-to-l from-cyan-500 to-cyan-300 rounded-l-full shadow-[0_0_8px_rgba(0,229,255,0.8)] ml-auto"
+                style={{
+                  marginRight: '50%',
+                  width: `${Math.min(50, Math.max(0, (Math.abs(fgZoom - bgZoom) / 1.5) * 50))}%`
+                }}
+              />
+            )}
+          </div>
+          <div className="flex items-center justify-between text-[7.5px] text-zinc-500 font-mono pt-0.5">
+            <span>DEEP FOCUS (BG+)</span>
+            <span className="text-zinc-400">{Math.abs(fgZoom - bgZoom) < 0.1 ? '1:1 PARALLEL' : (fgZoom > bgZoom ? 'SHALLOW BOKEH ACTIVE' : 'WIDE EXPANSION')}</span>
+            <span>SHALLOW DOF (FG+)</span>
+          </div>
+        </div>
       </div>
 
       {/* Preset Quick Buttons */}

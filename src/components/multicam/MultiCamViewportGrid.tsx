@@ -129,23 +129,37 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input or textarea
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
 
       if (e.key === '1') {
         e.preventDefault();
-        setConfig('1x1');
+        setConfig(activeConfig === '1x1' ? '1x3' : '1x1');
       } else if (e.key === '2') {
         e.preventDefault();
-        setConfig('1x3');
+        setConfig(activeConfig === '1x3' ? '2x2' : '1x3');
       } else if (e.key === '3') {
         e.preventDefault();
-        setConfig('2x2');
+        setConfig(activeConfig === '2x2' ? '1x1' : '2x2');
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        const cycleOrder: MultiCamGridConfig[] = ['1x1', '1x3', '2x2'];
+        const nextIdx = (cycleOrder.indexOf(activeConfig) + 1) % cycleOrder.length;
+        setConfig(cycleOrder[nextIdx]);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setConfig]);
+  }, [setConfig, activeConfig]);
 
   // Format timecode
   const formatTimecode = (ms: number) => {
@@ -185,6 +199,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         transform: 'scale(1)',
         pointerEvents: 'auto',
         zIndex: idx === heroIdx ? 15 : 10,
+        willChange: 'top, left, width, height, transform, opacity',
         transition: baseTransition
       };
     }
@@ -204,6 +219,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             transform: 'scale(1)',
             pointerEvents: 'auto',
             zIndex: 20,
+            willChange: 'top, left, width, height, transform, opacity',
             transition: baseTransition
           };
         }
@@ -217,6 +233,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           transform: 'scale(1)',
           pointerEvents: 'auto',
           zIndex: 20,
+          willChange: 'top, left, width, height, transform, opacity',
           transition: baseTransition
         };
       } else {
@@ -237,6 +254,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             transform: 'scale(1)',
             pointerEvents: 'auto',
             zIndex: 10,
+            willChange: 'top, left, width, height, transform, opacity',
             transition: baseTransition
           };
         }
@@ -253,6 +271,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           transform: 'scale(1)',
           pointerEvents: 'auto',
           zIndex: 10,
+          willChange: 'top, left, width, height, transform, opacity',
           transition: baseTransition
         };
       }
@@ -271,6 +290,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           transform: 'scale(1)',
           pointerEvents: 'auto',
           zIndex: 25,
+          willChange: 'top, left, width, height, transform, opacity',
           transition: baseTransition
         };
       } else {
@@ -284,6 +304,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           transform: 'translate(-50%, -50%) scale(0.75)',
           pointerEvents: 'none',
           zIndex: 1,
+          willChange: 'top, left, width, height, transform, opacity',
           transition: baseTransition
         };
       }
@@ -398,28 +419,16 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         </div>
 
         {/* Center: Prominent Visual Indicator of the Active Preset */}
-        <div className="hidden lg:flex items-center gap-2 font-mono text-[11px]">
+        <div className="hidden sm:flex items-center gap-2 font-mono text-[11px]">
           <span className="text-neutral-500 text-[10px] tracking-wider uppercase font-semibold">
             ACTIVE PRESET:
           </span>
-          {activeConfig === '1x1' && (
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/50 text-amber-300 font-bold flex items-center gap-1.5 shadow-sm animate-in fade-in duration-200">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_6px_#F5A623]" />
-              1x1 SOLO MONITOR [KEY 1]
-            </span>
-          )}
-          {activeConfig === '1x3' && (
-            <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/50 text-cyan-300 font-bold flex items-center gap-1.5 shadow-sm animate-in fade-in duration-200">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_6px_#00E5FF]" />
-              1x3 DIRECTOR SPLIT [KEY 2]
-            </span>
-          )}
-          {activeConfig === '2x2' && (
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/50 text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm animate-in fade-in duration-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10B981]" />
-              2x2 QUAD COMPARISON [KEY 3]
-            </span>
-          )}
+          <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-black/60 border border-[#FFE066]/40 text-[#FFE066] shadow-[0_0_12px_rgba(255,224,102,0.15)] font-bold">
+            <span className="w-2 h-2 rounded-full bg-[#FFE066] animate-pulse shadow-[0_0_6px_#FFE066]" />
+            {activeConfig === '1x1' && <span>1x1 SOLO MONITOR [KEY 1]</span>}
+            {activeConfig === '1x3' && <span>1x3 DIRECTOR SPLIT [KEY 2]</span>}
+            {activeConfig === '2x2' && <span>2x2 QUAD GRID [KEY 3]</span>}
+          </div>
         </div>
 
         {/* Right: Aspect Ratio & Expand Controls */}
@@ -539,12 +548,24 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           })}
         </div>
 
+        {/* Persistent Viewport Active Preset HUD Indicator */}
+        <div className="absolute top-5 left-5 z-30 pointer-events-none flex items-center gap-2 bg-black/85 backdrop-blur-md border border-[#FFE066]/35 px-3 py-1.5 rounded-xl font-mono text-[11px] shadow-2xl">
+          <span className="w-2 h-2 rounded-full bg-[#FFE066] animate-pulse shadow-[0_0_8px_#FFE066]" />
+          <span className="text-neutral-400 text-[10px] uppercase tracking-wider font-semibold">PRESET:</span>
+          <span className="text-[#FFE066] font-bold tracking-wider uppercase">
+            {activeConfig === '1x1' ? '1x1 SOLO' : activeConfig === '1x3' ? '1x3 DIRECTOR' : '2x2 QUAD'}
+          </span>
+          <span className="text-neutral-400 text-[10px] border-l border-white/20 pl-2 ml-0.5">
+            KEY <kbd className="px-1 py-0.2 bg-white/10 rounded text-[9px] text-amber-300 font-bold">{activeConfig === '1x1' ? '1' : activeConfig === '1x3' ? '2' : '3'}</kbd>
+          </span>
+        </div>
+
         {/* Transient Morph Transition HUD Confirmation Badge */}
         {recentlySwitchedPreset && (
-          <div className="absolute top-6 right-6 z-40 bg-black/90 border border-amber-500/50 px-3.5 py-1.5 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-            <span className="font-mono text-xs font-bold text-amber-300">
-              MORPHED TO {recentlySwitchedPreset.toUpperCase()} GRID
+          <div className="absolute top-5 right-5 z-40 bg-black/95 border border-[#FFE066]/60 px-4 py-2 rounded-xl shadow-[0_0_24px_rgba(255,224,102,0.25)] backdrop-blur-md flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+            <Sparkles className="w-4 h-4 text-[#FFE066] animate-spin" />
+            <span className="font-mono text-xs font-bold text-[#FFE066] tracking-wider uppercase">
+              MORPHED TO {recentlySwitchedPreset === '1x1' ? '1x1 SOLO' : recentlySwitchedPreset === '1x3' ? '1x3 DIRECTOR' : '2x2 QUAD'} GRID
             </span>
           </div>
         )}

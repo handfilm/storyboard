@@ -29,10 +29,13 @@ import {
   Sparkles,
   Eye,
   Type,
-  Activity
+  Activity,
+  ZoomIn
 } from 'lucide-react';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 import { AudioFrequencyVisualizer } from './audio/AudioFrequencyVisualizer';
+import { MultiLayerZoomControls } from './optics/MultiLayerZoomControls';
+import { useStudioStore } from '../core/store';
 
 export interface ControlDockProps {
   frames: AnthologyFrame[];
@@ -123,6 +126,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const stripRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
   const [isFreqVisualizerOpen, setIsFreqVisualizerOpen] = useState(false);
+  const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
+
+  const fgZoom = useStudioStore((s) => s.foregroundZoom);
+  const bgZoom = useStudioStore((s) => s.backgroundZoom);
 
   const safeFrames = Array.isArray(frames) && frames.length > 0 ? frames : [];
   const currentFrame = safeFrames[currentIndex] || safeFrames[0];
@@ -296,6 +303,15 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onClose={() => setIsFreqVisualizerOpen(false)}
             isAudioMuted={isAudioMuted}
             onToggleAudio={onToggleAudio}
+          />
+        </div>
+      )}
+
+      {/* Multi-Layer Zoom HUD Floating Overlay */}
+      {isZoomControlsOpen && (
+        <div className="w-full max-w-md mb-2 pointer-events-auto">
+          <MultiLayerZoomControls
+            onClose={() => setIsZoomControlsOpen(false)}
           />
         </div>
       )}
@@ -485,6 +501,25 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <Activity className="w-3 h-3 text-[#FFE066]" />
             <span className="hidden sm:inline">FREQ</span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#FFE066] animate-pulse" />
+          </button>
+
+          {/* Multi-Layer Zoom HUD Button */}
+          <button
+            type="button"
+            onClick={() => setIsZoomControlsOpen((prev) => !prev)}
+            className={`px-2 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+              isZoomControlsOpen
+                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_12px_rgba(212,175,55,0.45)]'
+                : 'bg-white/5 border-white/10 text-white/60 hover:text-[#FFE066] hover:border-[#D4AF37]/50'
+            }`}
+            title="Multi-Layer Zoom: Scale Foreground & Background independently with optical depth perception"
+            aria-label="Toggle Multi-Layer Zoom Controls"
+          >
+            <ZoomIn className="w-3 h-3 text-[#D4AF37]" />
+            <span className="hidden sm:inline">ZOOM</span>
+            <span className="text-[8px] text-[#FFE066] font-bold tabular-nums">
+              {fgZoom.toFixed(1)}x/{bgZoom.toFixed(1)}x
+            </span>
           </button>
 
           {/* Grid / Contact Sheet */}

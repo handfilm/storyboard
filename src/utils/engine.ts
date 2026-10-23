@@ -44,28 +44,34 @@ export function getLutFilterCSS(
 
   switch (preset) {
     case 'noir':
-      filters.push('grayscale(1)');
+      filters.push('grayscale(1)', 'contrast(140%)', 'brightness(95%)');
       break;
     case 'golden':
-      filters.push('sepia(0.35)');
+      filters.push('sepia(0.35)', 'contrast(115%)', 'saturate(120%)');
       break;
     case 'cyberpunk':
-      filters.push('hue-rotate(-25deg)');
+      filters.push('hue-rotate(-25deg)', 'saturate(135%)', 'contrast(115%)');
+      break;
+    case 'matrix':
+      filters.push('hue-rotate(60deg)', 'saturate(125%)', 'contrast(115%)');
       break;
     case 'bleach':
-      filters.push('contrast(130%)', 'saturate(60%)');
+      filters.push('contrast(140%)', 'saturate(50%)');
       break;
     case 'technicolor':
       filters.push('saturate(140%)', 'contrast(115%)');
       break;
     case 'infrared':
-      filters.push('hue-rotate(180deg)', 'saturate(130%)');
+      filters.push('hue-rotate(180deg)', 'saturate(140%)', 'contrast(120%)');
+      break;
+    case 'tungsten':
+      filters.push('sepia(0.2)', 'hue-rotate(-15deg)', 'contrast(110%)', 'saturate(110%)');
       break;
     case 'cinematic':
-    default:
-      filters.push('contrast(110%)', 'saturate(115%)');
+      filters.push('contrast(110%)', 'saturate(115%)', 'sepia(0.08)');
       break;
     case 'raw':
+    default:
       break;
   }
 

@@ -405,6 +405,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               isAudioMuted={isAudioMuted}
               onToggleMute={onToggleMute}
               onOpenCinemaPlayer={onOpenCinemaPlayer}
+              activeModule={activeModule}
             />
           </div>
         )}

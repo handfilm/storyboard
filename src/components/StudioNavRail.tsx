@@ -333,12 +333,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
               key={item.id}
               type="button"
               onClick={() => {
-                if (item.id === 'SETTINGS') {
-                  if (onOpenSettingsModal) onOpenSettingsModal();
-                  else onSelectModule('SETTINGS');
-                } else {
-                  onSelectModule(item.id);
-                }
+                onSelectModule(item.id);
               }}
               className={`w-full rounded-[2px] cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] relative group ${
                 isCollapsed

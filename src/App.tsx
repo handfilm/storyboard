@@ -1282,8 +1282,21 @@ export default function App() {
         <LeftRail
           activeModule={activeModule}
           onSelectModule={(mod) => {
-            if (mod === 'SETTINGS') {
-              setIsSettingsModalOpen(true);
+            if (
+              mod === 'PRODUCTION' ||
+              mod === 'REVIEW' ||
+              mod === 'AI' ||
+              mod === 'R2_STORAGE' ||
+              mod === 'LIBRARY' ||
+              mod === 'SETTINGS'
+            ) {
+              if (activeModule === mod && isDrawerOpen && workspaceMode === 'STAGE') {
+                setIsDrawerOpen(false);
+              } else {
+                setActiveModule(mod);
+                setWorkspaceMode('STAGE');
+                setIsDrawerOpen(true);
+              }
             } else if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
               handleGoHome();
             } else if (mod === 'BLOOM') {
@@ -1295,8 +1308,6 @@ export default function App() {
             } else if (mod === 'EDIT/CUT') {
               setWorkspaceMode('CUT');
               setIsDrawerOpen(false);
-            } else if (mod === 'R2_STORAGE') {
-              setIsR2AutomationOpen(true);
             } else if (mod === 'EXPORT') {
               setIsPublishModalOpen(true);
             } else if (mod === 'LIQUIFY') {
@@ -1306,7 +1317,7 @@ export default function App() {
               setWorkspaceMode('STAGE');
               setIsDrawerOpen(true);
             } else {
-              // Functional modules: STORY, MEDIA, TEXT, SOUND, PRODUCTION, REVIEW, LIBRARY, AI
+              // Functional modules: STORY, MEDIA, TEXT, SOUND
               if (activeModule === mod && isDrawerOpen && workspaceMode === 'STAGE') {
                 setIsDrawerOpen(false);
               } else {
@@ -1335,6 +1346,20 @@ export default function App() {
             onClose={() => setIsDrawerOpen(false)}
             onOpenAnimatic={() => setIsAnimaticOpen(true)}
             onOpenLiquify={() => setIsLiquifyOpen(true)}
+            onSelectFrame={(idx) => goToFrame(idx)}
+            onJumpToFrame={(shotIdx, timeSec) => {
+              goToFrame(shotIdx);
+              setSlideTimeSec(timeSec);
+            }}
+            currentIndex={currentIndex}
+            slideTimeSec={slideTimeSec}
+            aspectRatio={aspectRatio}
+            onChangeAspectRatio={(r) => setAspectRatio(r)}
+            onPreviewLut={(lut) => {
+              if (lut) {
+                handleUpdateFrame({ ...currentFrame, lutFilter: lut });
+              }
+            }}
           />
         )}
 

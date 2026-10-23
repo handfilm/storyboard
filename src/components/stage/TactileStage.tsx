@@ -28,6 +28,8 @@ import {
   Volume2,
   VolumeX
 } from 'lucide-react';
+import { StudioModuleId } from '../StudioNavRail';
+import { ReviewMarkupCanvas } from './ReviewMarkupCanvas';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -67,6 +69,7 @@ export interface TactileStageProps {
   onLoadAudioFile?: (file: File) => void;
   detectedBpm?: number;
   isAudioMuted?: boolean;
+  activeModule?: StudioModuleId;
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({
@@ -88,7 +91,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   playbackMode = 'sequence',
   onTogglePlay,
   slideTimeSec = 0,
-  onPurgeMedia
+  onPurgeMedia,
+  activeModule,
+  onScrubSlideTime
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -327,6 +332,18 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             directorNotes={frame?.directorNotes}
             cameraInfo={frame?.cameraSpec?.focalLength}
             isVisible={true}
+          />
+        )}
+
+        {/* Module 11: Review Visual Markup Canvas Overlay */}
+        {activeModule === 'REVIEW' && (
+          <ReviewMarkupCanvas
+            shotIndex={currentIndex}
+            slideTimeSec={slideTimeSec}
+            onJumpToFrame={(targetShotIdx, targetTimeSec) => {
+              onSelectFrame(targetShotIdx);
+              if (onScrubSlideTime) onScrubSlideTime(targetTimeSec);
+            }}
           />
         )}
 

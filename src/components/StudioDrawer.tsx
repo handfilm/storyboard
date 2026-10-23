@@ -1,8 +1,9 @@
 /**
  * @file /src/components/StudioDrawer.tsx
  * @description Master Dockable Studio Drawer for HANDFILM Creative Suite.
- * Opens functional feature panels in Stage mode (Story, Media, Titles, Sound, Player,
- * Library, AI Director, Production, Review, Optics, Cloud & R2, Photo Edit) alongside the Cinema Monitor.
+ * Overhauls the bottom 6 studio modules (10 PRODUCTION, 11 REVIEW, 12 AI DIRECTOR, 13 CLOUD & R2, 14 LIBRARY, 15 SETTINGS)
+ * with tactile cyberpunk glassmorphism and the required slide-over container:
+ * w-[420px] md:w-[480px] bg-[#0c0d10]/95 backdrop-blur-2xl border-r border-[#F5A623]/30 p-5 flex flex-col h-full overflow-y-auto space-y-6 text-white
  */
 
 import React from 'react';
@@ -12,14 +13,15 @@ import { MediaStudio } from '../features/media/MediaStudio';
 import { TextStudio } from '../features/text/TextStudio';
 import { SoundStudio } from '../features/sound/SoundStudio';
 import { PrevisStudio } from '../features/previs/PrevisStudio';
-import { ProductionSuite } from './ProductionSuite';
-import { ReviewPanel } from './ReviewPanel';
-import { LibraryStudio } from '../features/library/LibraryStudio';
-import { AIDirectorSuite } from './AIDirectorSuite';
-import { CloudR2Sync } from './CloudR2Sync';
 import { PhotoLiquifySuite } from './PhotoLiquifySuite';
 import { DirectorInspector } from './DirectorInspector';
-import { AnthologyFrame } from '../types/anthology';
+import { ProductionSlidePanel } from '../features/production/ProductionSlidePanel';
+import { ReviewSlidePanel } from '../features/review/ReviewSlidePanel';
+import { AIDirectorSlidePanel } from '../features/ai/AIDirectorSlidePanel';
+import { CloudR2SlidePanel } from '../features/cloud/CloudR2SlidePanel';
+import { LibrarySlidePanel } from '../features/library/LibrarySlidePanel';
+import { SettingsSlidePanel } from '../features/settings/SettingsSlidePanel';
+import { AnthologyFrame, AspectRatio, LutPreset } from '../types/anthology';
 import { 
   X, 
   BookOpen, 
@@ -31,9 +33,10 @@ import {
   MessageSquare, 
   Library, 
   Sparkles, 
-  Sliders,
-  Cloud,
-  Wand2
+  Sliders, 
+  Cloud, 
+  Wand2,
+  Settings
 } from 'lucide-react';
 
 interface StudioDrawerProps {
@@ -44,6 +47,13 @@ interface StudioDrawerProps {
   onClose: () => void;
   onOpenAnimatic?: () => void;
   onOpenLiquify?: () => void;
+  onSelectFrame?: (index: number) => void;
+  onJumpToFrame?: (shotIndex: number, timeSec: number) => void;
+  currentIndex?: number;
+  slideTimeSec?: number;
+  aspectRatio?: AspectRatio | string;
+  onChangeAspectRatio?: (aspect: AspectRatio) => void;
+  onPreviewLut?: (lut: LutPreset | null) => void;
 }
 
 export const StudioDrawer: React.FC<StudioDrawerProps> = ({
@@ -53,12 +63,70 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   onUpdateFrame,
   onClose,
   onOpenAnimatic,
-  onOpenLiquify
+  onOpenLiquify,
+  onSelectFrame,
+  onJumpToFrame,
+  currentIndex = 0,
+  slideTimeSec = 0,
+  aspectRatio = '2.39:1',
+  onChangeAspectRatio,
+  onPreviewLut
 }) => {
   if (!isOpen) return null;
 
+  const isBottomSix = [
+    'PRODUCTION',
+    'REVIEW',
+    'AI',
+    'R2_STORAGE',
+    'LIBRARY',
+    'SETTINGS'
+  ].includes(activeModule);
+
   const getModuleMeta = () => {
     switch (activeModule) {
+      case 'PRODUCTION':
+        return {
+          title: '10 PRODUCTION // SHOOT PLANNER',
+          subtitle: 'Interactive Shoot Planner & Call Sheet',
+          icon: Clapperboard,
+          badge: 'DAY BOARD'
+        };
+      case 'REVIEW':
+        return {
+          title: '11 REVIEW // FRAME MARKUP',
+          subtitle: 'Frame-Accurate Video Markup & Client Notes',
+          icon: MessageSquare,
+          badge: 'CLIENT ANNOTATION'
+        };
+      case 'AI':
+        return {
+          title: '12 AI DIRECTOR // PROMPT MATRIX',
+          subtitle: 'Visual Cine Prompt Engine & Consistency Matrix',
+          icon: Sparkles,
+          badge: 'VEO / FLOW'
+        };
+      case 'R2_STORAGE':
+        return {
+          title: '13 CLOUD & R2 // VAULT SYNC',
+          subtitle: 'Zero-Config Bucket Streaming & Vault Sync',
+          icon: Cloud,
+          badge: 'S3 ARCHIVE'
+        };
+      case 'LIBRARY':
+        return {
+          title: '14 LIBRARY // ASSETS & LOOKS',
+          subtitle: 'Asset Presets, Sound FX & Typography',
+          icon: Library,
+          badge: 'PRESETS & SFX'
+        };
+      case 'SETTINGS':
+        return {
+          title: '15 SETTINGS // TELEMETRY',
+          subtitle: 'Hardware Acceleration & Storage Quota',
+          icon: Settings,
+          badge: 'WEBCODECS'
+        };
       case 'STORY':
         return {
           title: '02 STORY NOTEBOOK',
@@ -101,41 +169,6 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           icon: Wand2,
           badge: 'PHOTO SUITE'
         };
-      case 'PRODUCTION':
-        return {
-          title: '10 PRODUCTION & CALL SHEETS',
-          subtitle: 'Day Schedules & Line-Item Budget',
-          icon: Clapperboard,
-          badge: 'HOLLYWOOD'
-        };
-      case 'REVIEW':
-        return {
-          title: '11 REVIEW & ANNOTATIONS',
-          subtitle: 'Director Notes & Client Approvals',
-          icon: MessageSquare,
-          badge: 'COLLAB'
-        };
-      case 'AI':
-        return {
-          title: '12 AI CREATIVE DIRECTOR',
-          subtitle: 'Gemini Cine & Veo Prompt Generator',
-          icon: Sparkles,
-          badge: 'FLOW AI'
-        };
-      case 'R2_STORAGE':
-        return {
-          title: '13 CLOUD & R2 ARCHIVE',
-          subtitle: 'Cloudflare R2 & Byte-Range Streaming',
-          icon: Cloud,
-          badge: 'CLOUD R2'
-        };
-      case 'LIBRARY':
-        return {
-          title: '14 LOOK & LUT LIBRARY',
-          subtitle: '3D Color Presets & Optics Catalog',
-          icon: Library,
-          badge: 'PRESETS'
-        };
       default:
         return {
           title: '07 EDIT & CAM',
@@ -149,6 +182,90 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   const meta = getModuleMeta();
   const Icon = meta.icon;
 
+  // Use the exact required container styling for modules 10-15
+  if (isBottomSix) {
+    return (
+      <aside 
+        aria-label="Studio Slide-Over Panel"
+        className="w-[420px] md:w-[480px] bg-[#0c0d10]/95 backdrop-blur-2xl border-r border-[#F5A623]/30 p-5 flex flex-col h-full overflow-y-auto space-y-6 text-white shrink-0 z-40 select-none animate-in slide-in-from-left duration-200 custom-scrollbar shadow-[0_0_50px_rgba(0,0,0,0.9)]"
+      >
+        {/* Slide-Over Top Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-[#F5A623]/20 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded bg-[#F5A623]/15 border border-[#F5A623]/50 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(245,166,35,0.25)]">
+              <Icon className="w-4 h-4 text-[#F5A623]" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="font-mono-tech text-xs font-bold text-white tracking-wider truncate">
+                  {meta.title}
+                </h3>
+              </div>
+              <p className="text-[9px] text-zinc-400 font-mono-tech truncate mt-0.5">
+                {meta.subtitle}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[8px] px-1.5 py-0.5 bg-[#F5A623]/15 border border-[#F5A623]/40 text-[#F5A623] font-mono-tech rounded font-bold uppercase tracking-wider">
+              {meta.badge}
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors border border-white/10"
+              title="Close Slide-Over (Esc)"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Slide-Over Body Container */}
+        <div className="flex-1 space-y-6">
+          {activeModule === 'PRODUCTION' && (
+            <ProductionSlidePanel
+              onSelectFrame={onSelectFrame}
+              currentIndex={currentIndex}
+            />
+          )}
+
+          {activeModule === 'REVIEW' && (
+            <ReviewSlidePanel
+              onJumpToFrame={onJumpToFrame}
+              activeShotIndex={currentIndex}
+              slideTimeSec={slideTimeSec}
+            />
+          )}
+
+          {activeModule === 'AI' && (
+            <AIDirectorSlidePanel />
+          )}
+
+          {activeModule === 'R2_STORAGE' && (
+            <CloudR2SlidePanel />
+          )}
+
+          {activeModule === 'LIBRARY' && (
+            <LibrarySlidePanel
+              currentFrame={currentFrame}
+              onUpdateFrame={onUpdateFrame}
+              onPreviewLut={onPreviewLut}
+            />
+          )}
+
+          {activeModule === 'SETTINGS' && (
+            <SettingsSlidePanel
+              currentAspectRatio={aspectRatio}
+              onChangeAspectRatio={onChangeAspectRatio}
+            />
+          )}
+        </div>
+      </aside>
+    );
+  }
+
+  // Fallback for modules 01-09
   return (
     <div className="w-[420px] sm:w-[480px] xl:w-[560px] h-full bg-[#0a0a10]/98 border-r border-[#272732] shadow-[0_0_50px_rgba(0,0,0,0.95)] flex flex-col z-30 shrink-0 select-none overflow-hidden backdrop-blur-2xl animate-in slide-in-from-left duration-200">
       {/* Drawer Header */}
@@ -197,22 +314,12 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             onApplyWarp={(warpedUrl) => onUpdateFrame({ ...currentFrame, imageUrl: warpedUrl })}
           />
         )}
-        {activeModule === 'PRODUCTION' && <ProductionSuite />}
-        {activeModule === 'REVIEW' && <ReviewPanel />}
-        {activeModule === 'AI' && <AIDirectorSuite />}
-        {activeModule === 'R2_STORAGE' && <CloudR2Sync />}
-        {activeModule === 'LIBRARY' && <LibraryStudio />}
         {activeModule !== 'STORY' && 
          activeModule !== 'MEDIA' && 
          activeModule !== 'TEXT' && 
          activeModule !== 'SOUND' && 
          activeModule !== 'PLAYER' && 
-         activeModule !== 'LIQUIFY' &&
-         activeModule !== 'PRODUCTION' && 
-         activeModule !== 'REVIEW' && 
-         activeModule !== 'AI' &&
-         activeModule !== 'R2_STORAGE' &&
-         activeModule !== 'LIBRARY' && (
+         activeModule !== 'LIQUIFY' && (
           <DirectorInspector
             frame={currentFrame}
             onUpdateFrame={onUpdateFrame}

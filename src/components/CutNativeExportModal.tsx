@@ -36,6 +36,7 @@ import {
 import { exportFullIdbBackup } from '../utils/backup';
 import { exportDirectorsCutBundle } from '../services/directorsCutExport';
 import { exportProductionPackageZip } from '../services/productionPackageExport';
+import { downloadStoryboardPdf } from '../utils/pdfExport';
 import { 
   Film, 
   Video, 
@@ -792,6 +793,30 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       setExportError(err?.message || 'Could not generate Contact Sheet.');
     }
   }, [projectTitle, directorName, selectedFrames, activeSelection.indices, activeSelection.totalShots, dynamicRuntime, pdfColumns, includePdfSpecs]);
+
+  // Direct download of Printable Storyboard PDF with camera specs
+  const handleDownloadStoryboardPdf = useCallback(async () => {
+    try {
+      setIsExporting(true);
+      await downloadStoryboardPdf(selectedFrames, {
+        projectTitle,
+        directorName,
+        aspectRatio,
+        framesPerPage: pdfColumns === 4 ? 4 : 6,
+        theme: 'print',
+        includeSpecs: includePdfSpecs,
+        includeAudio: true
+      });
+      playExportSuccessChime();
+      setIsFinished(true);
+      setDownloadedFileName(`${projectTitle}_Storyboard_ContactSheet.pdf`);
+    } catch (err: any) {
+      console.error('[PDF Download Error]', err);
+      setExportError(err?.message || 'Could not download Storyboard PDF.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [selectedFrames, projectTitle, directorName, aspectRatio, pdfColumns, includePdfSpecs, playExportSuccessChime]);
 
   // Export Full Lossless RAWX Backup (.rawx JSON)
   const handleExportRawxBackup = useCallback(async () => {
@@ -2178,14 +2203,25 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 )}
 
                 {activeTab === 'pdf' && (
-                  <button
-                    type="button"
-                    onClick={handleExportContactSheet}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 hover:from-emerald-500 hover:to-teal-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-[0.98] transition-all"
-                  >
-                    <Printer className="w-4 h-4" />
-                    <span>GENERATE CONTACT SHEET (PDF)</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadStoryboardPdf}
+                      disabled={isExporting}
+                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>DOWNLOAD STORYBOARD PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportContactSheet}
+                      className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs tracking-wider flex items-center gap-2 cursor-pointer transition-all"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>PRINT PREVIEW</span>
+                    </button>
+                  </div>
                 )}
 
                 {activeTab === 'directors_cut' && (

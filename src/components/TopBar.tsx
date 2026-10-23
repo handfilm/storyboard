@@ -18,6 +18,8 @@ import React, { useState, useEffect } from 'react';
 import { WorkspaceMode } from '../core/theme';
 import { SaveState } from '../core/storage';
 import { exportFullIdbBackup } from '../utils/backup';
+import { AnthologyFrame } from '../types/anthology';
+import { downloadStoryboardPdf } from '../utils/pdfExport';
 import {
   Film,
   Home,
@@ -98,6 +100,8 @@ export interface TopBarProps {
   onSelectPanel?: (panel: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM') => void;
   onSaveProjectJson?: () => void;
   onRestoreProjectJson?: () => void;
+  frames?: AnthologyFrame[];
+  onOpenContactSheet?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -105,6 +109,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeMode = 'STAGE',
   onSelectMode,
   onGoHome,
+  frames,
+  onOpenContactSheet,
   isProMode = true,
   onToggleProMode,
   componentsBadgeText = '12/13 ON',
@@ -173,6 +179,16 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   // Printable Contact Sheet Generator
   const handleExportContactSheet = () => {
+    if (frames && frames.length > 0) {
+      downloadStoryboardPdf(frames, {
+        projectTitle,
+        directorName: 'Directorial Team',
+        aspectRatio: '2.39:1',
+        framesPerPage: 6,
+        theme: 'print'
+      });
+      return;
+    }
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       window.print();

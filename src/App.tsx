@@ -20,6 +20,7 @@ import { PublishModal } from './components/PublishModal';
 import { CommandPalette } from './components/CommandPalette';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { SelfTestModal } from './components/SelfTestModal';
+import { ContactSheetModal } from './components/ContactSheetModal';
 import { CanvasLiquifyModal } from './components/CanvasLiquifyModal';
 import { VideoScopesModal } from './components/VideoScopesModal';
 import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
@@ -101,6 +102,7 @@ export default function App() {
   const [componentsVisibility, setComponentsVisibility] = useState<ComponentVisibility>(loadSavedComponentVisibility);
 
   // Modals and popovers state
+  const [isContactSheetOpen, setIsContactSheetOpen] = useState(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -940,7 +942,7 @@ export default function App() {
       onNextShot: nextFrame,
       onPrevShot: prevFrame,
       onStepFrame: handleStepFrame,
-      onToggleGrid: () => setWorkspaceMode(m => m === 'BOARD' ? 'STAGE' : 'BOARD'),
+      onToggleGrid: () => setIsContactSheetOpen(o => !o),
       onOpenCinema: () => setIsCinemaPlayerOpen(true),
       onToggleMute: toggleAudio
     });
@@ -1388,6 +1390,32 @@ export default function App() {
     }));
   };
 
+  const handleReorderFrames = useCallback((newFrames: AnthologyFrame[]) => {
+    setProject(prev => ({
+      ...prev,
+      frames: newFrames
+    }));
+    // Sync to sovereign storage engine so sequence is preserved across sessions
+    projectStorageEngine.saveSession({
+      version: '1.0.0',
+      updatedAt: Date.now(),
+      projectTitle: project.title || 'RAWx Storyboard',
+      activeShotIndex: currentIndex,
+      shots: newFrames.map((f, i) => ({
+        id: `shot_${f.id ?? i}`,
+        shotIndex: i,
+        title: f.title,
+        bengaliTitle: f.bengaliTitle,
+        tagline: f.tagline,
+        directorNotes: f.directorNotes,
+        soundCue: f.soundCue,
+        durationSeconds: f.slideHoldSec || f.durationSec || 12.0,
+        imageUrl: f.imageUrl,
+        isVideo: f.isVideo
+      }))
+    }).catch(err => console.warn('Failed saving reordered session', err));
+  }, [currentIndex, project.title]);
+
   const currentFrame = (project.frames && project.frames[currentIndex]) 
     ? project.frames[currentIndex] 
     : (project.frames && project.frames[0]) 
@@ -1399,6 +1427,7 @@ export default function App() {
     switch (commandId) {
       case 'workspace.stage': setWorkspaceMode('STAGE'); break;
       case 'workspace.board': setWorkspaceMode('BOARD'); break;
+      case 'view:grid': case 'workspace.board.modal': setIsContactSheetOpen(true); break;
       case 'workspace.cut': setWorkspaceMode('CUT'); break;
       case 'tools.pan': setIsPanActive(p => !p); break;
       case 'tools.liquify': setIsLiquifyOpen(true); break;
@@ -1521,6 +1550,8 @@ export default function App() {
         onOpenExportStudio={handleOpenExportStudio}
         onOpenExportTimeline={() => handleOpenExportStudio('premiere')}
         onOpenExportRange={() => handleOpenExportStudio('mp4')}
+        frames={project.frames}
+        onOpenContactSheet={() => setIsContactSheetOpen(true)}
         onOpenWalkthrough={() => setShowWalkthrough(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
@@ -1699,7 +1730,7 @@ export default function App() {
             setActiveModule('OPTICS');
             setIsDrawerOpen(true);
           }}
-          onOpenGrid={() => setWorkspaceMode('BOARD')}
+          onOpenGrid={() => setIsContactSheetOpen(true)}
           onOpenSettings={() => setIsThemeSettingsOpen(true)}
           titleAnimation={titleAnimation}
           onToggleTitles={handleToggleTitles}
@@ -1708,12 +1739,7 @@ export default function App() {
             const next = anims[(anims.indexOf(titleAnimation) + 1) % anims.length];
             setTitleAnimation(next);
           }}
-          onReorderFrames={(newFrames) => {
-            setProject(prev => ({
-              ...prev,
-              frames: newFrames
-            }));
-          }}
+          onReorderFrames={handleReorderFrames}
           onUpdateFrame={handleUpdateFrame}
           playbackMode={playbackMode}
           slideTimeSec={slideTimeSec}
@@ -1825,7 +1851,7 @@ export default function App() {
         frames={project.frames}
         currentIndex={currentIndex}
         slideTimeSec={slideTimeSec}
-        viewMode={workspaceMode === 'BOARD' ? 'grid' : 'stage'}
+        viewMode={isContactSheetOpen || workspaceMode === 'BOARD' ? 'grid' : 'stage'}
         isPlaying={isPlaying}
         speed={speed}
         showHud={showHud}
@@ -1847,7 +1873,7 @@ export default function App() {
         onToggleFullscreen={() => setIsCinemaPlayerOpen(true)}
         onToggleAudio={toggleAudio}
         onVolumeChange={setAudioVolume}
-        onToggleViewMode={() => setWorkspaceMode(m => m === 'BOARD' ? 'STAGE' : 'BOARD')}
+        onToggleViewMode={() => setIsContactSheetOpen(o => !o)}
         onOpenInspector={() => setIsInspectorOpen(o => !o)}
         onOpenPublishModal={() => setIsPublishModalOpen(true)}
         onChangeAspectRatio={setAspectRatio}
@@ -1915,6 +1941,23 @@ export default function App() {
             imageUrl: warpedUrl
           });
         }}
+      />
+
+      {/* Modal 1: 100-Frame Contact Sheet Grid & Storyboard Sequence Director */}
+      <ContactSheetModal
+        isOpen={isContactSheetOpen}
+        onClose={() => setIsContactSheetOpen(false)}
+        frames={project.frames}
+        currentIndex={currentIndex}
+        onSelectFrame={(idx) => {
+          goToFrame(idx);
+          setWorkspaceMode('STAGE');
+        }}
+        onPopulateSamplePack={handlePopulateAllFrames}
+        onReorderFrames={handleReorderFrames}
+        projectTitle={project.title}
+        directorName={project.director}
+        aspectRatio={aspectRatio}
       />
 
       {/* Publish & Git Modal */}

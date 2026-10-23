@@ -7,7 +7,9 @@
  */
 
 import { jsPDF } from 'jspdf';
+import JSZip from 'jszip';
 import { AnthologyFrame } from '../types/anthology';
+import { getLutFilterCSS } from './engine';
 
 export interface StoryboardPdfOptions {
   projectTitle: string;
@@ -318,3 +320,228 @@ export async function downloadStoryboardPdf(
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
+
+/**
+ * Renders an individual storyboard frame at high resolution (1920x1080) on an offscreen canvas
+ * with active LUT color grading applied, camera specs slate, and dual-language titles.
+ */
+export async function renderFrameToHiResCanvas(
+  frame: AnthologyFrame,
+  width: number = 1920,
+  height: number = 1080,
+  includeSlate: boolean = true
+): Promise<HTMLCanvasElement> {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  // 1. Fill deep cinema background
+  ctx.fillStyle = '#07070A';
+  ctx.fillRect(0, 0, width, height);
+
+  // 2. Draw media image if available
+  if (frame.imageUrl) {
+    await new Promise<void>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          // Apply active LUT CSS filter if present
+          if (frame.lutFilter) {
+            ctx.filter = getLutFilterCSS(frame.lutFilter, frame.adjustments);
+          }
+          // Draw aspect-fit or cover
+          const imgAspect = img.naturalWidth / img.naturalHeight;
+          const targetAspect = width / height;
+          let drawW = width;
+          let drawH = height;
+          let drawX = 0;
+          let drawY = 0;
+
+          if (imgAspect > targetAspect) {
+            drawW = width;
+            drawH = width / imgAspect;
+            drawY = (height - drawH) / 2;
+          } else {
+            drawH = height;
+            drawW = height * imgAspect;
+            drawX = (width - drawW) / 2;
+          }
+
+          ctx.drawImage(img, drawX, drawY, drawW, drawH);
+          ctx.filter = 'none';
+        } catch (err) {
+          console.warn('Canvas filter error in HiRes render', err);
+          ctx.filter = 'none';
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        resolve();
+      };
+      img.onerror = () => resolve();
+      setTimeout(resolve, 4000);
+      img.src = frame.imageUrl!;
+    });
+  } else {
+    // Elegant fallback plate
+    ctx.fillStyle = '#101118';
+    ctx.fillRect(40, 40, width - 80, height - 80);
+    ctx.strokeStyle = '#27273A';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 40, width - 80, height - 80);
+
+    ctx.fillStyle = '#44485C';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`[ RAW PLATE // ${frame.epNumber || 'SH001'} ]`, width / 2, height / 2);
+    ctx.textAlign = 'left';
+  }
+
+  // 3. Render Slate / Framing Overlays if requested
+  if (includeSlate) {
+    // Top Bar Scrim
+    const gradTop = ctx.createLinearGradient(0, 0, 0, 100);
+    gradTop.addColorStop(0, 'rgba(0, 0, 0, 0.85)');
+    gradTop.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = gradTop;
+    ctx.fillRect(0, 0, width, 100);
+
+    // Bottom Bar Scrim
+    const gradBottom = ctx.createLinearGradient(0, height - 140, 0, height);
+    gradBottom.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    gradBottom.addColorStop(1, 'rgba(0, 0, 0, 0.92)');
+    ctx.fillStyle = gradBottom;
+    ctx.fillRect(0, height - 140, width, 140);
+
+    // Golden frame border line
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(28, 28, width - 56, height - 56);
+
+    // Top Metadata: Shot index, project name, format
+    ctx.fillStyle = '#D4AF37';
+    ctx.font = 'bold 18px monospace';
+    ctx.fillText(`◆ FILE_${(frame.epNumber || '001').replace('#', '')} // FORMAT: 2.39:1 CINEMA SCOPE`, 48, 56);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`RAWx STORYBOARD // 24.0 FPS ARRI RAW`, width - 48, 56);
+    ctx.textAlign = 'left';
+
+    // Bottom Left: Titles & description
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 32px serif';
+    const mainTitle = (frame.title || 'UNTITLED SHOT').toUpperCase();
+    ctx.fillText(mainTitle, 48, height - 68);
+
+    if (frame.bengaliTitle) {
+      ctx.fillStyle = '#F59E0B';
+      ctx.font = 'bold 22px serif';
+      ctx.fillText(frame.bengaliTitle, 48, height - 38);
+    }
+
+    // Bottom Right: Camera Specs
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#D4AF37';
+    ctx.font = 'bold 16px monospace';
+    const specsLine = `LENS: ${frame.cameraSpec?.focalLength || '35mm'} | ${frame.cameraSpec?.aperture || 'f/1.4'} | ${frame.cameraSpec?.shutter || '1/48s'} | ISO ${frame.cameraSpec?.iso || '800'}`;
+    ctx.fillText(specsLine, width - 48, height - 68);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = '13px monospace';
+    const gradeLine = `GRADE: ${(frame.lutFilter || 'RAW').toUpperCase()} | DURATION: ${(frame.slideHoldSec || 12.0).toFixed(1)}s`;
+    ctx.fillText(gradeLine, width - 48, height - 42);
+    ctx.textAlign = 'left';
+  }
+
+  return canvas;
+}
+
+/**
+ * Exports an individual storyboard frame as a standalone high-resolution JPEG file.
+ */
+export async function exportFrameAsJpeg(
+  frame: AnthologyFrame,
+  projectTitle: string = 'RAWx_Storyboard',
+  includeSlate: boolean = true
+): Promise<void> {
+  const canvas = await renderFrameToHiResCanvas(frame, 1920, 1080, includeSlate);
+
+  return new Promise<void>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('Canvas to Blob conversion failed'));
+        return;
+      }
+
+      const cleanProject = projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanEp = (frame.epNumber || 'SH001').replace(/[^a-zA-Z0-9_-]/g, '');
+      const cleanTitle = (frame.title || 'Shot').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${cleanProject}_${cleanEp}_${cleanTitle}_HiRes.jpg`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      resolve();
+    }, 'image/jpeg', 0.95);
+  });
+}
+
+/**
+ * Batch exports frames as individual high-resolution JPEG files bundled in a .zip archive.
+ */
+export async function exportFramesAsJpegZip(
+  frames: AnthologyFrame[],
+  projectTitle: string = 'RAWx_Storyboard',
+  onProgress?: (percent: number, message: string) => void
+): Promise<void> {
+  if (!frames || frames.length === 0) return;
+
+  onProgress?.(5, `Initializing High-Resolution JPEG Batch Export (${frames.length} frames)...`);
+
+  const zip = new JSZip();
+  const folder = zip.folder('HiRes_Storyboard_JPEGs');
+
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
+    const canvas = await renderFrameToHiResCanvas(frame, 1920, 1080, true);
+
+    const blob = await new Promise<Blob | null>((res) => {
+      canvas.toBlob((b) => res(b), 'image/jpeg', 0.95);
+    });
+
+    if (blob && folder) {
+      const cleanEp = (frame.epNumber || `SH${String(i + 1).padStart(3, '0')}`).replace(/[^a-zA-Z0-9_-]/g, '');
+      const cleanTitle = (frame.title || `Frame_${i + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+      folder.file(`${cleanEp}_${cleanTitle}_1080p.jpg`, blob);
+    }
+
+    const pct = 5 + Math.round(((i + 1) / frames.length) * 80);
+    onProgress?.(pct, `Rendered Hi-Res JPEG for Frame ${i + 1} of ${frames.length}...`);
+  }
+
+  onProgress?.(90, 'Compressing High-Resolution JPEGs into ZIP bundle...');
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+  const cleanProject = projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${cleanProject}_Storyboard_HiRes_JPEGs.zip`;
+
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+  onProgress?.(100, 'All High-Resolution JPEGs Downloaded!');
+}
+

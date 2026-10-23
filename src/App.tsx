@@ -1274,8 +1274,10 @@ export default function App() {
           break;
         case 'g':
         case 'G':
-          e.preventDefault();
-          setWorkspaceMode(m => m === 'BOARD' ? 'STAGE' : 'BOARD');
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setIsContactSheetOpen(prev => !prev);
+          }
           break;
         case 'v':
         case 'V':
@@ -1333,6 +1335,7 @@ export default function App() {
           }
           break;
         case 'Escape':
+          setIsContactSheetOpen(false);
           setIsInspectorOpen(false);
           setIsPublishModalOpen(false);
           setIsCommandPaletteOpen(false);

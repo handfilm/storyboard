@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
 import { samplePacks } from '../../data/frames';
+import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
 
 export type MultiCamLayoutPreset = '2x2' | '1x3' | '1x1';
 
@@ -162,19 +163,19 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
             </span>
           </div>
 
-          <div className="flex items-center p-0.5 bg-black/60 rounded-xl border border-white/10">
+          <div className="flex items-center p-1 bg-black/70 rounded-xl border border-white/10 shadow-inner">
             {/* Preset 2x2: Quad View */}
             <button
               type="button"
               onClick={() => setPreset('2x2')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
                 activePreset === '2x2'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-bold'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
               title="2x2 Quad Grid Preset (Side-by-side comparison of 4 cameras)"
             >
-              <Grid2X2 className="w-3.5 h-3.5" />
+              <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activePreset === '2x2'} />
               <span>2x2 QUAD</span>
             </button>
 
@@ -182,14 +183,14 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
             <button
               type="button"
               onClick={() => setPreset('1x3')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
                 activePreset === '1x3'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-bold'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
               title="1x3 Director Preset (Hero program monitor + 3 synchronized angle comparison monitors)"
             >
-              <LayoutList className="w-3.5 h-3.5" />
+              <MultiCamPresetThumbnail config="1x3" size="sm" isActive={activePreset === '1x3'} />
               <span>1x3 DIRECTOR</span>
             </button>
 
@@ -197,14 +198,14 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
             <button
               type="button"
               onClick={() => setPreset('1x1')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
                 activePreset === '1x1'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-bold'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
               title="1x1 Solo Inspection Preset (Full focus program angle with instant A/B flip)"
             >
-              <Square className="w-3.5 h-3.5" />
+              <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activePreset === '1x1'} />
               <span>1x1 SOLO</span>
             </button>
           </div>
@@ -291,10 +292,20 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
                   onClick={() => onSelectAngle(idx)}
                   className={`group relative w-full h-full bg-black rounded-xl overflow-hidden cursor-pointer transition-all duration-150 flex flex-col justify-between border-2 ${
                     isActive
-                      ? 'border-[#F5A623] shadow-[0_0_20px_rgba(245,166,35,0.4)] ring-2 ring-[#F5A623]/40 z-10'
-                      : 'border-white/10 hover:border-white/30 opacity-75 hover:opacity-100'
+                      ? 'border-[#FFE066] animate-gold-focus-border ring-2 ring-[#F5A623]/80 ring-offset-2 ring-offset-black z-10'
+                      : 'border-white/10 hover:border-amber-400/50 opacity-75 hover:opacity-100'
                   }`}
                 >
+                  {/* Optical Viewfinder Golden Focus Reticles on Active Feed */}
+                  {isActive && (
+                    <div className="absolute inset-2 pointer-events-none z-20">
+                      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                      <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                      <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                    </div>
+                  )}
+
                   {/* Media Viewport */}
                   <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
                     {renderAngleMedia(angle, idx, true)}
@@ -354,7 +365,7 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
           <div className="w-full h-full flex flex-col lg:flex-row gap-3 overflow-hidden">
             
             {/* Main Primary Hero Program Viewport (70% space) */}
-            <div className="flex-[2.2] relative bg-black rounded-xl overflow-hidden border-2 border-amber-400 shadow-[0_0_24px_rgba(245,166,35,0.35)] flex items-center justify-center">
+            <div className="flex-[2.2] relative bg-black rounded-xl overflow-hidden border-2 border-[#FFE066] animate-gold-focus-border ring-2 ring-[#F5A623]/80 shadow-[0_0_28px_rgba(255,224,102,0.4)] flex items-center justify-center">
               <div className="absolute inset-0 flex items-center justify-center">
                 {renderAngleMedia(group.angles[currentActiveAngleIdx] || group.angles[0], currentActiveAngleIdx, false)}
               </div>
@@ -399,8 +410,8 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
                     onClick={() => onSelectAngle(idx)}
                     className={`relative flex-1 min-w-[140px] lg:min-w-0 bg-black rounded-xl overflow-hidden cursor-pointer transition-all border-2 flex items-center justify-center group ${
                       isActive
-                        ? 'border-amber-400 ring-2 ring-amber-400/40 shadow-lg opacity-100 scale-[1.01]'
-                        : 'border-white/10 hover:border-white/30 opacity-70 hover:opacity-100'
+                        ? 'border-[#FFE066] animate-gold-focus-border ring-2 ring-[#F5A623]/80 shadow-[0_0_15px_rgba(255,224,102,0.5)] opacity-100 scale-[1.01]'
+                        : 'border-white/10 hover:border-amber-400/50 opacity-70 hover:opacity-100'
                     }`}
                   >
                     <div className="absolute inset-0">
@@ -446,7 +457,7 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
           <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden">
             
             {/* Solo Monitor Frame */}
-            <div className={`relative w-full max-h-[72vh] mx-auto bg-black rounded-xl overflow-hidden border-2 border-amber-400 shadow-[0_0_28px_rgba(245,166,35,0.3)] flex items-center justify-center ${getAspectRatioContainerClass()}`}>
+            <div className={`relative w-full max-h-[72vh] mx-auto bg-black rounded-xl overflow-hidden border-2 border-[#FFE066] animate-gold-focus-border ring-2 ring-[#F5A623]/80 shadow-[0_0_28px_rgba(255,224,102,0.4)] flex items-center justify-center ${getAspectRatioContainerClass()}`}>
               <div className="absolute inset-0 flex items-center justify-center">
                 {renderAngleMedia(group.angles[currentActiveAngleIdx] || group.angles[0], currentActiveAngleIdx, false)}
               </div>

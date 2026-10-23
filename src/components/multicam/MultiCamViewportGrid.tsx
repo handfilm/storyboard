@@ -39,10 +39,13 @@ import {
   Radio,
   Sliders,
   Sparkles,
-  Check
+  Check,
+  ChevronDown
 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
 import { samplePacks } from '../../data/frames';
+import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
+import { MultiCamGridSelectionMenu } from './MultiCamGridSelectionMenu';
 
 export type MultiCamGridConfig = '1x1' | '1x3' | '2x2';
 
@@ -93,6 +96,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   const [localExpanded, setLocalExpanded] = useState<boolean>(false);
   const [isCompact, setIsCompact] = useState<boolean>(false);
   const [recentlySwitchedPreset, setRecentlySwitchedPreset] = useState<MultiCamGridConfig | null>(null);
+  const [isGridMenuOpen, setIsGridMenuOpen] = useState<boolean>(false);
 
   const activeConfig = controlledConfig !== undefined ? controlledConfig : localConfig;
   const isCurrentlyExpanded = controlledExpanded !== undefined ? controlledExpanded : localExpanded;
@@ -345,22 +349,29 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
       {/* 1. Viewport Grid Control Header & Preset Switcher */}
       <div className="h-12 px-4 bg-[#0D0E15] border-b border-white/10 flex items-center justify-between shrink-0 z-30">
         
-        {/* Left: Configuration Switcher with Key Badges ('1', '2', '3') */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 pr-2.5 border-r border-white/10">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#F5A623] animate-pulse" />
-            <span className="text-[11px] font-mono font-bold tracking-wider text-white uppercase hidden sm:inline">
-              PRESET GRID
+        {/* Left: Configuration Switcher with Key Badges ('1', '2', '3') & Visual Thumbnail Previews */}
+        <div className="flex items-center gap-2">
+          {/* Preset Grid Selection Menu Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsGridMenuOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#141520] hover:bg-amber-500/20 border border-[#FFE066]/40 hover:border-[#FFE066] text-[#FFE066] transition-all cursor-pointer shadow-sm group"
+            title="Open Grid Selection Menu with Visual Thumbnail Previews"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#F5A623] animate-pulse" />
+            <span className="text-[11px] font-mono font-bold tracking-wider uppercase">
+              GRID MENU
             </span>
-          </div>
+            <ChevronDown className="w-3.5 h-3.5 text-amber-300 group-hover:translate-y-0.5 transition-transform" />
+          </button>
 
-          {/* Interactive Preset Buttons with Keyboard Shortcuts [1], [2], [3] */}
-          <div className="flex items-center p-1 bg-black/70 rounded-xl border border-white/10 shadow-inner">
+          {/* Interactive Preset Buttons with Keyboard Shortcuts [1], [2], [3] & Visual Layout Thumbnails */}
+          <div className="flex items-center p-1 bg-black/75 rounded-xl border border-white/10 shadow-inner">
             {/* 1x1 Solo Preset Button (Shortcut '1') */}
             <button
               type="button"
               onClick={() => setConfig('1x1')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                 activeConfig === '1x1'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
@@ -372,7 +383,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
               }`}>
                 1
               </kbd>
-              <Square className="w-3.5 h-3.5" />
+              <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activeConfig === '1x1'} />
               <span>1x1 SOLO</span>
             </button>
 
@@ -380,7 +391,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             <button
               type="button"
               onClick={() => setConfig('1x3')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                 activeConfig === '1x3'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
@@ -392,7 +403,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
               }`}>
                 2
               </kbd>
-              <LayoutList className="w-3.5 h-3.5" />
+              <MultiCamPresetThumbnail config="1x3" size="sm" isActive={activeConfig === '1x3'} />
               <span>1x3 DIRECTOR</span>
             </button>
 
@@ -400,7 +411,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             <button
               type="button"
               onClick={() => setConfig('2x2')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                 activeConfig === '2x2'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
                   : 'text-neutral-400 hover:text-white hover:bg-white/5'
@@ -412,7 +423,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
               }`}>
                 3
               </kbd>
-              <Grid2X2 className="w-3.5 h-3.5" />
+              <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activeConfig === '2x2'} />
               <span>2x2 QUAD</span>
             </button>
           </div>
@@ -491,22 +502,46 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                 key={angle.id}
                 style={layoutStyle}
                 onClick={() => onSelectAngle(idx)}
-                className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl ${
+                className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl transition-all ${
                   isHero
-                    ? 'border-[#EF4444] shadow-[0_0_24px_rgba(239,68,68,0.35)] ring-2 ring-[#EF4444]/40'
-                    : 'border-white/10 hover:border-white/30 opacity-75 hover:opacity-100'
+                    ? 'border-[#FFE066] animate-gold-focus-border ring-2 ring-[#F5A623]/80 ring-offset-2 ring-offset-black z-20'
+                    : 'border-white/10 hover:border-amber-400/50 opacity-75 hover:opacity-100 z-10'
                 }`}
               >
+                {/* Traveling Golden Border Beam for Active Camera Feed */}
+                {isHero && (
+                  <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden z-20">
+                    <div 
+                      className="absolute -inset-[150%] animate-gold-beam"
+                      style={{
+                        background: 'conic-gradient(from 0deg, transparent 0 320deg, #FFE066 345deg, #F5A623 360deg)',
+                        opacity: 0.85
+                      }}
+                    />
+                    <div className="absolute inset-[2px] bg-transparent rounded-[14px]" />
+                  </div>
+                )}
+
+                {/* Optical Viewfinder Golden Focus Reticles on Selected Feed */}
+                {isHero && (
+                  <div className="absolute inset-2.5 pointer-events-none z-20">
+                    <div className="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                    <div className="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                    <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-[#FFE066] shadow-[0_0_8px_#FFE066]" />
+                  </div>
+                )}
+
                 {/* Media element with smooth resize */}
                 <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
                   {renderAngleMedia(angle, idx)}
                 </div>
 
-                {/* Top Broadcast Tally Overlay */}
-                <div className="relative z-10 p-2.5 flex items-center justify-between pointer-events-none">
+                {/* Top Broadcast Tally & Golden Focus Indicator Overlay */}
+                <div className="relative z-20 p-2.5 flex items-center justify-between pointer-events-none">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
-                      isHero ? 'bg-[#EF4444] text-white shadow-md' : 'bg-black/80 text-white border border-white/20'
+                      isHero ? 'bg-[#FFE066] text-black shadow-[0_0_10px_#FFE066]' : 'bg-black/80 text-white border border-white/20'
                     }`}>
                       {idx + 1}
                     </span>
@@ -523,23 +558,29 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                     )}
 
                     {isHero ? (
-                      <span className="px-2 py-0.5 rounded-md bg-[#EF4444] text-white font-black text-[10px] tracking-wider uppercase animate-pulse shadow-[0_0_12px_#EF4444]">
-                        ● PROGRAM ON AIR
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_12px_rgba(255,224,102,0.8)] border border-amber-200 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
+                          FOCUS ACTIVE
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#EF4444] text-white font-black text-[10px] tracking-wider uppercase animate-pulse shadow-[0_0_12px_#EF4444]">
+                          ● ON AIR
+                        </span>
+                      </div>
                     ) : (
                       <span className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded-md bg-black/80 border border-white/20 text-neutral-300 font-mono text-[9px] transition-opacity">
-                        CLICK TO CUT
+                        CLICK TO FOCUS
                       </span>
                     )}
                   </div>
                 </div>
 
                 {/* Bottom Lens Specification Overlay */}
-                <div className="relative z-10 p-2.5 flex items-center justify-between text-[10px] font-mono bg-gradient-to-t from-black/95 via-black/70 to-transparent pointer-events-none">
+                <div className="relative z-20 p-2.5 flex items-center justify-between text-[10px] font-mono bg-gradient-to-t from-black/95 via-black/70 to-transparent pointer-events-none">
                   <span className="text-neutral-300 font-medium truncate max-w-[160px]">
                     {angle.name || `Angle 0${idx + 1}`}
                   </span>
-                  <span className="text-amber-400/90 tabular-nums">
+                  <span className="text-[#FFE066] font-bold tabular-nums">
                     {angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : '0ms SYNC'}
                   </span>
                 </div>
@@ -612,6 +653,14 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           </div>
         )}
       </div>
+
+      {/* Grid Selection Menu Popover / Modal with Visual Thumbnail Previews */}
+      <MultiCamGridSelectionMenu
+        isOpen={isGridMenuOpen}
+        activeConfig={activeConfig}
+        onSelectConfig={setConfig}
+        onClose={() => setIsGridMenuOpen(false)}
+      />
     </div>
   );
 };

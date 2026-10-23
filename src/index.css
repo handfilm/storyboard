@@ -124,3 +124,37 @@
   animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* High-Contrast Golden Focus Border Animation for Selected MultiCam Camera Feed */
+@keyframes rawxGoldBorderPulse {
+  0%, 100% {
+    border-color: #FFE066;
+    box-shadow: 
+      0 0 0 2px #FFE066,
+      0 0 22px rgba(255, 224, 102, 0.8),
+      0 0 45px rgba(245, 166, 35, 0.45),
+      inset 0 0 16px rgba(255, 224, 102, 0.3);
+  }
+  50% {
+    border-color: #F5A623;
+    box-shadow: 
+      0 0 0 3px #F5A623,
+      0 0 35px rgba(245, 166, 35, 0.95),
+      0 0 65px rgba(255, 224, 102, 0.65),
+      inset 0 0 28px rgba(245, 166, 35, 0.4);
+  }
+}
+
+.animate-gold-focus-border {
+  animation: rawxGoldBorderPulse 2s ease-in-out infinite;
+}
+
+@keyframes rawxGoldShimmerBeam {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-gold-beam {
+  animation: rawxGoldShimmerBeam 4.5s linear infinite;
+}
+
+

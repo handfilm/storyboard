@@ -93,6 +93,7 @@ export interface StudioNavRailProps {
   onOpenVaultMode?: () => void;
   onOpenSelfTest?: () => void;
   onOpenSettingsModal?: () => void;
+  onOpenMultiCam?: () => void;
   activeProfile?: CameraLensProfile;
   onSelectProfile?: (profile: CameraLensProfile) => void;
   totalShots?: number;
@@ -122,6 +123,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   onToggleProMode,
   onOpenVaultMode,
   onOpenSelfTest,
+  onOpenMultiCam,
   activeProfile = CINE_PROFILES[0],
   onSelectProfile,
   totalShots = 100,
@@ -534,6 +536,30 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         </div>
       </div>
 
+      {/* Quick Toggle: [ ⊞ Multi-Cam Angle Grid (CapCut Mode) ] for 05 CUT EDITOR or 07 EDIT & CAM */}
+      {(activeModule === 'EDIT/CUT' || activeModule === 'OPTICS') && (
+        <div className="w-full px-2 pt-2 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenMultiCam}
+            className={`w-full rounded bg-gradient-to-r from-[#2c1d0a] via-[#1f1508] to-[#120d05] hover:from-[#3a270e] hover:to-[#241708] border-2 border-[#F5A623] text-[#F5A623] hover:text-white font-mono font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-[0_0_14px_rgba(245,166,35,0.35)] cursor-pointer active:scale-95 ${
+              isCollapsed ? 'py-2 px-1 text-[8.5px]' : 'py-2 px-2 text-[10px]'
+            }`}
+            title="Launch CapCut-Style Multi-Camera Angle Grid Monitor (Shift+M)"
+          >
+            <span className="text-xs sm:text-sm font-black leading-none text-[#F5A623]">⊞</span>
+            {!isCollapsed && (
+              <div className="flex items-center justify-between w-full">
+                <span className="truncate tracking-wide">Multi-Cam Angle Grid</span>
+                <span className="text-[8px] bg-amber-500/20 text-[#F5A623] px-1 py-0.2 rounded border border-amber-500/40 shrink-0 ml-1">
+                  CapCut
+                </span>
+              </div>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* 15 Core Modules: 3D Brutalist-Neomorphic Obsidian Buttons */}
       <div 
         onScroll={() => setHoveredData(null)}
@@ -621,6 +647,19 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                     >
                       {item.name}
                     </span>
+                    {(item.num === '05' || item.num === '07') && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenMultiCam?.();
+                        }}
+                        className="ml-auto px-1.5 py-0.5 rounded bg-[#F5A623]/20 hover:bg-[#F5A623]/40 border border-[#F5A623]/50 text-[#F5A623] hover:text-white text-[7.5px] font-mono font-bold flex items-center gap-0.5 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                        title="Open Multi-Cam Angle Grid (CapCut Mode) (Shift+M)"
+                      >
+                        <span>⊞</span>
+                        <span>Multi-Cam</span>
+                      </span>
+                    )}
                   </div>
                   <div className="text-[8px] text-zinc-500 truncate leading-tight group-hover:text-zinc-400 mt-0.5">
                     {item.desc}

@@ -24,7 +24,8 @@ import { ChevronLeft, ChevronRight, Home, Film, SlidersHorizontal, Layers, Play,
 import { StudioModuleId } from './LeftRail';
 import { BloomInteractiveCanvas } from './stage/BloomInteractiveCanvas';
 import { TactileStage } from './stage/TactileStage';
-import { StageHeader } from './StageHeader';
+import { StageHeader, StagePanelType } from './StageHeader';
+import { MultiCamGridMonitor } from './multicam/MultiCamGridMonitor';
 import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode, SLIDE_DURATION_SEC } from '../types/editor';
 
@@ -66,8 +67,8 @@ interface MainWorkspaceProps {
   // Dual-Panel Engine & Dual-Mode Playback
   playbackMode?: PlaybackMode;
   slideTimeSec?: number;
-  activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
-  onChangeDualPanel?: (panel: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT') => void;
+  activeDualPanel?: StagePanelType;
+  onChangeDualPanel?: (panel: StagePanelType) => void;
   onSelectPlaybackMode?: (mode: PlaybackMode) => void;
   onTogglePlay?: () => void;
   onStepFrame?: (forward: boolean) => void;
@@ -157,10 +158,10 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onOpenCinemaPlayer
 }) => {
   // Local dual-panel view selection if not externally controlled (TACTILE STAGE is the default primary stage)
-  const [localDualPanel, setLocalDualPanel] = useState<'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT'>(activeDualPanel || 'TACTILE_STAGE');
+  const [localDualPanel, setLocalDualPanel] = useState<StagePanelType>(activeDualPanel || 'TACTILE_STAGE');
   const currentPanel = onChangeDualPanel ? (activeDualPanel || 'TACTILE_STAGE') : localDualPanel;
 
-  const handleSelectPanel = (panel: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT') => {
+  const handleSelectPanel = (panel: StagePanelType) => {
     if (onChangeDualPanel) {
       onChangeDualPanel(panel);
     } else {
@@ -267,7 +268,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   if (activeMode === 'CUT') {
     return (
       <main className="flex-1 w-full h-full overflow-hidden">
-        <CutStudio />
+        <CutStudio onOpenMultiCam={() => handleSelectPanel('MULTICAM')} />
       </main>
     );
   }
@@ -476,6 +477,18 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onSelectFrame(idx);
                 onUploadImage(file);
               }}
+            />
+          </div>
+        )}
+
+        {/* VIEW 4: MULTI-CAMERA LIVE CUTTING & EDITING VIEWPORT */}
+        {currentPanel === 'MULTICAM' && (
+          <div className="w-full h-full overflow-hidden flex flex-col">
+            <MultiCamGridMonitor
+              isInline={true}
+              isOpen={true}
+              onClose={() => handleSelectPanel('TACTILE_STAGE')}
+              onSaveGroup={() => {}}
             />
           </div>
         )}

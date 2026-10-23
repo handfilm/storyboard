@@ -25,11 +25,11 @@
  */
 
 import React from 'react';
-import { Film, Sliders, Maximize2, Radio, Activity } from 'lucide-react';
+import { Film, Sliders, Maximize2, Radio, Activity, Video } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
 
-export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER';
+export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
 export interface StageHeaderProps {
   currentPanel: StagePanelType;
@@ -160,6 +160,42 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
               <span>ZERO INTERFERENCE</span>
               <span className="text-emerald-400 font-bold">2.39:1 REFERENCE</span>
+            </div>
+          </div>
+        </div>
+
+        {/* [ 🎥 MULTI-CAM ] Chiseled 3D Metallic Tab */}
+        <div className="relative group/tab">
+          <button
+            type="button"
+            onClick={() => onSelectPanel('MULTICAM')}
+            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
+              currentPanel === 'MULTICAM'
+                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
+                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-[#F5A623]/80 hover:text-[#F5A623] hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
+            }`}
+          >
+            <Video className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'MULTICAM' ? 'text-[#F5A623] scale-110' : 'text-amber-400'}`} />
+            <span>🎥 MULTI-CAM</span>
+            <span className="text-[10px] bg-amber-500/20 text-[#F5A623] px-1.5 py-0.5 rounded border border-amber-500/30 hidden sm:inline">
+              Shift+M
+            </span>
+          </button>
+
+          {/* Hover Card for Multi-Cam */}
+          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-76 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
+            <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
+              <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
+              <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
+                MULTI-CAMERA CUTTER
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Live CapCut-style 4-angle sync monitor with one-click real-time director switching.
+            </p>
+            <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
+              <span>KEYS 1-4 PUNCH CUT</span>
+              <span className="text-cyan-400 font-bold">9:16 SHORTS READY</span>
             </div>
           </div>
         </div>

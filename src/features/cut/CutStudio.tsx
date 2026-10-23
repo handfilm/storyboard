@@ -58,6 +58,7 @@ import {
 
 interface CutStudioProps {
   onSyncToBoard?: (frames: AnthologyFrame[]) => void;
+  onOpenMultiCam?: () => void;
 }
 
 const defaultTracks: TrackLane[] = [
@@ -69,7 +70,7 @@ const defaultTracks: TrackLane[] = [
   { id: 'VO', label: 'VO VOICEOVER', type: 'audio', isMuted: false, isLocked: false, isHidden: false },
 ];
 
-export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard }) => {
+export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMultiCam }) => {
   const { project, updateShot, activeShotIndex, setActiveShotIndex } = useStudioStore();
 
   // Top Bar state
@@ -532,8 +533,24 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard }) => {
           </button>
         </div>
 
-        {/* Right: Aspect Ratio & Export */}
+        {/* Right: Aspect Ratio, Multi-Cam Quick Toggle & Export */}
         <div className="flex items-center gap-3">
+          {/* Quick Toggle: [ ⊞ Multi-Cam Angle Grid (CapCut Mode) ] */}
+          {onOpenMultiCam && (
+            <button
+              type="button"
+              onClick={onOpenMultiCam}
+              className="px-3 py-1 bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/35 hover:to-amber-600/35 border border-[#F5A623]/70 text-[#F5A623] hover:text-white font-mono text-[10px] font-bold rounded flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(245,166,35,0.25)] cursor-pointer active:scale-95"
+              title="Switch to Multi-Cam Angle Grid (CapCut Mode) (Shift+M)"
+            >
+              <span className="text-xs font-black">⊞</span>
+              <span>Multi-Cam Angle Grid (CapCut Mode)</span>
+              <span className="text-[8px] bg-black/60 px-1 py-0.2 rounded border border-[#F5A623]/30 text-[#F5A623]">
+                Shift+M
+              </span>
+            </button>
+          )}
+
           <div className="flex items-center bg-black/60 border border-white/15 rounded-[1px] p-0.5">
             {(['16:9', '9:16', '1:1', '4:5', '2.39:1'] as AspectRatio[]).map((ratio) => (
               <button

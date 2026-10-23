@@ -54,6 +54,7 @@ interface StudioDrawerProps {
   aspectRatio?: AspectRatio | string;
   onChangeAspectRatio?: (aspect: AspectRatio) => void;
   onPreviewLut?: (lut: LutPreset | null) => void;
+  onOpenMultiCam?: () => void;
 }
 
 export const StudioDrawer: React.FC<StudioDrawerProps> = ({
@@ -70,7 +71,8 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   slideTimeSec = 0,
   aspectRatio = '2.39:1',
   onChangeAspectRatio,
-  onPreviewLut
+  onPreviewLut,
+  onOpenMultiCam
 }) => {
   if (!isOpen) return null;
 
@@ -289,14 +291,29 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           </div>
         </div>
 
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-[1px] bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors border border-[#272732]"
-          title="Close Panel (Esc)"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        {/* Header Right Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {activeModule === 'OPTICS' && onOpenMultiCam && (
+            <button
+              type="button"
+              onClick={onOpenMultiCam}
+              className="px-2 py-1 bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/35 hover:to-amber-600/35 border border-[#F5A623]/70 text-[#F5A623] hover:text-white font-mono text-[9px] font-bold rounded flex items-center gap-1 transition-all shadow-sm cursor-pointer active:scale-95"
+              title="⊞ Multi-Cam Angle Grid (CapCut Mode) (Shift+M)"
+            >
+              <span>⊞</span>
+              <span className="hidden sm:inline">Multi-Cam Grid</span>
+            </button>
+          )}
+
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-[1px] bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors border border-[#272732]"
+            title="Close Panel (Esc)"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Drawer Body Container */}

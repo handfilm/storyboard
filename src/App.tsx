@@ -57,6 +57,7 @@ import { ScreenRecorderFloatingBar } from './components/recorder/ScreenRecorderF
 import { QuickTrimPreviewModal } from './components/recorder/QuickTrimPreviewModal';
 import { AdvancedTrimmerModal } from './components/recorder/AdvancedTrimmerModal';
 import { RecordedCaptureResult } from './services/screenRecorderEngine';
+import { StagePanelType } from './components/StageHeader';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -84,7 +85,7 @@ export default function App() {
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [audioVolume, setAudioVolume] = useState(0.4);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('sequence');
-  const [activeDualPanel, setActiveDualPanel] = useState<'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER'>('TACTILE_STAGE');
+  const [activeDualPanel, setActiveDualPanel] = useState<StagePanelType>('TACTILE_STAGE');
   const [isOpticalMonitorModalOpen, setIsOpticalMonitorModalOpen] = useState(false);
   const [slideTimeSec, setSlideTimeSec] = useState<number>(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
@@ -171,6 +172,12 @@ export default function App() {
     } catch (e) {
       console.warn('Could not save rawx_walkthrough_seen to localStorage', e);
     }
+  }, []);
+
+  const handleToggleMultiCam = useCallback(() => {
+    setCurrentView('STUDIO');
+    setWorkspaceMode('STAGE');
+    setActiveDualPanel(prev => prev === 'MULTICAM' ? 'TACTILE_STAGE' : 'MULTICAM');
   }, []);
 
   // ==========================================
@@ -1140,7 +1147,11 @@ export default function App() {
         case 'm':
         case 'M':
           e.preventDefault();
-          toggleAudio();
+          if (e.shiftKey) {
+            handleToggleMultiCam();
+          } else {
+            toggleAudio();
+          }
           break;
         case 'h':
         case 'H':
@@ -1173,7 +1184,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextFrame, prevFrame, handleStepFrame, isPlaying, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio]);
+  }, [nextFrame, prevFrame, handleStepFrame, isPlaying, isAudioMuted, audioVolume, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio, handleToggleMultiCam]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -1440,6 +1451,7 @@ export default function App() {
           onOpenVaultMode={() => setIsProjectManagerOpen(true)}
           onOpenSelfTest={() => setIsSelfTestOpen(true)}
           onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+          onOpenMultiCam={handleToggleMultiCam}
           totalShots={project.frames?.length || 100}
           currentShotIndex={currentIndex}
           saveState={saveState}
@@ -1455,6 +1467,7 @@ export default function App() {
             onClose={() => setIsDrawerOpen(false)}
             onOpenAnimatic={() => setIsAnimaticOpen(true)}
             onOpenLiquify={() => setIsLiquifyOpen(true)}
+            onOpenMultiCam={handleToggleMultiCam}
             onSelectFrame={(idx) => goToFrame(idx)}
             onJumpToFrame={(shotIdx, timeSec) => {
               goToFrame(shotIdx);

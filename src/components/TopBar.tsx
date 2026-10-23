@@ -87,8 +87,8 @@ export interface TopBarProps {
   onSelectView?: (view: 'HOME' | 'STUDIO') => void;
   currentShotIndex?: number;
   totalShots?: number;
-  activePanel?: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER';
-  onSelectPanel?: (panel: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER') => void;
+  activePanel?: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
+  onSelectPanel?: (panel: 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM') => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -313,6 +313,27 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right: Tactical Action Cluster */}
         <div className="gap-2.5 sm:gap-3 flex items-center shrink-0">
+          {/* Immediate Trigger: [ 🎥 MULTI-CAM ] with amber hover glow */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onSelectView) onSelectView('STUDIO');
+              if (onSelectPanel) onSelectPanel('MULTICAM');
+            }}
+            className={`px-3.5 py-2 sm:px-4.5 sm:py-2.5 rounded-xl font-mono text-xs sm:text-sm font-extrabold flex items-center gap-2 cursor-pointer transition-all duration-200 border-2 active:scale-95 ${
+              activePanel === 'MULTICAM' && currentView === 'STUDIO'
+                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-[#F5A623] shadow-[0_0_20px_rgba(245,166,35,0.5)] ring-1 ring-[#F5A623]/60'
+                : 'bg-gradient-to-b from-[#181926] to-[#0e0f17] text-zinc-300 border-[#2f3246] hover:border-[#F5A623] hover:text-[#F5A623] hover:shadow-[0_0_16px_rgba(245,166,35,0.35)]'
+            }`}
+            title="Switch Main Viewport to CapCut Multi-Camera Cutting & Angle Grid (Shift+M)"
+          >
+            <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#F5A623]" />
+            <span className="tracking-wide">🎥 MULTI-CAM</span>
+            <span className="text-[10px] bg-amber-500/20 text-[#F5A623] px-1.5 py-0.5 rounded border border-amber-500/30 hidden xl:inline">
+              Shift+M
+            </span>
+          </button>
+
           {/* Tactical Screen Recorder Trigger [ ⏺ REC ] */}
           {onOpenScreenRecorder && (
             <button
@@ -517,6 +538,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Export Studio</span>
                   <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">⌘ + E</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Multi-Cam Angle Grid</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">Shift + M</kbd>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Command Palette</span>

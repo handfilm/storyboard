@@ -1386,8 +1386,8 @@ class StudioDraftDbService {
     activeProjectId: string;
     activeSlideIndex: number;
     playbackMode: 'sequence' | 'solo' | 'loop';
-    activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
-    activePanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
+    activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT' | 'MULTICAM';
+    activePanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT' | 'MULTICAM';
   }): void {
     if (typeof window === 'undefined') return;
     try {
@@ -1401,8 +1401,8 @@ class StudioDraftDbService {
     activeProjectId: string;
     activeSlideIndex: number;
     playbackMode: 'sequence' | 'solo';
-    activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
-    activePanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT';
+    activeDualPanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT' | 'MULTICAM';
+    activePanel?: 'TACTILE_STAGE' | 'SEQUENCER' | 'OPTICAL' | 'SPLIT' | 'MULTICAM';
   } | null {
     if (typeof window === 'undefined') return null;
     try {

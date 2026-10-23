@@ -39,23 +39,80 @@ import { MultiCamGroup, MultiCamAngle, MultiCamCutEvent } from '../../types/mult
 import { MultiCamTimelineTrack } from './MultiCamTimelineTrack';
 import { multiCamRenderPipeline } from '../../services/multiCamRenderPipeline';
 import { VaultMediaItem, db } from '../../services/db';
+import { samplePacks } from '../../data/frames';
 
-interface MultiCamGridMonitorProps {
-  group: MultiCamGroup;
+export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
+  id: 'multicam-default-group',
+  name: 'DIRECTOR MULTI-CAM 4-ANGLE SYNC',
+  angles: [
+    {
+      id: 'ang-1',
+      mediaId: 'm1',
+      label: 'CAM 01 (WIDE)',
+      blobUrl: samplePacks.cyberNoir[0] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Wide Master 35mm f/1.4'
+    },
+    {
+      id: 'ang-2',
+      mediaId: 'm2',
+      label: 'CAM 02 (MEDIUM)',
+      blobUrl: samplePacks.cosmicMacro[1] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Medium Punch 50mm T2.0'
+    },
+    {
+      id: 'ang-3',
+      mediaId: 'm3',
+      label: 'CAM 03 (CLOSE)',
+      blobUrl: samplePacks.liquidGold[2] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Close-Up 85mm T1.3'
+    },
+    {
+      id: 'ang-4',
+      mediaId: 'm4',
+      label: 'CAM 04 (LOW ANG)',
+      blobUrl: samplePacks.cyberNoir[3] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Low-Angle 24mm f/1.8'
+    }
+  ],
+  duration: 12.0,
+  durationMs: 12000,
+  masterAudioAngleIndex: 0,
+  activeAngleIndex: 0,
+  cutEvents: [
+    { id: 'cut-init', timeMs: 0, angleIndex: 0 },
+    { id: 'cut-1', timeMs: 3000, angleIndex: 1 },
+    { id: 'cut-2', timeMs: 6500, angleIndex: 2 },
+    { id: 'cut-3', timeMs: 9500, angleIndex: 3 }
+  ],
+  aspectRatio: '9:16'
+};
+
+export interface MultiCamGridMonitorProps {
+  group?: MultiCamGroup;
   isOpen: boolean;
   onClose: () => void;
   onSaveGroup?: (updatedGroup: MultiCamGroup) => void;
   onExportSuccess?: (vaultItem: VaultMediaItem) => void;
+  isInline?: boolean;
 }
 
 export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
-  group: initialGroup,
+  group: initialGroup = DEFAULT_SAMPLE_MULTICAM_GROUP,
   isOpen,
   onClose,
   onSaveGroup,
-  onExportSuccess
+  onExportSuccess,
+  isInline = false
 }) => {
-  const [group, setGroup] = useState<MultiCamGroup>(initialGroup);
+  const [group, setGroup] = useState<MultiCamGroup>(initialGroup || DEFAULT_SAMPLE_MULTICAM_GROUP);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
@@ -344,7 +401,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex flex-col bg-[#08090C] text-white font-sans overflow-hidden select-none animate-fade-in">
+    <div className={isInline ? "w-full h-full flex flex-col bg-[#08090C] text-white font-sans overflow-hidden select-none" : "fixed inset-0 z-[110] flex flex-col bg-[#08090C] text-white font-sans overflow-hidden select-none animate-fade-in"}>
       {/* Top Header Bar */}
       <header className="h-14 px-6 border-b border-white/10 bg-[#0C0D12] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -449,14 +506,22 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
                       : 'border border-white/10 hover:border-white/30 opacity-65 hover:opacity-95'
                   }`}
                 >
-                  {/* Angle Video Element */}
-                  <video
-                    ref={el => { videoRefs.current[idx] = el; }}
-                    src={angle.blobUrl}
-                    playsInline
-                    preload="auto"
-                    className="w-full h-full object-cover pointer-events-none"
-                  />
+                  {/* Angle Video / Image Element */}
+                  {angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm')) ? (
+                    <video
+                      ref={el => { videoRefs.current[idx] = el; }}
+                      src={angle.blobUrl}
+                      playsInline
+                      preload="auto"
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                  ) : (
+                    <img
+                      src={angle.blobUrl || samplePacks.cyberNoir[idx % samplePacks.cyberNoir.length]}
+                      alt={angle.label}
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                  )}
 
                   {/* Top Bar Overlay */}
                   <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
@@ -544,14 +609,29 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
                 ? 'aspect-[9/16] max-h-[62vh]'
                 : 'aspect-[2.39/1] max-w-full'
             }`}>
-              {/* Program Output Video */}
-              <video
-                ref={programVideoRef}
-                src={group.angles[currentActiveAngleIdx]?.blobUrl || group.angles[0]?.blobUrl}
-                playsInline
-                muted
-                className="w-full h-full object-cover pointer-events-none"
-              />
+              {/* Program Output Video / Image */}
+              {(() => {
+                const activeBlob = group.angles[currentActiveAngleIdx]?.blobUrl || group.angles[0]?.blobUrl;
+                const isVideo = activeBlob && (activeBlob.startsWith('blob:') || activeBlob.endsWith('.mp4') || activeBlob.endsWith('.webm'));
+                if (isVideo) {
+                  return (
+                    <video
+                      ref={programVideoRef}
+                      src={activeBlob}
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                  );
+                }
+                return (
+                  <img
+                    src={activeBlob || samplePacks.cyberNoir[currentActiveAngleIdx % samplePacks.cyberNoir.length]}
+                    alt="Program Output"
+                    className="w-full h-full object-cover pointer-events-none"
+                  />
+                );
+              })()}
 
               {/* Program Overlays */}
               <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none z-10">

@@ -46,6 +46,7 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [targetShot, setTargetShot] = useState<number>(activeShotIndex);
+  const [showHotkeys, setShowHotkeys] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -70,8 +71,6 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
       URL.revokeObjectURL(url);
     };
   }, [captureResult]);
-
-  if (!captureResult || !videoUrl) return null;
 
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
@@ -121,6 +120,7 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
 
   // Direct Save & Commit to IndexedDB media_vault
   const handleSaveAndCommit = async () => {
+    if (!captureResult) return;
     setIsSaving(true);
     try {
       // If full duration is kept without cuts, commit raw blob directly
@@ -164,10 +164,10 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
     }
   };
 
-  const [showHotkeys, setShowHotkeys] = useState<boolean>(false);
-
   // Keyboard navigation & trimming hotkeys
   useEffect(() => {
+    if (!captureResult || !videoUrl) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (
@@ -222,10 +222,11 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTime, duration, startSec, endSec, isPlaying]);
+  }, [captureResult, videoUrl, currentTime, duration, startSec, endSec, isPlaying]);
 
   // Primary Local Disk Download (.mp4 / .webm)
   const handleDownloadToDisk = async () => {
+    if (!captureResult) return;
     try {
       const isUncut = startSec <= 0.05 && endSec >= duration - 0.05;
       let finalBlob = captureResult.blob;
@@ -282,6 +283,7 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
 
   // Download raw recording file
   const handleDownload = () => {
+    if (!captureResult) return;
     const shotStr = `SH${String(targetShot + 1).padStart(3, '0')}`;
     const ext = captureResult.format === 'mp4' ? 'mp4' : 'webm';
     const a = document.createElement('a');
@@ -293,6 +295,8 @@ export const QuickTrimPreviewModal: React.FC<QuickTrimPreviewModalProps> = ({
   };
 
   const trimmedDuration = Math.max(0.1, endSec - startSec);
+
+  if (!captureResult || !videoUrl) return null;
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 select-none font-mono">

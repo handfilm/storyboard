@@ -68,6 +68,7 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<{ percent: number; text: string }>({ percent: 0, text: '' });
   const [exportSuccess, setExportSuccess] = useState<boolean>(false);
+  const [showHotkeys, setShowHotkeys] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timelineCanvasRef = useRef<HTMLDivElement | null>(null);
@@ -134,8 +135,6 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
       URL.revokeObjectURL(url);
     };
   }, [captureResult, initialInSec, initialOutSec]);
-
-  if (!captureResult || !videoUrl) return null;
 
   const activeSegment = segments.find(s => s.id === selectedSegmentId) || segments[0];
 
@@ -260,10 +259,10 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
     return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
   };
 
-  const [showHotkeys, setShowHotkeys] = useState<boolean>(false);
-
   // Global Precision Hotkey Matrix with input guard
   useEffect(() => {
+    if (!captureResult || !videoUrl) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (
@@ -359,10 +358,11 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTime, duration, segments, selectedSegmentId, activeSegment, isPlaying]);
+  }, [captureResult, videoUrl, currentTime, duration, segments, selectedSegmentId, activeSegment, isPlaying]);
 
   // Primary Local Disk Download (.mp4 / .webm)
   const handleDownloadToDisk = async () => {
+    if (!captureResult) return;
     setIsExporting(true);
     setExportProgress({ percent: 15, text: 'Rendering zero-freeze export...' });
 
@@ -411,6 +411,7 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
 
   // Execute Hardware Splice & Export
   const handleExport = async () => {
+    if (!captureResult) return;
     setIsExporting(true);
     setExportProgress({ percent: 0, text: 'Starting precision export...' });
 
@@ -443,6 +444,8 @@ export const AdvancedTrimmerModal: React.FC<AdvancedTrimmerModalProps> = ({
   };
 
   const totalSegmentsDuration = segments.reduce((acc, s) => acc + (s.endTime - s.startTime), 0);
+
+  if (!captureResult || !videoUrl) return null;
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-3 sm:p-6 select-none font-mono">

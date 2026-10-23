@@ -64,6 +64,7 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
     hasCamera: false
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showHotkeys, setShowHotkeys] = useState(false);
 
   // Subscribe to recorder engine state
   useEffect(() => {
@@ -87,7 +88,7 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
 
   // Mouse click pulse visualizer
   useEffect(() => {
-    if (!mouseClicks || status !== 'recording') return;
+    if (!isOpen || !mouseClicks || status !== 'recording') return;
 
     const handlePointerDown = (e: MouseEvent) => {
       const circle = document.createElement('div');
@@ -106,9 +107,7 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
 
     window.addEventListener('mousedown', handlePointerDown);
     return () => window.removeEventListener('mousedown', handlePointerDown);
-  }, [mouseClicks, status]);
-
-  if (!isOpen) return null;
+  }, [isOpen, mouseClicks, status]);
 
   const handleStart = async () => {
     setErrorMessage(null);
@@ -155,8 +154,6 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
       setErrorMessage(err.message || 'Error cycling multi-angle capture');
     }
   };
-
-  const [showHotkeys, setShowHotkeys] = useState(false);
 
   // Global Precision Hotkey Matrix for Screen Recorder with input guard
   useEffect(() => {
@@ -206,6 +203,8 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
   };
 
   const isCapturing = status === 'recording' || status === 'paused';
+
+  if (!isOpen) return null;
 
   return (
     <aside 

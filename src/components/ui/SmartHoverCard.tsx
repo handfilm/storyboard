@@ -16,6 +16,8 @@ export interface SmartHoverCardProps {
   side?: 'bottom' | 'top';
   children: React.ReactNode;
   className?: string;
+  footerTelemetry?: string;
+  cardClassName?: string;
 }
 
 export const SmartHoverCard: React.FC<SmartHoverCardProps> = ({
@@ -27,7 +29,9 @@ export const SmartHoverCard: React.FC<SmartHoverCardProps> = ({
   align = 'center',
   side = 'bottom',
   children,
-  className = ''
+  className = '',
+  footerTelemetry,
+  cardClassName = ''
 }) => {
   const alignClass = 
     align === 'left' ? 'left-0' :
@@ -46,7 +50,7 @@ export const SmartHoverCard: React.FC<SmartHoverCardProps> = ({
       {/* Floating Dark Glass Explanatory Card */}
       <div 
         role="tooltip"
-        className={`pointer-events-none absolute ${positionClass} ${alignClass} z-50 w-64 sm:w-72 p-3 rounded-lg bg-[#0E1015]/95 border border-white/10 shadow-[0_20px_45px_rgba(0,0,0,0.95),0_0_15px_rgba(229,9,20,0.12)] backdrop-blur-2xl opacity-0 translate-y-1 group-hover/smart-card:opacity-100 group-hover/smart-card:translate-y-0 transition-all duration-200 select-none text-left`}
+        className={`pointer-events-none absolute ${positionClass} ${alignClass} z-50 w-64 sm:w-72 p-3 rounded-lg bg-[#0E1015]/95 border border-white/10 shadow-[0_20px_45px_rgba(0,0,0,0.95),0_0_15px_rgba(229,9,20,0.12)] backdrop-blur-2xl opacity-0 translate-y-1 group-hover/smart-card:opacity-100 group-hover/smart-card:translate-y-0 transition-all duration-200 select-none text-left ${cardClassName}`}
       >
         {/* Card Header: Amber telemetry code + optional shortcut/badge */}
         <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10">
@@ -72,13 +76,21 @@ export const SmartHoverCard: React.FC<SmartHoverCardProps> = ({
           {description}
         </p>
 
-        {/* Subtle accent indicator line */}
+        {/* Subtle accent indicator line or custom telemetry */}
         <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between text-[8.5px] font-mono text-zinc-500">
-          <span className="flex items-center gap-1 text-zinc-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E50914] animate-pulse" />
-            DIRECTOR DESK
-          </span>
-          <span className="text-zinc-500">0ms LOCAL</span>
+          {footerTelemetry ? (
+            <span className="text-zinc-400 font-mono tracking-wider text-[8px] truncate">
+              {footerTelemetry}
+            </span>
+          ) : (
+            <>
+              <span className="flex items-center gap-1 text-zinc-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#E50914] animate-pulse" />
+                DIRECTOR DESK
+              </span>
+              <span className="text-zinc-500">0ms LOCAL</span>
+            </>
+          )}
         </div>
       </div>
     </div>

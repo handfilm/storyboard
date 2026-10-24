@@ -74,7 +74,7 @@ export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
   {
     id: 'anamorphic-scifi-hud',
     name: '04. ANAMORPHIC SCI-FI HUD',
-    category: 'cinematic',
+    category: 'docu',
     primaryText: '[ VECTOR // SECTOR 07 ]',
     secondaryText: 'SYS_LOCK: 2.39:1 ANAMORPHIC',
     fontFamily: 'Rajdhani, monospace, sans-serif',
@@ -104,7 +104,7 @@ export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
   {
     id: 'brutalist-industrial',
     name: '06. BRUTALIST INDUSTRIAL',
-    category: 'retro',
+    category: 'rap',
     primaryText: 'HEAVY PROTOCOL',
     secondaryText: 'STENCIL CUT // 24FPS UNCOMPRESSED',
     fontFamily: '"Arial Black", Impact, sans-serif',

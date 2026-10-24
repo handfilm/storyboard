@@ -254,28 +254,40 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       {/* 1. Left: Signature Two-Tone Wordmark & Editorial Menu (Google Flow Spec) */}
       {/* ========================================================================= */}
       <div className="flex items-center shrink-0">
-        {/* Large Two-Tone Wordmark */}
-        <button 
-          type="button"
-          onClick={handleHomeClick}
-          className="flex flex-col group cursor-pointer focus:outline-none bg-transparent border-none p-0 text-left transition-transform active:scale-95 shrink-0"
-          title="HANDFILM // Return to Home Overview"
+        {/* Studio Dossier Hover Card on Wide & Bold Wordmark with Flush-Aligned Tagline */}
+        <SmartHoverCard
+          code="[ HANDFILM ATELIER // BUILD 2.4 ]"
+          description="Browser-native, zero-cloud NLE running on local WebCodecs, WebAudio DSP & 4K hardware proxy pipeline."
+          footerTelemetry="ENGINE: RUST / WEBCODECS • BUFFER: LOCAL INDEXEDDB"
+          align="left"
+          side="bottom"
+          cardClassName="w-72"
         >
-          <div className="flex items-baseline leading-none">
-            <span className="text-xl sm:text-2xl font-black tracking-wider text-[#E50914] drop-shadow-[0_0_12px_rgba(229,9,20,0.5)]">
-              HAND
-            </span>
-            <span className="text-xl sm:text-2xl font-black tracking-wider text-white">
-              FILM
-            </span>
-          </div>
-          <span className="text-[9px] font-mono tracking-[0.28em] text-white/40 uppercase mt-1 group-hover:text-white/70 transition-colors select-none">
-            RAW. RAPID. CINEMATIC.
-          </span>
-        </button>
+          <button 
+            type="button"
+            onClick={handleHomeClick}
+            className="flex flex-col group cursor-pointer focus:outline-none bg-transparent border-none p-0 text-left transition-transform active:scale-95 shrink-0"
+            title="HANDFILM // Return to Home Overview"
+          >
+            <div className="flex items-baseline leading-none text-[22px] font-black tracking-wider">
+              <span className="text-[#FF2B2B] drop-shadow-[0_0_14px_rgba(255,43,43,0.55)]">
+                HAND
+              </span>
+              <span className="text-white">
+                FILM
+              </span>
+            </div>
+            {/* Flush-aligned tagline stretching edge-to-edge from 'H' to 'M' */}
+            <div className="w-full flex justify-between items-center text-[8.5px] font-mono text-white/40 uppercase select-none mt-0.5 group-hover:text-white/70 transition-colors">
+              <span>RAW.</span>
+              <span>RAPID.</span>
+              <span>CINEMATIC.</span>
+            </div>
+          </button>
+        </SmartHoverCard>
 
-        {/* Breathable Navigation Links with Animated Underline */}
-        <nav className="hidden xl:flex items-center gap-6 ml-8 pl-6 border-l border-white/10">
+        {/* Refined Navigation Links with Optimal Breathing Room */}
+        <nav className="hidden xl:flex items-center gap-5 ml-8 pl-6 border-l border-white/10">
           <SmartHoverCard
             code="[ 01 // HOME / 01 ]"
             description="Cinematic preview hub, daily master reels, and quick project launch."
@@ -284,10 +296,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={handleHomeClick}
-              className={`text-[11px] font-mono tracking-widest uppercase transition-all duration-200 cursor-pointer ${
+              className={`text-[10px] font-mono font-medium tracking-[0.2em] uppercase transition-all duration-200 cursor-pointer ${
                 currentView === 'HOME' && activeNavTab === 'HOME'
-                  ? 'border-b-2 border-[#E50914] pb-1 text-white font-bold'
-                  : 'text-white/60 hover:text-white border-b-2 border-transparent pb-1'
+                  ? 'border-b-2 border-[#FF2B2B] pb-1 text-white font-bold'
+                  : 'text-white/50 hover:text-white border-b-2 border-transparent pb-1'
               }`}
             >
               HOME
@@ -302,10 +314,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={handleReelsClick}
-              className={`text-[11px] font-mono tracking-widest uppercase transition-all duration-200 cursor-pointer ${
+              className={`text-[10px] font-mono font-medium tracking-[0.2em] uppercase transition-all duration-200 cursor-pointer ${
                 currentPanel === 'SPLIT' && currentView === 'STUDIO'
-                  ? 'border-b-2 border-[#E50914] pb-1 text-white font-bold'
-                  : 'text-white/60 hover:text-white border-b-2 border-transparent pb-1'
+                  ? 'border-b-2 border-[#FF2B2B] pb-1 text-white font-bold'
+                  : 'text-white/50 hover:text-white border-b-2 border-transparent pb-1'
               }`}
             >
               REELS
@@ -320,10 +332,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={handleManifestoClick}
-              className={`text-[11px] font-mono tracking-widest uppercase transition-all duration-200 cursor-pointer ${
+              className={`text-[10px] font-mono font-medium tracking-[0.2em] uppercase transition-all duration-200 cursor-pointer ${
                 activeNavTab === 'MANIFESTO'
-                  ? 'border-b-2 border-[#E50914] pb-1 text-white font-bold'
-                  : 'text-white/60 hover:text-white border-b-2 border-transparent pb-1'
+                  ? 'border-b-2 border-[#FF2B2B] pb-1 text-white font-bold'
+                  : 'text-white/50 hover:text-white border-b-2 border-transparent pb-1'
               }`}
             >
               MANIFESTO
@@ -338,10 +350,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={handleFeaturesClick}
-              className={`text-[11px] font-mono tracking-widest uppercase transition-all duration-200 cursor-pointer ${
+              className={`text-[10px] font-mono font-medium tracking-[0.2em] uppercase transition-all duration-200 cursor-pointer ${
                 activeNavTab === 'FEATURES'
-                  ? 'border-b-2 border-[#E50914] pb-1 text-white font-bold'
-                  : 'text-white/60 hover:text-white border-b-2 border-transparent pb-1'
+                  ? 'border-b-2 border-[#FF2B2B] pb-1 text-white font-bold'
+                  : 'text-white/50 hover:text-white border-b-2 border-transparent pb-1'
               }`}
             >
               FEATURES
@@ -356,10 +368,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={handleFaqClick}
-              className={`text-[11px] font-mono tracking-widest uppercase transition-all duration-200 cursor-pointer ${
+              className={`text-[10px] font-mono font-medium tracking-[0.2em] uppercase transition-all duration-200 cursor-pointer ${
                 activeNavTab === 'FAQ'
-                  ? 'border-b-2 border-[#E50914] pb-1 text-white font-bold'
-                  : 'text-white/60 hover:text-white border-b-2 border-transparent pb-1'
+                  ? 'border-b-2 border-[#FF2B2B] pb-1 text-white font-bold'
+                  : 'text-white/50 hover:text-white border-b-2 border-transparent pb-1'
               }`}
             >
               FAQ
@@ -369,9 +381,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. Center: Smart-Curved Rectangular View Switchers (No More Pill Capsules) */}
+      {/* 2. Center: Harmonized Rectangular View Switchers & Unified Typography     */}
       {/* ========================================================================= */}
-      <nav className="hidden lg:flex items-center p-1 bg-black/40 border border-white/10 rounded-xl shadow-inner gap-2">
+      <nav className="hidden lg:flex items-center p-1 bg-black/40 border border-white/10 rounded-xl shadow-inner gap-1.5">
         {panels.map((p) => {
           const isActive = currentPanel === p.id && currentView === 'STUDIO';
           return (
@@ -386,16 +398,30 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   if (onSelectView && currentView !== 'STUDIO') onSelectView('STUDIO');
                   onSelectPanel(p.id);
                 }}
-                className={`h-9 px-3.5 sm:px-4 rounded-lg text-xs font-mono font-bold tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 ${
+                className={`rounded-md h-8 px-3 border backdrop-blur-md flex items-center gap-2 cursor-pointer transition-all duration-200 uppercase group/btn ${
                   isActive
-                    ? 'bg-amber-500/10 border border-amber-500/70 text-amber-300 shadow-[0_0_15px_rgba(245,166,35,0.2)]'
-                    : 'bg-white/[0.04] border border-white/10 hover:border-white/30 text-white/60 hover:text-white'
+                    ? 'border-amber-500/60 bg-amber-500/10 shadow-[0_0_12px_rgba(245,166,35,0.2)] text-amber-400'
+                    : 'border-white/10 bg-black/40 hover:border-amber-500/50 hover:bg-amber-500/5 text-white/70 hover:text-amber-400'
                 }`}
               >
-                <span className={isActive ? 'text-[#F5A623]' : 'text-white/40'}>
+                <span 
+                  className={`w-3.5 h-3.5 flex items-center justify-center transition-colors [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:stroke-[1.25] ${
+                    isActive 
+                      ? 'text-amber-400' 
+                      : 'text-white/50 group-hover/btn:text-amber-400'
+                  }`}
+                >
                   {p.icon}
                 </span>
-                <span>{p.label}</span>
+                <span 
+                  className={`text-[11px] font-mono tracking-wider font-semibold transition-colors ${
+                    isActive 
+                      ? 'text-amber-400' 
+                      : 'text-white/70 group-hover/btn:text-amber-400'
+                  }`}
+                >
+                  {p.label}
+                </span>
               </button>
             </SmartHoverCard>
           );
@@ -414,7 +440,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 onSelectPlaybackMode(playbackMode === 'solo' ? 'sequence' : 'solo');
               }
             }}
-            className={`h-9 px-3.5 rounded-lg text-xs font-mono font-bold tracking-wider flex items-center gap-2 cursor-pointer transition-all duration-200 border ${
+            className={`rounded-md h-8 px-3 border backdrop-blur-md flex items-center gap-2 cursor-pointer transition-all duration-200 font-mono text-[11px] font-semibold tracking-wider uppercase ${
               playbackMode === 'solo'
                 ? 'bg-amber-950/40 border-amber-500/60 text-[#FFE066] shadow-[0_0_10px_rgba(245,166,35,0.2)]'
                 : 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]'

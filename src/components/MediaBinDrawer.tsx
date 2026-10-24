@@ -372,14 +372,30 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     setVaultItems(updated);
   };
 
-  // Drag Start for timeline slot target (supports multi-selection sequential drop)
+  // Drag Start for timeline slot target and Title Template card bindings (supports multi-selection sequential drop)
   const handleCardDragStart = (e: React.DragEvent, item: VaultMediaItem) => {
     const isMulti = selectedIds.has(item.id) && selectedIds.size > 1;
     const itemsToDrag = isMulti
       ? vaultItems.filter(it => selectedIds.has(it.id))
       : [item];
 
+    const mediaUrl = db.getActiveMediaUrl(item.id, item.blob) || item.thumbnailUrl || '';
+    const assetPayload = {
+      type: 'MEDIA_ASSET',
+      assetId: item.id,
+      mediaUrl: mediaUrl,
+      fileName: item.name,
+      isMasterRaw: true
+    };
+
+    try {
+      e.dataTransfer.setData('application/json', JSON.stringify(assetPayload));
+    } catch {
+      // ignore
+    }
+
     e.dataTransfer.setData('text/plain', JSON.stringify({
+      ...assetPayload,
       type: isMulti ? 'MEDIA_ASSETS_BULK' : 'MEDIA_ASSET_VAULT',
       assetId: item.id,
       assetIds: itemsToDrag.map(it => it.id),

@@ -8,7 +8,7 @@
  * - Zero-cloud bulk ingest via Drag & Drop directly into IndexedDB media_vault.
  */
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { AnthologyFrame, AspectRatio } from '../../types/anthology';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { PlaybackMode } from '../../types/editor';
@@ -29,7 +29,9 @@ import {
   Volume2,
   VolumeX,
   Type,
-  ZoomIn
+  ZoomIn,
+  Repeat,
+  Music
 } from 'lucide-react';
 import { StudioModuleId } from '../StudioNavRail';
 import { ReviewMarkupCanvas } from './ReviewMarkupCanvas';
@@ -41,6 +43,8 @@ import {
 } from '../../services/thumbnailEngine';
 import { useTitleContainerRepaint } from '../../hooks/useTitleContainerRepaint';
 import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
+import { audioEngine } from '../../utils/audioEngine';
+import { framesToTimecode } from '../../utils/timecode';
 import {
   clampShotDuration,
   getShotDurationSec,
@@ -106,6 +110,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onUpdateFrame,
   onUpdateFrameAtIndex,
   onApplyDurationToAll,
+  onMatchAudioBeats,
   onUploadImage,
   onOpenInspector,
   onToggleTitles,
@@ -120,12 +125,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   isSnapToBeat = false,
   onToggleSnapToBeat
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageElementRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageTitleContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const isScrubbingRef = useRef<boolean>(false);
+  const isDraggingScrubberRef = useRef<boolean>(false);
+  const lastScrubTimeRef = useRef<number>(0);
+  const wasAudioMutedBeforeScrubRef = useRef<boolean>(true);
+  const slideTimeSecRef = useRef<number>(slideTimeSec);
+  slideTimeSecRef.current = slideTimeSec;
+
+  const frameBitmapCacheRef = useRef<Map<number, ImageBitmap>>(new Map());
+  const cachedPosterImgRef = useRef<HTMLImageElement | null>(null);
+
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [cachedPosterUrl, setCachedPosterUrl] = useState<string | null>(null);
@@ -179,7 +196,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     ? Math.min(100, Math.max(0, (slideTimeSec / activeShotDurationSec) * 100))
     : 0;
 
-  const handleChangeCurrentDuration = (newDurationSec: number) => {
+  // Master total sequence runtime calculation across all timeline shots
+  const totalMasterRuntimeSec = useMemo(() => {
+    return frames.reduce((acc, f) => acc + getShotDurationSec(f, 12.0), 0);
+  }, [frames]);
+
+  const masterTimecode = useMemo(() => {
+    return framesToTimecode(Math.floor(totalMasterRuntimeSec * activeShotFps), activeShotFps);
+  }, [totalMasterRuntimeSec, activeShotFps]);
+
+  const handleChangeCurrentDuration = async (newDurationSec: number) => {
     if (!frame) return;
     const clamped = clampShotDuration(newDurationSec);
     const updated: AnthologyFrame = {
@@ -191,6 +217,31 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       onUpdateFrameAtIndex(currentIndex, updated);
     } else if (onUpdateFrame) {
       onUpdateFrame(updated);
+    }
+    // Write directly to active shot in IndexedDB
+    try {
+      await studioDraftDb.updateSlideHoldSec(currentIndex, clamped);
+    } catch (err) {
+      console.warn('[TactileStage] Failed to write duration to IndexedDB:', err);
+    }
+  };
+
+  const handleRippleAll = async () => {
+    if (!frames.length) return;
+    const currentDur = activeShotDurationSec;
+    if (onApplyDurationToAll) {
+      onApplyDurationToAll(currentDur);
+    }
+    try {
+      await studioDraftDb.rippleAllSlideDurations(currentDur);
+    } catch (err) {
+      console.warn('[TactileStage] Failed to persist ripple to IndexedDB:', err);
+    }
+  };
+
+  const handleMatchBeats = () => {
+    if (onMatchAudioBeats) {
+      onMatchAudioBeats();
     }
   };
 
@@ -327,6 +378,212 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       }
     };
   }, []);
+
+  // Sync cached poster element for instant fallback
+  useEffect(() => {
+    if (cachedPosterUrl) {
+      const img = new Image();
+      img.src = cachedPosterUrl;
+      cachedPosterImgRef.current = img;
+    } else {
+      cachedPosterImgRef.current = null;
+    }
+  }, [cachedPosterUrl]);
+
+  // Sync still image plate
+  useEffect(() => {
+    const isVideo = Boolean(frame?.isVideo || activeMediaUrl?.includes('video') || activeMediaUrl?.endsWith('.mp4') || activeMediaUrl?.endsWith('.webm'));
+    if (activeMediaUrl && !isVideo) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = activeMediaUrl;
+      img.onload = () => {
+        imageElementRef.current = img;
+      };
+    } else {
+      imageElementRef.current = null;
+    }
+  }, [activeMediaUrl, frame?.isVideo]);
+
+  // Clear bitmap cache on shot change
+  useEffect(() => {
+    for (const bmp of frameBitmapCacheRef.current.values()) {
+      try { bmp.close(); } catch {}
+    }
+    frameBitmapCacheRef.current.clear();
+  }, [currentIndex]);
+
+  // Canvas-Accelerated Blit: Draw active video frames or cached bitmaps to <canvas> via requestAnimationFrame
+  useEffect(() => {
+    let animId: number;
+
+    const drawCover = (ctx: CanvasRenderingContext2D, source: CanvasImageSource, targetW: number, targetH: number) => {
+      let sw = 1920;
+      let sh = 1080;
+      if (source instanceof HTMLVideoElement) {
+        sw = source.videoWidth || 1920;
+        sh = source.videoHeight || 1080;
+      } else if (source instanceof HTMLImageElement) {
+        sw = source.naturalWidth || 1920;
+        sh = source.naturalHeight || 1080;
+      } else if (source instanceof ImageBitmap) {
+        sw = source.width;
+        sh = source.height;
+      }
+      if (sw <= 0 || sh <= 0) return;
+
+      const mediaAspect = sw / sh;
+      const targetAspect = targetW / targetH;
+      let dw = targetW;
+      let dh = targetH;
+      let dx = 0;
+      let dy = 0;
+
+      if (mediaAspect > targetAspect) {
+        dw = targetH * mediaAspect;
+        dx = (targetW - dw) / 2;
+      } else {
+        dh = targetW / mediaAspect;
+        dy = (targetH - dh) / 2;
+      }
+
+      ctx.drawImage(source, dx, dy, dw, dh);
+    };
+
+    const render = () => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d', { alpha: false });
+        if (ctx) {
+          const rect = canvas.getBoundingClientRect();
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const targetW = Math.round((rect.width || 1280) * dpr);
+          const targetH = Math.round((rect.height || 536) * dpr);
+          if (canvas.width !== targetW || canvas.height !== targetH) {
+            canvas.width = targetW;
+            canvas.height = targetH;
+          }
+
+          const isVideo = Boolean(frame?.isVideo || activeMediaUrl?.includes('video') || activeMediaUrl?.endsWith('.mp4') || activeMediaUrl?.endsWith('.webm'));
+          const video = videoRef.current;
+
+          if (isVideo && video) {
+            if (isScrubbingRef.current && (video.seeking || video.readyState < 2)) {
+              // During active timeline scrubbing: Blit closest cached frame bitmap with 0ms DOM lag
+              const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
+              let closestBmp: ImageBitmap | null = null;
+              let minDiff = Infinity;
+              for (const [fn, bmp] of frameBitmapCacheRef.current.entries()) {
+                const diff = Math.abs(fn - currentF);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  closestBmp = bmp;
+                }
+              }
+              if (closestBmp) {
+                drawCover(ctx, closestBmp, targetW, targetH);
+              } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
+                drawCover(ctx, cachedPosterImgRef.current, targetW, targetH);
+              }
+            } else if (video.readyState >= 2 && video.videoWidth > 0) {
+              drawCover(ctx, video, targetW, targetH);
+
+              // Cache decoded frame bitmap for frictionless instant scrubbing blit
+              const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
+              if (!frameBitmapCacheRef.current.has(currentF) && frameBitmapCacheRef.current.size < 60) {
+                createImageBitmap(video).then(bmp => {
+                  if (frameBitmapCacheRef.current.size >= 60) {
+                    const oldest = frameBitmapCacheRef.current.keys().next().value;
+                    if (oldest !== undefined) {
+                      frameBitmapCacheRef.current.get(oldest)?.close();
+                      frameBitmapCacheRef.current.delete(oldest);
+                    }
+                  }
+                  frameBitmapCacheRef.current.set(currentF, bmp);
+                }).catch(() => {});
+              }
+            } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
+              drawCover(ctx, cachedPosterImgRef.current, targetW, targetH);
+            }
+          } else if (imageElementRef.current && imageElementRef.current.complete && imageElementRef.current.naturalWidth > 0) {
+            drawCover(ctx, imageElementRef.current, targetW, targetH);
+          } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
+            drawCover(ctx, cachedPosterImgRef.current, targetW, targetH);
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animId);
+  }, [activeMediaUrl, activeShotFps, frame?.isVideo]);
+
+  // Frictionless Scrubbing: 16ms Throttled Pointer Drag Handlers with Audio Mute & Restore
+  const handleScrubPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDraggingScrubberRef.current = true;
+    wasAudioMutedBeforeScrubRef.current = audioEngine.getIsMuted();
+    audioEngine.setMuted(true);
+    setIsScrubbing(true);
+    isScrubbingRef.current = true;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const targetSec = ratio * activeShotDurationSec;
+    slideTimeSecRef.current = targetSec;
+    lastScrubTimeRef.current = performance.now();
+    if (onScrubSlideTime) onScrubSlideTime(targetSec);
+    const video = videoRef.current;
+    if (video) {
+      if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
+        try { (video as any).fastSeek(targetSec); } catch { video.currentTime = targetSec; }
+      } else {
+        video.currentTime = targetSec;
+      }
+    }
+  };
+
+  const handleScrubPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingScrubberRef.current) return;
+    const now = performance.now();
+    if (now - lastScrubTimeRef.current < 16) return; // Strict 16ms throttle
+    lastScrubTimeRef.current = now;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const targetSec = ratio * activeShotDurationSec;
+    slideTimeSecRef.current = targetSec;
+    if (onScrubSlideTime) onScrubSlideTime(targetSec);
+    const video = videoRef.current;
+    if (video) {
+      if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
+        try { (video as any).fastSeek(targetSec); } catch { video.currentTime = targetSec; }
+      } else {
+        video.currentTime = targetSec;
+      }
+    }
+  };
+
+  const handleScrubPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingScrubberRef.current) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      isDraggingScrubberRef.current = false;
+      setIsScrubbing(false);
+      isScrubbingRef.current = false;
+      // Restore audio playback instantly as soon as scrubbing ceases
+      if (!wasAudioMutedBeforeScrubRef.current) {
+        audioEngine.setMuted(false);
+        if (isAutoplay) {
+          audioEngine.playAudio();
+        }
+      }
+    }
+  };
+
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
@@ -505,7 +762,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 style={{ filter: combinedMediaFilter }}
               />
             )}
-            {frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm') ? (
+            {/* Hidden hardware decoding element */}
+            {(frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm')) && (
               <video
                 ref={videoRef}
                 src={activeMediaUrl}
@@ -514,17 +772,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover transition-opacity duration-150 relative z-1"
-                style={{ filter: combinedMediaFilter }}
-              />
-            ) : (
-              <img
-                src={activeMediaUrl}
-                alt={frame?.title}
-                className="w-full h-full object-cover relative z-1"
-                style={{ filter: combinedMediaFilter }}
+                className="hidden"
+                aria-hidden="true"
               />
             )}
+            {/* Canvas-Accelerated Blit Viewport: draws active frames via requestAnimationFrame */}
+            <canvas
+              ref={canvasRef}
+              className="w-full h-full object-cover transition-opacity duration-150 relative z-1"
+              style={{ filter: combinedMediaFilter }}
+            />
           </div>
         ) : cachedPosterUrl ? (
           <div
@@ -670,6 +927,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
           {showHud && (
             <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
+              <span className="text-[#ffe066] font-bold">TOTAL: {masterTimecode}</span>
+              <span className="text-white/30">|</span>
               <span>{frame?.cameraSpec?.focalLength || '35mm High-Speed Master'}</span>
               <span className="text-white/30">|</span>
               <span className="text-[#ffe066]">{frame?.cameraSpec?.aperture || 'f/1.4'}</span>
@@ -718,21 +977,21 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             </div>
           )}
 
-          {/* Interactive Shot Scrub Track */}
+          {/* Interactive Frictionless Scrub Track (Throttled to 16ms with Audio Muting & Instant Cached Frame Blit) */}
           <div
-            onClick={(e) => {
-              if (!onScrubSlideTime) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-              onScrubSlideTime(ratio * activeShotDurationSec);
-            }}
-            className="hidden md:flex items-center w-24 sm:w-32 h-2 bg-zinc-900 rounded-full overflow-hidden border border-white/10 cursor-pointer mx-1 relative"
-            title={`Scrub Shot (${slideTimeSec.toFixed(2)}s / ${activeShotDurationSec.toFixed(1)}s)`}
+            onPointerDown={handleScrubPointerDown}
+            onPointerMove={handleScrubPointerMove}
+            onPointerUp={handleScrubPointerUp}
+            onPointerCancel={handleScrubPointerUp}
+            className="hidden md:flex items-center w-28 sm:w-36 h-2.5 bg-zinc-900/90 rounded-full overflow-hidden border border-white/15 cursor-ew-resize mx-1.5 relative select-none touch-none group/scrub"
+            title={`Drag to Scrub Shot (${slideTimeSec.toFixed(2)}s / ${activeShotDurationSec.toFixed(1)}s) [Throttled 16ms]`}
           >
             <div
-              className="h-full bg-gradient-to-r from-[#d4af37] to-[#FFE066] transition-[width] duration-75"
+              className="h-full bg-gradient-to-r from-[#d4af37] via-[#FFE066] to-[#F5A623] transition-[width] duration-75 relative"
               style={{ width: `${progressPercent}%` }}
-            />
+            >
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(245,166,35,0.8)] opacity-90 group-hover/scrub:scale-125 transition-transform" />
+            </div>
           </div>
 
           <span className="hidden sm:inline text-[9.5px] font-mono text-zinc-300 tabular-nums px-1">
@@ -746,10 +1005,37 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             onChangeDuration={handleChangeCurrentDuration}
             onChangeTargetFps={handleChangeCurrentFps}
             onApplyDurationToAll={onApplyDurationToAll}
+            onMatchAudioBeats={handleMatchBeats}
             isSnapToBeat={isSnapToBeat}
             onToggleSnapToBeat={onToggleSnapToBeat}
             compact={true}
           />
+
+          {/* Quick [ Ripple All ] Action Button */}
+          {onApplyDurationToAll && (
+            <button
+              type="button"
+              onClick={handleRippleAll}
+              className="px-2 py-0.5 rounded bg-[#F5A623]/15 hover:bg-[#F5A623]/25 border border-[#F5A623]/50 text-[#FFE066] text-[9.5px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+              title={`Ripple apply ${activeShotDurationSec.toFixed(1)}s hold across all ${frames.length} timeline shots`}
+            >
+              <Repeat className="w-2.5 h-2.5" />
+              <span className="hidden lg:inline">Ripple All</span>
+            </button>
+          )}
+
+          {/* Quick [ Match Beats ] Action Button */}
+          {onMatchAudioBeats && (
+            <button
+              type="button"
+              onClick={handleMatchBeats}
+              className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-[9.5px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+              title="Align all timeline shot cuts to detected musical transients (Auto-Cut)"
+            >
+              <Music className="w-2.5 h-2.5 text-cyan-400" />
+              <span className="hidden lg:inline">Match Beats</span>
+            </button>
+          )}
         </div>
 
         {/* Hover Action Controls */}

@@ -317,7 +317,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     shotStartTimeSec,
     fps = 24,
     sourceElement,
-    titleBn = 'আলোর স্মৃতি',
+    titleBn = 'দৃষ্টি // THE SINGULARITY',
     titleEn = `SHOT ${String(shotIndex + 1).padStart(3, '0')}`,
     tagline = '24.0 FPS UNCOMPRESSED MASTER',
     burnInTitles,
@@ -964,8 +964,8 @@ export async function exportCinemaMasterMp4(
     const totalShots = shotIndices.length;
 
     // Extract metadata
-    const bTitle = slide?.titleBn || frame?.bengaliTitle || 'আলোর স্মৃতি';
-    const eTitle = slide?.titleEn || frame?.title || `SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
+    const bTitle = slide?.titleBn || frame?.bengaliTitle || 'দৃষ্টি // THE SINGULARITY';
+    const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
     const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
     // Retrieve raw blob from IndexedDB media_vault (NEVER low-res proxy)

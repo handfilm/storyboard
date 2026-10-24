@@ -31,6 +31,7 @@ import {
   resolveGlobalTimeToShot
 } from '../types/storyboard';
 import { studioDraftDb } from '../services/db';
+import { audioEngine } from '../utils/audioEngine';
 
 export type JklVelocity = -2 | -1 | 0 | 1 | 2;
 
@@ -162,8 +163,13 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const scrubbingTimerRef = useRef<number | null>(null);
+  const lastScrubTimeRef = useRef<number>(0);
+  const wasAudioMutedBeforeScrubRef = useRef<boolean>(true);
+  const pendingSeekTimeoutRef = useRef<number | null>(null);
 
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
+  const canvasElementRef = useRef<HTMLCanvasElement | null>(null);
+  const cachedBitmapsRef = useRef<Map<number, ImageBitmap>>(new Map());
   const reverseTimerRef = useRef<number | null>(null);
   const rVfcIdRef = useRef<number | null>(null);
   const lastWallTimeRef = useRef<number>(performance.now());
@@ -214,6 +220,64 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   const attachVideoElement = useCallback((video: HTMLVideoElement | null) => {
     videoElementRef.current = video;
   }, []);
+
+  // Set canvas element reference for Canvas-Accelerated Blit
+  const attachCanvasElement = useCallback((canvas: HTMLCanvasElement | null) => {
+    canvasElementRef.current = canvas;
+  }, []);
+
+  // Retrieve closest cached frame bitmap to eliminate scrubbing stalls
+  const getClosestCachedBitmap = useCallback((frameNum: number): ImageBitmap | null => {
+    const cache = cachedBitmapsRef.current;
+    if (cache.has(frameNum)) return cache.get(frameNum)!;
+    let closestBmp: ImageBitmap | null = null;
+    let minDiff = Infinity;
+    for (const [fn, bmp] of cache.entries()) {
+      const diff = Math.abs(fn - frameNum);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestBmp = bmp;
+      }
+    }
+    return closestBmp;
+  }, []);
+
+  // Blit active video frame to canvas via 2D context with hardware scaling
+  const blitActiveFrameToCanvas = useCallback(() => {
+    const canvas = canvasElementRef.current;
+    const video = videoElementRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
+
+    const currentF = Math.max(0, Math.floor(slideTimeSec * fps));
+
+    if (video && video.readyState >= 2 && !video.seeking) {
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Cache bitmap in LRU for instant scrubbing blit
+        if (!cachedBitmapsRef.current.has(currentF) && cachedBitmapsRef.current.size < 60) {
+          createImageBitmap(video).then(bmp => {
+            if (cachedBitmapsRef.current.size >= 60) {
+              const oldest = cachedBitmapsRef.current.keys().next().value;
+              if (oldest !== undefined) {
+                cachedBitmapsRef.current.get(oldest)?.close();
+                cachedBitmapsRef.current.delete(oldest);
+              }
+            }
+            cachedBitmapsRef.current.set(currentF, bmp);
+          }).catch(() => {});
+        }
+      } catch {}
+    } else {
+      const bmp = getClosestCachedBitmap(currentF);
+      if (bmp) {
+        try {
+          ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        } catch {}
+      }
+    }
+  }, [fps, getClosestCachedBitmap, slideTimeSec]);
 
   // Frame seek with fastSeek optimization
   const seekVideoToTime = useCallback((timeSec: number) => {
@@ -457,39 +521,94 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     seekVideoToTime(0);
   }, [totalSlides, onSlideChange, seekVideoToTime]);
 
-  // Set scrubbing state explicitly
+  // Set scrubbing state explicitly with instant audio muting & restoration
   const setScrubbing = useCallback((scrubbing: boolean) => {
-    setIsScrubbing(scrubbing);
-    if (scrubbing && scrubbingTimerRef.current !== null) {
-      window.clearTimeout(scrubbingTimerRef.current);
-      scrubbingTimerRef.current = null;
+    if (scrubbing) {
+      if (!isScrubbing) {
+        wasAudioMutedBeforeScrubRef.current = audioEngine.getIsMuted();
+        audioEngine.setMuted(true);
+      }
+      setIsScrubbing(true);
+      if (scrubbingTimerRef.current !== null) {
+        window.clearTimeout(scrubbingTimerRef.current);
+        scrubbingTimerRef.current = null;
+      }
+    } else {
+      setIsScrubbing(false);
+      if (scrubbingTimerRef.current !== null) {
+        window.clearTimeout(scrubbingTimerRef.current);
+        scrubbingTimerRef.current = null;
+      }
+      if (pendingSeekTimeoutRef.current !== null) {
+        window.clearTimeout(pendingSeekTimeoutRef.current);
+        pendingSeekTimeoutRef.current = null;
+      }
+      // Restore audio playback instantly as soon as scrubbing ceases
+      if (!wasAudioMutedBeforeScrubRef.current) {
+        audioEngine.setMuted(false);
+        if (isPlaying) audioEngine.playAudio();
+      }
     }
-  }, []);
+  }, [isScrubbing, isPlaying]);
 
-  // Scrub slide time with auto-proxy switching
+  // Scrub slide time with auto-proxy switching & strict 16ms throttle
   const scrubSlideTime = useCallback((timeSec: number) => {
-    setIsScrubbing(true);
+    if (!isScrubbing) {
+      wasAudioMutedBeforeScrubRef.current = audioEngine.getIsMuted();
+      audioEngine.setMuted(true);
+      setIsScrubbing(true);
+    }
     if (scrubbingTimerRef.current !== null) {
       window.clearTimeout(scrubbingTimerRef.current);
     }
+    // Cease detection timer: restores audio when user stops dragging
     scrubbingTimerRef.current = window.setTimeout(() => {
       setIsScrubbing(false);
+      if (!wasAudioMutedBeforeScrubRef.current) {
+        audioEngine.setMuted(false);
+        if (isPlaying) audioEngine.playAudio();
+      }
     }, 180);
 
     const clamped = Math.max(0, Math.min(activeDurationSec, timeSec));
     setSlideTimeSec(clamped);
-    seekVideoToTime(clamped);
-    onTimeUpdate?.(clamped, currentShotStartSec + clamped);
-  }, [activeDurationSec, currentShotStartSec, seekVideoToTime, onTimeUpdate]);
 
-  // Scrub global time across variable-duration slides with auto-proxy switching
+    // Frictionless Scrubbing: Throttle seeking to 16ms and blit closest cached frame
+    const now = performance.now();
+    if (now - lastScrubTimeRef.current >= 16) {
+      lastScrubTimeRef.current = now;
+      seekVideoToTime(clamped);
+      onTimeUpdate?.(clamped, currentShotStartSec + clamped);
+      blitActiveFrameToCanvas();
+    } else {
+      if (pendingSeekTimeoutRef.current !== null) {
+        window.clearTimeout(pendingSeekTimeoutRef.current);
+      }
+      pendingSeekTimeoutRef.current = window.setTimeout(() => {
+        lastScrubTimeRef.current = performance.now();
+        seekVideoToTime(clamped);
+        onTimeUpdate?.(clamped, currentShotStartSec + clamped);
+        blitActiveFrameToCanvas();
+      }, 16);
+    }
+  }, [isScrubbing, activeDurationSec, currentShotStartSec, seekVideoToTime, onTimeUpdate, blitActiveFrameToCanvas, isPlaying]);
+
+  // Scrub global time across variable-duration slides with auto-proxy switching & 16ms throttle
   const scrubGlobalTime = useCallback((globalSec: number) => {
-    setIsScrubbing(true);
+    if (!isScrubbing) {
+      wasAudioMutedBeforeScrubRef.current = audioEngine.getIsMuted();
+      audioEngine.setMuted(true);
+      setIsScrubbing(true);
+    }
     if (scrubbingTimerRef.current !== null) {
       window.clearTimeout(scrubbingTimerRef.current);
     }
     scrubbingTimerRef.current = window.setTimeout(() => {
       setIsScrubbing(false);
+      if (!wasAudioMutedBeforeScrubRef.current) {
+        audioEngine.setMuted(false);
+        if (isPlaying) audioEngine.playAudio();
+      }
     }, 180);
 
     const clampedGlobal = Math.max(0, Math.min(totalDurationSec, globalSec));
@@ -510,9 +629,26 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
       onSlideChange?.(targetSlide);
     }
     setSlideTimeSec(localSec);
-    seekVideoToTime(localSec);
-    onTimeUpdate?.(localSec, clampedGlobal);
-  }, [totalDurationSec, slides, totalSlides, activeDurationSec, currentIndex, onSlideChange, seekVideoToTime, onTimeUpdate]);
+
+    // Frictionless Scrubbing: Throttle seeking to 16ms and blit closest cached frame
+    const now = performance.now();
+    if (now - lastScrubTimeRef.current >= 16) {
+      lastScrubTimeRef.current = now;
+      seekVideoToTime(localSec);
+      onTimeUpdate?.(localSec, clampedGlobal);
+      blitActiveFrameToCanvas();
+    } else {
+      if (pendingSeekTimeoutRef.current !== null) {
+        window.clearTimeout(pendingSeekTimeoutRef.current);
+      }
+      pendingSeekTimeoutRef.current = window.setTimeout(() => {
+        lastScrubTimeRef.current = performance.now();
+        seekVideoToTime(localSec);
+        onTimeUpdate?.(localSec, clampedGlobal);
+        blitActiveFrameToCanvas();
+      }, 16);
+    }
+  }, [isScrubbing, totalDurationSec, slides, totalSlides, activeDurationSec, currentIndex, onSlideChange, seekVideoToTime, onTimeUpdate, blitActiveFrameToCanvas, isPlaying]);
 
   // =========================================================================
   // MASTER PLAYBACK TICKER & DOUBLE-BUFFER PRE-HYDRATION
@@ -730,6 +866,9 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
     scrubGlobalTime,
     setPlaybackMode,
     setIsLooping,
-    attachVideoElement
+    attachVideoElement,
+    attachCanvasElement,
+    blitActiveFrameToCanvas,
+    cachedBitmaps: cachedBitmapsRef.current
   };
 }

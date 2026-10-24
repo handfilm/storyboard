@@ -25,6 +25,7 @@ export interface CadenceSelectorPillProps {
   onChangeDuration: (newDurationSec: number) => void;
   onChangeTargetFps?: (fps: number) => void;
   onApplyDurationToAll?: (durationSec: number) => void;
+  onMatchAudioBeats?: () => void;
   isSnapToBeat?: boolean;
   onToggleSnapToBeat?: () => void;
   compact?: boolean;
@@ -37,6 +38,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
   onChangeDuration,
   onChangeTargetFps,
   onApplyDurationToAll,
+  onMatchAudioBeats,
   isSnapToBeat = false,
   onToggleSnapToBeat,
   compact = false,
@@ -351,9 +353,24 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
               </div>
             </div>
 
-            {/* Footer Actions: Snap to Beats & Ripple Apply */}
-            {(onToggleSnapToBeat || onApplyDurationToAll) && (
+            {/* Footer Actions: Snap to Beats & Ripple Apply & Match Beats */}
+            {(onToggleSnapToBeat || onApplyDurationToAll || onMatchAudioBeats) && (
               <div className="mt-2.5 pt-2.5 border-t border-white/10 flex flex-col gap-1.5">
+                {onMatchAudioBeats && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMatchAudioBeats();
+                      setIsOpen(false);
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/50 text-cyan-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Align all timeline shot cuts to detected musical beat transients"
+                  >
+                    <Music className="w-3 h-3 text-cyan-400" />
+                    <span>Match Beats (Auto-Cut Rhythm)</span>
+                  </button>
+                )}
+
                 {onToggleSnapToBeat && (
                   <button
                     type="button"
@@ -382,7 +399,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                     className="w-full px-2.5 py-1.5 rounded-lg bg-[#F5A623]/15 hover:bg-[#F5A623]/25 border border-[#F5A623]/60 text-[#FFE066] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Repeat className="w-3 h-3" />
-                    <span>Ripple Apply {formatDurationPillValue(safeDuration)} to All</span>
+                    <span>Ripple All ({formatDurationPillValue(safeDuration)})</span>
                   </button>
                 )}
               </div>

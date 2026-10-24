@@ -1416,6 +1416,53 @@ class StudioDraftDbService {
     return null;
   }
 
+  /**
+   * Directly updates a shot duration in the active project draft and IndexedDB
+   */
+  public async updateSlideHoldSec(shotIndex: number, durationSec: number): Promise<void> {
+    try {
+      const session = this.getActiveSession();
+      const projectId = session?.activeProjectId || 'default-project';
+      const draft = await this.getProjectDraft(projectId);
+      if (draft && draft.slides && draft.slides[shotIndex]) {
+        draft.slides[shotIndex].duration = durationSec;
+        draft.slides[shotIndex].durationSec = durationSec;
+        draft.updatedAt = Date.now();
+        await this.saveDraftImmediate(draft);
+      }
+    } catch (err) {
+      console.warn('[DraftDB] updateSlideHoldSec error:', err);
+    }
+  }
+
+  /**
+   * Updates all timeline shot durations proportionally or by fixed cadence in IndexedDB
+   */
+  public async rippleAllSlideDurations(newDurationSec: number, proportionalRatio?: number): Promise<void> {
+    try {
+      const session = this.getActiveSession();
+      const projectId = session?.activeProjectId || 'default-project';
+      const draft = await this.getProjectDraft(projectId);
+      if (draft && draft.slides) {
+        draft.slides = draft.slides.map(s => {
+          const currentDur = s.durationSec || s.duration || 12.0;
+          const dur = typeof proportionalRatio === 'number' && Number.isFinite(proportionalRatio) && proportionalRatio > 0
+            ? Math.max(0.5, Math.min(1800.0, Number((currentDur * proportionalRatio).toFixed(3))))
+            : newDurationSec;
+          return {
+            ...s,
+            duration: dur,
+            durationSec: dur
+          };
+        });
+        draft.updatedAt = Date.now();
+        await this.saveDraftImmediate(draft);
+      }
+    } catch (err) {
+      console.warn('[DraftDB] rippleAllSlideDurations error:', err);
+    }
+  }
+
   // =========================================================================
   // BULLETPROOF MEDIA VAULT & TIMELINE SLOTS PERSISTENCE
   // =========================================================================

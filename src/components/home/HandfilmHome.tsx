@@ -293,7 +293,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       {/* ========================================================= */}
       {/* MODULE 4: FREQUENTLY ASKED QUESTIONS & MINIMALIST FOOTER */}
       {/* ========================================================= */}
-      <section className="w-full py-16 border-b border-[#232330] bg-[#070709]">
+      <section id="director-faqs-section" className="w-full py-16 border-b border-[#232330] bg-[#070709]">
         <div className="max-w-4xl mx-auto px-6 md:px-12 space-y-8">
           <div className="text-center space-y-2">
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-cinzel">

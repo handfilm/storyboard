@@ -1776,6 +1776,13 @@ export default function App() {
           if (currentView !== 'STUDIO') setCurrentView('STUDIO');
           if (workspaceMode !== 'STAGE') setWorkspaceMode('STAGE');
         }}
+        currentView={currentView}
+        onSelectView={setCurrentView}
+        onLaunchStudio={() => {
+          setCurrentView('STUDIO');
+          setWorkspaceMode('STAGE');
+        }}
+        onOpenSearch={() => setIsCommandPaletteOpen(true)}
         currentIndex={currentIndex}
         totalShots={project.frames.length || 100}
         currentFrame={currentFrame}

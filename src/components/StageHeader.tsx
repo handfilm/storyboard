@@ -55,6 +55,7 @@ export interface StageHeaderProps {
   onOpenRecorder?: () => void;
   onOpenExport?: () => void;
   onCompile?: () => void;
+  onGoHome?: () => void;
 }
 
 export const StageHeader: React.FC<StageHeaderProps> = ({
@@ -71,7 +72,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   className = '',
   onOpenRecorder,
   onOpenExport,
-  onCompile
+  onCompile,
+  onGoHome
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success'>('idle');
@@ -136,9 +138,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       
       {/* 1. Left: Sleek HANDFILM Atelier Brand Logo */}
       <div className="flex items-center gap-2.5">
-        <a 
-          href="/" 
-          className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+        <button 
+          type="button"
+          onClick={() => {
+            if (onGoHome) onGoHome();
+          }}
+          className="flex items-center gap-2 group cursor-pointer focus:outline-none bg-transparent border-none p-0 text-left"
           title="HANDFILM Atelier"
         >
           <div className="w-4 h-4 rotate-45 border border-[#F5A623] bg-[#F5A623]/20 flex items-center justify-center transition-transform duration-300 group-hover:rotate-90 group-hover:bg-[#F5A623]/30">
@@ -147,7 +152,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           <span className="text-xs font-bold tracking-[0.25em] text-white group-hover:text-[#FFE066] transition-colors uppercase font-mono">
             HANDFILM
           </span>
-        </a>
+        </button>
       </div>
 
       {/* 2. Center: Minimalist Hover-Pill Switches */}

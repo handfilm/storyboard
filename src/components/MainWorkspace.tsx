@@ -391,22 +391,6 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   // 4. Default Hero STAGE Mode with Dual-Panel Workflow (Exclusively renders the 2.39:1 anamorphic monitor)
   return (
     <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
-      {/* Master Tactile Stage Top Bar */}
-      <StageHeader
-        currentPanel={currentPanel}
-        onSelectPanel={handleSelectPanel}
-        currentIndex={currentIndex}
-        totalShots={frames.length || 100}
-        currentFrame={currentFrame}
-        frames={frames}
-        playbackMode={playbackMode}
-        onSelectPlaybackMode={onSelectPlaybackMode}
-        slideDurationSec={getShotDurationSec(currentFrame, 12.0)}
-        fps={getShotTargetFps(currentFrame, 24)}
-        onOpenRecorder={onOpenRecorder}
-        onOpenExport={onOpenExport || onOpenExportTimeline}
-      />
-
       {/* Main Viewport Content based on active panel */}
       <div className="flex-1 w-full relative flex flex-col overflow-hidden">
         {/* VIEW 0: TACTILE STAGE (Consolidated Primary View: Glowing Bloom Stage + 100-Shot Sequence Runner) */}

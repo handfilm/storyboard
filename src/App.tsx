@@ -11,7 +11,6 @@ import { AnthologyFrame, AnthologyProject, AspectRatio, LutPreset, ViewMode } fr
 import { generateInitialFrames, samplePacks } from './data/frames';
 import { WorkspaceMode, themeManager } from './core/theme';
 import { featureFlags } from './core/featureFlags';
-import { TopBar } from './components/TopBar';
 import { LeftRail, StudioModuleId } from './components/LeftRail';
 import { MainWorkspace } from './components/MainWorkspace';
 import { ControlDock } from './components/ControlDock';
@@ -64,7 +63,7 @@ import { FloatingPillRecorder } from './components/recorder/FloatingPillRecorder
 import { QuickTrimPreviewModal } from './components/recorder/QuickTrimPreviewModal';
 import { AdvancedTrimmerModal } from './components/recorder/AdvancedTrimmerModal';
 import { RecordedCaptureResult } from './services/screenRecorderEngine';
-import { StagePanelType } from './components/StageHeader';
+import { StageHeader, StagePanelType } from './components/StageHeader';
 import { MultiCamGroup } from './types/multicam';
 import {
   clampShotDuration,
@@ -1769,73 +1768,26 @@ export default function App() {
         />
       )}
 
-      {/* Unified Studio TopBar */}
-      <TopBar
-        projectTitle={project.title}
-        onUpdateTitle={(title) => setProject(p => ({ ...p, title }))}
-        activeMode={workspaceMode}
-        activeModule={activeModule}
-        onGoHome={handleGoHome}
-        currentView={currentView}
-        onSelectView={setCurrentView}
-        currentShotIndex={currentIndex}
-        totalShots={project.frames.length || 100}
-        activePanel={activeDualPanel}
-        onSelectPanel={setActiveDualPanel}
-        onSelectMode={(mode) => {
-          if (mode === 'STAGE') {
-            handleGoHome();
-          } else {
-            setCurrentView('STUDIO');
-            setWorkspaceMode(mode);
-            setIsDrawerOpen(false);
-          }
+      {/* Sleek Single-Tier Master Header (Strictly 48px / h-12) */}
+      <StageHeader
+        currentPanel={activeDualPanel}
+        onSelectPanel={(panel) => {
+          setActiveDualPanel(panel);
+          if (currentView !== 'STUDIO') setCurrentView('STUDIO');
+          if (workspaceMode !== 'STAGE') setWorkspaceMode('STAGE');
         }}
-        isProMode={isProMode}
-        onToggleProMode={() => setIsProMode(p => !p)}
-        componentsBadgeText={componentsBadgeText}
-        onToggleComponentsPopover={() => setIsComponentsOpen(p => !p)}
-        onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        onOpenSelfTest={() => setIsSelfTestOpen(true)}
-        onOpenShortcuts={() => setIsShortcutsOpen(true)}
-        onOpenPublishModal={() => setIsPublishModalOpen(true)}
-        onOpenProjectManager={() => setIsProjectManagerOpen(true)}
-        onOpenAnimatic={() => setIsAnimaticOpen(true)}
-        onToggleFullscreen={toggleFullscreen}
-        onToggleTitles={handleToggleTitles}
-        showTitles={componentsVisibility.titlesAll}
-        componentsVisibility={componentsVisibility}
-        onChangeComponentsVisibility={(next) => syncComponentsVisibility(next, 'TopBar')}
-        saveState={saveState}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        canUndo={historyStack.length > 0}
-        canRedo={redoStack.length > 0}
-        onOpenR2Automation={() => setIsR2AutomationOpen(true)}
-        onOpenExportStudio={handleOpenExportStudio}
-        onOpenExportTimeline={() => handleOpenExportStudio('premiere')}
-        onOpenExportRange={() => handleOpenExportStudio('mp4')}
+        currentIndex={currentIndex}
+        totalShots={project.frames.length || 100}
+        currentFrame={currentFrame}
         frames={project.frames}
         playbackMode={playbackMode}
         onSelectPlaybackMode={setPlaybackMode}
-        onOpenContactSheet={() => setIsContactSheetOpen(true)}
-        onOpenCompilationWizard={() => setIsCompilationWizardOpen(true)}
-        onOpenWalkthrough={() => setShowWalkthrough(true)}
-        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
-        onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
-        onOpenScreenRecorder={() => setIsScreenRecorderOpen(prev => !prev)}
-        onOpenAiStudio={() => {
-          setActiveModule('AI');
-          setWorkspaceMode('STAGE');
-          setIsDrawerOpen(true);
-        }}
-        onOpenBloomSequencer={() => {
-          setWorkspaceMode('BLOOM');
-          setIsDrawerOpen(false);
-        }}
-        onSaveProjectJson={handleSaveProjectJson}
-        onRestoreProjectJson={handleRestoreProjectJson}
+        slideDurationSec={getShotDurationSec(currentFrame, 12.0)}
+        fps={getShotTargetFps(currentFrame, 24)}
+        onOpenRecorder={() => setIsScreenRecorderOpen(prev => !prev)}
+        onOpenExport={() => handleOpenExportStudio('mp4')}
+        onCompile={() => setIsCompilationWizardOpen(true)}
+        onGoHome={handleGoHome}
       />
 
       {/* Hidden Sovereign Session JSON Restore File Input */}

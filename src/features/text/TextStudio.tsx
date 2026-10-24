@@ -19,6 +19,7 @@ import { useStudioStore, HeroTitlePreset } from '../../core/store';
 import { baseThemesData } from '../../data/frames';
 import { TitleAnimationStyle, AnthologyFrame } from '../../types/anthology';
 import { eventBus } from '../../core/eventBus';
+import { TextTypographyDrawer } from '../../components/drawers/TextTypographyDrawer';
 import { 
   Type, 
   Sliders, 
@@ -67,6 +68,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
   const dialogue = currentFrame ? (currentFrame.directorNotes || '') : (currentShot.directorNotes || '');
   const soundCue = currentFrame ? (currentFrame.soundCue || '') : (currentShot.soundCue || '');
 
+  const [activeTab, setActiveTab] = useState<'presets' | 'editor'>('presets');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
   const [animationStyle, setAnimationStyle] = useState<TitleAnimationStyle>(
     (currentFrame?.titleAnimation as any) || (currentShot.titleAnimation as any) || 'flare'
@@ -250,6 +252,40 @@ export const TextStudio: React.FC<TextStudioProps> = ({
         </div>
       </div>
 
+      {/* Studio Tab Switcher: [ ✦ DIRECTOR PRESETS (10) ] / [ ✎ ADVANCED CONTROLS ] */}
+      <div className="flex border-b border-[#272732] bg-[#0c0c10] px-3 gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('presets')}
+          className={`pb-2 pt-2 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'presets'
+              ? 'border-[#F5A623] text-[#FFE066]'
+              : 'border-transparent text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#F5A623]" />
+          <span>10 DIRECTOR PRESETS</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('editor')}
+          className={`pb-2 pt-2 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'editor'
+              ? 'border-[#F5A623] text-[#FFE066]'
+              : 'border-transparent text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span>ADVANCED CONTROLS</span>
+        </button>
+      </div>
+
+      {activeTab === 'presets' ? (
+        <TextTypographyDrawer
+          currentFrame={currentFrame}
+          onUpdateFrame={onUpdateFrame}
+        />
+      ) : (
       <div className="p-3.5 sm:p-4 flex flex-col gap-4">
         {/* Dynamic Hero Title Live Stage Simulator Card */}
         <div className="p-4 rounded-[3px] bg-[#020204] border border-[#F5A623]/30 relative overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[140px] text-center">
@@ -600,6 +636,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

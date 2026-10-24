@@ -49,7 +49,9 @@ import {
   clampShotDuration,
   getShotDurationSec,
   getShotFrameCount,
-  getShotTargetFps
+  getShotTargetFps,
+  calculateMasterSequenceDuration,
+  formatRuntimeTimecode
 } from '../../types/storyboard';
 import {
   buildFilmStockCssFilter,
@@ -221,6 +223,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   const masterTimecode = useMemo(() => {
     return framesToTimecode(Math.floor(totalMasterRuntimeSec * activeShotFps), activeShotFps);
+  }, [totalMasterRuntimeSec, activeShotFps]);
+
+  const totalRuntimeTimecode = useMemo(() => {
+    return formatRuntimeTimecode(totalMasterRuntimeSec, activeShotFps);
   }, [totalMasterRuntimeSec, activeShotFps]);
 
   const handleChangeCurrentDuration = async (newDurationSec: number) => {
@@ -1123,31 +1129,49 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         </div>
 
-        {/* Hover Action Controls */}
-        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 z-40 pointer-events-auto">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
-            title="Replace Media"
-          >
-            <Upload className="w-3.5 h-3.5" />
-          </button>
-          {onOpenInspector && (
+        {/* Bottom Transport Bar Right Telemetry: TOTAL RUNTIME & ASPECT RATIO */}
+        <div className="absolute bottom-3 right-3 z-40 pointer-events-auto flex items-center gap-2">
+          {/* Relocated Telemetry: TOTAL RUNTIME */}
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-black/60 border border-white/10 text-[10px] font-mono tracking-wider text-emerald-400 select-none backdrop-blur-md shadow-lg">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>RUNTIME: {totalRuntimeTimecode}</span>
+            <span className="text-white/30">|</span>
+            <span className="text-white/60">{frames.length} SHOTS</span>
+          </div>
+
+          {/* ASPECT 2.39:1 // Cinema 35 */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded bg-black/60 border border-white/10 text-[10px] font-mono tracking-wider text-white/70 select-none backdrop-blur-md shadow-lg">
+            <span className="text-[#FFE066] font-bold">ASPECT {aspectRatio || '2.39:1'}</span>
+            <span className="text-white/30">//</span>
+            <span className="text-white/50">Cinema 35</span>
+          </div>
+
+          {/* Hover Action Controls */}
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ml-0.5">
             <button
-              onClick={onOpenInspector}
-              className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-[#ffe066] border border-white/20 transition-all cursor-pointer"
-              title="Open Color & Lens Inspector"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
+              title="Replace Media"
             >
-              <Sliders className="w-3.5 h-3.5" />
+              <Upload className="w-3.5 h-3.5" />
             </button>
-          )}
-          <button
-            onClick={toggleFullscreen}
-            className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
-            title="Toggle Stage Fullscreen"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
+            {onOpenInspector && (
+              <button
+                onClick={onOpenInspector}
+                className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-[#ffe066] border border-white/20 transition-all cursor-pointer"
+                title="Open Color & Lens Inspector"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              onClick={toggleFullscreen}
+              className="p-1.5 rounded-[2px] bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
+              title="Toggle Stage Fullscreen"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

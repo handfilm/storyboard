@@ -63,9 +63,12 @@ export interface ShotCaption {
   bengaliText?: string;
   style: CaptionStyle;
   words?: TimedWord[];
+  color?: string;
+  fontFamily?: string;
+  position?: string;
 }
 
-export type TitleAnimationStyle = 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'neon' | 'cinema-fade' | 'fade';
+export type TitleAnimationStyle = 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'neon' | 'cinema-fade' | 'fade' | 'pop' | 'slide' | 'static';
 
 export interface AnthologyFrame {
   id: number;

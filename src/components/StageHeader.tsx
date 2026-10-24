@@ -555,8 +555,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         {/* Connected Apps Dropdown [ 㗊 APPS ▾ ] */}
         <div className="relative" ref={appsMenuRef}>
           <SmartHoverCard
-            code="[ 㗊 SUITE APPS ]"
-            description="Switch between HandFilm Director Suite, Sound Vault, and Ecosystem Apps."
+            code="[ 㗊 ECOSYSTEM OS ]"
+            description="Launch the 25+ categorized subdomains across the handsandhead.com Omniverse."
             align="right"
           >
             <button

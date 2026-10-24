@@ -40,8 +40,11 @@ import { eventBus } from '../core/eventBus';
 import { useStudioStore } from '../core/store';
 import { SmartHoverCard } from './ui/SmartHoverCard';
 import { OverflowSettingsMenu } from './menus/OverflowSettingsMenu';
+import { AppsDropdownMenu } from './menus/AppsDropdownMenu';
 import { CompileEngine } from './modules/CompileEngine';
 import { RapAudioSync } from './modules/RapAudioSync';
+import { NeuralAudioEngine } from './modules/NeuralAudioEngine';
+import { VectorForgeCanvas } from './modules/VectorForgeCanvas';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -116,6 +119,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isCompileModalOpen, setIsCompileModalOpen] = useState(false);
   const [isRapSyncModalOpen, setIsRapSyncModalOpen] = useState(false);
+  const [isNeuralVoxOpen, setIsNeuralVoxOpen] = useState(false);
+  const [isVectorForgeOpen, setIsVectorForgeOpen] = useState(false);
   const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success'>('idle');
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
 
@@ -567,130 +572,25 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </button>
           </SmartHoverCard>
 
-          {isAppsMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-[#0E1015]/98 border border-white/15 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.95)] backdrop-blur-2xl p-2 text-xs font-mono text-white/85 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1">
-              <div className="px-2.5 py-1 text-[8.5px] font-bold text-[#fbbf24] border-b border-white/10 uppercase tracking-wider flex items-center justify-between">
-                <span>CONNECTED SUITE APPS</span>
-                <span className="text-emerald-400">ONLINE</span>
-              </div>
-
-              {/* 1. HUB */}
-              <a
-                href="https://hub.handsandhead.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setIsAppsMenuOpen(false)}
-                className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer text-white/90 hover:text-[#FFE066]"
-              >
-                <div className="flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-[#F5A623]" />
-                  <span className="font-bold">HUB</span>
-                </div>
-                <span className="text-[8.5px] text-zinc-500 flex items-center gap-0.5">
-                  Command Center <ExternalLink className="w-2.5 h-2.5" />
-                </span>
-              </a>
-
-              {/* 2. VAULT */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenProjectManager) onOpenProjectManager();
-                  else useStudioStore.getState().toggleLeftRail();
-                  setIsAppsMenuOpen(false);
-                }}
-                className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer text-white/90 hover:text-white"
-              >
-                <div className="flex items-center gap-2">
-                  <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="font-bold">VAULT</span>
-                </div>
-                <span className="text-[8.5px] text-zinc-500">Media Asset Store</span>
-              </button>
-
-              {/* 3. R2 / STREAM */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenR2Automation) onOpenR2Automation();
-                  else eventBus.emit('r2:open');
-                  setIsAppsMenuOpen(false);
-                }}
-                className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer text-rose-300 hover:text-rose-200"
-              >
-                <div className="flex items-center gap-2">
-                  <Cloud className="w-3.5 h-3.5 text-rose-400" />
-                  <span className="font-bold">R2 / STREAM</span>
-                </div>
-                <span className="text-[8.5px] text-rose-500/80">Cloud Storage</span>
-              </button>
-
-              {/* 4. BLOOM-APP */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenBloomSequencer) onOpenBloomSequencer();
-                  setIsAppsMenuOpen(false);
-                }}
-                className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer text-amber-200 hover:text-white"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="font-bold">BLOOM-APP</span>
-                </div>
-                <span className="text-[8.5px] text-zinc-500">Sequencer Node</span>
-              </button>
-
-              {/* 5. DEEPER / SCOPES */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenVideoScopes) onOpenVideoScopes();
-                  else eventBus.emit('scopes:open');
-                  setIsAppsMenuOpen(false);
-                }}
-                className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer text-emerald-300 hover:text-emerald-200"
-              >
-                <div className="flex items-center gap-2">
-                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="font-bold">DEEPER</span>
-                </div>
-                <span className="text-[8.5px] text-zinc-500">Video Scopes</span>
-              </button>
-
-              {/* 6. LAB / AI CO-DIRECTOR */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenAiStudio) onOpenAiStudio();
-                  setIsAppsMenuOpen(false);
-                }}
-                className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer text-purple-300 hover:text-purple-200"
-              >
-                <div className="flex items-center gap-2">
-                  <Wand2 className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="font-bold">LAB / AI DIRECTOR</span>
-                </div>
-                <span className="text-[8.5px] text-purple-400/80">Smart Beats</span>
-              </button>
-
-              {/* 7. DIRECTOR INSPECTOR */}
-              <button
-                type="button"
-                onClick={() => {
-                  useStudioStore.getState().toggleInspector();
-                  setIsAppsMenuOpen(false);
-                }}
-                className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer text-white/85"
-              >
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#F5A623]" />
-                  <span>Director Inspector</span>
-                </div>
-                <span className="text-[8.5px] text-zinc-500">Shift+E</span>
-              </button>
-            </div>
-          )}
+          <AppsDropdownMenu
+            isOpen={isAppsMenuOpen}
+            onClose={() => setIsAppsMenuOpen(false)}
+            onOpenNeuralVox={() => setIsNeuralVoxOpen(true)}
+            onOpenVectorForge={() => setIsVectorForgeOpen(true)}
+            onOpenMasteringBus={() => {
+              if (onOpenRapSync) onOpenRapSync();
+              else setIsRapSyncModalOpen(true);
+            }}
+            onOpenColorLab={() => {
+              if (onOpenVideoScopes) onOpenVideoScopes();
+              else eventBus.emit('scopes:open');
+            }}
+            onOpenProjectManager={onOpenProjectManager}
+            onOpenR2Automation={onOpenR2Automation}
+            onOpenBloomSequencer={onOpenBloomSequencer}
+            onOpenVideoScopes={onOpenVideoScopes}
+            onOpenAiStudio={onOpenAiStudio}
+          />
         </div>
 
         {/* 3-Dot Overflow Settings Menu [ ⋯ ] */}
@@ -725,6 +625,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       <RapAudioSync
         isOpen={isRapSyncModalOpen}
         onClose={() => setIsRapSyncModalOpen(false)}
+      />
+      <NeuralAudioEngine
+        isOpen={isNeuralVoxOpen}
+        onClose={() => setIsNeuralVoxOpen(false)}
+        activeShotIndex={currentIndex}
+      />
+      <VectorForgeCanvas
+        isOpen={isVectorForgeOpen}
+        onClose={() => setIsVectorForgeOpen(false)}
       />
     </header>
   );

@@ -184,10 +184,10 @@ const COMPONENT_ROWS: ComponentRow[] = [
   { key: 'motionBlur', label: 'Hypersonic Motion Blur', category: 'Optical Post FX', desc: 'Photo-motion optical edge shutter blur' }
 ];
 
-const CATEGORY_META: Record<MatrixCategory, { icon: React.ElementType; color: string }> = {
-  'Titles & Narrative': { icon: Type, color: 'text-amber-400' },
-  'Telemetry HUD': { icon: Activity, color: 'text-cyan-400' },
-  'Optical Post FX': { icon: Sparkles, color: 'text-purple-400' }
+const CATEGORY_META: Record<MatrixCategory, { id: string; icon: React.ElementType; color: string }> = {
+  'Titles & Narrative': { id: 'titles', icon: Type, color: 'text-amber-400' },
+  'Telemetry HUD': { id: 'hud', icon: Activity, color: 'text-cyan-400' },
+  'Optical Post FX': { id: 'fx', icon: Sparkles, color: 'text-purple-400' }
 };
 
 function computeCategoryEnabled(cat: MatrixCategory, vis: ComponentVisibility): boolean {
@@ -280,10 +280,21 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     }
   }, [visibility]);
 
-  // Focus search input on open
+  // Sync collapsed state for muted categories and focus search input on open
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
+      setCollapsedCategories((prev) => ({
+        'Titles & Narrative': computeCategoryEnabled('Titles & Narrative', visibility)
+          ? prev['Titles & Narrative']
+          : true,
+        'Telemetry HUD': computeCategoryEnabled('Telemetry HUD', visibility)
+          ? prev['Telemetry HUD']
+          : true,
+        'Optical Post FX': computeCategoryEnabled('Optical Post FX', visibility)
+          ? prev['Optical Post FX']
+          : true
+      }));
       setTimeout(() => searchInputRef.current?.focus(), 100);
     }
   }, [isOpen]);
@@ -341,12 +352,17 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     // Snapshot active sub-options for the category whenever at least one sub-option remains enabled
     if (rowDef) {
       const cat = rowDef.category;
-      if (computeCategoryEnabled(cat, next)) {
+      const wasCatEnabled = computeCategoryEnabled(cat, visibility);
+      const isNowCatEnabled = computeCategoryEnabled(cat, next);
+      if (isNowCatEnabled) {
         const snapshot: Partial<Record<BooleanVisibilityKey, boolean>> = {};
         COMPONENT_ROWS.filter((r) => r.category === cat).forEach((r) => {
           snapshot[r.key] = Boolean(next[r.key]);
         });
         lastActiveCategoryKeysRef.current[cat] = snapshot;
+        if (!wasCatEnabled) {
+          setCollapsedCategories((prev) => ({ ...prev, [cat]: false }));
+        }
       }
     }
 
@@ -701,6 +717,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
             return (
               <div
                 key={cat}
+                data-matrix-category={meta.id}
                 className={`matrix-category-card border rounded-md overflow-hidden ${
                   isCategoryEnabled
                     ? 'border-[#D4AF37]/30 bg-white/[0.025]'
@@ -710,7 +727,16 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                 {/* Category Header */}
                 <div
                   onClick={() => handleToggleCategoryCollapse(cat)}
-                  className="px-2.5 py-2 flex items-center justify-between cursor-pointer hover:bg-white/[0.06] transition-colors bg-black/50 border-b border-white/5"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isDrawerOpen}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleToggleCategoryCollapse(cat);
+                    }
+                  }}
+                  className="px-2.5 py-2 flex items-center justify-between cursor-pointer hover:bg-white/[0.06] transition-colors bg-black/50 border-b border-white/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFE066]"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <ChevronDown
@@ -727,12 +753,13 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                     </span>
                   </div>
 
-                  {/* Category Master Visibility Switch (triggers smooth slide-down reveal when enabled) */}
+                  {/* Category Master Visibility Switch (applies class-based height-transitioning slide-down reveal) */}
                   <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       role="switch"
                       aria-checked={isCategoryEnabled}
+                      aria-expanded={isDrawerOpen}
                       aria-label={`Toggle ${cat} visibility`}
                       onClick={(e) => handleToggleCategoryVisibility(cat, !isCategoryEnabled, e)}
                       className={`px-2 py-0.5 rounded border cursor-pointer transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFE066] ${
@@ -770,16 +797,18 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                   </div>
                 </div>
 
-                {/* Animated Slide-Down Category Body */}
+                {/* Animated Height-Transitioning Slide-Down Category Body */}
                 <div
                   className={`matrix-slide-reveal ${
-                    isDrawerOpen ? 'matrix-slide-reveal-open' : 'matrix-slide-reveal-closed'
+                    isDrawerOpen
+                      ? 'matrix-slide-reveal-open is-expanded'
+                      : 'matrix-slide-reveal-closed is-collapsed'
                   }`}
                   aria-hidden={!isDrawerOpen}
                 >
                   <div className="matrix-slide-inner">
                     <div className="p-1.5 flex flex-col gap-1">
-                      {/* For Titles & Narrative: Master Toggle + Slide-Down Sub-Options & .title-block Opacity Slider */}
+                      {/* For Titles & Narrative: Master Toggle + Height-Transitioning Sub-Options & --title-block-opacity Slider */}
                       {cat === 'Titles & Narrative' ? (
                         <>
                           {masterTitleRow && renderToggleRow(masterTitleRow)}
@@ -787,8 +816,8 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                           <div
                             className={`matrix-slide-reveal ${
                               areTitleSubOptionsRevealed
-                                ? 'matrix-slide-reveal-open'
-                                : 'matrix-slide-reveal-closed'
+                                ? 'matrix-slide-reveal-open is-expanded'
+                                : 'matrix-slide-reveal-closed is-collapsed'
                             }`}
                             aria-hidden={!areTitleSubOptionsRevealed}
                           >
@@ -810,7 +839,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                                           type="button"
                                           onClick={() => handleTitleOpacityChange(1.0)}
                                           className="text-[8.5px] text-zinc-400 hover:text-[#FFE066] underline cursor-pointer whitespace-nowrap"
-                                          title="Reset .title-block opacity variable to 100%"
+                                          title="Reset title container opacity to 100%"
                                         >
                                           Reset
                                         </button>
@@ -828,6 +857,12 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                                     max={1}
                                     step={0.01}
                                     value={titleOpacity}
+                                    data-css-var="--title-block-opacity"
+                                    onInput={(e) =>
+                                      applyTitleBlockOpacityCssVar(
+                                        parseFloat((e.target as HTMLInputElement).value)
+                                      )
+                                    }
                                     onChange={(e) => handleTitleOpacityChange(parseFloat(e.target.value))}
                                     aria-label="Title Block Opacity"
                                     aria-valuemin={0}
@@ -837,7 +872,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                                   />
 
                                   <div className="flex items-center justify-between text-[8px] text-white/40">
-                                    <span>CSS var(--title-block-opacity)</span>
+                                    <span>Softens title contrast over complex plates</span>
                                     <span className="tabular-nums">0% – 100%</span>
                                   </div>
                                 </div>

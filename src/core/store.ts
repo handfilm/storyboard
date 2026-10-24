@@ -187,6 +187,12 @@ const baseDefaultVisibility: ComponentVisibility = {
   titleOpacity: 1.0
 };
 
+function syncRootTitleBlockOpacityVar(opacity: number): void {
+  if (typeof document !== 'undefined') {
+    document.documentElement.style.setProperty('--title-block-opacity', String(opacity));
+  }
+}
+
 function hydrateInitialStoreVisibility(): ComponentVisibility {
   if (typeof window === 'undefined') return { ...baseDefaultVisibility };
   try {
@@ -194,15 +200,18 @@ function hydrateInitialStoreVisibility(): ComponentVisibility {
     if (raw) {
       const parsed = JSON.parse(raw);
       const parsedOpacity = typeof parsed.titleOpacity === 'number' ? parsed.titleOpacity : 1.0;
+      const clampedOpacity = Math.max(0, Math.min(1, Math.round(parsedOpacity * 100) / 100));
+      syncRootTitleBlockOpacityVar(clampedOpacity);
       return {
         ...baseDefaultVisibility,
         ...parsed,
-        titleOpacity: Math.max(0, Math.min(1, Math.round(parsedOpacity * 100) / 100))
+        titleOpacity: clampedOpacity
       };
     }
   } catch {
     // ignore storage errors
   }
+  syncRootTitleBlockOpacityVar(baseDefaultVisibility.titleOpacity);
   return { ...baseDefaultVisibility };
 }
 
@@ -339,6 +348,7 @@ export const useStudioStore = create<StudioState>()(
     },
     setTitleOpacity: (opacity: number) => {
       const clamped = Math.max(0, Math.min(1, Math.round(opacity * 100) / 100));
+      syncRootTitleBlockOpacityVar(clamped);
       set((state) => {
         state.titleConfig.titleOpacity = clamped;
         state.visibility.titleOpacity = clamped;
@@ -353,6 +363,10 @@ export const useStudioStore = create<StudioState>()(
       eventBus.emit('titles:toggle', get().titleConfig.showTitles);
     },
     setTitleConfig: (partial: Partial<HeroTitleConfig>) => {
+      if (partial.titleOpacity !== undefined) {
+        const clamped = Math.max(0, Math.min(1, Math.round(partial.titleOpacity * 100) / 100));
+        syncRootTitleBlockOpacityVar(clamped);
+      }
       set((state) => {
         Object.assign(state.titleConfig, partial);
         if (partial.showTitles !== undefined) {
@@ -565,6 +579,10 @@ export const useStudioStore = create<StudioState>()(
     },
 
     setVisibilityItem: <K extends keyof ComponentVisibility>(key: K, value: ComponentVisibility[K]) => {
+      if (key === 'titleOpacity' && typeof value === 'number') {
+        const clamped = Math.max(0, Math.min(1, Math.round(value * 100) / 100));
+        syncRootTitleBlockOpacityVar(clamped);
+      }
       set((state) => {
         state.visibility[key] = value;
         if (key === 'titleOpacity' && typeof value === 'number') {

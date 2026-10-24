@@ -1768,7 +1768,7 @@ export default function App() {
         />
       )}
 
-      {/* Sleek Single-Tier Master Header (Strictly 48px / h-12) */}
+      {/* Sleek Single-Tier Master Header */}
       <StageHeader
         currentPanel={activeDualPanel}
         onSelectPanel={(panel) => {
@@ -1788,6 +1788,22 @@ export default function App() {
         onOpenExport={() => handleOpenExportStudio('mp4')}
         onCompile={() => setIsCompilationWizardOpen(true)}
         onGoHome={handleGoHome}
+        onOpenManifesto={() => setShowWalkthrough(true)}
+        onOpenProjectManager={() => setIsProjectManagerOpen(true)}
+        onOpenR2Automation={() => setIsR2AutomationOpen(true)}
+        onOpenBloomSequencer={() => {
+          setWorkspaceMode('BLOOM');
+          setIsDrawerOpen(false);
+        }}
+        onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
+        onOpenAiStudio={() => {
+          setActiveModule('AI');
+          setWorkspaceMode('STAGE');
+          setIsDrawerOpen(true);
+        }}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenDiagnostics={() => setIsSelfTestOpen(true)}
       />
 
       {/* Hidden Sovereign Session JSON Restore File Input */}

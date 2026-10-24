@@ -739,7 +739,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       ref={containerRef}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
-      className="relative w-full h-full flex flex-col items-center justify-center bg-[#050505] overflow-hidden select-none p-2 sm:p-4"
+      className="relative w-full h-full flex flex-col items-center justify-center pt-2 sm:pt-3 pb-10 sm:pb-14 bg-[#050505] overflow-hidden select-none px-2 sm:px-6"
     >
       {/* Hidden File Input */}
       <input
@@ -776,10 +776,33 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* Primary Video / Image Viewport Container */}
+      {/* Sleek Tactical Scene Hairline Ribbon (Above Video Player) */}
+      <div className="w-full max-w-[1360px] mx-auto px-2 mb-2 flex items-center justify-between text-white/40 text-[10px] font-mono tracking-widest uppercase select-none shrink-0 border-b border-white/5 pb-1">
+        <div className="flex items-center gap-2 truncate">
+          <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>
+          <span className="text-white/20">//</span>
+          <span className="text-white/80 font-semibold">SHOT {String(currentIndex + 1).padStart(2, '0')}</span>
+          <span className="text-white/20">•</span>
+          <span className="text-zinc-300 truncate">"{frame?.title || 'UNTITLED SHOT'}"</span>
+          <span className="text-white/20">•</span>
+          <span className="text-[#FFE066]/70">{aspectRatio || '2.39:1'} ANAMORPHIC SCOPE</span>
+        </div>
+        <div className="hidden sm:flex items-center gap-3 text-[9px] text-white/30 shrink-0">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-zinc-400">CALIBRATED</span>
+          </span>
+          <span className="text-white/20">|</span>
+          <span>MASTER MONITOR</span>
+          <span className="text-white/20">|</span>
+          <span className="text-emerald-400 font-mono">14-BIT ARRI</span>
+        </div>
+      </div>
+
+      {/* Primary Video / Image Viewport Container (Scaled up ~16% to 1360px / max-h-[76vh]) */}
       <div
         style={getAspectStyle(aspectRatio)}
-        className="relative w-full max-h-full max-w-6xl mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
+        className="relative w-full max-h-[76vh] max-w-[1360px] mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
       >
         {/* Outgoing Base Plate for Cinematic Cross-Dissolve Transition */}
         {outgoingMedia && isCrossDissolving && (

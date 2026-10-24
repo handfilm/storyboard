@@ -14,6 +14,7 @@
  */
 
 import { MultiCamGroup } from '../types/multicam';
+import { studioDraftDb, VaultMediaItem } from './db';
 
 export interface ShotSessionState {
   id: string;
@@ -209,6 +210,31 @@ class ProjectStorageEngine {
     }
     await this.saveSession(parsed);
     return parsed;
+  }
+
+  /**
+   * Sanitized Master Vault Ingestion:
+   * Returns ONLY true user-uploaded primary media, completely excluding internal
+   * thumbnail blobs, downscaled canvas proxy bitmaps, and intermediate slice caches.
+   */
+  public async getMasterMediaItems(): Promise<VaultMediaItem[]> {
+    return studioDraftDb.getMasterVaultMedia();
+  }
+
+  /**
+   * Save primary user master media into the partitioned vault.
+   */
+  public async saveMasterMedia(file: File, customName?: string): Promise<VaultMediaItem> {
+    return studioDraftDb.saveMediaToVault(file, customName);
+  }
+
+  /**
+   * One-click storage maintenance trigger:
+   * Purges orphan thumbnail blobs, temporary downscaled proxy canvas streams,
+   * and transient slice caches without deleting any imported master footage.
+   */
+  public async purgeOrphanThumbsAndTempCache(): Promise<{ purgedCount: number; freedEstimatesBytes: number }> {
+    return studioDraftDb.purgeTransientCache();
   }
 }
 

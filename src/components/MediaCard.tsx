@@ -371,8 +371,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
         {/* Top-Right: IDB STORED Badge & Delete Button */}
         <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
-          <span className="px-1.5 py-0.2 bg-[#062c1d]/95 text-[7px] font-bold text-emerald-400 border border-emerald-500/50 rounded-[1px] tracking-wider shadow-sm">
-            IDB STORED
+          <span className="px-1.5 py-0.2 bg-[#2a1d06]/95 text-[7px] font-bold text-[#F5A623] border border-[#F5A623]/60 rounded-[1px] tracking-wider shadow-sm" title="Original Uncompressed Master Asset">
+            MASTER RAW
           </span>
           <button
             type="button"

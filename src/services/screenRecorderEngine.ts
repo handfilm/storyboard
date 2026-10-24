@@ -145,7 +145,8 @@ class ScreenRecorderEngine {
         displaySurface: resolution === 'window' ? 'window' : 'monitor',
         width: { ideal: width, max: width },
         height: { ideal: height, max: height },
-        frameRate: { ideal: 60, max: 60 }
+        frameRate: { ideal: 60, max: 60 },
+        selfBrowserSurface: 'exclude'
       } as any,
       audio: true // System audio request
     };

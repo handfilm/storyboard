@@ -60,6 +60,7 @@ import { SlideDraft, AspectRatioType, ProjectDraft } from './types/project';
 import { CinemaPlayer } from './components/player/CinemaPlayer';
 import { keyScopeManager } from './core/keyScopeManager';
 import { ScreenRecorderFloatingBar } from './components/recorder/ScreenRecorderFloatingBar';
+import { FloatingPillRecorder } from './components/recorder/FloatingPillRecorder';
 import { QuickTrimPreviewModal } from './components/recorder/QuickTrimPreviewModal';
 import { AdvancedTrimmerModal } from './components/recorder/AdvancedTrimmerModal';
 import { RecordedCaptureResult } from './services/screenRecorderEngine';
@@ -537,11 +538,32 @@ export default function App() {
       }
     });
 
+    const unsubRecorder = eventBus.on('recorder:open', () => {
+      setIsScreenRecorderOpen(true);
+    });
+    const unsubExport = eventBus.on('export:open', () => {
+      handleOpenExportStudio('mp4');
+    });
+    const unsubShortcuts = eventBus.on('shortcuts:open', () => {
+      setIsShortcutsOpen(true);
+    });
+    const unsubDiagnostics = eventBus.on('diagnostics:open', () => {
+      setIsSelfTestOpen(true);
+    });
+    const unsubTheme = eventBus.on('theme:open', () => {
+      setIsThemeSettingsOpen(true);
+    });
+
     return () => {
       unsub();
       unsubAsset();
+      unsubRecorder();
+      unsubExport();
+      unsubShortcuts();
+      unsubDiagnostics();
+      unsubTheme();
     };
-  }, []);
+  }, [handleOpenExportStudio]);
 
   // Initialize Storage Core & Check Crash Status on Mount
   useEffect(() => {
@@ -2086,6 +2108,8 @@ export default function App() {
           onUpdateMultiCamGroup={setMultiCamGroup}
           multiCamLayoutConfig={multiCamLayoutConfig}
           onChangeMultiCamLayoutConfig={setMultiCamLayoutConfig}
+          onOpenRecorder={() => setIsScreenRecorderOpen(true)}
+          onOpenExport={() => handleOpenExportStudio('mp4')}
         />
 
         {/* Director Inspector Sidebar Drawer */}
@@ -2314,8 +2338,8 @@ export default function App() {
         onUploadMedia={handleUploadImage}
       />
 
-      {/* Zero-Lag 4K/60FPS Screen Recorder Floating Control Dock */}
-      <ScreenRecorderFloatingBar
+      {/* Isolated Draggable Red-Pill Screen Recorder Widget */}
+      <FloatingPillRecorder
         isOpen={isScreenRecorderOpen}
         onClose={() => setIsScreenRecorderOpen(false)}
         onRecordingComplete={handleRecordingComplete}

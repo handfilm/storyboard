@@ -108,6 +108,8 @@ interface MainWorkspaceProps {
   onUpdateMultiCamGroup?: (group: MultiCamGroup) => void;
   multiCamLayoutConfig?: MultiCamGridConfig;
   onChangeMultiCamLayoutConfig?: (config: MultiCamGridConfig) => void;
+  onOpenRecorder?: () => void;
+  onOpenExport?: () => void;
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
@@ -178,7 +180,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   multiCamGroup,
   onUpdateMultiCamGroup,
   multiCamLayoutConfig,
-  onChangeMultiCamLayoutConfig
+  onChangeMultiCamLayoutConfig,
+  onOpenRecorder,
+  onOpenExport
 }) => {
   // Local dual-panel view selection if not externally controlled (TACTILE STAGE is the default primary stage)
   const [localDualPanel, setLocalDualPanel] = useState<StagePanelType>(activeDualPanel || 'TACTILE_STAGE');
@@ -399,6 +403,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         onSelectPlaybackMode={onSelectPlaybackMode}
         slideDurationSec={getShotDurationSec(currentFrame, 12.0)}
         fps={getShotTargetFps(currentFrame, 24)}
+        onOpenRecorder={onOpenRecorder}
+        onOpenExport={onOpenExport || onOpenExportTimeline}
       />
 
       {/* Main Viewport Content based on active panel */}

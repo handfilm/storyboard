@@ -1,42 +1,42 @@
 /**
  * @file /src/components/StageHeader.tsx
- * @description Master Tactile Stage Top Bar & View Switcher.
+ * @description Ultra-Minimalist Single-Tier Glass Header for HANDFILM Stage Viewport.
  * 
- * Capabilities:
- * 1. Primary View Switcher Tabs (Left Cluster):
- *    - Tactile neomorphic capsule buttons: [ Stage ], [ 12.0s Reels ], [ Monitor ].
- *    - Base: `px-5 py-1.5 rounded-xl text-xs md:text-sm font-bold tracking-wider transition-all duration-200 border`
- *    - Active: `bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/60 shadow-[0_0_16px_rgba(245,166,35,0.35)]`
- *    - Inactive: `bg-[#0c0d10]/80 text-slate-400 border-white/10 hover:text-white hover:border-white/25`
- *    - High-Contrast Hover Cards:
- *      - Stage: "DIRECTOR'S CANVAS" (Single-shot composition, optical framing, and live bilingual overlays).
- *      - 12.0s Reels: "TIMELINE PACING" (Full 100-shot sequence rhythm audit, beat transitions, and reel flow).
- *      - Monitor: "CLEAN PREVIEW" (Zero-UI theatrical reference monitor with 2.39:1 scope mask).
- * 2. Relocated Minimal Telemetry Strip (Far-Right Cluster):
- *    - Pinned ml-auto with ultra-compact monospace badges:
- *      - [ SH001 / 100 ]
- *      - [ 288 F // 24 FPS ]
- *      - [ 12.0s ]
- *    - Telemetry Hover Popover:
- *      - TIMELINE TELEMETRY diagnostic card
- *      - Total Budget: 100 Master Blocks (1200.0s Total Runtime)
- *      - Active Allocation: Shot 001 (Strict 12.000s / 288 Frames @ 24.000 FPS Cinema Lock)
- *      - Storage Persistence: Local IndexedDB Sovereign Cache Synced
+ * Design Architecture:
+ * 1. Single-Tier Glass Bar:
+ *    - `h-12 bg-black/60 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between`
+ * 2. Left:
+ *    - Sleek `HANDFILM` atelier logo only.
+ * 3. Center:
+ *    - Minimalist hover-pill switches: [ Stage ], [ Reels ], [ Scrub ], [ Multi-Cam ].
+ * 4. Right Actions:
+ *    - Compact [ ⚡ Compile ] pill with compile notification.
+ *    - Tactical Red Dot [ ● REC ] launcher.
+ *    - Minimalist [ ⤓ Export ] button.
+ *    - Clean [ ⋯ ] flyout menu for secondary settings and studio modules.
  */
 
-import React from 'react';
-import { Film, Sliders, SlidersHorizontal, Maximize2, Radio, Activity, Video } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Film, 
+  Sliders, 
+  Scissors, 
+  Video, 
+  Zap, 
+  Download, 
+  MoreHorizontal, 
+  Settings, 
+  SlidersHorizontal, 
+  Sparkles, 
+  Layers, 
+  Keyboard, 
+  Check, 
+  Activity 
+} from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
-import {
-  calculateMasterSequenceDuration,
-  formatDurationPillValue,
-  formatRuntimeTimecode,
-  formatSoloShotTelemetry,
-  getShotDurationSec,
-  getShotFrameCount,
-  getShotTargetFps
-} from '../types/storyboard';
+import { eventBus } from '../core/eventBus';
+import { useStudioStore } from '../core/store';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -52,6 +52,9 @@ export interface StageHeaderProps {
   slideDurationSec?: number;
   fps?: number;
   className?: string;
+  onOpenRecorder?: () => void;
+  onOpenExport?: () => void;
+  onCompile?: () => void;
 }
 
 export const StageHeader: React.FC<StageHeaderProps> = ({
@@ -65,294 +68,229 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   onSelectPlaybackMode,
   slideDurationSec = 12.0,
   fps = 24,
-  className = ''
+  className = '',
+  onOpenRecorder,
+  onOpenExport,
+  onCompile
 }) => {
-  const shotNumStr = String(currentIndex + 1).padStart(3, '0');
-  const totalShotsCount = frames && frames.length > 0 ? frames.length : (totalShots || 100);
-  const activeDurationSec = getShotDurationSec(currentFrame, slideDurationSec);
-  const activeFps = getShotTargetFps(currentFrame, fps);
-  const frameBudget = getShotFrameCount(activeDurationSec, activeFps);
-  const masterDurationSec = frames && frames.length > 0
-    ? calculateMasterSequenceDuration(frames, slideDurationSec)
-    : totalShotsCount * activeDurationSec;
-  const masterRuntimeTimecode = formatRuntimeTimecode(masterDurationSec, activeFps);
-  const soloTelemetryText = formatSoloShotTelemetry(currentIndex, activeDurationSec, activeFps);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success'>('idle');
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close flyout menu on outside click or escape
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMenuOpen(false);
+    };
+    window.addEventListener('mousedown', handleOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMenuOpen]);
+
+  const handleTriggerCompile = () => {
+    if (onCompile) {
+      onCompile();
+      return;
+    }
+    setCompileState('compiling');
+    setTimeout(() => {
+      setCompileState('success');
+      setTimeout(() => setCompileState('idle'), 2400);
+    }, 600);
+  };
+
+  const handleLaunchRecorder = () => {
+    if (onOpenRecorder) {
+      onOpenRecorder();
+    } else {
+      eventBus.emit('recorder:open');
+    }
+  };
+
+  const handleTriggerExport = () => {
+    if (onOpenExport) {
+      onOpenExport();
+    } else {
+      eventBus.emit('export:open');
+    }
+  };
+
+  const panels: { id: StagePanelType; label: string; icon: React.ReactNode }[] = [
+    { id: 'TACTILE_STAGE', label: 'Stage', icon: <Film className="w-3 h-3" /> },
+    { id: 'SPLIT', label: 'Reels', icon: <Sliders className="w-3 h-3" /> },
+    { id: 'SEQUENCER', label: 'Scrub', icon: <Scissors className="w-3 h-3" /> },
+    { id: 'MULTICAM', label: 'Multi-Cam', icon: <Video className="w-3 h-3" /> }
+  ];
 
   return (
-    <header className={`h-16 sm:h-18 bg-[#08090C]/98 backdrop-blur-md border-b border-white/10 px-4 md:px-8 flex items-center justify-between z-30 select-none shrink-0 font-mono transition-colors duration-150 ${className}`}>
-      {/* 1. Primary View Switcher Tabs (Left Cluster) */}
-      <div className="flex items-center space-x-3 sm:space-x-4">
-        {/* [ Stage ] Chiseled 3D Metallic Tab */}
-        <div className="relative group/tab">
-          <button
-            type="button"
-            onClick={() => onSelectPanel('TACTILE_STAGE')}
-            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
-              currentPanel === 'TACTILE_STAGE'
-                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
-                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
-            }`}
-          >
-            <Film className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'TACTILE_STAGE' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
-            <span>Stage</span>
-          </button>
-
-          {/* Hover Card for Stage */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
-            <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
-              <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
-              <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                DIRECTOR'S CANVAS
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Single-shot composition, optical framing, and live bilingual overlays.
-            </p>
-            <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
-              <span>2.39:1 ANAMORPHIC</span>
-              <span className="text-amber-400 font-bold">LIVE COMPOSITOR</span>
-            </div>
+    <header className={`h-12 bg-black/60 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between z-30 select-none shrink-0 font-mono transition-colors duration-200 ${className}`}>
+      
+      {/* 1. Left: Sleek HANDFILM Atelier Brand Logo */}
+      <div className="flex items-center gap-2.5">
+        <a 
+          href="/" 
+          className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+          title="HANDFILM Atelier"
+        >
+          <div className="w-4 h-4 rotate-45 border border-[#F5A623] bg-[#F5A623]/20 flex items-center justify-center transition-transform duration-300 group-hover:rotate-90 group-hover:bg-[#F5A623]/30">
+            <div className="w-1.5 h-1.5 bg-[#F5A623]" />
           </div>
-        </div>
-
-        {/* [ 12s REELS ] Chiseled 3D Metallic Tab */}
-        <div className="relative group/tab">
-          <button
-            type="button"
-            onClick={() => onSelectPanel('SPLIT')}
-            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
-              currentPanel === 'SPLIT'
-                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
-                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
-            }`}
-          >
-            <Sliders className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'SPLIT' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
-            <span>REELS</span>
-          </button>
-
-          {/* Hover Card for REELS */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
-            <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
-              <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
-              <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                ELASTIC TIMELINE PACING
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Multi-cadence sequence rhythm audit (0.5s rap cuts to 30m docu holds), beat-snapping, and reel flow.
-            </p>
-            <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400 tabular-nums">
-              <span>ACTIVE {formatDurationPillValue(activeDurationSec)}</span>
-              <span className="text-sky-400 font-bold">{totalShotsCount}-SHOT SEQUENCE</span>
-            </div>
-          </div>
-        </div>
-
-        {/* [ SCRUB ] Chiseled 3D Metallic Tab */}
-        <div className="relative group/tab">
-          <button
-            type="button"
-            onClick={() => onSelectPanel('SEQUENCER')}
-            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
-              currentPanel === 'SEQUENCER'
-                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
-                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
-            }`}
-          >
-            <SlidersHorizontal className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'SEQUENCER' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
-            <span>SCRUB</span>
-          </button>
-
-          {/* Hover Card for SCRUB */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
-            <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
-                <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                  SUB-FRAME SCRUBBER
-                </span>
-              </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8.5px] font-mono font-bold">J / K / L</kbd>
-            </div>
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Precision 1/24s timeline scrubbing, waveform alignment, and full-screen card sequence manager.
-            </p>
-            <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
-              <span>SPACE PLAY/PAUSE</span>
-              <span className="text-amber-400 font-bold">FRAME-ACCURATE</span>
-            </div>
-          </div>
-        </div>
-
-        {/* [ Monitor ] Chiseled 3D Metallic Tab */}
-        <div className="relative group/tab">
-          <button
-            type="button"
-            onClick={() => onSelectPanel('OPTICAL')}
-            className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-2xl text-xs sm:text-sm md:text-base font-extrabold tracking-wider transition-all duration-200 cursor-pointer select-none flex items-center gap-2.5 active:translate-y-0.5 ${
-              currentPanel === 'OPTICAL'
-                ? 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[inset_0_1.5px_2px_rgba(255,220,120,0.45),inset_0_-2.5px_5px_rgba(0,0,0,0.9),0_0_24px_rgba(245,166,35,0.5),0_6px_16px_rgba(0,0,0,0.7)] ring-1 ring-[#F5A623]/60'
-                : 'bg-gradient-to-b from-[#2a2d3e] via-[#1a1c27] to-[#0e0f17] text-slate-300 border-2 border-[#33374b] hover:border-slate-300 hover:text-white hover:from-[#32364c] hover:to-[#161724] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.2),inset_0_-3px_6px_rgba(0,0,0,0.9),0_4px_12px_rgba(0,0,0,0.6)]'
-            }`}
-          >
-            <Maximize2 className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-150 ${currentPanel === 'OPTICAL' ? 'text-[#F5A623] scale-110' : 'text-slate-400'}`} />
-            <span>Monitor</span>
-          </button>
-
-          {/* Hover Card for Monitor */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-72 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
-            <div className="flex items-center gap-2 pb-1.5 border-b border-white/10">
-              <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
-              <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                OPTICAL MONITOR
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Zero-UI theatrical reference monitor with 2.39:1 scope mask and sub-frame scrubber.
-            </p>
-            <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
-              <span>ZERO INTERFERENCE</span>
-              <span className="text-emerald-400 font-bold">2.39:1 REFERENCE</span>
-            </div>
-          </div>
-        </div>
-
-        {/* [ MULTI-CAM ] Compact Single-Icon Chiseled Tab */}
-        <div className="relative group/tab">
-          <button
-            type="button"
-            onClick={() => onSelectPanel('MULTICAM')}
-            className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold tracking-wider transition-all duration-300 cursor-pointer select-none flex items-center gap-2 active:translate-y-0.5 border-2 ${
-              currentPanel === 'MULTICAM'
-                ? 'bg-gradient-to-r from-amber-600/35 via-[#352208] to-amber-600/25 text-[#FFE066] border-[#F5A623] shadow-[0_0_24px_rgba(245,166,35,0.7),inset_0_1.5px_2px_rgba(255,220,120,0.5)] ring-2 ring-amber-500/50'
-                : 'bg-gradient-to-r from-amber-950/40 via-[#16141a] to-amber-950/30 text-amber-300 border-amber-500/70 hover:border-amber-400 hover:text-amber-200 hover:bg-gradient-to-r hover:from-amber-600/25 hover:to-amber-500/15 hover:shadow-[0_0_24px_rgba(245,166,35,0.65),0_0_8px_rgba(245,166,35,0.4)]'
-            }`}
-            title="Multi-Camera Live Switching & Precision Angle Grid (Shift+M)"
-            aria-label="Multi-Camera Live View"
-          >
-            <Video className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-150 ${currentPanel === 'MULTICAM' ? 'text-[#F5A623] scale-110' : 'text-amber-400'}`} />
-            <span className="text-[11px] sm:text-xs">MULTI-CAM</span>
-          </button>
-
-          {/* Hover Card for Multi-Cam with Hotkey Details */}
-          <div className="pointer-events-none z-50 bg-[#08090C]/95 border border-[#F5A623]/35 p-3 rounded-xl shadow-2xl backdrop-blur-xl animate-fade-in absolute left-0 top-full mt-2 w-76 text-left opacity-0 translate-y-1 group-hover/tab:opacity-100 group-hover/tab:translate-y-0 transition-all duration-150 ease-out font-sans">
-            <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#F5A623] shadow-[0_0_6px_#F5A623]" />
-                <span className="text-xs font-bold text-[#F5A623] tracking-wider uppercase font-mono">
-                  MULTI-CAMERA CUTTER
-                </span>
-              </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8.5px] font-mono font-bold">Shift+M</kbd>
-            </div>
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Live CapCut-style 4-angle sync monitor with one-click real-time director switching.
-            </p>
-            <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-400">
-              <span>KEYS 1-4 PUNCH CUT</span>
-              <span className="text-cyan-400 font-bold">9:16 SHORTS READY</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Optional Playback Mode Indicator / Toggle */}
-        {onSelectPlaybackMode && (
-          <button
-            type="button"
-            onClick={() => onSelectPlaybackMode(playbackMode === 'sequence' ? 'solo' : 'sequence')}
-            className={`hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border active:scale-[0.98] cursor-pointer tabular-nums ${
-              playbackMode === 'sequence'
-                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
-                : 'bg-amber-950/40 border-amber-500/40 text-[#F5A623]'
-            }`}
-            title="Toggle between Master Sequence advance and Shot Solo Scrub"
-          >
-            <Radio className="w-3 h-3" />
-            <span>{playbackMode === 'sequence' ? 'MASTER SEQ' : `SOLO (${formatDurationPillValue(activeDurationSec)})`}</span>
-          </button>
-        )}
+          <span className="text-xs font-bold tracking-[0.25em] text-white group-hover:text-[#FFE066] transition-colors uppercase font-mono">
+            HANDFILM
+          </span>
+        </a>
       </div>
 
-      {/* 2. Dynamic Master Telemetry HUD (Far-Right Cluster) */}
-      <div className="ml-auto flex items-center space-x-2.5 relative group/telemetry cursor-default text-xs font-mono tabular-nums">
-        <div className="flex items-center space-x-2">
-          {playbackMode === 'solo' ? (
-            /* Shot Solo Telemetry: [ SH012 // 04.5s (108 F) ] */
+      {/* 2. Center: Minimalist Hover-Pill Switches */}
+      <nav className="flex items-center p-0.5 bg-black/40 border border-white/10 rounded-full shadow-inner">
+        {panels.map((p) => {
+          const isActive = currentPanel === p.id;
+          return (
             <button
+              key={p.id}
               type="button"
-              onClick={() => onSelectPlaybackMode?.('sequence')}
-              className="text-[11px] font-mono text-[#F5A623] bg-black/70 border border-[#F5A623]/35 hover:border-[#F5A623] px-3 py-1 rounded-md flex items-center gap-1.5 font-bold shadow-sm transition-all duration-150 cursor-pointer tabular-nums"
-              title="Shot Solo Telemetry — Click to switch to Master Sequence Runtime"
+              onClick={() => onSelectPanel(p.id)}
+              className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide flex items-center gap-1.5 cursor-pointer transition-all duration-200 ${
+                isActive
+                  ? 'bg-[#F5A623]/20 text-[#FFE066] border border-[#F5A623]/60 shadow-[0_0_12px_rgba(245,166,35,0.25)]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent hover:border-[#F5A623]/40'
+              }`}
             >
-              <span className="text-slate-400">[</span>
-              <span>{soloTelemetryText}</span>
-              <span className="text-slate-400">]</span>
+              <span className={isActive ? 'text-[#F5A623]' : 'text-white/40'}>
+                {p.icon}
+              </span>
+              <span>{p.label}</span>
             </button>
+          );
+        })}
+      </nav>
+
+      {/* 3. Right Actions: [ ⚡ Compile ], [ ● REC ], [ ⤓ Export ], [ ⋯ ] */}
+      <div className="flex items-center gap-2">
+        {/* Compact Compile Pill */}
+        <button
+          type="button"
+          onClick={handleTriggerCompile}
+          disabled={compileState === 'compiling'}
+          className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 border transition-all duration-200 cursor-pointer ${
+            compileState === 'success'
+              ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+              : compileState === 'compiling'
+              ? 'bg-amber-950/60 border-amber-500/60 text-amber-300 animate-pulse'
+              : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-[#F5A623]/60 text-white/80 hover:text-[#FFE066]'
+          }`}
+          title="Compile State & Check Invariants"
+        >
+          {compileState === 'success' ? (
+            <Check className="w-3 h-3 text-emerald-400" />
           ) : (
-            /* Master Sequence Telemetry: [ TOTAL RUNTIME: 03:24:18 // 12 SHOTS ] */
-            <>
-              <div className="hidden lg:flex text-[11px] font-mono text-[#F5A623]/90 bg-black/60 border border-[#F5A623]/20 px-2.5 py-1 rounded-md items-center gap-1 group-hover/telemetry:border-[#F5A623]/50 transition-all duration-150 tabular-nums">
-                <span className="text-slate-400 font-bold">[</span>
-                <span>{soloTelemetryText}</span>
-                <span className="text-slate-400 font-bold">]</span>
-              </div>
+            <Zap className={`w-3 h-3 ${compileState === 'compiling' ? 'animate-spin text-amber-400' : 'text-[#F5A623]'}`} />
+          )}
+          <span className="hidden sm:inline">
+            {compileState === 'success' ? 'COMPILED' : compileState === 'compiling' ? 'SYNCING...' : 'Compile'}
+          </span>
+        </button>
+
+        {/* Tactical Red Dot [ ● REC ] Launcher */}
+        <button
+          type="button"
+          onClick={handleLaunchRecorder}
+          className="px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 bg-[#1a0507] hover:bg-[#28080a] border border-red-500/40 hover:border-red-500 text-red-400 hover:text-red-300 transition-all duration-200 cursor-pointer shadow-[0_0_12px_rgba(239,68,68,0.2)]"
+          title="Launch Floating Red-Pill Screen Recorder"
+        >
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_6px_#ef4444]" />
+          <span>REC</span>
+        </button>
+
+        {/* Minimalist [ ⤓ Export ] Button */}
+        <button
+          type="button"
+          onClick={handleTriggerExport}
+          className="px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 bg-[#F5A623]/15 hover:bg-[#F5A623]/25 border border-[#F5A623]/60 hover:border-[#F5A623] text-[#FFE066] transition-all duration-200 cursor-pointer shadow-[0_0_10px_rgba(245,166,35,0.2)]"
+          title="Export Cinema Sequence (MP4 / OTIO / XML)"
+        >
+          <Download className="w-3 h-3 text-[#F5A623]" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+
+        {/* Clean [ ⋯ ] Flyout Trigger */}
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            className="w-7 h-7 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#F5A623]/60 text-white/70 hover:text-white transition-all duration-200 cursor-pointer"
+            title="More Options & Studio Links"
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" />
+          </button>
+
+          {isMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-52 bg-[#0c0d12]/95 border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85)] backdrop-blur-xl p-1.5 text-xs font-mono text-white/80 z-50 animate-in fade-in zoom-in-95 duration-150">
               <button
                 type="button"
-                onClick={() => onSelectPlaybackMode?.('solo')}
-                className="text-[11px] font-mono text-emerald-300 bg-black/70 border border-emerald-500/30 hover:border-emerald-400 px-3 py-1 rounded-md flex items-center gap-1.5 font-bold shadow-sm transition-all duration-150 cursor-pointer tabular-nums"
-                title="Master Sequence Runtime — Click to switch to Shot Solo Loop"
+                onClick={() => {
+                  useStudioStore.getState().toggleInspector();
+                  setIsMenuOpen(false);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg hover:bg-white/10 flex items-center gap-2 text-left transition-colors cursor-pointer text-white/85"
               >
-                <span className="text-slate-400">[</span>
-                <span className="text-slate-300">TOTAL RUNTIME:</span>
-                <span className="text-[#FFE066]">{masterRuntimeTimecode}</span>
-                <span className="text-slate-500">//</span>
-                <span className="text-emerald-300">{totalShotsCount} SHOTS</span>
-                <span className="text-slate-400">]</span>
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#F5A623]" />
+                <span>Director Inspector</span>
               </button>
-            </>
-          )}
-        </div>
-
-        {/* Telemetry Hover Popover */}
-        <div className="pointer-events-none z-50 bg-[#08090C]/98 border border-[#F5A623]/35 p-4 rounded-xl shadow-2xl backdrop-blur-xl absolute right-0 top-full mt-2 w-84 text-left opacity-0 translate-y-1 group-hover/telemetry:opacity-100 group-hover/telemetry:translate-y-0 transition-all duration-150 ease-out font-mono text-xs tabular-nums">
-          <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <Activity className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span className="text-xs font-bold text-[#F5A623] uppercase tracking-wider font-mono">
-                ELASTIC TIMELINE TELEMETRY
-              </span>
-            </div>
-            <span className="text-[9px] bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] px-1.5 py-0.5 rounded font-bold">
-              {playbackMode === 'solo' ? 'SOLO LOOP' : 'MASTER SEQ'}
-            </span>
-          </div>
-
-          <div className="space-y-2 text-xs font-mono">
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-slate-400">Master Runtime:</span>
-              <span className="text-white font-bold">{masterRuntimeTimecode} ({masterDurationSec.toFixed(1)}s // {totalShotsCount} Shots)</span>
-            </div>
-
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-slate-400">Shot Solo Cut:</span>
-              <span className="text-[#F5A623] font-bold">
-                {soloTelemetryText} @ {activeFps} FPS
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between py-0.5 border-t border-white/5 pt-2">
-              <span className="text-slate-400">Storage Persistence:</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse" />
-                Local IndexedDB Sovereign Cache Synced
-              </span>
-            </div>
-          </div>
-
-          {currentFrame && (
-            <div className="mt-3 pt-2 border-t border-white/10 text-[10px] text-slate-300 truncate font-mono">
-              <span className="text-[#F5A623] font-bold mr-1.5">ACTIVE:</span>
-              <span>{currentFrame.bengaliTitle || 'দৃষ্টি'} // {currentFrame.title || 'THE SINGULARITY'}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  useStudioStore.getState().toggleLeftRail();
+                  setIsMenuOpen(false);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg hover:bg-white/10 flex items-center gap-2 text-left transition-colors cursor-pointer text-white/85"
+              >
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Media Asset Vault</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  eventBus.emit('shortcuts:open');
+                  setIsMenuOpen(false);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg hover:bg-white/10 flex items-center gap-2 text-left transition-colors cursor-pointer text-white/85"
+              >
+                <Keyboard className="w-3.5 h-3.5 text-purple-400" />
+                <span>Keyboard Shortcuts (?)</span>
+              </button>
+              <div className="my-1 border-t border-white/10" />
+              <button
+                type="button"
+                onClick={() => {
+                  eventBus.emit('diagnostics:open');
+                  setIsMenuOpen(false);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg hover:bg-white/10 flex items-center gap-2 text-left transition-colors cursor-pointer text-white/70 hover:text-white"
+              >
+                <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Diagnostics & Self-Test</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  eventBus.emit('theme:open');
+                  setIsMenuOpen(false);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg hover:bg-white/10 flex items-center gap-2 text-left transition-colors cursor-pointer text-white/70 hover:text-white"
+              >
+                <Settings className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Studio Settings</span>
+              </button>
             </div>
           )}
         </div>

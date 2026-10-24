@@ -111,14 +111,20 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
    * Auto-Hydration on Mount:
    * Hydrates all saved assets from IndexedDB `media_vault` so nothing vanishes on reload or tab switch.
    */
+  const [purgeFeedback, setPurgeFeedback] = useState<string | null>(null);
+
+  /**
+   * Auto-Hydration on Mount:
+   * Hydrates only true master assets from IndexedDB `media_vault`, excluding transient caches.
+   */
   const loadStoredMedia = useCallback(async () => {
     setIsLoading(true);
     try {
-      let items = await db.getAllVaultMedia();
+      let items = await db.getMasterVaultMedia();
       if (items.length === 0) {
         // Seed default starter assets so grid is never empty on clean boot
         await db.seedDefaultVaultAssets();
-        items = await db.getAllVaultMedia();
+        items = await db.getMasterVaultMedia();
       }
       setVaultItems(items);
 
@@ -143,6 +149,18 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     }
   }, []);
 
+  const handlePurgeTransientCache = async () => {
+    try {
+      const res = await db.purgeTransientCache();
+      const updated = await db.getMasterVaultMedia();
+      setVaultItems(updated);
+      setPurgeFeedback(`🧹 Freed ${res.purgedCount} temporary cache items`);
+      setTimeout(() => setPurgeFeedback(null), 3500);
+    } catch (err) {
+      console.warn('[MediaBin] Purge cache error:', err);
+    }
+  };
+
   useEffect(() => {
     loadStoredMedia();
 
@@ -154,15 +172,19 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     window.addEventListener('drop', preventWindowDrop, false);
 
     const unsubAssign = eventBus.on('asset_assigned_to_shot', () => {
-      db.getAllVaultMedia().then(setVaultItems);
+      db.getMasterVaultMedia().then(setVaultItems);
     });
 
     const unsubIngest = eventBus.on('media_asset_ingested', () => {
-      db.getAllVaultMedia().then(setVaultItems);
+      db.getMasterVaultMedia().then(setVaultItems);
     });
 
     const unsubDelete = eventBus.on('media_asset_deleted', () => {
-      db.getAllVaultMedia().then(setVaultItems);
+      db.getMasterVaultMedia().then(setVaultItems);
+    });
+
+    const unsubPurge = eventBus.on('vault_cache_purged', () => {
+      db.getMasterVaultMedia().then(setVaultItems);
     });
 
     return () => {
@@ -171,6 +193,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
       unsubAssign();
       unsubIngest();
       unsubDelete();
+      unsubPurge();
       isCancelledRef.current = true;
     };
   }, [loadStoredMedia]);
@@ -592,12 +615,27 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
             <h2 className="text-xs font-bold text-white tracking-wider uppercase">
               HIGH-SPEED MEDIA VAULT
             </h2>
-            <span className="text-[8.5px] px-1.5 py-0.5 bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24] font-bold rounded-[1px]">
-              {vaultItems.length} ASSETS
+            <span className="text-[8.5px] px-1.5 py-0.5 bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24] font-bold rounded-[1px]" title="True User-Uploaded Master Files">
+              {vaultItems.length} MASTER RAW
             </span>
+            {purgeFeedback && (
+              <span className="text-[8px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded-[1px] animate-fade-in">
+                {purgeFeedback}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Maintenance Trigger: Purge Orphan Thumbs & Temp Cache */}
+            <button
+              type="button"
+              onClick={handlePurgeTransientCache}
+              className="px-2 py-1 bg-white/5 hover:bg-amber-950/40 active:scale-95 border border-white/15 hover:border-[#F5A623]/60 text-zinc-300 hover:text-[#FFE066] rounded-[2px] text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Purge orphan thumbnails and downscaled proxy caches without deleting imported footage"
+            >
+              <span>🧹 Purge Orphan Thumbs & Temp Cache</span>
+            </button>
+
             {/* Primary Multi-Files Ingest Button */}
             <button
               type="button"

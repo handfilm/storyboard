@@ -47,6 +47,8 @@ export interface VaultMediaItem {
   createdAt: number;
   assignedShotIndex?: number;
   shotIndex?: number;
+  isUserUploaded?: boolean;
+  isTemporary?: boolean;
 }
 
 export type MediaItem = VaultMediaItem;
@@ -1513,7 +1515,9 @@ class StudioDraftDbService {
       resolution: metaResult.resolution,
       createdAt: Date.now(),
       assignedShotIndex: undefined,
-      shotIndex: undefined
+      shotIndex: undefined,
+      isUserUploaded: true,
+      isTemporary: false
     };
 
     // 3. Put into media_vault store
@@ -1592,6 +1596,79 @@ class StudioDraftDbService {
     } catch (err) {
       console.warn('[DraftDB] getAllVaultMedia error:', err);
       return [];
+    }
+  }
+
+  /**
+   * Sanitized Master Vault Ingestion Query:
+   * Returns STRICTLY user-uploaded primary media, filtering out internal
+   * thumbnail blobs, auto-extracted frames, or intermediate slice caches.
+   */
+  public async getMasterVaultMedia(): Promise<VaultMediaItem[]> {
+    const all = await this.getAllVaultMedia();
+    return all.filter(it => it.isUserUploaded !== false && it.isTemporary !== true);
+  }
+
+  /**
+   * Maintenance Purge:
+   * Instantly purges transient downscaled canvas proxy bitmaps, internal thumbnail blobs,
+   * and temporary slice caches without deleting primary imported user footage.
+   */
+  public async purgeTransientCache(): Promise<{ purgedCount: number; freedEstimatesBytes: number }> {
+    try {
+      const db = await this.getDb();
+      let purgedCount = 0;
+      let freedEstimatesBytes = 0;
+
+      // 1. Purge media_proxies store
+      if (db.objectStoreNames.contains('media_proxies')) {
+        const tx = db.transaction('media_proxies', 'readwrite');
+        const store = tx.objectStore('media_proxies');
+        await new Promise<void>((resolve) => {
+          const req = store.clear();
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        });
+      }
+
+      // 2. Purge media_thumbnails store
+      if (db.objectStoreNames.contains('media_thumbnails')) {
+        const tx = db.transaction('media_thumbnails', 'readwrite');
+        const store = tx.objectStore('media_thumbnails');
+        await new Promise<void>((resolve) => {
+          const req = store.clear();
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        });
+      }
+
+      // 3. Purge any temporary records from media_vault
+      if (db.objectStoreNames.contains('media_vault')) {
+        const allItems = await this.getAllVaultMedia();
+        const temporaryItems = allItems.filter(it => it.isTemporary === true || it.isUserUploaded === false);
+        if (temporaryItems.length > 0) {
+          const tx = db.transaction('media_vault', 'readwrite');
+          const store = tx.objectStore('media_vault');
+          for (const item of temporaryItems) {
+            store.delete(item.id);
+            purgedCount++;
+            freedEstimatesBytes += item.size || 0;
+          }
+          await new Promise<void>((resolve) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          });
+        }
+      }
+
+      // 4. Clear active in-memory URLs and notify
+      this.activeProxyUrls.clear();
+      eventBus.emit('vault_cache_purged', { timestamp: Date.now() });
+
+      return { purgedCount, freedEstimatesBytes };
+    } catch (err) {
+      console.warn('[DraftDB] purgeTransientCache error:', err);
+      return { purgedCount: 0, freedEstimatesBytes: 0 };
     }
   }
 
@@ -1942,6 +2019,8 @@ export const db = studioDraftDb;
 
 // Direct named helper exports per architectural requirement:
 export const getAllVaultMedia = () => studioDraftDb.getAllVaultMedia();
+export const getMasterVaultMedia = () => studioDraftDb.getMasterVaultMedia();
+export const purgeTransientCache = () => studioDraftDb.purgeTransientCache();
 export const deleteVaultMedia = (id: string) => studioDraftDb.deleteVaultMedia(id);
 export const clearAllVaultMedia = () => studioDraftDb.clearAllVaultMedia();
 export const saveMediaToVault = (file: File) => studioDraftDb.saveMediaToVault(file);

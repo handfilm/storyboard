@@ -216,17 +216,30 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       onApplyPreset(preset);
     }
 
-    // (d) Emit global event for timeline and stage canvas sync
+    // (d) Emit global events for timeline and stage canvas sync
     eventBus.emit('shot:updated', {
       index: activeShotIndex,
       partial: updatedShotPartial
     });
 
-    // (e) Visual feedback state
+    if (mediaUrl) {
+      eventBus.emit('asset_assigned_to_shot', {
+        assetId: assetId || `temp-${Date.now()}`,
+        shotIndex: activeShotIndex,
+        blobUrl: mediaUrl,
+        meta: {
+          mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
+          name: fileName
+        }
+      });
+    }
+
+    // (e) Visual feedback state: 1.2s tactical confirmation badge then auto-close drawer
     setBoundSuccessPresetId(preset.id);
     setTimeout(() => {
       setBoundSuccessPresetId(null);
-    }, 2400);
+      eventBus.emit('drawer:close');
+    }, 1200);
   };
 
   return (

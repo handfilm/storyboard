@@ -266,7 +266,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           <button 
             type="button"
             onClick={handleHomeClick}
-            className="flex flex-col group cursor-pointer focus:outline-none bg-transparent border-none p-0 text-left transition-transform active:scale-95 shrink-0"
+            className="inline-flex flex-col items-stretch w-fit group cursor-pointer focus:outline-none bg-transparent border-none p-0 text-left transition-transform active:scale-95 shrink-0"
             title="HANDFILM // Return to Home Overview"
           >
             <div className="flex items-baseline leading-none text-[22px] font-black tracking-wider">
@@ -440,18 +440,20 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 onSelectPlaybackMode(playbackMode === 'solo' ? 'sequence' : 'solo');
               }
             }}
-            className={`rounded-md h-8 px-3 border backdrop-blur-md flex items-center gap-2 cursor-pointer transition-all duration-200 font-mono text-[11px] font-semibold tracking-wider uppercase ${
+            className={`rounded-md h-8 px-3 border backdrop-blur-md flex items-center gap-2 cursor-pointer transition-all duration-200 font-mono text-[11px] font-semibold tracking-wider uppercase group/btn ${
               playbackMode === 'solo'
-                ? 'bg-amber-950/40 border-amber-500/60 text-[#FFE066] shadow-[0_0_10px_rgba(245,166,35,0.2)]'
-                : 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                ? 'border-amber-500/60 bg-amber-500/10 text-amber-400 shadow-[0_0_12px_rgba(245,166,35,0.2)]'
+                : 'border-white/10 bg-black/40 text-white/70 hover:border-amber-500/50 hover:bg-amber-500/5 hover:text-amber-400'
             }`}
           >
             <span 
-              className={`w-2 h-2 rounded-full ${
-                playbackMode === 'solo' ? 'bg-[#F5A623]' : 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]'
+              className={`w-2 h-2 rounded-full transition-colors ${
+                playbackMode === 'solo' ? 'bg-[#F5A623] shadow-[0_0_6px_#f59e0b]' : 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]'
               }`} 
             />
-            <span>{playbackMode === 'solo' ? 'Solo Shot' : 'Master SEQ'}</span>
+            <span className="transition-colors">
+              {playbackMode === 'solo' ? 'Solo Shot' : 'Master SEQ'}
+            </span>
           </button>
         </SmartHoverCard>
       </nav>

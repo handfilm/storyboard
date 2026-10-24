@@ -553,6 +553,10 @@ export default function App() {
       setIsThemeSettingsOpen(true);
     });
 
+    const unsubDrawerClose = eventBus.on('drawer:close', () => {
+      setIsDrawerOpen(false);
+    });
+
     return () => {
       unsub();
       unsubAsset();
@@ -561,6 +565,7 @@ export default function App() {
       unsubShortcuts();
       unsubDiagnostics();
       unsubTheme();
+      unsubDrawerClose();
     };
   }, [handleOpenExportStudio]);
 

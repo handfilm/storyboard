@@ -253,9 +253,17 @@ export class PlaybackEngineService {
     if (canvas && ctx && this.activeVideoElement && this.activeVideoElement.readyState >= 2) {
       try {
         ctx.drawImage(this.activeVideoElement, 0, 0, canvas.width, canvas.height);
-        // Cache frame asynchronously
-        if (typeof createImageBitmap !== 'undefined' && this.frameCache.size < this.maxCachedFrames) {
+        // Rolling Ring Buffer (up to 120 keyframes) with instant disposal of evicted bitmaps
+        if (typeof createImageBitmap !== 'undefined') {
           createImageBitmap(this.activeVideoElement).then((bmp) => {
+            if (this.frameCache.size >= this.maxCachedFrames) {
+              const oldestKey = this.frameCache.keys().next().value;
+              if (oldestKey !== undefined) {
+                const oldBmp = this.frameCache.get(oldestKey);
+                try { oldBmp?.close(); } catch {}
+                this.frameCache.delete(oldestKey);
+              }
+            }
             this.frameCache.set(frameNum, bmp);
           }).catch(() => {});
         }
@@ -276,9 +284,16 @@ export class PlaybackEngineService {
     if (!video || typeof createImageBitmap === 'undefined') return;
 
     const captureChunk = async () => {
-      if (this.frameCache.size >= this.maxCachedFrames) return;
       try {
         const bmp = await createImageBitmap(video);
+        if (this.frameCache.size >= this.maxCachedFrames) {
+          const oldestKey = this.frameCache.keys().next().value;
+          if (oldestKey !== undefined) {
+            const oldBmp = this.frameCache.get(oldestKey);
+            try { oldBmp?.close(); } catch {}
+            this.frameCache.delete(oldestKey);
+          }
+        }
         this.frameCache.set(startFrame, bmp);
       } catch {
         // fail silently

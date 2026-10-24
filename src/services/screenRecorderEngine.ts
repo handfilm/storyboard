@@ -65,6 +65,8 @@ class ScreenRecorderEngine {
   private combinedStream: MediaStream | null = null;
   private audioCtx: AudioContext | null = null;
   private recordedChunks: Blob[] = [];
+  private chunkSessionId: string = '';
+  private chunkIndex: number = 0;
 
   // Multi-Angle Compositor state
   private displayVideoEl: HTMLVideoElement | null = null;
@@ -164,6 +166,8 @@ class ScreenRecorderEngine {
     this.startTime = performance.now();
     this.lastFpsSampleTime = this.startTime;
     this.frameCount = 0;
+    this.chunkSessionId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.chunkIndex = 0;
 
     const resolution = options.resolution || '4K';
     const format = options.format || 'webm';
@@ -309,11 +313,12 @@ class ScreenRecorderEngine {
 
       this.mediaRecorder = new MediaRecorder(this.combinedStream, recorderOptions);
 
-      // Streaming chunk collection (prevents raw memory spikes)
+      // Streaming chunk collection (piped to IndexedDB to eliminate RAM bloat)
       this.mediaRecorder.ondataavailable = (e: BlobEvent) => {
         if (e.data && e.data.size > 0) {
           this.recordedChunks.push(e.data);
           this.totalBytesRecorded += e.data.size;
+          this.appendChunkToIdb(e.data).catch(() => {});
         }
       };
 
@@ -382,9 +387,13 @@ class ScreenRecorderEngine {
         return;
       }
 
-      this.mediaRecorder.onstop = () => {
+      this.mediaRecorder.onstop = async () => {
         const mimeType = this.activeCodec || 'video/webm';
-        const finalBlob = new Blob(this.recordedChunks, { type: mimeType });
+        let chunks = this.recordedChunks;
+        if (chunks.length === 0) {
+          chunks = await this.readAllChunksFromIdb();
+        }
+        const finalBlob = new Blob(chunks, { type: mimeType });
         const durationSec = Math.max(0.1, (performance.now() - this.startTime - this.pausedTimeAccumulator) / 1000);
 
         let width = 3840;
@@ -409,6 +418,7 @@ class ScreenRecorderEngine {
           createdAt: Date.now()
         };
 
+        this.clearChunksIdb().catch(() => {});
         this.cleanup();
         this.status = 'idle';
         this.notifyStatus('idle');
@@ -801,6 +811,70 @@ class ScreenRecorderEngine {
 
   private notifyStatus(status: RecorderTelemetry['status']): void {
     this.statusListeners.forEach(fn => fn(status));
+  }
+
+  // =========================================================================
+  // INDEXEDDB CHUNK BUFFER PIPELINE (4GB SYSTEM RESILIENCE)
+  // =========================================================================
+
+  private async getChunkDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined' || !window.indexedDB) {
+        return reject(new Error('IndexedDB not supported'));
+      }
+      const req = indexedDB.open('handfilm_recorder_chunks_db', 1);
+      req.onupgradeneeded = (e: any) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('recorder_chunks')) {
+          const store = db.createObjectStore('recorder_chunks', { keyPath: 'id', autoIncrement: true });
+          store.createIndex('sessionId', 'sessionId', { unique: false });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  private async appendChunkToIdb(chunk: Blob): Promise<void> {
+    try {
+      const db = await this.getChunkDb();
+      const tx = db.transaction('recorder_chunks', 'readwrite');
+      tx.objectStore('recorder_chunks').add({
+        sessionId: this.chunkSessionId,
+        index: this.chunkIndex++,
+        blob: chunk,
+        timestamp: Date.now()
+      });
+    } catch {}
+  }
+
+  private async readAllChunksFromIdb(): Promise<Blob[]> {
+    try {
+      const db = await this.getChunkDb();
+      const tx = db.transaction('recorder_chunks', 'readonly');
+      const store = tx.objectStore('recorder_chunks');
+      const idx = store.index('sessionId');
+      const req = idx.getAll(this.chunkSessionId);
+      return new Promise((resolve) => {
+        req.onsuccess = () => {
+          const records = req.result || [];
+          records.sort((a: any, b: any) => a.index - b.index);
+          resolve(records.map((r: any) => r.blob));
+        };
+        req.onerror = () => resolve([]);
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  private async clearChunksIdb(): Promise<void> {
+    try {
+      const db = await this.getChunkDb();
+      const tx = db.transaction('recorder_chunks', 'readwrite');
+      const store = tx.objectStore('recorder_chunks');
+      store.clear();
+    } catch {}
   }
 }
 

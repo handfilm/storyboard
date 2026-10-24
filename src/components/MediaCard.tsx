@@ -337,11 +337,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         ) : (
           /* Bottom-Right Static Badges when not hovered */
           <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 z-10 pointer-events-none">
-            <span className="px-1 py-0.2 bg-black/80 text-[7px] font-bold text-amber-300 border border-amber-500/30 rounded-[1px]">
-              {resolution}
+            <span className="px-1.5 py-0.5 bg-black/90 text-[7px] font-bold text-amber-300 border border-amber-500/50 rounded-[2px] tracking-wider shadow-sm flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-amber-400" />
+              <span>{item.resolution ? `MASTER ${item.resolution}` : 'MASTER RAW'}</span>
             </span>
             {isVid && (
-              <span className="px-1 py-0.2 bg-black/80 text-[7px] font-mono text-zinc-300 rounded-[1px]">
+              <span className="px-1.5 py-0.5 bg-black/80 text-[7px] font-mono text-zinc-300 border border-white/10 rounded-[2px]">
                 {duration}
               </span>
             )}

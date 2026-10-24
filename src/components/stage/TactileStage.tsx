@@ -941,18 +941,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           />
         )}
 
-        {/* Directorial HUD Overlay + Stage HUD Quick T TITLES Toggle */}
-        <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-40">
+        {/* Pristine Viewport: Zero-distraction cinematic frame with quick tools on hover */}
+        <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-40 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex items-center gap-2">
-            {showHud && (
-              <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
-                <span className="text-[#d4af37] font-bold">EP {frame?.epNumber || '001'}</span>
-                <span className="text-white/30">|</span>
-                <span className="truncate max-w-[200px]">{frame?.title}</span>
-              </div>
-            )}
-
-            {/* Permanent Quick [ T ] Symbol Toggle on Stage HUD */}
+            {/* Quick [ T ] Symbol Toggle on Stage */}
             <button
               type="button"
               onClick={() => {
@@ -1022,20 +1014,6 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               </button>
             </div>
           </div>
-
-          {showHud && (
-            <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 border border-white/15 rounded-[2px]">
-              <span className="text-[#ffe066] font-bold">TOTAL: {masterTimecode}</span>
-              <span className="text-white/30">|</span>
-              <span>{frame?.cameraSpec?.focalLength || '35mm High-Speed Master'}</span>
-              <span className="text-white/30">|</span>
-              <span className="text-[#ffe066]">{frame?.cameraSpec?.aperture || 'f/1.4'}</span>
-              <span className="text-white/30">|</span>
-              <span className="text-cyan-400">
-                {isScrubbing ? 'PROXY 540p' : 'SOURCE 4K'}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* In-Player Playhead Transport & Quick Cadence Selector Bar */}
@@ -1134,6 +1112,15 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               <span className="hidden lg:inline">Match Beats</span>
             </button>
           )}
+
+          {/* Camera Spec Telemetry on Hover (Cleanly relocalized from screen overlay) */}
+          <div className="hidden xl:flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-zinc-400 hover:text-white transition-colors" title="Active Camera & Media Pipeline">
+            <span className="text-[#FFE066] font-bold">{frame?.cameraSpec?.focalLength || '35mm Cine'}</span>
+            <span className="text-white/30">·</span>
+            <span className="text-white/80">{frame?.cameraSpec?.aperture || 'f/1.4'}</span>
+            <span className="text-white/30">·</span>
+            <span className="text-cyan-400">{isScrubbing ? 'PROXY 540p' : 'MASTER 4K'}</span>
+          </div>
         </div>
 
         {/* Hover Action Controls */}

@@ -233,8 +233,8 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     setIsIngesting(false);
     setCurrentIngestFilename('');
 
-    // Final synchronization pass with IndexedDB
-    const finalVault = await db.getAllVaultMedia();
+    // Final synchronization pass with IndexedDB (strict master user vault query)
+    const finalVault = await db.getMasterVaultMedia();
     setVaultItems(finalVault);
   };
 
@@ -520,7 +520,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
       await db.deleteVaultMedia(id);
     }
     setSelectedIds(new Set());
-    const updated = await db.getAllVaultMedia();
+    const updated = await db.getMasterVaultMedia();
     setVaultItems(updated);
   };
 

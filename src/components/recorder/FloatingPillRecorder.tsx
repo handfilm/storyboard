@@ -22,6 +22,8 @@ import {
   RecorderTelemetry, 
   RecordedCaptureResult 
 } from '../../services/screenRecorderEngine';
+import { studioDraftDb } from '../../services/db';
+import { useStudioStore } from '../../core/store';
 import { 
   Pause, 
   Play, 
@@ -189,6 +191,26 @@ export const FloatingPillRecorder: React.FC<FloatingPillRecorderProps> = ({
     try {
       const result = await screenRecorderEngine.stopRecording();
       if (result) {
+        // Immediate handoff: Register recorded clip into master_user_vault
+        const file = new File(
+          [result.blob],
+          `HANDFILM_REC_${Date.now()}.${result.format}`,
+          { type: result.mimeType }
+        );
+        const vaultItem = await studioDraftDb.saveMediaToVault(file);
+
+        // Drop directly onto active timeline shot
+        const currentShotIdx = useStudioStore.getState().activeShotIndex;
+        await studioDraftDb.assignMediaToShot(vaultItem.id, currentShotIdx);
+
+        // Update studio store shot preview
+        const url = studioDraftDb.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
+        useStudioStore.getState().updateShot(currentShotIdx, {
+          imageUrl: url,
+          isVideo: true,
+          title: `REC SHOT ${String(currentShotIdx + 1).padStart(3, '0')}`
+        });
+
         onRecordingComplete(result);
         onClose();
       }

@@ -30,6 +30,7 @@ import {
   auth 
 } from '../services/firebase';
 import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
+import { aiCoDirectorEngine, BeatSliceResult, LyricSyncResult } from '../services/aiCoDirectorEngine';
 import { User } from 'firebase/auth';
 import { 
   Sparkles, 
@@ -71,7 +72,7 @@ export const AIDirectorSuite: React.FC = () => {
   };
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'IMAGE' | 'VIDEO' | 'MUSIC' | 'PROMPTS' | 'CLOUD'>('IMAGE');
+  const [activeTab, setActiveTab] = useState<'IMAGE' | 'VIDEO' | 'MUSIC' | 'BEAT_SLICE' | 'LYRIC_SYNC' | 'PROMPTS' | 'CLOUD'>('IMAGE');
 
   // Firebase User & Sync State
   const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
@@ -130,6 +131,70 @@ export const AIDirectorSuite: React.FC = () => {
   const [generatedCinePrompt, setGeneratedCinePrompt] = useState('');
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+
+  // 5. Offline WebAudio AI Co-Director State (Zero Cloud Calls)
+  const [beatSliceResult, setBeatSliceResult] = useState<BeatSliceResult | null>(null);
+  const [isAnalyzingBeats, setIsAnalyzingBeats] = useState(false);
+  const [lyricsInput, setLyricsInput] = useState(
+    `বৃষ্টি নামল আকাশে ঢাকা শহর জুড়ে\nনেয়ন আলোয় কাঁচের ওপর দৃষ্টি ঝরে পড়ে`
+  );
+  const [lyricSyncResult, setLyricSyncResult] = useState<LyricSyncResult | null>(null);
+  const [isSyncingLyrics, setIsSyncingLyrics] = useState(false);
+  const [coDirectorFeedback, setCoDirectorFeedback] = useState<string | null>(null);
+
+  // --- Handlers: Non-Intrusive Offline AI Co-Director (WebAudio DSP) ---
+  const handleRunAutoBeatSlice = async () => {
+    setIsAnalyzingBeats(true);
+    setCoDirectorFeedback(null);
+    try {
+      const res = await aiCoDirectorEngine.autoBeatSlice(null, project.shots.length || 24, 12.0);
+      setBeatSliceResult(res);
+      setCoDirectorFeedback(`⚡ Detected ${res.snapMarkers.length} transients @ ${res.detectedBpm} BPM (${res.rhythmStyle})`);
+    } catch (err: any) {
+      console.warn('Auto beat-slice error:', err);
+    } finally {
+      setIsAnalyzingBeats(false);
+    }
+  };
+
+  const handleApplyBeatSliceCadence = () => {
+    if (!beatSliceResult) return;
+    beatSliceResult.suggestedDurations.forEach((dur, idx) => {
+      if (idx < project.shots.length) {
+        updateShot(idx, { durationSeconds: dur });
+      }
+    });
+    setCoDirectorFeedback(`✓ Applied rhythmic beat cadence across ${beatSliceResult.suggestedDurations.length} shots`);
+    setTimeout(() => setCoDirectorFeedback(null), 3500);
+  };
+
+  const handleRunKineticLyricSync = async () => {
+    setIsSyncingLyrics(true);
+    setCoDirectorFeedback(null);
+    try {
+      const durations = project.shots.map(s => s.durationSeconds || 12.0);
+      const res = await aiCoDirectorEngine.kineticLyricSync(lyricsInput, null, durations);
+      setLyricSyncResult(res);
+      setCoDirectorFeedback(`♫ Aligned ${res.totalWords} lyric words to audio transient pulses`);
+    } catch (err: any) {
+      console.warn('Lyric sync error:', err);
+    } finally {
+      setIsSyncingLyrics(false);
+    }
+  };
+
+  const handleInjectKineticCaptions = () => {
+    if (!lyricSyncResult) return;
+    for (const [shotIdx, caption] of lyricSyncResult.captionsByShot.entries()) {
+      if (shotIdx < project.shots.length) {
+        updateShot(shotIdx, {
+          tagline: caption.text
+        });
+      }
+    }
+    setCoDirectorFeedback(`✓ Injected synced kinetic typography across sequence without altering visual cuts`);
+    setTimeout(() => setCoDirectorFeedback(null), 3500);
+  };
 
   // --- Handlers: Image Generation & Editing (gemini-nano-banana-2.1) ---
   const handleGenerateImage = async () => {
@@ -379,6 +444,32 @@ export const AIDirectorSuite: React.FC = () => {
           >
             <Music className="w-3.5 h-3.5" />
             <span>SCORE (12s)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('BEAT_SLICE')}
+            className={`px-2.5 py-1 text-[10px] font-bold rounded flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'BEAT_SLICE'
+                ? 'bg-amber-500/20 text-[#fbbf24] border border-[#fbbf24]/50 shadow-[0_0_8px_rgba(245,166,35,0.3)]'
+                : 'text-zinc-400 hover:text-white border border-transparent'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <span>BEAT-SLICE</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('LYRIC_SYNC')}
+            className={`px-2.5 py-1 text-[10px] font-bold rounded flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'LYRIC_SYNC'
+                ? 'bg-amber-500/20 text-[#fbbf24] border border-[#fbbf24]/50 shadow-[0_0_8px_rgba(245,166,35,0.3)]'
+                : 'text-zinc-400 hover:text-white border border-transparent'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>LYRIC-SYNC</span>
           </button>
 
           <button
@@ -777,6 +868,173 @@ export const AIDirectorSuite: React.FC = () => {
                   <span>Push Storyboard to Firestore</span>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 6. Non-Intrusive Offline AI Co-Director: [ ⚡ AUTO BEAT-SLICE ] */}
+        {activeTab === 'BEAT_SLICE' && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="p-4 bg-[#0C0C14] border border-amber-500/30 rounded space-y-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-[#fbbf24]" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    ⚡ Auto Beat-Slice (Client-Side DSP)
+                  </span>
+                </div>
+                <span className="text-[9px] px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold">
+                  ZERO CLOUD CALLS
+                </span>
+              </div>
+
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Uses local WebAudio DSP to extract RMS energy transients, kick drum punches (60-140Hz), and rhythmic downbeats. Generates cut markers and harmonic shot durations without sending any audio to external servers.
+              </p>
+
+              {coDirectorFeedback && (
+                <div className="p-2.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-mono animate-fade-in flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                  <span>{coDirectorFeedback}</span>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRunAutoBeatSlice}
+                  disabled={isAnalyzingBeats}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-black font-extrabold text-xs rounded flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(245,166,35,0.3)] transition-all active:scale-95"
+                >
+                  <Zap className={`w-4 h-4 ${isAnalyzingBeats ? 'animate-spin' : ''}`} />
+                  <span>{isAnalyzingBeats ? 'ANALYZING AUDIO TRANSIENTS...' : 'ANALYZE BEATS & COMPUTE SLICES'}</span>
+                </button>
+              </div>
+
+              {beatSliceResult && (
+                <div className="pt-3 border-t border-white/10 space-y-3">
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="p-2 bg-black/60 rounded border border-white/10">
+                      <div className="text-[10px] text-zinc-400">DETECTED BPM</div>
+                      <div className="text-sm font-bold text-amber-300">{beatSliceResult.detectedBpm}</div>
+                    </div>
+                    <div className="p-2 bg-black/60 rounded border border-white/10">
+                      <div className="text-[10px] text-zinc-400">TRANSIENTS</div>
+                      <div className="text-sm font-bold text-cyan-300">{beatSliceResult.snapMarkers.length}</div>
+                    </div>
+                    <div className="p-2 bg-black/60 rounded border border-white/10">
+                      <div className="text-[10px] text-zinc-400">TEMPO PACING</div>
+                      <div className="text-xs font-bold text-emerald-300 uppercase">{beatSliceResult.rhythmStyle}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] text-zinc-400 font-bold uppercase">Suggested Shot Cadence Preview:</span>
+                    <div className="flex gap-1.5 overflow-x-auto p-2 bg-black/60 rounded border border-white/10 no-scrollbar">
+                      {beatSliceResult.suggestedDurations.slice(0, 16).map((dur, idx) => (
+                        <div key={idx} className="shrink-0 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded text-center">
+                          <div className="text-[8.5px] text-zinc-400">SH{String(idx + 1).padStart(2, '0')}</div>
+                          <div className="text-xs font-bold text-amber-300">{dur}s</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleApplyBeatSliceCadence}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-95"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Apply Beat Cadence Across Sequence</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 7. Non-Intrusive Offline AI Co-Director: [ ♫ KINETIC LYRIC SYNC ] */}
+        {activeTab === 'LYRIC_SYNC' && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="p-4 bg-[#0C0C14] border border-cyan-500/30 rounded space-y-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    ♫ Kinetic Lyric Sync (Word Quantization)
+                  </span>
+                </div>
+                <span className="text-[9px] px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-bold">
+                  ZERO CUT ALTERATION
+                </span>
+              </div>
+
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Aligns kinetic typography word pulses directly to audio transients and vocal envelope rises without modifying your visual timeline shot cut boundaries.
+              </p>
+
+              {coDirectorFeedback && (
+                <div className="p-2.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-mono animate-fade-in flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                  <span>{coDirectorFeedback}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-zinc-300 font-bold uppercase">Lyrics Text (Bilingual Bangla / English):</label>
+                <textarea
+                  rows={3}
+                  value={lyricsInput}
+                  onChange={(e) => setLyricsInput(e.target.value)}
+                  className="w-full bg-black/60 border border-white/15 rounded p-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-sans leading-relaxed"
+                  placeholder="Paste lyrics or vocal lines here..."
+                />
+              </div>
+
+              <div className="pt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRunKineticLyricSync}
+                  disabled={isSyncingLyrics || !lyricsInput.trim()}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 disabled:opacity-50 text-black font-extrabold text-xs rounded flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all active:scale-95"
+                >
+                  <Sparkles className={`w-4 h-4 ${isSyncingLyrics ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingLyrics ? 'QUANTIZING LYRICS...' : 'QUANTIZE LYRICS TO AUDIO TRANSIENTS'}</span>
+                </button>
+              </div>
+
+              {lyricSyncResult && (
+                <div className="pt-3 border-t border-white/10 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400">Synced Words: <strong className="text-white">{lyricSyncResult.totalWords}</strong></span>
+                    <span className="text-zinc-400">Total Duration: <strong className="text-cyan-300">{lyricSyncResult.alignedDurationSec.toFixed(1)}s</strong></span>
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto p-2 bg-black/60 rounded border border-white/10 space-y-1 text-xs no-scrollbar">
+                    {lyricSyncResult.syncedWords.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between py-0.5 px-1.5 rounded hover:bg-white/5 font-mono text-[11px]">
+                        <span className={`font-bold ${item.emphasis ? 'text-[#FFE066]' : 'text-zinc-300'}`}>
+                          {item.word}
+                        </span>
+                        <div className="flex items-center gap-2 text-[9.5px] text-zinc-500">
+                          <span>{item.startSec}s - {item.endSec}s</span>
+                          <span className="px-1 rounded bg-white/10 text-zinc-300">SH{item.shotIndex + 1}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleInjectKineticCaptions}
+                    className="w-full py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-400 text-black font-extrabold text-xs rounded flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-95"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Inject Synced Kinetic Typography (Preserve Cuts)</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -39,6 +39,9 @@ import { PlaybackMode } from '../types/editor';
 import { eventBus } from '../core/eventBus';
 import { useStudioStore } from '../core/store';
 import { SmartHoverCard } from './ui/SmartHoverCard';
+import { OverflowSettingsMenu } from './menus/OverflowSettingsMenu';
+import { CompileEngine } from './modules/CompileEngine';
+import { RapAudioSync } from './modules/RapAudioSync';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -71,6 +74,9 @@ export interface StageHeaderProps {
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
   onOpenDiagnostics?: () => void;
+  onOpenInspector?: () => void;
+  onOpenRapSync?: () => void;
+  onOpenCacheManager?: () => void;
 }
 
 export const StageHeader: React.FC<StageHeaderProps> = ({
@@ -101,10 +107,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   onOpenAiStudio,
   onOpenSettings,
   onOpenShortcuts,
-  onOpenDiagnostics
+  onOpenDiagnostics,
+  onOpenInspector,
+  onOpenRapSync,
+  onOpenCacheManager
 }) => {
   const [isAppsMenuOpen, setIsAppsMenuOpen] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isCompileModalOpen, setIsCompileModalOpen] = useState(false);
+  const [isRapSyncModalOpen, setIsRapSyncModalOpen] = useState(false);
   const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success'>('idle');
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
 
@@ -682,25 +693,39 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           )}
         </div>
 
-        {/* Settings Icon Button [ ⚙ ] */}
-        <SmartHoverCard
-          code="[ ⚙ PREFERENCES ]"
-          description="Configure canvas aspect ratio, studio theme, audio mastering, and shortcuts."
-          align="right"
-        >
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenSettings) onOpenSettings();
-              else eventBus.emit('settings:open');
-            }}
-            className="h-9 w-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-white/30 text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
-            title="Studio Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </SmartHoverCard>
+        {/* 3-Dot Overflow Settings Menu [ ⋯ ] */}
+        <OverflowSettingsMenu
+          onOpenCompile={() => {
+            if (onCompile) onCompile();
+            else setIsCompileModalOpen(true);
+          }}
+          onOpenRapSync={() => {
+            if (onOpenRapSync) onOpenRapSync();
+            else setIsRapSyncModalOpen(true);
+          }}
+          onOpenSettings={() => {
+            if (onOpenSettings) onOpenSettings();
+            else eventBus.emit('settings:open');
+          }}
+          onOpenInspector={() => {
+            if (onOpenInspector) onOpenInspector();
+            else useStudioStore.getState().toggleInspector();
+          }}
+          onOpenCacheManager={onOpenCacheManager}
+        />
       </div>
+
+      {/* Restored Rapid-Iteration Module Modals */}
+      <CompileEngine
+        isOpen={isCompileModalOpen}
+        onClose={() => setIsCompileModalOpen(false)}
+        onTriggerCompileWizard={onCompile}
+        totalShots={totalShots}
+      />
+      <RapAudioSync
+        isOpen={isRapSyncModalOpen}
+        onClose={() => setIsRapSyncModalOpen(false)}
+      />
     </header>
   );
 };

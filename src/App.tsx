@@ -1816,6 +1816,7 @@ export default function App() {
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenDiagnostics={() => setIsSelfTestOpen(true)}
+        onOpenInspector={() => setIsInspectorOpen(o => !o)}
       />
 
       {/* Hidden Sovereign Session JSON Restore File Input */}

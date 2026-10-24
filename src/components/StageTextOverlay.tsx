@@ -15,7 +15,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useStudioStore, HeroTitlePreset } from '../core/store';
-import { ComponentVisibility } from './ComponentsMatrixPopover';
+import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { Sparkles, Sliders, Eye, EyeOff, Zap, Flame, Snowflake } from 'lucide-react';
 
@@ -126,6 +126,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   });
 
   useEffect(() => {
+    applyTitleBlockOpacityCssVar(titleOpacity);
+  }, [titleOpacity]);
+
+  useEffect(() => {
     console.log('[StageTextOverlay] Re-rendering title elements:', {
       shotIndex,
       isEnabled,
@@ -192,7 +196,6 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         className={`title-block relative w-full h-full ${
           isEnabled ? 'flex flex-col' : 'hidden opacity-0'
         }`}
-        style={{ opacity: isEnabled ? titleOpacity : 0 }}
       >
         {isEnabled && (
           <>

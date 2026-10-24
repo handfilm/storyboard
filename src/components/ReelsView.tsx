@@ -24,7 +24,7 @@ import {
   getShotTargetFps
 } from '../types/storyboard';
 import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
-import { ComponentVisibility } from './ComponentsMatrixPopover';
+import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { useStudioStore } from '../core/store';
 import {
@@ -107,6 +107,10 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     0,
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
   );
+
+  useEffect(() => {
+    applyTitleBlockOpacityCssVar(titleOpacity);
+  }, [titleOpacity]);
 
   const isReelsTitleVisible = componentsVisibility !== undefined
     ? Boolean(
@@ -477,7 +481,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             className={`title-block absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl ${
               isReelsTitleVisible ? 'flex flex-col' : 'hidden opacity-0'
             } ${getSafeZoneClass()}`}
-            style={{ opacity: isReelsTitleVisible ? titleOpacity : 0 }}
             aria-hidden={!isReelsTitleVisible}
           >
             {isReelsTitleVisible && (

@@ -32,6 +32,7 @@ import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToS
 import { 
   ComponentsMatrixPopover, 
   ComponentVisibility, 
+  DEFAULT_COMPONENT_VISIBILITY,
   loadSavedComponentVisibility, 
   saveComponentVisibility,
   countActiveComponentToggles,
@@ -436,7 +437,22 @@ export default function App() {
     setAspectRatio(p.settings?.aspectRatio || '2.39:1');
     setFitMode(p.settings?.fitMode || 'cover');
     if (p.settings?.componentsVisibility) {
-      setComponentsVisibility(p.settings.componentsVisibility);
+      const savedLocal = loadSavedComponentVisibility();
+      const hasSavedLocal =
+        typeof window !== 'undefined' && Boolean(localStorage.getItem('rawx_components_v1'));
+      const mergedVisibility: ComponentVisibility = {
+        ...DEFAULT_COMPONENT_VISIBILITY,
+        ...p.settings.componentsVisibility,
+        ...(hasSavedLocal ? savedLocal : {}),
+        titleOpacity: clampTitleOpacity(
+          hasSavedLocal
+            ? savedLocal.titleOpacity
+            : (p.settings.componentsVisibility.titleOpacity ?? DEFAULT_COMPONENT_VISIBILITY.titleOpacity)
+        )
+      };
+      applyTitleBlockOpacityCssVar(mergedVisibility.titleOpacity ?? 1.0);
+      setComponentsVisibility(mergedVisibility);
+      saveComponentVisibility(mergedVisibility);
     }
     const loadedOffsets: Record<number, number> = {};
     safeShots.forEach((s, idx) => {

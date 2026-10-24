@@ -95,14 +95,20 @@ function forceTitleContainerRepaint(
     el.style.display = 'flex';
   }
   el.style.visibility = 'visible';
-  el.style.opacity = String(isDirectTitleBlock ? targetOpacity : 1);
+  if (isDirectTitleBlock) {
+    el.style.removeProperty('opacity');
+    document.documentElement.style.setProperty('--title-block-opacity', String(targetOpacity));
+  } else {
+    el.style.opacity = '1';
+  }
   el.style.willChange = 'transform, opacity';
 
   const nestedTitleBlock = !isDirectTitleBlock ? el.querySelector<HTMLElement>('.title-block') : null;
   if (nestedTitleBlock) {
     nestedTitleBlock.classList.remove('hidden', 'opacity-0', 'invisible');
     nestedTitleBlock.style.visibility = 'visible';
-    nestedTitleBlock.style.opacity = String(targetOpacity);
+    nestedTitleBlock.style.removeProperty('opacity');
+    document.documentElement.style.setProperty('--title-block-opacity', String(targetOpacity));
   }
 
   const clusterEl = el.querySelector<HTMLElement>('[data-title-cluster]');

@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnthologyFrame } from '../types/anthology';
 import { SLIDES_DATA } from './landing/LandingWalkthrough';
-import { ComponentVisibility } from './ComponentsMatrixPopover';
+import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { useStudioStore } from '../core/store';
 import { 
@@ -79,6 +79,10 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
     0,
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
   );
+
+  useEffect(() => {
+    applyTitleBlockOpacityCssVar(titleOpacity);
+  }, [titleOpacity]);
 
   const isHeroTitleVisible = componentsVisibility !== undefined
     ? Boolean(
@@ -181,7 +185,6 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
             data-title-cluster="true"
             data-repaint-rev={repaintRevision}
             className={`title-block ${isHeroTitleVisible ? 'flex flex-col' : 'hidden opacity-0'}`}
-            style={{ opacity: isHeroTitleVisible ? titleOpacity : 0 }}
             aria-hidden={!isHeroTitleVisible}
           >
             {isHeroTitleVisible && (

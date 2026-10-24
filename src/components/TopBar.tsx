@@ -49,7 +49,8 @@ import {
   Circle,
   LogIn,
   LogOut,
-  Package
+  Package,
+  Zap
 } from 'lucide-react';
 import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/firebase';
 import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
@@ -114,6 +115,7 @@ export interface TopBarProps {
   onRestoreProjectJson?: () => void;
   frames?: AnthologyFrame[];
   onOpenContactSheet?: () => void;
+  onOpenCompilationWizard?: () => void;
   playbackMode?: PlaybackMode;
   onSelectPlaybackMode?: (mode: PlaybackMode) => void;
 }
@@ -125,6 +127,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onGoHome,
   frames,
   onOpenContactSheet,
+  onOpenCompilationWizard,
   playbackMode = 'sequence',
   onSelectPlaybackMode,
   isProMode = true,
@@ -493,6 +496,20 @@ export const TopBar: React.FC<TopBarProps> = ({
             >
               <LogIn className="w-3.5 h-3.5 text-[#fbbf24]" />
               <span className="hidden sm:inline font-bold text-[11px]">Sign In</span>
+            </button>
+          )}
+
+          {/* ⚡ AUTO-COMPILE MUSIC VIDEO / DOCU Master Action */}
+          {onOpenCompilationWizard && (
+            <button
+              type="button"
+              onClick={onOpenCompilationWizard}
+              className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-b from-[#2d2008] via-[#1a1406] to-[#0c0a03] hover:from-[#3d2c0b] hover:to-[#241a08] border-2 border-[#f5a623] text-[#ffe066] hover:text-white font-mono font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_16px_rgba(245,166,35,0.4)] active:scale-[0.98]"
+              title="1-Click Auto-Compile Multi-Clip Music Video & Documentary Suite"
+            >
+              <Zap className="w-3.5 h-3.5 fill-[#f5a623] text-[#f5a623]" />
+              <span className="tracking-wide hidden lg:inline">⚡ AUTO-COMPILE MUSIC VIDEO / DOCU</span>
+              <span className="tracking-wide lg:hidden">⚡ AUTO-COMPILE</span>
             </button>
           )}
 

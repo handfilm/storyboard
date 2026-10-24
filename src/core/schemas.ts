@@ -21,7 +21,12 @@ export const LutPresetEnum = z.enum([
   'infrared',
   'monolith',
   'matrix',
-  'raw'
+  'raw',
+  'kodak_vision3',
+  'fuji_eterna',
+  'noir_35mm',
+  'bleach_bypass',
+  'raw_clean'
 ]);
 
 export const AspectRatioEnum = z.enum([

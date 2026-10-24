@@ -51,6 +51,14 @@ import {
   getShotFrameCount,
   getShotTargetFps
 } from '../../types/storyboard';
+import {
+  buildFilmStockCssFilter,
+  applyCinematicPostProcess,
+  getFilmStockMeta
+} from '../../services/cinematicFilterEngine';
+import { FilterGradingTray } from './FilterGradingTray';
+import { KineticCaptionOverlay } from './KineticCaptionOverlay';
+import { FrameAdjustments, LutPreset } from '../../types/anthology';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -123,7 +131,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   activeModule,
   onScrubSlideTime,
   isSnapToBeat = false,
-  onToggleSnapToBeat
+  onToggleSnapToBeat,
+  onReorderFrames,
+  detectedBpm = 120
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -149,6 +159,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
+  const [isFilterTrayOpen, setIsFilterTrayOpen] = useState(false);
+
+  // Auto-open filter dock when OPTICS or LIBRARY module is selected
+  useEffect(() => {
+    if (activeModule === 'OPTICS' || activeModule === 'LIBRARY') {
+      setIsFilterTrayOpen(true);
+    }
+  }, [activeModule]);
 
   // Subtle Cross-Dissolve Transition State
   const [outgoingMedia, setOutgoingMedia] = useState<{
@@ -255,6 +273,28 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       onUpdateFrameAtIndex(currentIndex, updated);
     } else if (onUpdateFrame) {
       onUpdateFrame(updated);
+    }
+  };
+
+  const handleUpdateCurrentFrame = (updated: AnthologyFrame) => {
+    if (onUpdateFrameAtIndex) {
+      onUpdateFrameAtIndex(currentIndex, updated);
+    } else if (onUpdateFrame) {
+      onUpdateFrame(updated);
+    }
+  };
+
+  const handleApplyGradeToAll = (lut: LutPreset, adj: FrameAdjustments) => {
+    if (!frames.length) return;
+    const updatedFrames = frames.map(f => ({
+      ...f,
+      lutFilter: lut,
+      adjustments: { ...f.adjustments, ...adj }
+    }));
+    if (onReorderFrames) {
+      onReorderFrames(updatedFrames);
+    } else if (onUpdateFrameAtIndex) {
+      updatedFrames.forEach((uf, idx) => onUpdateFrameAtIndex(idx, uf));
     }
   };
 
@@ -467,6 +507,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           const isVideo = Boolean(frame?.isVideo || activeMediaUrl?.includes('video') || activeMediaUrl?.endsWith('.mp4') || activeMediaUrl?.endsWith('.webm'));
           const video = videoRef.current;
 
+          const filmFilter = buildFilmStockCssFilter(frame?.lutFilter || 'kodak_vision3', frame?.adjustments);
+          if (filmFilter && filmFilter !== 'none') {
+            ctx.filter = filmFilter;
+          }
+
           if (isVideo && video) {
             if (isScrubbingRef.current && (video.seeking || video.readyState < 2)) {
               // During active timeline scrubbing: Blit closest cached frame bitmap with 0ms DOM lag
@@ -510,6 +555,17 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
             drawCover(ctx, cachedPosterImgRef.current, targetW, targetH);
           }
+
+          // Reset filter and execute 35mm optical shader pass (temperature tint, anamorphic glow, 60fps grain)
+          ctx.filter = 'none';
+          applyCinematicPostProcess(
+            ctx,
+            targetW,
+            targetH,
+            frame?.lutFilter || 'kodak_vision3',
+            frame?.adjustments,
+            slideTimeSecRef.current
+          );
         }
       }
 
@@ -518,7 +574,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [activeMediaUrl, activeShotFps, frame?.isVideo]);
+  }, [activeMediaUrl, activeShotFps, frame?.isVideo, frame?.lutFilter, frame?.adjustments]);
 
   // Frictionless Scrubbing: 16ms Throttled Pointer Drag Handlers with Audio Mute & Restore
   const handleScrubPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -852,6 +908,27 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           />
         </div>
 
+        {/* Dynamic Word-Level Kinetic Caption & Subtitle Overlay */}
+        <KineticCaptionOverlay
+          currentFrame={frame}
+          slideTimeSec={slideTimeSec}
+          durationSec={activeShotDurationSec}
+          detectedBpm={detectedBpm}
+          onUpdateFrame={handleUpdateCurrentFrame}
+          showCaptions={true}
+        />
+
+        {/* Floating 35mm Film Stock & Color Grading Tray */}
+        <FilterGradingTray
+          isOpen={isFilterTrayOpen}
+          currentFrame={frame}
+          currentIndex={currentIndex}
+          totalShots={frames.length}
+          onUpdateFrame={handleUpdateCurrentFrame}
+          onApplyGradeToAll={handleApplyGradeToAll}
+          onClose={() => setIsFilterTrayOpen(false)}
+        />
+
         {/* Module 11: Review Visual Markup Canvas Overlay */}
         {activeModule === 'REVIEW' && (
           <ReviewMarkupCanvas
@@ -922,6 +999,27 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                   />
                 </div>
               )}
+            </div>
+
+            {/* 35mm Film Stock Grading Dock Trigger */}
+            <div className="relative pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => setIsFilterTrayOpen((prev) => !prev)}
+                className={`px-2.5 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md ${
+                  isFilterTrayOpen
+                    ? 'bg-[#f5a623]/30 border-[#f5a623] text-[#ffe066] font-bold shadow-[0_0_12px_rgba(245,166,35,0.45)]'
+                    : 'bg-black/80 border-white/20 text-zinc-300 hover:text-white hover:border-[#f5a623]/60'
+                }`}
+                title="Open 35mm Film Stock & Color Grading Dock"
+                aria-label="35mm Film Stock & Color Grading Dock"
+              >
+                <Sliders className="w-3 h-3 text-[#f5a623]" />
+                <span className="hidden sm:inline">35MM GRADE</span>
+                <span className="text-[8px] text-[#ffe066] font-bold">
+                  {getFilmStockMeta(frame?.lutFilter || 'kodak_vision3').code}
+                </span>
+              </button>
             </div>
           </div>
 

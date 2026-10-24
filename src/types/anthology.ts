@@ -13,7 +13,12 @@ export type LutPreset =
   | 'infrared' 
   | 'monolith' 
   | 'matrix'
-  | 'raw';
+  | 'raw'
+  | 'kodak_vision3'
+  | 'fuji_eterna'
+  | 'noir_35mm'
+  | 'bleach_bypass'
+  | 'raw_clean';
 
 export type AspectRatio = '2.39:1' | '16:9' | '4:3' | '1:1' | '9:16' | '4:5';
 
@@ -33,12 +38,31 @@ export interface FrameAdjustments {
   contrast: number;   // 50 to 180
   saturation: number; // 0 to 200
   bloom: number;      // 0 to 100
-  grain: number;      // 0 to 50
+  grain: number;      // 0 to 100
   motionBlur: number; // 0 to 100
   vignette: number;   // 0 to 100
+  exposure?: number;  // -2.0 to +2.0 EV
+  temperature?: number; // -100 (Cool/Cyan) to +100 (Warm/Amber)
+  glow?: number;      // 0 to 100 (Anamorphic glow)
   foregroundZoom?: number; // 0.2 to 3.0 (default 1.0)
   backgroundZoom?: number; // 0.2 to 3.0 (default 1.0)
   vertigoLock?: boolean;   // Dolly zoom inverse coupling
+}
+
+export type CaptionStyle = 'rap_pop' | 'cinematic_minimal' | 'bilingual_dual';
+
+export interface TimedWord {
+  word: string;
+  startSec: number;
+  endSec: number;
+  isPunch?: boolean;
+}
+
+export interface ShotCaption {
+  text: string;
+  bengaliText?: string;
+  style: CaptionStyle;
+  words?: TimedWord[];
 }
 
 export type TitleAnimationStyle = 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'neon' | 'cinema-fade' | 'fade';
@@ -62,6 +86,7 @@ export interface AnthologyFrame {
   lutFilter: LutPreset;
   aspectRatio: AspectRatio;
   adjustments: FrameAdjustments;
+  caption?: ShotCaption;
   tags: string[];
   panY?: number;
   activeLens?: string;

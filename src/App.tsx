@@ -28,6 +28,7 @@ import { OpticalMonitorModal } from './components/OpticalMonitorModal';
 import { StudioDrawer } from './components/StudioDrawer';
 import { R2AutomationModal } from './components/R2AutomationModal';
 import { CutNativeExportModal, ExportModalTab } from './components/CutNativeExportModal';
+import { CompilationWizardModal } from './components/CompilationWizardModal';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
@@ -130,6 +131,7 @@ export default function App() {
   const [isR2AutomationOpen, setIsR2AutomationOpen] = useState(false);
   const [isExportStudioOpen, setIsExportStudioOpen] = useState(false);
   const [exportStudioTab, setExportStudioTab] = useState<ExportModalTab>('mp4');
+  const [isCompilationWizardOpen, setIsCompilationWizardOpen] = useState(false);
 
   const handleOpenExportStudio = useCallback((tab: ExportModalTab = 'mp4') => {
     setExportStudioTab(tab);
@@ -1365,6 +1367,25 @@ export default function App() {
     } catch {}
   }, [currentIndex]);
 
+  const handleBatchInjectCompilation = useCallback(async (newFrames: AnthologyFrame[]) => {
+    setProject(prev => ({
+      ...prev,
+      frames: newFrames
+    }));
+    setCurrentIndex(0);
+    setSlideTimeSec(0);
+    try {
+      for (let i = 0; i < newFrames.length; i++) {
+        const f = newFrames[i];
+        if (f.durationSec) {
+          await studioDraftDb.updateSlideHoldSec(i, f.durationSec);
+        }
+      }
+    } catch (err) {
+      console.warn('[App] Batch injection IndexedDB update error:', err);
+    }
+  }, []);
+
   // Rapid Ingestion Pipeline: Direct IndexedDB Storage + High-Impact Overlays
   const handleUploadImage = useCallback(async (file: File) => {
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
@@ -1777,6 +1798,7 @@ export default function App() {
         playbackMode={playbackMode}
         onSelectPlaybackMode={setPlaybackMode}
         onOpenContactSheet={() => setIsContactSheetOpen(true)}
+        onOpenCompilationWizard={() => setIsCompilationWizardOpen(true)}
         onOpenWalkthrough={() => setShowWalkthrough(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
@@ -2360,6 +2382,16 @@ export default function App() {
       {showWalkthrough && (
         <LandingWalkthrough onLaunchStudio={handleCloseWalkthrough} />
       )}
+
+      {/* 1-Click Multi-Clip Master Assembler & Compilation Wizard */}
+      <CompilationWizardModal
+        isOpen={isCompilationWizardOpen}
+        onClose={() => setIsCompilationWizardOpen(false)}
+        frames={project.frames}
+        onBatchInjectFrames={handleBatchInjectCompilation}
+        detectedBpm={detectedBpm}
+        totalTargetShots={100}
+      />
     </div>
   );
 }

@@ -31,8 +31,10 @@
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { studioDraftDb } from './db';
-import { AnthologyFrame } from '../types/anthology';
+import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption } from '../types/anthology';
 import { SlideDraft } from '../types/project';
+import { buildFilmStockCssFilter, applyCinematicPostProcess } from './cinematicFilterEngine';
+import { renderCanvasBurnInCaption } from './captionEngine';
 
 export type ShotSelectionMode = 'all' | 'range' | 'custom' | 'current';
 
@@ -303,6 +305,9 @@ export interface FrameCompositeProps {
   cleanPlates: boolean;
   simulateFlare: boolean;
   projectTitle: string;
+  lutFilter?: LutPreset;
+  adjustments?: Partial<FrameAdjustments>;
+  caption?: ShotCaption;
 }
 
 export function compositeCinemaFrame(props: FrameCompositeProps): void {
@@ -323,7 +328,10 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     burnInTitles,
     cleanPlates,
     simulateFlare,
-    projectTitle
+    projectTitle,
+    lutFilter,
+    adjustments,
+    caption
   } = props;
 
   const isVertical = preset === '9_16_vertical';
@@ -401,12 +409,22 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       const scaledX = drawX - (scaledW - drawW) / 2;
       const scaledY = drawY - (scaledH - drawH) / 2;
 
+      ctx.save();
+      const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
+      if (filmFilter && filmFilter !== 'none') {
+        ctx.filter = filmFilter;
+      }
       try {
         ctx.drawImage(sourceElement as any, scaledX, scaledY, scaledW, scaledH);
       } catch {
         // Fallback
       }
+      ctx.restore();
     }
+
+    // Hardware-accelerated 35mm optical shader pass: temperature tint, anamorphic glow, dynamic 60fps grain
+    const currentLocalSec = frameInShot / fps;
+    applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
   } else {
     // Elegant procedural obsidian & amber cinema gradient slate
     const grad = ctx.createRadialGradient(
@@ -673,6 +691,13 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   ctx.lineTo(width - pad, height - pad);
   ctx.lineTo(width - pad, height - pad - bSize);
   ctx.stroke();
+
+  // 6. Kinetic Rap Captions & Lyrical Typography Burn-In
+  if (caption && caption.text && burnInTitles) {
+    const currentLocalSec = frameInShot / fps;
+    const shotTotalSec = totalFramesInShot / fps;
+    renderCanvasBurnInCaption(ctx, width, height, caption, currentLocalSec, shotTotalSec);
+  }
 }
 
 /**
@@ -1060,7 +1085,10 @@ export async function exportCinemaMasterMp4(
         burnInTitles,
         cleanPlates,
         simulateFlare,
-        projectTitle
+        projectTitle,
+        lutFilter: frame?.lutFilter,
+        adjustments: frame?.adjustments,
+        caption: frame?.caption
       });
 
       // Encode VideoFrame into WebCodecs VideoEncoder

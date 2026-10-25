@@ -20,6 +20,8 @@ import { baseThemesData } from '../../data/frames';
 import { TitleAnimationStyle, AnthologyFrame } from '../../types/anthology';
 import { eventBus } from '../../core/eventBus';
 import { TextTypographyDrawer } from '../../components/drawers/TextTypographyDrawer';
+import { KineticTributeSequence } from '../../components/stage/templates/KineticTributeSequence';
+import { TributeProfile, TRIBUTE_PROFILES } from '../../constants/tributeData';
 import { 
   Type, 
   Sliders, 
@@ -68,7 +70,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
   const dialogue = currentFrame ? (currentFrame.directorNotes || '') : (currentShot.directorNotes || '');
   const soundCue = currentFrame ? (currentFrame.soundCue || '') : (currentShot.soundCue || '');
 
-  const [activeTab, setActiveTab] = useState<'presets' | 'editor'>('presets');
+  const [activeTab, setActiveTab] = useState<'presets' | 'tributes' | 'editor'>('presets');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
   const [animationStyle, setAnimationStyle] = useState<TitleAnimationStyle>(
     (currentFrame?.titleAnimation as any) || (currentShot.titleAnimation as any) || 'flare'
@@ -268,6 +270,18 @@ export const TextStudio: React.FC<TextStudioProps> = ({
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('tributes')}
+          className={`pb-2 pt-2 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'tributes'
+              ? 'border-[#F5A623] text-[#FFE066]'
+              : 'border-transparent text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#F5A623]" />
+          <span>🌟 KINETIC TRIBUTES (11)</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('editor')}
           className={`pb-2 pt-2 px-3 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'editor'
@@ -285,6 +299,82 @@ export const TextStudio: React.FC<TextStudioProps> = ({
           currentFrame={currentFrame}
           onUpdateFrame={onUpdateFrame}
         />
+      ) : activeTab === 'tributes' ? (
+        <div className="flex-1 flex flex-col p-4 bg-[#08090C] overflow-y-auto">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-mono font-bold tracking-wider text-[#F5A623] uppercase">
+                5-Phase Kinetic Tribute Sequences
+              </h3>
+              <p className="text-[10px] font-mono text-zinc-400">
+                11 Master Tribute Profiles: ALL CAPS performers, ≤20-word bio, and ≤10-word criticNote preceding director signature.
+              </p>
+            </div>
+          </div>
+
+          <div className="h-[460px] rounded-lg border border-[#F5A623]/30 bg-black/90 relative overflow-hidden shadow-2xl">
+            <KineticTributeSequence
+              durationSec={currentFrame?.slideHoldSec || 7.0}
+              isPlaying={true}
+              showControls={true}
+              onApplyProfileToFrame={(tribute) => {
+                handleUpdate({
+                  title: tribute.performer,
+                  bengaliTitle: tribute.captions[0] || titleBn,
+                  tagline: tribute.hook,
+                  directorNotes: tribute.criticNote,
+                  caption: {
+                    text: tribute.description,
+                    bengaliText: tribute.captions[0],
+                    style: 'cinematic_minimal',
+                    color: '#F5A623'
+                  }
+                });
+              }}
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-left font-mono">
+            {TRIBUTE_PROFILES.map((p) => (
+              <div 
+                key={p.id}
+                className="p-2.5 rounded bg-white/5 border border-white/10 hover:border-[#F5A623]/50 transition-colors"
+              >
+                <div className="flex items-center justify-between text-[11px] mb-1">
+                  <span className="font-bold text-white uppercase">{p.performer}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#F5A623]/20 text-[#F5A623]">{p.hook}</span>
+                </div>
+                <p className="text-[10px] text-zinc-400 line-clamp-2 mb-1.5">{p.description}</p>
+                <div className="text-[9.5px] italic text-[#F5E2B3] bg-black/40 p-1.5 rounded border border-white/5 mb-2">
+                  “{p.criticNote}”
+                </div>
+                <div className="flex items-center justify-between text-[9px] text-zinc-500">
+                  <span>ANIM: {p.defaultAnimation}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUpdate({
+                        title: p.performer,
+                        bengaliTitle: p.captions[0] || titleBn,
+                        tagline: p.hook,
+                        directorNotes: p.criticNote,
+                        caption: {
+                          text: p.description,
+                          bengaliText: p.captions[0],
+                          style: 'cinematic_minimal',
+                          color: '#F5A623'
+                        }
+                      });
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#F5A623] text-black font-bold uppercase hover:bg-white transition-colors"
+                  >
+                    Apply to Shot
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : (
       <div className="p-3.5 sm:p-4 flex flex-col gap-4">
         {/* Dynamic Hero Title Live Stage Simulator Card */}

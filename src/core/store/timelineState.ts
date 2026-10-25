@@ -183,6 +183,110 @@ export const appendClipToTimeline = addShotToTimeline;
 export const addShot = addShotToTimeline;
 export const appendClip = addShotToTimeline;
 
+export interface DopamineTemplateParameters {
+  presetId?: string;
+  presetName?: string;
+  hookText: string;
+  subText: string;
+  glitchIntensity: number;
+  strobeRate: number;
+  motionSpeed: number;
+  accentColor?: string;
+  audioBeatSync?: boolean;
+}
+
+/**
+ * Applies Dopamine sequence or typography template parameters strictly to a single target shot
+ * (by shot index or shot ID) WITHOUT overwriting its underlying video/image source, thumbnail, or duration.
+ */
+export function applyTemplateToShot(
+  shotIdOrIndex: number | string | undefined,
+  dopamineParameters: DopamineTemplateParameters
+): Shot | null {
+  const currentStore = useStudioStore.getState();
+  const shots = currentStore.project?.shots || [];
+  let targetIndex = currentStore.activeShotIndex ?? 0;
+
+  if (typeof shotIdOrIndex === 'number' && Number.isFinite(shotIdOrIndex)) {
+    if (shotIdOrIndex >= 0 && shotIdOrIndex < Math.max(100, shots.length)) {
+      targetIndex = shotIdOrIndex;
+    } else {
+      const foundById = shots.findIndex((s) => s.id === shotIdOrIndex);
+      if (foundById !== -1) targetIndex = foundById;
+    }
+  } else if (typeof shotIdOrIndex === 'string' && shotIdOrIndex.trim()) {
+    const numeric = parseInt(shotIdOrIndex.replace(/\D+/g, ''), 10);
+    const foundById = shots.findIndex(
+      (s) => String(s.id) === shotIdOrIndex || s.epNumber === shotIdOrIndex
+    );
+    if (foundById !== -1) {
+      targetIndex = foundById;
+    } else if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= Math.max(100, shots.length)) {
+      targetIndex = numeric - 1;
+    }
+  }
+
+  const accentColor = dopamineParameters.accentColor || '#FF2B2B';
+  const dopamineConfig = {
+    presetId: dopamineParameters.presetId || 'viral_loop_1',
+    presetName: dopamineParameters.presetName || 'DOPAMINE SEQUENCE',
+    hookText: dopamineParameters.hookText || 'PURE RHYTHM',
+    subText: dopamineParameters.subText || 'Visual Physics at Work.',
+    glitchIntensity: dopamineParameters.glitchIntensity ?? 80,
+    strobeRate: dopamineParameters.strobeRate ?? 60,
+    motionSpeed: dopamineParameters.motionSpeed ?? 1.5,
+    accentColor,
+    audioBeatSync: dopamineParameters.audioBeatSync ?? true
+  };
+
+  const existingShot = shots[targetIndex];
+  const mergedTags = Array.from(
+    new Set([...(existingShot?.tags || []), 'dopamine', dopamineConfig.presetId])
+  );
+  const directorNote = `[🌪️ DOPAMINE: ${dopamineConfig.presetName}] Glitch: ${dopamineConfig.glitchIntensity}%, Strobe: ${dopamineConfig.strobeRate}ms, Speed: ${dopamineConfig.motionSpeed}x`;
+
+  // Mutate ONLY typography & template fields on the single target shot; preserve media & duration!
+  useStudioStore.setState((state) => {
+    const target = state.project.shots[targetIndex];
+    if (target) {
+      target.title = dopamineConfig.hookText;
+      target.tagline = dopamineConfig.subText;
+      target.directorNotes = directorNote;
+      target.titleAnimation = 'kinetic';
+      target.colorAccent = accentColor;
+      target.tags = mergedTags;
+      target.dopamineConfig = dopamineConfig;
+      target.updatedAt = Date.now();
+    }
+    state.titleConfig.showTitles = true;
+    state.visibility.titlesAll = true;
+  });
+
+  const partialUpdate: Partial<AnthologyFrame> = {
+    title: dopamineConfig.hookText,
+    tagline: dopamineConfig.subText,
+    directorNotes: directorNote,
+    titleAnimation: 'kinetic',
+    colorAccent: accentColor,
+    tags: mergedTags,
+    dopamineConfig,
+    caption: {
+      text: dopamineConfig.subText,
+      style: 'rap_pop',
+      color: accentColor
+    }
+  };
+
+  // Broadcast scoped update for App.tsx & active StagePlayer without touching imageUrl or durationSec
+  eventBus.emit('shot:updated', {
+    index: targetIndex,
+    partial: partialUpdate
+  });
+  eventBus.emit('titles:toggle', true);
+
+  return useStudioStore.getState().project?.shots?.[targetIndex] || null;
+}
+
 /**
  * Deducts credits from the global store and syncs across all UI components.
  */

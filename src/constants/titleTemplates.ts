@@ -271,7 +271,9 @@ export function applyTitleTemplateToFrame(
     bengaliTitle: preset.bengaliText || frame.bengaliTitle,
     tagline: preset.secondaryText || frame.tagline,
     colorAccent: preset.color,
-    imageUrl: preset.mockImage || frame.imageUrl,
+    imageUrl: frame.imageUrl || preset.mockImage,
+    thumbnailUrl: frame.thumbnailUrl,
+    dopamineConfig: undefined,
     directorNotes: preset.callToAction 
       ? `[CTA: ${preset.callToAction}] ${frame.directorNotes || ''}`.trim()
       : frame.directorNotes,

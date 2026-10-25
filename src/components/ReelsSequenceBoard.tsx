@@ -138,11 +138,15 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
 
   // Cached fallback thumbnail (never pure black)
   const fallbackThumbnail = useMemo(() => {
+    if (slide.thumbnailUrl) return slide.thumbnailUrl;
     if (slide.remoteUrl && !isVideo) return slide.remoteUrl;
-    const cached = thumbnailMemoryCache.get(slide.id || `shot_${index}`);
+    const cached =
+      thumbnailMemoryCache.get(slide.id || `shot_${index}`) ||
+      thumbnailMemoryCache.get(String(index + 1)) ||
+      thumbnailMemoryCache.get(`shot_${index}`);
     if (cached) return cached;
     return '';
-  }, [slide.remoteUrl, isVideo, slide.id, index]);
+  }, [slide.thumbnailUrl, slide.remoteUrl, isVideo, slide.id, index]);
 
   // Viewport-aware origin clamping
   const updateOrigin = useCallback(() => {

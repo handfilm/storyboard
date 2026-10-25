@@ -29,6 +29,8 @@ export interface ShotSessionState {
   trimInSec?: number;
   trimOutSec?: number;
   imageUrl?: string;
+  thumbnailUrl?: string;
+  dopamineConfig?: any;
   isVideo?: boolean;
   aspectRatio?: string;
   lutFilter?: string;

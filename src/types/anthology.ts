@@ -70,6 +70,18 @@ export interface ShotCaption {
 
 export type TitleAnimationStyle = 'flare' | 'kinetic' | 'glitch' | 'breathe' | 'typewriter' | 'neon' | 'cinema-fade' | 'fade' | 'pop' | 'slide' | 'static';
 
+export interface DopamineShotConfig {
+  presetId?: string;
+  presetName?: string;
+  hookText: string;
+  subText: string;
+  glitchIntensity: number;
+  strobeRate: number;
+  motionSpeed: number;
+  accentColor: string;
+  audioBeatSync?: boolean;
+}
+
 export interface AnthologyFrame {
   id: number;
   epNumber: string;
@@ -82,6 +94,7 @@ export interface AnthologyFrame {
   cameraSpec: CameraSpec;
   imageUrl?: string;
   thumbnailUrl?: string;
+  thumbnail?: string;
   isVideo?: boolean;
   colorAccent: string;
   hoverStyle: number;
@@ -90,6 +103,7 @@ export interface AnthologyFrame {
   aspectRatio: AspectRatio;
   adjustments: FrameAdjustments;
   caption?: ShotCaption;
+  dopamineConfig?: DopamineShotConfig;
   tags: string[];
   panY?: number;
   activeLens?: string;

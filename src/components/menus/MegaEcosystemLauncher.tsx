@@ -117,18 +117,10 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
   }, [isHovered, project.images.length]);
 
   return (
-    <a
-      href={project.url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => {
-        if (onSelect) {
-          onSelect();
-        }
-      }}
-      className="group relative rounded-2xl bg-[#0A0C10]/90 border border-white/10 hover:border-white/30 backdrop-blur-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between hover:shadow-[0_0_35px_rgba(255,255,255,0.06)] cursor-pointer no-underline text-left"
+      className="group relative rounded-2xl bg-[#0A0C10]/90 border border-white/10 hover:border-white/30 backdrop-blur-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between hover:shadow-[0_0_35px_rgba(255,255,255,0.06)] pointer-events-auto text-left"
       style={{
         boxShadow: isHovered ? `0 0 40px ${accentColor}25` : undefined
       }}
@@ -145,16 +137,27 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
           </span>
         </div>
 
-        <span
-          className="text-[10px] font-mono font-semibold tracking-wider text-zinc-400 group-hover:text-white transition-colors truncate max-w-[165px]"
+        <a
+          href={project.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] font-mono font-semibold tracking-wider text-zinc-400 hover:text-white group-hover:text-white transition-colors truncate max-w-[165px] no-underline pointer-events-auto"
           title={project.url}
         >
           {domainHost}
-        </span>
+        </a>
       </div>
 
       {/* Cycling Visual Media Stage with Crossfade */}
-      <div className="relative h-60 w-full overflow-hidden bg-gradient-to-br from-[#12151E] via-[#0B0D13] to-[#06070A] select-none">
+      <a
+        href={project.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          if (onSelect) onSelect();
+        }}
+        className="relative block h-60 w-full overflow-hidden bg-gradient-to-br from-[#12151E] via-[#0B0D13] to-[#06070A] select-none no-underline cursor-pointer pointer-events-auto"
+      >
         {project.images.map((img, idx) =>
           !failedImages[idx] ? (
             <img
@@ -175,7 +178,7 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
 
         {/* Dynamic Image Pips (Cycles on Hover) */}
         {project.images.length > 1 && (
-          <div className="absolute bottom-3 left-4 flex items-center gap-1.5 z-20">
+          <div className="absolute bottom-3 left-4 flex items-center gap-1.5 z-20 pointer-events-none">
             {project.images.map((_, idx) => (
               <span
                 key={idx}
@@ -198,7 +201,7 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
         )}
 
         {/* Monolithic Title Overlay */}
-        <div className="absolute top-4 left-4 right-4 z-20">
+        <div className="absolute top-4 left-4 right-4 z-20 pointer-events-none">
           <h3
             className="text-2xl sm:text-3xl font-black font-sans tracking-tight text-white drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)]"
             style={{
@@ -208,10 +211,10 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
             {project.title}
           </h3>
         </div>
-      </div>
+      </a>
 
       {/* Subtitle & Launch Action */}
-      <div className="p-5 flex-1 flex flex-col justify-between gap-4">
+      <div className="p-5 flex-1 flex flex-col justify-between gap-4 pointer-events-auto">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-zinc-200 font-mono tracking-wide">
             {project.sub}
@@ -219,21 +222,28 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
           <ExternalLink className="w-3.5 h-3.5 text-zinc-500 group-hover:text-white transition-colors shrink-0" />
         </div>
 
-        {/* Brutalist Launch CTA */}
-        <div className="pt-3 border-t border-white/5">
-          <div
-            className="w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all rounded-lg border flex items-center justify-center gap-2 group-hover:bg-white group-hover:text-black group-hover:border-white bg-black/60 border-white/20 text-white whitespace-nowrap"
+        {/* Brutalist Launch CTA — Standard HTML Anchor Tag */}
+        <div className="pt-3 border-t border-white/5 relative z-30 pointer-events-auto">
+          <a
+            href={project.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => {
+              if (onSelect) {
+                onSelect();
+              }
+            }}
+            className="block w-full text-center py-2.5 px-4 py-2.5! px-4! font-mono font-bold text-xs uppercase tracking-widest transition-all rounded-lg border group-hover:bg-white group-hover:text-black group-hover:border-white bg-black/60 border-white/20 text-white whitespace-nowrap no-underline cursor-pointer pointer-events-auto"
             style={{
               borderColor: isHovered ? accentColor : undefined,
               boxShadow: isHovered ? `0 0 20px ${accentColor}30` : undefined
             }}
           >
-            <span>[ LAUNCH // ENTER ENGINE ]</span>
-            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
-          </div>
+            [ LAUNCH // ENTER ENGINE ]
+          </a>
         </div>
       </div>
-    </a>
+    </div>
   );
 };
 

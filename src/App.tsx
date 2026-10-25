@@ -54,6 +54,7 @@ import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';
+import { thumbnailMemoryCache } from './services/thumbnailEngine';
 import { PlaybackMode } from './types/editor';
 import { SlideDraft, AspectRatioType, ProjectDraft } from './types/project';
 import { CinemaPlayer } from './components/player/CinemaPlayer';
@@ -221,6 +222,10 @@ export default function App() {
           const mergedFrames = prev.frames.map((f, i) => {
             const saved = session.shots.find(s => s.shotIndex === i);
             if (saved) {
+              const nonExpiredUrl =
+                saved.imageUrl && !saved.imageUrl.startsWith('blob:')
+                  ? saved.imageUrl
+                  : f.imageUrl;
               return {
                 ...f,
                 title: saved.title || f.title,
@@ -229,7 +234,9 @@ export default function App() {
                 directorNotes: saved.directorNotes || f.directorNotes,
                 soundCue: saved.soundCue || f.soundCue,
                 slideHoldSec: saved.durationSeconds || f.slideHoldSec,
-                imageUrl: saved.imageUrl || f.imageUrl,
+                imageUrl: nonExpiredUrl,
+                thumbnailUrl: saved.thumbnailUrl || f.thumbnailUrl,
+                dopamineConfig: saved.dopamineConfig ?? f.dopamineConfig,
                 isVideo: saved.isVideo ?? f.isVideo
               };
             }
@@ -263,6 +270,8 @@ export default function App() {
         soundCue: f.soundCue,
         durationSeconds: f.slideHoldSec ?? 12.0,
         imageUrl: f.imageUrl,
+        thumbnailUrl: f.thumbnailUrl,
+        dopamineConfig: f.dopamineConfig,
         isVideo: f.isVideo,
         aspectRatio: f.aspectRatio,
         lutFilter: f.lutFilter
@@ -485,12 +494,13 @@ export default function App() {
     }
   }, []);
 
-  // Listen to shot updates from MediaStudio, CinemaStage, and BoardStudio
+  // Listen to shot updates from MediaStudio, CinemaStage, TextTypographyDrawer, and BoardStudio
   useEffect(() => {
     const unsub = eventBus.on('shot:updated', ({ index, partial }: { index: number; partial: any }) => {
       setProject(prev => {
         const nextFrames = [...prev.frames];
         if (nextFrames[index]) {
+          const existing = nextFrames[index];
           const nextDur =
             typeof partial.durationSec === 'number' && partial.durationSec > 0
               ? clampShotDuration(partial.durationSec)
@@ -498,31 +508,45 @@ export default function App() {
               ? clampShotDuration(partial.slideHoldSec)
               : typeof partial.durationSeconds === 'number' && partial.durationSeconds > 0
               ? clampShotDuration(partial.durationSeconds)
-              : nextFrames[index].durationSec;
+              : existing.durationSec;
           nextFrames[index] = {
-            ...nextFrames[index],
-            imageUrl: partial.imageUrl !== undefined ? partial.imageUrl : nextFrames[index].imageUrl,
-            isVideo: partial.isVideo !== undefined ? partial.isVideo : nextFrames[index].isVideo,
-            title: partial.title !== undefined ? partial.title : nextFrames[index].title,
-            bengaliTitle: partial.bengaliTitle !== undefined ? partial.bengaliTitle : nextFrames[index].bengaliTitle,
-            tagline: partial.tagline !== undefined ? partial.tagline : nextFrames[index].tagline,
-            slideHoldSec: nextDur !== undefined ? nextDur : nextFrames[index].slideHoldSec,
-            durationSec: nextDur !== undefined ? nextDur : nextFrames[index].durationSec
+            ...existing,
+            imageUrl: partial.imageUrl !== undefined ? partial.imageUrl : existing.imageUrl,
+            thumbnailUrl: partial.thumbnailUrl !== undefined ? partial.thumbnailUrl : existing.thumbnailUrl,
+            isVideo: partial.isVideo !== undefined ? partial.isVideo : existing.isVideo,
+            title: partial.title !== undefined ? partial.title : existing.title,
+            bengaliTitle: partial.bengaliTitle !== undefined ? partial.bengaliTitle : existing.bengaliTitle,
+            tagline: partial.tagline !== undefined ? partial.tagline : existing.tagline,
+            directorNotes: partial.directorNotes !== undefined ? partial.directorNotes : existing.directorNotes,
+            soundCue: partial.soundCue !== undefined ? partial.soundCue : existing.soundCue,
+            colorAccent: partial.colorAccent !== undefined ? partial.colorAccent : existing.colorAccent,
+            titleAnimation: partial.titleAnimation !== undefined ? partial.titleAnimation : existing.titleAnimation,
+            caption: partial.caption !== undefined ? partial.caption : existing.caption,
+            tags: partial.tags !== undefined ? partial.tags : existing.tags,
+            dopamineConfig: 'dopamineConfig' in partial ? partial.dopamineConfig : existing.dopamineConfig,
+            slideHoldSec: nextDur !== undefined ? nextDur : existing.slideHoldSec,
+            durationSec: nextDur !== undefined ? nextDur : existing.durationSec
           };
         }
         return { ...prev, frames: nextFrames };
       });
     });
 
-    const unsubAsset = eventBus.on('asset_assigned_to_shot', ({ assetId, shotIndex, blobUrl, meta }: any) => {
+    const unsubAsset = eventBus.on('asset_assigned_to_shot', ({ assetId, shotIndex, blobUrl, thumbnailUrl, meta }: any) => {
       if (typeof shotIndex === 'number' && blobUrl) {
         const isVid = meta?.mimeType?.startsWith('video') ?? false;
+        const resolvedThumb = thumbnailUrl || (!isVid ? blobUrl : undefined);
+        if (resolvedThumb) {
+          thumbnailMemoryCache.set(String(shotIndex + 1), resolvedThumb);
+          thumbnailMemoryCache.set(`shot_${shotIndex}`, resolvedThumb);
+        }
         setProject(prev => {
           const nextFrames = [...prev.frames];
           if (nextFrames[shotIndex]) {
             nextFrames[shotIndex] = {
               ...nextFrames[shotIndex],
               imageUrl: blobUrl,
+              thumbnailUrl: resolvedThumb || nextFrames[shotIndex].thumbnailUrl,
               isVideo: isVid
             };
           }
@@ -531,6 +555,7 @@ export default function App() {
         try {
           useStudioStore.getState().updateShot(shotIndex, {
             imageUrl: blobUrl,
+            thumbnailUrl: resolvedThumb,
             isVideo: isVid
           });
         } catch {}
@@ -671,12 +696,18 @@ export default function App() {
           if (item && item.blob) {
             const url = studioDraftDb.getActiveMediaUrl(item.id, item.blob);
             const isVid = item.mimeType.startsWith('video');
+            const thumb = item.thumbnailUrl || (!isVid ? url : undefined);
+            if (thumb) {
+              thumbnailMemoryCache.set(String(slot.slotIndex + 1), thumb);
+              thumbnailMemoryCache.set(`shot_${slot.slotIndex}`, thumb);
+            }
             setProject(prev => {
               const nextFrames = [...prev.frames];
               if (nextFrames[slot.slotIndex]) {
                 nextFrames[slot.slotIndex] = {
                   ...nextFrames[slot.slotIndex],
                   imageUrl: url,
+                  thumbnailUrl: thumb || nextFrames[slot.slotIndex].thumbnailUrl,
                   isVideo: isVid
                 };
               }
@@ -684,6 +715,7 @@ export default function App() {
             });
             useStudioStore.getState().updateShot(slot.slotIndex, {
               imageUrl: url,
+              thumbnailUrl: thumb,
               isVideo: isVid
             });
           }
@@ -753,6 +785,8 @@ export default function App() {
         outPointMs: f.outPointMs,
         beatSnapEnabled: f.beatSnapEnabled,
         remoteUrl: f.imageUrl,
+        thumbnailUrl: f.thumbnailUrl,
+        dopamineConfig: f.dopamineConfig,
         titleBn: f.bengaliTitle,
         titleEn: f.title,
         tagline: f.tagline,
@@ -1492,22 +1526,25 @@ export default function App() {
     
     // 1. Direct write to IndexedDB media_vault store & timeline_slots
     let url = '';
+    let thumbUrl = '';
     try {
       const vaultItem = await studioDraftDb.saveMediaToVault(file);
       await studioDraftDb.assignMediaToShot(vaultItem.id, currentIndex);
       url = studioDraftDb.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
+      thumbUrl = vaultItem.thumbnailUrl || (!isVideo ? url : '');
     } catch (err) {
       console.warn('[App] Vault media persistence error:', err);
       url = URL.createObjectURL(file);
+      thumbUrl = !isVideo ? url : '';
     }
 
-    // 2. Tracked Object URL with zero memory leaks
     const current = project.frames[currentIndex];
-    if (current?.imageUrl && current.imageUrl.startsWith('blob:') && current.imageUrl !== url) {
-      studioDraftDb.revokeTrackedUrl(current.imageUrl);
+    if (thumbUrl) {
+      thumbnailMemoryCache.set(String(current?.id ?? currentIndex + 1), thumbUrl);
+      thumbnailMemoryCache.set(`shot_${currentIndex}`, thumbUrl);
     }
 
-    // 3. Auto-pair with default high-impact bilingual title overlays and audio cue
+    // 2. Auto-pair with default high-impact bilingual title overlays and audio cue
     const shotNum = String(currentIndex + 1).padStart(3, '0');
     const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
       ? `SH${shotNum} // KINETIC FLOW`
@@ -1520,6 +1557,7 @@ export default function App() {
     handleUpdateFrame({
       ...current,
       imageUrl: url,
+      thumbnailUrl: thumbUrl || current.thumbnailUrl,
       isVideo: isVideo,
       title: titleEn,
       bengaliTitle: titleBn,
@@ -1529,6 +1567,7 @@ export default function App() {
     try {
       useStudioStore.getState().updateShot(currentIndex, {
         imageUrl: url,
+        thumbnailUrl: thumbUrl || current.thumbnailUrl,
         isVideo: isVideo,
         title: titleEn,
         bengaliTitle: titleBn,

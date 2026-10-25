@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { AnthologyFrame, CaptionStyle, LutPreset } from '../types/anthology';
 import { studioDraftDb } from '../services/db';
+import { thumbnailMemoryCache } from '../services/thumbnailEngine';
 import { audioEngine } from '../utils/audioEngine';
 import { autoDistributeLyrics } from '../services/captionEngine';
 
@@ -89,8 +90,8 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
     setStatusMessage('Ingesting source media into sovereign IndexedDB vault...');
 
     try {
-      // 1. Process files into blob URLs or IndexedDB records
-      const mediaUrls: { url: string; name: string; isVideo: boolean }[] = [];
+      // 1. Process files into blob URLs or IndexedDB records with persistent thumbnails
+      const mediaUrls: { url: string; thumbnailUrl?: string; name: string; isVideo: boolean }[] = [];
       
       if (uploadedFiles.length > 0) {
         for (let i = 0; i < uploadedFiles.length; i++) {
@@ -99,10 +100,20 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
           try {
             const vaultItem = await studioDraftDb.saveMediaToVault(file);
             const url = studioDraftDb.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
-            mediaUrls.push({ url, name: file.name, isVideo });
+            mediaUrls.push({
+              url,
+              thumbnailUrl: vaultItem.thumbnailUrl || (!isVideo ? url : undefined),
+              name: file.name,
+              isVideo
+            });
           } catch {
             const url = URL.createObjectURL(file);
-            mediaUrls.push({ url, name: file.name, isVideo });
+            mediaUrls.push({
+              url,
+              thumbnailUrl: !isVideo ? url : undefined,
+              name: file.name,
+              isVideo
+            });
           }
           setProgressPercent(10 + Math.round(((i + 1) / uploadedFiles.length) * 35));
         }
@@ -132,6 +143,7 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
           ? mediaUrls[i % mediaUrls.length]
           : {
               url: frames[i]?.imageUrl || '',
+              thumbnailUrl: frames[i]?.thumbnailUrl,
               name: `Shot ${epNum}`,
               isVideo: frames[i]?.isVideo ?? false
             };
@@ -178,6 +190,7 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
             format: 'RAW 14-BIT ARRI'
           },
           imageUrl: mediaSource.url,
+          thumbnailUrl: mediaSource.thumbnailUrl || (!mediaSource.isVideo ? mediaSource.url : undefined),
           isVideo: mediaSource.isVideo,
           colorAccent: isRap ? '#F5A623' : '#2DD4BF',
           hoverStyle: 0,
@@ -201,6 +214,11 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
           caption: autoCaption,
           tags: [isRap ? 'RapMusicVideo' : 'Documentary', `${shotDur.toFixed(1)}s`, targetLut]
         };
+
+        if (frameItem.thumbnailUrl) {
+          thumbnailMemoryCache.set(String(frameItem.id), frameItem.thumbnailUrl);
+          thumbnailMemoryCache.set(`shot_${i}`, frameItem.thumbnailUrl);
+        }
 
         newFrames.push(frameItem);
       }

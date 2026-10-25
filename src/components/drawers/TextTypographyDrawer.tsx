@@ -20,6 +20,7 @@ import {
   CompilationPreset, 
   getCompilationPresetById 
 } from '../../constants/compilationData';
+import { applyTemplateToShot } from '../../core/store/timelineState';
 import { DopamineCompilationSequence } from '../stage/templates/DopamineCompilationSequence';
 import { 
   Type, 
@@ -100,43 +101,116 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   };
 
   const handleApplyDopamineToFrame = () => {
-    if (!currentFrame || !onUpdateFrame) return;
     const preset = getCompilationPresetById(activeDopamineId);
+    const targetShotIndex =
+      typeof currentFrame?.id === 'number' && currentFrame.id >= 1
+        ? currentFrame.id - 1
+        : activeShotIndex;
 
-    const updated: AnthologyFrame = {
-      ...currentFrame,
-      title: dopamineHook,
-      tagline: dopamineSub,
-      titleAnimation: 'kinetic',
-      tags: Array.from(new Set([...(currentFrame.tags || []), 'dopamine', preset.id])),
-      directorNotes: `[🌪️ DOPAMINE: ${preset.name}] Glitch: ${dopamineGlitch}%, Strobe: ${dopamineStrobe}ms, Speed: ${dopamineSpeed}x`,
-      caption: {
-        text: dopamineSub,
-        style: 'rap_pop',
-        color: dopamineAccent
-      }
-    };
+    // 1. Dispatch strictly scoped template update to timeline store (preserves media & duration)
+    applyTemplateToShot(targetShotIndex, {
+      presetId: activeDopamineId,
+      presetName: preset.name,
+      hookText: dopamineHook,
+      subText: dopamineSub,
+      glitchIntensity: dopamineGlitch,
+      strobeRate: dopamineStrobe,
+      motionSpeed: dopamineSpeed,
+      accentColor: dopamineAccent,
+      audioBeatSync: dopamineAudioBeatSync
+    });
 
-    onUpdateFrame(updated);
+    // 2. Also sync via prop callback if parent passed currentFrame & onUpdateFrame
+    if (currentFrame && onUpdateFrame) {
+      const updated: AnthologyFrame = {
+        ...currentFrame,
+        imageUrl: currentFrame.imageUrl,
+        thumbnailUrl: currentFrame.thumbnailUrl,
+        isVideo: currentFrame.isVideo,
+        slideHoldSec: currentFrame.slideHoldSec,
+        durationSec: currentFrame.durationSec,
+        title: dopamineHook,
+        tagline: dopamineSub,
+        titleAnimation: 'kinetic',
+        colorAccent: dopamineAccent,
+        tags: Array.from(new Set([...(currentFrame.tags || []), 'dopamine', preset.id])),
+        directorNotes: `[🌪️ DOPAMINE: ${preset.name}] Glitch: ${dopamineGlitch}%, Strobe: ${dopamineStrobe}ms, Speed: ${dopamineSpeed}x`,
+        dopamineConfig: {
+          presetId: activeDopamineId,
+          presetName: preset.name,
+          hookText: dopamineHook,
+          subText: dopamineSub,
+          glitchIntensity: dopamineGlitch,
+          strobeRate: dopamineStrobe,
+          motionSpeed: dopamineSpeed,
+          accentColor: dopamineAccent,
+          audioBeatSync: dopamineAudioBeatSync
+        },
+        caption: {
+          text: dopamineSub,
+          style: 'rap_pop',
+          color: dopamineAccent
+        }
+      };
+      onUpdateFrame(updated);
+    }
+
     setAppliedDopamineSuccess(true);
     setTimeout(() => {
       setAppliedDopamineSuccess(false);
-      eventBus.emit('drawer:close');
-    }, 1200);
+    }, 1500);
   };
 
   const handleApply = (preset: TitleTemplatePreset) => {
     setAppliedPresetId(preset.id);
     setTimeout(() => setAppliedPresetId(null), 2000);
 
+    const targetShotIndex =
+      typeof currentFrame?.id === 'number' && currentFrame.id >= 1
+        ? currentFrame.id - 1
+        : activeShotIndex;
+
     if (onApplyPreset) {
       onApplyPreset(preset);
     }
+
+    // Sync store & eventBus without overwriting existing shot media or duration
+    const store = useStudioStore.getState();
+    const existingShot = store.project.shots[targetShotIndex];
+    store.updateShot(targetShotIndex, {
+      title: preset.primaryText,
+      bengaliTitle: preset.bengaliText || existingShot?.bengaliTitle,
+      tagline: preset.secondaryText || existingShot?.tagline,
+      colorAccent: preset.color,
+      titleAnimation: preset.animationStyle,
+      dopamineConfig: undefined
+    });
+    eventBus.emit('titles:toggle', true);
 
     if (currentFrame && onUpdateFrame) {
       const updated = applyTitleTemplateToFrame(currentFrame, preset);
       queueMicrotask(() => {
         onUpdateFrame(updated);
+      });
+    } else {
+      eventBus.emit('shot:updated', {
+        index: targetShotIndex,
+        partial: {
+          title: preset.primaryText,
+          bengaliTitle: preset.bengaliText,
+          tagline: preset.secondaryText,
+          colorAccent: preset.color,
+          titleAnimation: preset.animationStyle,
+          dopamineConfig: undefined,
+          caption: {
+            text: preset.primaryText,
+            bengaliText: preset.bengaliText,
+            style: preset.category === 'rap' ? 'rap_pop' : 'cinematic_minimal',
+            color: preset.color,
+            fontFamily: preset.fontFamily,
+            position: preset.position
+          }
+        }
       });
     }
   };
@@ -494,7 +568,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
           <button
             type="button"
             onClick={handleApplyDopamineToFrame}
-            className={`w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 ${
+            className={`w-full py-2.5 px-4 py-2.5! px-4! font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 ${
               appliedDopamineSuccess
                 ? 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)]'
                 : 'bg-red-950/70 hover:bg-red-600 border-red-500/50 hover:border-red-400 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]'
@@ -503,7 +577,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
             {appliedDopamineSuccess ? (
               <>
                 <Check className="w-4 h-4 text-white" />
-                <span>✓ APPLIED TO SHOT SH{String(activeShotIndex + 1).padStart(3, '0')}!</span>
+                <span>[ ✔ SEQUENCE APPLIED ]</span>
               </>
             ) : (
               <>

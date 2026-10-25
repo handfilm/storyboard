@@ -60,6 +60,7 @@ import {
 } from '../../services/cinematicFilterEngine';
 import { FilterGradingTray } from './FilterGradingTray';
 import { KineticCaptionOverlay } from './KineticCaptionOverlay';
+import { DopamineCompilationSequence } from './templates/DopamineCompilationSequence';
 import { FrameAdjustments, LutPreset } from '../../types/anthology';
 
 export interface TactileStageProps {
@@ -661,6 +662,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             const posterResult = await extractVideoPoster(file);
             posterDataUrl = posterResult.base64;
             thumbnailMemoryCache.set(mediaId, posterDataUrl);
+            thumbnailMemoryCache.set(String(frame?.id ?? currentIndex), posterDataUrl);
+            thumbnailMemoryCache.set(`shot_${currentIndex}`, posterDataUrl);
             setCachedPosterUrl(posterDataUrl);
           } catch (err) {
             console.warn('Poster extraction during drop:', err);
@@ -697,6 +700,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onUpdateFrame({
             ...frame,
             imageUrl: objectUrl,
+            thumbnailUrl: posterDataUrl || (!file.type.startsWith('video/') ? objectUrl : frame?.thumbnailUrl),
             isVideo: file.type.startsWith('video/')
           });
         }
@@ -914,38 +918,67 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
-        {/* Real-Time Bilingual Titles Overlay (Foreground Multi-Layer Zoom) */}
-        <div
-          ref={stageTitleContainerRef}
-          data-title-container="tactile-stage"
-          className={`absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center ${
-            isTitlesActive ? 'flex flex-col' : 'hidden opacity-0'
-          }`}
-          style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
-          aria-hidden={!isTitlesActive}
+        {/* Persistent Right-Edge Title FX Toggle */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onToggleTitles) onToggleTitles();
+            else toggleTitlesStore();
+          }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs px-3 px-3! py-1 py-1! rounded hover:bg-white/20 transition-all cursor-pointer pointer-events-auto"
         >
-          <StageTextOverlay
-            shotIndex={currentIndex}
-            banglaTitle={frame?.bengaliTitle}
-            englishTitle={frame?.title}
-            subtitle={frame?.tagline}
-            directorNotes={frame?.directorNotes}
-            cameraInfo={frame?.cameraSpec?.focalLength}
-            isVisible={isTitlesActive}
-            allowQuickControls={true}
-            componentsVisibility={componentsVisibility}
-          />
-        </div>
+          {isTitlesActive ? '[ T ] TITLE FX : ON' : '[ T ] TITLE FX : OFF'}
+        </button>
+
+        {/* Real-Time Bilingual Titles / Dopamine Sequence Overlay (Foreground Multi-Layer Zoom) */}
+        {isTitlesActive && (
+          <div
+            ref={stageTitleContainerRef}
+            data-title-container="tactile-stage"
+            className="absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center flex flex-col"
+            style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
+          >
+            {frame?.dopamineConfig ? (
+              <DopamineCompilationSequence
+                hookText={frame.dopamineConfig.hookText}
+                subText={frame.dopamineConfig.subText}
+                glitchIntensity={frame.dopamineConfig.glitchIntensity}
+                strobeRate={frame.dopamineConfig.strobeRate}
+                motionSpeed={frame.dopamineConfig.motionSpeed}
+                accentColor={frame.dopamineConfig.accentColor}
+                audioBeatSync={frame.dopamineConfig.audioBeatSync ?? true}
+                currentTime={slideTimeSec}
+                durationSec={activeShotDurationSec}
+                isPlaying={isAutoplay}
+                showTelemetry={false}
+              />
+            ) : (
+              <StageTextOverlay
+                shotIndex={currentIndex}
+                banglaTitle={frame?.bengaliTitle}
+                englishTitle={frame?.title}
+                subtitle={frame?.tagline}
+                directorNotes={frame?.directorNotes}
+                cameraInfo={frame?.cameraSpec?.focalLength}
+                isVisible={isTitlesActive}
+                allowQuickControls={true}
+                componentsVisibility={componentsVisibility}
+              />
+            )}
+          </div>
+        )}
 
         {/* Dynamic Word-Level Kinetic Caption & Subtitle Overlay */}
-        <KineticCaptionOverlay
-          currentFrame={frame}
-          slideTimeSec={slideTimeSec}
-          durationSec={activeShotDurationSec}
-          detectedBpm={detectedBpm}
-          onUpdateFrame={handleUpdateCurrentFrame}
-          showCaptions={true}
-        />
+        {isTitlesActive && !frame?.dopamineConfig && (
+          <KineticCaptionOverlay
+            currentFrame={frame}
+            slideTimeSec={slideTimeSec}
+            durationSec={activeShotDurationSec}
+            detectedBpm={detectedBpm}
+            onUpdateFrame={handleUpdateCurrentFrame}
+            showCaptions={isTitlesActive}
+          />
+        )}
 
         {/* Floating 35mm Film Stock & Color Grading Tray */}
         <FilterGradingTray

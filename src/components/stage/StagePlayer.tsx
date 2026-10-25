@@ -60,6 +60,7 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(initialTime);
   const [isPlaying, setIsPlaying] = useState<boolean>(externalIsPlaying ?? true);
   const [isMuted, setIsMuted] = useState<boolean>(true);
+  const [titlesVisible, setTitlesVisible] = useState<boolean>(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Sync external playing prop if controlled
@@ -168,33 +169,44 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
         </div>
       )}
 
+      {/* Persistent Right-Edge Title FX Toggle */}
+      <button
+        type="button"
+        onClick={() => setTitlesVisible(!titlesVisible)}
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs px-3 px-3! py-1 py-1! rounded hover:bg-white/20 transition-all cursor-pointer"
+      >
+        {titlesVisible ? '[ T ] TITLE FX : ON' : '[ T ] TITLE FX : OFF'}
+      </button>
+
       {/* Modular Cinema Typography Canvas: strictly receives currentTime */}
       <div className="relative z-10 flex-1 w-full h-full flex items-center justify-center">
-        {engineMode === 'dopamine' ? (
-          <DopamineCompilationSequence
-            hookText={dopamineConfig?.hookText || 'PURE RHYTHM'}
-            subText={dopamineConfig?.subText || 'Visual Physics at Work.'}
-            glitchIntensity={dopamineConfig?.glitchIntensity ?? 80}
-            strobeRate={dopamineConfig?.strobeRate ?? 60}
-            motionSpeed={dopamineConfig?.motionSpeed ?? 1.5}
-            accentColor={dopamineConfig?.accentColor || '#FF2B2B'}
-            audioBeatSync={true}
-            currentTime={currentTime}
-            durationSec={durationSec}
-            isPlaying={isPlaying}
-            scale={scale}
-          />
-        ) : (
-          <KineticTributeSequence
-            profile={profile}
-            currentTime={currentTime}
-            durationSec={durationSec}
-            isPlaying={isPlaying}
-            scale={scale}
-            showControls={false}
-            onPhaseChange={onPhaseChange}
-            onApplyProfileToFrame={onApplyProfileToFrame}
-          />
+        {titlesVisible && (
+          engineMode === 'dopamine' ? (
+            <DopamineCompilationSequence
+              hookText={dopamineConfig?.hookText || 'PURE RHYTHM'}
+              subText={dopamineConfig?.subText || 'Visual Physics at Work.'}
+              glitchIntensity={dopamineConfig?.glitchIntensity ?? 80}
+              strobeRate={dopamineConfig?.strobeRate ?? 60}
+              motionSpeed={dopamineConfig?.motionSpeed ?? 1.5}
+              accentColor={dopamineConfig?.accentColor || '#FF2B2B'}
+              audioBeatSync={true}
+              currentTime={currentTime}
+              durationSec={durationSec}
+              isPlaying={isPlaying}
+              scale={scale}
+            />
+          ) : (
+            <KineticTributeSequence
+              profile={profile}
+              currentTime={currentTime}
+              durationSec={durationSec}
+              isPlaying={isPlaying}
+              scale={scale}
+              showControls={false}
+              onPhaseChange={onPhaseChange}
+              onApplyProfileToFrame={onApplyProfileToFrame}
+            />
+          )
         )}
       </div>
 

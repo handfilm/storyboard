@@ -569,8 +569,8 @@ class StudioDraftDbService {
     return this.initPromise;
   }
 
-  private lruActiveUrls: Map<string, string> = new Map(); // id -> objectUrl (max 8)
-  private readonly MAX_LRU_URLS = 8;
+  private lruActiveUrls: Map<string, string> = new Map(); // id -> objectUrl
+  private readonly MAX_LRU_URLS = 256;
 
   /**
    * Lock browser cache against OS-level eviction via navigator.storage.persist()
@@ -600,12 +600,12 @@ class StudioDraftDbService {
   }
 
   // =========================================================================
-  // OBJECT URL LIFECYCLE MANAGEMENT (LRU MAX 8 ACTIVE URLS, ZERO LEAKS)
+  // OBJECT URL LIFECYCLE MANAGEMENT (PERSISTENT SESSION URLS)
   // =========================================================================
 
   /**
-   * Dynamically creates or retrieves an Object URL with LRU eviction (max 8 active URLs).
-   * Automatically calls URL.revokeObjectURL() on eviction to prevent GPU/RAM memory saturation.
+   * Dynamically creates or retrieves a persistent Object URL for timeline shots.
+   * Avoids premature URL.revokeObjectURL() eviction while shots are active in the timeline.
    */
   public getOrCreateObjectUrl(id: string, blob: Blob): string {
     if (!blob) return '';
@@ -619,17 +619,11 @@ class StudioDraftDbService {
       return url;
     }
 
-    // If cache is full, evict oldest entry
+    // Only trim map tracking if exceeding 256 items; do not revoke active timeline URLs mid-session
     if (this.lruActiveUrls.size >= this.MAX_LRU_URLS) {
       const oldestId = this.lruActiveUrls.keys().next().value;
       if (oldestId) {
-        const evictedUrl = this.lruActiveUrls.get(oldestId);
-        if (evictedUrl) {
-          try { URL.revokeObjectURL(evictedUrl); } catch {}
-          this.activeObjectUrls.delete(evictedUrl);
-        }
         this.lruActiveUrls.delete(oldestId);
-        this.activeMediaUrls.delete(oldestId);
       }
     }
 
@@ -1812,11 +1806,12 @@ class StudioDraftDbService {
       blobUrl = this.activeMediaUrls.get(mediaId) || '';
     }
 
-    // 5. Broadcast assignment event for timeline and stage reactivity
+    // 5. Broadcast assignment event for timeline and stage reactivity (including persistent thumbnailUrl)
     eventBus.emit('asset_assigned_to_shot', {
       assetId: mediaId,
       shotIndex,
       blobUrl: blobUrl || '',
+      thumbnailUrl: updatedItem ? (updatedItem as any).thumbnailUrl : undefined,
       name: updatedItem ? (updatedItem as any).name : 'media',
       meta: updatedItem ? {
         filename: (updatedItem as any).name,

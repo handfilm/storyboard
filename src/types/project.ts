@@ -34,6 +34,8 @@ export interface SlideDraft {
   beatSnapEnabled?: boolean;
   mediaBlobId?: string; // Key in media_blobs store
   remoteUrl?: string; // Pre-signed Cloudflare R2 URL or Edge CDN stream
+  thumbnailUrl?: string;
+  dopamineConfig?: any;
   titleBn?: string;
   titleEn?: string;
   tagline?: string;

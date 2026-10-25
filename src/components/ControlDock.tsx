@@ -18,6 +18,7 @@ import {
   getShotTargetFps
 } from '../types/storyboard';
 import { audioEngine } from '../services/audioEngine';
+import { thumbnailMemoryCache } from '../services/thumbnailEngine';
 import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import {
   Play,
@@ -153,6 +154,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     clientX: number;
     clientY: number;
   } | null>(null);
+  const [failedThumbMap, setFailedThumbMap] = useState<Record<string, boolean>>({});
 
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
@@ -308,7 +310,19 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
-            const hasMedia = !!frame?.imageUrl || !!frame?.isVideo;
+            const cachedThumb =
+              frame?.thumbnailUrl ||
+              frame?.thumbnail ||
+              thumbnailMemoryCache.get(String(frame?.id)) ||
+              thumbnailMemoryCache.get(`shot_${idx}`) ||
+              thumbnailMemoryCache.get(String(idx)) ||
+              '';
+            const isVideoMedia = Boolean(
+              frame?.isVideo ||
+              (frame?.imageUrl && /\.(mp4|webm|mov|m4v)(\?|$)/i.test(frame.imageUrl))
+            );
+            const primaryImgSrc = cachedThumb || (!isVideoMedia ? frame?.imageUrl || '' : '');
+            const hasMedia = Boolean(primaryImgSrc || frame?.imageUrl || frame?.isVideo);
             const isThumbnailVisible = idx >= visibleStartShot && idx <= visibleEndShot;
             const shotNumber = idx + 1;
             const title = frame?.title || `Shot ${shotNumber}`;
@@ -325,6 +339,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             const relFrames = Math.floor((relSec % 1) * shotFps);
             const relSecondsPart = Math.floor(relSec);
             const relativeTc = `+${String(relSecondsPart).padStart(2, '0')}:${String(relFrames).padStart(2, '0')}F`;
+            const thumbKey = `${idx}_${primaryImgSrc}`;
 
             return (
               <div
@@ -348,15 +363,25 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     : 'border-white/10 hover:border-white/30 hover:scale-105 bg-[#0e0e14]'
                 }`}
               >
-                {/* Virtualized Media thumbnail preview: only decoded within visible + 5-shot buffer window */}
-                {hasMedia && frame?.imageUrl && isThumbnailVisible ? (
+                {/* Virtualized Persistent Media Thumbnail Preview */}
+                {hasMedia && isThumbnailVisible && primaryImgSrc && !failedThumbMap[thumbKey] ? (
                   <img
-                    src={frame.imageUrl}
+                    src={primaryImgSrc}
                     alt={`Shot ${shotNumber}`}
                     referrerPolicy="no-referrer"
-                    loading="lazy"
                     decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.7] group-hover:brightness-100 transition-all duration-200 group-hover:scale-110"
+                    onError={() =>
+                      setFailedThumbMap((prev) => ({ ...prev, [thumbKey]: true }))
+                    }
+                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.75] group-hover:brightness-100 transition-all duration-200 group-hover:scale-110"
+                  />
+                ) : hasMedia && isThumbnailVisible && isVideoMedia && frame?.imageUrl ? (
+                  <video
+                    src={frame.imageUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.75] group-hover:brightness-100 pointer-events-none"
                   />
                 ) : hasMedia ? (
                   <div className="absolute inset-0 bg-[#12121a] flex items-center justify-center">

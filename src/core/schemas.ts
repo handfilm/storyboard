@@ -71,6 +71,7 @@ export const ShotSchema = z.object({
   soundCue: z.string().default('Sub-bass pulse 36Hz'),
   cameraSpec: CameraSpecSchema.default(() => CameraSpecSchema.parse({})),
   imageUrl: z.string().optional(),
+  thumbnailUrl: z.string().optional(),
   isVideo: z.boolean().default(false),
   panY: z.number().min(0).max(100).default(50),
   colorAccent: z.string().default('#d4af37'),
@@ -85,6 +86,19 @@ export const ShotSchema = z.object({
   activeLens: z.string().default('50mm f/1.4 Human Eye'),
   dof: z.string().default('1.8cm'),
   titleAnimation: z.string().optional(),
+  dopamineConfig: z
+    .object({
+      presetId: z.string().optional(),
+      presetName: z.string().optional(),
+      hookText: z.string(),
+      subText: z.string(),
+      glitchIntensity: z.number(),
+      strobeRate: z.number(),
+      motionSpeed: z.number(),
+      accentColor: z.string(),
+      audioBeatSync: z.boolean().optional()
+    })
+    .optional(),
   liquifyData: z.string().optional(),
   updatedAt: z.number().default(() => Date.now())
 });

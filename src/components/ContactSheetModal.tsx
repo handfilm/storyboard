@@ -41,10 +41,33 @@ import {
   ChevronDown,
   AlertTriangle,
   ArrowLeftRight,
-  Grid
+  Grid,
+  Film
 } from 'lucide-react';
 import { filterFrames, getLutFilterCSS } from '../utils/engine';
+import { eventBus } from '../core/eventBus';
 import { downloadStoryboardPdf, StoryboardPdfOptions, exportFrameAsJpeg, exportFramesAsJpegZip } from '../utils/pdfExport';
+
+function formatCompactShotRange(oneBasedNumbers: number[]): string {
+  if (oneBasedNumbers.length === 0) return '';
+  const sorted = Array.from(new Set(oneBasedNumbers)).sort((a, b) => a - b);
+  const segments: string[] = [];
+  let rangeStart = sorted[0];
+  let prev = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const curr = sorted[i];
+    if (curr === prev + 1) {
+      prev = curr;
+    } else {
+      segments.push(rangeStart === prev ? `${rangeStart}` : `${rangeStart}-${prev}`);
+      rangeStart = curr;
+      prev = curr;
+    }
+  }
+  segments.push(rangeStart === prev ? `${rangeStart}` : `${rangeStart}-${prev}`);
+  return segments.join(', ');
+}
 
 const ALL_LUT_OPTIONS: { id: LutPreset; label: string; desc: string; color: string }[] = [
   { id: 'cinematic', label: 'RAWx Cinema 35', desc: 'Warm shadows, golden skin tones', color: '#D4AF37' },
@@ -123,11 +146,26 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   const [compareWipePos, setCompareWipePos] = useState<number>(50); // 0 to 100%
   const [compareShowGuides, setCompareShowGuides] = useState<boolean>(true);
 
-  // Multi-Select & Batch Actions State
+  // Multi-Select, Shift+Click Range & Marquee Drag-to-Select State
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [selectedFrameIds, setSelectedFrameIds] = useState<Set<number>>(new Set());
   const [isBatchLutMenuOpen, setIsBatchLutMenuOpen] = useState(false);
   const [confirmDeleteBatch, setConfirmDeleteBatch] = useState(false);
+  const lastClickedFrameIdRef = useRef<number | null>(null);
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+  const justCompletedMarqueeRef = useRef<boolean>(false);
+  const [marqueeBox, setMarqueeBox] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isOpen && frames[currentIndex]) {
+      lastClickedFrameIdRef.current = frames[currentIndex].id;
+    }
+  }, [isOpen, currentIndex, frames]);
 
   // Initialize Compare Slots when entering compare mode
   useEffect(() => {
@@ -289,9 +327,53 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     setTimeout(() => setLastReorderMsg(null), 3000);
   };
 
-  // Multi-Select Handlers
+  // Multi-Select & Shift+Click Range Selection Handlers
+  const selectRangeToFrame = useCallback(
+    (targetId: number, additive: boolean) => {
+      const anchorId = lastClickedFrameIdRef.current ?? frames[currentIndex]?.id ?? targetId;
+      const anchorIdx = filtered.findIndex((f) => f.id === anchorId);
+      const targetIdx = filtered.findIndex((f) => f.id === targetId);
+
+      setIsCompareMode(false);
+      setIsMultiSelectMode(true);
+
+      if (anchorIdx === -1 || targetIdx === -1) {
+        setSelectedFrameIds((prev) => {
+          const next = additive ? new Set(prev) : new Set<number>();
+          next.add(targetId);
+          return next;
+        });
+        lastClickedFrameIdRef.current = targetId;
+        return;
+      }
+
+      const start = Math.min(anchorIdx, targetIdx);
+      const end = Math.max(anchorIdx, targetIdx);
+      const rangeIds = filtered.slice(start, end + 1).map((f) => f.id);
+
+      setSelectedFrameIds((prev) => {
+        const next = additive ? new Set(prev) : new Set<number>(prev);
+        for (const id of rangeIds) {
+          next.add(id);
+        }
+        return next;
+      });
+      lastClickedFrameIdRef.current = targetId;
+      setLastReorderMsg(`Selected ${rangeIds.length} frames via Shift+Click`);
+      setTimeout(() => setLastReorderMsg(null), 2500);
+    },
+    [filtered, frames, currentIndex]
+  );
+
   const toggleSelectFrame = (id: number, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+      if (e.shiftKey) {
+        selectRangeToFrame(id, true);
+        return;
+      }
+    }
+    lastClickedFrameIdRef.current = id;
     setSelectedFrameIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -303,6 +385,98 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     });
   };
 
+  // Rubber-band Marquee Drag-to-Select Handler
+  const handleGridMarqueeMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || isCompareMode) return;
+      const targetEl = e.target as HTMLElement;
+      if (targetEl.closest('button, select, input, a')) return;
+
+      const clickedCard = targetEl.closest('[data-contact-frame-id]');
+      // Allow marquee drag anywhere when in Multi-Select mode or holding Shift/Meta/Ctrl,
+      // OR when starting drag on the grid background/gutter outside a draggable card!
+      const canStartMarquee =
+        isMultiSelectMode || e.shiftKey || e.metaKey || e.ctrlKey || !clickedCard;
+      if (!canStartMarquee) return;
+
+      const container = gridScrollRef.current;
+      if (!container) return;
+
+      const startClientX = e.clientX;
+      const startClientY = e.clientY;
+      const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+      const baselineSelection = additive ? new Set(selectedFrameIds) : new Set<number>();
+      let isDraggingMarquee = false;
+
+      const handleMouseMove = (moveEvt: MouseEvent) => {
+        const dx = moveEvt.clientX - startClientX;
+        const dy = moveEvt.clientY - startClientY;
+        if (!isDraggingMarquee && Math.hypot(dx, dy) < 6) {
+          return;
+        }
+
+        if (!isDraggingMarquee) {
+          isDraggingMarquee = true;
+          setIsMultiSelectMode(true);
+          setIsCompareMode(false);
+        }
+
+        const rect = container.getBoundingClientRect();
+        const x1 = startClientX - rect.left + container.scrollLeft;
+        const y1 = startClientY - rect.top + container.scrollTop;
+        const x2 = moveEvt.clientX - rect.left + container.scrollLeft;
+        const y2 = moveEvt.clientY - rect.top + container.scrollTop;
+
+        setMarqueeBox({
+          left: Math.min(x1, x2),
+          top: Math.min(y1, y2),
+          width: Math.abs(x2 - x1),
+          height: Math.abs(y2 - y1)
+        });
+
+        const minClientX = Math.min(startClientX, moveEvt.clientX);
+        const maxClientX = Math.max(startClientX, moveEvt.clientX);
+        const minClientY = Math.min(startClientY, moveEvt.clientY);
+        const maxClientY = Math.max(startClientY, moveEvt.clientY);
+
+        const nextSelected = new Set(baselineSelection);
+        const cardNodes = container.querySelectorAll<HTMLElement>('[data-contact-frame-id]');
+        cardNodes.forEach((node) => {
+          const cardRect = node.getBoundingClientRect();
+          const intersects =
+            cardRect.right >= minClientX &&
+            cardRect.left <= maxClientX &&
+            cardRect.bottom >= minClientY &&
+            cardRect.top <= maxClientY;
+          if (intersects) {
+            const rawId = Number(node.getAttribute('data-contact-frame-id'));
+            if (!Number.isNaN(rawId)) {
+              nextSelected.add(rawId);
+            }
+          }
+        });
+
+        setSelectedFrameIds(nextSelected);
+      };
+
+      const handleMouseUp = () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        if (isDraggingMarquee) {
+          justCompletedMarqueeRef.current = true;
+          window.setTimeout(() => {
+            justCompletedMarqueeRef.current = false;
+          }, 80);
+          setMarqueeBox(null);
+        }
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    },
+    [isCompareMode, isMultiSelectMode, selectedFrameIds]
+  );
+
   const selectAllFiltered = () => {
     setSelectedFrameIds(new Set(filtered.map(f => f.id)));
   };
@@ -311,6 +485,35 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     setSelectedFrameIds(new Set());
     setConfirmDeleteBatch(false);
     setIsBatchLutMenuOpen(false);
+  };
+
+  // Batch Apply Export Range
+  const handleBatchApplyExportRange = () => {
+    if (selectedFrameIds.size === 0) return;
+
+    const selectedIndices: number[] = [];
+    const oneBasedNumbers: number[] = [];
+    frames.forEach((f, idx) => {
+      if (selectedFrameIds.has(f.id)) {
+        selectedIndices.push(idx);
+        oneBasedNumbers.push(idx + 1);
+      }
+    });
+
+    if (selectedIndices.length === 0) return;
+
+    const rangeText = formatCompactShotRange(oneBasedNumbers);
+    eventBus.emit('export:apply_range', {
+      indices: selectedIndices,
+      frameIds: Array.from(selectedFrameIds),
+      rangeText,
+      count: selectedIndices.length
+    });
+    setLastReorderMsg(`Applied Export Range: Shots ${rangeText}`);
+    onClose();
+    queueMicrotask(() => {
+      eventBus.emit('export:open');
+    });
   };
 
   // Batch Apply LUT
@@ -826,12 +1029,24 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 )}
               </div>
 
+              {/* Batch Apply Export Range Button */}
+              <button
+                type="button"
+                onClick={handleBatchApplyExportRange}
+                disabled={selectedFrameIds.size === 0}
+                className="px-3 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-200 hover:text-white text-[10px] font-bold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
+                title="Send selected storyboard frames directly to Unified Export Studio"
+              >
+                <Film className="w-3.5 h-3.5 text-cyan-400" />
+                <span>APPLY EXPORT RANGE ({selectedFrameIds.size})</span>
+              </button>
+
               {/* Batch Delete Button with confirmation */}
               {!confirmDeleteBatch ? (
                 <button
                   onClick={() => setConfirmDeleteBatch(true)}
                   disabled={selectedFrameIds.size === 0}
-                  className="px-3 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] font-bold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40"
+                  className="px-3 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] font-bold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                   <span>DELETE ({selectedFrameIds.size})</span>
@@ -1195,12 +1410,12 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
             ) : isMultiSelectMode ? (
               <span className="text-[8.5px] text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
                 <CheckSquare className="w-3 h-3" />
-                SELECT FRAMES FOR BATCH OPERATIONS
+                SHIFT+CLICK RANGE OR DRAG MARQUEE TO SELECT
               </span>
             ) : (
               <span className="text-[8.5px] text-amber-400/80 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
                 <ArrowUpDown className="w-3 h-3" />
-                DRAG CARDS TO RESEQUENCE
+                DRAG TO RESEQUENCE • SHIFT+CLICK OR DRAG GUTTER TO MULTI-SELECT
               </span>
             )}
 
@@ -1231,8 +1446,23 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
           </div>
         </div>
 
-        {/* 100-FRAME INTERACTIVE GRID */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto bg-[#050508] scrollbar-thin scrollbar-thumb-white/10">
+        {/* 100-FRAME INTERACTIVE GRID (WITH SHIFT+CLICK & MARQUEE DRAG-TO-SELECT) */}
+        <div
+          ref={gridScrollRef}
+          onMouseDown={handleGridMarqueeMouseDown}
+          className="relative flex-1 p-4 sm:p-6 overflow-y-auto bg-[#050508] scrollbar-thin scrollbar-thumb-white/10"
+        >
+          {marqueeBox && (
+            <div
+              className="absolute z-40 pointer-events-none border border-amber-400 bg-amber-400/15 shadow-[0_0_20px_rgba(245,166,35,0.25)] rounded-[2px]"
+              style={{
+                left: `${marqueeBox.left}px`,
+                top: `${marqueeBox.top}px`,
+                width: `${marqueeBox.width}px`,
+                height: `${marqueeBox.height}px`
+              }}
+            />
+          )}
           <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-8">
             {filtered.map((frame, index) => {
               const isSelected = frame.id === currentIndex;
@@ -1247,13 +1477,34 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
               return (
                 <div
                   key={frame.id}
+                  data-contact-frame-id={frame.id}
                   draggable={!isMultiSelectMode && !isCompareMode}
-                  onDragStart={(e) => handleDragStart(e, frame.id)}
+                  onDragStart={(e) => {
+                    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                      e.preventDefault();
+                      return;
+                    }
+                    handleDragStart(e, frame.id);
+                  }}
                   onDragOver={(e) => handleDragOver(e, frame.id)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, frame.id)}
                   onDragEnd={handleDragEnd}
                   onClick={(e) => {
+                    if (justCompletedMarqueeRef.current) {
+                      e.stopPropagation();
+                      return;
+                    }
+                    if (e.shiftKey) {
+                      selectRangeToFrame(frame.id, true);
+                      return;
+                    }
+                    if (e.metaKey || e.ctrlKey) {
+                      setIsCompareMode(false);
+                      setIsMultiSelectMode(true);
+                      toggleSelectFrame(frame.id, e);
+                      return;
+                    }
                     if (isMultiSelectMode) {
                       toggleSelectFrame(frame.id, e);
                     } else if (isCompareMode) {
@@ -1261,6 +1512,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                         setCompareSlotBId(frame.id);
                       }
                     } else {
+                      lastClickedFrameIdRef.current = frame.id;
                       onSelectFrame(frame.id);
                       onClose();
                     }

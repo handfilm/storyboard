@@ -50,6 +50,7 @@ export interface EcosystemProject {
   specs: string[];
   features: string[];
   images: string[];
+  url: string;
   targetUrl: string;
 }
 
@@ -73,7 +74,8 @@ export const ECOSYSTEM_PROJECTS: EcosystemProject[] = [
       'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?q=80&w=800',
       'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=800'
     ],
-    targetUrl: '#'
+    url: 'https://handsandhead.com',
+    targetUrl: 'https://handsandhead.com'
   },
   {
     id: 'rawx',
@@ -94,6 +96,7 @@ export const ECOSYSTEM_PROJECTS: EcosystemProject[] = [
       'https://images.unsplash.com/photo-1520975954732-57dd22299614?q=80&w=800',
       'https://images.unsplash.com/photo-1559551409-dadc959f76b8?q=80&w=800'
     ],
+    url: 'https://rawx.handsandhead.com',
     targetUrl: 'https://rawx.handsandhead.com'
   },
   {
@@ -114,6 +117,7 @@ export const ECOSYSTEM_PROJECTS: EcosystemProject[] = [
       'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?q=80&w=800',
       'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=800'
     ],
+    url: 'https://arutemika.handsandhead.com',
     targetUrl: 'https://arutemika.handsandhead.com'
   },
   {
@@ -134,6 +138,7 @@ export const ECOSYSTEM_PROJECTS: EcosystemProject[] = [
       'https://images.unsplash.com/photo-1512626120412-faf41adb4874?q=80&w=800',
       'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=800'
     ],
+    url: 'https://bloom.handsandhead.com',
     targetUrl: 'https://bloom.handsandhead.com'
   },
   {
@@ -154,6 +159,7 @@ export const ECOSYSTEM_PROJECTS: EcosystemProject[] = [
       'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800',
       'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?q=80&w=800'
     ],
+    url: 'https://nexos.handsandhead.com',
     targetUrl: 'https://nexos.handsandhead.com'
   }
 ];
@@ -196,7 +202,12 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
       style={{
         boxShadow: isHovered ? `0 0 40px ${project.accentColor}25` : undefined
       }}
-      onClick={onSelect}
+      onClick={() => {
+        if (onSelect) {
+          onSelect();
+        }
+        window.open(project.url, '_blank');
+      }}
     >
       {/* Top Banner Tag / Category */}
       <div className="p-5 pb-3 flex items-center justify-between border-b border-white/5 z-10 bg-[#0A0C10]/60">
@@ -309,6 +320,13 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
           {/* Brutalist Launch Button */}
           <button
             type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelect) {
+                onSelect();
+              }
+              window.open(project.url, '_blank');
+            }}
             className="w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 group-hover:bg-white group-hover:text-black group-hover:border-white bg-black/60 border-white/20 text-white"
             style={{
               borderColor: isHovered ? project.accentColor : undefined,
@@ -404,9 +422,6 @@ export const MegaEcosystemLauncher: React.FC<MegaEcosystemLauncherProps> = ({
                 onSelect={() => {
                   if (onSelectProject) {
                     onSelectProject(proj.id);
-                  }
-                  if (proj.targetUrl && proj.targetUrl !== '#') {
-                    window.open(proj.targetUrl, '_blank', 'noopener,noreferrer');
                   }
                 }}
               />

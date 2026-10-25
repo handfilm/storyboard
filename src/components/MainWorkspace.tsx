@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { WorkspaceMode } from '../core/theme';
 import { useStudioStore } from '../core/store';
 import { AnthologyFrame, AspectRatio } from '../types/anthology';
@@ -391,8 +392,17 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   // 4. Default Hero STAGE Mode with Dual-Panel Workflow (Exclusively renders the 2.39:1 anamorphic monitor)
   return (
     <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
-      {/* Main Viewport Content based on active panel */}
-      <div className="flex-1 w-full relative flex flex-col overflow-hidden">
+      {/* Main Viewport Content based on active panel with GPU Cross-Dissolve */}
+      <div className="flex-1 w-full relative grid grid-cols-1 grid-rows-1 overflow-hidden">
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={currentPanel}
+            initial={{ opacity: 0, scale: 0.994 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.004 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="col-start-1 row-start-1 w-full h-full flex flex-col overflow-hidden transform-gpu will-change-[opacity,transform]"
+          >
         {/* VIEW 0: TACTILE STAGE (Consolidated Primary View: Glowing Bloom Stage + 100-Shot Sequence Runner) */}
         {currentPanel === 'TACTILE_STAGE' && (
           <div className="w-full h-full flex flex-col overflow-hidden">
@@ -633,6 +643,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
             />
           </div>
         )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </main>
   );

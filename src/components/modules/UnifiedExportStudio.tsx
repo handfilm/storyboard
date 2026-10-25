@@ -3,7 +3,7 @@
  * @description Unified Cinema Export Studio Modal for HANDFILM & RAWx.
  * 
  * Features:
- * - Parent Modal: `relative w-[700px] max-w-[90vw] min-h-[500px] h-auto bg-[#050505]/80 backdrop-blur-3xl border border-amber-500/30 shadow-[0_0_50px_rgba(245,166,35,0.2)] rounded-2xl p-6 pointer-events-auto flex flex-col justify-start items-stretch gap-6 font-mono select-none overflow-hidden`
+ * - Parent Modal: `relative w-full max-w-[1200px] h-[80vh] overflow-y-auto bg-[#050505]/90 backdrop-blur-3xl border border-amber-500/30 shadow-[0_0_50px_rgba(245,166,35,0.2)] rounded-2xl p-6 md:p-8 pointer-events-auto flex flex-col justify-between items-stretch gap-6 font-mono select-none`
  * - Export options:
  *   1. 4K Cinema Master (WebCodecs MP4 / 24fps)
  *   2. Adobe Premiere Pro / CapCut Desktop (FCP7 XML)
@@ -63,6 +63,29 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [customRangeIndices, setCustomRangeIndices] = useState<number[] | null>(null);
+  const [customRangeLabel, setCustomRangeLabel] = useState<string | null>(null);
+
+  // Listen for batch Apply Export Range events from ContactSheetModal
+  useEffect(() => {
+    const unsubRange = eventBus.on(
+      'export:apply_range',
+      (payload?: { indices?: number[]; rangeText?: string; count?: number }) => {
+        if (payload && Array.isArray(payload.indices) && payload.indices.length > 0) {
+          setCustomRangeIndices(payload.indices);
+          setCustomRangeLabel(payload.rangeText || `${payload.indices.length} Selected Shots`);
+        }
+      }
+    );
+    return () => {
+      unsubRange();
+    };
+  }, []);
+
+  const targetExportFrames =
+    customRangeIndices && customRangeIndices.length > 0
+      ? customRangeIndices.map((idx) => frames[idx]).filter((f): f is AnthologyFrame => Boolean(f))
+      : frames;
 
   // Close on Escape key
   useEffect(() => {
@@ -101,7 +124,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
           director: directorName,
           nodeLocation: 'LOCAL_VAULT',
           aspectRatio: (aspectRatio as any) || '2.39:1',
-          frames,
+          frames: targetExportFrames,
           createdAt: new Date().toISOString(),
           version: '2.4'
         };
@@ -118,7 +141,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
           director: directorName,
           nodeLocation: 'LOCAL_VAULT',
           aspectRatio: (aspectRatio as any) || '2.39:1',
-          frames,
+          frames: targetExportFrames,
           createdAt: new Date().toISOString(),
           version: '2.4'
         };
@@ -130,7 +153,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         setStatusMessage('Formatting PDF contact sheet...');
         setExportProgress(50);
         await new Promise((r) => setTimeout(r, 300));
-        await downloadStoryboardPdf(frames, {
+        await downloadStoryboardPdf(targetExportFrames, {
           projectTitle,
           directorName,
           aspectRatio
@@ -187,7 +210,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                 stiffness: 280,
                 mass: 0.85
               }}
-              className="relative w-[700px] max-w-[90vw] min-h-[500px] h-auto bg-[#050505]/80 backdrop-blur-3xl border border-amber-500/30 shadow-[0_0_50px_rgba(245,166,35,0.2)] rounded-2xl p-6 pointer-events-auto flex flex-col justify-start items-stretch gap-6 font-mono select-none overflow-hidden"
+              className="relative w-full max-w-[1200px] h-[80vh] overflow-y-auto bg-[#050505]/90 backdrop-blur-3xl border border-amber-500/30 shadow-[0_0_50px_rgba(245,166,35,0.2)] rounded-2xl p-6 md:p-8 pointer-events-auto flex flex-col justify-between items-stretch gap-6 font-mono select-none"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -378,6 +401,34 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     Lossless archive of all project timelines, high-resolution media buffers, IndexedDB proxies, and audio tracks bundled into a portable <code className="text-amber-400">.rawx</code> file.
                   </p>
                 )}
+
+                {/* Active Storyboard Shot Range Scope */}
+                <div className="pt-3 mt-1 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-400">EXPORT SEQUENCE RANGE:</span>
+                    {customRangeIndices && customRangeIndices.length > 0 ? (
+                      <span className="text-amber-300 font-bold tabular-nums">
+                        Shots {customRangeLabel} ({targetExportFrames.length} of {frames.length || 100} frames)
+                      </span>
+                    ) : (
+                      <span className="text-zinc-200 font-bold tabular-nums">
+                        Full Storyboard Timeline ({frames.length || 100} frames)
+                      </span>
+                    )}
+                  </div>
+                  {customRangeIndices && customRangeIndices.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomRangeIndices(null);
+                        setCustomRangeLabel(null);
+                      }}
+                      className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/15 border border-white/15 text-[10px] font-bold text-zinc-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      Reset to All Shots
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* 4. Progress or Status Message */}

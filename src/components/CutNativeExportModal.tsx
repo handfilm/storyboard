@@ -37,6 +37,7 @@ import { exportFullIdbBackup } from '../utils/backup';
 import { exportDirectorsCutBundle } from '../services/directorsCutExport';
 import { exportProductionPackageZip } from '../services/productionPackageExport';
 import { downloadStoryboardPdf, exportFrameAsJpeg, exportFramesAsJpegZip } from '../utils/pdfExport';
+import { eventBus } from '../core/eventBus';
 import { 
   Film, 
   Video, 
@@ -144,6 +145,24 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   const [rangeEnd, setRangeEnd] = useState<number>(Math.min(12, totalCount));
   const [customListText, setCustomListText] = useState<string>('1, 3, 5-8, 12');
   const [excludedIndices, setExcludedIndices] = useState<number[]>([]);
+  const hasAppliedContactRangeRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const unsubRange = eventBus.on(
+      'export:apply_range',
+      (payload?: { rangeText?: string }) => {
+        if (payload?.rangeText) {
+          hasAppliedContactRangeRef.current = true;
+          setSelectionMode('custom');
+          setCustomListText(payload.rangeText);
+          setExcludedIndices([]);
+        }
+      }
+    );
+    return () => {
+      unsubRange();
+    };
+  }, []);
 
   // 3. MP4 Video Render Settings
   const [resolutionPreset, setResolutionPreset] = useState<CinemaResolutionPreset>('4k_scope');
@@ -215,7 +234,10 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       const end = Math.min(totalCount, start + 11);
       setRangeStart(start);
       setRangeEnd(end);
-      setCustomListText(`1, ${Math.min(3, totalCount)}, ${Math.min(5, totalCount)}-${Math.min(8, totalCount)}`);
+      if (!hasAppliedContactRangeRef.current) {
+        setCustomListText(`1, ${Math.min(3, totalCount)}, ${Math.min(5, totalCount)}-${Math.min(8, totalCount)}`);
+      }
+      hasAppliedContactRangeRef.current = false;
       
       const cleanProject = projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
       const timeStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -996,7 +1018,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     >
       {/* Centered Modal Container with Subtle Fade-in & Upward Slide Animation */}
       <div 
-        className="w-full max-w-4xl max-h-[85vh] bg-[#050505]/40 backdrop-blur-3xl border border-amber-500/20 shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-xl flex flex-col overflow-hidden relative font-mono text-zinc-300 animate-modal-slide-up"
+        className="w-full max-w-[1200px] h-[80vh] bg-[#050505]/85 backdrop-blur-3xl border border-amber-500/20 shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-xl flex flex-col overflow-hidden relative font-mono text-zinc-300 animate-modal-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Tactical Corner Accents */}

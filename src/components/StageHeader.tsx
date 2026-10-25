@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Film, 
   Sliders, 
@@ -19,14 +20,20 @@ import {
   LayoutGrid,
   Upload,
   Type,
-  X
+  X,
+  Database,
+  Trash2,
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
 import { eventBus } from '../core/eventBus';
 import { useStudioStore } from '../core/store';
+import { studioDraftDb } from '../services/db';
 import { SmartHoverCard } from './ui/SmartHoverCard';
 import { OverflowSettingsMenu } from './menus/OverflowSettingsMenu';
+import { DirectorInspector } from './DirectorInspector';
 import { CompileEngine } from './modules/CompileEngine';
 import { RapAudioSync } from './modules/RapAudioSync';
 import { NeuralAudioEngine } from './modules/NeuralAudioEngine';
@@ -116,10 +123,46 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isEcosystemLauncherOpen, setIsEcosystemLauncherOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTemplatesDrawerOpen, setIsTemplatesDrawerOpen] = useState(false);
+  const [isInspectorDrawerOpen, setIsInspectorDrawerOpen] = useState(false);
+  const [isCacheManagerOpen, setIsCacheManagerOpen] = useState(false);
+  const [cacheUsageBytes, setCacheUsageBytes] = useState<number>(0);
+  const [cacheQuotaBytes, setCacheQuotaBytes] = useState<number>(0);
+  const [isPurgingCache, setIsPurgingCache] = useState(false);
+  const [cachePurgeFeedback, setCachePurgeFeedback] = useState<string | null>(null);
+  const [dissolvePulseId, setDissolvePulseId] = useState<number>(0);
+  const dissolveTimeoutRef = useRef<number | null>(null);
   const [isRecordingActive, setIsRecordingActive] = useState(false);
   const [isMasterTabActive, setIsMasterTabActive] = useState(false);
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
   const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
+
+  // Query live IndexedDB storage estimate when Cache Manager opens
+  useEffect(() => {
+    if (!isCacheManagerOpen) return;
+    let cancelled = false;
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+      navigator.storage
+        .estimate()
+        .then((est) => {
+          if (!cancelled) {
+            setCacheUsageBytes(est.usage || 0);
+            setCacheQuotaBytes(est.quota || 0);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [isCacheManagerOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (dissolveTimeoutRef.current !== null) {
+        window.clearTimeout(dissolveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Dedicated event listeners
   useEffect(() => {
@@ -163,6 +206,19 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   };
 
   const handleWorkspacePanelSelect = (panel: StagePanelType) => {
+    const isCoreDissolveMode =
+      panel === 'TACTILE_STAGE' || panel === 'SPLIT' || panel === 'SEQUENCER';
+    if (isCoreDissolveMode && (panel !== currentPanel || currentView !== 'STUDIO' || isMasterTabActive)) {
+      const nextPulse = Date.now();
+      setDissolvePulseId(nextPulse);
+      if (dissolveTimeoutRef.current !== null) {
+        window.clearTimeout(dissolveTimeoutRef.current);
+      }
+      dissolveTimeoutRef.current = window.setTimeout(() => {
+        setDissolvePulseId(0);
+      }, 210);
+      eventBus.emit('workspace:cross_dissolve', { from: currentPanel, to: panel });
+    }
     setIsMasterTabActive(false);
     if (panel === 'SPLIT') setActiveNavTab('REELS');
     if (onSelectView && currentView !== 'STUDIO') onSelectView('STUDIO');
@@ -210,6 +266,87 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const handleOpenTemplatesDrawer = () => {
     setIsTemplatesDrawerOpen(true);
   };
+
+  const handleTriggerInspector = () => {
+    console.info('[HANDFILM] Director Inspector triggered from 3-Dot Workspace Menu');
+    eventBus.emit('inspector:toggle');
+    if (currentView === 'STUDIO' && onOpenInspector) {
+      onOpenInspector();
+    } else {
+      setIsInspectorDrawerOpen((prev) => !prev);
+      useStudioStore.getState().toggleInspector();
+    }
+  };
+
+  const handleTriggerCacheManager = () => {
+    console.info('[HANDFILM] Cache Manager triggered from 3-Dot Workspace Menu');
+    setCachePurgeFeedback(null);
+    setIsCacheManagerOpen(true);
+    if (onOpenCacheManager) {
+      onOpenCacheManager();
+    }
+  };
+
+  const handleExecuteCachePurge = async () => {
+    if (isPurgingCache) return;
+    setIsPurgingCache(true);
+    try {
+      const result = await studioDraftDb.purgeTransientCache();
+      const freedMB = (result.freedEstimatesBytes / (1024 * 1024)).toFixed(2);
+      const msg = `Purged ${result.purgedCount} transient bitmaps (${freedMB} MB freed)`;
+      console.info('[HANDFILM] IndexedDB Cache Purge Complete:', msg);
+      setCachePurgeFeedback(msg);
+      if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        setCacheUsageBytes(est.usage || 0);
+        setCacheQuotaBytes(est.quota || 0);
+      }
+    } catch (err) {
+      console.warn('[HANDFILM] Cache purge warning:', err);
+      setCachePurgeFeedback('Transient IndexedDB proxy cache cleared');
+    } finally {
+      setIsPurgingCache(false);
+    }
+  };
+
+  const inspectableFrame: AnthologyFrame =
+    currentFrame ||
+    frames[currentIndex] ||
+    frames[0] ||
+    ({
+      id: 1,
+      epNumber: '#001',
+      title: 'MASTER SHOT 01',
+      bengaliTitle: 'প্রথম দৃশ্য',
+      tagline: '2.39:1 Master Scope',
+      directorNotes: '',
+      soundCue: '',
+      cameraSpec: {
+        focalLength: '35mm Master Prime',
+        aperture: 'f/1.4',
+        shutter: '1/48s',
+        iso: 'ISO 800',
+        sensor: 'Full-Frame Cine',
+        format: 'RAW 14-BIT'
+      },
+      imageUrl: '',
+      isVideo: false,
+      panY: 50,
+      colorAccent: '#D4AF37',
+      hoverStyle: 0,
+      lutFilter: 'cinematic',
+      aspectRatio: '2.39:1',
+      adjustments: {
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        bloom: 30,
+        grain: 15,
+        motionBlur: 50,
+        vignette: 40
+      },
+      tags: []
+    } as AnthologyFrame);
 
   return (
     <>
@@ -433,43 +570,64 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
-              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              className={`relative py-1 px-1.5 text-xs md:text-sm font-bold tracking-widest transition-colors duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu ${
                 currentPanel === 'TACTILE_STAGE' && !isMasterTabActive
                   ? 'text-amber-500'
                   : 'text-white/60 hover:text-white'
               }`}
               title="Primary Tactile Cinema Stage"
             >
-              <Film className="w-3.5 h-3.5 shrink-0" />
-              <span>STAGE</span>
+              {currentPanel === 'TACTILE_STAGE' && !isMasterTabActive && (
+                <motion.span
+                  layoutId="stageHeaderCoreWorkspaceDissolve"
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute inset-0 -mx-1 rounded bg-amber-500/10 border-b-2 border-amber-400 pointer-events-none transform-gpu will-change-[transform,opacity]"
+                />
+              )}
+              <Film className="w-3.5 h-3.5 shrink-0 relative z-10" />
+              <span className="relative z-10">STAGE</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleWorkspacePanelSelect('SPLIT')}
-              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              className={`relative py-1 px-1.5 text-xs md:text-sm font-bold tracking-widest transition-colors duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu ${
                 currentPanel === 'SPLIT' && !isMasterTabActive
                   ? 'text-amber-500'
                   : 'text-white/60 hover:text-white'
               }`}
               title="9:16 Reels & Dual Split Sequencer"
             >
-              <Video className="w-3.5 h-3.5 shrink-0" />
-              <span>REELS</span>
+              {currentPanel === 'SPLIT' && !isMasterTabActive && (
+                <motion.span
+                  layoutId="stageHeaderCoreWorkspaceDissolve"
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute inset-0 -mx-1 rounded bg-amber-500/10 border-b-2 border-amber-400 pointer-events-none transform-gpu will-change-[transform,opacity]"
+                />
+              )}
+              <Video className="w-3.5 h-3.5 shrink-0 relative z-10" />
+              <span className="relative z-10">REELS</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
-              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              className={`relative py-1 px-1.5 text-xs md:text-sm font-bold tracking-widest transition-colors duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu ${
                 currentPanel === 'SEQUENCER' && !isMasterTabActive
                   ? 'text-amber-500'
                   : 'text-white/60 hover:text-white'
               }`}
               title="Sub-Frame Precision Scrub Timeline"
             >
-              <Scissors className="w-3.5 h-3.5 shrink-0" />
-              <span>SCRUB</span>
+              {currentPanel === 'SEQUENCER' && !isMasterTabActive && (
+                <motion.span
+                  layoutId="stageHeaderCoreWorkspaceDissolve"
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute inset-0 -mx-1 rounded bg-amber-500/10 border-b-2 border-amber-400 pointer-events-none transform-gpu will-change-[transform,opacity]"
+                />
+              )}
+              <Scissors className="w-3.5 h-3.5 shrink-0 relative z-10" />
+              <span className="relative z-10">SCRUB</span>
             </button>
 
             <button
@@ -647,14 +805,26 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             if (onOpenSettings) onOpenSettings();
             else eventBus.emit('settings:open');
           }}
-          onOpenInspector={() => {
-            if (onOpenInspector) onOpenInspector();
-            else useStudioStore.getState().toggleInspector();
-          }}
-          onOpenCacheManager={onOpenCacheManager}
+          onOpenInspector={handleTriggerInspector}
+          onOpenCacheManager={handleTriggerCacheManager}
         />
       </div>
     </header>
+
+      {/* Hardware-Accelerated Optical Cross-Dissolve Veil between STAGE, REELS, and SCRUB */}
+      <AnimatePresence>
+        {dissolvePulseId > 0 && (
+          <motion.div
+            key={dissolvePulseId}
+            initial={{ opacity: 0.32, scale: 1.003 }}
+            animate={{ opacity: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed top-16 inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-amber-500/[0.06] via-[#070709]/60 to-[#070709]/80 transform-gpu will-change-[opacity,transform]"
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
 
       {/* Modals & Drawers rendered outside <header> so backdrop-blur never traps fixed overlays */}
       <CompileEngine
@@ -790,6 +960,120 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               />
             </div>
           </aside>
+        </div>
+      )}
+
+      {/* Standalone Director Inspector Drawer Overlay (Active when triggered from Home or 3-Dot Menu) */}
+      {isInspectorDrawerOpen && (
+        <div
+          className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-xs"
+          onClick={() => setIsInspectorDrawerOpen(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <DirectorInspector
+              frame={inspectableFrame}
+              onUpdateFrame={(updated) => {
+                eventBus.emit('shot:updated', {
+                  index: currentIndex,
+                  partial: updated
+                });
+              }}
+              onClose={() => setIsInspectorDrawerOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* IndexedDB Cache & Vault Manager Modal (Triggered from 3-Dot Menu) */}
+      {isCacheManagerOpen && (
+        <div
+          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setIsCacheManagerOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-[#07080C]/95 backdrop-blur-3xl border border-amber-500/30 rounded-2xl p-6 text-zinc-200 font-mono shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col gap-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-400">
+                  <Database className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">
+                    IndexedDB Cache Manager
+                  </h3>
+                  <p className="text-[10px] text-zinc-400">
+                    Local Media Proxy Buffers &amp; Browser Vault Telemetry
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCacheManagerOpen(false)}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/30 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close Cache Manager"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs tabular-nums">
+              <div className="p-3.5 rounded-xl bg-black/50 border border-white/10">
+                <div className="text-[10px] text-zinc-400 uppercase mb-1">Active Vault Usage</div>
+                <div className="text-base font-bold text-white">
+                  {(cacheUsageBytes / (1024 * 1024)).toFixed(2)} MB
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl bg-black/50 border border-white/10">
+                <div className="text-[10px] text-zinc-400 uppercase mb-1">Available Browser Quota</div>
+                <div className="text-base font-bold text-emerald-400">
+                  {cacheQuotaBytes > 0
+                    ? `${(cacheQuotaBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+                    : 'Unlimited'}
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Purging clears temporary canvas bitmaps and transient proxy thumbnails from IndexedDB without deleting saved storyboard frames or timeline metadata.
+            </p>
+
+            {cachePurgeFeedback && (
+              <div className="p-3 rounded-lg bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{cachePurgeFeedback}</span>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-white/10 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsCacheManagerOpen(false)}
+                className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/15 border border-white/15 text-xs font-bold text-zinc-300 hover:text-white transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                disabled={isPurgingCache}
+                onClick={handleExecuteCachePurge}
+                className="px-4 py-2 rounded-lg bg-rose-600/20 hover:bg-rose-600 border border-rose-500/60 text-xs font-bold text-rose-200 hover:text-white transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isPurgingCache ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Purging...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Purge Transient Cache</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

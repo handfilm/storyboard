@@ -1009,7 +1009,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
   const modalNode = (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden animate-modal-backdrop"
+      className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 select-none font-sans overflow-hidden animate-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isExporting) {
           onClose();
@@ -1018,7 +1018,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     >
       {/* Centered Modal Container with Subtle Fade-in & Upward Slide Animation */}
       <div 
-        className="w-full max-w-[1200px] h-[80vh] bg-[#050505]/85 backdrop-blur-3xl border border-amber-500/20 shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-xl flex flex-col overflow-hidden relative font-mono text-zinc-300 animate-modal-slide-up"
+        className="w-full max-w-5xl max-h-[92vh] bg-[#07080d]/95 backdrop-blur-3xl border border-[#F5A623]/45 shadow-[0_25px_80px_rgba(0,0,0,0.9),0_0_40px_rgba(245,166,35,0.12)] rounded-xl flex flex-col overflow-hidden relative font-mono text-zinc-300 animate-modal-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Tactical Corner Accents */}
@@ -1030,7 +1030,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         {/* ================================================================ */}
         {/* STICKY HEADER WITH FORMAT TABS & CLOSE BUTTON                    */}
         {/* ================================================================ */}
-        <div className="sticky top-0 bg-[#050505]/60 backdrop-blur-2xl border-b border-amber-500/20 px-5 py-3.5 flex flex-col gap-3 z-20 shrink-0">
+        <div className="sticky top-0 bg-[#08090e]/95 backdrop-blur-2xl border-b border-[#F5A623]/25 px-4 py-2.5 flex flex-col gap-2.5 z-20 shrink-0">
           {/* Top Title & Close Action */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1180,12 +1180,12 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         {/* ================================================================ */}
         {/* SCROLLABLE SETTINGS BODY                                         */}
         {/* ================================================================ */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="px-4 py-3 overflow-y-auto flex-1 space-y-3">
           
           {/* ============================================================== */}
           {/* SHARED DYNAMIC SHOT SEQUENCE MATRIX (ACTIVE FOR ALL TABS)      */}
           {/* ============================================================== */}
-          <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-3">
+          <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-2">
                 <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -1425,12 +1425,12 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
           {/* TAB 1: MP4 VIDEO RENDER ENGINE */}
           {activeTab === 'mp4' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="space-y-3 animate-in fade-in duration-150">
 
               {/* DEDICATED CINEMA FRAME PREVIEW & RENDER MONITOR */}
-              <div className="p-4 rounded-xl bg-[#08090e] border border-[#F5A623]/35 shadow-xl space-y-3 relative">
+              <div className="p-3 rounded-xl bg-[#08090e] border border-[#F5A623]/35 shadow-xl space-y-2.5 relative">
                 {/* Monitor Top Control / Status Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1f2130] pb-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1f2130] pb-2">
                   <div className="flex items-center gap-2">
                     <div className="p-1 rounded bg-[#F5A623]/15 text-[#F5A623] border border-[#F5A623]/30">
                       <Film className="w-3.5 h-3.5" />
@@ -1491,13 +1491,13 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 </div>
 
                 {/* Dedicated Cinema Canvas Monitor Viewport */}
-                <div className="relative w-full bg-[#030406] rounded-lg overflow-hidden border border-[#232536] flex items-center justify-center shadow-2xl p-1">
+                <div className="relative w-full bg-[#030406] rounded-lg overflow-hidden border border-[#F5A623]/25 flex items-center justify-center shadow-2xl p-1">
                   {/* Dedicated Canvas Element */}
                   <canvas
                     ref={dedicatedCanvasRef}
                     width={640}
                     height={360}
-                    className="w-full max-w-2xl h-auto aspect-video object-contain mx-auto block rounded shadow"
+                    className="w-full max-w-[560px] max-h-[260px] h-auto aspect-video object-contain mx-auto block rounded shadow"
                   />
 
                   {/* Tactical Watermark HUD Badges on Canvas */}
@@ -1543,10 +1543,10 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* Resolution & Aspect */}
-                <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-2">
-                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-1.5">
+                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                     <Maximize2 className="w-3.5 h-3.5" />
                     <span>Resolution & Aspect</span>
                   </label>
@@ -1625,12 +1625,12 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 </div>
 
                 {/* Bitrate & Quality */}
-                <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-2">
-                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-1.5">
+                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                     <Cpu className="w-3.5 h-3.5" />
                     <span>Bitrate Profile</span>
                   </label>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <button
                       type="button"
                       disabled={isExporting}
@@ -1685,12 +1685,12 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 </div>
 
                 {/* Composite Layers */}
-                <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-2">
-                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-1.5">
+                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                     <Layers className="w-3.5 h-3.5" />
                     <span>Composite Layers</span>
                   </label>
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-1.5 text-xs">
                     <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
                       <div>
                         <div className="font-bold text-white text-[11px]">Burn-in Cinematic Titles (Bangla + English)</div>
@@ -2221,7 +2221,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         {/* ================================================================ */}
         {/* STICKY FOOTER WITH EXPORT BUTTON & LIVE RENDER HUD               */}
         {/* ================================================================ */}
-        <div className="sticky bottom-0 bg-[#050505]/60 backdrop-blur-2xl border-t border-amber-500/20 px-5 py-3.5 flex justify-between items-center gap-3 z-20 shrink-0">
+        <div className="sticky bottom-0 bg-[#08090e]/95 backdrop-blur-2xl border-t border-[#F5A623]/25 px-4 py-2.5 flex justify-between items-center gap-3 z-20 shrink-0">
           
           {/* Active MP4 Live Render State */}
           {isExporting ? (

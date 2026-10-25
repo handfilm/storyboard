@@ -221,7 +221,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       queueMicrotask(() => setIsEcosystemLauncherOpen(true));
     });
     const unsubExport = eventBus.on('export:open', () => {
-      queueMicrotask(() => setIsExportStudioOpen(true));
+      if (!onOpenExport) {
+        queueMicrotask(() => setIsExportStudioOpen(true));
+      }
     });
     const unsubDrawerOpen = eventBus.on('drawer:open', (payload?: { type?: string }) => {
       if (!payload || !payload.type || payload.type === 'text') {
@@ -240,7 +242,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       unsubDrawerOpen();
       unsubDrawerClose();
     };
-  }, []);
+  }, [onOpenExport]);
 
   const handleHomeClick = () => {
     setActiveNavTab('HOME');
@@ -827,9 +829,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         >
           <button
             type="button"
-            onClick={() => setIsExportStudioOpen(true)}
+            onClick={() => {
+              if (onOpenExport) {
+                onOpenExport();
+              } else {
+                setIsExportStudioOpen(true);
+              }
+            }}
             className="h-9 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.18)] shrink-0 whitespace-nowrap"
-            title="Open Unified Export Studio"
+            title="Open Unified Master Export Studio"
           >
             <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span>EXPORT</span>

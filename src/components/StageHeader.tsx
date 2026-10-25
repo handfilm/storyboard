@@ -10,10 +10,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Film, 
-  Sliders, 
-  Scissors, 
-  Video, 
   Zap, 
   ChevronDown, 
   Search,
@@ -406,13 +402,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   return (
     <>
-    <header className={`relative h-16 bg-[#08090C]/95 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-6 flex items-center justify-between z-50 select-none shrink-0 font-mono transition-colors duration-200 ${className}`}>
+    <header className={`relative w-full h-14 flex items-center justify-between px-4 px-4! z-50 bg-[#08090C]/95 backdrop-blur-2xl border-b border-white/10 select-none shrink-0 font-sans transition-colors duration-200 ${className}`}>
       
       {/* ========================================================================= */}
-      {/* 1. Left: Signature Two-Tone Wordmark, Hover Menus & Workspace Tabs        */}
+      {/* 1. LEFT WRAPPER (Strict Flex Spacing)                                     */}
       {/* ========================================================================= */}
-      <div className="flex items-center min-w-0 shrink-0">
-        {/* Wordmark */}
+      <div className="flex items-center gap-6">
+        {/* Wordmark Logo */}
         <SmartHoverCard
           code="[ HANDFILM ATELIER // BUILD 2.4 ]"
           description="Browser-native, zero-cloud NLE running on local WebCodecs, WebAudio DSP & 4K hardware proxy pipeline."
@@ -424,10 +420,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           <button 
             type="button"
             onClick={handleHomeClick}
-            className="inline-flex flex-col items-stretch w-fit group cursor-pointer focus:outline-none bg-transparent border-none p-0 text-left transition-transform active:scale-95 shrink-0"
+            className="inline-flex flex-col items-stretch w-fit group cursor-pointer focus:outline-none bg-transparent border-none text-left transition-transform active:scale-95 shrink-0"
             title="HANDFILM // Return to Home Overview"
           >
-            <div className="flex items-baseline leading-none text-[22px] font-black tracking-wider">
+            <div className="flex items-baseline leading-none text-[18px] font-black tracking-wider">
               <span className="text-[#FF2B2B] drop-shadow-[0_0_14px_rgba(255,43,43,0.55)]">
                 HAND
               </span>
@@ -435,8 +431,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 FILM
               </span>
             </div>
-            {/* Flush-aligned tagline stretching edge-to-edge from 'H' to 'M' */}
-            <div className="w-full flex justify-between items-center text-[8.5px] font-mono text-white/40 uppercase select-none mt-0.5 group-hover:text-white/70 transition-colors">
+            <div className="w-full flex justify-between items-center text-[7px] font-mono text-white/40 uppercase select-none group-hover:text-white/70 transition-colors">
               <span>RAW.</span>
               <span>RAPID.</span>
               <span>CINEMATIC.</span>
@@ -444,30 +439,30 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </button>
         </SmartHoverCard>
 
-        {/* Minimalist Hover-Triggered Navigation Bar: HOME | FEATURES | APPS */}
-        <nav className="flex items-center gap-1 xl:gap-2 ml-3 xl:ml-6 pl-3 xl:pl-5 border-l border-white/10">
+        {/* System Dropdowns: HOME | FEATURES | APPS */}
+        <div className="flex items-center gap-4">
           {/* 1. HOME Hover Menu */}
-          <div className="relative group py-2">
+          <div className="relative group py-2!">
             <button
               type="button"
               onClick={handleHomeClick}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-mono font-bold tracking-[0.15em] uppercase transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-1 text-xs font-bold tracking-widest uppercase transition-colors duration-200 cursor-pointer whitespace-nowrap ${
                 currentView === 'HOME' && activeNavTab === 'HOME'
-                  ? 'text-white bg-white/10 border border-white/20'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'text-white'
+                  : 'text-zinc-400 hover:text-white'
               }`}
             >
               <span>HOME</span>
-              <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200" />
+              <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200 shrink-0" />
             </button>
 
             {/* Hover Glassmorphic Dropdown */}
-            <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[200px]">
-              <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(255,43,43,0.15)] p-1.5 flex flex-col gap-1 font-mono">
+            <div className="absolute top-full left-0 pt-1! opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[200px]">
+              <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(255,43,43,0.15)] p-1.5! flex flex-col gap-1 font-mono">
                 <button
                   type="button"
                   onClick={handleManifestoClick}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span>Manifesto</span>
                   <span className="text-[9px] text-zinc-500 group-hover/item:text-red-400 font-mono">12s RULE</span>
@@ -475,15 +470,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 <button
                   type="button"
                   onClick={handleFaqClick}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span>FAQ</span>
-                  <span className="text-[9px] text-zinc-500 group-hover/item:text-amber-400 font-mono">Q&A</span>
+                  <span className="text-[9px] text-zinc-500 group-hover/item:text-amber-400 font-mono">Q&amp;A</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsPrivacyModalOpen(true)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span>Privacy Policy</span>
                   <span className="text-[9px] text-zinc-500 group-hover/item:text-emerald-400 font-mono">ZERO-CLOUD</span>
@@ -492,25 +487,23 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </div>
           </div>
 
-          <span className="text-white/20 select-none">|</span>
-
           {/* 2. FEATURES Hover Menu */}
-          <div className="relative group py-2">
+          <div className="relative group py-2!">
             <button
               type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-mono font-bold tracking-[0.15em] uppercase text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent transition-all duration-200 cursor-pointer"
+              className="flex items-center gap-1 text-xs font-bold tracking-widest uppercase text-zinc-400 hover:text-white transition-colors duration-200 cursor-pointer whitespace-nowrap"
             >
               <span>FEATURES</span>
-              <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200" />
+              <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200 shrink-0" />
             </button>
 
             {/* Hover Glassmorphic Dropdown */}
-            <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[220px]">
-              <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5 flex flex-col gap-1 font-mono">
+            <div className="absolute top-full left-0 pt-1! opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[220px]">
+              <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5! flex flex-col gap-1 font-mono">
                 <button
                   type="button"
                   onClick={handleReelsClick}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span className="flex items-center gap-2">
                     <span>🎬</span>
@@ -521,7 +514,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 <button
                   type="button"
                   onClick={handleOpenTemplatesDrawer}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span className="flex items-center gap-2">
                     <span>🖋️</span>
@@ -532,7 +525,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsB2BHubOpen(true)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span className="flex items-center gap-2">
                     <span>🏢</span>
@@ -543,13 +536,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAIForgeOpen(true)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span className="flex items-center gap-2">
                     <span>🧠</span>
                     <span>AI Forge</span>
                   </span>
-                  <span className="text-[9px] text-zinc-400 group-hover/item:text-amber-400 font-mono flex items-center gap-1">
+                  <span className="text-[9px] text-zinc-400 group-hover/item:text-amber-400 font-mono flex items-center gap-1 tabular-nums">
                     <span>🪙</span>
                     <span>{credits.toLocaleString()}</span>
                   </span>
@@ -558,31 +551,28 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </div>
           </div>
 
-          <span className="text-white/20 select-none">|</span>
-
-          {/* 3. APPS Hover Menu & Trigger (Launches MegaEcosystemLauncher) */}
-          <div className="relative group py-2">
+          {/* 3. APPS Hover Menu & Trigger */}
+          <div className="relative group py-2!">
             <button
               type="button"
               onClick={() => setIsEcosystemLauncherOpen((prev) => !prev)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-mono font-bold tracking-[0.15em] uppercase transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-1 text-xs font-bold tracking-widest uppercase transition-colors duration-200 cursor-pointer whitespace-nowrap ${
                 isEcosystemLauncherOpen
-                  ? 'text-amber-300 bg-amber-500/15 border border-amber-500/40'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'text-amber-400'
+                  : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5 text-amber-400" />
               <span>APPS</span>
-              <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200" />
+              <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200 shrink-0" />
             </button>
 
             {/* Hover Glassmorphic Dropdown for Ecosystem Apps */}
-            <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[250px]">
-              <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5 flex flex-col gap-1 font-mono">
+            <div className="absolute top-full left-0 pt-1! opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[250px]">
+              <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5! flex flex-col gap-1 font-mono">
                 <button
                   type="button"
                   onClick={() => setIsEcosystemLauncherOpen(true)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-amber-300 hover:text-white hover:bg-amber-500/20 border border-amber-500/30 transition-colors flex items-center justify-between cursor-pointer group/item"
+                  className="w-full text-left px-3! py-2! rounded-lg text-xs font-bold text-amber-300 hover:text-white hover:bg-amber-500/20 border border-amber-500/30 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span className="flex items-center gap-2">
                     <LayoutGrid className="w-3.5 h-3.5 text-amber-400" />
@@ -596,186 +586,148 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     href={proj.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer no-underline"
+                    className="w-full text-left px-3! py-1.5! rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer no-underline"
                   >
-                    <span className="truncate pr-2">{proj.title}</span>
+                    <span className="truncate pr-2!">{proj.title}</span>
                     <span className="text-[9px] text-amber-400/90 font-mono shrink-0">{proj.category} ↗</span>
                   </a>
                 ))}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Subtle Vertical Divider separating System Menus from Workspace Tabs */}
-          <div className="hidden xl:block w-px h-5 bg-white/20 mx-1.5 2xl:mx-2 shrink-0"></div>
+        {/* Vertical Divider */}
+        <div className="w-px h-5 bg-white/20"></div>
 
-          {/* Core Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR (NO MASTER TAB HERE) */}
-          <div className="hidden xl:flex items-center gap-1.5 2xl:gap-3 shrink-0">
-            <div
-              className="workspace-cross-dissolve-container flex items-center gap-1 2xl:gap-1.5 transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
-              style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
-            >
-              <button
-                type="button"
-                onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
-                aria-current={currentPanel === 'TACTILE_STAGE' ? 'page' : undefined}
-                className={`relative py-1 px-1.5 2xl:px-2 text-[11px] 2xl:text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
-                  currentPanel === 'TACTILE_STAGE'
-                    ? 'text-amber-400 opacity-100'
-                    : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
-                }`}
-                style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
-                title="Primary Tactile Cinema Stage"
-              >
-                <span
-                  aria-hidden="true"
-                  className={`absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform] ${
-                    currentPanel === 'TACTILE_STAGE' ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
-                />
-                <Film className="hidden 2xl:inline w-3.5 h-3.5 shrink-0 relative z-10" />
-                <span className="relative z-10">STAGE</span>
-              </button>
+        {/* Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR */}
+        <div className="flex items-center gap-5 text-xs font-bold text-white/50 tracking-widest">
+          <button
+            type="button"
+            onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
+            aria-current={currentPanel === 'TACTILE_STAGE' ? 'page' : undefined}
+            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+              currentPanel === 'TACTILE_STAGE'
+                ? 'text-amber-400'
+                : 'text-white/50 hover:text-white'
+            }`}
+            title="Primary Tactile Cinema Stage"
+          >
+            STAGE
+          </button>
 
-              <button
-                type="button"
-                onClick={() => handleWorkspacePanelSelect('SPLIT')}
-                aria-current={currentPanel === 'SPLIT' ? 'page' : undefined}
-                className={`relative py-1 px-1.5 2xl:px-2 text-[11px] 2xl:text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
-                  currentPanel === 'SPLIT'
-                    ? 'text-amber-400 opacity-100'
-                    : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
-                }`}
-                style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
-                title="9:16 Reels & Dual Split Sequencer"
-              >
-                <span
-                  aria-hidden="true"
-                  className={`absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform] ${
-                    currentPanel === 'SPLIT' ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
-                />
-                <Video className="hidden 2xl:inline w-3.5 h-3.5 shrink-0 relative z-10" />
-                <span className="relative z-10">REELS</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => handleWorkspacePanelSelect('SPLIT')}
+            aria-current={currentPanel === 'SPLIT' ? 'page' : undefined}
+            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+              currentPanel === 'SPLIT'
+                ? 'text-amber-400'
+                : 'text-white/50 hover:text-white'
+            }`}
+            title="9:16 Reels & Dual Split Sequencer"
+          >
+            REELS
+          </button>
 
-              <button
-                type="button"
-                onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
-                aria-current={currentPanel === 'SEQUENCER' ? 'page' : undefined}
-                className={`relative py-1 px-1.5 2xl:px-2 text-[11px] 2xl:text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
-                  currentPanel === 'SEQUENCER'
-                    ? 'text-amber-400 opacity-100'
-                    : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
-                }`}
-                style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
-                title="Sub-Frame Precision Scrub Timeline"
-              >
-                <span
-                  aria-hidden="true"
-                  className={`absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform] ${
-                    currentPanel === 'SEQUENCER' ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
-                />
-                <Scissors className="hidden 2xl:inline w-3.5 h-3.5 shrink-0 relative z-10" />
-                <span className="relative z-10">SCRUB</span>
-              </button>
-            </div>
+          <button
+            type="button"
+            onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
+            aria-current={currentPanel === 'SEQUENCER' ? 'page' : undefined}
+            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+              currentPanel === 'SEQUENCER'
+                ? 'text-amber-400'
+                : 'text-white/50 hover:text-white'
+            }`}
+            title="Sub-Frame Precision Scrub Timeline"
+          >
+            SCRUB
+          </button>
 
-            <button
-              type="button"
-              onClick={() => handleWorkspacePanelSelect('MULTICAM')}
-              className={`px-1 text-[11px] 2xl:text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                currentPanel === 'MULTICAM'
-                  ? 'text-amber-500'
-                  : 'text-white/60 hover:text-white'
-              }`}
-              title="Multi-Camera Live Cutting Grid"
-            >
-              <LayoutGrid className="hidden 2xl:inline w-3.5 h-3.5 shrink-0" />
-              <span>MULTI-CAM</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => handleWorkspacePanelSelect('MULTICAM')}
+            aria-current={currentPanel === 'MULTICAM' ? 'page' : undefined}
+            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+              currentPanel === 'MULTICAM'
+                ? 'text-amber-400'
+                : 'text-white/50 hover:text-white'
+            }`}
+            title="Multi-Camera Live Cutting Grid"
+          >
+            MULTI-CAM
+          </button>
 
-            <button
-              type="button"
-              onClick={() => handleWorkspacePanelSelect('OPTICAL')}
-              className={`px-1 text-[11px] 2xl:text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                currentPanel === 'OPTICAL'
-                  ? 'text-amber-500'
-                  : 'text-white/60 hover:text-white'
-              }`}
-              title="2.39:1 Optical Cinema Monitor"
-            >
-              <Sliders className="hidden 2xl:inline w-3.5 h-3.5 shrink-0" />
-              <span>MONITOR</span>
-            </button>
-          </div>
-        </nav>
+          <button
+            type="button"
+            onClick={() => handleWorkspacePanelSelect('OPTICAL')}
+            aria-current={currentPanel === 'OPTICAL' ? 'page' : undefined}
+            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+              currentPanel === 'OPTICAL'
+                ? 'text-amber-400'
+                : 'text-white/50 hover:text-white'
+            }`}
+            title="2.39:1 Optical Cinema Monitor"
+          >
+            MONITOR
+          </button>
+        </div>
       </div>
 
-      {/* ABSOLUTE CENTER TOGGLE */}
+      {/* ========================================================================= */}
+      {/* 2. CENTER WRAPPER (Absolute Positioning)                                  */}
+      {/* ========================================================================= */}
       {(() => {
         const isMasterMode = localPlaybackMode === 'sequence';
         return (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
-            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-1 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)]">
-              <motion.div
-                layoutId="activeModeIndicator"
-                initial={false}
-                animate={{ x: isMasterMode ? '100%' : '0%' }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className="absolute inset-y-1 left-1 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.3)] pointer-events-none transform-gpu"
-                style={{ width: 'calc(50% - 4px)' }}
-              />
-              <div
-                role="button"
-                tabIndex={0}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]">
+            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-1 p-1! shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)]">
+              <button
+                type="button"
                 onClick={() => handlePlaybackModeToggle('solo')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handlePlaybackModeToggle('solo');
-                  }
-                }}
-                className={`relative z-10 w-24 py-1 flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
+                className={`relative z-10 w-[72px] py-1 py-1! flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
                   !isMasterMode
                     ? 'text-[#050505]'
-                    : 'text-white/40 hover:text-white/70'
+                    : 'text-white/40 hover:text-white/75'
                 }`}
               >
-                SOLO
-              </div>
-              <div
-                role="button"
-                tabIndex={0}
+                {!isMasterMode && (
+                  <motion.div
+                    layoutId="activeModeIndicator"
+                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
+                  />
+                )}
+                <span className="relative z-10">SOLO</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => handlePlaybackModeToggle('sequence')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handlePlaybackModeToggle('sequence');
-                  }
-                }}
-                className={`relative z-10 w-24 py-1 flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
+                className={`relative z-10 w-[72px] py-1 py-1! flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
                   isMasterMode
                     ? 'text-[#050505]'
-                    : 'text-white/40 hover:text-white/70'
+                    : 'text-white/40 hover:text-white/75'
                 }`}
               >
-                MASTER
-              </div>
+                {isMasterMode && (
+                  <motion.div
+                    layoutId="activeModeIndicator"
+                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
+                  />
+                )}
+                <span className="relative z-10">MASTER</span>
+              </button>
             </div>
           </div>
         );
       })()}
 
       {/* ========================================================================= */}
-      {/* 3. Right: Search -> REC -> EXPORT -> STUDIO (Red) -> 3-Dots                */}
+      {/* 3. RIGHT WRAPPER: Search Icon -> REC -> EXPORT -> STUDIO -> 3-Dots        */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-        {/* 1. Search Icon / Command Palette Trigger [ 🔍 ⌘K ] */}
+      <div className="flex items-center gap-4">
+        {/* 1. Search Icon / Command Palette Trigger */}
         <SmartHoverCard
           code="[ ⌘K // SHOT FINDER ]"
           description="Quick command palette and shot finder across all 100 timeline cards."
@@ -788,16 +740,14 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               if (onOpenSearch) onOpenSearch();
               else eventBus.emit('command:open');
             }}
-            className="flex items-center gap-1.5 h-9 px-2.5 rounded-lg bg-black/40 border border-white/10 hover:border-white/30 text-xs font-mono text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors shrink-0"
+            className="flex items-center justify-center h-8 px-2.5! rounded-lg bg-black/40 border border-white/10 hover:border-white/30 text-xs font-mono text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors shrink-0"
             title="Search Master Shots (⌘K)"
           >
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-            <span className="hidden 2xl:inline text-[11px]">Search...</span>
-            <kbd className="hidden sm:inline px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-500 text-[10px]">⌘K</kbd>
           </button>
         </SmartHoverCard>
 
-        {/* 2. [ 🔴 REC ] Record Toggle Button */}
+        {/* 2. REC Toggle Button */}
         <SmartHoverCard
           code="[ 🔴 REC // 4K CAPTURE ]"
           description="Record screen, studio canvas & WebAudio DSP directly to IndexedDB Vault."
@@ -811,7 +761,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               if (onOpenRecorder) onOpenRecorder();
               else eventBus.emit('recorder:open');
             }}
-            className={`h-9 px-3 rounded-lg border text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+            className={`h-8 px-3! rounded-lg border text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
               isRecordingActive
                 ? 'bg-rose-600/25 border-rose-500 text-rose-100 shadow-[0_0_16px_rgba(244,63,94,0.45)]'
                 : 'bg-rose-950/40 hover:bg-rose-900/50 border-rose-500/40 hover:border-rose-400 text-rose-300 hover:text-white'
@@ -823,7 +773,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </button>
         </SmartHoverCard>
 
-        {/* 3. [ 📤 EXPORT ] Button (Triggers UnifiedExportStudio Modal) */}
+        {/* 3. EXPORT Button (Triggers UnifiedExportStudio Modal) */}
         <SmartHoverCard
           code="[ 📤 EXPORT // 24FPS NATIVE ]"
           description="Open Unified Export Studio for 4K WebCodecs MP4, Premiere XML, DaVinci FCPXML & PDF."
@@ -839,7 +789,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 setIsExportStudioOpen(true);
               }
             }}
-            className="h-9 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.18)] shrink-0 whitespace-nowrap"
+            className="h-8 px-3! rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.18)] shrink-0 whitespace-nowrap"
             title="Open Unified Master Export Studio"
           >
             <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -847,18 +797,18 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </button>
         </SmartHoverCard>
 
-        {/* 4. Massively Prominent STUDIO (Red) Button */}
+        {/* 4. STUDIO (Red) Button */}
         <button
           type="button"
           onClick={handleStudioLaunch}
-          className="bg-red-600 text-white font-black tracking-widest px-4 xl:px-5 py-2 rounded-sm border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:bg-red-500 hover:scale-105 transition-all uppercase cursor-pointer flex items-center gap-1.5 font-mono text-xs active:scale-95 shrink-0 whitespace-nowrap"
+          className="h-8 px-4! bg-red-600 text-white font-black tracking-widest rounded-sm border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:bg-red-500 hover:scale-105 transition-all uppercase cursor-pointer flex items-center gap-1.5 font-mono text-xs active:scale-95 shrink-0 whitespace-nowrap"
           title="Launch Master Cinema Studio"
         >
           <Zap className="w-3.5 h-3.5 fill-current text-white shrink-0" />
           <span>STUDIO</span>
         </button>
 
-        {/* 5. 3-Dot Overflow Settings Menu [ ⋯ ] */}
+        {/* 5. 3-Dot Overflow Settings Menu */}
         <OverflowSettingsMenu
           onOpenCompile={() => {
             if (onCompile) onCompile();
@@ -882,12 +832,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       {dissolvePulseId > 0 && (
         <div
           key={dissolvePulseId}
-          className="fixed top-16 inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-amber-500/[0.08] via-[#070709]/60 to-[#070709]/80 flex items-start justify-center pt-5 animate-workspace-dissolve-veil transition-opacity duration-200 transform-gpu will-change-[opacity,transform] motion-reduce:hidden"
-          style={{ backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)' }}
+          className="fixed top-14 inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-amber-500/[0.08] via-[#070709]/60 to-[#070709]/80 flex items-start justify-center pt-5! animate-workspace-dissolve-veil transition-opacity duration-200 transform-gpu will-change-[opacity,transform] motion-reduce:hidden"
           aria-hidden="true"
         >
           {dissolveModeLabel && (
-            <span className="px-3 py-1 rounded bg-black/75 border border-amber-400/30 text-[10px] font-mono font-bold tracking-[0.25em] text-amber-300 uppercase shadow-lg">
+            <span className="px-3! py-1! rounded bg-black/75 border border-amber-400/30 text-[10px] font-mono font-bold tracking-[0.25em] text-amber-300 uppercase shadow-lg">
               {dissolveModeLabel} WORKSPACE
             </span>
           )}

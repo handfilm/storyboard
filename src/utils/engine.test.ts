@@ -452,5 +452,20 @@ test('CapCut-Style Draft Engine & 12.0s Sequencer invariants', async () => {
   assert.equal(safe.slides[0].remoteUrl, '', 'Oversized base64 must be pruned to avoid RangeError');
 });
 
+test('ComponentsMatrixPopover titleOpacity helpers clamp and persist --title-block-opacity state cleanly', async () => {
+  const {
+    DEFAULT_COMPONENT_VISIBILITY,
+    clampTitleOpacity,
+    readTitleBlockOpacityCssVar,
+    applyTitleBlockOpacityCssVar
+  } = await import('../components/ComponentsMatrixPopover.tsx');
 
+  assert.equal(DEFAULT_COMPONENT_VISIBILITY.titleOpacity, 1.0);
+  assert.equal(clampTitleOpacity(0.654), 0.65);
+  assert.equal(clampTitleOpacity(-0.5), 0);
+  assert.equal(clampTitleOpacity(1.8), 1);
+  assert.equal(clampTitleOpacity(undefined), 1);
+  assert.equal(readTitleBlockOpacityCssVar(0.75), 0.75);
+  assert.doesNotThrow(() => applyTitleBlockOpacityCssVar(0.45));
+});
 

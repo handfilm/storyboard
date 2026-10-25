@@ -259,7 +259,7 @@
   opacity: 0;
 }
 
-/* Height-Transitioning Hypersonic Slide-Down Reveal for .matrix-body Categories & Sub-Options */
+/* Height-Transitioning Hypersonic Slide-Down Reveal for .matrix-body Category Containers */
 .matrix-body {
   scroll-behavior: smooth;
 }
@@ -274,29 +274,32 @@
 .matrix-body .matrix-slide-reveal,
 .matrix-slide-reveal {
   display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
   overflow: hidden;
   transition:
-    max-height 380ms var(--ease-hypersonic),
     grid-template-rows 360ms var(--ease-hypersonic),
-    opacity 280ms var(--ease-hypersonic),
-    transform 340ms var(--ease-hypersonic);
-  will-change: max-height, grid-template-rows, opacity, transform;
+    opacity 260ms var(--ease-hypersonic),
+    transform 320ms var(--ease-hypersonic);
+  will-change: grid-template-rows, opacity, transform;
 }
 
 .matrix-body .matrix-slide-reveal-open,
 .matrix-body .matrix-slide-reveal.is-expanded,
+.matrix-body .matrix-slide-reveal[data-state="open"],
 .matrix-slide-reveal-open {
   grid-template-rows: 1fr;
-  max-height: 560px;
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto;
 }
 
 .matrix-body .matrix-slide-reveal-closed,
 .matrix-body .matrix-slide-reveal.is-collapsed,
+.matrix-body .matrix-slide-reveal[data-state="closed"],
 .matrix-slide-reveal-closed {
   grid-template-rows: 0fr;
-  max-height: 0px;
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
@@ -307,24 +310,23 @@
   overflow: hidden;
   min-height: 0;
   transition:
-    max-height 380ms var(--ease-hypersonic),
-    transform 340ms var(--ease-hypersonic),
-    opacity 260ms var(--ease-hypersonic);
+    transform 320ms var(--ease-hypersonic),
+    opacity 240ms var(--ease-hypersonic);
 }
 
 .matrix-body .matrix-slide-reveal-open > .matrix-slide-inner,
 .matrix-body .matrix-slide-reveal.is-expanded > .matrix-slide-inner,
+.matrix-body .matrix-slide-reveal[data-state="open"] > .matrix-slide-inner,
 .matrix-slide-reveal-open > .matrix-slide-inner {
-  max-height: 560px;
   transform: translateY(0);
   opacity: 1;
 }
 
 .matrix-body .matrix-slide-reveal-closed > .matrix-slide-inner,
 .matrix-body .matrix-slide-reveal.is-collapsed > .matrix-slide-inner,
+.matrix-body .matrix-slide-reveal[data-state="closed"] > .matrix-slide-inner,
 .matrix-slide-reveal-closed > .matrix-slide-inner {
-  max-height: 0px;
-  transform: translateY(-10px);
+  transform: translateY(-8px);
   opacity: 0;
 }
 
@@ -341,6 +343,7 @@
 
 .matrix-body .matrix-slide-reveal-open .matrix-sub-option,
 .matrix-body .matrix-slide-reveal.is-expanded .matrix-sub-option,
+.matrix-body .matrix-slide-reveal[data-state="open"] .matrix-sub-option,
 .matrix-slide-reveal-open .matrix-sub-option {
   opacity: 1;
   transform: translateY(0);
@@ -348,6 +351,7 @@
 
 .matrix-body .matrix-slide-reveal-closed .matrix-sub-option,
 .matrix-body .matrix-slide-reveal.is-collapsed .matrix-sub-option,
+.matrix-body .matrix-slide-reveal[data-state="closed"] .matrix-sub-option,
 .matrix-slide-reveal-closed .matrix-sub-option {
   opacity: 0;
   transform: translateY(-6px);
@@ -382,7 +386,7 @@
   transition-delay: 170ms;
 }
 
-/* Tactile Molten-Gold Range Slider inside .matrix-body for --title-block-opacity */
+/* Tactile Molten-Gold Range Slider inside .matrix-body bound to --title-block-opacity */
 .matrix-body .matrix-opacity-slider,
 .matrix-opacity-slider {
   -webkit-appearance: none;

@@ -16,7 +16,10 @@ import {
   Zap, 
   ChevronDown, 
   Search,
-  LayoutGrid
+  LayoutGrid,
+  Upload,
+  Type,
+  X
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
@@ -32,6 +35,7 @@ import { OmniAIForge } from './modules/OmniAIForge';
 import { B2BCommandCenter } from './modules/B2BCommandCenter';
 import { UnifiedExportStudio } from './modules/UnifiedExportStudio';
 import { MegaEcosystemLauncher } from './menus/MegaEcosystemLauncher';
+import { TextTypographyDrawer } from './drawers/TextTypographyDrawer';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -111,6 +115,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isExportStudioOpen, setIsExportStudioOpen] = useState(false);
   const [isEcosystemLauncherOpen, setIsEcosystemLauncherOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isTemplatesDrawerOpen, setIsTemplatesDrawerOpen] = useState(false);
+  const [isRecordingActive, setIsRecordingActive] = useState(false);
+  const [isMasterTabActive, setIsMasterTabActive] = useState(false);
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
   const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
 
@@ -128,26 +135,50 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     const unsubExport = eventBus.on('export:open', () => {
       queueMicrotask(() => setIsExportStudioOpen(true));
     });
+    const unsubDrawerOpen = eventBus.on('drawer:open', (payload?: { type?: string }) => {
+      if (!payload || !payload.type || payload.type === 'text') {
+        queueMicrotask(() => setIsTemplatesDrawerOpen(true));
+      }
+    });
+    const unsubDrawerClose = eventBus.on('drawer:close', () => {
+      queueMicrotask(() => setIsTemplatesDrawerOpen(false));
+    });
 
     return () => {
       unsubAI();
       unsubB2B();
       unsubEco();
       unsubExport();
+      unsubDrawerOpen();
+      unsubDrawerClose();
     };
   }, []);
 
   const handleHomeClick = () => {
     setActiveNavTab('HOME');
+    setIsMasterTabActive(false);
     if (onSelectView) onSelectView('HOME');
     else if (onGoHome) onGoHome();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleReelsClick = () => {
-    setActiveNavTab('REELS');
+  const handleWorkspacePanelSelect = (panel: StagePanelType) => {
+    setIsMasterTabActive(false);
+    if (panel === 'SPLIT') setActiveNavTab('REELS');
     if (onSelectView && currentView !== 'STUDIO') onSelectView('STUDIO');
-    onSelectPanel('SPLIT');
+    onSelectPanel(panel);
+  };
+
+  const handleMasterWorkspaceClick = () => {
+    setIsMasterTabActive(true);
+    if (onSelectView && currentView !== 'STUDIO') onSelectView('STUDIO');
+    if (onSelectPlaybackMode) onSelectPlaybackMode('sequence');
+    if (onOpenBloomSequencer) onOpenBloomSequencer();
+    else onSelectPanel('TACTILE_STAGE');
+  };
+
+  const handleReelsClick = () => {
+    handleWorkspacePanelSelect('SPLIT');
   };
 
   const handleManifestoClick = () => {
@@ -169,19 +200,25 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   };
 
   const handleStudioLaunch = () => {
+    setIsMasterTabActive(false);
     if (onLaunchStudio) onLaunchStudio();
     else if (onSelectView) onSelectView('STUDIO');
     else if (onGoHome) onGoHome();
     onSelectPanel('TACTILE_STAGE');
   };
 
+  const handleOpenTemplatesDrawer = () => {
+    setIsTemplatesDrawerOpen(true);
+  };
+
   return (
-    <header className={`h-16 bg-[#08090C]/95 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-6 flex items-center justify-between z-30 select-none shrink-0 font-mono transition-colors duration-200 ${className}`}>
+    <>
+    <header className={`h-16 bg-[#08090C]/95 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-6 flex items-center justify-between z-50 select-none shrink-0 font-mono transition-colors duration-200 ${className}`}>
       
       {/* ========================================================================= */}
-      {/* 1. Left: Signature Two-Tone Wordmark & Hover Menus (HOME | FEATURES | APPS) */}
+      {/* 1. Left: Signature Two-Tone Wordmark, Hover Menus & Workspace Tabs        */}
       {/* ========================================================================= */}
-      <div className="flex items-center shrink-0">
+      <div className="flex items-center min-w-0 shrink-0">
         {/* Wordmark */}
         <SmartHoverCard
           code="[ HANDFILM ATELIER // BUILD 2.4 ]"
@@ -290,9 +327,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    eventBus.emit('drawer:open', { type: 'text' });
-                  }}
+                  onClick={handleOpenTemplatesDrawer}
                   className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer group/item"
                 >
                   <span className="flex items-center gap-2">
@@ -332,18 +367,151 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           <span className="text-white/20 select-none">|</span>
 
-          {/* 3. APPS Hover Trigger (Launches MegaEcosystemLauncher) */}
-          <div
-            className="relative group py-2"
-            onMouseEnter={() => setIsEcosystemLauncherOpen(true)}
-          >
+          {/* 3. APPS Hover Menu & Trigger (Launches MegaEcosystemLauncher) */}
+          <div className="relative group py-2">
             <button
               type="button"
-              onClick={() => setIsEcosystemLauncherOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-mono font-bold tracking-[0.15em] uppercase text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent transition-all duration-200 cursor-pointer"
+              onClick={() => setIsEcosystemLauncherOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-mono font-bold tracking-[0.15em] uppercase transition-all duration-200 cursor-pointer ${
+                isEcosystemLauncherOpen
+                  ? 'text-amber-300 bg-amber-500/15 border border-amber-500/40'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
             >
               <LayoutGrid className="w-3.5 h-3.5 text-amber-400" />
               <span>APPS</span>
+              <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200" />
+            </button>
+
+            {/* Hover Glassmorphic Dropdown for Ecosystem Apps */}
+            <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[235px]">
+              <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5 flex flex-col gap-1 font-mono">
+                <button
+                  type="button"
+                  onClick={() => setIsEcosystemLauncherOpen(true)}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-amber-300 hover:text-white hover:bg-amber-500/20 border border-amber-500/30 transition-colors flex items-center justify-between cursor-pointer group/item"
+                >
+                  <span className="flex items-center gap-2">
+                    <LayoutGrid className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Ecosystem Launcher</span>
+                  </span>
+                  <span className="text-[9px] text-amber-400 font-mono">5 APPS ↗</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEcosystemLauncherOpen(true)}
+                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span>HANDFILM // NLE</span>
+                  <span className="text-[9px] text-red-400 font-mono">ACTIVE</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEcosystemLauncherOpen(true)}
+                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span>RAWX // Storyboard</span>
+                  <span className="text-[9px] text-amber-400 font-mono">PREVIS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEcosystemLauncherOpen(true)}
+                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span>BLOOM // Neural DSP</span>
+                  <span className="text-[9px] text-cyan-400 font-mono">AUDIO</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Subtle Vertical Divider separating System Menus from Workspace Tabs */}
+          <div className="w-px h-5 bg-white/20 mx-2 shrink-0"></div>
+
+          {/* Restored Core Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR | MASTER */}
+          <div className="hidden lg:flex items-center gap-3 xl:gap-4 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
+              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentPanel === 'TACTILE_STAGE' && !isMasterTabActive
+                  ? 'text-amber-500'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="Primary Tactile Cinema Stage"
+            >
+              <Film className="w-3.5 h-3.5 shrink-0" />
+              <span>STAGE</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleWorkspacePanelSelect('SPLIT')}
+              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentPanel === 'SPLIT' && !isMasterTabActive
+                  ? 'text-amber-500'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="9:16 Reels & Dual Split Sequencer"
+            >
+              <Video className="w-3.5 h-3.5 shrink-0" />
+              <span>REELS</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
+              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentPanel === 'SEQUENCER' && !isMasterTabActive
+                  ? 'text-amber-500'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="Sub-Frame Precision Scrub Timeline"
+            >
+              <Scissors className="w-3.5 h-3.5 shrink-0" />
+              <span>SCRUB</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleWorkspacePanelSelect('MULTICAM')}
+              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentPanel === 'MULTICAM' && !isMasterTabActive
+                  ? 'text-amber-500'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="Multi-Camera Live Cutting Grid"
+            >
+              <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+              <span>MULTI-CAM</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleWorkspacePanelSelect('OPTICAL')}
+              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentPanel === 'OPTICAL' && !isMasterTabActive
+                  ? 'text-amber-500'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="2.39:1 Optical Cinema Monitor"
+            >
+              <Sliders className="w-3.5 h-3.5 shrink-0" />
+              <span>MONITOR</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleMasterWorkspaceClick}
+              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                isMasterTabActive
+                  ? 'text-amber-500'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="Master Sequence & Bloom Sequencer"
+            >
+              <Zap className="w-3.5 h-3.5 shrink-0" />
+              <span>MASTER</span>
             </button>
           </div>
         </nav>
@@ -352,7 +520,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       {/* ========================================================================= */}
       {/* 2. Middle: Cleaned up Minimalist Playback Cadence Toggle [ MASTER | SOLO ] */}
       {/* ========================================================================= */}
-      <div className="hidden md:flex items-center justify-center p-1 bg-black/50 border border-white/10 rounded-lg backdrop-blur-md shadow-inner gap-1">
+      <div className="hidden 2xl:flex items-center justify-center p-1 bg-black/50 border border-white/10 rounded-lg backdrop-blur-md shadow-inner gap-1 shrink-0">
         <button
           type="button"
           onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('sequence')}
@@ -385,10 +553,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. Right: Search, Massively Prominent STUDIO Button, and 3-Dot Menu       */}
+      {/* 3. Right: Search -> REC -> EXPORT -> STUDIO (Red) -> 3-Dots                */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Refined Search Box: [ 🔍 Search Master Shots... ⌘K ] */}
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* 1. Search Icon / Command Palette Trigger [ 🔍 ⌘K ] */}
         <SmartHoverCard
           code="[ ⌘K // SHOT FINDER ]"
           description="Quick command palette and shot finder across all 100 timeline cards."
@@ -401,26 +569,71 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               if (onOpenSearch) onOpenSearch();
               else eventBus.emit('command:open');
             }}
-            className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-lg bg-black/40 border border-white/10 hover:border-white/30 text-xs font-mono text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors"
+            className="flex items-center gap-1.5 h-9 px-2.5 rounded-lg bg-black/40 border border-white/10 hover:border-white/30 text-xs font-mono text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors shrink-0"
+            title="Search Master Shots (⌘K)"
           >
-            <Search className="w-3.5 h-3.5 text-zinc-500" />
-            <span className="hidden xl:inline text-[11px]">Search Shots...</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-500 text-[10px]">⌘K</kbd>
+            <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            <span className="hidden 2xl:inline text-[11px]">Search...</span>
+            <kbd className="hidden sm:inline px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-500 text-[10px]">⌘K</kbd>
           </button>
         </SmartHoverCard>
 
-        {/* Massively Prominent STUDIO Button */}
+        {/* 2. [ 🔴 REC ] Record Toggle Button */}
+        <SmartHoverCard
+          code="[ 🔴 REC // 4K CAPTURE ]"
+          description="Record screen, studio canvas & WebAudio DSP directly to IndexedDB Vault."
+          shortcut="Alt+R"
+          align="right"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setIsRecordingActive((prev) => !prev);
+              if (onOpenRecorder) onOpenRecorder();
+              else eventBus.emit('recorder:open');
+            }}
+            className={`h-9 px-3 rounded-lg border text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+              isRecordingActive
+                ? 'bg-rose-600/25 border-rose-500 text-rose-100 shadow-[0_0_16px_rgba(244,63,94,0.45)]'
+                : 'bg-rose-950/40 hover:bg-rose-900/50 border-rose-500/40 hover:border-rose-400 text-rose-300 hover:text-white'
+            }`}
+            title="Toggle 4K Screen & Audio Recorder"
+          >
+            <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse shrink-0" />
+            <span>REC</span>
+          </button>
+        </SmartHoverCard>
+
+        {/* 3. [ 📤 EXPORT ] Button (Triggers UnifiedExportStudio Modal) */}
+        <SmartHoverCard
+          code="[ 📤 EXPORT // 24FPS NATIVE ]"
+          description="Open Unified Export Studio for 4K WebCodecs MP4, Premiere XML, DaVinci FCPXML & PDF."
+          shortcut="⇧E"
+          align="right"
+        >
+          <button
+            type="button"
+            onClick={() => setIsExportStudioOpen(true)}
+            className="h-9 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.18)] shrink-0 whitespace-nowrap"
+            title="Open Unified Export Studio"
+          >
+            <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>EXPORT</span>
+          </button>
+        </SmartHoverCard>
+
+        {/* 4. Massively Prominent STUDIO (Red) Button */}
         <button
           type="button"
           onClick={handleStudioLaunch}
-          className="bg-red-600 text-white font-black tracking-widest px-6 py-2 rounded-sm border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:bg-red-500 hover:scale-105 transition-all uppercase cursor-pointer flex items-center gap-2 font-mono text-xs active:scale-95"
+          className="bg-red-600 text-white font-black tracking-widest px-4 xl:px-5 py-2 rounded-sm border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:bg-red-500 hover:scale-105 transition-all uppercase cursor-pointer flex items-center gap-1.5 font-mono text-xs active:scale-95 shrink-0 whitespace-nowrap"
           title="Launch Master Cinema Studio"
         >
-          <Zap className="w-3.5 h-3.5 fill-current text-white" />
+          <Zap className="w-3.5 h-3.5 fill-current text-white shrink-0" />
           <span>STUDIO</span>
         </button>
 
-        {/* 3-Dot Overflow Settings Menu [ ⋯ ] */}
+        {/* 5. 3-Dot Overflow Settings Menu [ ⋯ ] */}
         <OverflowSettingsMenu
           onOpenCompile={() => {
             if (onCompile) onCompile();
@@ -441,8 +654,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           onOpenCacheManager={onOpenCacheManager}
         />
       </div>
+    </header>
 
-      {/* Restored Rapid-Iteration Module Modals */}
+      {/* Modals & Drawers rendered outside <header> so backdrop-blur never traps fixed overlays */}
       <CompileEngine
         isOpen={isCompileModalOpen}
         onClose={() => setIsCompileModalOpen(false)}
@@ -529,6 +743,55 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
       )}
-    </header>
+
+      {/* Typography & Templates Slide-Over Drawer (Dopamine Compilation Pack & Cinematic Titles) */}
+      {isTemplatesDrawerOpen && (
+        <div
+          className="fixed inset-0 z-[10000] bg-black/75 backdrop-blur-sm flex justify-start"
+          onClick={() => setIsTemplatesDrawerOpen(false)}
+        >
+          <aside
+            aria-label="Typography & Templates Drawer"
+            className="w-[440px] sm:w-[500px] max-w-[92vw] h-full bg-[#08090C]/98 backdrop-blur-3xl border-r border-amber-500/30 shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col font-mono text-white overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-14 px-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#050505]/90">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                  <Type className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs font-bold tracking-widest uppercase text-white truncate">
+                    [ TYPOGRAPHY &amp; TEMPLATES ]
+                  </h3>
+                  <p className="text-[9px] text-zinc-400 truncate">
+                    DOPAMINE COMPILATION PACK • KINETIC TITLES • B2B PRESETS
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTemplatesDrawerOpen(false)}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/30 text-zinc-400 hover:text-white transition-colors cursor-pointer shrink-0"
+                title="Close Templates Drawer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <TextTypographyDrawer
+                currentFrame={currentFrame || frames[currentIndex]}
+                onUpdateFrame={(updated) => {
+                  eventBus.emit('shot:updated', {
+                    index: currentIndex,
+                    partial: updated
+                  });
+                }}
+              />
+            </div>
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

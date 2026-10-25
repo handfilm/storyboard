@@ -152,6 +152,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   const [isBatchLutMenuOpen, setIsBatchLutMenuOpen] = useState(false);
   const [isBatchActionMenuOpen, setIsBatchActionMenuOpen] = useState(false);
   const [confirmDeleteBatch, setConfirmDeleteBatch] = useState(false);
+  const [anchorFrameId, setAnchorFrameId] = useState<number | null>(null);
   const lastClickedFrameIdRef = useRef<number | null>(null);
   const selectionAnchorIdRef = useRef<number | null>(null);
   const rangeBaseSelectionRef = useRef<Set<number>>(new Set());
@@ -169,6 +170,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
       lastClickedFrameIdRef.current = frames[currentIndex].id;
       if (selectionAnchorIdRef.current === null) {
         selectionAnchorIdRef.current = frames[currentIndex].id;
+        setAnchorFrameId(frames[currentIndex].id);
       }
     }
   }, [isOpen, currentIndex, frames]);
@@ -397,6 +399,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
           return next;
         });
         selectionAnchorIdRef.current = targetId;
+        setAnchorFrameId(targetId);
         lastClickedFrameIdRef.current = targetId;
         return;
       }
@@ -413,9 +416,8 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
         }
         return next;
       });
-      if (selectionAnchorIdRef.current === null) {
-        selectionAnchorIdRef.current = anchorId;
-      }
+      selectionAnchorIdRef.current = anchorId;
+      setAnchorFrameId(anchorId);
       lastClickedFrameIdRef.current = targetId;
       setLastReorderMsg(`Selected ${rangeIds.length} frames via Shift+Click`);
       setTimeout(() => setLastReorderMsg(null), 2500);
@@ -427,6 +429,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     if (e) {
       e.stopPropagation();
       if (e.shiftKey) {
+        e.preventDefault();
         selectRangeToFrame(id, Boolean(e.metaKey || e.ctrlKey));
         return;
       }
@@ -435,6 +438,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     setIsMultiSelectMode(true);
     setConfirmDeleteBatch(false);
     selectionAnchorIdRef.current = id;
+    setAnchorFrameId(id);
     lastClickedFrameIdRef.current = id;
     setSelectedFrameIds(prev => {
       const next = new Set(prev);
@@ -567,19 +571,22 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     setIsBatchActionMenuOpen(false);
   };
 
-  // Live computed export range summary for selected storyboard frames
+  // Live computed export & batch-deletion summary for selected storyboard frames
   const selectedRangeSummary = useMemo(() => {
     const indices: number[] = [];
     const oneBasedNumbers: number[] = [];
+    const previewItems: { frame: AnthologyFrame; shotNumber: number }[] = [];
     frames.forEach((f, idx) => {
       if (selectedFrameIds.has(f.id)) {
         indices.push(idx);
         oneBasedNumbers.push(idx + 1);
+        previewItems.push({ frame: f, shotNumber: idx + 1 });
       }
     });
     return {
       indices,
       oneBasedNumbers,
+      previewItems,
       count: indices.length,
       rangeText: formatCompactShotRange(oneBasedNumbers)
     };
@@ -1217,33 +1224,17 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 <span>APPLY EXPORT RANGE ({selectedFrameIds.size})</span>
               </button>
 
-              {/* Batch Delete Button with confirmation */}
-              {!confirmDeleteBatch ? (
-                <button
-                  onClick={() => setConfirmDeleteBatch(true)}
-                  disabled={selectedFrameIds.size === 0}
-                  className="px-3 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] font-bold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                  <span>DELETE ({selectedFrameIds.size})</span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-1.5 bg-rose-950/80 px-2 py-0.5 rounded border border-rose-500/50 animate-in fade-in">
-                  <span className="text-[9.5px] text-rose-300 font-bold">Confirm delete {selectedFrameIds.size}?</span>
-                  <button
-                    onClick={handleBatchDelete}
-                    className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-bold rounded cursor-pointer"
-                  >
-                    YES
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteBatch(false)}
-                    className="px-2 py-0.5 bg-black/60 hover:bg-black text-zinc-400 text-[9px] rounded cursor-pointer"
-                  >
-                    NO
-                  </button>
-                </div>
-              )}
+              {/* Batch Delete Button (Opens Confirmation Dialog Modal) */}
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBatch(true)}
+                disabled={selectedFrameIds.size === 0}
+                className="px-3 py-1 px-3! py-1! bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 hover:text-white text-[10px] font-bold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
+                title="Delete selected frames with confirmation dialog"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>DELETE SELECTED ({selectedFrameIds.size})</span>
+              </button>
 
               {/* Close Multi-select */}
               <button
@@ -1654,12 +1645,21 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 const isSlotA = isCompareMode && compareSlotAId === frame.id;
                 const isSlotB = isCompareMode && compareSlotBId === frame.id;
                 const isMultiChecked = selectedFrameIds.has(frame.id);
+                const isRangeAnchor =
+                  (isMultiSelectMode || selectedFrameIds.size > 0) && anchorFrameId === frame.id;
+                const displayThumbUrl = frame.thumbnailUrl || frame.thumbnail || frame.imageUrl || '';
+                const hasVisualMedia = Boolean(displayThumbUrl);
 
                 return (
                   <div
                     key={frame.id}
                     data-contact-frame-id={frame.id}
-                    draggable={!isMultiSelectMode && !isCompareMode}
+                    draggable={!isMultiSelectMode && !isCompareMode && selectedFrameIds.size === 0}
+                    onMouseDown={(e) => {
+                      if (e.shiftKey) {
+                        e.preventDefault();
+                      }
+                    }}
                     onDragStart={(e) => {
                       if (e.shiftKey || e.metaKey || e.ctrlKey) {
                         e.preventDefault();
@@ -1677,6 +1677,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                         return;
                       }
                       if (e.shiftKey) {
+                        e.preventDefault();
                         selectRangeToFrame(frame.id, Boolean(e.metaKey || e.ctrlKey));
                         return;
                       }
@@ -1692,6 +1693,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                         }
                       } else {
                         selectionAnchorIdRef.current = frame.id;
+                        setAnchorFrameId(frame.id);
                         lastClickedFrameIdRef.current = frame.id;
                         rangeBaseSelectionRef.current = new Set([frame.id]);
                         const frameIdx = frames.findIndex((f) => f.id === frame.id);
@@ -1727,11 +1729,11 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                   )}
 
                   {/* Thumbnail Image with Active LUT Filter CSS */}
-                  {hasImage ? (
+                  {hasVisualMedia ? (
                     <div
                       className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
                       style={{ 
-                        backgroundImage: `url(${frame.imageUrl})`,
+                        backgroundImage: `url(${displayThumbUrl})`,
                         filter: getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)
                       }}
                     />
@@ -1750,9 +1752,12 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                     {!isCompareMode && (
                       <button
                         type="button"
+                        onMouseDown={(e) => {
+                          if (e.shiftKey) e.preventDefault();
+                        }}
                         onClick={(e) => toggleSelectFrame(frame.id, e)}
                         title="Select frame (Shift+Click to select contiguous range)"
-                        className={`p-1 rounded-[2px] cursor-pointer transition-opacity duration-150 ${
+                        className={`p-1 p-1! rounded-[2px] cursor-pointer transition-opacity duration-150 ${
                           isMultiChecked
                             ? 'bg-amber-400 text-black opacity-100 shadow-[0_0_8px_rgba(245,166,35,0.5)]'
                             : isMultiSelectMode || selectedFrameIds.size > 0
@@ -1766,7 +1771,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
 
                     {!isMultiSelectMode && !isCompareMode && selectedFrameIds.size === 0 && (
                       <div 
-                        className="p-1 rounded-[1px] bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-zinc-300 cursor-grab active:cursor-grabbing transition-colors"
+                        className="p-1 p-1! rounded-[1px] bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-zinc-300 cursor-grab active:cursor-grabbing transition-colors"
                         title="Drag to resequence frame"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -1775,9 +1780,15 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                     )}
 
                     {/* Shot number badge */}
-                    <span className="px-1.5 py-0.5 rounded-[1px] bg-black/85 backdrop-blur-md border border-white/20 text-[9px] font-bold text-amber-400 tabular-nums">
+                    <span className="px-1.5 py-0.5 px-1.5! py-0.5! rounded-[1px] bg-black/85 backdrop-blur-md border border-white/20 text-[9px] font-bold text-amber-400 tabular-nums">
                       {frame.epNumber || `#${String(index + 1).padStart(3, '0')}`}
                     </span>
+
+                    {isRangeAnchor && (
+                      <span className="px-1 py-0.5 px-1! py-0.5! rounded-[1px] bg-amber-500/20 border border-amber-400/50 text-[7.5px] font-bold text-amber-200 uppercase tracking-wider">
+                        ANCHOR
+                      </span>
+                    )}
                   </div>
 
                   {/* Top Right: Compare Slot Badges or Nudge Buttons */}
@@ -1916,44 +1927,22 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                   <span>Apply Export Range</span>
                 </button>
 
-                {/* Primary Batch Action 2: Delete Selected Frames */}
-                {!confirmDeleteBatch ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteBatch(true)}
-                    className="px-3.5 py-1.5 rounded bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 hover:text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                    title="Delete selected frames from storyboard"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                    <span>Delete</span>
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1.5 bg-rose-950/90 px-2.5 py-1 rounded border border-rose-500/60 tabular-nums whitespace-nowrap">
-                    <span className="text-[10.5px] text-rose-200 font-bold">
-                      Delete {selectedFrameIds.size} {selectedFrameIds.size === 1 ? 'frame' : 'frames'}?
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleBatchDelete}
-                      className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold rounded cursor-pointer"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteBatch(false)}
-                      className="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-zinc-300 text-[10px] rounded cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
+                {/* Primary Batch Action 2: Delete Selected Frames (Opens Confirmation Dialog) */}
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteBatch(true)}
+                  className="px-3.5 py-1.5 px-3.5! py-1.5! rounded bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 hover:text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  title="Delete selected frames from storyboard"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span>Delete ({selectedFrameIds.size})</span>
+                </button>
 
                 {selectedFrameIds.size < filtered.length && (
                   <button
                     type="button"
                     onClick={selectAllFiltered}
-                    className="px-2.5 py-1.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white text-[11px] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    className="px-2.5 py-1.5 px-2.5! py-1.5! rounded bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white text-[11px] transition-colors cursor-pointer whitespace-nowrap shrink-0"
                     title="Select all visible frames (⌘A)"
                   >
                     Select All
@@ -1966,7 +1955,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                     clearSelection();
                     setIsMultiSelectMode(false);
                   }}
-                  className="px-2.5 py-1.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white text-[11px] flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-2.5 py-1.5 px-2.5! py-1.5! rounded bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white text-[11px] flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                   title="Clear selection (Esc)"
                 >
                   <X className="w-3 h-3 shrink-0" />
@@ -2010,6 +1999,128 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* BATCH DELETION CONFIRMATION DIALOG MODAL */}
+      {confirmDeleteBatch && selectedFrameIds.size > 0 && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-delete-dialog-title"
+          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 p-4!"
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirmDeleteBatch(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-[#0B0C12] border border-rose-500/40 rounded-md shadow-[0_24px_64px_rgba(0,0,0,0.95)] p-5 p-5! flex flex-col gap-4 font-mono text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Dialog Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 pb-3! border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded bg-rose-500/15 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3
+                    id="batch-delete-dialog-title"
+                    className="text-sm font-bold text-white tracking-wide"
+                  >
+                    Delete {selectedFrameIds.size} Selected {selectedFrameIds.size === 1 ? 'Frame' : 'Frames'}?
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 mt-0.5! tabular-nums">
+                    Shots {selectedRangeSummary.rangeText}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBatch(false)}
+                className="p-1 p-1! rounded text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Cancel deletion"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Selected Frames Visual Preview Strip */}
+            <div className="grid grid-cols-3 gap-2">
+              {selectedRangeSummary.previewItems.slice(0, 6).map(({ frame: pFrame, shotNumber }) => {
+                const thumbSrc = pFrame.thumbnailUrl || pFrame.thumbnail || pFrame.imageUrl || '';
+                return (
+                  <div
+                    key={pFrame.id}
+                    className="relative aspect-[16/10] rounded-[2px] overflow-hidden border border-white/15 bg-[#08090E]"
+                  >
+                    {thumbSrc ? (
+                      <div
+                        className="absolute inset-0 bg-cover bg-center"
+                        style={{
+                          backgroundImage: `url(${thumbSrc})`,
+                          filter: getLutFilterCSS(pFrame.lutFilter || 'cinematic', pFrame.adjustments)
+                        }}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-[8px] text-zinc-500">
+                        RAW PLATE
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                    <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[8.5px] tabular-nums">
+                      <span className="font-bold text-amber-300">
+                        #{String(shotNumber).padStart(3, '0')}
+                      </span>
+                      <span className="text-zinc-300 truncate max-w-[68px]">
+                        {pFrame.title || `Frame ${shotNumber}`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {selectedRangeSummary.previewItems.length > 6 && (
+              <div className="text-[11px] text-zinc-400 tabular-nums">
+                +{selectedRangeSummary.previewItems.length - 6} additional selected frames included in batch
+              </div>
+            )}
+
+            {/* Warning / Safeguard Copy */}
+            {selectedFrameIds.size >= frames.length ? (
+              <div className="p-3 p-3! rounded bg-amber-950/60 border border-amber-500/40 text-xs text-amber-200 leading-relaxed">
+                At least 1 frame must remain in the storyboard. Deselect at least one frame before deleting.
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-300 leading-relaxed tabular-nums">
+                This will remove {selectedFrameIds.size} {selectedFrameIds.size === 1 ? 'frame' : 'frames'} from the sequence and automatically re-index the remaining {frames.length - selectedFrameIds.size} frames. You can undo with ⌘Z.
+              </p>
+            )}
+
+            {/* Dialog Actions */}
+            <div className="pt-3 pt-3! border-t border-white/10 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBatch(false)}
+                className="px-4 py-2 px-4! py-2! rounded bg-white/5 hover:bg-white/15 border border-white/15 text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={selectedFrameIds.size >= frames.length}
+                onClick={handleBatchDelete}
+                className="px-4 py-2 px-4! py-2! rounded bg-rose-600 hover:bg-rose-500 border border-rose-400/50 text-xs font-bold text-white flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Delete {selectedFrameIds.size} {selectedFrameIds.size === 1 ? 'Frame' : 'Frames'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

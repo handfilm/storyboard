@@ -7,7 +7,7 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { AnthologyFrame, LutPreset } from '../types/anthology';
-import { calculateSlideshowInterval } from '../utils/engine';
+import { calculateSlideshowInterval, getLutFilterCSS } from '../utils/engine';
 import {
   clampShotDuration,
   formatDurationPillValue,
@@ -155,6 +155,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     clientY: number;
   } | null>(null);
   const [failedThumbMap, setFailedThumbMap] = useState<Record<string, boolean>>({});
+  const [hoveredMarker, setHoveredMarker] = useState<{
+    index: number;
+    centerX: number;
+    topY: number;
+  } | null>(null);
 
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
@@ -181,6 +186,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
     const onScroll = () => {
       setStripScroll({ scrollLeft: el.scrollLeft, clientWidth: el.clientWidth });
+      setHoveredMarker(null);
     };
 
     onScroll();
@@ -219,10 +225,21 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     }
   };
 
+  const handleMarkerHoverEnter = (idx: number, targetEl: HTMLElement) => {
+    if (dragShotState) return;
+    const rect = targetEl.getBoundingClientRect();
+    setHoveredMarker({
+      index: idx,
+      centerX: rect.left + rect.width / 2,
+      topY: rect.top
+    });
+  };
+
   const handleStartShotResize = (idx: number, e: React.MouseEvent) => {
     if (!onUpdateFrameAtIndex) return;
     e.preventDefault();
     e.stopPropagation();
+    setHoveredMarker(null);
 
     const targetFrame = safeFrames[idx];
     if (!targetFrame) return;
@@ -275,6 +292,47 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     window.addEventListener('mouseup', onUp);
   };
 
+  const hoveredPreviewData = useMemo(() => {
+    if (!hoveredMarker || dragShotState) return null;
+    const frame = safeFrames[hoveredMarker.index];
+    if (!frame) return null;
+    const idx = hoveredMarker.index;
+    const cachedThumb =
+      frame.thumbnailUrl ||
+      frame.thumbnail ||
+      thumbnailMemoryCache.get(String(frame.id)) ||
+      thumbnailMemoryCache.get(`shot_${idx}`) ||
+      thumbnailMemoryCache.get(String(idx)) ||
+      '';
+    const isVideoMedia = Boolean(
+      frame.isVideo ||
+      (frame.imageUrl && /\.(mp4|webm|mov|m4v)(\?|$)/i.test(frame.imageUrl))
+    );
+    const primaryImgSrc = cachedThumb || (!isVideoMedia ? frame.imageUrl || '' : '');
+    const holdSec = getShotDurationSec(frame, 12.0);
+    const shotFps = getShotTargetFps(frame, 24);
+    const startSec = shotOffsets[idx]?.startSec ?? idx * 12.0;
+    const startTimecode = formatFullSMPTETimecode(startSec, shotFps);
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+    const clampedLeft = Math.max(96, Math.min(viewportWidth - 96, hoveredMarker.centerX));
+    const caretOffsetPx = Math.max(-72, Math.min(72, hoveredMarker.centerX - clampedLeft));
+
+    return {
+      idx,
+      shotNumber: idx + 1,
+      frame,
+      primaryImgSrc,
+      isVideoMedia,
+      holdSec,
+      startTimecode,
+      clampedLeft,
+      topY: Math.max(120, hoveredMarker.topY - 10),
+      caretOffsetPx,
+      thumbKey: `${idx}_${primaryImgSrc}`,
+      lutFilterCss: getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)
+    };
+  }, [hoveredMarker, dragShotState, safeFrames, shotOffsets]);
+
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4">
       {/* Floating Real-Time Drag Handle Tooltip */}
@@ -293,6 +351,82 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
       )}
 
+      {/* Floating Frame Thumbnail Hover-Preview on Bottom Scrubber Index Marker */}
+      {hoveredPreviewData && (
+        <div
+          role="tooltip"
+          style={{
+            position: 'fixed',
+            left: `${hoveredPreviewData.clampedLeft}px`,
+            top: `${hoveredPreviewData.topY}px`,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 9998
+          }}
+          className="w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/50 rounded-[4px] p-1.5 p-1.5! shadow-[0_14px_36px_rgba(0,0,0,0.92)] pointer-events-none select-none transform-gpu"
+        >
+          {/* Frame Thumbnail Viewport */}
+          <div className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-[#050508] border border-white/10">
+            {hoveredPreviewData.primaryImgSrc && !failedThumbMap[hoveredPreviewData.thumbKey] ? (
+              <img
+                src={hoveredPreviewData.primaryImgSrc}
+                alt={`Frame ${hoveredPreviewData.shotNumber} preview`}
+                referrerPolicy="no-referrer"
+                decoding="async"
+                onError={() =>
+                  setFailedThumbMap((prev) => ({ ...prev, [hoveredPreviewData.thumbKey]: true }))
+                }
+                style={{ filter: hoveredPreviewData.lutFilterCss }}
+                className="w-full h-full object-cover"
+              />
+            ) : hoveredPreviewData.isVideoMedia && hoveredPreviewData.frame.imageUrl ? (
+              <video
+                src={hoveredPreviewData.frame.imageUrl}
+                muted
+                playsInline
+                preload="metadata"
+                style={{ filter: hoveredPreviewData.lutFilterCss }}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-b from-[#161722] via-[#0E0F16] to-[#07080C] flex flex-col items-center justify-center gap-1">
+                <Camera className="w-4 h-4 text-white/25" />
+                <span className="text-[8px] font-mono text-zinc-500 tracking-wider">
+                  EMPTY FRAME
+                </span>
+              </div>
+            )}
+
+            {/* Scrim + Unboxed Index & Start Timecode */}
+            <div className="absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-black/90 via-black/45 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-1 pb-1! font-mono text-[8.5px] tabular-nums">
+              <span className="font-bold text-[#FFE066]">
+                #{String(hoveredPreviewData.shotNumber).padStart(3, '0')}
+              </span>
+              <span className="text-zinc-300">
+                {hoveredPreviewData.startTimecode}
+              </span>
+            </div>
+          </div>
+
+          {/* Frame Title & Hold Duration */}
+          <div className="pt-1.5 pt-1.5! px-0.5 px-0.5! flex items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold text-white truncate">
+              {hoveredPreviewData.frame.title || `Frame ${hoveredPreviewData.shotNumber}`}
+            </span>
+            <span className="text-[9px] font-mono text-[#D4AF37] tabular-nums shrink-0">
+              {formatDurationPillValue(hoveredPreviewData.holdSec)}
+            </span>
+          </div>
+
+          {/* Downward Pointer Caret Aligned to Hovered Index Marker */}
+          <div
+            style={{
+              left: `calc(50% + ${hoveredPreviewData.caretOffsetPx}px)`
+            }}
+            className="absolute -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#090A10] border-r border-b border-[#D4AF37]/50"
+          />
+        </div>
+      )}
+
       {/* 100-Frame Strip Navigation with High-Throughput Virtualization & Per-Slide Duration Handles */}
       <div className="w-full max-w-5xl mb-1.5 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
         <button
@@ -306,6 +440,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
         <div
           ref={stripRef}
+          onMouseLeave={() => setHoveredMarker(null)}
           className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1.5 px-2 bg-[#060609]/95 backdrop-blur-md border border-white/15 rounded-[4px] no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.85)] scroll-smooth h-11"
         >
           {safeFrames.map((frame, idx) => {
@@ -345,6 +480,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <div
                 key={frame?.id ?? idx}
                 onClick={() => onSelectFrame(idx)}
+                onMouseEnter={(e) => handleMarkerHoverEnter(idx, e.currentTarget)}
+                onMouseLeave={() =>
+                  setHoveredMarker((prev) => (prev?.index === idx ? null : prev))
+                }
+                onFocus={(e) => handleMarkerHoverEnter(idx, e.currentTarget)}
+                onBlur={() =>
+                  setHoveredMarker((prev) => (prev?.index === idx ? null : prev))
+                }
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -353,8 +496,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     onSelectFrame(idx);
                   }
                 }}
-                aria-label={`Shot ${shotNumber}: ${title}`}
-                title={`Shot ${shotNumber}: ${title} ${bn ? `(${bn})` : ''} — DUR: ${holdSec.toFixed(2)}s // ${shotFrames} FRAMES`}
+                aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
                 className={`group relative shrink-0 w-13 sm:w-14 h-7.5 sm:h-8.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 border ${
                   isActive
                     ? 'border-[#FFE066] ring-2 ring-[#D4AF37] shadow-[0_0_14px_rgba(212,175,55,0.7)] scale-105 z-20'

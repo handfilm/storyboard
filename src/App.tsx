@@ -1773,16 +1773,23 @@ export default function App() {
   };
 
   const handleReorderFrames = useCallback((newFrames: AnthologyFrame[]) => {
+    const safeNextIndex = Math.max(0, Math.min(newFrames.length - 1, currentIndex));
+    setHistoryStack(h => [...h.slice(-19), project]);
+    setRedoStack([]);
     setProject(prev => ({
       ...prev,
       frames: newFrames
     }));
+    if (safeNextIndex !== currentIndex) {
+      setCurrentIndex(safeNextIndex);
+      setSlideTimeSec(0);
+    }
     // Sync to sovereign storage engine so sequence is preserved across sessions
     projectStorageEngine.saveSession({
       version: '1.0.0',
       updatedAt: Date.now(),
       projectTitle: project.title || 'RAWx Storyboard',
-      activeShotIndex: currentIndex,
+      activeShotIndex: safeNextIndex,
       shots: newFrames.map((f, i) => ({
         id: `shot_${f.id ?? i}`,
         shotIndex: i,
@@ -1793,10 +1800,12 @@ export default function App() {
         soundCue: f.soundCue,
         durationSeconds: f.slideHoldSec || f.durationSec || 12.0,
         imageUrl: f.imageUrl,
+        thumbnailUrl: f.thumbnailUrl,
+        dopamineConfig: f.dopamineConfig,
         isVideo: f.isVideo
       }))
     }).catch(err => console.warn('Failed saving reordered session', err));
-  }, [currentIndex, project.title]);
+  }, [currentIndex, project]);
 
   const currentFrame = (project.frames && project.frames[currentIndex]) 
     ? project.frames[currentIndex] 

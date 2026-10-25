@@ -41,7 +41,7 @@ import { VectorForgeCanvas } from './modules/VectorForgeCanvas';
 import { OmniAIForge } from './modules/OmniAIForge';
 import { B2BCommandCenter } from './modules/B2BCommandCenter';
 import { UnifiedExportStudio } from './modules/UnifiedExportStudio';
-import { MegaEcosystemLauncher } from './menus/MegaEcosystemLauncher';
+import { MegaEcosystemLauncher, ECOSYSTEM_PROJECTS } from './menus/MegaEcosystemLauncher';
 import { TextTypographyDrawer } from './drawers/TextTypographyDrawer';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
@@ -134,9 +134,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const dissolveTimeoutRef = useRef<number | null>(null);
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecordingActive, setIsRecordingActive] = useState(false);
-  const [isMasterTabActive, setIsMasterTabActive] = useState(false);
+  const [localPlaybackMode, setLocalPlaybackMode] = useState<PlaybackMode>(playbackMode);
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
   const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
+
+  useEffect(() => {
+    setLocalPlaybackMode(playbackMode);
+  }, [playbackMode]);
+
+  const handlePlaybackModeToggle = (mode: PlaybackMode) => {
+    setLocalPlaybackMode(mode);
+    if (onSelectPlaybackMode) {
+      onSelectPlaybackMode(mode);
+    }
+    eventBus.emit('playback:mode', { mode });
+  };
 
   const triggerCoreWorkspaceCrossDissolve = (targetPanel: StagePanelType) => {
     if (
@@ -260,7 +272,6 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   const handleHomeClick = () => {
     setActiveNavTab('HOME');
-    setIsMasterTabActive(false);
     if (onSelectView) onSelectView('HOME');
     else if (onGoHome) onGoHome();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -269,23 +280,14 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const handleWorkspacePanelSelect = (panel: StagePanelType) => {
     const isCoreDissolveMode =
       panel === 'TACTILE_STAGE' || panel === 'SPLIT' || panel === 'SEQUENCER';
-    if (isCoreDissolveMode && (panel !== currentPanel || currentView !== 'STUDIO' || isMasterTabActive)) {
+    if (isCoreDissolveMode && (panel !== currentPanel || currentView !== 'STUDIO')) {
       prevPanelRef.current = panel;
       triggerCoreWorkspaceCrossDissolve(panel);
       eventBus.emit('workspace:cross_dissolve', { from: currentPanel, to: panel });
     }
-    setIsMasterTabActive(false);
     if (panel === 'SPLIT') setActiveNavTab('REELS');
     if (onSelectView && currentView !== 'STUDIO') onSelectView('STUDIO');
     onSelectPanel(panel);
-  };
-
-  const handleMasterWorkspaceClick = () => {
-    setIsMasterTabActive(true);
-    if (onSelectView && currentView !== 'STUDIO') onSelectView('STUDIO');
-    if (onSelectPlaybackMode) onSelectPlaybackMode('sequence');
-    if (onOpenBloomSequencer) onOpenBloomSequencer();
-    else onSelectPanel('TACTILE_STAGE');
   };
 
   const handleReelsClick = () => {
@@ -311,7 +313,6 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   };
 
   const handleStudioLaunch = () => {
-    setIsMasterTabActive(false);
     if (onLaunchStudio) onLaunchStudio();
     else if (onSelectView) onSelectView('STUDIO');
     else if (onGoHome) onGoHome();
@@ -405,7 +406,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   return (
     <>
-    <header className={`h-16 bg-[#08090C]/95 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-6 flex items-center justify-between z-50 select-none shrink-0 font-mono transition-colors duration-200 ${className}`}>
+    <header className={`relative h-16 bg-[#08090C]/95 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-6 flex items-center justify-between z-50 select-none shrink-0 font-mono transition-colors duration-200 ${className}`}>
       
       {/* ========================================================================= */}
       {/* 1. Left: Signature Two-Tone Wordmark, Hover Menus & Workspace Tabs        */}
@@ -576,7 +577,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </button>
 
             {/* Hover Glassmorphic Dropdown for Ecosystem Apps */}
-            <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[235px]">
+            <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[250px]">
               <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5 flex flex-col gap-1 font-mono">
                 <button
                   type="button"
@@ -589,48 +590,36 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   </span>
                   <span className="text-[9px] text-amber-400 font-mono">5 APPS ↗</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEcosystemLauncherOpen(true)}
-                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer"
-                >
-                  <span>HANDFILM // NLE</span>
-                  <span className="text-[9px] text-red-400 font-mono">ACTIVE</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEcosystemLauncherOpen(true)}
-                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer"
-                >
-                  <span>RAWX // Storyboard</span>
-                  <span className="text-[9px] text-amber-400 font-mono">PREVIS</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEcosystemLauncherOpen(true)}
-                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer"
-                >
-                  <span>BLOOM // Neural DSP</span>
-                  <span className="text-[9px] text-cyan-400 font-mono">AUDIO</span>
-                </button>
+                {ECOSYSTEM_PROJECTS.map((proj) => (
+                  <a
+                    key={proj.id}
+                    href={proj.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer no-underline"
+                  >
+                    <span className="truncate pr-2">{proj.title}</span>
+                    <span className="text-[9px] text-amber-400/90 font-mono shrink-0">{proj.category} ↗</span>
+                  </a>
+                ))}
               </div>
             </div>
           </div>
 
           {/* Subtle Vertical Divider separating System Menus from Workspace Tabs */}
-          <div className="w-px h-5 bg-white/20 mx-2 shrink-0"></div>
+          <div className="hidden xl:block w-px h-5 bg-white/20 mx-1.5 2xl:mx-2 shrink-0"></div>
 
-          {/* Core Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR */}
-          <div className="hidden lg:flex items-center gap-2 xl:gap-3.5 shrink-0">
+          {/* Core Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR (NO MASTER TAB HERE) */}
+          <div className="hidden xl:flex items-center gap-1.5 2xl:gap-3 shrink-0">
             <div
-              className="workspace-cross-dissolve-container flex items-center gap-1 xl:gap-2 transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
+              className="workspace-cross-dissolve-container flex items-center gap-1 2xl:gap-1.5 transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
               style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
             >
               <button
                 type="button"
                 onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
                 aria-current={currentPanel === 'TACTILE_STAGE' ? 'page' : undefined}
-                className={`relative py-1 px-2 text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                className={`relative py-1 px-1.5 2xl:px-2 text-[11px] 2xl:text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
                   currentPanel === 'TACTILE_STAGE'
                     ? 'text-amber-400 opacity-100'
                     : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
@@ -645,7 +634,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   }`}
                   style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 />
-                <Film className="w-3.5 h-3.5 shrink-0 relative z-10" />
+                <Film className="hidden 2xl:inline w-3.5 h-3.5 shrink-0 relative z-10" />
                 <span className="relative z-10">STAGE</span>
               </button>
 
@@ -653,7 +642,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 type="button"
                 onClick={() => handleWorkspacePanelSelect('SPLIT')}
                 aria-current={currentPanel === 'SPLIT' ? 'page' : undefined}
-                className={`relative py-1 px-2 text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                className={`relative py-1 px-1.5 2xl:px-2 text-[11px] 2xl:text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
                   currentPanel === 'SPLIT'
                     ? 'text-amber-400 opacity-100'
                     : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
@@ -668,7 +657,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   }`}
                   style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 />
-                <Video className="w-3.5 h-3.5 shrink-0 relative z-10" />
+                <Video className="hidden 2xl:inline w-3.5 h-3.5 shrink-0 relative z-10" />
                 <span className="relative z-10">REELS</span>
               </button>
 
@@ -676,7 +665,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 type="button"
                 onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
                 aria-current={currentPanel === 'SEQUENCER' ? 'page' : undefined}
-                className={`relative py-1 px-2 text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                className={`relative py-1 px-1.5 2xl:px-2 text-[11px] 2xl:text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
                   currentPanel === 'SEQUENCER'
                     ? 'text-amber-400 opacity-100'
                     : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
@@ -691,7 +680,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   }`}
                   style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 />
-                <Scissors className="w-3.5 h-3.5 shrink-0 relative z-10" />
+                <Scissors className="hidden 2xl:inline w-3.5 h-3.5 shrink-0 relative z-10" />
                 <span className="relative z-10">SCRUB</span>
               </button>
             </div>
@@ -699,89 +688,83 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={() => handleWorkspacePanelSelect('MULTICAM')}
-              className={`text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              className={`px-1 text-[11px] 2xl:text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 currentPanel === 'MULTICAM'
                   ? 'text-amber-500'
                   : 'text-white/60 hover:text-white'
               }`}
               title="Multi-Camera Live Cutting Grid"
             >
-              <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+              <LayoutGrid className="hidden 2xl:inline w-3.5 h-3.5 shrink-0" />
               <span>MULTI-CAM</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleWorkspacePanelSelect('OPTICAL')}
-              className={`text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              className={`px-1 text-[11px] 2xl:text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 currentPanel === 'OPTICAL'
                   ? 'text-amber-500'
                   : 'text-white/60 hover:text-white'
               }`}
               title="2.39:1 Optical Cinema Monitor"
             >
-              <Sliders className="w-3.5 h-3.5 shrink-0" />
+              <Sliders className="hidden 2xl:inline w-3.5 h-3.5 shrink-0" />
               <span>MONITOR</span>
             </button>
           </div>
         </nav>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. Center: Force-Rendered Framer Motion Hardware Toggle [ SOLO | MASTER ] */}
-      {/* ========================================================================= */}
+      {/* ABSOLUTE CENTER TOGGLE */}
       {(() => {
-        const isMasterMode = playbackMode === 'sequence';
+        const isMasterMode = localPlaybackMode === 'sequence';
         return (
-          <div className="flex-1 flex justify-center items-center px-2">
-            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-1 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md shrink-0">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
+            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-1 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)]">
               <motion.div
                 layoutId="activeModeIndicator"
                 initial={false}
                 animate={{ x: isMasterMode ? '100%' : '0%' }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className="absolute inset-y-1 left-1 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.4)] pointer-events-none transform-gpu"
+                className="absolute inset-y-1 left-1 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.3)] pointer-events-none transform-gpu"
                 style={{ width: 'calc(50% - 4px)' }}
               />
               <div
                 role="button"
                 tabIndex={0}
-                onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('solo')}
+                onClick={() => handlePlaybackModeToggle('solo')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onSelectPlaybackMode && onSelectPlaybackMode('solo');
+                    handlePlaybackModeToggle('solo');
                   }
                 }}
-                className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 text-xs font-black tracking-widest uppercase cursor-pointer transition-colors duration-300 whitespace-nowrap ${
-                  !isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
+                className={`relative z-10 w-24 py-1 flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
+                  !isMasterMode
+                    ? 'text-[#050505]'
+                    : 'text-white/40 hover:text-white/70'
                 }`}
-                title="Solo Shot Loop Playback"
               >
-                {!isMasterMode && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
-                )}
-                <span>SOLO</span>
+                SOLO
               </div>
               <div
                 role="button"
                 tabIndex={0}
-                onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('sequence')}
+                onClick={() => handlePlaybackModeToggle('sequence')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onSelectPlaybackMode && onSelectPlaybackMode('sequence');
+                    handlePlaybackModeToggle('sequence');
                   }
                 }}
-                className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 text-xs font-black tracking-widest uppercase cursor-pointer transition-colors duration-300 whitespace-nowrap ${
-                  isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
+                className={`relative z-10 w-24 py-1 flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
+                  isMasterMode
+                    ? 'text-[#050505]'
+                    : 'text-white/40 hover:text-white/70'
                 }`}
-                title="Master Sequence Playback"
               >
-                {isMasterMode && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
-                )}
-                <span>MASTER</span>
+                MASTER
               </div>
             </div>
           </div>

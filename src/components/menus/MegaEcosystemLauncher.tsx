@@ -116,22 +116,22 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
     };
   }, [isHovered, project.images.length]);
 
-  const handleLaunchUrl = () => {
-    if (onSelect) {
-      onSelect();
-    }
-    window.open(project.url, '_blank', 'noopener,noreferrer');
-  };
-
   return (
-    <div
+    <a
+      href={project.url}
+      target="_blank"
+      rel="noopener noreferrer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative rounded-2xl bg-[#0A0C10]/90 border border-white/10 hover:border-white/30 backdrop-blur-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between hover:shadow-[0_0_35px_rgba(255,255,255,0.06)] cursor-pointer"
+      onClick={() => {
+        if (onSelect) {
+          onSelect();
+        }
+      }}
+      className="group relative rounded-2xl bg-[#0A0C10]/90 border border-white/10 hover:border-white/30 backdrop-blur-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between hover:shadow-[0_0_35px_rgba(255,255,255,0.06)] cursor-pointer no-underline text-left"
       style={{
         boxShadow: isHovered ? `0 0 40px ${accentColor}25` : undefined
       }}
-      onClick={handleLaunchUrl}
     >
       {/* Top Banner Tag / Category */}
       <div className="p-5 pb-3 flex items-center justify-between border-b border-white/5 z-10 bg-[#0A0C10]/60">
@@ -219,15 +219,10 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
           <ExternalLink className="w-3.5 h-3.5 text-zinc-500 group-hover:text-white transition-colors shrink-0" />
         </div>
 
-        {/* Brutalist Launch Button */}
+        {/* Brutalist Launch CTA */}
         <div className="pt-3 border-t border-white/5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleLaunchUrl();
-            }}
-            className="w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 group-hover:bg-white group-hover:text-black group-hover:border-white bg-black/60 border-white/20 text-white whitespace-nowrap"
+          <div
+            className="w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all rounded-lg border flex items-center justify-center gap-2 group-hover:bg-white group-hover:text-black group-hover:border-white bg-black/60 border-white/20 text-white whitespace-nowrap"
             style={{
               borderColor: isHovered ? accentColor : undefined,
               boxShadow: isHovered ? `0 0 20px ${accentColor}30` : undefined
@@ -235,10 +230,10 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
           >
             <span>[ LAUNCH // ENTER ENGINE ]</span>
             <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
-          </button>
+          </div>
         </div>
       </div>
-    </div>
+    </a>
   );
 };
 

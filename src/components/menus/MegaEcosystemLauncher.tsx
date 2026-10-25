@@ -41,128 +41,40 @@ export interface MegaEcosystemLauncherProps {
 
 export interface EcosystemProject {
   id: string;
+  category: string;
+  title: string;
+  sub: string;
+  url: string;
+  images: string[];
   name: string;
   tagline: string;
-  category: string;
-  sprintPhase: string;
-  accentColor: string;
-  status: 'PRODUCTION' | 'BETA SPRINT' | 'ATELIER';
   specs: string[];
   features: string[];
-  images: string[];
-  url: string;
-  targetUrl: string;
 }
 
-export const ECOSYSTEM_PROJECTS: EcosystemProject[] = [
-  {
-    id: 'handfilm',
-    name: 'HANDFILM',
-    tagline: 'Zero-Cloud NLE & Rapid Editorial Sequencer',
-    category: 'CINEMA NLE // WEBCODECS',
-    sprintPhase: 'MONTH 01-02 // CORE ENGINE',
-    accentColor: '#FF2B2B',
-    status: 'PRODUCTION',
-    specs: ['WebCodecs 4K/60fps', 'IndexedDB Vault', 'SMPTE 24fps Timecode', 'Tactile Multi-Cam'],
-    features: [
-      'Zero-cloud local hardware proxy pipeline',
-      'Kinetic typography & Dopamine rhythmic compilations',
-      'Dual-panel 9:16 reels runner and 2.39:1 scope'
-    ],
-    images: [
-      'https://images.unsplash.com/photo-1601506521937-0121a7fc2a6b?q=80&w=800',
-      'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?q=80&w=800',
-      'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=800'
-    ],
-    url: 'https://handsandhead.com',
-    targetUrl: 'https://handsandhead.com'
-  },
-  {
-    id: 'rawx',
-    name: 'RAWX',
-    tagline: 'Extreme Precision Previs & Storyboard Engine',
-    category: 'STORY ENGINE // PREVIS',
-    sprintPhase: 'MONTH 02-03 // VISUAL PIPELINE',
-    accentColor: '#F5A623',
-    status: 'PRODUCTION',
-    specs: ['Dynamic Dual-Stream', 'Bangla + EN Typo', '14-Bit ARRI LUTs', 'Sub-Frame Scrub'],
-    features: [
-      'Ultra-fast storyboarding with 100-card multi-cadence timeline',
-      'Automated shot classification and shot-list EDL export',
-      'Hardware-accelerated color grading trays and optical scopes'
-    ],
-    images: [
-      'https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=800',
-      'https://images.unsplash.com/photo-1520975954732-57dd22299614?q=80&w=800',
-      'https://images.unsplash.com/photo-1559551409-dadc959f76b8?q=80&w=800'
-    ],
-    url: 'https://rawx.handsandhead.com',
-    targetUrl: 'https://rawx.handsandhead.com'
-  },
-  {
-    id: 'arutemika',
-    name: 'ARUTEMIKA',
-    tagline: 'Spatial Kinetic Generative Art & Vector Synthesis',
-    category: 'GENERATIVE // 3D CANVAS',
-    sprintPhase: 'MONTH 03-04 // SPATIAL MATRIX',
-    accentColor: '#A855F7',
-    status: 'BETA SPRINT',
-    specs: ['WebGL 2.0 Shaders', 'Vector Math Accelerator', '60FPS Real-Time', 'Export to SVG/GLTF'],
-    features: [
-      'Parametric generative spline engines for title backdrops',
-      'Interactive particle fields reactive to live microphone DSP',
-      'Spatial glassmorphic HUD overlays for cinematic productions'
-    ],
-    images: [
-      'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?q=80&w=800',
-      'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=800'
-    ],
-    url: 'https://arutemika.handsandhead.com',
-    targetUrl: 'https://arutemika.handsandhead.com'
-  },
-  {
-    id: 'bloom',
-    name: 'BLOOM',
-    tagline: 'Neural Audio & Rhythmic Waveform Synthesizer',
-    category: 'NEURAL DSP // AUDIO SYNC',
-    sprintPhase: 'MONTH 04-05 // SOUND ARCHITECTURE',
-    accentColor: '#06B6D4',
-    status: 'PRODUCTION',
-    specs: ['Beat-Snap Transient Sync', 'Sub-Bass Synthesizer', 'WebAudio DSP Bus', 'Zero Latency'],
-    features: [
-      'Automated transient alignment for aggressive music cuts',
-      'Multi-track rap audio synchronizer with live BPM detector',
-      'Harmonic excitation and mastering limiter filters'
-    ],
-    images: [
-      'https://images.unsplash.com/photo-1512626120412-faf41adb4874?q=80&w=800',
-      'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=800'
-    ],
-    url: 'https://bloom.handsandhead.com',
-    targetUrl: 'https://bloom.handsandhead.com'
-  },
-  {
-    id: 'nexos',
-    name: 'NEXOS',
-    tagline: 'Enterprise Media Orchestration & Cloudless Ingest',
-    category: 'ENTERPRISE // PIPELINE',
-    sprintPhase: 'MONTH 05-06 // ECOSYSTEM INTEGRATION',
-    accentColor: '#10B981',
-    status: 'PRODUCTION',
-    specs: ['Cryptographic Hash Log', 'R2 Cloudless Sync', 'IndexedDB Vault Sync', 'REST API Proxy'],
-    features: [
-      'Zero-cloud enterprise media gateway for studio distributed teams',
-      'Automatic media deduplication and checksum validation',
-      'Direct synchronization to Cloudflare R2 object storage vaults'
-    ],
-    images: [
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800',
-      'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?q=80&w=800'
-    ],
-    url: 'https://nexos.handsandhead.com',
-    targetUrl: 'https://nexos.handsandhead.com'
-  }
+const CORE_ECOSYSTEM_PROJECTS = [
+  { id: 'handfilm', category: 'CINEMA & AI', title: 'HANDFILM STUDIO', sub: 'B2B Video Engine', url: 'https://b2b.handsandhead.com', images: ['https://images.unsplash.com/photo-1601506521937-0121a7fc2a6b?q=80&w=800', 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?q=80&w=800', 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=800'] },
+  { id: 'rawx', category: 'ATELIER', title: 'RAWx APPAREL', sub: 'Full-Grain Leather Jackets', url: 'https://handsandhead.com', images: ['https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=800', 'https://images.unsplash.com/photo-1520975954732-57dd22299614?q=80&w=800', 'https://images.unsplash.com/photo-1559551409-dadc959f76b8?q=80&w=800'] },
+  { id: 'arutemika', category: 'FOOTWEAR', title: 'ARUTEMIKA', sub: 'Goodyear Welted Boots', url: 'https://handsandhead.com', images: ['https://images.unsplash.com/photo-1608256246200-53e635b5b65f?q=80&w=800', 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=800'] },
+  { id: 'bloom', category: 'ED-TECH', title: 'KHUKIR BAGAN (BLOOM)', sub: 'Bangla Smart TV App', url: 'https://play.google.com/store/apps', images: ['https://images.unsplash.com/photo-1512626120412-faf41adb4874?q=80&w=800', 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=800'] },
+  { id: 'nexos', category: 'INFRASTRUCTURE', title: 'NexOS / B2B HUB', sub: 'React & Next.js Portals', url: 'https://account.handsandhead.com', images: ['https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800', 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?q=80&w=800'] }
 ];
+
+export const ECOSYSTEM_PROJECTS: EcosystemProject[] = CORE_ECOSYSTEM_PROJECTS.map((item) => ({
+  ...item,
+  name: item.title,
+  tagline: item.sub,
+  specs: [item.category],
+  features: [item.sub]
+}));
+
+const PROJECT_ACCENT_MAP: Record<string, string> = {
+  handfilm: '#FF2B2B',
+  rawx: '#F5A623',
+  arutemika: '#A855F7',
+  bloom: '#06B6D4',
+  nexos: '#10B981'
+};
 
 interface ProductHoverCardProps {
   project: EcosystemProject;
@@ -172,7 +84,17 @@ interface ProductHoverCardProps {
 const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }) => {
   const [imageIndex, setImageIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const accentColor = PROJECT_ACCENT_MAP[project.id] || '#F5A623';
+
+  const domainHost = (() => {
+    try {
+      return new URL(project.url).hostname.replace(/^www\./, '');
+    } catch {
+      return project.url;
+    }
+  })();
 
   useEffect(() => {
     if (isHovered && project.images.length > 1) {
@@ -194,61 +116,62 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
     };
   }, [isHovered, project.images.length]);
 
+  const handleLaunchUrl = () => {
+    if (onSelect) {
+      onSelect();
+    }
+    window.open(project.url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="group relative rounded-2xl bg-[#0A0C10]/90 border border-white/10 hover:border-white/30 backdrop-blur-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between hover:shadow-[0_0_35px_rgba(255,255,255,0.06)] cursor-pointer"
       style={{
-        boxShadow: isHovered ? `0 0 40px ${project.accentColor}25` : undefined
+        boxShadow: isHovered ? `0 0 40px ${accentColor}25` : undefined
       }}
-      onClick={() => {
-        if (onSelect) {
-          onSelect();
-        }
-        window.open(project.url, '_blank');
-      }}
+      onClick={handleLaunchUrl}
     >
       {/* Top Banner Tag / Category */}
       <div className="p-5 pb-3 flex items-center justify-between border-b border-white/5 z-10 bg-[#0A0C10]/60">
         <div className="flex items-center gap-2">
-          <span 
-            className="w-2.5 h-2.5 rounded-full animate-pulse" 
-            style={{ backgroundColor: project.accentColor, boxShadow: `0 0 10px ${project.accentColor}` }}
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: accentColor, boxShadow: `0 0 10px ${accentColor}` }}
           />
-          <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-white/70">
+          <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-white/75">
             {project.category}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">
-            {project.sprintPhase}
-          </span>
-          <span 
-            className="text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase"
-            style={{ color: project.accentColor, backgroundColor: `${project.accentColor}15` }}
-          >
-            {project.status}
-          </span>
-        </div>
+        <span
+          className="text-[10px] font-mono font-semibold tracking-wider text-zinc-400 group-hover:text-white transition-colors truncate max-w-[165px]"
+          title={project.url}
+        >
+          {domainHost}
+        </span>
       </div>
 
       {/* Cycling Visual Media Stage with Crossfade */}
-      <div className="relative h-56 w-full overflow-hidden bg-black select-none">
-        {project.images.map((img, idx) => (
-          <img
-            key={img}
-            src={img}
-            alt={`${project.name} preview ${idx + 1}`}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 transform group-hover:scale-105 transition-transform duration-700 ease-out ${
-              idx === imageIndex ? 'opacity-90' : 'opacity-0 pointer-events-none'
-            }`}
-          />
-        ))}
+      <div className="relative h-60 w-full overflow-hidden bg-gradient-to-br from-[#12151E] via-[#0B0D13] to-[#06070A] select-none">
+        {project.images.map((img, idx) =>
+          !failedImages[idx] ? (
+            <img
+              key={img}
+              src={img}
+              alt={`${project.title} preview ${idx + 1}`}
+              referrerPolicy="no-referrer"
+              onError={() => setFailedImages((prev) => ({ ...prev, [idx]: true }))}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 transform group-hover:scale-105 ${
+                idx === imageIndex ? 'opacity-90' : 'opacity-0 pointer-events-none'
+              }`}
+            />
+          ) : null
+        )}
 
-        {/* Ambient Vignette & Color Glow */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0C10] via-black/30 to-transparent pointer-events-none" />
+        {/* Ambient Vignette & Scrim */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0C10] via-black/40 to-black/20 pointer-events-none" />
 
         {/* Dynamic Image Pips (Cycles on Hover) */}
         {project.images.length > 1 && (
@@ -262,79 +185,56 @@ const ProductHoverCard: React.FC<ProductHoverCardProps> = ({ project, onSelect }
                     : 'w-1.5 bg-white/30'
                 }`}
                 style={{
-                  backgroundColor: idx === imageIndex ? project.accentColor : undefined
+                  backgroundColor: idx === imageIndex ? accentColor : undefined
                 }}
               />
             ))}
             {isHovered && (
-              <span className="ml-2 text-[8.5px] font-mono text-white/80 uppercase font-bold tracking-widest bg-black/60 px-1.5 py-0.2 rounded border border-white/20">
-                AUTO-SCRUB {imageIndex + 1}/{project.images.length}
+              <span className="ml-2 text-[8.5px] font-mono text-white/80 uppercase font-bold tracking-widest bg-black/60 px-1.5 py-0.5 rounded border border-white/20 tabular-nums">
+                {imageIndex + 1}/{project.images.length}
               </span>
             )}
           </div>
         )}
 
-        {/* Monolithic Name Overlay */}
-        <div className="absolute top-4 left-4 z-20">
-          <h3 
+        {/* Monolithic Title Overlay */}
+        <div className="absolute top-4 left-4 right-4 z-20">
+          <h3
             className="text-2xl sm:text-3xl font-black font-sans tracking-tight text-white drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)]"
             style={{
-              textShadow: isHovered ? `0 0 25px ${project.accentColor}80` : undefined
+              textShadow: isHovered ? `0 0 25px ${accentColor}80` : undefined
             }}
           >
-            {project.name}
+            {project.title}
           </h3>
         </div>
       </div>
 
-      {/* Project Description & Feature Matrix */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-        <div>
-          <p className="text-sm font-semibold text-zinc-200 font-mono tracking-wide mb-3">
-            {project.tagline}
+      {/* Subtitle & Launch Action */}
+      <div className="p-5 flex-1 flex flex-col justify-between gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-zinc-200 font-mono tracking-wide">
+            {project.sub}
           </p>
-
-          <ul className="space-y-1.5">
-            {project.features.map((feature, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-[11px] font-mono text-zinc-400">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                <span className="leading-snug">{feature}</span>
-              </li>
-            ))}
-          </ul>
+          <ExternalLink className="w-3.5 h-3.5 text-zinc-500 group-hover:text-white transition-colors shrink-0" />
         </div>
 
-        {/* Tech Specs Chips */}
+        {/* Brutalist Launch Button */}
         <div className="pt-3 border-t border-white/5">
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {project.specs.map((spec, idx) => (
-              <span
-                key={idx}
-                className="text-[9px] font-mono px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300"
-              >
-                {spec}
-              </span>
-            ))}
-          </div>
-
-          {/* Brutalist Launch Button */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (onSelect) {
-                onSelect();
-              }
-              window.open(project.url, '_blank');
+              handleLaunchUrl();
             }}
-            className="w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 group-hover:bg-white group-hover:text-black group-hover:border-white bg-black/60 border-white/20 text-white"
+            className="w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 group-hover:bg-white group-hover:text-black group-hover:border-white bg-black/60 border-white/20 text-white whitespace-nowrap"
             style={{
-              borderColor: isHovered ? project.accentColor : undefined,
-              boxShadow: isHovered ? `0 0 20px ${project.accentColor}30` : undefined
+              borderColor: isHovered ? accentColor : undefined,
+              boxShadow: isHovered ? `0 0 20px ${accentColor}30` : undefined
             }}
           >
-            <span>[ LAUNCH // ENTER ENGINE ↗ ]</span>
-            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <span>[ LAUNCH // ENTER ENGINE ]</span>
+            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
           </button>
         </div>
       </div>

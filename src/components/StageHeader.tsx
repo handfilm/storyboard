@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { 
   Film, 
   Sliders, 
@@ -741,39 +742,51 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. Middle: Cleaned up Minimalist Playback Cadence Toggle [ MASTER | SOLO ] */}
+      {/* 2. Middle: Hardware-Accelerated Segmented Control [ SOLO | MASTER ]       */}
       {/* ========================================================================= */}
-      <div className="hidden 2xl:flex items-center justify-center p-1 bg-black/50 border border-white/10 rounded-lg backdrop-blur-md shadow-inner gap-1 shrink-0">
-        <button
-          type="button"
-          onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('sequence')}
-          className={`h-7 px-4 rounded text-xs font-mono font-bold tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-2 uppercase ${
-            playbackMode === 'sequence'
-              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-[0_0_12px_rgba(245,166,35,0.25)]'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-          title="Master Sequence Playback"
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${playbackMode === 'sequence' ? 'bg-amber-400 shadow-[0_0_6px_#f59e0b]' : 'bg-zinc-600'}`} />
-          <span>MASTER</span>
-        </button>
+      {(() => {
+        const isMasterMode = playbackMode === 'sequence';
+        return (
+          <div className="relative hidden min-[1400px]:flex items-center bg-[#050505] border border-white/10 rounded-full p-1 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md shrink-0">
+            <motion.div
+              layoutId="activeModeIndicator"
+              initial={false}
+              animate={{ x: isMasterMode ? '100%' : '0%' }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="absolute inset-y-1 left-1 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.4)] pointer-events-none transform-gpu"
+              style={{ width: 'calc(50% - 4px)' }}
+            />
 
-        <div className="h-4 w-px bg-white/10" />
+            <button
+              type="button"
+              onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('solo')}
+              className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 cursor-pointer text-[10px] md:text-xs font-black tracking-[0.2em] uppercase transition-colors duration-300 whitespace-nowrap ${
+                !isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
+              }`}
+              title="Solo Shot Loop Playback"
+            >
+              {!isMasterMode && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
+              )}
+              <span>SOLO</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('solo')}
-          className={`h-7 px-4 rounded text-xs font-mono font-bold tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-2 uppercase ${
-            playbackMode === 'solo'
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-          title="Solo Shot Loop Playback"
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${playbackMode === 'solo' ? 'bg-emerald-400 shadow-[0_0_6px_#10b981]' : 'bg-zinc-600'}`} />
-          <span>SOLO</span>
-        </button>
-      </div>
+            <button
+              type="button"
+              onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('sequence')}
+              className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 cursor-pointer text-[10px] md:text-xs font-black tracking-[0.2em] uppercase transition-colors duration-300 whitespace-nowrap ${
+                isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
+              }`}
+              title="Master Sequence Playback"
+            >
+              {isMasterMode && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
+              )}
+              <span>MASTER</span>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* 3. Right: Search -> REC -> EXPORT -> STUDIO (Red) -> 3-Dots                */}

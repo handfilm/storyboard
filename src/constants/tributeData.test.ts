@@ -53,4 +53,29 @@ test('TRIBUTE_PROFILES Registry Standards', async (t) => {
     assert.ok(rani?.performer.includes('RANI MUKHERJEE'));
     assert.equal(rani?.criticNote, 'A powerhouse of emotion and unmatched screen presence.');
   });
+
+  await t.test('enforces exact cinematic time-gating temporal mapping', () => {
+    const resolvePhase = (time: number): 1 | 2 | 3 | 4 | 5 | null => {
+      if (time >= 0 && time < 1.5) return 1;
+      if (time >= 1.5 && time < 3.5) return 2;
+      if (time >= 3.5 && time < 5.5) return 3;
+      if (time >= 5.5 && time < 7.0) return 4;
+      if (time >= 7.0 && time < 9.0) return 5;
+      return null;
+    };
+
+    assert.equal(resolvePhase(0.0), 1, '0.0s should be Phase 1 (Hook)');
+    assert.equal(resolvePhase(1.49), 1, '1.49s should be Phase 1 (Hook)');
+    assert.equal(resolvePhase(1.5), 2, '1.5s should be Phase 2 (Bio)');
+    assert.equal(resolvePhase(3.49), 2, '3.49s should be Phase 2 (Bio)');
+    assert.equal(resolvePhase(3.5), 3, '3.5s should be Phase 3 (Captions)');
+    assert.equal(resolvePhase(5.49), 3, '5.49s should be Phase 3 (Captions)');
+    assert.equal(resolvePhase(5.5), 4, '5.5s should be Phase 4 (Critic Note)');
+    assert.equal(resolvePhase(6.99), 4, '6.99s should be Phase 4 (Critic Note)');
+    assert.equal(resolvePhase(7.0), 5, '7.0s should be Phase 5 (Signature)');
+    assert.equal(resolvePhase(8.99), 5, '8.99s should be Phase 5 (Signature)');
+    assert.equal(resolvePhase(9.0), null, '>=9.0s should be null (Unmounted)');
+    assert.equal(resolvePhase(12.0), null, '12.0s should be null (Unmounted)');
+  });
 });
+

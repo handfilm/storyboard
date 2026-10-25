@@ -316,7 +316,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
 
           <div className="h-[460px] rounded-lg border border-[#F5A623]/30 bg-black/90 relative overflow-hidden shadow-2xl">
             <KineticTributeSequence
-              durationSec={currentFrame?.slideHoldSec || 7.0}
+              durationSec={Math.max(9.0, currentFrame?.slideHoldSec || 9.0)}
               isPlaying={true}
               showControls={true}
               onApplyProfileToFrame={(tribute) => {

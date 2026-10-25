@@ -573,13 +573,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         >
           <button
             type="button"
-            onClick={() => setIsAIForgeOpen(true)}
-            className="h-9 px-3.5 rounded-lg text-xs font-mono font-bold tracking-wider flex items-center gap-1.5 bg-gradient-to-r from-purple-950/60 via-indigo-950/60 to-cyan-950/60 hover:from-purple-900/80 hover:via-indigo-900/80 hover:to-cyan-900/80 border border-purple-500/50 hover:border-cyan-400 text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-indigo-200 to-cyan-300 shadow-[0_0_16px_rgba(168,85,247,0.35)] hover:shadow-[0_0_24px_rgba(6,182,212,0.45)] transition-all duration-200 cursor-pointer active:scale-95 group/forge"
+            onClick={() => setIsAIForgeOpen((prev) => !prev)}
+            className="h-9 px-3 rounded-md bg-purple-500/10 border border-purple-500/30 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 font-bold tracking-widest hover:bg-purple-500/20 transition-all shadow-[0_0_10px_rgba(168,85,247,0.2)] cursor-pointer flex items-center justify-center font-mono text-xs whitespace-nowrap"
           >
-            <span className="text-purple-300 group-hover/forge:animate-pulse">🧠</span>
-            <span className="tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-indigo-200 to-cyan-300">
-              AI FORGE
-            </span>
+            [ 🧠 AI FORGE ]
           </button>
         </SmartHoverCard>
 

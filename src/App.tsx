@@ -557,6 +557,53 @@ export default function App() {
       setIsDrawerOpen(false);
     });
 
+    const unsubAddShot = eventBus.on('timeline:add_shot', ({ shot, index }: any) => {
+      setProject(prev => {
+        const nextFrames = [...prev.frames];
+        const newDur = shot?.durationSeconds || shot?.durationSec || 5.0;
+        const newFrame: AnthologyFrame = {
+          id: shot?.id || nextFrames.length + 1,
+          epNumber: shot?.epNumber || String(nextFrames.length + 1).padStart(3, '0'),
+          title: shot?.title || `Shot ${nextFrames.length + 1}`,
+          bengaliTitle: shot?.bengaliTitle || '',
+          tagline: shot?.tagline || '',
+          directorNotes: shot?.directorNotes || '',
+          soundCue: shot?.soundCue || '',
+          cameraSpec: shot?.cameraSpec || {
+            focalLength: '35mm Anamorphic Master',
+            aperture: 'f/1.4',
+            shutter: '1/48s 180°',
+            iso: 'ISO 400',
+            sensor: 'Full Frame ARRI LF',
+            format: '2.39:1 Scope'
+          },
+          imageUrl: shot?.thumbnail || shot?.imageUrl || 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800',
+          isVideo: shot?.isVideo ?? true,
+          colorAccent: shot?.colorAccent || '#A855F7',
+          hoverStyle: 1,
+          lutFilter: shot?.lutFilter || 'anamorphic_gold',
+          aspectRatio: (aspectRatio as any) || '16:9',
+          adjustments: shot?.adjustments || {
+            brightness: 100,
+            contrast: 100,
+            saturation: 100,
+            bloom: 20,
+            grain: 10,
+            motionBlur: 10,
+            vignette: 10
+          },
+          durationSec: newDur,
+          slideHoldSec: newDur,
+          tags: shot?.tags || ['AI_GENERATED']
+        };
+        nextFrames.push(newFrame);
+        return { ...prev, frames: nextFrames };
+      });
+      if (typeof index === 'number') {
+        setCurrentIndex(index);
+      }
+    });
+
     return () => {
       unsub();
       unsubAsset();
@@ -566,8 +613,9 @@ export default function App() {
       unsubDiagnostics();
       unsubTheme();
       unsubDrawerClose();
+      unsubAddShot();
     };
-  }, [handleOpenExportStudio]);
+  }, [handleOpenExportStudio, aspectRatio]);
 
   // Initialize Storage Core & Check Crash Status on Mount
   useEffect(() => {

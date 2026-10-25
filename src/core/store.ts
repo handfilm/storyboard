@@ -162,6 +162,8 @@ export interface StudioState {
   toggleAudio: () => void;
   setAudioVolume: (vol: number) => void;
   updateShot: (index: number, partial: Partial<Shot>) => void;
+  addShot: (shot: Partial<Shot>) => void;
+  appendClip: (clip: Partial<Shot>) => void;
   addMediaItem: (item: MediaItem) => void;
   setProjectTitle: (title: string) => void;
   undo: () => void;
@@ -639,6 +641,34 @@ export const useStudioStore = create<StudioState>()(
         }
       });
       eventBus.emit('shot:updated', { index, partial });
+    },
+
+    addShot: (partial: Partial<Shot>) => {
+      let newIndex = 0;
+      set((state) => {
+        if (!state.project.shots || state.project.shots.length === 0) {
+          state.project.shots = createDefaultStoreShots();
+        }
+        newIndex = state.project.shots.length;
+        const defaults = createDefaultStoreShots();
+        const base = defaults[newIndex % defaults.length] || defaults[0];
+        const newShot: Shot = {
+          ...base,
+          ...partial,
+          id: typeof partial.id === 'number' ? partial.id : newIndex + 1,
+          epNumber: String(newIndex + 1).padStart(3, '0'),
+          durationSeconds: partial.durationSeconds || (partial as any).durationSec || 5.0,
+          updatedAt: Date.now()
+        };
+        state.project.shots.push(newShot);
+        state.activeShotIndex = newIndex;
+      });
+      eventBus.emit('timeline:add_shot', { shot: partial, index: newIndex });
+      eventBus.emit('shot:change', newIndex);
+    },
+
+    appendClip: (clip: Partial<Shot>) => {
+      get().addShot(clip);
     },
 
     addMediaItem: (item: MediaItem) => {

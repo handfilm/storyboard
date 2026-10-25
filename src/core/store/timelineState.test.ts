@@ -5,7 +5,9 @@ import {
   calculateSafeTotalDuration, 
   getSafeShotAtIndex, 
   DEFAULT_SHOT_DURATION, 
-  MIN_SHOT_DURATION 
+  MIN_SHOT_DURATION,
+  addShotToTimeline,
+  appendClipToTimeline
 } from './timelineState';
 import { ECOSYSTEM_PROJECTS } from '../../components/menus/MegaEcosystemLauncher';
 
@@ -44,6 +46,19 @@ describe('Timeline State & DurationSec Safety Reducers', () => {
     const mockShots = [{ id: 1 }, { id: 2 }];
     assert.deepEqual(getSafeShotAtIndex(mockShots, 0), { id: 1 });
     assert.deepEqual(getSafeShotAtIndex(mockShots, 99), { id: 2 });
+  });
+
+  test('addShotToTimeline appends shot with valid duration and updates timeline', () => {
+    const created = addShotToTimeline({
+      durationSec: 5,
+      type: 'ai_generated',
+      thumbnail: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800',
+      prompt: 'Cinematic hyper-lapse through rainy alley'
+    });
+    assert.ok(created);
+    assert.equal(created.durationSeconds, 5);
+    assert.equal(created.imageUrl, 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800');
+    assert.ok(created.tags.includes('AI_GENERATED'));
   });
 });
 

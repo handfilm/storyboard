@@ -26,6 +26,7 @@ import {
   Radio
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
+import { addShotToTimeline } from '../../core/store/timelineState';
 import { eventBus } from '../../core/eventBus';
 import { COMPILATION_PRESETS, CompilationPreset } from '../../constants/compilationData';
 
@@ -273,69 +274,49 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
   };
 
   const handleGenerate = () => {
-    if (isGenerating || credits < 25) return;
+    if (isGenerating || !prompt.trim() || credits < 25) return;
 
     setIsGenerating(true);
     setSuccessBanner(null);
     setGenerationStep(`Connecting to ${selectedModel} Gateway...`);
 
+    // 1. Mock API Delay: 1500ms simulating neural latency
     setTimeout(() => {
-      setGenerationStep('Synthesizing latent neural tensors...');
-    }, 400);
-
-    setTimeout(() => {
-      setGenerationStep('Binding synthesized buffer to timeline...');
-    }, 800);
-
-    setTimeout(() => {
-      // Deduct 25 credits
+      // 5. Credit Deduction: Deduct 25 credits
       setCredits((prev) => Math.max(0, prev - 25));
       setIsGenerating(false);
       setGenerationStep('');
 
-      const assetUrl = currentMeta.mockAssetUrl;
-      const targetShotNumber = activeShotIndex + 1;
-      const shotLabel = `SH${String(targetShotNumber).padStart(3, '0')}`;
+      // 2. State Injection: Construct mock shot object representing the AI-generated video
+      const mockShot = {
+        durationSec: 5,
+        durationSeconds: 5,
+        type: 'ai_generated',
+        thumbnail: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800',
+        imageUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800',
+        isVideo: true,
+        title: `AI_${selectedModel.toUpperCase().replace(/\s+/g, '_')}`,
+        tagline: prompt.length > 50 ? `${prompt.slice(0, 48)}...` : prompt,
+        directorNotes: `[AI FORGE: ${selectedModel} // ${selectedCategory.toUpperCase()}] ${prompt}`,
+        soundCue: 'Low-Frequency Neural Shockwave Strobe',
+        model: selectedModel,
+        prompt
+      };
 
-      // Update shot in Studio Store
-      useStudioStore.getState().updateShot(activeShotIndex, {
-        imageUrl: assetUrl,
-        isVideo: isVideoEngine,
-        directorNotes: `[AI FORGE: ${selectedModel} // ${selectedCategory.toUpperCase()}] ${prompt}`
-      });
-
-      // Broadcast asset assignment event
-      eventBus.emit('asset_assigned_to_shot', {
-        assetId: `ai-forge-${Date.now()}`,
-        shotIndex: activeShotIndex,
-        blobUrl: assetUrl,
-        meta: {
-          mimeType: isVideoEngine ? 'video/mp4' : 'image/jpeg',
-          name: `${selectedModel.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.png`
-        }
-      });
-
-      eventBus.emit('shot:updated', {
-        index: activeShotIndex,
-        shot: {
-          imageUrl: assetUrl,
-          isVideo: isVideoEngine
-        }
-      });
+      // 3. Dispatch to Timeline: Append new asset directly to the end of the master sequence
+      addShotToTimeline(mockShot);
 
       if (onGenerateAsset) {
         onGenerateAsset({
-          url: assetUrl,
+          url: mockShot.thumbnail,
           prompt,
           model: selectedModel
         });
       }
 
-      setSuccessBanner(`✓ Asset synthesized via ${selectedModel} and dropped onto ${shotLabel}!`);
-      setTimeout(() => {
-        setSuccessBanner(null);
-      }, 3000);
-    }, 1300);
+      // 4. Auto-Close: Automatically close the OmniAIForge modal immediately
+      onClose();
+    }, 1500);
   };
 
   return (
@@ -546,8 +527,17 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
                     : 'bg-purple-950/70 hover:bg-purple-600 border-purple-500/50 hover:border-purple-400 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)]'
                 }`}
               >
-                <Zap className="w-4 h-4 fill-current text-purple-300 group-hover:text-white" />
-                <span>[ ⚡ GENERATE & DROP TO TIMELINE ]</span>
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-purple-300" />
+                    <span>[ ⚙️ SYNTHESIZING NEURAL ASSET... ]</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 fill-current text-purple-300 group-hover:text-white" />
+                    <span>[ ⚡ GENERATE & DROP TO TIMELINE ]</span>
+                  </>
+                )}
               </button>
 
               {/* Cost indicator text below it: (Estimated Cost: 25 Credits) */}

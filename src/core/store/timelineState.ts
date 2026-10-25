@@ -3,10 +3,13 @@
  * @description Master Timeline State Safeguards & Duration Safety Utilities.
  * Enforces strict null checks, optional chaining, and finite boundaries on shot durationSec,
  * ensuring zero crashes during modal launches, shot switching, or timeline mutations.
+ * Also provides timeline dispatch actions: addShotToTimeline, appendClipToTimeline, addShot.
  */
 
 import { Shot } from '../schemas';
 import { AnthologyFrame } from '../../types/anthology';
+import { useStudioStore, createDefaultStoreShots } from '../store';
+import { eventBus } from '../eventBus';
 
 export const DEFAULT_SHOT_DURATION = 12.0;
 export const MIN_SHOT_DURATION = 0.5;
@@ -76,3 +79,106 @@ export function getSafeShotAtIndex<T = Shot>(
   const safeIndex = Math.max(0, Math.min(shots.length - 1, index));
   return shots[safeIndex];
 }
+
+export interface TimelineClipPayload {
+  durationSec?: number;
+  durationSeconds?: number;
+  type?: string;
+  thumbnail?: string;
+  imageUrl?: string;
+  isVideo?: boolean;
+  title?: string;
+  bengaliTitle?: string;
+  tagline?: string;
+  directorNotes?: string;
+  soundCue?: string;
+  cameraSpec?: any;
+  model?: string;
+  prompt?: string;
+  [key: string]: any;
+}
+
+/**
+ * Appends a new shot or AI-generated clip directly to the end of the global master timeline.
+ * Dispatches updates to useStudioStore and emits eventBus events for StagePlayer and BiDirectionalTimeline.
+ */
+export function addShotToTimeline(newClip: TimelineClipPayload): Shot {
+  const durationSec = getSafeDurationSec(newClip, 5.0);
+  const imageUrl = newClip.thumbnail || newClip.imageUrl || 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800';
+  const isVideo = newClip.isVideo !== undefined ? Boolean(newClip.isVideo) : true;
+
+  const currentStore = useStudioStore.getState();
+  const currentShots = currentStore.project?.shots || [];
+  const newIndex = currentShots.length;
+  const nextId = newIndex + 1;
+
+  const defaults = createDefaultStoreShots();
+  const baseDefault = defaults[newIndex % defaults.length] || defaults[0];
+
+  const shotToAdd: Shot = {
+    ...baseDefault,
+    id: nextId,
+    epNumber: String(newIndex + 1).padStart(3, '0'),
+    title: newClip.title || `AI_SHOT_${String(newIndex + 1).padStart(3, '0')}`,
+    bengaliTitle: newClip.bengaliTitle || 'কৃত্রিম নিউরাল দৃশ্য',
+    tagline: newClip.tagline || (newClip.prompt ? `PROMPT: ${newClip.prompt.slice(0, 48)}...` : 'AI Generated Neural Asset'),
+    directorNotes: newClip.directorNotes || (newClip.prompt ? `[AI FORGE: ${newClip.model || 'OMNI-AI'}] ${newClip.prompt}` : 'Synthesized via Omni-AI Forge'),
+    soundCue: newClip.soundCue || 'Atmospheric Neural Sub-Bass Surge',
+    cameraSpec: newClip.cameraSpec || {
+      focalLength: '35mm Anamorphic Master',
+      aperture: 'f/1.4',
+      shutter: '1/48s 180°',
+      iso: 'ISO 400',
+      sensor: 'Full Frame ARRI LF',
+      format: '2.39:1 Scope'
+    },
+    imageUrl,
+    isVideo,
+    panY: 50,
+    colorAccent: '#A855F7',
+    hoverStyle: 1,
+    lutFilter: 'golden',
+    aspectRatio: '16:9',
+    adjustments: {
+      ...baseDefault.adjustments,
+      halations: 10,
+      anamorphicStreak: 30
+    },
+    durationSeconds: durationSec,
+    shotType: 'CU',
+    status: 'in-progress',
+    tags: ['AI_GENERATED', 'NEURAL_DIFFUSION', newClip.type || 'ai_generated', newClip.model || 'VEO'].filter(Boolean),
+    activeLens: '35mm f/1.4 Master Anamorphic',
+    dof: '1.2cm',
+    updatedAt: Date.now()
+  };
+
+  // 1. Mutate Studio Store
+  useStudioStore.setState((state) => {
+    if (!state.project.shots) {
+      state.project.shots = [];
+    }
+    state.project.shots.push(shotToAdd);
+    state.activeShotIndex = newIndex;
+  });
+
+  // 2. Emit global eventBus events for all timeline/stage listeners
+  eventBus.emit('timeline:add_shot', { shot: shotToAdd, index: newIndex });
+  eventBus.emit('shot:change', newIndex);
+  eventBus.emit('shot:updated', { index: newIndex, partial: shotToAdd });
+  eventBus.emit('asset_assigned_to_shot', {
+    assetId: `ai-forge-${Date.now()}`,
+    shotIndex: newIndex,
+    blobUrl: imageUrl,
+    meta: {
+      mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
+      name: `ai_clip_${newIndex + 1}.mp4`
+    }
+  });
+
+  return shotToAdd;
+}
+
+export const appendClipToTimeline = addShotToTimeline;
+export const addShot = addShotToTimeline;
+export const appendClip = addShotToTimeline;

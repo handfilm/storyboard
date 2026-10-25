@@ -580,19 +580,52 @@ export function LandingWalkthrough({ onLaunchStudio }: LandingWalkthroughProps) 
           <AmberButton disabled={index === 0} onClick={prev}>
             &lt; PREV
           </AmberButton>
-          <div className="flex items-center gap-1.5 rounded-full border border-[#23232D] bg-[#121217] px-3 py-1.5">
-            {SLIDES_DATA.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setIndex(i)}
-                aria-label={`Slide ${s.id}`}
-                aria-current={i === index}
-                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                  i === index ? "w-6 bg-[#F5A623] shadow-[0_0_8px_#F5A623]" : "w-2 bg-[#23232D] hover:bg-[#F5A623]/40"
-                }`}
-              />
-            ))}
+          <div className="flex items-center gap-1 rounded-md border border-[#23232D] bg-[#121217] px-2 py-1 px-2! py-1!">
+            {SLIDES_DATA.map((s, i) => {
+              const markerLabel = pad(i + 1, 2);
+              const isCurrent = i === index;
+              return (
+                <div key={s.id} className="relative group/wmarker flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setIndex(i)}
+                    aria-label={`Jump to Slide ${markerLabel}: ${s.title}`}
+                    aria-current={isCurrent}
+                    className={`${MONO} px-2 py-1 px-2! py-1! rounded-[3px] text-[10px] tabular-nums transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A623] ${
+                      isCurrent
+                        ? "bg-[#F5A623] text-black font-bold shadow-[0_0_8px_rgba(245,166,35,0.65)]"
+                        : "text-zinc-400 hover:bg-white/10 hover:text-[#FFE066]"
+                    }`}
+                  >
+                    {markerLabel}
+                  </button>
+
+                  {/* Floating Thumbnail Popup */}
+                  <div
+                    role="tooltip"
+                    className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#F5A623]/50 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] opacity-0 translate-y-1 pointer-events-none group-hover/wmarker:opacity-100 group-hover/wmarker:translate-y-0 group-focus-within/wmarker:opacity-100 group-focus-within/wmarker:translate-y-0 transition-all duration-150 z-50 text-left transform-gpu"
+                  >
+                    <div className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-[#050508] border border-white/10">
+                      <img
+                        src={s.backgroundImage}
+                        alt={s.imageAlt || s.title}
+                        referrerPolicy="no-referrer"
+                        decoding="async"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8px] tabular-nums">
+                        <span className="font-bold text-[#FFE066]">#{markerLabel}</span>
+                        <span className="text-zinc-300">{s.aspectRatio}</span>
+                      </div>
+                    </div>
+                    <div className="pt-1.5 pt-1.5! px-0.5 px-0.5! text-[9.5px] font-semibold text-white truncate">
+                      {s.title}
+                    </div>
+                    <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-[#090A10] border-r border-b border-[#F5A623]/50" />
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <AmberButton onClick={next}>
             {index === total - 1 ? "LAUNCH >" : "NEXT >"}

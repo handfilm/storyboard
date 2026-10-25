@@ -107,6 +107,12 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const [editSoundCue, setEditSoundCue] = useState('');
   const [editDurationSec, setEditDurationSec] = useState('12.0');
   const [uploadTargetIndex, setUploadTargetIndex] = useState<number | null>(null);
+  const [hoveredScrubPreview, setHoveredScrubPreview] = useState<{
+    shotIndex: number;
+    timeSec: number;
+    clientX: number;
+    topY: number;
+  } | null>(null);
 
   const safeIndex = Math.max(0, Math.min(slides.length - 1, activeSlideIndex));
   const activeSlide = slides[safeIndex];
@@ -357,8 +363,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           />
         </div>
 
-        {/* Dynamic Dual-Mode Scrubber */}
-        <div className="flex-1 flex flex-col gap-1 min-w-0">
+        {/* Dynamic Dual-Mode Scrubber with Shot Index Markers & Floating Thumbnail Popup */}
+        <div className="flex-1 flex flex-col gap-1 min-w-0 relative">
           <div className="flex items-center justify-between text-[10px] text-white/50 tabular-nums">
             <span className="font-bold text-[#F5A623] truncate">
               {playbackMode === 'solo'
@@ -374,32 +380,133 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             </div>
           </div>
 
-          <input
-            type="range"
-            min="0"
-            max={Math.max(0.5, playbackMode === 'solo' ? activeSlideDurationSec : totalDurationSec)}
-            step={1 / activeSlideFps}
-            value={Math.min(
-              playbackMode === 'solo' ? activeSlideDurationSec : totalDurationSec,
-              playbackMode === 'solo' ? slideTimeSec : globalSec
-            )}
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
+          <div
+            className="relative flex items-center py-1 py-1!"
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+              const maxRange = Math.max(0.5, playbackMode === 'solo' ? activeSlideDurationSec : totalDurationSec);
+              const hoverVal = ratio * maxRange;
               if (playbackMode === 'solo') {
-                onScrubSlideTime(val);
-              } else if (onScrubGlobalTime) {
-                onScrubGlobalTime(val);
+                setHoveredScrubPreview({
+                  shotIndex: safeIndex,
+                  timeSec: hoverVal,
+                  clientX: e.clientX,
+                  topY: rect.top
+                });
               } else {
-                const resolved = resolveGlobalTimeToShot(slides, val);
-                if (resolved.shotIndex !== safeIndex) {
-                  onSelectSlide(resolved.shotIndex);
-                }
-                onScrubSlideTime(resolved.localTimeSec);
+                const resolved = resolveGlobalTimeToShot(slides, hoverVal);
+                setHoveredScrubPreview({
+                  shotIndex: resolved.shotIndex,
+                  timeSec: hoverVal,
+                  clientX: e.clientX,
+                  topY: rect.top
+                });
               }
             }}
-            className="w-full h-1.5 bg-[#1C1C26] rounded-full appearance-none accent-[#F5A623] cursor-pointer"
-            aria-label="Timeline sequence scrubber"
-          />
+            onMouseLeave={() => setHoveredScrubPreview(null)}
+          >
+            {/* Shot Boundary Index Tick Markers along Global Scrubber */}
+            {playbackMode !== 'solo' && totalDurationSec > 0 && slides.length <= 120 && (
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2.5 pointer-events-none flex items-center">
+                {shotOffsets.map((offset, sIdx) => {
+                  const pct = (offset.startSec / totalDurationSec) * 100;
+                  return (
+                    <span
+                      key={sIdx}
+                      style={{ left: `${pct}%` }}
+                      className={`absolute w-[1px] ${
+                        sIdx === safeIndex ? 'h-2.5 bg-[#FFE066]' : 'h-1.5 bg-white/20'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            <input
+              type="range"
+              min="0"
+              max={Math.max(0.5, playbackMode === 'solo' ? activeSlideDurationSec : totalDurationSec)}
+              step={1 / activeSlideFps}
+              value={Math.min(
+                playbackMode === 'solo' ? activeSlideDurationSec : totalDurationSec,
+                playbackMode === 'solo' ? slideTimeSec : globalSec
+              )}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (playbackMode === 'solo') {
+                  onScrubSlideTime(val);
+                } else if (onScrubGlobalTime) {
+                  onScrubGlobalTime(val);
+                } else {
+                  const resolved = resolveGlobalTimeToShot(slides, val);
+                  if (resolved.shotIndex !== safeIndex) {
+                    onSelectSlide(resolved.shotIndex);
+                  }
+                  onScrubSlideTime(resolved.localTimeSec);
+                }
+              }}
+              className="relative z-10 w-full h-1.5 bg-[#1C1C26] rounded-full appearance-none accent-[#F5A623] cursor-pointer"
+              aria-label="Timeline sequence scrubber"
+            />
+          </div>
+
+          {/* Floating Scrubber Thumbnail Popup */}
+          {hoveredScrubPreview && slides[hoveredScrubPreview.shotIndex] && (() => {
+            const pSlide = slides[hoveredScrubPreview.shotIndex];
+            const pNum = String(hoveredScrubPreview.shotIndex + 1).padStart(3, '0');
+            const pThumb =
+              thumbnailMemoryCache.get(pSlide.id) ||
+              thumbnailMemoryCache.get(`shot_${hoveredScrubPreview.shotIndex}`) ||
+              (!pSlide.isVideo ? pSlide.remoteUrl || '' : '');
+            const vw = typeof window !== 'undefined' ? window.innerWidth : 1440;
+            const clampedX = Math.max(96, Math.min(vw - 96, hoveredScrubPreview.clientX));
+            return (
+              <div
+                role="tooltip"
+                style={{
+                  position: 'fixed',
+                  left: `${clampedX}px`,
+                  top: `${Math.max(88, hoveredScrubPreview.topY - 8)}px`,
+                  transform: 'translate(-50%, -100%)',
+                  zIndex: 9998
+                }}
+                className="w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#F5A623]/55 rounded-[4px] p-1.5 p-1.5! shadow-[0_14px_36px_rgba(0,0,0,0.94)] pointer-events-none select-none transform-gpu"
+              >
+                <div className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-[#050508] border border-white/10">
+                  {pThumb ? (
+                    <img
+                      src={pThumb}
+                      alt={`Shot ${pNum}`}
+                      referrerPolicy="no-referrer"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : pSlide.isVideo && pSlide.remoteUrl ? (
+                    <video
+                      src={pSlide.remoteUrl}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-[#0B0C12] text-[8px] text-zinc-500">
+                      EMPTY FRAME
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8px] tabular-nums">
+                    <span className="font-bold text-[#FFE066]">SH{pNum}</span>
+                    <span className="text-zinc-300">{formatTimecode(hoveredScrubPreview.timeSec, activeSlideFps)}</span>
+                  </div>
+                </div>
+                <div className="pt-1 pt-1! px-0.5 px-0.5! text-[9.5px] font-semibold text-white truncate">
+                  {pSlide.titleEn || `Shot ${hoveredScrubPreview.shotIndex + 1}`}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

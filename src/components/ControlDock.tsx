@@ -355,6 +355,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       {hoveredPreviewData && (
         <div
           role="tooltip"
+          data-testid="scrubber-hover-preview"
           style={{
             position: 'fixed',
             left: `${hoveredPreviewData.clampedLeft}px`,
@@ -362,7 +363,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             transform: 'translate(-50%, -100%)',
             zIndex: 9998
           }}
-          className="w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/50 rounded-[4px] p-1.5 p-1.5! shadow-[0_14px_36px_rgba(0,0,0,0.92)] pointer-events-none select-none transform-gpu"
+          className="w-52 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/55 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Frame Thumbnail Viewport */}
           <div className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-[#050508] border border-white/10">
@@ -407,14 +408,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </div>
           </div>
 
-          {/* Frame Title & Hold Duration */}
-          <div className="pt-1.5 pt-1.5! px-0.5 px-0.5! flex items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold text-white truncate">
-              {hoveredPreviewData.frame.title || `Frame ${hoveredPreviewData.shotNumber}`}
-            </span>
-            <span className="text-[9px] font-mono text-[#D4AF37] tabular-nums shrink-0">
-              {formatDurationPillValue(hoveredPreviewData.holdSec)}
-            </span>
+          {/* Frame Title, Bengali Subtitle & Hold Duration */}
+          <div className="pt-1.5 pt-1.5! px-0.5 px-0.5! flex flex-col gap-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold text-white truncate">
+                {hoveredPreviewData.frame.title || `Frame ${hoveredPreviewData.shotNumber}`}
+              </span>
+              <span className="text-[9px] font-mono text-[#D4AF37] tabular-nums shrink-0">
+                {formatDurationPillValue(hoveredPreviewData.holdSec)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 text-[8.5px] text-zinc-400">
+              <span className="truncate font-bangla text-zinc-300">
+                {hoveredPreviewData.frame.bengaliTitle || 'Sequence Frame'}
+              </span>
+              <span className="font-mono text-zinc-500 shrink-0">Click to jump</span>
+            </div>
           </div>
 
           {/* Downward Pointer Caret Aligned to Hovered Index Marker */}
@@ -422,7 +431,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             style={{
               left: `calc(50% + ${hoveredPreviewData.caretOffsetPx}px)`
             }}
-            className="absolute -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#090A10] border-r border-b border-[#D4AF37]/50"
+            className="absolute -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#090A10] border-r border-b border-[#D4AF37]/55"
           />
         </div>
       )}
@@ -481,6 +490,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 key={frame?.id ?? idx}
                 onClick={() => onSelectFrame(idx)}
                 onMouseEnter={(e) => handleMarkerHoverEnter(idx, e.currentTarget)}
+                onMouseMove={(e) => {
+                  if (hoveredMarker?.index !== idx) {
+                    handleMarkerHoverEnter(idx, e.currentTarget);
+                  }
+                }}
                 onMouseLeave={() =>
                   setHoveredMarker((prev) => (prev?.index === idx ? null : prev))
                 }

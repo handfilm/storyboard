@@ -168,12 +168,16 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   useEffect(() => {
     if (isOpen && frames[currentIndex]) {
       lastClickedFrameIdRef.current = frames[currentIndex].id;
-      if (selectionAnchorIdRef.current === null) {
+      if (selectedFrameIds.size === 0) {
+        selectionAnchorIdRef.current = frames[currentIndex].id;
+        setAnchorFrameId(frames[currentIndex].id);
+        rangeBaseSelectionRef.current = new Set();
+      } else if (selectionAnchorIdRef.current === null) {
         selectionAnchorIdRef.current = frames[currentIndex].id;
         setAnchorFrameId(frames[currentIndex].id);
       }
     }
-  }, [isOpen, currentIndex, frames]);
+  }, [isOpen, currentIndex, frames, selectedFrameIds.size]);
 
   // Initialize Compare Slots when entering compare mode
   useEffect(() => {
@@ -868,11 +872,24 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                   ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(245,166,35,0.4)]'
                   : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/15 hover:border-amber-400/50'
               }`}
-              title="Toggle Multi-Select: Batch Apply LUTs or Batch Delete"
+              title="Toggle Multi-Select: Shift+Click to select range or Batch Delete"
             >
               <CheckSquare className="w-3.5 h-3.5" />
               <span>MULTI-SELECT {selectedFrameIds.size > 0 && `(${selectedFrameIds.size})`}</span>
             </button>
+
+            {/* Quick Header Delete Selected Button when frames are highlighted */}
+            {selectedFrameIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBatch(true)}
+                className="px-3 py-1 px-3! py-1! rounded-[2px] bg-rose-600/20 hover:bg-rose-600/35 border border-rose-500/55 text-rose-200 hover:text-white text-[9.5px] font-bold tracking-wider flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                title="Delete selected frames with confirmation dialog"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>Delete Selected ({selectedFrameIds.size})</span>
+              </button>
+            )}
 
             {/* Populate Sample Pack Button */}
             <button
@@ -1935,7 +1952,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                   title="Delete selected frames from storyboard"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                  <span>Delete ({selectedFrameIds.size})</span>
+                  <span>Delete Selected ({selectedFrameIds.size})</span>
                 </button>
 
                 {selectedFrameIds.size < filtered.length && (

@@ -299,18 +299,25 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
             </div>
           </div>
 
-          {/* 10-Slide Indicator Index Markers with Frame Thumbnail Hover-Preview & Shuttles */}
-          <div className="flex items-center gap-4 pt-6">
-            <div className="flex items-center gap-1.5">
+          {/* 10-Slide Scrubber Navigation Bar with Numbered Index Markers & Floating Thumbnail Popup */}
+          <div className="flex items-center gap-3 pt-6 flex-wrap">
+            <div
+              role="navigation"
+              aria-label="Hero frame scrubber markers"
+              className="flex items-center gap-1.5 bg-[#090A10]/85 backdrop-blur-md border border-white/15 rounded-md px-2 py-1.5 px-2! py-1.5!"
+            >
               {SLIDES_DATA.map((slide, idx) => {
                 const mappedFrame = frames.length > 0 ? frames[idx % frames.length] : undefined;
                 const previewSrc =
+                  slide.backgroundImage ||
                   mappedFrame?.thumbnailUrl ||
                   mappedFrame?.thumbnail ||
                   mappedFrame?.imageUrl ||
-                  slide.backgroundImage;
-                const previewTitle = mappedFrame?.title || slide.title;
+                  '';
+                const previewTitle = slide.title || mappedFrame?.title || `Frame ${idx + 1}`;
                 const markerNum = String(idx + 1).padStart(2, '0');
+                const isActiveMarker = idx === currentSlideIndex;
+                const isLeftEdge = idx <= 1;
 
                 return (
                   <div key={slide.id} className="relative group/marker flex items-center">
@@ -321,25 +328,29 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                           triggerSlideTransition(idx);
                         }
                       }}
-                      aria-label={`Slide ${idx + 1}: ${previewTitle}`}
-                      className="py-2 py-2! px-0.5 px-0.5! flex items-center cursor-pointer focus-visible:outline-none"
+                      aria-label={`Jump to Frame ${markerNum}: ${previewTitle}`}
+                      aria-current={isActiveMarker ? 'true' : undefined}
+                      className={`px-2 py-1 px-2! py-1! rounded-[3px] font-mono text-[10px] tabular-nums transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A623] ${
+                        isActiveMarker
+                          ? 'bg-[#E50914] text-white font-bold shadow-[0_0_12px_rgba(229,9,20,0.75)]'
+                          : 'bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-[#FFE066]'
+                      }`}
                     >
-                      <span
-                        className={`block h-1.5 rounded-full transition-all duration-300 ${
-                          idx === currentSlideIndex
-                            ? 'w-8 bg-[#E50914] shadow-[0_0_10px_rgba(229,9,20,0.8)]'
-                            : 'w-2.5 bg-white/25 group-hover/marker:bg-[#FFE066] group-hover/marker:w-4'
-                        }`}
-                      />
+                      {markerNum}
                     </button>
 
-                    {/* Hover-Preview Thumbnail Card */}
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-36 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/45 rounded-[4px] p-1.5 p-1.5! shadow-[0_12px_32px_rgba(0,0,0,0.92)] opacity-0 translate-y-1 pointer-events-none group-hover/marker:opacity-100 group-hover/marker:translate-y-0 group-focus-within/marker:opacity-100 group-focus-within/marker:translate-y-0 transition-all duration-150 z-50 text-left transform-gpu">
+                    {/* Floating Thumbnail Popup on Index Marker Hover */}
+                    <div
+                      role="tooltip"
+                      className={`absolute ${
+                        isLeftEdge ? 'left-0 translate-x-0' : 'left-1/2 -translate-x-1/2'
+                      } bottom-full mb-2.5 w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/50 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] opacity-0 translate-y-1 pointer-events-none group-hover/marker:opacity-100 group-hover/marker:translate-y-0 group-focus-within/marker:opacity-100 group-focus-within/marker:translate-y-0 transition-all duration-150 z-50 text-left transform-gpu`}
+                    >
                       <div className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-[#050508] border border-white/10">
                         {previewSrc ? (
                           <img
                             src={previewSrc}
-                            alt={`Frame ${markerNum}`}
+                            alt={`Frame ${markerNum} preview`}
                             referrerPolicy="no-referrer"
                             decoding="async"
                             className="w-full h-full object-cover"
@@ -349,15 +360,22 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                             <Film className="w-3.5 h-3.5 text-white/30" />
                           </div>
                         )}
-                        <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1 px-1! pb-0.5 pb-0.5! font-mono text-[8px] tabular-nums">
+                        <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8px] tabular-nums">
                           <span className="font-bold text-[#FFE066]">#{markerNum}</span>
                           <span className="text-zinc-300">12.0s</span>
                         </div>
                       </div>
-                      <div className="pt-1 pt-1! px-0.5 px-0.5! text-[9.5px] font-semibold text-white truncate">
-                        {previewTitle}
+                      <div className="pt-1.5 pt-1.5! px-0.5 px-0.5! flex items-center justify-between gap-1.5">
+                        <span className="text-[9.5px] font-semibold text-white truncate">
+                          {previewTitle}
+                        </span>
+                        <span className="text-[8px] font-mono text-zinc-400 shrink-0">Jump</span>
                       </div>
-                      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-[#090A10] border-r border-b border-[#D4AF37]/45" />
+                      <div
+                        className={`absolute ${
+                          isLeftEdge ? 'left-4' : 'left-1/2 -translate-x-1/2'
+                        } -bottom-1 w-2 h-2 rotate-45 bg-[#090A10] border-r border-b border-[#D4AF37]/50`}
+                      />
                     </div>
                   </div>
                 );

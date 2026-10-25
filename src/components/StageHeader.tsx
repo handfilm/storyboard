@@ -46,6 +46,8 @@ import { RapAudioSync } from './modules/RapAudioSync';
 import { NeuralAudioEngine } from './modules/NeuralAudioEngine';
 import { VectorForgeCanvas } from './modules/VectorForgeCanvas';
 import { OmniAIForge } from './modules/OmniAIForge';
+import { B2BCommandCenter } from './modules/B2BCommandCenter';
+import { MegaEcosystemLauncher } from './menus/MegaEcosystemLauncher';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -123,6 +125,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isNeuralVoxOpen, setIsNeuralVoxOpen] = useState(false);
   const [isVectorForgeOpen, setIsVectorForgeOpen] = useState(false);
   const [isAIForgeOpen, setIsAIForgeOpen] = useState(false);
+  const [isB2BHubOpen, setIsB2BHubOpen] = useState(false);
+  const [isEcosystemLauncherOpen, setIsEcosystemLauncherOpen] = useState(false);
   const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success'>('idle');
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
 
@@ -144,6 +148,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       if (e.key === 'Escape') {
         setIsAppsMenuOpen(false);
         setIsExportMenuOpen(false);
+        setIsEcosystemLauncherOpen(false);
       }
     };
     window.addEventListener('mousedown', handleOutside);
@@ -155,12 +160,23 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     };
   }, [isAppsMenuOpen, isExportMenuOpen]);
 
-  // Dedicated AI Forge event listener
+  // Dedicated AI Forge, B2B Hub & Ecosystem event listeners
   useEffect(() => {
-    const unsub = eventBus.on('aiforge:open', () => {
+    const unsubAI = eventBus.on('aiforge:open', () => {
       queueMicrotask(() => setIsAIForgeOpen(true));
     });
-    return () => unsub();
+    const unsubB2B = eventBus.on('b2b:open', () => {
+      queueMicrotask(() => setIsB2BHubOpen(true));
+    });
+    const unsubEco = eventBus.on('ecosystem:open', () => {
+      queueMicrotask(() => setIsEcosystemLauncherOpen(true));
+    });
+
+    return () => {
+      unsubAI();
+      unsubB2B();
+      unsubEco();
+    };
   }, []);
 
   const handleTriggerCompile = () => {
@@ -554,9 +570,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         >
           <button
             type="button"
-            onClick={() => {
-              eventBus.emit('drawer:open', { type: 'text', category: 'corporate' });
-            }}
+            onClick={() => setIsB2BHubOpen((prev) => !prev)}
             className="h-9 px-3 rounded-lg text-xs font-mono font-bold tracking-wider flex items-center gap-1.5 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-emerald-200 transition-all duration-200 cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.15)]"
           >
             <span>🏢</span>
@@ -597,23 +611,23 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </button>
         </SmartHoverCard>
 
-        {/* Connected Apps Dropdown [ 㗊 APPS ▾ ] */}
+        {/* Mega Ecosystem Launcher [ 㗊 APPS ] */}
         <div className="relative" ref={appsMenuRef}>
           <SmartHoverCard
-            code="[ 㗊 ECOSYSTEM OS ]"
-            description="Launch the 25+ categorized subdomains across the handsandhead.com Omniverse."
+            code="[ 㗊 THE HIMON ECOSYSTEM ]"
+            description="Launch full-width Dopamine Dashboard featuring 5 platforms with auto-scrub hover cards."
             align="right"
           >
             <button
               type="button"
-              onClick={() => setIsAppsMenuOpen((prev) => !prev)}
+              onClick={() => setIsEcosystemLauncherOpen((prev) => !prev)}
               className={`h-9 px-3 rounded-lg flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.08] border text-white/80 hover:text-white transition-all duration-200 cursor-pointer text-xs font-mono font-bold ${
-                isAppsMenuOpen ? 'border-[#F5A623] text-[#FFE066] bg-white/10' : 'border-white/10 hover:border-white/30'
+                isEcosystemLauncherOpen ? 'border-[#F5A623] text-[#FFE066] bg-white/10 shadow-[0_0_12px_rgba(245,166,35,0.3)]' : 'border-white/10 hover:border-white/30'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5 text-[#F5A623]" />
               <span className="hidden sm:inline">APPS</span>
-              <ChevronDown className={`w-3 h-3 text-white/60 transition-transform duration-200 ${isAppsMenuOpen ? 'rotate-180 text-[#F5A623]' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-white/60 transition-transform duration-200 ${isEcosystemLauncherOpen ? 'rotate-180 text-[#F5A623]' : ''}`} />
             </button>
           </SmartHoverCard>
 
@@ -684,6 +698,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         isOpen={isAIForgeOpen}
         onClose={() => setIsAIForgeOpen(false)}
         activeShotIndex={currentIndex}
+      />
+      <B2BCommandCenter
+        isOpen={isB2BHubOpen}
+        onClose={() => setIsB2BHubOpen(false)}
+        activeShotIndex={currentIndex}
+      />
+      <MegaEcosystemLauncher
+        isOpen={isEcosystemLauncherOpen}
+        onClose={() => setIsEcosystemLauncherOpen(false)}
       />
     </header>
   );

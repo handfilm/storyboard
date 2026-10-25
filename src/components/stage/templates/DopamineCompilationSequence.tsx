@@ -7,18 +7,22 @@
  * 2. The Rhythmic Kinetic Slide (0.3s - 2.0s): Aggressive scale-up with anamorphic horizontal stretch reacting to `motionSpeed`.
  * 3. The Glitch Exit (2.0s - 2.3s): High-frequency RGB split & chromatic aberration driven by `glitchIntensity`.
  * 4. After 2.3s: Returns null (strictly unmounted).
+ * 
+ * New Features:
+ * - `audioBeatSync`: Rhythmic audio-beat reactivity synced to timeline musical pulses.
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Zap, Flame, Radio } from 'lucide-react';
+import { Zap, Flame, Radio, Activity } from 'lucide-react';
 
 export interface DopamineCompilationSequenceProps {
   hookText: string;
   subText: string;
   glitchIntensity: number; // 0 - 100
-  strobeRate: number;      // in milliseconds (e.g. 30 - 150)
+  strobeRate: number;      // in milliseconds (e.g. 20 - 200)
   motionSpeed: number;     // speed multiplier (e.g. 0.8 - 2.5)
+  audioBeatSync?: boolean; // Audio-beat sync reactivity
   currentTime?: number;    // Feeds from StagePlayer or playhead
   durationSec?: number;    // Sequence runtime boundary (default 2.3s)
   isPlaying?: boolean;
@@ -36,6 +40,7 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
   glitchIntensity = 80,
   strobeRate = 60,
   motionSpeed = 1.5,
+  audioBeatSync = true,
   currentTime: externalCurrentTime,
   durationSec = 2.3,
   isPlaying: externalIsPlaying,
@@ -73,7 +78,7 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
   }, [isControlledExternally, isPlaying, durationSec]);
 
   // Active time in seconds
-  const activeTime = isControlledExternally ? externalCurrentTime : internalTime;
+  const activeTime = isControlledExternally ? (externalCurrentTime ?? 0) : internalTime;
 
   // Derive current phase
   const currentPhase: DopaminePhase = useMemo(() => {
@@ -82,6 +87,16 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
     if (activeTime >= 2.0 && activeTime < 2.3) return 3;
     return 'IDLE';
   }, [activeTime]);
+
+  // Audio-beat pulse simulation (130 BPM tempo = 0.4615s per beat, 0.2307s per eighth note)
+  const beatImpulse = useMemo(() => {
+    if (!audioBeatSync) return 0;
+    const beatPeriod = 0.4615; // 130 BPM beat interval
+    const timeInPeriod = activeTime % beatPeriod;
+    // Exponential envelope: explosive spike on beat hit, decaying over 120ms
+    const hit = Math.exp(-timeInPeriod * 14);
+    return hit;
+  }, [audioBeatSync, activeTime]);
 
   // Strobe toggle calculation based on strobeRate (ms)
   const isStrobeWhite = useMemo(() => {
@@ -93,8 +108,10 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
 
   // Chromatic split offset in pixels for Glitch Exit
   const chromaticOffset = useMemo(() => {
-    return Math.max(1, (glitchIntensity / 100) * 16);
-  }, [glitchIntensity]);
+    const baseOffset = Math.max(1, (glitchIntensity / 100) * 16);
+    const beatBoost = audioBeatSync ? beatImpulse * 8 : 0;
+    return baseOffset + beatBoost;
+  }, [glitchIntensity, audioBeatSync, beatImpulse]);
 
   /**
    * CRITICAL TIME-GATING:
@@ -105,13 +122,14 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
     // PHASE 1: THE SUBLIMINAL FLASH (0.0s - 0.3s)
     // -------------------------------------------------------------
     if (activeTime >= 0.0 && activeTime < 0.3) {
+      const beatFlashBoost = audioBeatSync ? (beatImpulse * 0.2) : 0;
       return (
         <motion.div
           key="dopamine-phase-1-subliminal-flash"
           initial={{ opacity: 0, scale: 1.15 }}
           animate={{ 
-            opacity: isStrobeWhite ? 1 : 0.25, 
-            scale: isStrobeWhite ? 1.05 : 1.0 
+            opacity: Math.min(1, (isStrobeWhite ? 1 : 0.25) + beatFlashBoost), 
+            scale: (isStrobeWhite ? 1.05 : 1.0) + (audioBeatSync ? beatImpulse * 0.06 : 0)
           }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.04 }}
@@ -121,14 +139,21 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
           <div 
             className="absolute inset-0 pointer-events-none transition-opacity duration-75"
             style={{
-              backgroundColor: isStrobeWhite ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-              boxShadow: isStrobeWhite ? `inset 0 0 100px ${accentColor}80` : 'none'
+              backgroundColor: isStrobeWhite ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+              boxShadow: isStrobeWhite 
+                ? `inset 0 0 120px ${accentColor}90` 
+                : (audioBeatSync && beatImpulse > 0.4 ? `inset 0 0 60px ${accentColor}40` : 'none')
             }}
           />
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-[10px] font-mono tracking-[0.35em] uppercase mb-4 animate-pulse">
             <Zap className="w-3.5 h-3.5 text-yellow-300 fill-current" />
-            SUBLIMINAL FLASH // {strobeRate}MS
+            <span>SUBLIMINAL FLASH // {strobeRate}MS</span>
+            {audioBeatSync && (
+              <span className="ml-1 px-1.5 py-0.2 rounded bg-red-500/30 text-red-300 text-[8px] font-bold">
+                BEAT SYNC
+              </span>
+            )}
           </div>
 
           {/* Screen-filling Monumental Word */}
@@ -138,7 +163,7 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
               color: isStrobeWhite ? '#FFFFFF' : accentColor,
               textShadow: isStrobeWhite
                 ? `0 0 40px #FFFFFF, 0 0 80px ${accentColor}`
-                : `0 0 20px ${accentColor}`,
+                : `0 0 25px ${accentColor}`,
               letterSpacing: '-0.04em'
             }}
           >
@@ -157,14 +182,22 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
     // -------------------------------------------------------------
     if (activeTime >= 0.3 && activeTime < 2.0) {
       const normalizedPhaseT = (activeTime - 0.3) / 1.7; // 0 to 1
-      const kineticScale = 1.0 + (0.28 * motionSpeed * normalizedPhaseT);
-      const stretchX = 1.0 + (0.18 * motionSpeed * (1 - normalizedPhaseT * 0.5));
+      const baseKineticScale = 1.0 + (0.28 * motionSpeed * normalizedPhaseT);
+      const beatScaleKick = audioBeatSync ? (beatImpulse * 0.12 * motionSpeed) : 0;
+      const kineticScale = baseKineticScale + beatScaleKick;
+      
+      const stretchX = 1.0 + (0.18 * motionSpeed * (1 - normalizedPhaseT * 0.5)) + (audioBeatSync ? beatImpulse * 0.08 : 0);
 
       return (
         <motion.div
           key="dopamine-phase-2-kinetic-slide"
           initial={{ opacity: 0, scale: 0.85, scaleX: 1.3, y: 30 }}
-          animate={{ opacity: 1, scale: 1, scaleX: stretchX, y: 0 }}
+          animate={{ 
+            opacity: 1, 
+            scale: 1, 
+            scaleX: stretchX, 
+            y: 0 
+          }}
           exit={{ opacity: 0, scale: 1.1, y: -20 }}
           transition={{ duration: 0.25 / motionSpeed, ease: 'easeOut' }}
           className="relative w-full h-full flex flex-col items-center justify-center text-center px-6 max-w-4xl"
@@ -173,34 +206,45 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
             transformOrigin: 'center center'
           }}
         >
-          {/* Anamorphic Horizontal Glow Streak */}
+          {/* Anamorphic Horizontal Glow Streak with Audio-Beat Expansion */}
           <div 
-            className="absolute top-1/2 left-0 right-0 h-[2px] -translate-y-1/2 pointer-events-none opacity-60"
+            className="absolute top-1/2 left-0 right-0 -translate-y-1/2 pointer-events-none transition-all duration-75"
             style={{
+              height: audioBeatSync && beatImpulse > 0.3 ? '4px' : '2px',
+              opacity: 0.6 + (audioBeatSync ? beatImpulse * 0.4 : 0),
               background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)`,
-              boxShadow: `0 0 20px ${accentColor}`
+              boxShadow: `0 0 ${20 + (audioBeatSync ? beatImpulse * 30 : 0)}px ${accentColor}`
             }}
           />
 
           <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded bg-black/60 border border-white/10 text-[10px] font-mono tracking-[0.25em] text-zinc-300 uppercase mb-4 backdrop-blur-md">
             <Flame className="w-3.5 h-3.5 text-amber-400" />
             <span>RHYTHMIC KINETIC SLIDE // {motionSpeed.toFixed(1)}X SPEED</span>
+            {audioBeatSync && (
+              <span className="flex items-center gap-1 text-[8.5px] text-red-400 font-bold ml-1">
+                <Activity className="w-2.5 h-2.5 animate-pulse" />
+                BEAT LOCKED
+              </span>
+            )}
           </div>
 
-          {/* Aggressively scaled typography */}
+          {/* Aggressively scaled typography reactive to beats */}
           <h2 
-            className="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)] font-sans"
+            className="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)] font-sans transition-all duration-75"
             style={{
               letterSpacing: '-0.02em',
-              textShadow: `0 0 25px ${accentColor}60`
+              textShadow: audioBeatSync && beatImpulse > 0.3
+                ? `0 0 ${35 + beatImpulse * 25}px ${accentColor}, 0 0 10px #FFFFFF`
+                : `0 0 25px ${accentColor}60`
             }}
           >
             {hookText}
           </h2>
 
           <div 
-            className="w-32 h-[2px] my-4 shadow-lg"
+            className="w-32 h-[2px] my-4 shadow-lg transition-all duration-75"
             style={{
+              width: audioBeatSync && beatImpulse > 0.3 ? '180px' : '128px',
               background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)`
             }}
           />
@@ -242,7 +286,7 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-red-950/60 border border-red-500/50 text-red-400 text-[10px] font-mono tracking-[0.3em] uppercase mb-4 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
             <Radio className="w-3.5 h-3.5 text-red-400 animate-spin" />
-            CHROMATIC GLITCH DISPLACEMENT // INTENSITY: {glitchIntensity}%
+            <span>CHROMATIC GLITCH DISPLACEMENT // INTENSITY: {glitchIntensity}%</span>
           </div>
 
           {/* Dual RGB Aberration Layers */}
@@ -317,6 +361,7 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
             <span>PHASE: <strong className="text-white">{currentPhase}</strong></span>
             <span>TIME: <strong className="text-white">{activeTime.toFixed(2)}s</strong> / {durationSec.toFixed(1)}s</span>
             <span>SPEED: <strong className="text-amber-400">{motionSpeed.toFixed(1)}x</strong></span>
+            {audioBeatSync && <span className="text-red-400 font-bold">♪ BEAT-SYNC</span>}
           </div>
         </div>
       )}

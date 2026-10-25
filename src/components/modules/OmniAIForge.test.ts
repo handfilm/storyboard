@@ -29,4 +29,17 @@ test('Omni-AI Forge & Corporate Template Integration', async (t) => {
   await t.test('OmniAIForge component is defined and exported', () => {
     assert.equal(typeof OmniAIForge, 'function', 'OmniAIForge should be a functional component');
   });
+
+  await t.test('PRESET_CATEGORIES includes Dopamine Engine viral rhythmic option', async () => {
+    const { PRESET_CATEGORIES, ALL_PROMPT_STYLES } = await import('./OmniAIForge');
+    const dopamineCategory = PRESET_CATEGORIES.find(c => c.id === 'dopamine');
+    assert.ok(dopamineCategory, 'Dopamine category must exist in PRESET_CATEGORIES');
+    assert.ok(dopamineCategory.label.includes('Dopamine Engine'), 'Label should mention Dopamine Engine');
+
+    const dopamineStyles = ALL_PROMPT_STYLES.filter(s => s.category === 'dopamine');
+    assert.ok(dopamineStyles.length >= 3, 'Must have at least 3 dopamine styles');
+    assert.ok(dopamineStyles.some(s => s.id === 'viral_loop_1'), 'Must include viral_loop_1');
+    assert.ok(dopamineStyles.some(s => s.id === 'viral_loop_2'), 'Must include viral_loop_2');
+    assert.ok(dopamineStyles.some(s => s.id === 'viral_loop_3'), 'Must include viral_loop_3');
+  });
 });

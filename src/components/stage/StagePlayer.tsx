@@ -55,7 +55,7 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
   scale = 1.0,
   className = ''
 }) => {
-  const durationSec = durationSecProp ?? (engineMode === 'dopamine' ? 2.3 : 9.0);
+  const durationSec = Math.max(0.5, (typeof durationSecProp === 'number' && Number.isFinite(durationSecProp) ? durationSecProp : (engineMode === 'dopamine' ? 2.3 : 9.0)));
   // Master playback playhead time (in seconds)
   const [currentTime, setCurrentTime] = useState<number>(initialTime);
   const [isPlaying, setIsPlaying] = useState<boolean>(externalIsPlaying ?? true);
@@ -178,6 +178,7 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
             strobeRate={dopamineConfig?.strobeRate ?? 60}
             motionSpeed={dopamineConfig?.motionSpeed ?? 1.5}
             accentColor={dopamineConfig?.accentColor || '#FF2B2B'}
+            audioBeatSync={true}
             currentTime={currentTime}
             durationSec={durationSec}
             isPlaying={isPlaying}

@@ -391,9 +391,41 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               strobeRate={dopamineStrobe}
               motionSpeed={dopamineSpeed}
               accentColor={dopamineAccent}
+              audioBeatSync={true}
               isPlaying={true}
               showTelemetry={true}
             />
+          </div>
+
+          {/* Interactive Strobe Slider */}
+          <div className="space-y-1.5 p-3 rounded-lg bg-black/60 border border-red-500/20">
+            <div className="flex items-center justify-between">
+              <label 
+                htmlFor="dopamine-strobe-range"
+                className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5"
+              >
+                <Zap className="w-3.5 h-3.5 text-yellow-400 fill-current" />
+                <span>STROBE FREQUENCY RATE</span>
+              </label>
+              <span className="text-[10px] font-mono text-white font-bold bg-white/10 px-2 py-0.5 rounded border border-white/10">
+                {dopamineStrobe} MS
+              </span>
+            </div>
+            <input
+              id="dopamine-strobe-range"
+              type="range"
+              min={20}
+              max={200}
+              step={5}
+              value={dopamineStrobe}
+              onChange={(e) => setDopamineStrobe(parseInt(e.target.value, 10))}
+              className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-red-500"
+            />
+            <div className="flex justify-between text-[8px] font-mono text-zinc-500">
+              <span>HYPER-FAST (20ms)</span>
+              <span>SYNCOPATED (100ms)</span>
+              <span>HYPNOTIC (200ms)</span>
+            </div>
           </div>
 
           {/* Direct Text Modifiers */}

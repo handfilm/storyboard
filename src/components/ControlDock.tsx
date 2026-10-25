@@ -286,8 +286,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           }}
           className="px-2.5 py-1 rounded-md bg-black/95 border border-[#F5A623] text-[10px] font-mono font-bold text-[#FFE066] whitespace-nowrap shadow-[0_8px_24px_rgba(0,0,0,0.9)] pointer-events-none tabular-nums"
         >
-          DUR: {dragShotState.durationSec.toFixed(2)}s //{' '}
-          {getShotFrameCount(dragShotState.durationSec, getShotTargetFps(safeFrames[dragShotState.index], 24))} FRAMES
+          DUR: {dragShotState?.durationSec ? dragShotState.durationSec.toFixed(2) : '12.00'}s //{' '}
+          {getShotFrameCount(dragShotState?.durationSec ?? 12.0, getShotTargetFps(safeFrames[dragShotState?.index ?? 0], 24))} FRAMES
         </div>
       )}
 

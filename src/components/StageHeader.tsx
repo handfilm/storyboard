@@ -37,7 +37,7 @@ import { VectorForgeCanvas } from './modules/VectorForgeCanvas';
 import { OmniAIForge } from './modules/OmniAIForge';
 import { B2BCommandCenter } from './modules/B2BCommandCenter';
 import { UnifiedExportStudio } from './modules/UnifiedExportStudio';
-import { MegaEcosystemLauncher, ECOSYSTEM_PROJECTS } from './menus/MegaEcosystemLauncher';
+import { EcosystemGrid, ECOSYSTEM_PROJECTS } from './menus/EcosystemGrid';
 import { TextTypographyDrawer } from './drawers/TextTypographyDrawer';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
@@ -406,12 +406,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   return (
     <>
-    <header className={`relative w-full h-14 flex items-center justify-between px-4 px-4! z-50 bg-[#08090C]/95 backdrop-blur-2xl border-b border-white/10 select-none shrink-0 font-sans transition-colors duration-200 ${className}`}>
-      
-      {/* ========================================================================= */}
-      {/* 1. LEFT WRAPPER (Strict Flex Spacing)                                     */}
-      {/* ========================================================================= */}
-      <div className="flex items-center gap-6">
+    <header className={`relative w-full h-14 flex items-center px-4 px-4! gap-3 z-50 bg-[#0A0C10] border-b border-white/5 select-none shrink-0 font-sans ${className}`}>
+      {/* 1. LEFT COLUMN (flex-1 pushes center to middle) */}
+      <div className="flex-1 flex items-center justify-start gap-3 lg:gap-4">
         {/* Wordmark Logo */}
         <SmartHoverCard
           code="[ HANDFILM ATELIER // BUILD 2.4 ]"
@@ -421,13 +418,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           side="bottom"
           cardClassName="w-72"
         >
-          <button 
+          <button
             type="button"
             onClick={handleHomeClick}
             className="inline-flex flex-col items-stretch w-fit group cursor-pointer focus:outline-none bg-transparent border-none text-left transition-transform active:scale-95 shrink-0"
             title="HANDFILM // Return to Home Overview"
           >
-            <div className="flex items-baseline leading-none text-[18px] font-black tracking-wider">
+            <div className="flex items-baseline leading-none text-[16px] font-black tracking-wider">
               <span className="text-[#FF2B2B] drop-shadow-[0_0_14px_rgba(255,43,43,0.55)]">
                 HAND
               </span>
@@ -435,7 +432,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 FILM
               </span>
             </div>
-            <div className="w-full flex justify-between items-center text-[7px] font-mono text-white/40 uppercase select-none group-hover:text-white/70 transition-colors">
+            <div className="w-full flex justify-between items-center text-[6.5px] font-mono text-white/40 uppercase select-none group-hover:text-white/70 transition-colors">
               <span>RAW.</span>
               <span>RAPID.</span>
               <span>CINEMATIC.</span>
@@ -444,13 +441,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </SmartHoverCard>
 
         {/* System Dropdowns: HOME | FEATURES | APPS */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 shrink-0">
           {/* 1. HOME Hover Menu */}
           <div className="relative group py-2!">
             <button
               type="button"
               onClick={handleHomeClick}
-              className={`flex items-center gap-1 text-xs font-bold tracking-widest uppercase transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase transition-colors duration-200 cursor-pointer whitespace-nowrap ${
                 currentView === 'HOME' && activeNavTab === 'HOME'
                   ? 'text-white'
                   : 'text-zinc-400 hover:text-white'
@@ -460,7 +457,6 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200 shrink-0" />
             </button>
 
-            {/* Hover Glassmorphic Dropdown */}
             <div className="absolute top-full left-0 pt-1! opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[200px]">
               <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(255,43,43,0.15)] p-1.5! flex flex-col gap-1 font-mono">
                 <button
@@ -495,13 +491,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           <div className="relative group py-2!">
             <button
               type="button"
-              className="flex items-center gap-1 text-xs font-bold tracking-widest uppercase text-zinc-400 hover:text-white transition-colors duration-200 cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-zinc-400 hover:text-white transition-colors duration-200 cursor-pointer whitespace-nowrap"
             >
               <span>FEATURES</span>
               <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200 shrink-0" />
             </button>
 
-            {/* Hover Glassmorphic Dropdown */}
             <div className="absolute top-full left-0 pt-1! opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[220px]">
               <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5! flex flex-col gap-1 font-mono">
                 <button
@@ -555,12 +550,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </div>
           </div>
 
-          {/* 3. APPS Hover Menu & Trigger */}
+          {/* 3. APPS Hover Menu & EcosystemGrid Trigger */}
           <div className="relative group py-2!">
             <button
               type="button"
               onClick={() => setIsEcosystemLauncherOpen((prev) => !prev)}
-              className={`flex items-center gap-1 text-xs font-bold tracking-widest uppercase transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase transition-colors duration-200 cursor-pointer whitespace-nowrap ${
                 isEcosystemLauncherOpen
                   ? 'text-amber-400'
                   : 'text-zinc-400 hover:text-white'
@@ -570,7 +565,6 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:rotate-180 group-hover:text-white transition-transform duration-200 shrink-0" />
             </button>
 
-            {/* Hover Glassmorphic Dropdown for Ecosystem Apps */}
             <div className="absolute top-full left-0 pt-1! opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[250px]">
               <div className="bg-[#050505]/95 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,166,35,0.15)] p-1.5! flex flex-col gap-1 font-mono">
                 <button
@@ -590,10 +584,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     href={proj.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full text-left px-3! py-1.5! rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer no-underline"
+                    className="w-full text-left px-3! py-1.5! rounded-lg text-[11px] font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer no-underline pointer-events-auto"
                   >
                     <span className="truncate pr-2!">{proj.title}</span>
-                    <span className="text-[9px] text-amber-400/90 font-mono shrink-0">{proj.category} ↗</span>
+                    <span className="text-[9px] text-amber-400/90 font-mono shrink-0">↗</span>
                   </a>
                 ))}
               </div>
@@ -601,173 +595,178 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </div>
         </div>
 
-        {/* Vertical Divider */}
-        <div className="w-px h-5 bg-white/20"></div>
+        <div className="hidden md:block w-px h-5 bg-white/20 mx-2 mx-2! shrink-0"></div>
 
-        {/* Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR */}
-        <div className="flex items-center gap-5 text-xs font-bold text-white/50 tracking-widest">
-          <button
-            type="button"
+        <div className="hidden md:flex items-center gap-3 lg:gap-4 text-[10px] font-bold text-white/50 tracking-widest shrink-0">
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
-            aria-current={currentPanel === 'TACTILE_STAGE' ? 'page' : undefined}
-            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('TACTILE_STAGE');
+            }}
+            className={`${
               currentPanel === 'TACTILE_STAGE'
-                ? 'text-amber-400'
-                : 'text-white/50 hover:text-white'
-            }`}
+                ? 'text-amber-500'
+                : 'hover:text-amber-500'
+            } cursor-pointer transition-colors whitespace-nowrap`}
             title="Primary Tactile Cinema Stage"
           >
             STAGE
-          </button>
+          </div>
 
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => handleWorkspacePanelSelect('SPLIT')}
-            aria-current={currentPanel === 'SPLIT' ? 'page' : undefined}
-            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('SPLIT');
+            }}
+            className={`${
               currentPanel === 'SPLIT'
                 ? 'text-amber-400'
-                : 'text-white/50 hover:text-white'
-            }`}
+                : 'hover:text-white'
+            } cursor-pointer transition-colors whitespace-nowrap`}
             title="9:16 Reels & Dual Split Sequencer"
           >
             REELS
-          </button>
+          </div>
 
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
-            aria-current={currentPanel === 'SEQUENCER' ? 'page' : undefined}
-            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('SEQUENCER');
+            }}
+            className={`${
               currentPanel === 'SEQUENCER'
                 ? 'text-amber-400'
-                : 'text-white/50 hover:text-white'
-            }`}
+                : 'hover:text-white'
+            } cursor-pointer transition-colors whitespace-nowrap`}
             title="Sub-Frame Precision Scrub Timeline"
           >
             SCRUB
-          </button>
+          </div>
 
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => handleWorkspacePanelSelect('MULTICAM')}
-            aria-current={currentPanel === 'MULTICAM' ? 'page' : undefined}
-            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('MULTICAM');
+            }}
+            className={`${
               currentPanel === 'MULTICAM'
                 ? 'text-amber-400'
-                : 'text-white/50 hover:text-white'
-            }`}
+                : 'hover:text-white'
+            } cursor-pointer transition-colors whitespace-nowrap`}
             title="Multi-Camera Live Cutting Grid"
           >
             MULTI-CAM
-          </button>
+          </div>
 
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => handleWorkspacePanelSelect('OPTICAL')}
-            aria-current={currentPanel === 'OPTICAL' ? 'page' : undefined}
-            className={`transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('OPTICAL');
+            }}
+            className={`${
               currentPanel === 'OPTICAL'
                 ? 'text-amber-400'
-                : 'text-white/50 hover:text-white'
-            }`}
+                : 'hover:text-white'
+            } cursor-pointer transition-colors whitespace-nowrap`}
             title="2.39:1 Optical Cinema Monitor"
           >
             MONITOR
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. CENTER WRAPPER (Absolute Positioning)                                  */}
-      {/* ========================================================================= */}
+      {/* 2. CENTER COLUMN (flex-none keeps it isolated) */}
       {(() => {
         const isMasterMode = currentMode === 'MASTER';
         return (
           <div
             data-current-mode={currentMode}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]"
+            className="flex-none flex justify-center items-center shrink-0"
           >
-            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-1 p-1! shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)]">
-              <button
-                type="button"
+            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-0.5 p-0.5! shadow-inner">
+              {/* SHRUNKEN TOGGLE */}
+              <div
+                role="button"
+                tabIndex={0}
                 aria-pressed={!isMasterMode}
                 onClick={() => handleModeSelect('SOLO')}
-                className={`relative z-10 w-[72px] py-1 py-1! flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') handleModeSelect('SOLO');
+                }}
+                className={`relative z-10 w-16 py-1 py-1! flex justify-center items-center text-[9px] font-black tracking-wider uppercase cursor-pointer rounded-full transition-colors ${
                   !isMasterMode
-                    ? 'text-[#050505]'
+                    ? 'text-[#050505] bg-gradient-to-r from-amber-500 to-amber-400'
                     : 'text-white/40 hover:text-white/75'
                 }`}
               >
                 {!isMasterMode && (
-                  <>
-                    <motion.div
-                      layoutId="activeModeIndicator"
-                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                      className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
-                    />
-                    <motion.span
-                      aria-hidden="true"
-                      initial={{ scale: 1, opacity: 0.55 }}
-                      animate={{
-                        scale: [1, 1.08, 1.02, 1.11, 1],
-                        opacity: [0.55, 0.2, 0.45, 0.08, 0.55]
-                      }}
-                      transition={{
-                        duration: 2.2,
-                        repeat: Infinity,
-                        ease: 'easeInOut'
-                      }}
-                      className="absolute -inset-0.5 rounded-full border border-amber-400/75 shadow-[0_0_10px_rgba(251,191,36,0.3)] pointer-events-none motion-reduce:hidden"
-                    />
-                  </>
+                  <motion.span
+                    aria-hidden="true"
+                    initial={{ scale: 1, opacity: 0.5 }}
+                    animate={{
+                      scale: [1, 1.08, 1.02, 1.1, 1],
+                      opacity: [0.5, 0.2, 0.4, 0.1, 0.5]
+                    }}
+                    transition={{
+                      duration: 2.2,
+                      repeat: Infinity,
+                      ease: 'easeInOut'
+                    }}
+                    className="absolute -inset-0.5 rounded-full border border-amber-400/70 pointer-events-none motion-reduce:hidden"
+                  />
                 )}
                 <span className="relative z-10">SOLO</span>
-              </button>
-              <button
-                type="button"
+              </div>
+
+              <div
+                role="button"
+                tabIndex={0}
                 aria-pressed={isMasterMode}
                 onClick={() => handleModeSelect('MASTER')}
-                className={`relative z-10 w-[72px] py-1 py-1! flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') handleModeSelect('MASTER');
+                }}
+                className={`relative z-10 w-16 py-1 py-1! flex justify-center items-center text-[9px] font-black tracking-wider uppercase cursor-pointer rounded-full transition-colors ${
                   isMasterMode
-                    ? 'text-[#050505]'
+                    ? 'text-[#050505] bg-gradient-to-r from-amber-500 to-amber-400'
                     : 'text-white/40 hover:text-white/75'
                 }`}
               >
                 {isMasterMode && (
-                  <>
-                    <motion.div
-                      layoutId="activeModeIndicator"
-                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                      className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
-                    />
-                    <motion.span
-                      aria-hidden="true"
-                      initial={{ scale: 1, opacity: 0.55 }}
-                      animate={{
-                        scale: [1, 1.08, 1.02, 1.11, 1],
-                        opacity: [0.55, 0.2, 0.45, 0.08, 0.55]
-                      }}
-                      transition={{
-                        duration: 2.2,
-                        repeat: Infinity,
-                        ease: 'easeInOut'
-                      }}
-                      className="absolute -inset-0.5 rounded-full border border-amber-400/75 shadow-[0_0_10px_rgba(251,191,36,0.3)] pointer-events-none motion-reduce:hidden"
-                    />
-                  </>
+                  <motion.span
+                    aria-hidden="true"
+                    initial={{ scale: 1, opacity: 0.5 }}
+                    animate={{
+                      scale: [1, 1.08, 1.02, 1.1, 1],
+                      opacity: [0.5, 0.2, 0.4, 0.1, 0.5]
+                    }}
+                    transition={{
+                      duration: 2.2,
+                      repeat: Infinity,
+                      ease: 'easeInOut'
+                    }}
+                    className="absolute -inset-0.5 rounded-full border border-amber-400/70 pointer-events-none motion-reduce:hidden"
+                  />
                 )}
                 <span className="relative z-10">MASTER</span>
-              </button>
+              </div>
             </div>
           </div>
         );
       })()}
 
-      {/* ========================================================================= */}
-      {/* 3. RIGHT WRAPPER: Search Icon -> REC -> EXPORT -> STUDIO -> 3-Dots        */}
-      {/* ========================================================================= */}
-      <div className="flex items-center gap-4">
+      {/* 3. RIGHT COLUMN (flex-1 pushes content to far right) */}
+      <div className="flex-1 flex items-center justify-end gap-2.5 lg:gap-4">
         {/* 1. Search Icon / Command Palette Trigger */}
         <SmartHoverCard
           code="[ ⌘K // SHOT FINDER ]"
@@ -802,7 +801,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               if (onOpenRecorder) onOpenRecorder();
               else eventBus.emit('recorder:open');
             }}
-            className={`h-8 px-3! rounded-lg border text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+            className={`h-8 px-2.5! rounded-lg border text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
               isRecordingActive
                 ? 'bg-rose-600/25 border-rose-500 text-rose-100 shadow-[0_0_16px_rgba(244,63,94,0.45)]'
                 : 'bg-rose-950/40 hover:bg-rose-900/50 border-rose-500/40 hover:border-rose-400 text-rose-300 hover:text-white'
@@ -830,7 +829,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 setIsExportStudioOpen(true);
               }
             }}
-            className="h-8 px-3! rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.18)] shrink-0 whitespace-nowrap"
+            className="h-8 px-2.5! rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.18)] shrink-0 whitespace-nowrap"
             title="Open Unified Master Export Studio"
           >
             <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -842,7 +841,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         <button
           type="button"
           onClick={handleStudioLaunch}
-          className="h-8 px-4! bg-red-600 text-white font-black tracking-widest rounded-sm border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:bg-red-500 hover:scale-105 transition-all uppercase cursor-pointer flex items-center gap-1.5 font-mono text-xs active:scale-95 shrink-0 whitespace-nowrap"
+          className="h-8 px-3.5! bg-red-600 text-white font-black tracking-widest rounded-sm border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:bg-red-500 hover:scale-105 transition-all uppercase cursor-pointer flex items-center gap-1.5 font-mono text-[10px] active:scale-95 shrink-0 whitespace-nowrap"
           title="Launch Master Cinema Studio"
         >
           <Zap className="w-3.5 h-3.5 fill-current text-white shrink-0" />
@@ -920,10 +919,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         frames={frames}
         currentIndex={currentIndex}
       />
-      <MegaEcosystemLauncher
-        isOpen={isEcosystemLauncherOpen}
-        onClose={() => setIsEcosystemLauncherOpen(false)}
-      />
+      {isEcosystemLauncherOpen && (
+        <EcosystemGrid onClose={() => setIsEcosystemLauncherOpen(false)} />
+      )}
 
       {/* Zero-Cloud Privacy Policy Modal */}
       {isPrivacyModalOpen && (

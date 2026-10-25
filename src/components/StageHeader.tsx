@@ -45,6 +45,7 @@ import { CompileEngine } from './modules/CompileEngine';
 import { RapAudioSync } from './modules/RapAudioSync';
 import { NeuralAudioEngine } from './modules/NeuralAudioEngine';
 import { VectorForgeCanvas } from './modules/VectorForgeCanvas';
+import { OmniAIForge } from './modules/OmniAIForge';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -121,6 +122,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isRapSyncModalOpen, setIsRapSyncModalOpen] = useState(false);
   const [isNeuralVoxOpen, setIsNeuralVoxOpen] = useState(false);
   const [isVectorForgeOpen, setIsVectorForgeOpen] = useState(false);
+  const [isAIForgeOpen, setIsAIForgeOpen] = useState(false);
   const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success'>('idle');
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
 
@@ -146,11 +148,20 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     };
     window.addEventListener('mousedown', handleOutside);
     window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       window.removeEventListener('mousedown', handleOutside);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isAppsMenuOpen, isExportMenuOpen]);
+
+  // Dedicated AI Forge event listener
+  useEffect(() => {
+    const unsub = eventBus.on('aiforge:open', () => {
+      queueMicrotask(() => setIsAIForgeOpen(true));
+    });
+    return () => unsub();
+  }, []);
 
   const handleTriggerCompile = () => {
     if (onCompile) {
@@ -535,6 +546,43 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </SmartHoverCard>
         </div>
 
+        {/* Corporate B2B Hub Trigger [ 🏢 B2B HUB ] */}
+        <SmartHoverCard
+          code="[ 🏢 B2B CORPORATE HUB ]"
+          description="Instant access to B2B corporate title suites, high-impact cards & business motion presets."
+          align="right"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              eventBus.emit('drawer:open', { type: 'text', category: 'corporate' });
+            }}
+            className="h-9 px-3 rounded-lg text-xs font-mono font-bold tracking-wider flex items-center gap-1.5 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-emerald-200 transition-all duration-200 cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+          >
+            <span>🏢</span>
+            <span className="hidden md:inline">B2B HUB</span>
+          </button>
+        </SmartHoverCard>
+
+        {/* Omni-AI Forge Trigger [ 🧠 AI FORGE ] */}
+        <SmartHoverCard
+          code="[ 🧠 OMNI-AI FORGE // API GATEWAY ]"
+          description="Enterprise API Gateway to generate image & video assets using Gemini, Grok, Veo, Flow & Kling."
+          badge="SaaS AI"
+          align="right"
+        >
+          <button
+            type="button"
+            onClick={() => setIsAIForgeOpen(true)}
+            className="h-9 px-3.5 rounded-lg text-xs font-mono font-bold tracking-wider flex items-center gap-1.5 bg-gradient-to-r from-purple-950/60 via-indigo-950/60 to-cyan-950/60 hover:from-purple-900/80 hover:via-indigo-900/80 hover:to-cyan-900/80 border border-purple-500/50 hover:border-cyan-400 text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-indigo-200 to-cyan-300 shadow-[0_0_16px_rgba(168,85,247,0.35)] hover:shadow-[0_0_24px_rgba(6,182,212,0.45)] transition-all duration-200 cursor-pointer active:scale-95 group/forge"
+          >
+            <span className="text-purple-300 group-hover/forge:animate-pulse">🧠</span>
+            <span className="tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-indigo-200 to-cyan-300">
+              AI FORGE
+            </span>
+          </button>
+        </SmartHoverCard>
+
         {/* Primary Red Accent Button [ ⚡ STUDIO ] */}
         <SmartHoverCard
           code="[ ⚡ MASTER STUDIO ]"
@@ -634,6 +682,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       <VectorForgeCanvas
         isOpen={isVectorForgeOpen}
         onClose={() => setIsVectorForgeOpen(false)}
+      />
+      <OmniAIForge
+        isOpen={isAIForgeOpen}
+        onClose={() => setIsAIForgeOpen(false)}
+        activeShotIndex={currentIndex}
       />
     </header>
   );

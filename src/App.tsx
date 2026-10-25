@@ -860,23 +860,27 @@ export default function App() {
         const updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
         if (updated >= SLIDE_DURATION) {
           const nextIdx = (currentIndex + 1) % totalCount;
-          setCurrentIndex(nextIdx);
-          try {
-            useStudioStore.getState().setActiveShotIndex(nextIdx);
-            useStudioStore.getState().setSlideTimeSec(0);
-          } catch {}
+          queueMicrotask(() => {
+            setCurrentIndex(nextIdx);
+            try {
+              useStudioStore.getState().setActiveShotIndex(nextIdx);
+              useStudioStore.getState().setSlideTimeSec(0);
+            } catch {}
+          });
           return 0;
         } else if (updated < 0) {
           const prevIdx = (currentIndex - 1 + totalCount) % totalCount;
           const prevShot = project.frames[prevIdx] || activeShot;
           const prevShotDur = getShotDurationSec(prevShot, project.defaultSlideHoldSec ?? 12.0);
           const prevShotFps = getShotTargetFps(prevShot, 24);
-          setCurrentIndex(prevIdx);
           const loopTime = Math.max(0, prevShotDur - 1 / prevShotFps);
-          try {
-            useStudioStore.getState().setActiveShotIndex(prevIdx);
-            useStudioStore.getState().setSlideTimeSec(loopTime);
-          } catch {}
+          queueMicrotask(() => {
+            setCurrentIndex(prevIdx);
+            try {
+              useStudioStore.getState().setActiveShotIndex(prevIdx);
+              useStudioStore.getState().setSlideTimeSec(loopTime);
+            } catch {}
+          });
           return loopTime;
         }
         try {
@@ -964,11 +968,13 @@ export default function App() {
               const nextIdx = (currentIndex + 1) % framesLength;
               const nextShotDur = shotOffsets[nextIdx]?.durationSec ?? 12.0;
               const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
-              setCurrentIndex(nextIdx);
-              try {
-                useStudioStore.getState().setActiveShotIndex(nextIdx);
-                useStudioStore.getState().setSlideTimeSec(remainderTime);
-              } catch {}
+              queueMicrotask(() => {
+                setCurrentIndex(nextIdx);
+                try {
+                  useStudioStore.getState().setActiveShotIndex(nextIdx);
+                  useStudioStore.getState().setSlideTimeSec(remainderTime);
+                } catch {}
+              });
               return remainderTime;
             }
             return nextTime;

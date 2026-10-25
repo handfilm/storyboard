@@ -5,6 +5,7 @@
  */
 
 import { AnthologyFrame } from '../types/anthology';
+import { CORPORATE_PROFILES } from './corporateData';
 
 export interface TitleTemplatePreset {
   id: string;
@@ -28,7 +29,7 @@ export interface TitleTemplatePreset {
   theme?: string;
 }
 
-export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
+export const BASE_CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
   {
     id: 'atelier-gold-dual',
     name: '01. ATELIER GOLD DUAL',
@@ -179,103 +180,83 @@ export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
     letterSpacing: '0.28em',
     fontSizeRem: 2.0,
     badge: 'HIGH COUTURE'
-  },
-  {
-    id: 'corp_fintech',
-    name: '11. FIN-TECH // CASHBACK ZERO FEES',
-    category: 'corporate',
-    primaryText: '10% CASHBACK // ZERO FEES',
-    secondaryText: 'Secure. Fast. Borderless Transactions.',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-    color: '#10B981',
-    glowColor: 'rgba(16, 185, 129, 0.45)',
-    animationStyle: 'pop',
-    position: 'center',
-    letterSpacing: '0.08em',
-    fontSizeRem: 2.1,
-    badge: 'FIN-TECH & BANKING',
-    industry: 'FIN-TECH & BANKING',
-    callToAction: 'DOWNLOAD THE APP NOW',
-    mockImage: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
-    theme: 'glassmorphic_trust'
-  },
-  {
-    id: 'corp_fashion',
-    name: '12. HIGH-STREET // WINTER DROP 2026',
-    category: 'corporate',
-    primaryText: '// WINTER DROP 2026 //',
-    secondaryText: 'Redefining Urban Aesthetics. Available Nationwide.',
-    fontFamily: 'Didot, "Bodoni MT", serif',
-    color: '#F43F5E',
-    glowColor: 'rgba(244, 63, 94, 0.4)',
-    animationStyle: 'slide',
-    position: 'center',
-    letterSpacing: '0.22em',
-    fontSizeRem: 2.1,
-    badge: 'HIGH-STREET FASHION',
-    industry: 'HIGH-STREET FASHION',
-    callToAction: 'SHOP THE COLLECTION',
-    mockImage: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=800',
-    theme: 'split_screen_magazine'
-  },
-  {
-    id: 'corp_realestate',
-    name: '13. REAL ESTATE // REDEFINING SKYLINE',
-    category: 'corporate',
-    primaryText: 'REDEFINING THE SKYLINE',
-    secondaryText: 'Luxury Living Meets Brutalist Architecture.',
-    fontFamily: 'Cinzel, "Playfair Display", serif',
-    color: '#D4AF37',
-    glowColor: 'rgba(212, 175, 55, 0.5)',
-    animationStyle: 'fade',
-    position: 'lower-third',
-    letterSpacing: '0.25em',
-    fontSizeRem: 1.9,
-    badge: 'REAL ESTATE & INFRASTRUCTURE',
-    industry: 'REAL ESTATE & INFRASTRUCTURE',
-    callToAction: 'BOOK YOUR SITE VISIT',
-    mockImage: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=800',
-    theme: 'majestic_minimal'
-  },
-  {
-    id: 'corp_fmcg',
-    name: '14. FMCG // 48H FLASH SALE 50% OFF',
-    category: 'corporate',
-    primaryText: '48 HOURS ONLY // 50% OFF',
-    secondaryText: 'The biggest digital clearance of the year.',
-    fontFamily: 'Impact, "Arial Black", sans-serif',
-    color: '#F59E0B',
-    glowColor: 'rgba(245, 158, 11, 0.6)',
-    animationStyle: 'pop',
-    position: 'top',
-    letterSpacing: '0.05em',
-    fontSizeRem: 2.3,
-    badge: 'FMCG & FLASH SALES',
-    industry: 'FMCG & FLASH SALES',
-    callToAction: 'GRAB BEFORE IT GONE',
-    mockImage: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=800',
-    theme: 'bold_fomo_blocks'
-  },
-  {
-    id: 'corp_telco',
-    name: '15. TELCO // CONNECTING 170 MILLION',
-    category: 'corporate',
-    primaryText: 'CONNECTING 170 MILLION',
-    secondaryText: 'Ultra-fast 5G infrastructure for the next generation.',
-    fontFamily: 'ui-monospace, "SF Mono", "Consolas", monospace',
-    color: '#06B6D4',
-    glowColor: 'rgba(6, 182, 212, 0.5)',
-    animationStyle: 'glitch',
-    position: 'center',
-    letterSpacing: '0.18em',
-    fontSizeRem: 2.0,
-    badge: 'TELCO & TECH',
-    industry: 'TELCO & TECH',
-    callToAction: 'UPGRADE YOUR PLAN',
-    mockImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800',
-    theme: 'hud_telemetry'
   }
 ];
+
+export const CORPORATE_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = CORPORATE_PROFILES.map((corp, index) => {
+  let animStyle: TitleTemplatePreset['animationStyle'] = 'fade';
+  if (corp.defaultAnimation === 'brutal_snap' || corp.defaultAnimation === 'kinetic_overshoot') animStyle = 'pop';
+  else if (corp.defaultAnimation === 'editorial_mask') animStyle = 'slide';
+  else if (corp.defaultAnimation === 'cipher_glitch') animStyle = 'glitch';
+
+  const fontFamilies: Record<string, string> = {
+    corp_fintech: 'system-ui, -apple-system, sans-serif',
+    corp_fashion: 'Didot, "Bodoni MT", serif',
+    corp_realestate: 'Cinzel, "Playfair Display", serif',
+    corp_fmcg: 'Impact, "Arial Black", sans-serif',
+    corp_telco: 'ui-monospace, "SF Mono", "Consolas", monospace',
+  };
+
+  const colors: Record<string, string> = {
+    corp_fintech: '#10B981',
+    corp_fashion: '#F43F5E',
+    corp_realestate: '#D4AF37',
+    corp_fmcg: '#F59E0B',
+    corp_telco: '#06B6D4',
+  };
+
+  const glowColors: Record<string, string> = {
+    corp_fintech: 'rgba(16, 185, 129, 0.45)',
+    corp_fashion: 'rgba(244, 63, 94, 0.4)',
+    corp_realestate: 'rgba(212, 175, 55, 0.5)',
+    corp_fmcg: 'rgba(245, 158, 11, 0.6)',
+    corp_telco: 'rgba(6, 182, 212, 0.5)',
+  };
+
+  const positions: Record<string, TitleTemplatePreset['position']> = {
+    corp_fintech: 'center',
+    corp_fashion: 'center',
+    corp_realestate: 'lower-third',
+    corp_fmcg: 'top',
+    corp_telco: 'center',
+  };
+
+  const names: Record<string, string> = {
+    corp_fintech: '11. FIN-TECH // CASHBACK ZERO FEES',
+    corp_fashion: '12. HIGH-STREET // WINTER DROP 2026',
+    corp_realestate: '13. REAL ESTATE // REDEFINING SKYLINE',
+    corp_fmcg: '14. FMCG // 48H FLASH SALE 50% OFF',
+    corp_telco: '15. TELCO // CONNECTING 170 MILLION',
+  };
+
+  return {
+    id: corp.id,
+    name: names[corp.id] || `${11 + index}. ${corp.industry}`,
+    category: 'corporate' as const,
+    primaryText: corp.hook,
+    secondaryText: corp.subText,
+    fontFamily: fontFamilies[corp.id] || 'sans-serif',
+    color: colors[corp.id] || '#FFFFFF',
+    glowColor: glowColors[corp.id] || 'rgba(255, 255, 255, 0.5)',
+    animationStyle: animStyle,
+    position: positions[corp.id] || 'center',
+    letterSpacing: corp.id === 'corp_fashion' ? '0.22em' : corp.id === 'corp_realestate' ? '0.25em' : corp.id === 'corp_telco' ? '0.18em' : '0.08em',
+    fontSizeRem: corp.id === 'corp_fmcg' ? 2.3 : 2.1,
+    badge: corp.industry,
+    industry: corp.industry,
+    callToAction: corp.callToAction,
+    mockImage: corp.mockImage,
+    theme: corp.theme,
+  };
+});
+
+export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
+  ...BASE_CINEMATIC_TITLE_PRESETS,
+  ...CORPORATE_TITLE_PRESETS,
+];
+
+export const TEMPLATES: ReadonlyArray<TitleTemplatePreset> = CINEMATIC_TITLE_PRESETS;
+
 
 /**
  * Applies a TitleTemplatePreset onto an existing AnthologyFrame with 0ms delay.

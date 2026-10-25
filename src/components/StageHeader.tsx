@@ -112,6 +112,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isEcosystemLauncherOpen, setIsEcosystemLauncherOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
+  const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
 
   // Dedicated event listeners
   useEffect(() => {
@@ -320,7 +321,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     <span>🧠</span>
                     <span>AI Forge</span>
                   </span>
-                  <span className="text-[9px] text-zinc-500 group-hover/item:text-purple-400 font-mono">NEURAL</span>
+                  <span className="text-[9px] text-zinc-400 group-hover/item:text-amber-400 font-mono flex items-center gap-1">
+                    <span>🪙</span>
+                    <span>{credits.toLocaleString()}</span>
+                  </span>
                 </button>
               </div>
             </div>

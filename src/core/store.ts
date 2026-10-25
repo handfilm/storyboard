@@ -165,7 +165,12 @@ export interface StudioState {
   addShot: (shot: Partial<Shot>) => void;
   appendClip: (clip: Partial<Shot>) => void;
   addMediaItem: (item: MediaItem) => void;
+  // Enterprise AI Credits
+  credits: number;
+  deductCredits: (amount?: number) => boolean;
+  setCredits: (amount: number) => void;
   setProjectTitle: (title: string) => void;
+
   undo: () => void;
   redo: () => void;
 }
@@ -311,6 +316,7 @@ export const useStudioStore = create<StudioState>()(
     
     history: new HistoryManager<any>({ index: 0 }),
     saveStatus: 'IDB SYNCED',
+    credits: 12500,
 
     // Kinetic Hero Title Typography Engine
     titleConfig: {
@@ -681,6 +687,32 @@ export const useStudioStore = create<StudioState>()(
       set((state) => {
         state.project.title = title;
       });
+    },
+
+    deductCredits: (amount: number = 25) => {
+      let success = false;
+      let remaining = 0;
+      set((state) => {
+        const current = typeof state.credits === 'number' ? state.credits : 12500;
+        if (current >= amount) {
+          state.credits = Math.max(0, current - amount);
+          remaining = state.credits;
+          success = true;
+        }
+      });
+      if (success) {
+        eventBus.emit('credits:updated', remaining);
+        eventBus.emit('credits:deducted', { amount, remaining });
+      }
+      return success;
+    },
+
+    setCredits: (amount: number) => {
+      const safeAmount = Math.max(0, amount);
+      set((state) => {
+        state.credits = safeAmount;
+      });
+      eventBus.emit('credits:updated', safeAmount);
     },
 
     undo: () => {

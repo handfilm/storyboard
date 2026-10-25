@@ -7,8 +7,11 @@ import {
   DEFAULT_SHOT_DURATION, 
   MIN_SHOT_DURATION,
   addShotToTimeline,
-  appendClipToTimeline
+  appendClipToTimeline,
+  deductCredits,
+  setCredits
 } from './timelineState';
+import { useStudioStore } from '../store';
 import { ECOSYSTEM_PROJECTS } from '../../components/menus/MegaEcosystemLauncher';
 
 describe('Timeline State & DurationSec Safety Reducers', () => {
@@ -59,6 +62,13 @@ describe('Timeline State & DurationSec Safety Reducers', () => {
     assert.equal(created.durationSeconds, 5);
     assert.equal(created.imageUrl, 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800');
     assert.ok(created.tags.includes('AI_GENERATED'));
+  });
+
+  test('deductCredits reduces available credits by 25 and syncs state', () => {
+    setCredits(12500);
+    const success = deductCredits(25);
+    assert.equal(success, true);
+    assert.equal(useStudioStore.getState().credits, 12475);
   });
 });
 

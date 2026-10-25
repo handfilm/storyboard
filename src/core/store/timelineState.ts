@@ -182,3 +182,18 @@ export function addShotToTimeline(newClip: TimelineClipPayload): Shot {
 export const appendClipToTimeline = addShotToTimeline;
 export const addShot = addShotToTimeline;
 export const appendClip = addShotToTimeline;
+
+/**
+ * Deducts credits from the global store and syncs across all UI components.
+ */
+export function deductCredits(amount: number = 25): boolean {
+  return useStudioStore.getState().deductCredits(amount);
+}
+
+/**
+ * Sets available credits in the global store and notifies subscribers.
+ */
+export function setCredits(amount: number): void {
+  useStudioStore.getState().setCredits(amount);
+}
+

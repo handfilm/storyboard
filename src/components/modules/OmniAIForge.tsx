@@ -229,7 +229,8 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
   const [prompt, setPrompt] = useState<string>(
     DOPAMINE_AI_PROMPTS[0]?.prompt || 'Google Veo 2 / 1080p 60fps: 1.5x speed hyper-rhythmic camera whip pan with subliminal strobe flash.'
   );
-  const [credits, setCredits] = useState<number>(12500);
+  const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
+  const deductCredits = useStudioStore((state) => state.deductCredits);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationStep, setGenerationStep] = useState<string>('');
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
@@ -282,8 +283,8 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
 
     // 1. Mock API Delay: 1500ms simulating neural latency
     setTimeout(() => {
-      // 5. Credit Deduction: Deduct 25 credits
-      setCredits((prev) => Math.max(0, prev - 25));
+      // 5. Credit Deduction: Deduct 25 credits from global store and sync across UI components
+      deductCredits(25);
       setIsGenerating(false);
       setGenerationStep('');
 

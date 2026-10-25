@@ -987,7 +987,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
   const modalNode = (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 select-none font-sans overflow-hidden animate-modal-backdrop"
+      className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 select-none font-sans overflow-hidden animate-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isExporting) {
           onClose();
@@ -996,7 +996,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     >
       {/* Centered Modal Container with Subtle Fade-in & Upward Slide Animation */}
       <div 
-        className="w-full max-w-4xl max-h-[85vh] bg-[#0c0d10] border border-[#F5A623]/40 rounded-xl flex flex-col overflow-hidden shadow-2xl relative font-mono text-zinc-300 animate-modal-slide-up"
+        className="w-full max-w-4xl max-h-[85vh] bg-[#050505]/40 backdrop-blur-3xl border border-amber-500/20 shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-xl flex flex-col overflow-hidden relative font-mono text-zinc-300 animate-modal-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Tactical Corner Accents */}
@@ -1008,7 +1008,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         {/* ================================================================ */}
         {/* STICKY HEADER WITH FORMAT TABS & CLOSE BUTTON                    */}
         {/* ================================================================ */}
-        <div className="sticky top-0 bg-[#0c0d10] border-b border-[#F5A623]/25 px-5 py-3.5 flex flex-col gap-3 z-20 shrink-0">
+        <div className="sticky top-0 bg-[#050505]/60 backdrop-blur-2xl border-b border-amber-500/20 px-5 py-3.5 flex flex-col gap-3 z-20 shrink-0">
           {/* Top Title & Close Action */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1047,7 +1047,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
           </div>
 
           {/* Unified Format Navigation Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 p-1 bg-[#050609] border border-[#1e1f2d] rounded-xl text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 p-1 bg-[#050609]/80 border border-[#1e1f2d] rounded-xl text-center backdrop-blur-md">
             {/* 1. MP4 VIDEO */}
             <button
               type="button"
@@ -1055,8 +1055,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               onClick={() => setActiveTab('mp4')}
               className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'mp4'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
               }`}
             >
               <Video className="w-3.5 h-3.5" />
@@ -1070,8 +1070,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               onClick={() => setActiveTab('premiere')}
               className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'premiere'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
               }`}
             >
               <Film className="w-3.5 h-3.5" />
@@ -1085,8 +1085,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               onClick={() => setActiveTab('fcpxml')}
               className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'fcpxml'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
               }`}
             >
               <Scissors className="w-3.5 h-3.5" />
@@ -1100,8 +1100,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               onClick={() => setActiveTab('package')}
               className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'package'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
               }`}
             >
               <Package className="w-3.5 h-3.5" />
@@ -1115,8 +1115,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               onClick={() => setActiveTab('pdf')}
               className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'pdf'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -1130,8 +1130,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               onClick={() => setActiveTab('directors_cut')}
               className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'directors_cut'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
               }`}
             >
               <Archive className="w-3.5 h-3.5" />
@@ -1145,8 +1145,8 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
               onClick={() => setActiveTab('backup')}
               className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'backup'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520]'
+                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
               }`}
             >
               <HardDriveDownload className="w-3.5 h-3.5" />
@@ -1323,12 +1323,12 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                     <div
                       key={shotIdx}
                       onClick={() => !isExporting && setPreviewShotIdx(shotIdx)}
-                      className={`relative shrink-0 w-32 rounded-lg border overflow-hidden transition-all group cursor-pointer ${
+                      className={`relative shrink-0 w-32 rounded-lg border overflow-hidden transition-all duration-300 hover:scale-105 hover:border-amber-500 hover:shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:z-10 cursor-crosshair group ${
                         isExcluded
                           ? 'bg-[#120a0d] border-rose-900/60 opacity-50'
                           : isPreviewing
-                            ? 'bg-[#191812] border-[#F5A623] shadow-[0_0_12px_rgba(245,166,35,0.35)] ring-1 ring-[#F5A623]'
-                            : 'bg-[#12131c] border-[#292b3e] hover:border-[#F5A623]/70'
+                            ? 'bg-[#191812] border-amber-500 shadow-[0_0_15px_rgba(251,191,36,0.4)] ring-1 ring-amber-400'
+                            : 'bg-[#12131c] border-[#292b3e]'
                       }`}
                       title={isExcluded ? 'Shot excluded from render' : 'Click to preview shot in monitor'}
                     >
@@ -2199,7 +2199,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         {/* ================================================================ */}
         {/* STICKY FOOTER WITH EXPORT BUTTON & LIVE RENDER HUD               */}
         {/* ================================================================ */}
-        <div className="sticky bottom-0 bg-[#0c0d10] border-t border-white/10 px-5 py-3.5 flex justify-between items-center gap-3 z-20 shrink-0">
+        <div className="sticky bottom-0 bg-[#050505]/60 backdrop-blur-2xl border-t border-amber-500/20 px-5 py-3.5 flex justify-between items-center gap-3 z-20 shrink-0">
           
           {/* Active MP4 Live Render State */}
           {isExporting ? (
@@ -2275,7 +2275,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleStartMp4Export}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
                   >
                     <Zap className="w-4 h-4 fill-black" />
                     <span>START MP4 EXPORT</span>
@@ -2286,7 +2286,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleExportPremiereXml}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
                   >
                     <Download className="w-4 h-4" />
                     <span>EXPORT PREMIERE XML (.xml)</span>
@@ -2297,7 +2297,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleExportFcpXml}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 via-cyan-500 to-sky-400 hover:from-cyan-500 hover:to-sky-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(56,189,248,0.4)] active:scale-[0.98] transition-all"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 via-cyan-500 to-sky-400 hover:from-cyan-500 hover:to-sky-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(56,189,248,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(56,189,248,0.6)] transition-all"
                   >
                     <Download className="w-4 h-4" />
                     <span>EXPORT FCPXML (.fcpxml)</span>
@@ -2309,7 +2309,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                     type="button"
                     onClick={handleExportProductionPackage}
                     disabled={isExporting}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
                   >
                     <Package className="w-4 h-4" />
                     <span>DOWNLOAD PRODUCTION PKG (.ZIP)</span>
@@ -2332,7 +2332,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                       type="button"
                       onClick={handleDownloadStoryboardPdf}
                       disabled={isExporting}
-                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all disabled:opacity-50"
+                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all disabled:opacity-50"
                     >
                       <Download className="w-4 h-4" />
                       <span>DOWNLOAD STORYBOARD PDF</span>
@@ -2353,7 +2353,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                     type="button"
                     onClick={handleExportDirectorsCut}
                     disabled={isExporting}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
                   >
                     <Archive className="w-4 h-4" />
                     <span>DOWNLOAD DIRECTOR'S CUT (.ZIP)</span>
@@ -2364,7 +2364,7 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleExportRawxBackup}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] transition-all"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
                   >
                     <HardDriveDownload className="w-4 h-4" />
                     <span>DOWNLOAD BACKUP (.rawx)</span>

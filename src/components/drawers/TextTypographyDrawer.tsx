@@ -72,6 +72,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   const [dopamineStrobe, setDopamineStrobe] = useState<number>(60);
   const [dopamineSpeed, setDopamineSpeed] = useState<number>(1.5);
   const [dopamineAccent, setDopamineAccent] = useState<string>('#FF2B2B');
+  const [dopamineAudioBeatSync, setDopamineAudioBeatSync] = useState<boolean>(true);
   const [appliedDopamineSuccess, setAppliedDopamineSuccess] = useState<boolean>(false);
 
   const filteredPresets = selectedCategory === 'all'
@@ -391,7 +392,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               strobeRate={dopamineStrobe}
               motionSpeed={dopamineSpeed}
               accentColor={dopamineAccent}
-              audioBeatSync={true}
+              audioBeatSync={dopamineAudioBeatSync}
               isPlaying={true}
               showTelemetry={true}
             />
@@ -425,6 +426,43 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               <span>HYPER-FAST (20ms)</span>
               <span>SYNCOPATED (100ms)</span>
               <span>HYPNOTIC (200ms)</span>
+            </div>
+          </div>
+
+          {/* Audio Beat Reactivity & Motion Controls */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setDopamineAudioBeatSync(!dopamineAudioBeatSync)}
+              className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                dopamineAudioBeatSync
+                  ? 'bg-red-950/60 border-red-500/60 text-white shadow-[0_0_15px_rgba(239,68,68,0.25)]'
+                  : 'bg-black/50 border-white/10 text-zinc-400 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-mono font-bold tracking-wider uppercase">AUDIO BEAT SYNC</span>
+                <span className={`w-2 h-2 rounded-full ${dopamineAudioBeatSync ? 'bg-red-400 animate-pulse shadow-[0_0_8px_#ef4444]' : 'bg-zinc-600'}`} />
+              </div>
+              <span className="text-[10px] font-bold font-mono mt-1">
+                {dopamineAudioBeatSync ? '⚡ 130 BPM LOCKED' : 'FREE RUNNING'}
+              </span>
+            </button>
+
+            <div className="p-2.5 rounded-lg bg-black/60 border border-white/10 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 uppercase">
+                <span>MOTION SPEED</span>
+                <span className="text-white font-bold">{dopamineSpeed.toFixed(1)}x</span>
+              </div>
+              <input
+                type="range"
+                min={0.5}
+                max={2.5}
+                step={0.1}
+                value={dopamineSpeed}
+                onChange={(e) => setDopamineSpeed(parseFloat(e.target.value))}
+                className="w-full h-1 bg-white/20 rounded appearance-none cursor-pointer accent-red-500 mt-1"
+              />
             </div>
           </div>
 

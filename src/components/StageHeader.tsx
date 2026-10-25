@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { 
   Film, 
   Sliders, 
@@ -130,11 +130,56 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isPurgingCache, setIsPurgingCache] = useState(false);
   const [cachePurgeFeedback, setCachePurgeFeedback] = useState<string | null>(null);
   const [dissolvePulseId, setDissolvePulseId] = useState<number>(0);
+  const [dissolveModeLabel, setDissolveModeLabel] = useState<'STAGE' | 'REELS' | 'SCRUB' | null>(null);
   const dissolveTimeoutRef = useRef<number | null>(null);
+  const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecordingActive, setIsRecordingActive] = useState(false);
   const [isMasterTabActive, setIsMasterTabActive] = useState(false);
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
   const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
+
+  const triggerCoreWorkspaceCrossDissolve = (targetPanel: StagePanelType) => {
+    if (
+      targetPanel !== 'TACTILE_STAGE' &&
+      targetPanel !== 'SPLIT' &&
+      targetPanel !== 'SEQUENCER'
+    ) {
+      return;
+    }
+    const labelMap: Record<'TACTILE_STAGE' | 'SPLIT' | 'SEQUENCER', 'STAGE' | 'REELS' | 'SCRUB'> = {
+      TACTILE_STAGE: 'STAGE',
+      SPLIT: 'REELS',
+      SEQUENCER: 'SCRUB'
+    };
+    const nextPulse = Date.now();
+    setDissolvePulseId(nextPulse);
+    setDissolveModeLabel(labelMap[targetPanel]);
+    if (dissolveTimeoutRef.current !== null) {
+      window.clearTimeout(dissolveTimeoutRef.current);
+    }
+    dissolveTimeoutRef.current = window.setTimeout(() => {
+      setDissolvePulseId(0);
+      setDissolveModeLabel(null);
+    }, 260);
+  };
+
+  // Trigger hardware-accelerated cross-dissolve when currentPanel switches externally (e.g. shortcuts)
+  useEffect(() => {
+    if (prevPanelRef.current !== currentPanel) {
+      const wasCore =
+        prevPanelRef.current === 'TACTILE_STAGE' ||
+        prevPanelRef.current === 'SPLIT' ||
+        prevPanelRef.current === 'SEQUENCER';
+      const isCore =
+        currentPanel === 'TACTILE_STAGE' ||
+        currentPanel === 'SPLIT' ||
+        currentPanel === 'SEQUENCER';
+      if (wasCore && isCore && currentView === 'STUDIO') {
+        triggerCoreWorkspaceCrossDissolve(currentPanel);
+      }
+      prevPanelRef.current = currentPanel;
+    }
+  }, [currentPanel, currentView]);
 
   // Query live IndexedDB storage estimate when Cache Manager opens
   useEffect(() => {
@@ -209,14 +254,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     const isCoreDissolveMode =
       panel === 'TACTILE_STAGE' || panel === 'SPLIT' || panel === 'SEQUENCER';
     if (isCoreDissolveMode && (panel !== currentPanel || currentView !== 'STUDIO' || isMasterTabActive)) {
-      const nextPulse = Date.now();
-      setDissolvePulseId(nextPulse);
-      if (dissolveTimeoutRef.current !== null) {
-        window.clearTimeout(dissolveTimeoutRef.current);
-      }
-      dissolveTimeoutRef.current = window.setTimeout(() => {
-        setDissolvePulseId(0);
-      }, 210);
+      prevPanelRef.current = panel;
+      triggerCoreWorkspaceCrossDissolve(panel);
       eventBus.emit('workspace:cross_dissolve', { from: currentPanel, to: panel });
     }
     setIsMasterTabActive(false);
@@ -567,68 +606,85 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* Restored Core Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR | MASTER */}
           <div className="hidden lg:flex items-center gap-3 xl:gap-4 shrink-0">
-            <button
-              type="button"
-              onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
-              className={`relative py-1 px-1.5 text-xs md:text-sm font-bold tracking-widest transition-colors duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu ${
-                currentPanel === 'TACTILE_STAGE' && !isMasterTabActive
-                  ? 'text-amber-500'
-                  : 'text-white/60 hover:text-white'
-              }`}
-              title="Primary Tactile Cinema Stage"
-            >
-              {currentPanel === 'TACTILE_STAGE' && !isMasterTabActive && (
-                <motion.span
-                  layoutId="stageHeaderCoreWorkspaceDissolve"
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute inset-0 -mx-1 rounded bg-amber-500/10 border-b-2 border-amber-400 pointer-events-none transform-gpu will-change-[transform,opacity]"
-                />
-              )}
-              <Film className="w-3.5 h-3.5 shrink-0 relative z-10" />
-              <span className="relative z-10">STAGE</span>
-            </button>
+            <LayoutGroup id="stage-header-core-workspaces">
+              <button
+                type="button"
+                onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
+                className={`relative py-1 px-2 text-xs md:text-sm font-bold tracking-widest transition-opacity duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                  currentPanel === 'TACTILE_STAGE' && !isMasterTabActive
+                    ? 'text-amber-400 opacity-100'
+                    : 'text-white/60 hover:text-white opacity-85 hover:opacity-100'
+                }`}
+                style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
+                title="Primary Tactile Cinema Stage"
+              >
+                {currentPanel === 'TACTILE_STAGE' && !isMasterTabActive && (
+                  <motion.span
+                    layoutId="stageHeaderCoreWorkspaceDissolve"
+                    initial={{ opacity: 0.5 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transform-gpu will-change-[transform,opacity]"
+                    style={{ backfaceVisibility: 'hidden' }}
+                  />
+                )}
+                <Film className="w-3.5 h-3.5 shrink-0 relative z-10" />
+                <span className="relative z-10">STAGE</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleWorkspacePanelSelect('SPLIT')}
-              className={`relative py-1 px-1.5 text-xs md:text-sm font-bold tracking-widest transition-colors duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu ${
-                currentPanel === 'SPLIT' && !isMasterTabActive
-                  ? 'text-amber-500'
-                  : 'text-white/60 hover:text-white'
-              }`}
-              title="9:16 Reels & Dual Split Sequencer"
-            >
-              {currentPanel === 'SPLIT' && !isMasterTabActive && (
-                <motion.span
-                  layoutId="stageHeaderCoreWorkspaceDissolve"
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute inset-0 -mx-1 rounded bg-amber-500/10 border-b-2 border-amber-400 pointer-events-none transform-gpu will-change-[transform,opacity]"
-                />
-              )}
-              <Video className="w-3.5 h-3.5 shrink-0 relative z-10" />
-              <span className="relative z-10">REELS</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleWorkspacePanelSelect('SPLIT')}
+                className={`relative py-1 px-2 text-xs md:text-sm font-bold tracking-widest transition-opacity duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                  currentPanel === 'SPLIT' && !isMasterTabActive
+                    ? 'text-amber-400 opacity-100'
+                    : 'text-white/60 hover:text-white opacity-85 hover:opacity-100'
+                }`}
+                style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
+                title="9:16 Reels & Dual Split Sequencer"
+              >
+                {currentPanel === 'SPLIT' && !isMasterTabActive && (
+                  <motion.span
+                    layoutId="stageHeaderCoreWorkspaceDissolve"
+                    initial={{ opacity: 0.5 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transform-gpu will-change-[transform,opacity]"
+                    style={{ backfaceVisibility: 'hidden' }}
+                  />
+                )}
+                <Video className="w-3.5 h-3.5 shrink-0 relative z-10" />
+                <span className="relative z-10">REELS</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
-              className={`relative py-1 px-1.5 text-xs md:text-sm font-bold tracking-widest transition-colors duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu ${
-                currentPanel === 'SEQUENCER' && !isMasterTabActive
-                  ? 'text-amber-500'
-                  : 'text-white/60 hover:text-white'
-              }`}
-              title="Sub-Frame Precision Scrub Timeline"
-            >
-              {currentPanel === 'SEQUENCER' && !isMasterTabActive && (
-                <motion.span
-                  layoutId="stageHeaderCoreWorkspaceDissolve"
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute inset-0 -mx-1 rounded bg-amber-500/10 border-b-2 border-amber-400 pointer-events-none transform-gpu will-change-[transform,opacity]"
-                />
-              )}
-              <Scissors className="w-3.5 h-3.5 shrink-0 relative z-10" />
-              <span className="relative z-10">SCRUB</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
+                className={`relative py-1 px-2 text-xs md:text-sm font-bold tracking-widest transition-opacity duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                  currentPanel === 'SEQUENCER' && !isMasterTabActive
+                    ? 'text-amber-400 opacity-100'
+                    : 'text-white/60 hover:text-white opacity-85 hover:opacity-100'
+                }`}
+                style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
+                title="Sub-Frame Precision Scrub Timeline"
+              >
+                {currentPanel === 'SEQUENCER' && !isMasterTabActive && (
+                  <motion.span
+                    layoutId="stageHeaderCoreWorkspaceDissolve"
+                    initial={{ opacity: 0.5 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transform-gpu will-change-[transform,opacity]"
+                    style={{ backfaceVisibility: 'hidden' }}
+                  />
+                )}
+                <Scissors className="w-3.5 h-3.5 shrink-0 relative z-10" />
+                <span className="relative z-10">SCRUB</span>
+              </button>
+            </LayoutGroup>
 
             <button
               type="button"
@@ -816,13 +872,20 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         {dissolvePulseId > 0 && (
           <motion.div
             key={dissolvePulseId}
-            initial={{ opacity: 0.32, scale: 1.003 }}
-            animate={{ opacity: 0, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.997 }}
+            animate={{ opacity: [0, 0.42, 0], scale: [0.997, 1.002, 1] }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed top-16 inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-amber-500/[0.06] via-[#070709]/60 to-[#070709]/80 transform-gpu will-change-[opacity,transform]"
+            transition={{ duration: 0.24, times: [0, 0.38, 1], ease: [0.22, 1, 0.36, 1] }}
+            className="fixed top-16 inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-amber-500/[0.08] via-[#070709]/65 to-[#070709]/85 flex items-start justify-center pt-5 transform-gpu will-change-[opacity,transform] motion-reduce:hidden"
+            style={{ backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)' }}
             aria-hidden="true"
-          />
+          >
+            {dissolveModeLabel && (
+              <span className="px-3 py-1 rounded bg-black/75 border border-amber-400/30 text-[10px] font-mono font-bold tracking-[0.25em] text-amber-300 uppercase shadow-lg">
+                {dissolveModeLabel} WORKSPACE
+              </span>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
 

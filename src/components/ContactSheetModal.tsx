@@ -150,8 +150,10 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [selectedFrameIds, setSelectedFrameIds] = useState<Set<number>>(new Set());
   const [isBatchLutMenuOpen, setIsBatchLutMenuOpen] = useState(false);
+  const [isBatchActionMenuOpen, setIsBatchActionMenuOpen] = useState(false);
   const [confirmDeleteBatch, setConfirmDeleteBatch] = useState(false);
   const lastClickedFrameIdRef = useRef<number | null>(null);
+  const selectionAnchorIdRef = useRef<number | null>(null);
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
   const justCompletedMarqueeRef = useRef<boolean>(false);
   const [marqueeBox, setMarqueeBox] = useState<{
@@ -164,6 +166,9 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   useEffect(() => {
     if (isOpen && frames[currentIndex]) {
       lastClickedFrameIdRef.current = frames[currentIndex].id;
+      if (selectionAnchorIdRef.current === null) {
+        selectionAnchorIdRef.current = frames[currentIndex].id;
+      }
     }
   }, [isOpen, currentIndex, frames]);
 
@@ -171,17 +176,17 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   useEffect(() => {
     if (isCompareMode) {
       if (compareSlotAId === null && frames.length > 0) {
-        const cur = frames.find(f => f.id === currentIndex) || frames[0];
+        const cur = frames[currentIndex] || frames.find(f => f.id === currentIndex) || frames[0];
         setCompareSlotAId(cur.id);
       }
       if (compareSlotBId === null && frames.length > 1) {
-        const next = frames.find(f => f.id !== currentIndex && f.id !== compareSlotAId) || frames[1];
+        const next = frames.find(f => f.id !== frames[currentIndex]?.id && f.id !== compareSlotAId) || frames[1];
         setCompareSlotBId(next.id);
       }
     }
   }, [isCompareMode, frames, currentIndex, compareSlotAId, compareSlotBId]);
 
-  // Close on Escape key
+  // Close menus / clear selection / close modal on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -189,8 +194,13 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
           setShowPdfOptions(false);
         } else if (confirmDeleteBatch) {
           setConfirmDeleteBatch(false);
+        } else if (isBatchActionMenuOpen) {
+          setIsBatchActionMenuOpen(false);
         } else if (isBatchLutMenuOpen) {
           setIsBatchLutMenuOpen(false);
+        } else if (selectedFrameIds.size > 0 || isMultiSelectMode) {
+          setSelectedFrameIds(new Set());
+          setIsMultiSelectMode(false);
         } else {
           onClose();
         }
@@ -198,7 +208,16 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, showPdfOptions, confirmDeleteBatch, isBatchLutMenuOpen, onClose]);
+  }, [
+    isOpen,
+    showPdfOptions,
+    confirmDeleteBatch,
+    isBatchActionMenuOpen,
+    isBatchLutMenuOpen,
+    selectedFrameIds.size,
+    isMultiSelectMode,
+    onClose
+  ]);
 
   // Tag extraction and populated count
   const allTags = useMemo(() => {
@@ -330,7 +349,11 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   // Multi-Select & Shift+Click Range Selection Handlers
   const selectRangeToFrame = useCallback(
     (targetId: number, additive: boolean) => {
-      const anchorId = lastClickedFrameIdRef.current ?? frames[currentIndex]?.id ?? targetId;
+      const anchorId =
+        selectionAnchorIdRef.current ??
+        lastClickedFrameIdRef.current ??
+        frames[currentIndex]?.id ??
+        targetId;
       const anchorIdx = filtered.findIndex((f) => f.id === anchorId);
       const targetIdx = filtered.findIndex((f) => f.id === targetId);
 
@@ -343,6 +366,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
           next.add(targetId);
           return next;
         });
+        selectionAnchorIdRef.current = targetId;
         lastClickedFrameIdRef.current = targetId;
         return;
       }
@@ -352,12 +376,15 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
       const rangeIds = filtered.slice(start, end + 1).map((f) => f.id);
 
       setSelectedFrameIds((prev) => {
-        const next = additive ? new Set(prev) : new Set<number>(prev);
+        const next = additive ? new Set(prev) : new Set<number>();
         for (const id of rangeIds) {
           next.add(id);
         }
         return next;
       });
+      if (selectionAnchorIdRef.current === null) {
+        selectionAnchorIdRef.current = anchorId;
+      }
       lastClickedFrameIdRef.current = targetId;
       setLastReorderMsg(`Selected ${rangeIds.length} frames via Shift+Click`);
       setTimeout(() => setLastReorderMsg(null), 2500);
@@ -373,6 +400,9 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
         return;
       }
     }
+    setIsCompareMode(false);
+    setIsMultiSelectMode(true);
+    selectionAnchorIdRef.current = id;
     lastClickedFrameIdRef.current = id;
     setSelectedFrameIds(prev => {
       const next = new Set(prev);
@@ -481,39 +511,62 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     setSelectedFrameIds(new Set(filtered.map(f => f.id)));
   };
 
+  const invertFilteredSelection = () => {
+    setSelectedFrameIds((prev) => {
+      const next = new Set<number>();
+      filtered.forEach((f) => {
+        if (!prev.has(f.id)) next.add(f.id);
+      });
+      return next;
+    });
+    setIsBatchActionMenuOpen(false);
+  };
+
   const clearSelection = () => {
     setSelectedFrameIds(new Set());
     setConfirmDeleteBatch(false);
     setIsBatchLutMenuOpen(false);
+    setIsBatchActionMenuOpen(false);
   };
 
-  // Batch Apply Export Range
-  const handleBatchApplyExportRange = () => {
-    if (selectedFrameIds.size === 0) return;
-
-    const selectedIndices: number[] = [];
+  // Live computed export range summary for selected storyboard frames
+  const selectedRangeSummary = useMemo(() => {
+    const indices: number[] = [];
     const oneBasedNumbers: number[] = [];
     frames.forEach((f, idx) => {
       if (selectedFrameIds.has(f.id)) {
-        selectedIndices.push(idx);
+        indices.push(idx);
         oneBasedNumbers.push(idx + 1);
       }
     });
+    return {
+      indices,
+      oneBasedNumbers,
+      count: indices.length,
+      rangeText: formatCompactShotRange(oneBasedNumbers)
+    };
+  }, [frames, selectedFrameIds]);
 
-    if (selectedIndices.length === 0) return;
+  // Batch Apply Export Range
+  const handleBatchApplyExportRange = (openStudioImmediately: boolean = true) => {
+    if (selectedRangeSummary.count === 0) return;
 
-    const rangeText = formatCompactShotRange(oneBasedNumbers);
     eventBus.emit('export:apply_range', {
-      indices: selectedIndices,
+      indices: selectedRangeSummary.indices,
       frameIds: Array.from(selectedFrameIds),
-      rangeText,
-      count: selectedIndices.length
+      rangeText: selectedRangeSummary.rangeText,
+      count: selectedRangeSummary.count
     });
-    setLastReorderMsg(`Applied Export Range: Shots ${rangeText}`);
-    onClose();
-    queueMicrotask(() => {
-      eventBus.emit('export:open');
-    });
+    setIsBatchActionMenuOpen(false);
+    setLastReorderMsg(`Applied Export Range: Shots ${selectedRangeSummary.rangeText} (${selectedRangeSummary.count} frames)`);
+    setTimeout(() => setLastReorderMsg(null), 3500);
+
+    if (openStudioImmediately) {
+      onClose();
+      queueMicrotask(() => {
+        eventBus.emit('export:open');
+      });
+    }
   };
 
   // Batch Apply LUT
@@ -1029,10 +1082,95 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 )}
               </div>
 
-              {/* Batch Apply Export Range Button */}
+              {/* Batch Actions Dropdown Menu */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBatchActionMenuOpen((prev) => !prev);
+                    setIsBatchLutMenuOpen(false);
+                  }}
+                  disabled={selectedFrameIds.size === 0}
+                  className="px-3 py-1 bg-amber-400 hover:bg-amber-300 border border-amber-300 text-black text-[10px] font-bold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>BATCH ACTIONS ({selectedFrameIds.size})</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+
+                {isBatchActionMenuOpen && selectedFrameIds.size > 0 && (
+                  <div className="absolute right-0 top-full mt-1.5 w-72 bg-[#0d0e15] border border-amber-400/50 rounded-[2px] shadow-2xl p-1.5 z-50 text-[10px] space-y-1">
+                    <div className="px-2.5 py-1.5 text-[9px] font-bold text-amber-300 uppercase tracking-wider border-b border-white/10 flex items-center justify-between tabular-nums">
+                      <span>{selectedRangeSummary.count} Frames Selected</span>
+                      <span className="text-zinc-400">Shots {selectedRangeSummary.rangeText}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleBatchApplyExportRange(true)}
+                      className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-cyan-500/15 flex items-center justify-between text-cyan-200 hover:text-white cursor-pointer transition-colors"
+                    >
+                      <span className="flex items-center gap-2 font-bold">
+                        <Film className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Apply Export Range &amp; Open Studio</span>
+                      </span>
+                      <span className="text-[8.5px] text-cyan-400 tabular-nums">↗</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleBatchApplyExportRange(false)}
+                      className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 flex items-center justify-between text-zinc-200 hover:text-amber-300 cursor-pointer transition-colors"
+                    >
+                      <span className="flex items-center gap-2 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Set Export Range Only</span>
+                      </span>
+                      <span className="text-[8.5px] text-zinc-400 tabular-nums">
+                        {selectedRangeSummary.rangeText}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={invertFilteredSelection}
+                      className="w-full px-2.5 py-1.5 rounded-[2px] text-left hover:bg-white/10 flex items-center justify-between text-zinc-300 hover:text-white cursor-pointer transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <RefreshCw className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Invert Selection</span>
+                      </span>
+                      <span className="text-[8.5px] text-zinc-500 tabular-nums">
+                        {Math.max(0, filtered.length - selectedFrameIds.size)} frames
+                      </span>
+                    </button>
+
+                    <div className="border-t border-white/10 my-1" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBatchActionMenuOpen(false);
+                        setConfirmDeleteBatch(true);
+                      }}
+                      className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-rose-500/20 flex items-center justify-between text-rose-300 hover:text-rose-100 cursor-pointer transition-colors"
+                    >
+                      <span className="flex items-center gap-2 font-bold">
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Delete Selected Frames</span>
+                      </span>
+                      <span className="text-[8.5px] text-rose-400 tabular-nums">
+                        {selectedFrameIds.size}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Batch Apply Export Range Quick Button */}
               <button
                 type="button"
-                onClick={handleBatchApplyExportRange}
+                onClick={() => handleBatchApplyExportRange(true)}
                 disabled={selectedFrameIds.size === 0}
                 className="px-3 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-200 hover:text-white text-[10px] font-bold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
                 title="Send selected storyboard frames directly to Unified Export Studio"
@@ -1463,9 +1601,9 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
               }}
             />
           )}
-          <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-8">
+          <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-16">
             {filtered.map((frame, index) => {
-              const isSelected = frame.id === currentIndex;
+              const isSelected = frames[currentIndex]?.id === frame.id || frame.id === currentIndex;
               const hasImage = Boolean(frame.imageUrl);
               const isBeingDragged = draggedFrameId === frame.id;
               const isDropTarget = dragOverFrameId === frame.id;
@@ -1500,20 +1638,20 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                       return;
                     }
                     if (e.metaKey || e.ctrlKey) {
-                      setIsCompareMode(false);
-                      setIsMultiSelectMode(true);
                       toggleSelectFrame(frame.id, e);
                       return;
                     }
-                    if (isMultiSelectMode) {
+                    if (isMultiSelectMode || selectedFrameIds.size > 0) {
                       toggleSelectFrame(frame.id, e);
                     } else if (isCompareMode) {
                       if (!isSlotA && !isSlotB) {
                         setCompareSlotBId(frame.id);
                       }
                     } else {
+                      selectionAnchorIdRef.current = frame.id;
                       lastClickedFrameIdRef.current = frame.id;
-                      onSelectFrame(frame.id);
+                      const frameIdx = frames.findIndex((f) => f.id === frame.id);
+                      onSelectFrame(frameIdx >= 0 ? frameIdx : index);
                       onClose();
                     }
                   }}
@@ -1563,20 +1701,26 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                   {/* Gradient Scrim */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/20" />
 
-                  {/* Drag Handle / Multi-Check on Top Left */}
+                  {/* Drag Handle + Multi-Check on Top Left (Checkbox accessible on hover even before entering Multi-Select) */}
                   <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-20">
-                    {isMultiSelectMode ? (
+                    {!isCompareMode && (
                       <button
+                        type="button"
                         onClick={(e) => toggleSelectFrame(frame.id, e)}
-                        className={`p-1 rounded cursor-pointer transition-colors ${
+                        title="Select frame (Shift+Click to select range)"
+                        className={`p-1 rounded-[2px] cursor-pointer transition-all ${
                           isMultiChecked
-                            ? 'bg-amber-400 text-black'
-                            : 'bg-black/80 text-white/60 hover:text-white border border-white/20'
+                            ? 'bg-amber-400 text-black opacity-100 shadow-[0_0_8px_rgba(245,166,35,0.5)]'
+                            : isMultiSelectMode || selectedFrameIds.size > 0
+                            ? 'bg-black/85 text-white/70 hover:text-white border border-white/25 opacity-100'
+                            : 'bg-black/85 text-white/70 hover:text-amber-300 border border-white/20 opacity-0 group-hover:opacity-100'
                         }`}
                       >
-                        {isMultiChecked ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                        {isMultiChecked ? <CheckSquare className="w-3 h-3" /> : <Square className="w-3 h-3" />}
                       </button>
-                    ) : !isCompareMode ? (
+                    )}
+
+                    {!isMultiSelectMode && !isCompareMode && selectedFrameIds.size === 0 && (
                       <div 
                         className="p-1 rounded-[1px] bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-zinc-300 cursor-grab active:cursor-grabbing transition-colors"
                         title="Drag to resequence frame"
@@ -1584,10 +1728,10 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                       >
                         <GripVertical className="w-3 h-3" />
                       </div>
-                    ) : null}
+                    )}
 
                     {/* Shot number badge */}
-                    <span className="px-1.5 py-0.5 rounded-[1px] bg-black/85 backdrop-blur-md border border-white/20 text-[9px] font-bold text-amber-400">
+                    <span className="px-1.5 py-0.5 rounded-[1px] bg-black/85 backdrop-blur-md border border-white/20 text-[9px] font-bold text-amber-400 tabular-nums">
                       {frame.epNumber || `#${String(index + 1).padStart(3, '0')}`}
                     </span>
                   </div>
@@ -1693,6 +1837,78 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
               );
             })}
           </div>
+
+          {/* Floating Contextual Batch Action Menu Bar (Anchored at bottom of grid when frames are selected) */}
+          {selectedFrameIds.size > 0 && (
+            <div className="sticky bottom-2 inset-x-0 z-30 flex justify-center pointer-events-none">
+              <div
+                className="pointer-events-auto bg-[#0D0E15]/95 backdrop-blur-2xl border border-amber-400/50 rounded-lg shadow-[0_12px_40px_rgba(0,0,0,0.9)] px-4 py-2.5 flex flex-wrap items-center gap-3 text-xs font-mono"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 pr-3 border-r border-white/15 tabular-nums">
+                  <span className="font-bold text-amber-300">
+                    {selectedRangeSummary.count} {selectedRangeSummary.count === 1 ? 'Frame' : 'Frames'} Selected
+                  </span>
+                  <span className="text-zinc-500">·</span>
+                  <span className="text-[11px] text-zinc-300">
+                    Shots {selectedRangeSummary.rangeText}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleBatchApplyExportRange(true)}
+                  className="px-3 py-1.5 rounded bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/60 text-cyan-200 hover:text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Film className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Apply Export Range</span>
+                </button>
+
+                {!confirmDeleteBatch ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteBatch(true)}
+                    className="px-3 py-1.5 rounded bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 hover:text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Delete Selected</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-rose-950/90 px-2.5 py-1 rounded border border-rose-500/60">
+                    <span className="text-[10px] text-rose-200 font-bold">
+                      Delete {selectedFrameIds.size}?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleBatchDelete}
+                      className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold rounded cursor-pointer"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteBatch(false)}
+                      className="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-zinc-300 text-[10px] rounded cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearSelection();
+                    setIsMultiSelectMode(false);
+                  }}
+                  className="px-2.5 py-1.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white text-[11px] transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* FOOTER BAR */}

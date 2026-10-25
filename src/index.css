@@ -444,6 +444,54 @@
   transition: transform 150ms var(--ease-hypersonic), box-shadow 150ms var(--ease-hypersonic);
 }
 
+/* Hardware-Accelerated Cross-Dissolve CSS Transitions for STAGE / REELS / SCRUB Workspaces */
+@keyframes workspaceCrossDissolve {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale3d(0.994, 0.994, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+}
+
+@keyframes workspaceCrossDissolveVeil {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  36% {
+    opacity: 0.36;
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.workspace-cross-dissolve-container {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.animate-workspace-cross-dissolve {
+  animation: workspaceCrossDissolve 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
+.animate-workspace-dissolve-veil {
+  animation: workspaceCrossDissolveVeil 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .title-block,
   .matrix-body .matrix-category-card,
@@ -452,8 +500,12 @@
   .matrix-sub-option,
   .matrix-opacity-slider,
   .matrix-opacity-slider::-webkit-slider-thumb,
-  .matrix-opacity-slider::-moz-range-thumb {
+  .matrix-opacity-slider::-moz-range-thumb,
+  .workspace-cross-dissolve-container,
+  .animate-workspace-cross-dissolve,
+  .animate-workspace-dissolve-veil {
     transition-duration: 0ms !important;
     transition-delay: 0ms !important;
+    animation-duration: 0ms !important;
   }
 }

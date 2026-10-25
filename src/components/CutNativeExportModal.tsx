@@ -146,14 +146,37 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   const [customListText, setCustomListText] = useState<string>('1, 3, 5-8, 12');
   const [excludedIndices, setExcludedIndices] = useState<number[]>([]);
   const hasAppliedContactRangeRef = useRef<boolean>(false);
+  const appliedFirstShotIdxRef = useRef<number | null>(null);
+  const appliedRangeBoundsRef = useRef<{ start: number; end: number; isContiguous: boolean } | null>(null);
 
   useEffect(() => {
     const unsubRange = eventBus.on(
       'export:apply_range',
-      (payload?: { rangeText?: string }) => {
+      (payload?: { rangeText?: string; indices?: number[]; count?: number }) => {
         if (payload?.rangeText) {
           hasAppliedContactRangeRef.current = true;
-          setSelectionMode('custom');
+          const sortedIndices = Array.isArray(payload.indices)
+            ? [...payload.indices].sort((a, b) => a - b)
+            : [];
+          if (sortedIndices.length > 0) {
+            const firstIdx = Math.max(0, sortedIndices[0]);
+            const lastIdx = Math.max(firstIdx, sortedIndices[sortedIndices.length - 1]);
+            const isContiguous = lastIdx - firstIdx + 1 === sortedIndices.length;
+            appliedFirstShotIdxRef.current = firstIdx;
+            appliedRangeBoundsRef.current = {
+              start: firstIdx + 1,
+              end: lastIdx + 1,
+              isContiguous
+            };
+            setRangeStart(firstIdx + 1);
+            setRangeEnd(lastIdx + 1);
+            setPreviewShotIdx(firstIdx);
+            setSelectionMode(isContiguous && sortedIndices.length > 1 ? 'range' : 'custom');
+          } else {
+            appliedFirstShotIdxRef.current = null;
+            appliedRangeBoundsRef.current = null;
+            setSelectionMode('custom');
+          }
           setCustomListText(payload.rangeText);
           setExcludedIndices([]);
         }
@@ -229,15 +252,25 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       setIsFinished(false);
       setExportError(null);
       setExcludedIndices([]);
-      setPreviewShotIdx(currentSlideIndex || 0);
-      const start = Math.max(1, currentSlideIndex + 1);
-      const end = Math.min(totalCount, start + 11);
-      setRangeStart(start);
-      setRangeEnd(end);
-      if (!hasAppliedContactRangeRef.current) {
+      if (hasAppliedContactRangeRef.current) {
+        if (appliedFirstShotIdxRef.current !== null) {
+          setPreviewShotIdx(Math.min(totalCount - 1, appliedFirstShotIdxRef.current));
+        }
+        if (appliedRangeBoundsRef.current) {
+          setRangeStart(appliedRangeBoundsRef.current.start);
+          setRangeEnd(Math.min(totalCount, appliedRangeBoundsRef.current.end));
+        }
+      } else {
+        setPreviewShotIdx(currentSlideIndex || 0);
+        const start = Math.max(1, currentSlideIndex + 1);
+        const end = Math.min(totalCount, start + 11);
+        setRangeStart(start);
+        setRangeEnd(end);
         setCustomListText(`1, ${Math.min(3, totalCount)}, ${Math.min(5, totalCount)}-${Math.min(8, totalCount)}`);
       }
       hasAppliedContactRangeRef.current = false;
+      appliedFirstShotIdxRef.current = null;
+      appliedRangeBoundsRef.current = null;
       
       const cleanProject = projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
       const timeStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);

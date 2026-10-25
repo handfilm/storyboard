@@ -390,8 +390,14 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   }
 
   // 4. Default Hero STAGE Mode with Dual-Panel Workflow (Exclusively renders the 2.39:1 anamorphic monitor)
+  const isCoreDissolvePanel =
+    currentPanel === 'TACTILE_STAGE' || currentPanel === 'SPLIT' || currentPanel === 'SEQUENCER';
+
   return (
-    <main className="relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono">
+    <main
+      id="handfilm-workspace-container"
+      className="workspace-cross-dissolve-container relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
+    >
       {/* Main Viewport Content based on active panel with GPU Cross-Dissolve */}
       <div className="flex-1 w-full relative grid grid-cols-1 grid-rows-1 overflow-hidden">
         <AnimatePresence initial={false}>
@@ -401,7 +407,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.004 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="col-start-1 row-start-1 w-full h-full flex flex-col overflow-hidden transform-gpu will-change-[opacity,transform]"
+            className={`col-start-1 row-start-1 w-full h-full flex flex-col overflow-hidden transform-gpu will-change-[opacity,transform] ${
+              isCoreDissolvePanel ? 'animate-workspace-cross-dissolve' : ''
+            }`}
           >
         {/* VIEW 0: TACTILE STAGE (Consolidated Primary View: Glowing Bloom Stage + 100-Shot Sequence Runner) */}
         {currentPanel === 'TACTILE_STAGE' && (

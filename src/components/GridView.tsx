@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { AnthologyFrame, LutPreset } from '../types/anthology';
 import { 
   Search, 
@@ -23,7 +23,8 @@ import {
   Trash2,
   Palette,
   ArrowLeftRight,
-  Grid
+  Grid,
+  AlertTriangle
 } from 'lucide-react';
 import { filterFrames, getLutFilterCSS } from '../utils/engine';
 import { downloadStoryboardPdf, StoryboardPdfOptions } from '../utils/pdfExport';
@@ -95,6 +96,7 @@ export const GridView: React.FC<GridViewProps> = ({
   const [selectedFrameIds, setSelectedFrameIds] = useState<Set<number>>(new Set());
   const [isBatchLutMenuOpen, setIsBatchLutMenuOpen] = useState(false);
   const [confirmDeleteBatch, setConfirmDeleteBatch] = useState(false);
+  const anchorFrameIdRef = useRef<number | null>(null);
 
   // Initialize Compare Slots
   const frameA = useMemo(() => {
@@ -227,9 +229,44 @@ export const GridView: React.FC<GridViewProps> = ({
     setTimeout(() => setReorderFeedback(null), 3000);
   };
 
-  // Multi-Select Handlers
+  // Multi-Select & Shift+Click Range Handlers
+  const selectRangeToFrame = (targetId: number, additive: boolean = false) => {
+    const orderedIds = filtered.map(f => f.id);
+    const activeFrameId = frames[currentFrameIndex]?.id;
+    const anchorId =
+      anchorFrameIdRef.current !== null && orderedIds.includes(anchorFrameIdRef.current)
+        ? anchorFrameIdRef.current
+        : activeFrameId !== undefined && orderedIds.includes(activeFrameId)
+        ? activeFrameId
+        : targetId;
+
+    const startIdx = orderedIds.indexOf(anchorId);
+    const endIdx = orderedIds.indexOf(targetId);
+
+    if (startIdx === -1 || endIdx === -1) {
+      anchorFrameIdRef.current = targetId;
+      setSelectedFrameIds(new Set([targetId]));
+      return;
+    }
+
+    const low = Math.min(startIdx, endIdx);
+    const high = Math.max(startIdx, endIdx);
+    const rangeIds = orderedIds.slice(low, high + 1);
+
+    setSelectedFrameIds(prev => {
+      const next = additive ? new Set(prev) : new Set<number>();
+      rangeIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
   const toggleSelectFrame = (id: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (e?.shiftKey) {
+      selectRangeToFrame(id, e.metaKey || e.ctrlKey);
+      return;
+    }
+    anchorFrameIdRef.current = id;
     setSelectedFrameIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -270,18 +307,20 @@ export const GridView: React.FC<GridViewProps> = ({
 
     const remaining = frames.filter(f => !selectedFrameIds.has(f.id));
     if (remaining.length === 0) {
-      alert('Cannot delete all frames. Storyboard must retain at least 1 frame.');
+      setReorderFeedback('Cannot delete all frames — storyboard must retain at least 1 frame.');
+      setTimeout(() => setReorderFeedback(null), 3500);
       setConfirmDeleteBatch(false);
       return;
     }
 
+    const deletedCount = selectedFrameIds.size;
     const reindexed = remaining.map((f, idx) => ({
       ...f,
       epNumber: `#${String(idx + 1).padStart(3, '0')}`
     }));
 
     onReorderFrames(reindexed);
-    setReorderFeedback(`Deleted ${selectedFrameIds.size} frames`);
+    setReorderFeedback(`Permanently deleted ${deletedCount} ${deletedCount === 1 ? 'frame' : 'frames'}`);
     setTimeout(() => setReorderFeedback(null), 3000);
     clearSelection();
   };
@@ -562,27 +601,16 @@ export const GridView: React.FC<GridViewProps> = ({
                 )}
               </div>
 
-              {/* Batch Delete */}
-              {!confirmDeleteBatch ? (
-                <button
-                  onClick={() => setConfirmDeleteBatch(true)}
-                  disabled={selectedFrameIds.size === 0}
-                  className="px-3 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10.5px] font-bold rounded flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                  <span>DELETE ({selectedFrameIds.size})</span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-1.5 bg-rose-950 px-2 py-0.5 rounded border border-rose-500/50">
-                  <span className="text-[9.5px] text-rose-300 font-bold">Delete {selectedFrameIds.size}?</span>
-                  <button onClick={handleBatchDelete} className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-bold rounded cursor-pointer">
-                    YES
-                  </button>
-                  <button onClick={() => setConfirmDeleteBatch(false)} className="px-2 py-0.5 bg-black text-zinc-400 text-[9px] rounded cursor-pointer">
-                    NO
-                  </button>
-                </div>
-              )}
+              {/* Delete Selected Button */}
+              <button
+                onClick={() => setConfirmDeleteBatch(true)}
+                disabled={selectedFrameIds.size === 0}
+                data-testid="grid-view-delete-selected-btn"
+                className="px-3.5 py-1.5 px-3.5! py-1.5! bg-rose-600/20 hover:bg-rose-600 border border-rose-500/50 text-rose-200 hover:text-white text-[11px] font-bold rounded flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors whitespace-nowrap tabular-nums"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Selected ({selectedFrameIds.size})</span>
+              </button>
             </div>
           </div>
         )}
@@ -857,15 +885,23 @@ export const GridView: React.FC<GridViewProps> = ({
               onDrop={(e) => handleDrop(e, frame.id)}
               onDragEnd={handleDragEnd}
               onClick={(e) => {
-                if (isMultiSelectMode) {
-                  toggleSelectFrame(frame.id, e);
-                } else if (isCompareMode) {
+                if (isCompareMode) {
                   if (!isSlotA && !isSlotB) {
                     setCompareSlotBId(frame.id);
                   }
-                } else {
-                  onSelectFrame(frame.id);
+                  return;
                 }
+                if (e.shiftKey) {
+                  selectRangeToFrame(frame.id, e.metaKey || e.ctrlKey);
+                  return;
+                }
+                if (isMultiSelectMode || e.metaKey || e.ctrlKey) {
+                  toggleSelectFrame(frame.id, e);
+                  return;
+                }
+                anchorFrameIdRef.current = frame.id;
+                const targetIdx = frames.findIndex(f => f.id === frame.id);
+                onSelectFrame(targetIdx !== -1 ? targetIdx : index);
               }}
               className={`group relative aspect-[16/10] bg-[#101014] border rounded-xs overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] ${
                 isBeingDragged
@@ -1013,6 +1049,69 @@ export const GridView: React.FC<GridViewProps> = ({
           );
         })}
       </div>
+
+      {/* Confirmation Dialog Modal for Permanent Frame Deletion */}
+      {confirmDeleteBatch && selectedFrameIds.size > 0 && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="grid-delete-dialog-title"
+          onClick={() => setConfirmDeleteBatch(false)}
+          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 p-4!"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#0C0D12] border border-rose-500/45 rounded-lg p-5 p-5! shadow-[0_24px_64px_rgba(0,0,0,0.95)]"
+          >
+            <div className="flex items-start justify-between gap-3 pb-3 pb-3! border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-md bg-rose-500/15 border border-rose-500/40 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4.5 h-4.5 text-rose-400" />
+                </div>
+                <div>
+                  <h3 id="grid-delete-dialog-title" className="text-sm font-bold text-white">
+                    Permanently Delete Selected Frames?
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5 tabular-nums">
+                    {selectedFrameIds.size} {selectedFrameIds.size === 1 ? 'frame' : 'frames'} selected
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setConfirmDeleteBatch(false)}
+                className="p-1 p-1! text-zinc-400 hover:text-white rounded cursor-pointer"
+                aria-label="Close confirmation dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed py-4 py-4!">
+              This will permanently remove{' '}
+              <span className="font-semibold text-white tabular-nums">
+                {selectedFrameIds.size} {selectedFrameIds.size === 1 ? 'frame' : 'frames'}
+              </span>{' '}
+              from the storyboard and re-index all remaining shots. This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 pt-2! border-t border-white/10">
+              <button
+                onClick={() => setConfirmDeleteBatch(false)}
+                className="px-4 py-2 px-4! py-2! rounded bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-medium text-zinc-200 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBatchDelete}
+                className="px-4 py-2 px-4! py-2! rounded bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer transition-colors tabular-nums"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Permanently Delete ({selectedFrameIds.size})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

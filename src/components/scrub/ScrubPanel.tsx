@@ -141,6 +141,12 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   const filmstripScrollRef = useRef<HTMLDivElement>(null);
   const fileUploadInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetIdx, setUploadTargetIdx] = useState<number | null>(null);
+  const [hoveredScrubMarker, setHoveredScrubMarker] = useState<{
+    slideIndex: number;
+    centerX: number;
+    topY: number;
+    subLabel?: string;
+  } | null>(null);
 
   const safeIndex = Math.max(0, Math.min(slides.length - 1, activeSlideIndex));
   const currentSlide = slides[safeIndex] || slides[0];
@@ -1029,7 +1035,111 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         </div>
 
         {/* Master Interactive Sub-Frame Timeline Track (Ruler + Waveform + Playhead) */}
-        <div className="flex-1 mt-2 flex flex-col justify-end">
+        <div className="flex-1 mt-2 flex flex-col justify-end relative">
+          {/* Floating Thumbnail Hover Preview for Scrubber Index Markers */}
+          {hoveredScrubMarker && slides[hoveredScrubMarker.slideIndex] && (() => {
+            const previewSlide = slides[hoveredScrubMarker.slideIndex];
+            const shotNum = hoveredScrubMarker.slideIndex + 1;
+            const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+            const clampedLeft = Math.max(96, Math.min(viewportWidth - 96, hoveredScrubMarker.centerX));
+            const topY = Math.max(110, hoveredScrubMarker.topY - 10);
+            return (
+              <div
+                role="tooltip"
+                data-testid="scrub-panel-hover-preview"
+                style={{
+                  position: 'fixed',
+                  left: `${clampedLeft}px`,
+                  top: `${topY}px`,
+                  transform: 'translate(-50%, -100%)',
+                  zIndex: 9998
+                }}
+                className="w-48 bg-[#090A10]/95 backdrop-blur-xl border border-[#F5A623]/60 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in duration-150"
+              >
+                <div className="relative w-full aspect-video rounded-[2px] overflow-hidden bg-[#050608] border border-white/10">
+                  {previewSlide.remoteUrl ? (
+                    previewSlide.isVideo ? (
+                      <video
+                        src={previewSlide.remoteUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={previewSlide.remoteUrl}
+                        alt={previewSlide.titleEn || `Frame ${shotNum}`}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                    )
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-slate-500">
+                      <Film className="w-4 h-4 opacity-50" />
+                      <span className="text-[8px] font-mono">EMPTY FRAME</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/90 via-black/45 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8.5px] tabular-nums">
+                    <span className="font-bold text-[#FFE066]">
+                      #{String(shotNum).padStart(3, '0')}
+                    </span>
+                    <span className="text-slate-300">
+                      {hoveredScrubMarker.subLabel || `${getShotDurationSec(previewSlide, 12.0).toFixed(1)}s`}
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-1 pt-1! px-0.5 px-0.5! flex items-center justify-between gap-1.5">
+                  <span className="text-[9.5px] font-semibold text-white truncate">
+                    {previewSlide.titleEn || `Shot ${shotNum}`}
+                  </span>
+                  <span className="text-[8px] font-mono text-amber-400 shrink-0">Click to jump</span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Scrubber Shot Index Markers Strip */}
+          <div
+            onMouseLeave={() => setHoveredScrubMarker(null)}
+            className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1.5 mb-0.5"
+          >
+            {slides.map((s, idx) => {
+              const isAct = idx === safeIndex;
+              return (
+                <button
+                  key={s.id || idx}
+                  type="button"
+                  onClick={() => onSelectSlide(idx)}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredScrubMarker({
+                      slideIndex: idx,
+                      centerX: rect.left + rect.width / 2,
+                      topY: rect.top
+                    });
+                  }}
+                  onFocus={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredScrubMarker({
+                      slideIndex: idx,
+                      centerX: rect.left + rect.width / 2,
+                      topY: rect.top
+                    });
+                  }}
+                  onBlur={() => setHoveredScrubMarker(null)}
+                  className={`shrink-0 px-1.5 py-0.5 px-1.5! py-0.5! rounded text-[9px] font-mono font-bold tabular-nums transition-colors cursor-pointer border ${
+                    isAct
+                      ? 'bg-[#F5A623] text-black border-[#FFE066]'
+                      : 'bg-white/5 hover:bg-white/15 text-slate-300 hover:text-[#FFE066] border-white/10'
+                  }`}
+                >
+                  {String(idx + 1).padStart(2, '0')}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Timeline Time Indicators */}
           <div className="flex justify-between text-[10px] text-slate-400 font-mono pb-1 px-1 tabular-nums">
             <span>0.00s [F001]</span>

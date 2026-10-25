@@ -55,6 +55,11 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
   const [loopPointB, setLoopPointB] = useState<number | null>(null);
   const [dilationCurve, setDilationCurve] = useState<'linear' | 'ease' | 'bullet' | 'hyper'>('linear');
   const [bookmarks, setBookmarks] = useState<number[]>([0, 5, 12, 22]);
+  const [hoveredMarker, setHoveredMarker] = useState<{
+    index: number;
+    centerX: number;
+    topY: number;
+  } | null>(null);
 
   const animFrameRef = useRef<number | null>(null);
 
@@ -251,11 +256,105 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
         </div>
 
         {/* Bottom Control Dock & High-Precision Scrubber */}
-        <div className="h-28 bg-[#0a0a0f] border-t border-white/10 p-3 flex flex-col justify-between">
-          {/* Timeline Bar with Bookmarks & A-B points */}
-          <div className="relative flex flex-col gap-1">
+        <div className="h-32 bg-[#0a0a0f] border-t border-white/10 p-3 p-3! flex flex-col justify-between relative">
+          {/* Floating Thumbnail Preview Popup on Index Marker Hover */}
+          {hoveredMarker && frames[hoveredMarker.index] && (() => {
+            const previewFrame = frames[hoveredMarker.index];
+            const shotNum = hoveredMarker.index + 1;
+            const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+            const clampedLeft = Math.max(96, Math.min(viewportWidth - 96, hoveredMarker.centerX));
+            const topY = Math.max(96, hoveredMarker.topY - 10);
+            return (
+              <div
+                role="tooltip"
+                data-testid="animatic-scrubber-hover-preview"
+                style={{
+                  position: 'fixed',
+                  left: `${clampedLeft}px`,
+                  top: `${topY}px`,
+                  transform: 'translate(-50%, -100%)',
+                  zIndex: 9999
+                }}
+                className="w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/60 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in duration-150"
+              >
+                <div className="relative w-full aspect-video rounded-[2px] overflow-hidden bg-black border border-white/10">
+                  {previewFrame.imageUrl ? (
+                    <img
+                      src={previewFrame.imageUrl}
+                      alt={previewFrame.title || `Frame ${shotNum}`}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[8px] font-mono text-white/30">
+                      NO MEDIA
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8px] tabular-nums">
+                    <span className="font-bold text-[#FFE066]">
+                      #{String(shotNum).padStart(3, '0')}
+                    </span>
+                    <span className="text-white/75">
+                      {((hoveredMarker.index / totalFrames) * timelineCeiling).toFixed(1)}s
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-1 pt-1! px-0.5 px-0.5! text-[9.5px] font-semibold text-white truncate">
+                  {previewFrame.title || `Frame ${shotNum}`}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Scrubber Index Markers + Timeline Bar */}
+          <div
+            onMouseLeave={() => setHoveredMarker(null)}
+            className="relative flex flex-col gap-1"
+          >
+            {/* Scrollable Frame Index Markers */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+              {frames.map((f, idx) => {
+                const isAct = idx === activeFrameIndex;
+                return (
+                  <button
+                    key={f.id ?? idx}
+                    type="button"
+                    onClick={() => {
+                      const jumpSec = (idx / totalFrames) * timelineCeiling;
+                      setCurrentTime(jumpSec);
+                      onSelectFrame(idx);
+                    }}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredMarker({
+                        index: idx,
+                        centerX: rect.left + rect.width / 2,
+                        topY: rect.top
+                      });
+                    }}
+                    onFocus={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredMarker({
+                        index: idx,
+                        centerX: rect.left + rect.width / 2,
+                        topY: rect.top
+                      });
+                    }}
+                    onBlur={() => setHoveredMarker(null)}
+                    className={`shrink-0 px-1.5 py-0.5 px-1.5! py-0.5! rounded-[2px] text-[8.5px] font-mono font-bold tabular-nums transition-colors cursor-pointer border ${
+                      isAct
+                        ? 'bg-[#D4AF37] text-black border-[#FFE066]'
+                        : 'bg-white/5 hover:bg-white/15 text-white/75 hover:text-[#FFE066] border-white/10'
+                    }`}
+                  >
+                    {String(idx + 1).padStart(2, '0')}
+                  </button>
+                );
+              })}
+            </div>
+
             <div
-              className="h-4 bg-black rounded border border-white/15 relative cursor-pointer"
+              className="h-3.5 bg-black rounded border border-white/15 relative cursor-pointer"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const ratio = (e.clientX - rect.left) / rect.width;
@@ -295,7 +394,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
             </div>
 
             {/* Micro Time Readouts */}
-            <div className="flex justify-between text-[8px] text-white/40 font-mono-tech">
+            <div className="flex justify-between text-[8px] text-white/40 font-mono-tech tabular-nums">
               <span>0.0s</span>
               <span>{(timelineCeiling * 0.25).toFixed(1)}s</span>
               <span>{(timelineCeiling * 0.5).toFixed(1)}s</span>

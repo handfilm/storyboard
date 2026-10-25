@@ -162,6 +162,8 @@ export interface StudioState {
   toggleAudio: () => void;
   setAudioVolume: (vol: number) => void;
   updateShot: (index: number, partial: Partial<Shot>) => void;
+  setShots: (shots: Shot[]) => void;
+  deleteShots: (indicesToRemove: number[]) => void;
   addShot: (shot: Partial<Shot>) => void;
   appendClip: (clip: Partial<Shot>) => void;
   addMediaItem: (item: MediaItem) => void;
@@ -675,6 +677,51 @@ export const useStudioStore = create<StudioState>()(
 
     appendClip: (clip: Partial<Shot>) => {
       get().addShot(clip);
+    },
+
+    setShots: (shots: Shot[]) => {
+      if (!Array.isArray(shots) || shots.length === 0) return;
+      set((state) => {
+        state.project.shots = shots.map((shot, idx) => ({
+          ...shot,
+          id: idx,
+          epNumber: shot.epNumber || `#${String(idx + 1).padStart(3, '0')}`,
+          updatedAt: Date.now()
+        }));
+        if (state.activeShotIndex >= state.project.shots.length) {
+          state.activeShotIndex = Math.max(0, state.project.shots.length - 1);
+        }
+      });
+    },
+
+    deleteShots: (indicesToRemove: number[]) => {
+      if (!Array.isArray(indicesToRemove) || indicesToRemove.length === 0) return;
+      const removeSet = new Set(indicesToRemove);
+      let didDelete = false;
+      let nextActiveIdx = 0;
+      set((state) => {
+        const currentShots =
+          Array.isArray(state.project.shots) && state.project.shots.length > 0
+            ? state.project.shots
+            : createDefaultStoreShots();
+        const remaining = currentShots.filter((_, idx) => !removeSet.has(idx));
+        if (remaining.length === 0) return;
+        state.project.shots = remaining.map((shot, idx) => ({
+          ...shot,
+          id: idx,
+          epNumber: `#${String(idx + 1).padStart(3, '0')}`,
+          updatedAt: Date.now()
+        }));
+        state.activeShotIndex = Math.max(
+          0,
+          Math.min(state.project.shots.length - 1, state.activeShotIndex)
+        );
+        nextActiveIdx = state.activeShotIndex;
+        didDelete = true;
+      });
+      if (didDelete) {
+        eventBus.emit('shots:deleted', { indicesToRemove, activeShotIndex: nextActiveIdx });
+      }
     },
 
     addMediaItem: (item: MediaItem) => {

@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnthologyFrame, AnthologyProject, AspectRatio, LutPreset, ViewMode } from './types/anthology';
-import { generateInitialFrames, samplePacks } from './data/frames';
+import { generateInitialFrames, samplePacks, localCinematicPlates } from './data/frames';
 import { WorkspaceMode, themeManager } from './core/theme';
 import { featureFlags } from './core/featureFlags';
 import { LeftRail, StudioModuleId } from './components/LeftRail';
@@ -218,29 +218,34 @@ export default function App() {
         setMultiCamGroup(session.multiCamGroup);
       }
       if (Array.isArray(session.shots) && session.shots.length > 0) {
+        const baseDefaults = generateInitialFrames();
         setProject(prev => {
-          const mergedFrames = prev.frames.map((f, i) => {
-            const saved = session.shots.find(s => s.shotIndex === i);
-            if (saved) {
-              const nonExpiredUrl =
-                saved.imageUrl && !saved.imageUrl.startsWith('blob:')
-                  ? saved.imageUrl
-                  : f.imageUrl;
-              return {
-                ...f,
-                title: saved.title || f.title,
-                bengaliTitle: saved.bengaliTitle || f.bengaliTitle,
-                tagline: saved.tagline || f.tagline,
-                directorNotes: saved.directorNotes || f.directorNotes,
-                soundCue: saved.soundCue || f.soundCue,
-                slideHoldSec: saved.durationSeconds || f.slideHoldSec,
-                imageUrl: nonExpiredUrl,
-                thumbnailUrl: saved.thumbnailUrl || f.thumbnailUrl,
-                dopamineConfig: saved.dopamineConfig ?? f.dopamineConfig,
-                isVideo: saved.isVideo ?? f.isVideo
-              };
-            }
-            return f;
+          const mergedFrames: AnthologyFrame[] = session.shots.map((saved, i) => {
+            const existing =
+              prev.frames.find(f => `shot_${f.id}` === String(saved.id) || String(f.id) === String(saved.id)) ||
+              prev.frames[saved.shotIndex] ||
+              prev.frames[i] ||
+              baseDefaults[i % baseDefaults.length];
+            const nonExpiredUrl =
+              saved.imageUrl && !saved.imageUrl.startsWith('blob:')
+                ? saved.imageUrl
+                : existing.imageUrl;
+            return {
+              ...existing,
+              epNumber: `#${String(i + 1).padStart(3, '0')}`,
+              title: saved.title || existing.title,
+              bengaliTitle: saved.bengaliTitle || existing.bengaliTitle,
+              tagline: saved.tagline || existing.tagline,
+              directorNotes: saved.directorNotes || existing.directorNotes,
+              soundCue: saved.soundCue || existing.soundCue,
+              slideHoldSec: saved.durationSeconds || existing.slideHoldSec,
+              durationSec: saved.durationSeconds || existing.durationSec,
+              imageUrl: nonExpiredUrl,
+              thumbnailUrl: saved.thumbnailUrl || existing.thumbnailUrl,
+              dopamineConfig: saved.dopamineConfig ?? existing.dopamineConfig,
+              isVideo: saved.isVideo ?? existing.isVideo,
+              lutFilter: (saved.lutFilter as LutPreset) || existing.lutFilter
+            };
           });
           return {
             ...prev,
@@ -248,6 +253,15 @@ export default function App() {
             frames: mergedFrames
           };
         });
+        setCurrentIndex(cur =>
+          Math.max(
+            0,
+            Math.min(
+              session.shots.length - 1,
+              typeof session.activeShotIndex === 'number' ? session.activeShotIndex : cur
+            )
+          )
+        );
       }
     }).catch(err => console.warn('[App] Session load error:', err));
   }, []);
@@ -325,23 +339,28 @@ export default function App() {
         setMultiCamGroup(imported.multiCamGroup);
       }
       if (Array.isArray(imported.shots) && imported.shots.length > 0) {
+        const baseDefaults = generateInitialFrames();
         setProject(prev => {
-          const merged = prev.frames.map((f, i) => {
-            const s = imported.shots.find(shot => shot.shotIndex === i);
-            if (s) {
-              return {
-                ...f,
-                title: s.title || f.title,
-                bengaliTitle: s.bengaliTitle || f.bengaliTitle,
-                tagline: s.tagline || f.tagline,
-                directorNotes: s.directorNotes || f.directorNotes,
-                soundCue: s.soundCue || f.soundCue,
-                slideHoldSec: s.durationSeconds || f.slideHoldSec,
-                imageUrl: s.imageUrl || f.imageUrl,
-                isVideo: s.isVideo ?? f.isVideo
-              };
-            }
-            return f;
+          const merged: AnthologyFrame[] = imported.shots.map((s, i) => {
+            const existing =
+              prev.frames.find(f => String(f.id) === String(s.id)) ||
+              prev.frames[s.shotIndex] ||
+              prev.frames[i] ||
+              baseDefaults[i % baseDefaults.length];
+            return {
+              ...existing,
+              epNumber: `#${String(i + 1).padStart(3, '0')}`,
+              title: s.title || existing.title,
+              bengaliTitle: s.bengaliTitle || existing.bengaliTitle,
+              tagline: s.tagline || existing.tagline,
+              directorNotes: s.directorNotes || existing.directorNotes,
+              soundCue: s.soundCue || existing.soundCue,
+              slideHoldSec: s.durationSeconds || existing.slideHoldSec,
+              durationSec: s.durationSeconds || existing.durationSec,
+              imageUrl: s.imageUrl || existing.imageUrl,
+              isVideo: s.isVideo ?? existing.isVideo,
+              lutFilter: (s.lutFilter as LutPreset) || existing.lutFilter
+            };
           });
           return {
             ...prev,
@@ -422,18 +441,11 @@ export default function App() {
     if (!p) return;
     const safeShots = Array.isArray(p.shots) && p.shots.length > 0 ? p.shots : [];
     const baseFrames = generateInitialFrames();
-    
-    // Guarantee full 100 frames
-    const rawFrames = safeShots.length > 0
+
+    // Preserve exact saved frame count so permanently deleted frames are never resurrected
+    const frames = safeShots.length > 0
       ? safeShots.map((shot, idx) => convertShotV1ToFrame(shot, idx))
       : baseFrames;
-    
-    const frames = rawFrames.length >= 100
-      ? rawFrames
-      : [
-          ...rawFrames,
-          ...baseFrames.slice(rawFrames.length)
-        ];
 
     setActiveProjectId(p.id || 'default-project');
     setProject({
@@ -473,22 +485,41 @@ export default function App() {
     });
     setPanOffsets(loadedOffsets);
 
-    // Sync all loaded shots to useStudioStore so CinemaStage, BoardStudio, MediaStudio are in lockstep
+    // Sync exact loaded shots array to useStudioStore so CinemaStage, BoardStudio, MediaStudio are in lockstep
     try {
       const store = useStudioStore.getState();
-      safeShots.forEach((s, idx) => {
-        store.updateShot(idx, {
-          imageUrl: s.imageUrl,
-          isVideo: s.isVideo,
-          panY: typeof s.panY === 'number' ? s.panY : 50,
-          title: s.titleEn,
-          bengaliTitle: s.titleBn,
-          tagline: s.subtitle,
-          directorNotes: s.directorNotes,
-          soundCue: s.soundCue,
-          tags: s.tags
-        });
-      });
+      store.setShots(
+        frames.map((f, idx) => ({
+          id: idx,
+          epNumber: f.epNumber || `#${String(idx + 1).padStart(3, '0')}`,
+          title: f.title,
+          bengaliTitle: f.bengaliTitle || '',
+          tagline: f.tagline || '',
+          directorNotes: f.directorNotes || '',
+          soundCue: f.soundCue || '',
+          cameraSpec: f.cameraSpec,
+          imageUrl: f.imageUrl,
+          thumbnailUrl: f.thumbnailUrl,
+          isVideo: Boolean(f.isVideo),
+          panY: loadedOffsets[idx] ?? 50,
+          colorAccent: f.colorAccent || '#D4AF37',
+          hoverStyle: f.hoverStyle ?? 0,
+          lutFilter: f.lutFilter || 'cinematic',
+          aspectRatio: p.settings?.aspectRatio || '2.39:1',
+          adjustments: {
+            ...f.adjustments,
+            halations: 0,
+            anamorphicStreak: 0
+          },
+          durationSeconds: f.durationSec || f.slideHoldSec || 12.0,
+          shotType: 'MS',
+          status: 'planned',
+          tags: f.tags || [],
+          activeLens: f.cameraSpec?.focalLength || '50mm f/1.4 Human Eye',
+          dof: '1.8cm',
+          updatedAt: Date.now()
+        }))
+      );
     } catch {
       // safe fallback
     }
@@ -602,7 +633,7 @@ export default function App() {
             sensor: 'Full Frame ARRI LF',
             format: '2.39:1 Scope'
           },
-          imageUrl: shot?.thumbnail || shot?.imageUrl || 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=800',
+          imageUrl: shot?.thumbnail || shot?.imageUrl || localCinematicPlates[0],
           isVideo: shot?.isVideo ?? true,
           colorAccent: shot?.colorAccent || '#A855F7',
           hoverStyle: 1,
@@ -629,6 +660,21 @@ export default function App() {
       }
     });
 
+    const unsubShotsDeleted = eventBus.on('shots:deleted', ({ indicesToRemove }: { indicesToRemove: number[] }) => {
+      if (!Array.isArray(indicesToRemove) || indicesToRemove.length === 0) return;
+      const removeSet = new Set(indicesToRemove);
+      setProject(prev => {
+        const remaining = prev.frames.filter((_, idx) => !removeSet.has(idx));
+        if (remaining.length === 0) return prev;
+        const reindexed = remaining.map((f, idx) => ({
+          ...f,
+          epNumber: `#${String(idx + 1).padStart(3, '0')}`
+        }));
+        setCurrentIndex(cur => Math.max(0, Math.min(reindexed.length - 1, cur)));
+        return { ...prev, frames: reindexed };
+      });
+    });
+
     return () => {
       unsub();
       unsubAsset();
@@ -639,6 +685,7 @@ export default function App() {
       unsubTheme();
       unsubDrawerClose();
       unsubAddShot();
+      unsubShotsDeleted();
     };
   }, [handleOpenExportStudio, aspectRatio]);
 
@@ -1772,6 +1819,71 @@ export default function App() {
     }));
   };
 
+  const syncFramesToStoreAndSession = useCallback(
+    (newFrames: AnthologyFrame[], safeNextIndex: number) => {
+      try {
+        useStudioStore.getState().setShots(
+          newFrames.map((f, idx) => ({
+            id: idx,
+            epNumber: f.epNumber || `#${String(idx + 1).padStart(3, '0')}`,
+            title: f.title,
+            bengaliTitle: f.bengaliTitle || '',
+            tagline: f.tagline || '',
+            directorNotes: f.directorNotes || '',
+            soundCue: f.soundCue || '',
+            cameraSpec: f.cameraSpec,
+            imageUrl: f.imageUrl,
+            thumbnailUrl: f.thumbnailUrl,
+            isVideo: Boolean(f.isVideo),
+            panY: f.panY ?? 50,
+            colorAccent: f.colorAccent || '#D4AF37',
+            hoverStyle: f.hoverStyle ?? 0,
+            lutFilter: f.lutFilter || 'cinematic',
+            aspectRatio: f.aspectRatio || aspectRatio || '2.39:1',
+            adjustments: {
+              ...f.adjustments,
+              halations: 0,
+              anamorphicStreak: 0
+            },
+            durationSeconds: f.slideHoldSec || f.durationSec || 12.0,
+            shotType: 'MS',
+            status: 'planned',
+            tags: f.tags || [],
+            activeLens: f.cameraSpec?.focalLength || '50mm f/1.4 Human Eye',
+            dof: '1.8cm',
+            updatedAt: Date.now()
+          }))
+        );
+      } catch {
+        // safe fallback
+      }
+
+      projectStorageEngine.saveSession({
+        version: '1.0.0',
+        updatedAt: Date.now(),
+        projectTitle: project.title || 'RAWx Storyboard',
+        activeShotIndex: safeNextIndex,
+        shots: newFrames.map((f, i) => ({
+          id: `shot_${f.id ?? i}`,
+          shotIndex: i,
+          title: f.title,
+          bengaliTitle: f.bengaliTitle,
+          tagline: f.tagline,
+          directorNotes: f.directorNotes,
+          soundCue: f.soundCue,
+          durationSeconds: f.slideHoldSec || f.durationSec || 12.0,
+          imageUrl: f.imageUrl,
+          thumbnailUrl: f.thumbnailUrl,
+          dopamineConfig: f.dopamineConfig,
+          isVideo: f.isVideo,
+          lutFilter: f.lutFilter
+        })),
+        multiCamGroup
+      }).catch(err => console.warn('Failed saving reordered session', err));
+    },
+    [aspectRatio, multiCamGroup, project.title]
+  );
+
   const handleReorderFrames = useCallback((newFrames: AnthologyFrame[]) => {
     const safeNextIndex = Math.max(0, Math.min(newFrames.length - 1, currentIndex));
     setHistoryStack(h => [...h.slice(-19), project]);
@@ -1784,28 +1896,45 @@ export default function App() {
       setCurrentIndex(safeNextIndex);
       setSlideTimeSec(0);
     }
-    // Sync to sovereign storage engine so sequence is preserved across sessions
-    projectStorageEngine.saveSession({
-      version: '1.0.0',
-      updatedAt: Date.now(),
-      projectTitle: project.title || 'RAWx Storyboard',
-      activeShotIndex: safeNextIndex,
-      shots: newFrames.map((f, i) => ({
-        id: `shot_${f.id ?? i}`,
-        shotIndex: i,
-        title: f.title,
-        bengaliTitle: f.bengaliTitle,
-        tagline: f.tagline,
-        directorNotes: f.directorNotes,
-        soundCue: f.soundCue,
-        durationSeconds: f.slideHoldSec || f.durationSec || 12.0,
-        imageUrl: f.imageUrl,
-        thumbnailUrl: f.thumbnailUrl,
-        dopamineConfig: f.dopamineConfig,
-        isVideo: f.isVideo
+    syncFramesToStoreAndSession(newFrames, safeNextIndex);
+  }, [currentIndex, project, syncFramesToStoreAndSession]);
+
+  const handlePermanentDeleteFrames = useCallback((remainingFrames: AnthologyFrame[], deletedIds: number[]) => {
+    const deletedIdSet = new Set(deletedIds);
+    const remainingUrls = new Set(remainingFrames.map(f => f.imageUrl).filter(Boolean));
+
+    // Release any blob URLs and cached thumbnails owned exclusively by permanently deleted frames
+    project.frames.forEach((f) => {
+      if (deletedIdSet.has(f.id)) {
+        if (f.imageUrl && f.imageUrl.startsWith('blob:') && !remainingUrls.has(f.imageUrl)) {
+          studioDraftDb.revokeTrackedUrl(f.imageUrl);
+        }
+        thumbnailMemoryCache.delete(String(f.id));
+      }
+    });
+
+    const safeNextIndex = Math.max(0, Math.min(remainingFrames.length - 1, currentIndex));
+    // Prune deleted frames from undo/redo stacks so permanent removal cannot resurrect deleted frames
+    setHistoryStack(prevStack =>
+      prevStack.map(snap => ({
+        ...snap,
+        frames: snap.frames.filter(f => !deletedIdSet.has(f.id)).map((f, idx) => ({
+          ...f,
+          epNumber: `#${String(idx + 1).padStart(3, '0')}`
+        }))
       }))
-    }).catch(err => console.warn('Failed saving reordered session', err));
-  }, [currentIndex, project]);
+    );
+    setRedoStack([]);
+    setProject(prev => ({
+      ...prev,
+      frames: remainingFrames
+    }));
+    if (safeNextIndex !== currentIndex) {
+      setCurrentIndex(safeNextIndex);
+      setSlideTimeSec(0);
+    }
+    syncFramesToStoreAndSession(remainingFrames, safeNextIndex);
+  }, [currentIndex, project.frames, syncFramesToStoreAndSession]);
 
   const currentFrame = (project.frames && project.frames[currentIndex]) 
     ? project.frames[currentIndex] 
@@ -2339,6 +2468,7 @@ export default function App() {
         }}
         onPopulateSamplePack={handlePopulateAllFrames}
         onReorderFrames={handleReorderFrames}
+        onDeleteFrames={handlePermanentDeleteFrames}
         onUpdateFrame={handleUpdateFrame}
         projectTitle={project.title}
         directorName={project.director}

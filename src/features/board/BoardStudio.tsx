@@ -5,9 +5,9 @@
  * speed editing shortcuts (S split, M merge, Ctrl+D duplicate, Ctrl+Enter new shot), and bulk editing.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useStudioStore, BoardSubView } from '../../core/store';
-import { baseThemesData } from '../../data/frames';
+import { baseThemesData, localCinematicPlates } from '../../data/frames';
 import { toBengaliNumerals } from '../../utils/engine';
 import { 
   LayoutGrid, 
@@ -27,21 +27,10 @@ import {
   Sparkles,
   MoveVertical,
   Video,
-  Upload
+  Upload,
+  AlertTriangle,
+  X
 } from 'lucide-react';
-
-const sampleCinemaImages = [
-  "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1519638399535-1b036603ac77?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1920&q=80",
-  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1920&q=80"
-];
 
 export const BoardStudio: React.FC = () => {
   const {
@@ -52,21 +41,25 @@ export const BoardStudio: React.FC = () => {
     setBoardView,
     project,
     updateShot,
-    setShotPanY
+    setShotPanY,
+    deleteShots
   } = useStudioStore();
 
   const [cardSize, setCardSize] = useState<number>(220);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedShots, setSelectedShots] = useState<number[]>([]);
   const [isBulkBarOpen, setIsBulkBarOpen] = useState(false);
+  const [confirmDeleteBatch, setConfirmDeleteBatch] = useState(false);
+  const [boardNotice, setBoardNotice] = useState<string | null>(null);
+  const anchorShotRef = useRef<number | null>(null);
 
-  // Fallback to 100 shots if project.shots is empty
-  const totalShots = Math.max(100, project.shots.length);
+  // Respect actual project.shots length when populated so deleted frames stay removed
+  const totalShots = project.shots.length > 0 ? project.shots.length : 100;
   const shotsList = useMemo(() => {
     return Array.from({ length: totalShots }).map((_, idx) => {
       const stored = project.shots[idx] || {};
       const theme = baseThemesData[idx % baseThemesData.length];
-      const imgUrl = stored.imageUrl || sampleCinemaImages[idx % sampleCinemaImages.length];
+      const imgUrl = stored.imageUrl || localCinematicPlates[idx % localCinematicPlates.length];
       const isVid = Boolean(
         stored.isVideo !== undefined
           ? stored.isVideo
@@ -142,8 +135,42 @@ export const BoardStudio: React.FC = () => {
     );
   }, [shotsList, searchQuery]);
 
+  const selectRangeToShot = (targetId: number, additive: boolean = false) => {
+    const orderedIds = filteredShots.map(s => s.id);
+    const anchor = anchorShotRef.current !== null && orderedIds.includes(anchorShotRef.current)
+      ? anchorShotRef.current
+      : orderedIds.includes(activeShotIndex)
+      ? activeShotIndex
+      : targetId;
+
+    const startPos = orderedIds.indexOf(anchor);
+    const endPos = orderedIds.indexOf(targetId);
+
+    if (startPos === -1 || endPos === -1) {
+      anchorShotRef.current = targetId;
+      setSelectedShots([targetId]);
+      return;
+    }
+
+    const low = Math.min(startPos, endPos);
+    const high = Math.max(startPos, endPos);
+    const rangeIds = orderedIds.slice(low, high + 1);
+
+    setSelectedShots(prev => {
+      if (additive) {
+        return Array.from(new Set([...prev, ...rangeIds]));
+      }
+      return rangeIds;
+    });
+  };
+
   const toggleSelectShot = (idx: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (e.shiftKey) {
+      selectRangeToShot(idx, e.metaKey || e.ctrlKey);
+      return;
+    }
+    anchorShotRef.current = idx;
     setSelectedShots(prev => 
       prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
     );
@@ -155,6 +182,22 @@ export const BoardStudio: React.FC = () => {
     } else {
       setSelectedShots(filteredShots.map(s => s.id));
     }
+  };
+
+  const handleConfirmPermanentDelete = () => {
+    if (selectedShots.length === 0) return;
+    if (selectedShots.length >= shotsList.length) {
+      setBoardNotice('Cannot delete all frames — storyboard must retain at least 1 frame.');
+      setTimeout(() => setBoardNotice(null), 3500);
+      setConfirmDeleteBatch(false);
+      return;
+    }
+    const count = selectedShots.length;
+    deleteShots(selectedShots);
+    setSelectedShots([]);
+    setConfirmDeleteBatch(false);
+    setBoardNotice(`Permanently deleted ${count} ${count === 1 ? 'frame' : 'frames'}`);
+    setTimeout(() => setBoardNotice(null), 3500);
   };
 
   const handleDuplicate = (idx: number, e: React.MouseEvent) => {
@@ -280,9 +323,27 @@ export const BoardStudio: React.FC = () => {
             </div>
           )}
 
+          {boardNotice && (
+            <span className="hidden lg:inline-block px-2 py-0.5 px-2! py-0.5! rounded bg-emerald-950/90 border border-emerald-500/40 text-[10px] text-emerald-300 tabular-nums">
+              {boardNotice}
+            </span>
+          )}
+
+          {selectedShots.length > 0 && (
+            <button
+              onClick={() => setConfirmDeleteBatch(true)}
+              data-testid="board-delete-selected-btn"
+              className="flex items-center gap-1.5 px-3 py-1 px-3! py-1! rounded border border-rose-500/55 bg-rose-600/20 hover:bg-rose-600 hover:text-white text-rose-200 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 tabular-nums"
+              title="Permanently delete selected frames"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected ({selectedShots.length})</span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsBulkBarOpen(!isBulkBarOpen)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-xs transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 px-2.5! py-1! rounded border text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 tabular-nums ${
               isBulkBarOpen || selectedShots.length > 0
                 ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#FFE066]'
                 : 'border-[#D4AF37]/20 text-[#8A8A8A] hover:text-[#EDEDED]'
@@ -294,18 +355,26 @@ export const BoardStudio: React.FC = () => {
         </div>
       </div>
 
-      {/* Bulk Action Bar (Expandable) */}
-      {isBulkBarOpen && (
-        <div className="h-10 bg-[#121212] border-b border-[#D4AF37]/30 px-4 flex items-center justify-between text-xs animate-in fade-in duration-150">
+      {/* Bulk Action Bar (Expandable or Auto-Shown When Frames Selected) */}
+      {(isBulkBarOpen || selectedShots.length > 0) && (
+        <div className="h-10 bg-[#121212] border-b border-[#D4AF37]/30 px-4 px-4! flex items-center justify-between text-xs animate-in fade-in duration-150">
           <div className="flex items-center gap-3">
             <button
               onClick={selectAll}
-              className="text-[#FFE066] hover:underline"
+              className="text-[#FFE066] hover:underline cursor-pointer tabular-nums"
             >
-              {selectedShots.length === filteredShots.length ? 'Deselect All' : 'Select All 100'}
+              {selectedShots.length === filteredShots.length ? 'Deselect All' : `Select All (${filteredShots.length})`}
             </button>
-            <span className="text-[#8A8A8A]">|</span>
-            <span className="text-[#8A8A8A]">{selectedShots.length} shots selected</span>
+            {selectedShots.length > 0 && (
+              <button
+                onClick={() => setSelectedShots([])}
+                className="text-[#8A8A8A] hover:text-white underline cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+            <span className="text-[#8A8A8A]">·</span>
+            <span className="text-[#8A8A8A] tabular-nums">{selectedShots.length} frames selected (Shift+Click for range)</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -314,7 +383,8 @@ export const BoardStudio: React.FC = () => {
                 selectedShots.forEach(idx => setShotPanY(idx, 50));
                 setSelectedShots([]);
               }}
-              className="px-2 py-0.5 bg-[#050505] border border-[#D4AF37]/30 hover:border-[#D4AF37] rounded text-[11px]"
+              disabled={selectedShots.length === 0}
+              className="px-2.5 py-1 px-2.5! py-1! bg-[#050505] border border-[#D4AF37]/30 hover:border-[#D4AF37] rounded text-[11px] cursor-pointer disabled:opacity-40 whitespace-nowrap"
             >
               Center Pan (50%)
             </button>
@@ -323,10 +393,20 @@ export const BoardStudio: React.FC = () => {
                 selectedShots.forEach(idx => updateShot(idx, { status: 'approved' }));
                 setSelectedShots([]);
               }}
-              className="px-2 py-0.5 bg-[#D4AF37] text-black font-bold rounded text-[11px]"
+              disabled={selectedShots.length === 0}
+              className="px-2.5 py-1 px-2.5! py-1! bg-[#D4AF37] text-black font-bold rounded text-[11px] cursor-pointer disabled:opacity-40 whitespace-nowrap"
             >
               Mark Approved
             </button>
+            {selectedShots.length > 0 && (
+              <button
+                onClick={() => setConfirmDeleteBatch(true)}
+                className="px-3 py-1 px-3! py-1! bg-rose-600/25 hover:bg-rose-600 border border-rose-500/60 text-rose-200 hover:text-white font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap tabular-nums"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Delete Selected ({selectedShots.length})</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -348,12 +428,26 @@ export const BoardStudio: React.FC = () => {
               return (
                 <div
                   key={shot.id}
-                  onClick={() => setActiveShotIndex(shot.id)}
+                  onClick={(e) => {
+                    if (e.shiftKey) {
+                      selectRangeToShot(shot.id, e.metaKey || e.ctrlKey);
+                      setActiveShotIndex(shot.id);
+                      return;
+                    }
+                    if (e.metaKey || e.ctrlKey || isBulkBarOpen) {
+                      toggleSelectShot(shot.id, e);
+                      setActiveShotIndex(shot.id);
+                      return;
+                    }
+                    anchorShotRef.current = shot.id;
+                    setActiveShotIndex(shot.id);
+                  }}
+                  onDoubleClick={() => handleJumpToStage(shot.id)}
                   className={`group relative bg-[#0B0B0B] border rounded overflow-hidden cursor-pointer transition-all ${
-                    isActive
-                      ? 'border-[#FFE066] ring-2 ring-[#FFE066]/30 shadow-lg'
-                      : isSelected
-                      ? 'border-[#D4AF37]'
+                    isSelected
+                      ? 'border-[#FFE066] ring-2 ring-[#FFE066]/60 bg-[#181408] shadow-lg'
+                      : isActive
+                      ? 'border-[#FFE066] ring-1 ring-[#FFE066]/30 shadow-lg'
                       : 'border-[#D4AF37]/20 hover:border-[#D4AF37]/60'
                   }`}
                 >
@@ -363,10 +457,11 @@ export const BoardStudio: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={(e) => toggleSelectShot(shot.id, e as any)}
+                        onClick={(e) => toggleSelectShot(shot.id, e)}
+                        onChange={() => {}}
                         className="accent-[#D4AF37] rounded cursor-pointer"
                       />
-                      <span className="font-bold text-[#FFE066]">
+                      <span className="font-bold text-[#FFE066] tabular-nums">
                         {String(shot.number).padStart(3, '0')}
                       </span>
                       <span className="text-[#8A8A8A] text-[10px]">
@@ -675,6 +770,69 @@ export const BoardStudio: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Permanent Batch Deletion Confirmation Dialog */}
+      {confirmDeleteBatch && selectedShots.length > 0 && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="board-delete-dialog-title"
+          onClick={() => setConfirmDeleteBatch(false)}
+          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 p-4!"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#0C0D12] border border-rose-500/45 rounded-lg p-5 p-5! shadow-[0_24px_64px_rgba(0,0,0,0.95)] font-sans"
+          >
+            <div className="flex items-start justify-between gap-3 pb-3 pb-3! border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-md bg-rose-500/15 border border-rose-500/40 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4.5 h-4.5 text-rose-400" />
+                </div>
+                <div>
+                  <h3 id="board-delete-dialog-title" className="text-sm font-bold text-white">
+                    Permanently Delete Selected Frames?
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5 tabular-nums">
+                    {selectedShots.length} {selectedShots.length === 1 ? 'frame' : 'frames'} selected
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setConfirmDeleteBatch(false)}
+                className="p-1 p-1! text-zinc-400 hover:text-white rounded cursor-pointer"
+                aria-label="Close confirmation dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed py-4 py-4!">
+              This will permanently remove{' '}
+              <span className="font-semibold text-white tabular-nums">
+                {selectedShots.length} {selectedShots.length === 1 ? 'frame' : 'frames'}
+              </span>{' '}
+              from the storyboard and re-index the remaining sequence. This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 pt-2! border-t border-white/10">
+              <button
+                onClick={() => setConfirmDeleteBatch(false)}
+                className="px-4 py-2 px-4! py-2! rounded bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-medium text-zinc-200 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPermanentDelete}
+                className="px-4 py-2 px-4! py-2! rounded bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer transition-colors tabular-nums"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Permanently Delete ({selectedShots.length})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

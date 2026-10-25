@@ -488,6 +488,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             return (
               <div
                 key={frame?.id ?? idx}
+                data-testid={`scrubber-index-marker-${idx}`}
                 onClick={() => onSelectFrame(idx)}
                 onMouseEnter={(e) => handleMarkerHoverEnter(idx, e.currentTarget)}
                 onMouseMove={(e) => {
@@ -588,7 +589,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   className={`relative z-10 font-mono transition-all duration-200 pointer-events-none select-none mt-1.5 tabular-nums ${
                     isActive
                       ? 'text-[#FFE066] font-black text-[11px] scale-110 drop-shadow-[0_0_8px_rgba(245,166,35,0.95)]'
-                      : 'text-white/35 text-[9px] font-medium tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] group-hover:scale-125 group-hover:text-[#FFE066] group-hover:font-black group-hover:text-[11px]'
+                      : 'text-white/80 text-[9.5px] font-bold tracking-tight drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] group-hover:scale-125 group-hover:text-[#FFE066] group-hover:font-black group-hover:text-[11px]'
                   }`}
                 >
                   {shotNumber}

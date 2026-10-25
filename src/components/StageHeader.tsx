@@ -444,7 +444,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </SmartHoverCard>
 
         {/* Minimalist Hover-Triggered Navigation Bar: HOME | FEATURES | APPS */}
-        <nav className="flex items-center gap-1 sm:gap-2 ml-6 pl-5 border-l border-white/10">
+        <nav className="flex items-center gap-1 xl:gap-2 ml-3 xl:ml-6 pl-3 xl:pl-5 border-l border-white/10">
           {/* 1. HOME Hover Menu */}
           <div className="relative group py-2">
             <button
@@ -620,18 +620,18 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           {/* Subtle Vertical Divider separating System Menus from Workspace Tabs */}
           <div className="w-px h-5 bg-white/20 mx-2 shrink-0"></div>
 
-          {/* Restored Core Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR | MASTER */}
-          <div className="hidden lg:flex items-center gap-3 xl:gap-4 shrink-0">
+          {/* Core Workspace Routing Tabs: STAGE | REELS | SCRUB | MULTI-CAM | MONITOR */}
+          <div className="hidden lg:flex items-center gap-2 xl:gap-3.5 shrink-0">
             <div
-              className="workspace-cross-dissolve-container flex items-center gap-1.5 xl:gap-2 transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
+              className="workspace-cross-dissolve-container flex items-center gap-1 xl:gap-2 transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
               style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
             >
               <button
                 type="button"
                 onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
-                aria-current={currentPanel === 'TACTILE_STAGE' && !isMasterTabActive ? 'page' : undefined}
-                className={`relative py-1 px-2 text-xs md:text-sm font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
-                  currentPanel === 'TACTILE_STAGE' && !isMasterTabActive
+                aria-current={currentPanel === 'TACTILE_STAGE' ? 'page' : undefined}
+                className={`relative py-1 px-2 text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                  currentPanel === 'TACTILE_STAGE'
                     ? 'text-amber-400 opacity-100'
                     : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
                 }`}
@@ -641,7 +641,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 <span
                   aria-hidden="true"
                   className={`absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform] ${
-                    currentPanel === 'TACTILE_STAGE' && !isMasterTabActive ? 'opacity-100' : 'opacity-0'
+                    currentPanel === 'TACTILE_STAGE' ? 'opacity-100' : 'opacity-0'
                   }`}
                   style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 />
@@ -652,9 +652,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <button
                 type="button"
                 onClick={() => handleWorkspacePanelSelect('SPLIT')}
-                aria-current={currentPanel === 'SPLIT' && !isMasterTabActive ? 'page' : undefined}
-                className={`relative py-1 px-2 text-xs md:text-sm font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
-                  currentPanel === 'SPLIT' && !isMasterTabActive
+                aria-current={currentPanel === 'SPLIT' ? 'page' : undefined}
+                className={`relative py-1 px-2 text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                  currentPanel === 'SPLIT'
                     ? 'text-amber-400 opacity-100'
                     : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
                 }`}
@@ -664,7 +664,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 <span
                   aria-hidden="true"
                   className={`absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform] ${
-                    currentPanel === 'SPLIT' && !isMasterTabActive ? 'opacity-100' : 'opacity-0'
+                    currentPanel === 'SPLIT' ? 'opacity-100' : 'opacity-0'
                   }`}
                   style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 />
@@ -675,9 +675,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <button
                 type="button"
                 onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
-                aria-current={currentPanel === 'SEQUENCER' && !isMasterTabActive ? 'page' : undefined}
-                className={`relative py-1 px-2 text-xs md:text-sm font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
-                  currentPanel === 'SEQUENCER' && !isMasterTabActive
+                aria-current={currentPanel === 'SEQUENCER' ? 'page' : undefined}
+                className={`relative py-1 px-2 text-xs font-bold tracking-widest transition-opacity duration-200 ease-out cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transform-gpu will-change-[transform,opacity] ${
+                  currentPanel === 'SEQUENCER'
                     ? 'text-amber-400 opacity-100'
                     : 'text-white/60 hover:text-white opacity-80 hover:opacity-100'
                 }`}
@@ -687,7 +687,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 <span
                   aria-hidden="true"
                   className={`absolute inset-0 rounded bg-amber-500/12 border-b-2 border-amber-400 shadow-[0_6px_16px_rgba(245,166,35,0.18)] pointer-events-none transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform] ${
-                    currentPanel === 'SEQUENCER' && !isMasterTabActive ? 'opacity-100' : 'opacity-0'
+                    currentPanel === 'SEQUENCER' ? 'opacity-100' : 'opacity-0'
                   }`}
                   style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 />
@@ -699,8 +699,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={() => handleWorkspacePanelSelect('MULTICAM')}
-              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                currentPanel === 'MULTICAM' && !isMasterTabActive
+              className={`text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentPanel === 'MULTICAM'
                   ? 'text-amber-500'
                   : 'text-white/60 hover:text-white'
               }`}
@@ -713,8 +713,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <button
               type="button"
               onClick={() => handleWorkspacePanelSelect('OPTICAL')}
-              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                currentPanel === 'OPTICAL' && !isMasterTabActive
+              className={`text-xs font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentPanel === 'OPTICAL'
                   ? 'text-amber-500'
                   : 'text-white/60 hover:text-white'
               }`}
@@ -723,67 +723,67 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <Sliders className="w-3.5 h-3.5 shrink-0" />
               <span>MONITOR</span>
             </button>
-
-            <button
-              type="button"
-              onClick={handleMasterWorkspaceClick}
-              className={`text-xs md:text-sm font-bold tracking-widest transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                isMasterTabActive
-                  ? 'text-amber-500'
-                  : 'text-white/60 hover:text-white'
-              }`}
-              title="Master Sequence & Bloom Sequencer"
-            >
-              <Zap className="w-3.5 h-3.5 shrink-0" />
-              <span>MASTER</span>
-            </button>
           </div>
         </nav>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. Middle: Hardware-Accelerated Segmented Control [ SOLO | MASTER ]       */}
+      {/* 2. Center: Force-Rendered Framer Motion Hardware Toggle [ SOLO | MASTER ] */}
       {/* ========================================================================= */}
       {(() => {
         const isMasterMode = playbackMode === 'sequence';
         return (
-          <div className="relative hidden min-[1400px]:flex items-center bg-[#050505] border border-white/10 rounded-full p-1 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md shrink-0">
-            <motion.div
-              layoutId="activeModeIndicator"
-              initial={false}
-              animate={{ x: isMasterMode ? '100%' : '0%' }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="absolute inset-y-1 left-1 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.4)] pointer-events-none transform-gpu"
-              style={{ width: 'calc(50% - 4px)' }}
-            />
-
-            <button
-              type="button"
-              onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('solo')}
-              className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 cursor-pointer text-[10px] md:text-xs font-black tracking-[0.2em] uppercase transition-colors duration-300 whitespace-nowrap ${
-                !isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
-              }`}
-              title="Solo Shot Loop Playback"
-            >
-              {!isMasterMode && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
-              )}
-              <span>SOLO</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('sequence')}
-              className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 cursor-pointer text-[10px] md:text-xs font-black tracking-[0.2em] uppercase transition-colors duration-300 whitespace-nowrap ${
-                isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
-              }`}
-              title="Master Sequence Playback"
-            >
-              {isMasterMode && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
-              )}
-              <span>MASTER</span>
-            </button>
+          <div className="flex-1 flex justify-center items-center px-2">
+            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-1 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md shrink-0">
+              <motion.div
+                layoutId="activeModeIndicator"
+                initial={false}
+                animate={{ x: isMasterMode ? '100%' : '0%' }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                className="absolute inset-y-1 left-1 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.4)] pointer-events-none transform-gpu"
+                style={{ width: 'calc(50% - 4px)' }}
+              />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('solo')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectPlaybackMode && onSelectPlaybackMode('solo');
+                  }
+                }}
+                className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 text-xs font-black tracking-widest uppercase cursor-pointer transition-colors duration-300 whitespace-nowrap ${
+                  !isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
+                }`}
+                title="Solo Shot Loop Playback"
+              >
+                {!isMasterMode && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
+                )}
+                <span>SOLO</span>
+              </div>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelectPlaybackMode && onSelectPlaybackMode('sequence')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectPlaybackMode && onSelectPlaybackMode('sequence');
+                  }
+                }}
+                className={`relative z-10 w-24 py-1.5 flex justify-center items-center gap-1.5 text-xs font-black tracking-widest uppercase cursor-pointer transition-colors duration-300 whitespace-nowrap ${
+                  isMasterMode ? 'text-[#050505]' : 'text-white/40 hover:text-white/70'
+                }`}
+                title="Master Sequence Playback"
+              >
+                {isMasterMode && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#050505] animate-pulse shrink-0" />
+                )}
+                <span>MASTER</span>
+              </div>
+            </div>
           </div>
         );
       })()}

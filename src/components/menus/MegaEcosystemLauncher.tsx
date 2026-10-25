@@ -267,7 +267,7 @@ export const MegaEcosystemLauncher: React.FC<MegaEcosystemLauncherProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed top-12 left-0 w-full h-[calc(100vh-3rem)] bg-[#050505]/98 backdrop-blur-3xl border-t border-white/10 z-[10000] overflow-y-auto p-8 md:p-12 flex flex-col gap-8 font-mono select-none"
+        className="fixed top-16 left-0 w-full h-[calc(100vh-4rem)] bg-[#050505]/98 backdrop-blur-3xl border-t border-white/10 z-[10000] overflow-y-auto p-8 md:p-12 flex flex-col gap-8 font-mono select-none"
       >
         {/* Subtle Ambient Background Flare */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-[140px] pointer-events-none" />

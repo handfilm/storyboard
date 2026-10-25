@@ -40,18 +40,17 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   onUpdateFrame,
   onApplyPreset
 }) => {
-  const {
-    activeShotIndex,
-    project,
-    updateShot,
-    titleConfig,
-    setTitleSize,
-    setTitleGlowIntensity,
-    setTitleTracking,
-    setTitleVerticalOffset
-  } = useStudioStore();
+  const activeShotIndex = useStudioStore((s) => s.activeShotIndex);
+  const titleSize = useStudioStore((s) => s.titleConfig?.titleSize ?? 72);
+  const glowIntensity = useStudioStore((s) => s.titleConfig?.glowIntensity ?? 1.0);
+  const tracking = useStudioStore((s) => s.titleConfig?.tracking ?? 0.15);
+  const verticalOffset = useStudioStore((s) => s.titleConfig?.verticalOffset ?? 0);
+  const setTitleSize = useStudioStore((s) => s.setTitleSize);
+  const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
+  const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
+  const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
 
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'cinematic' | 'rap' | 'docu' | 'retro'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate'>('all');
   const [hoveredPresetId, setHoveredPresetId] = useState<string | null>(null);
   const [appliedPresetId, setAppliedPresetId] = useState<string | null>(null);
   const [dragOverPresetId, setDragOverPresetId] = useState<string | null>(null);
@@ -62,7 +61,8 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     : CINEMATIC_TITLE_PRESETS.filter(p => p.category === selectedCategory);
 
   const categoryChips = [
-    { id: 'all', label: 'ALL (10)' },
+    { id: 'all', label: `ALL (${CINEMATIC_TITLE_PRESETS.length})` },
+    { id: 'corporate', label: '🏢 CORPORATE B2B' },
     { id: 'cinematic', label: '🎬 CINEMATIC' },
     { id: 'rap', label: '⚡ RAP' },
     { id: 'docu', label: '🎙 DOCU' },
@@ -79,7 +79,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
     if (currentFrame && onUpdateFrame) {
       const updated = applyTitleTemplateToFrame(currentFrame, preset);
-      onUpdateFrame(updated);
+      queueMicrotask(() => {
+        onUpdateFrame(updated);
+      });
     }
   };
 
@@ -154,7 +156,8 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     }
 
     // (b) Update local studio store shot
-    const currentShot = project.shots[activeShotIndex] || {};
+    const store = useStudioStore.getState();
+    const currentShot = store.project.shots[activeShotIndex] || {};
     const updatedShotPartial: any = {
       title: preset.primaryText,
       bengaliTitle: preset.bengaliText || currentShot.bengaliTitle || 'দৃষ্টির সীমানা',
@@ -165,7 +168,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       updatedShotPartial.imageUrl = mediaUrl;
       updatedShotPartial.isVideo = isVideo;
     }
-    updateShot(activeShotIndex, updatedShotPartial);
+    store.updateShot(activeShotIndex, updatedShotPartial);
 
     // (c) Apply preset typography & styles to active frame
     const baseFrame: AnthologyFrame = currentFrame || {
@@ -210,7 +213,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     }
 
     if (onUpdateFrame) {
-      onUpdateFrame(updatedFrame);
+      queueMicrotask(() => {
+        onUpdateFrame(updatedFrame);
+      });
     }
     if (onApplyPreset) {
       onApplyPreset(preset);
@@ -360,19 +365,29 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               >
                 {/* Visual Position Bracket Indicators */}
                 {preset.position === 'top' && (
-                  <div className="absolute top-1 left-2 text-[8px] text-zinc-500 font-mono tracking-widest">
+                  <div className="absolute top-1 left-2 text-[8px] text-zinc-500 font-mono tracking-widest z-10">
                     ▲ TOP_ALIGN
                   </div>
                 )}
                 {preset.position === 'lower-third' && (
-                  <div className="absolute bottom-1 left-2 text-[8px] text-zinc-500 font-mono tracking-widest">
+                  <div className="absolute bottom-1 left-2 text-[8px] text-zinc-500 font-mono tracking-widest z-10">
                     ▼ LOWER_THIRD
                   </div>
                 )}
 
+                {/* Optional Mock Background Image for Corporate Suites */}
+                {preset.mockImage && (
+                  <img
+                    src={preset.mockImage}
+                    alt={preset.name}
+                    className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-35 transition-opacity pointer-events-none"
+                    loading="lazy"
+                  />
+                )}
+
                 {/* Primary Title with Live Style */}
                 <div
-                  className={`text-center font-bold transition-all duration-200 leading-tight ${
+                  className={`relative z-10 text-center font-bold transition-all duration-200 leading-tight ${
                     isHovered ? 'scale-105' : 'scale-100'
                   }`}
                   style={{
@@ -388,15 +403,22 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 {/* Secondary Title / Subtitle */}
                 {preset.secondaryText && (
                   <div
-                    className="text-[9px] mt-1 text-center font-mono opacity-80 tracking-widest uppercase transition-opacity"
+                    className="relative z-10 text-[9px] mt-1 text-center font-mono opacity-80 tracking-widest uppercase transition-opacity"
                     style={{ color: '#E4E4E7' }}
                   >
                     {preset.secondaryText}
                   </div>
                 )}
 
+                {/* Corporate Call To Action Badge */}
+                {preset.callToAction && (
+                  <div className="relative z-10 text-[8px] mt-0.5 text-center font-mono text-emerald-400 font-bold tracking-wider uppercase">
+                    [ CTA: {preset.callToAction} ]
+                  </div>
+                )}
+
                 {/* Live Animation Indicator Badge */}
-                <div className="absolute bottom-1 right-2 text-[8px] text-zinc-500 font-mono">
+                <div className="absolute bottom-1 right-2 text-[8px] text-zinc-500 font-mono z-10">
                   {preset.animationStyle}
                 </div>
               </div>
@@ -427,14 +449,14 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         <div className="space-y-1.5">
           <div className="flex justify-between text-[10px] text-zinc-400">
             <span>Font Scale</span>
-            <span className="text-[#FFE066] font-mono">{titleConfig.titleSize}px</span>
+            <span className="text-[#FFE066] font-mono">{titleSize}px</span>
           </div>
           <input
             type="range"
             min={24}
             max={120}
             step={2}
-            value={titleConfig.titleSize}
+            value={titleSize}
             onChange={(e) => setTitleSize(Number(e.target.value))}
             className="w-full accent-[#F5A623] cursor-pointer"
           />
@@ -444,14 +466,14 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         <div className="space-y-1.5">
           <div className="flex justify-between text-[10px] text-zinc-400">
             <span>Anamorphic Glow</span>
-            <span className="text-[#FFE066] font-mono">{Math.round(titleConfig.glowIntensity * 100)}%</span>
+            <span className="text-[#FFE066] font-mono">{Math.round(glowIntensity * 100)}%</span>
           </div>
           <input
             type="range"
             min={0}
             max={2.0}
             step={0.05}
-            value={titleConfig.glowIntensity}
+            value={glowIntensity}
             onChange={(e) => setTitleGlowIntensity(Number(e.target.value))}
             className="w-full accent-[#F5A623] cursor-pointer"
           />
@@ -461,14 +483,14 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         <div className="space-y-1.5">
           <div className="flex justify-between text-[10px] text-zinc-400">
             <span>Letter Tracking</span>
-            <span className="text-[#FFE066] font-mono">{titleConfig.tracking.toFixed(2)}em</span>
+            <span className="text-[#FFE066] font-mono">{tracking.toFixed(2)}em</span>
           </div>
           <input
             type="range"
             min={0}
             max={0.5}
             step={0.02}
-            value={titleConfig.tracking}
+            value={tracking}
             onChange={(e) => setTitleTracking(Number(e.target.value))}
             className="w-full accent-[#F5A623] cursor-pointer"
           />
@@ -478,14 +500,14 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         <div className="space-y-1.5">
           <div className="flex justify-between text-[10px] text-zinc-400">
             <span>Vertical Offset</span>
-            <span className="text-[#FFE066] font-mono">{titleConfig.verticalOffset}px</span>
+            <span className="text-[#FFE066] font-mono">{verticalOffset}px</span>
           </div>
           <input
             type="range"
             min={-120}
             max={120}
             step={5}
-            value={titleConfig.verticalOffset}
+            value={verticalOffset}
             onChange={(e) => setTitleVerticalOffset(Number(e.target.value))}
             className="w-full accent-[#F5A623] cursor-pointer"
           />

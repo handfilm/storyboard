@@ -1285,50 +1285,24 @@ export default function App() {
   }, [redoStack, project]);
 
   const handleUpdateFrame = useCallback((updated: AnthologyFrame) => {
+    let nextDur = 12.0;
+    let targetIdx = -1;
+
     setProject(prev => {
       const idx = prev.frames.findIndex(f => f.id === updated.id);
       if (idx !== -1) {
-        const nextDur = getShotDurationSec(updated, getShotDurationSec(prev.frames[idx], 12.0));
-        try {
-          useStudioStore.getState().updateShot(idx, {
-            title: updated.title,
-            bengaliTitle: updated.bengaliTitle,
-            tagline: updated.tagline,
-            directorNotes: updated.directorNotes,
-            soundCue: updated.soundCue,
-            imageUrl: updated.imageUrl,
-            isVideo: updated.isVideo,
-            durationSeconds: nextDur,
-            adjustments: updated.adjustments ? {
-              halations: 0,
-              anamorphicStreak: 0,
-              ...updated.adjustments
-            } : undefined,
-            lutFilter: updated.lutFilter
-          });
-        } catch {
-          // safe fallback
-        }
+        targetIdx = idx;
+        nextDur = getShotDurationSec(updated, getShotDurationSec(prev.frames[idx], 12.0));
       }
       return {
         ...prev,
-        frames: prev.frames.map(f => f.id === updated.id ? updated : f)
+        frames: prev.frames.map(f => f.id === updated.id ? { ...updated, durationSec: nextDur, slideHoldSec: nextDur } : f)
       };
     });
-  }, []);
 
-  const handleUpdateFrameAtIndex = useCallback((index: number, updated: AnthologyFrame) => {
-    setProject(prev => {
-      if (index < 0 || index >= prev.frames.length) return prev;
-      const nextFrames = [...prev.frames];
-      const nextDur = getShotDurationSec(updated, getShotDurationSec(nextFrames[index], 12.0));
-      nextFrames[index] = {
-        ...updated,
-        slideHoldSec: nextDur,
-        durationSec: nextDur
-      };
+    if (targetIdx !== -1) {
       try {
-        useStudioStore.getState().updateShot(index, {
+        useStudioStore.getState().updateShot(targetIdx, {
           title: updated.title,
           bengaliTitle: updated.bengaliTitle,
           tagline: updated.tagline,
@@ -1337,20 +1311,53 @@ export default function App() {
           imageUrl: updated.imageUrl,
           isVideo: updated.isVideo,
           durationSeconds: nextDur,
+          adjustments: updated.adjustments ? {
+            halations: 0,
+            anamorphicStreak: 0,
+            ...updated.adjustments
+          } : undefined,
           lutFilter: updated.lutFilter
         });
-      } catch {}
+      } catch {
+        // safe fallback
+      }
+    }
+  }, []);
+
+  const handleUpdateFrameAtIndex = useCallback((index: number, updated: AnthologyFrame) => {
+    let nextDur = 12.0;
+
+    setProject(prev => {
+      if (index < 0 || index >= prev.frames.length) return prev;
+      const nextFrames = [...prev.frames];
+      nextDur = getShotDurationSec(updated, getShotDurationSec(nextFrames[index], 12.0));
+      nextFrames[index] = {
+        ...updated,
+        slideHoldSec: nextDur,
+        durationSec: nextDur
+      };
       return { ...prev, frames: nextFrames };
     });
+
+    try {
+      useStudioStore.getState().updateShot(index, {
+        title: updated.title,
+        bengaliTitle: updated.bengaliTitle,
+        tagline: updated.tagline,
+        directorNotes: updated.directorNotes,
+        soundCue: updated.soundCue,
+        imageUrl: updated.imageUrl,
+        isVideo: updated.isVideo,
+        durationSeconds: nextDur,
+        lutFilter: updated.lutFilter
+      });
+    } catch {}
   }, []);
 
   const handleApplyDurationToAll = useCallback((durationSec: number) => {
     const clamped = clampShotDuration(durationSec);
     setProject(prev => {
-      const nextFrames = prev.frames.map((f, idx) => {
-        try {
-          useStudioStore.getState().updateShot(idx, { durationSeconds: clamped });
-        } catch {}
+      const nextFrames = prev.frames.map((f) => {
         return {
           ...f,
           slideHoldSec: clamped,
@@ -1364,20 +1371,28 @@ export default function App() {
       };
     });
     setSlideTimeSec(prev => Math.min(prev, clamped));
+
+    try {
+      const store = useStudioStore.getState();
+      const total = store.project.shots.length;
+      for (let idx = 0; idx < total; idx++) {
+        store.updateShot(idx, { durationSeconds: clamped });
+      }
+    } catch {}
   }, []);
 
   const handleMatchAudioBeats = useCallback(() => {
+    let computedDurations: number[] = [];
+
     setProject(prev => {
       const activeDur = getShotDurationSec(prev.frames[currentIndex], 12.0);
       const beatDurations = audioEngine.calculateAutoCutDurations(
         prev.frames.length,
         Math.min(activeDur, 4.0)
       );
+      computedDurations = beatDurations.map(d => clampShotDuration(d ?? activeDur));
       const nextFrames = prev.frames.map((f, idx) => {
-        const dur = clampShotDuration(beatDurations[idx] ?? activeDur);
-        try {
-          useStudioStore.getState().updateShot(idx, { durationSeconds: dur });
-        } catch {}
+        const dur = computedDurations[idx] || activeDur;
         return {
           ...f,
           slideHoldSec: dur,
@@ -1387,9 +1402,14 @@ export default function App() {
       });
       return { ...prev, frames: nextFrames };
     });
+
     setIsSnapToBeat(true);
     try {
       audioEngine.setSnapToBeatEnabled(true);
+      const store = useStudioStore.getState();
+      computedDurations.forEach((dur, idx) => {
+        store.updateShot(idx, { durationSeconds: dur });
+      });
     } catch {}
   }, [currentIndex]);
 

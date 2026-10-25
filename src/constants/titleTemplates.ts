@@ -9,7 +9,7 @@ import { AnthologyFrame } from '../types/anthology';
 export interface TitleTemplatePreset {
   id: string;
   name: string;
-  category: 'cinematic' | 'rap' | 'docu' | 'retro';
+  category: 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate';
   primaryText: string;
   secondaryText?: string;
   fontFamily: string;
@@ -22,6 +22,10 @@ export interface TitleTemplatePreset {
   bengaliText?: string;
   fontSizeRem?: number;
   badge?: string;
+  callToAction?: string;
+  industry?: string;
+  mockImage?: string;
+  theme?: string;
 }
 
 export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
@@ -175,6 +179,101 @@ export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
     letterSpacing: '0.28em',
     fontSizeRem: 2.0,
     badge: 'HIGH COUTURE'
+  },
+  {
+    id: 'corp_fintech',
+    name: '11. FIN-TECH // CASHBACK ZERO FEES',
+    category: 'corporate',
+    primaryText: '10% CASHBACK // ZERO FEES',
+    secondaryText: 'Secure. Fast. Borderless Transactions.',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    color: '#10B981',
+    glowColor: 'rgba(16, 185, 129, 0.45)',
+    animationStyle: 'pop',
+    position: 'center',
+    letterSpacing: '0.08em',
+    fontSizeRem: 2.1,
+    badge: 'FIN-TECH & BANKING',
+    industry: 'FIN-TECH & BANKING',
+    callToAction: 'DOWNLOAD THE APP NOW',
+    mockImage: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
+    theme: 'glassmorphic_trust'
+  },
+  {
+    id: 'corp_fashion',
+    name: '12. HIGH-STREET // WINTER DROP 2026',
+    category: 'corporate',
+    primaryText: '// WINTER DROP 2026 //',
+    secondaryText: 'Redefining Urban Aesthetics. Available Nationwide.',
+    fontFamily: 'Didot, "Bodoni MT", serif',
+    color: '#F43F5E',
+    glowColor: 'rgba(244, 63, 94, 0.4)',
+    animationStyle: 'slide',
+    position: 'center',
+    letterSpacing: '0.22em',
+    fontSizeRem: 2.1,
+    badge: 'HIGH-STREET FASHION',
+    industry: 'HIGH-STREET FASHION',
+    callToAction: 'SHOP THE COLLECTION',
+    mockImage: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=800',
+    theme: 'split_screen_magazine'
+  },
+  {
+    id: 'corp_realestate',
+    name: '13. REAL ESTATE // REDEFINING SKYLINE',
+    category: 'corporate',
+    primaryText: 'REDEFINING THE SKYLINE',
+    secondaryText: 'Luxury Living Meets Brutalist Architecture.',
+    fontFamily: 'Cinzel, "Playfair Display", serif',
+    color: '#D4AF37',
+    glowColor: 'rgba(212, 175, 55, 0.5)',
+    animationStyle: 'fade',
+    position: 'lower-third',
+    letterSpacing: '0.25em',
+    fontSizeRem: 1.9,
+    badge: 'REAL ESTATE & INFRASTRUCTURE',
+    industry: 'REAL ESTATE & INFRASTRUCTURE',
+    callToAction: 'BOOK YOUR SITE VISIT',
+    mockImage: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=800',
+    theme: 'majestic_minimal'
+  },
+  {
+    id: 'corp_fmcg',
+    name: '14. FMCG // 48H FLASH SALE 50% OFF',
+    category: 'corporate',
+    primaryText: '48 HOURS ONLY // 50% OFF',
+    secondaryText: 'The biggest digital clearance of the year.',
+    fontFamily: 'Impact, "Arial Black", sans-serif',
+    color: '#F59E0B',
+    glowColor: 'rgba(245, 158, 11, 0.6)',
+    animationStyle: 'pop',
+    position: 'top',
+    letterSpacing: '0.05em',
+    fontSizeRem: 2.3,
+    badge: 'FMCG & FLASH SALES',
+    industry: 'FMCG & FLASH SALES',
+    callToAction: 'GRAB BEFORE IT GONE',
+    mockImage: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=800',
+    theme: 'bold_fomo_blocks'
+  },
+  {
+    id: 'corp_telco',
+    name: '15. TELCO // CONNECTING 170 MILLION',
+    category: 'corporate',
+    primaryText: 'CONNECTING 170 MILLION',
+    secondaryText: 'Ultra-fast 5G infrastructure for the next generation.',
+    fontFamily: 'ui-monospace, "SF Mono", "Consolas", monospace',
+    color: '#06B6D4',
+    glowColor: 'rgba(6, 182, 212, 0.5)',
+    animationStyle: 'glitch',
+    position: 'center',
+    letterSpacing: '0.18em',
+    fontSizeRem: 2.0,
+    badge: 'TELCO & TECH',
+    industry: 'TELCO & TECH',
+    callToAction: 'UPGRADE YOUR PLAN',
+    mockImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800',
+    theme: 'hud_telemetry'
   }
 ];
 
@@ -191,6 +290,10 @@ export function applyTitleTemplateToFrame(
     bengaliTitle: preset.bengaliText || frame.bengaliTitle,
     tagline: preset.secondaryText || frame.tagline,
     colorAccent: preset.color,
+    imageUrl: preset.mockImage || frame.imageUrl,
+    directorNotes: preset.callToAction 
+      ? `[CTA: ${preset.callToAction}] ${frame.directorNotes || ''}`.trim()
+      : frame.directorNotes,
     titleAnimation: preset.animationStyle,
     caption: {
       text: preset.primaryText,

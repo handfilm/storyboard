@@ -120,7 +120,9 @@ export const TextStudio: React.FC<TextStudioProps> = ({
 
     // 1. Immediately notify stage & App.tsx for 0ms visual repaint & autosave queue
     if (onUpdateFrame) {
-      onUpdateFrame(updatedFrame);
+      queueMicrotask(() => {
+        onUpdateFrame(updatedFrame);
+      });
     }
 
     // 2. Synchronize useStudioStore

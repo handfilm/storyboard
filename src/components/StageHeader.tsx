@@ -130,20 +130,24 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const dissolveTimeoutRef = useRef<number | null>(null);
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecordingActive, setIsRecordingActive] = useState(false);
-  const [localPlaybackMode, setLocalPlaybackMode] = useState<PlaybackMode>(playbackMode);
+  const [currentMode, setCurrentMode] = useState<'SOLO' | 'MASTER'>(
+    playbackMode === 'solo' ? 'SOLO' : 'MASTER'
+  );
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
   const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
 
   useEffect(() => {
-    setLocalPlaybackMode(playbackMode);
+    setCurrentMode(playbackMode === 'solo' ? 'SOLO' : 'MASTER');
   }, [playbackMode]);
 
-  const handlePlaybackModeToggle = (mode: PlaybackMode) => {
-    setLocalPlaybackMode(mode);
+  const handleModeSelect = (nextModeLabel: 'SOLO' | 'MASTER') => {
+    const mappedPlaybackMode: PlaybackMode = nextModeLabel === 'SOLO' ? 'solo' : 'sequence';
+    setCurrentMode(nextModeLabel);
+    console.log(`[StageHeader] Playback mode active: ${nextModeLabel} (${mappedPlaybackMode})`);
     if (onSelectPlaybackMode) {
-      onSelectPlaybackMode(mode);
+      onSelectPlaybackMode(mappedPlaybackMode);
     }
-    eventBus.emit('playback:mode', { mode });
+    eventBus.emit('playback:mode', { mode: mappedPlaybackMode });
   };
 
   const triggerCoreWorkspaceCrossDissolve = (targetPanel: StagePanelType) => {
@@ -678,13 +682,17 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       {/* 2. CENTER WRAPPER (Absolute Positioning)                                  */}
       {/* ========================================================================= */}
       {(() => {
-        const isMasterMode = localPlaybackMode === 'sequence';
+        const isMasterMode = currentMode === 'MASTER';
         return (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]">
+          <div
+            data-current-mode={currentMode}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]"
+          >
             <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-1 p-1! shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)]">
               <button
                 type="button"
-                onClick={() => handlePlaybackModeToggle('solo')}
+                aria-pressed={!isMasterMode}
+                onClick={() => handleModeSelect('SOLO')}
                 className={`relative z-10 w-[72px] py-1 py-1! flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
                   !isMasterMode
                     ? 'text-[#050505]'
@@ -692,17 +700,34 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 }`}
               >
                 {!isMasterMode && (
-                  <motion.div
-                    layoutId="activeModeIndicator"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                    className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
-                  />
+                  <>
+                    <motion.div
+                      layoutId="activeModeIndicator"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
+                    />
+                    <motion.span
+                      aria-hidden="true"
+                      initial={{ scale: 1, opacity: 0.55 }}
+                      animate={{
+                        scale: [1, 1.08, 1.02, 1.11, 1],
+                        opacity: [0.55, 0.2, 0.45, 0.08, 0.55]
+                      }}
+                      transition={{
+                        duration: 2.2,
+                        repeat: Infinity,
+                        ease: 'easeInOut'
+                      }}
+                      className="absolute -inset-0.5 rounded-full border border-amber-400/75 shadow-[0_0_10px_rgba(251,191,36,0.3)] pointer-events-none motion-reduce:hidden"
+                    />
+                  </>
                 )}
                 <span className="relative z-10">SOLO</span>
               </button>
               <button
                 type="button"
-                onClick={() => handlePlaybackModeToggle('sequence')}
+                aria-pressed={isMasterMode}
+                onClick={() => handleModeSelect('MASTER')}
                 className={`relative z-10 w-[72px] py-1 py-1! flex justify-center items-center text-[10px] font-black tracking-widest uppercase cursor-pointer rounded-full transition-colors duration-200 ${
                   isMasterMode
                     ? 'text-[#050505]'
@@ -710,11 +735,27 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 }`}
               >
                 {isMasterMode && (
-                  <motion.div
-                    layoutId="activeModeIndicator"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                    className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
-                  />
+                  <>
+                    <motion.div
+                      layoutId="activeModeIndicator"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.35)] pointer-events-none"
+                    />
+                    <motion.span
+                      aria-hidden="true"
+                      initial={{ scale: 1, opacity: 0.55 }}
+                      animate={{
+                        scale: [1, 1.08, 1.02, 1.11, 1],
+                        opacity: [0.55, 0.2, 0.45, 0.08, 0.55]
+                      }}
+                      transition={{
+                        duration: 2.2,
+                        repeat: Infinity,
+                        ease: 'easeInOut'
+                      }}
+                      className="absolute -inset-0.5 rounded-full border border-amber-400/75 shadow-[0_0_10px_rgba(251,191,36,0.3)] pointer-events-none motion-reduce:hidden"
+                    />
+                  </>
                 )}
                 <span className="relative z-10">MASTER</span>
               </button>

@@ -16,6 +16,12 @@ import {
   applyTitleTemplateToFrame 
 } from '../../constants/titleTemplates';
 import { 
+  COMPILATION_PRESETS, 
+  CompilationPreset, 
+  getCompilationPresetById 
+} from '../../constants/compilationData';
+import { DopamineCompilationSequence } from '../stage/templates/DopamineCompilationSequence';
+import { 
   Type, 
   Sparkles, 
   Zap, 
@@ -26,7 +32,9 @@ import {
   SlidersHorizontal,
   Flame,
   Activity,
-  Film
+  Film,
+  Radio,
+  RotateCcw
 } from 'lucide-react';
 
 export interface TextTypographyDrawerProps {
@@ -50,11 +58,21 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
   const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
 
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'dopamine' | 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate'>('all');
   const [hoveredPresetId, setHoveredPresetId] = useState<string | null>(null);
   const [appliedPresetId, setAppliedPresetId] = useState<string | null>(null);
   const [dragOverPresetId, setDragOverPresetId] = useState<string | null>(null);
   const [boundSuccessPresetId, setBoundSuccessPresetId] = useState<string | null>(null);
+
+  // Dopamine Engine State
+  const [activeDopamineId, setActiveDopamineId] = useState<string>('viral_loop_1');
+  const [dopamineHook, setDopamineHook] = useState<string>('PURE RHYTHM');
+  const [dopamineSub, setDopamineSub] = useState<string>('Visual Physics at Work.');
+  const [dopamineGlitch, setDopamineGlitch] = useState<number>(80);
+  const [dopamineStrobe, setDopamineStrobe] = useState<number>(60);
+  const [dopamineSpeed, setDopamineSpeed] = useState<number>(1.5);
+  const [dopamineAccent, setDopamineAccent] = useState<string>('#FF2B2B');
+  const [appliedDopamineSuccess, setAppliedDopamineSuccess] = useState<boolean>(false);
 
   const filteredPresets = selectedCategory === 'all'
     ? CINEMATIC_TITLE_PRESETS
@@ -62,12 +80,49 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
   const categoryChips = [
     { id: 'all', label: `ALL (${CINEMATIC_TITLE_PRESETS.length})` },
+    { id: 'dopamine', label: '🌪️ DOPAMINE' },
     { id: 'corporate', label: '🏢 CORPORATE B2B' },
     { id: 'cinematic', label: '🎬 CINEMATIC' },
     { id: 'rap', label: '⚡ RAP' },
     { id: 'docu', label: '🎙 DOCU' },
     { id: 'retro', label: '📼 RETRO' }
   ] as const;
+
+  const handleSelectDopaminePreset = (preset: CompilationPreset) => {
+    setActiveDopamineId(preset.id);
+    setDopamineHook(preset.hook);
+    setDopamineSub(preset.subText);
+    setDopamineGlitch(preset.glitch);
+    setDopamineSpeed(preset.speed);
+    if (preset.strobeRate) setDopamineStrobe(preset.strobeRate);
+    if (preset.accentColor) setDopamineAccent(preset.accentColor);
+  };
+
+  const handleApplyDopamineToFrame = () => {
+    if (!currentFrame || !onUpdateFrame) return;
+    const preset = getCompilationPresetById(activeDopamineId);
+
+    const updated: AnthologyFrame = {
+      ...currentFrame,
+      title: dopamineHook,
+      tagline: dopamineSub,
+      titleAnimation: 'kinetic',
+      tags: Array.from(new Set([...(currentFrame.tags || []), 'dopamine', preset.id])),
+      directorNotes: `[🌪️ DOPAMINE: ${preset.name}] Glitch: ${dopamineGlitch}%, Strobe: ${dopamineStrobe}ms, Speed: ${dopamineSpeed}x`,
+      caption: {
+        text: dopamineSub,
+        style: 'rap_pop',
+        color: dopamineAccent
+      }
+    };
+
+    onUpdateFrame(updated);
+    setAppliedDopamineSuccess(true);
+    setTimeout(() => {
+      setAppliedDopamineSuccess(false);
+      eventBus.emit('drawer:close');
+    }, 1200);
+  };
 
   const handleApply = (preset: TitleTemplatePreset) => {
     setAppliedPresetId(preset.id);
@@ -280,9 +335,117 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         </div>
       </div>
 
-      {/* Preset Cards Grid with Drag-and-Drop Drop Target */}
-      <div className="space-y-3">
-        {filteredPresets.map((preset) => {
+      {/* Preset Cards Grid or Dopamine Engine Workspace */}
+      {selectedCategory === 'dopamine' ? (
+        <div className="space-y-4">
+          {/* Dopamine Engine Header */}
+          <div className="p-3 rounded-xl bg-gradient-to-r from-red-950/40 via-purple-950/40 to-cyan-950/40 border border-red-500/30 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+              <span className="text-xs font-bold text-white tracking-wider uppercase">
+                [ 🌪️ DOPAMINE ENGINE // VIRAL COMPILATION ]
+              </span>
+            </div>
+            <span className="text-[9px] font-mono text-zinc-400">
+              TARGET: SH{String(activeShotIndex + 1).padStart(3, '0')}
+            </span>
+          </div>
+
+          {/* Preset Chips */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {COMPILATION_PRESETS.map((preset) => {
+              const isSelected = activeDopamineId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectDopaminePreset(preset)}
+                  className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-red-950/40 border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)] ring-1 ring-red-400/50'
+                      : 'bg-black/40 border-white/10 hover:border-white/20 text-zinc-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold truncate">{preset.name}</span>
+                    <span 
+                      className="text-[8px] px-1 py-0.2 rounded font-bold uppercase"
+                      style={{ color: preset.accentColor, backgroundColor: `${preset.accentColor}20` }}
+                    >
+                      {preset.speed}x
+                    </span>
+                  </div>
+                  <div className="text-[9px] text-zinc-400 truncate">{preset.hook}</div>
+                  <div className="text-[8px] text-zinc-500 mt-1">Glitch: {preset.glitch}% • Strobe: {preset.strobeRate}ms</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Live Dynamic Preview Canvas running DopamineCompilationSequence */}
+          <div className="h-44 w-full rounded-xl bg-black border border-red-500/30 overflow-hidden relative shadow-[0_0_20px_rgba(255,0,85,0.15)] flex items-center justify-center">
+            <DopamineCompilationSequence
+              hookText={dopamineHook}
+              subText={dopamineSub}
+              glitchIntensity={dopamineGlitch}
+              strobeRate={dopamineStrobe}
+              motionSpeed={dopamineSpeed}
+              accentColor={dopamineAccent}
+              isPlaying={true}
+              showTelemetry={true}
+            />
+          </div>
+
+          {/* Direct Text Modifiers */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[9px] font-mono text-zinc-400 uppercase tracking-wider">Hook Word (Strobe/Slide)</label>
+              <input
+                type="text"
+                value={dopamineHook}
+                onChange={(e) => setDopamineHook(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded bg-black/60 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-red-500"
+                placeholder="HOOK TEXT"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-mono text-zinc-400 uppercase tracking-wider">Sub Text (Kinetic Capsule)</label>
+              <input
+                type="text"
+                value={dopamineSub}
+                onChange={(e) => setDopamineSub(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded bg-black/60 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-red-500"
+                placeholder="SUB TEXT"
+              />
+            </div>
+          </div>
+
+          {/* Brutalist Apply Button */}
+          <button
+            type="button"
+            onClick={handleApplyDopamineToFrame}
+            className={`w-full py-2.5 px-4 font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 ${
+              appliedDopamineSuccess
+                ? 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)]'
+                : 'bg-red-950/70 hover:bg-red-600 border-red-500/50 hover:border-red-400 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]'
+            }`}
+          >
+            {appliedDopamineSuccess ? (
+              <>
+                <Check className="w-4 h-4 text-white" />
+                <span>✓ APPLIED TO SHOT SH{String(activeShotIndex + 1).padStart(3, '0')}!</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4 fill-current text-yellow-300" />
+                <span>[ ⚡ APPLY DOPAMINE SEQUENCE TO FRAME ]</span>
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredPresets.map((preset) => {
           const isHovered = hoveredPresetId === preset.id;
           const isApplied = appliedPresetId === preset.id;
           const isDragOver = dragOverPresetId === preset.id;
@@ -434,84 +597,151 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
           );
         })}
       </div>
+      )}
 
-      {/* Manual Fine-Tuning Sliders */}
+      {/* Manual Fine-Tuning Sliders (Dynamic between Dopamine and Standard Typography) */}
       <div className="p-4 rounded-xl bg-black/60 border border-white/10 space-y-3.5 backdrop-blur-md">
         <div className="flex items-center justify-between border-b border-white/10 pb-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-white/90 flex items-center gap-1.5">
             <SlidersHorizontal className="w-3 h-3 text-[#F5A623]" />
-            Fine-Tune Selected Typography
+            {selectedCategory === 'dopamine' ? '🌪️ Dopamine Engine Parameters' : 'Fine-Tune Selected Typography'}
           </span>
           <span className="text-[9px] text-zinc-400 font-mono">0ms Sync</span>
         </div>
 
-        {/* Title Size Slider */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-[10px] text-zinc-400">
-            <span>Font Scale</span>
-            <span className="text-[#FFE066] font-mono">{titleSize}px</span>
-          </div>
-          <input
-            type="range"
-            min={24}
-            max={120}
-            step={2}
-            value={titleSize}
-            onChange={(e) => setTitleSize(Number(e.target.value))}
-            className="w-full accent-[#F5A623] cursor-pointer"
-          />
-        </div>
+        {selectedCategory === 'dopamine' ? (
+          <>
+            {/* Dopamine Glitch Intensity Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span className="flex items-center gap-1">
+                  <Radio className="w-3 h-3 text-red-400" />
+                  Glitch Intensity (Chromatic RGB Aberration)
+                </span>
+                <span className="text-red-400 font-mono font-bold">{dopamineGlitch}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={dopamineGlitch}
+                onChange={(e) => setDopamineGlitch(Number(e.target.value))}
+                className="w-full accent-red-500 cursor-pointer"
+              />
+            </div>
 
-        {/* Glow Intensity Slider */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-[10px] text-zinc-400">
-            <span>Anamorphic Glow</span>
-            <span className="text-[#FFE066] font-mono">{Math.round(glowIntensity * 100)}%</span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={2.0}
-            step={0.05}
-            value={glowIntensity}
-            onChange={(e) => setTitleGlowIntensity(Number(e.target.value))}
-            className="w-full accent-[#F5A623] cursor-pointer"
-          />
-        </div>
+            {/* Dopamine Strobe Rate Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span className="flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-yellow-400" />
+                  Strobe Flash Rate (Initial Pulse)
+                </span>
+                <span className="text-yellow-400 font-mono font-bold">{dopamineStrobe}ms</span>
+              </div>
+              <input
+                type="range"
+                min={20}
+                max={200}
+                step={5}
+                value={dopamineStrobe}
+                onChange={(e) => setDopamineStrobe(Number(e.target.value))}
+                className="w-full accent-yellow-400 cursor-pointer"
+              />
+            </div>
 
-        {/* Letter Tracking Slider */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-[10px] text-zinc-400">
-            <span>Letter Tracking</span>
-            <span className="text-[#FFE066] font-mono">{tracking.toFixed(2)}em</span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={0.5}
-            step={0.02}
-            value={tracking}
-            onChange={(e) => setTitleTracking(Number(e.target.value))}
-            className="w-full accent-[#F5A623] cursor-pointer"
-          />
-        </div>
+            {/* Dopamine Motion Speed Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span className="flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-amber-400" />
+                  Motion Speed Multiplier (Kinetic Anamorphic Slide)
+                </span>
+                <span className="text-amber-400 font-mono font-bold">{dopamineSpeed.toFixed(1)}x</span>
+              </div>
+              <input
+                type="range"
+                min={0.5}
+                max={3.0}
+                step={0.1}
+                value={dopamineSpeed}
+                onChange={(e) => setDopamineSpeed(Number(e.target.value))}
+                className="w-full accent-amber-500 cursor-pointer"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Title Size Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span>Font Scale</span>
+                <span className="text-[#FFE066] font-mono">{titleSize}px</span>
+              </div>
+              <input
+                type="range"
+                min={24}
+                max={120}
+                step={2}
+                value={titleSize}
+                onChange={(e) => setTitleSize(Number(e.target.value))}
+                className="w-full accent-[#F5A623] cursor-pointer"
+              />
+            </div>
 
-        {/* Vertical Position Offset */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-[10px] text-zinc-400">
-            <span>Vertical Offset</span>
-            <span className="text-[#FFE066] font-mono">{verticalOffset}px</span>
-          </div>
-          <input
-            type="range"
-            min={-120}
-            max={120}
-            step={5}
-            value={verticalOffset}
-            onChange={(e) => setTitleVerticalOffset(Number(e.target.value))}
-            className="w-full accent-[#F5A623] cursor-pointer"
-          />
-        </div>
+            {/* Glow Intensity Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span>Anamorphic Glow</span>
+                <span className="text-[#FFE066] font-mono">{Math.round(glowIntensity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={2.0}
+                step={0.05}
+                value={glowIntensity}
+                onChange={(e) => setTitleGlowIntensity(Number(e.target.value))}
+                className="w-full accent-[#F5A623] cursor-pointer"
+              />
+            </div>
+
+            {/* Letter Tracking Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span>Letter Tracking</span>
+                <span className="text-[#FFE066] font-mono">{tracking.toFixed(2)}em</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={0.5}
+                step={0.02}
+                value={tracking}
+                onChange={(e) => setTitleTracking(Number(e.target.value))}
+                className="w-full accent-[#F5A623] cursor-pointer"
+              />
+            </div>
+
+            {/* Vertical Position Offset */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span>Vertical Offset</span>
+                <span className="text-[#FFE066] font-mono">{verticalOffset}px</span>
+              </div>
+              <input
+                type="range"
+                min={-120}
+                max={120}
+                step={5}
+                value={verticalOffset}
+                onChange={(e) => setTitleVerticalOffset(Number(e.target.value))}
+                className="w-full accent-[#F5A623] cursor-pointer"
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

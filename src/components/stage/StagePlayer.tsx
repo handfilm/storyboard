@@ -7,14 +7,26 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { KineticTributeSequence, TributePhase } from './templates/KineticTributeSequence';
+import { DopamineCompilationSequence } from './templates/DopamineCompilationSequence';
 import { TributeProfile, DEFAULT_TRIBUTE_PROFILE } from '../../constants/tributeData';
 import { Play, Pause, RotateCcw, Volume2, VolumeX, Maximize2 } from 'lucide-react';
+
+export interface DopaminePlayerConfig {
+  hookText?: string;
+  subText?: string;
+  glitchIntensity?: number;
+  strobeRate?: number;
+  motionSpeed?: number;
+  accentColor?: string;
+}
 
 export interface StagePlayerProps {
   initialTime?: number;
   durationSec?: number;
   isPlaying?: boolean;
   profile?: TributeProfile | string;
+  engineMode?: 'tribute' | 'dopamine';
+  dopamineConfig?: DopaminePlayerConfig;
   backgroundMediaUrl?: string;
   isVideoBackground?: boolean;
   onTimeUpdate?: (currentTime: number) => void;
@@ -28,9 +40,11 @@ export interface StagePlayerProps {
 
 export const StagePlayer: React.FC<StagePlayerProps> = ({
   initialTime = 0,
-  durationSec = 9.0,
+  durationSec: durationSecProp,
   isPlaying: externalIsPlaying,
   profile = DEFAULT_TRIBUTE_PROFILE,
+  engineMode = 'tribute',
+  dopamineConfig,
   backgroundMediaUrl,
   isVideoBackground = false,
   onTimeUpdate,
@@ -41,6 +55,7 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
   scale = 1.0,
   className = ''
 }) => {
+  const durationSec = durationSecProp ?? (engineMode === 'dopamine' ? 2.3 : 9.0);
   // Master playback playhead time (in seconds)
   const [currentTime, setCurrentTime] = useState<number>(initialTime);
   const [isPlaying, setIsPlaying] = useState<boolean>(externalIsPlaying ?? true);
@@ -153,18 +168,33 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
         </div>
       )}
 
-      {/* Kinetic Tribute Sequence Canvas: strictly receives currentTime */}
+      {/* Modular Cinema Typography Canvas: strictly receives currentTime */}
       <div className="relative z-10 flex-1 w-full h-full flex items-center justify-center">
-        <KineticTributeSequence
-          profile={profile}
-          currentTime={currentTime}
-          durationSec={durationSec}
-          isPlaying={isPlaying}
-          scale={scale}
-          showControls={false}
-          onPhaseChange={onPhaseChange}
-          onApplyProfileToFrame={onApplyProfileToFrame}
-        />
+        {engineMode === 'dopamine' ? (
+          <DopamineCompilationSequence
+            hookText={dopamineConfig?.hookText || 'PURE RHYTHM'}
+            subText={dopamineConfig?.subText || 'Visual Physics at Work.'}
+            glitchIntensity={dopamineConfig?.glitchIntensity ?? 80}
+            strobeRate={dopamineConfig?.strobeRate ?? 60}
+            motionSpeed={dopamineConfig?.motionSpeed ?? 1.5}
+            accentColor={dopamineConfig?.accentColor || '#FF2B2B'}
+            currentTime={currentTime}
+            durationSec={durationSec}
+            isPlaying={isPlaying}
+            scale={scale}
+          />
+        ) : (
+          <KineticTributeSequence
+            profile={profile}
+            currentTime={currentTime}
+            durationSec={durationSec}
+            isPlaying={isPlaying}
+            scale={scale}
+            showControls={false}
+            onPhaseChange={onPhaseChange}
+            onApplyProfileToFrame={onApplyProfileToFrame}
+          />
+        )}
       </div>
 
       {/* StagePlayer Precision Transport Dock */}

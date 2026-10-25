@@ -367,16 +367,12 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
                 stiffness: 280, 
                 mass: 0.85 
               }}
-              className="relative w-[700px] max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-2rem)] bg-[#0A0C10]/95 backdrop-blur-3xl border border-purple-500/20 shadow-[0_0_50px_rgba(168,85,247,0.15)] rounded-2xl p-6 pointer-events-auto flex flex-col justify-between font-mono select-none overflow-hidden"
+              className="relative w-[700px] max-w-[90vw] min-h-[500px] h-auto bg-[#050505]/80 backdrop-blur-3xl border border-purple-500/30 shadow-[0_0_50px_rgba(168,85,247,0.2)] rounded-2xl p-6 pointer-events-auto flex flex-col justify-start items-stretch gap-6 font-mono select-none overflow-hidden"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
               aria-labelledby="omni-ai-forge-title"
             >
-            {/* Subtle decorative glow accents */}
-            <div className="absolute -top-20 -left-20 w-48 h-48 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
-
             {/* 1. Top Bar */}
             <div className="flex items-center justify-between pb-2 border-b border-white/10 shrink-0">
               {/* Left: Title [ 🧠 OMNI-AI FORGE ] in uppercase, tracked mono font */}
@@ -501,7 +497,7 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
             </div>
 
             {/* 4. Prompt Area & Feedback */}
-            <div className="flex-1 flex flex-col min-h-0 gap-1">
+            <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-[10px] tracking-wider text-white/60">
                 <span className="flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-purple-400" />
@@ -512,13 +508,13 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
                 </span>
               </div>
 
-              {/* Multi-line textarea (bg-black/50 border border-white/5 p-4 text-white/80) */}
+              {/* Multi-line textarea */}
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Describe visual atmosphere, subject, camera optics, motion vector..."
-                rows={2}
-                className="w-full flex-1 min-h-[70px] bg-black/50 border border-white/5 p-3 text-white/80 rounded-lg text-xs font-mono focus:outline-none focus:border-purple-500/40 resize-none transition-colors"
+                rows={3}
+                className="w-full min-h-[80px] bg-black/50 border border-white/10 p-3 text-white/80 rounded-lg text-xs font-mono focus:outline-none focus:border-purple-500/50 resize-none transition-colors"
               />
 
               {/* Status/feedback indicator */}

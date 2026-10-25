@@ -349,14 +349,14 @@ export const MegaEcosystemLauncher: React.FC<MegaEcosystemLauncherProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed top-12 left-0 w-full h-[calc(100vh-3rem)] bg-[#050505]/98 backdrop-blur-3xl border-t border-white/10 z-[10000] overflow-y-auto p-6 sm:p-12 font-mono select-none"
+        className="fixed top-12 left-0 w-full h-[calc(100vh-3rem)] bg-[#050505]/98 backdrop-blur-3xl border-t border-white/10 z-[10000] overflow-y-auto p-8 md:p-12 flex flex-col gap-8 font-mono select-none"
       >
         {/* Subtle Ambient Background Flare */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-[140px] pointer-events-none" />
         <div className="absolute bottom-10 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
 
         {/* Dashboard Top Header Bar */}
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-white/10">
+        <div className="w-full max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/10 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
@@ -365,7 +365,7 @@ export const MegaEcosystemLauncher: React.FC<MegaEcosystemLauncherProps> = ({
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight text-white font-sans">
+            <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-white font-sans">
               [ THE HIMON ECOSYSTEM // 6-MONTH SPRINT ]
             </h1>
 
@@ -395,7 +395,7 @@ export const MegaEcosystemLauncher: React.FC<MegaEcosystemLauncherProps> = ({
         </div>
 
         {/* Ecosystem Grid: 5 Super Product Hover Cards */}
-        <div className="max-w-7xl mx-auto py-10">
+        <div className="w-full max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {ECOSYSTEM_PROJECTS.map((proj) => (
               <ProductHoverCard

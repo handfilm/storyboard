@@ -142,16 +142,12 @@ export const B2BCommandCenter: React.FC<B2BCommandCenterProps> = ({
                 stiffness: 280,
                 mass: 0.85
               }}
-              className="relative w-[700px] max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-2rem)] bg-[#0A0C10]/95 backdrop-blur-3xl border border-purple-500/20 shadow-[0_0_50px_rgba(168,85,247,0.15)] rounded-2xl p-6 pointer-events-auto flex flex-col justify-between font-mono select-none overflow-hidden"
+              className="relative w-[700px] max-w-[90vw] min-h-[500px] h-auto bg-[#050505]/80 backdrop-blur-3xl border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)] rounded-2xl p-6 pointer-events-auto flex flex-col justify-start items-stretch gap-6 font-mono select-none overflow-hidden"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
               aria-labelledby="b2b-hub-title"
             >
-              {/* Decorative Accent Glows */}
-              <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-
               {/* 1. Header */}
               <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
                 <div id="b2b-hub-title" className="flex items-center gap-2">
@@ -186,7 +182,7 @@ export const B2BCommandCenter: React.FC<B2BCommandCenterProps> = ({
               </div>
 
               {/* 2. Content: Corporate Title Suite Cards */}
-              <div className="flex-1 overflow-y-auto py-3 space-y-2 min-h-0">
+              <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
                   <span className="flex items-center gap-1.5">
                     <Briefcase className="w-3.5 h-3.5 text-emerald-400" />

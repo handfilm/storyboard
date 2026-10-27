@@ -430,6 +430,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   useEffect(() => {
     if (cachedPosterUrl) {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.src = cachedPosterUrl;
       cachedPosterImgRef.current = img;
     } else {
@@ -817,6 +818,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             {outgoingMedia.isVideo ? (
               <video
                 src={outgoingMedia.url}
+                crossOrigin="anonymous"
                 muted
                 playsInline
                 className="w-full h-full object-cover"
@@ -825,6 +827,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             ) : (
               <img
                 src={outgoingMedia.url}
+                crossOrigin="anonymous"
                 alt="Outgoing Plate"
                 className="w-full h-full object-cover"
                 style={{ filter: outgoingMedia.filter }}
@@ -846,6 +849,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             {cachedPosterUrl && (
               <img
                 src={cachedPosterUrl}
+                crossOrigin="anonymous"
                 alt="Thumbnail Plate Fallback"
                 className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                 style={{ filter: combinedMediaFilter }}
@@ -856,6 +860,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               <video
                 ref={videoRef}
                 src={activeMediaUrl}
+                crossOrigin="anonymous"
                 poster={cachedPosterUrl || undefined}
                 autoPlay={isAutoplay}
                 loop
@@ -880,6 +885,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           >
             <img
               src={cachedPosterUrl}
+              crossOrigin="anonymous"
               alt="Cached Shot Poster"
               className="w-full h-full object-cover"
               style={{ filter: combinedMediaFilter }}

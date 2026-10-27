@@ -27,6 +27,7 @@ import { PlaybackMode } from '../types/editor';
 import { eventBus } from '../core/eventBus';
 import { useStudioStore } from '../core/store';
 import { studioDraftDb } from '../services/db';
+import { screenRecorderEngine } from '../services/screenRecorderEngine';
 import { SmartHoverCard } from './ui/SmartHoverCard';
 import { OverflowSettingsMenu } from './menus/OverflowSettingsMenu';
 import { DirectorInspector } from './DirectorInspector';
@@ -129,7 +130,47 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [dissolveModeLabel, setDissolveModeLabel] = useState<'STAGE' | 'REELS' | 'SCRUB' | null>(null);
   const dissolveTimeoutRef = useRef<number | null>(null);
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
-  const [isRecordingActive, setIsRecordingActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+
+  // Synchronize recording state with the screenRecorderEngine status
+  useEffect(() => {
+    const unsub = screenRecorderEngine.onStatusChange((status) => {
+      setIsRecording(status === 'recording' || status === 'paused');
+    });
+    return () => unsub();
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      setIsRecording(true);
+      if (onOpenRecorder) {
+        onOpenRecorder();
+      } else {
+        eventBus.emit('recorder:open');
+      }
+    } catch (err) {
+      console.error('[StageHeader] Error in startRecording:', err);
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      if (screenRecorderEngine.getStatus() === 'recording' || screenRecorderEngine.getStatus() === 'paused') {
+        await screenRecorderEngine.stopRecording();
+      }
+      if (onOpenRecorder) {
+        onOpenRecorder();
+      } else {
+        eventBus.emit('recorder:close');
+      }
+    } catch (err) {
+      console.error('[StageHeader] Error in stopRecording:', err);
+    } finally {
+      setIsRecording(false);
+    }
+  };
+
   const [currentMode, setCurrentMode] = useState<'SOLO' | 'MASTER'>(
     playbackMode === 'solo' ? 'SOLO' : 'MASTER'
   );
@@ -796,13 +837,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         >
           <button
             type="button"
-            onClick={() => {
-              setIsRecordingActive((prev) => !prev);
-              if (onOpenRecorder) onOpenRecorder();
-              else eventBus.emit('recorder:open');
-            }}
+            onClick={() => (isRecording ? stopRecording() : startRecording())}
             className={`h-8 px-2.5! rounded-lg border text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-              isRecordingActive
+              isRecording
                 ? 'bg-rose-600/25 border-rose-500 text-rose-100 shadow-[0_0_16px_rgba(244,63,94,0.45)]'
                 : 'bg-rose-950/40 hover:bg-rose-900/50 border-rose-500/40 hover:border-rose-400 text-rose-300 hover:text-white'
             }`}

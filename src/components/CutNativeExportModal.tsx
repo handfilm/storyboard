@@ -588,32 +588,71 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     };
 
     if (thumbUrl) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = thumbUrl;
-      img.onload = () => {
-        if (isCancelled || !dedicatedCanvasRef.current) return;
-        const iRatio = img.width / img.height;
-        const dRatio = w / h;
-        let dW = w;
-        let dH = h;
-        let dX = 0;
-        let dY = 0;
+      const isVideo = Boolean(
+        frame?.isVideo ||
+        slide?.isVideo ||
+        thumbUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumbUrl)
+      );
 
-        if (iRatio > dRatio) {
-          dH = Math.round(w / iRatio);
-          dY = Math.round((h - dH) / 2);
-        } else {
-          dW = Math.round(h * iRatio);
-          dX = Math.round((w - dW) / 2);
-        }
+      if (isVideo) {
+        const vid = document.createElement('video');
+        vid.crossOrigin = 'anonymous';
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.preload = 'auto';
+        vid.src = thumbUrl;
+        vid.onloadeddata = () => {
+          if (isCancelled || !dedicatedCanvasRef.current) return;
+          const iRatio = (vid.videoWidth || 16) / (vid.videoHeight || 9);
+          const dRatio = w / h;
+          let dW = w;
+          let dH = h;
+          let dX = 0;
+          let dY = 0;
 
-        ctx.drawImage(img, dX, dY, dW, dH);
-        drawCompositingOverlay();
-      };
-      img.onerror = () => {
-        if (!isCancelled) drawCompositingOverlay();
-      };
+          if (iRatio > dRatio) {
+            dH = Math.round(w / iRatio);
+            dY = Math.round((h - dH) / 2);
+          } else {
+            dW = Math.round(h * iRatio);
+            dX = Math.round((w - dW) / 2);
+          }
+
+          ctx.drawImage(vid, dX, dY, dW, dH);
+          drawCompositingOverlay();
+        };
+        vid.onerror = () => {
+          if (!isCancelled) drawCompositingOverlay();
+        };
+      } else {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = thumbUrl;
+        img.onload = () => {
+          if (isCancelled || !dedicatedCanvasRef.current) return;
+          const iRatio = img.width / img.height;
+          const dRatio = w / h;
+          let dW = w;
+          let dH = h;
+          let dX = 0;
+          let dY = 0;
+
+          if (iRatio > dRatio) {
+            dH = Math.round(w / iRatio);
+            dY = Math.round((h - dH) / 2);
+          } else {
+            dW = Math.round(h * iRatio);
+            dX = Math.round((w - dW) / 2);
+          }
+
+          ctx.drawImage(img, dX, dY, dW, dH);
+          drawCompositingOverlay();
+        };
+        img.onerror = () => {
+          if (!isCancelled) drawCompositingOverlay();
+        };
+      }
     } else {
       // Clean plate background
       ctx.fillStyle = '#0e0f17';

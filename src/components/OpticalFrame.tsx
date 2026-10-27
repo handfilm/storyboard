@@ -110,6 +110,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           {frame.isVideo ? (
             <video
               src={frame.imageUrl}
+              crossOrigin="anonymous"
               autoPlay={isAutoplay}
               loop
               muted
@@ -120,6 +121,7 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           ) : (
             <img
               src={frame.imageUrl}
+              crossOrigin="anonymous"
               alt={frame.title}
               className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
               style={{ filter: combinedMediaFilter }}

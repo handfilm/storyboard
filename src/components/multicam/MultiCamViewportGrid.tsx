@@ -357,6 +357,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         <video
           ref={el => { videoRefs.current[index] = el; }}
           src={angle.blobUrl}
+          crossOrigin="anonymous"
           playsInline
           muted={index !== masterAudioIndex || isMuted}
           className="w-full h-full object-cover pointer-events-none select-none transition-all duration-500"
@@ -367,6 +368,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     return (
       <img
         src={angle.blobUrl || fallbackImage}
+        crossOrigin="anonymous"
         alt={angle.label}
         className="w-full h-full object-cover pointer-events-none select-none transition-all duration-500"
       />

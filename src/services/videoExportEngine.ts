@@ -241,15 +241,11 @@ export function getBitrateBps(profile: BitrateProfile, is4K: boolean): number {
  */
 export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeoutMs: number = 800): Promise<void> {
   return new Promise((resolve) => {
-    // If already at targetTime with delta < 1ms
-    if (Math.abs(video.currentTime - targetTime) < 0.001) {
-      return resolve();
-    }
-
     let settled = false;
     const cleanup = () => {
       video.removeEventListener('seeked', onSeeked);
-      video.removeEventListener('error', onError);
+      video.removeEventListener('error', finish);
+      video.removeEventListener('canplay', onReady);
     };
 
     const finish = () => {
@@ -262,18 +258,33 @@ export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeout
 
     const timer = setTimeout(finish, timeoutMs);
 
-    const onSeeked = () => {
-      clearTimeout(timer);
-      finish();
+    const onReady = () => {
+      if (video.readyState >= 2) {
+        clearTimeout(timer);
+        finish();
+      }
     };
 
-    const onError = () => {
-      clearTimeout(timer);
-      finish();
+    const onSeeked = () => {
+      if (video.readyState >= 2) {
+        clearTimeout(timer);
+        finish();
+      } else {
+        video.addEventListener('canplay', onReady, { once: true });
+        setTimeout(finish, 80);
+      }
     };
+
+    // If already at targetTime with delta < 1ms
+    if (Math.abs(video.currentTime - targetTime) < 0.001) {
+      if (video.readyState >= 2) {
+        clearTimeout(timer);
+        return resolve();
+      }
+    }
 
     video.addEventListener('seeked', onSeeked, { once: true });
-    video.addEventListener('error', onError, { once: true });
+    video.addEventListener('error', finish, { once: true });
 
     try {
       video.currentTime = targetTime;
@@ -1012,6 +1023,7 @@ export async function exportCinemaMasterMp4(
       if (rawBlob.type.startsWith('video/')) {
         activeObjectUrl = URL.createObjectURL(rawBlob);
         activeVideoElement = document.createElement('video');
+        activeVideoElement.crossOrigin = 'anonymous';
         activeVideoElement.muted = true;
         activeVideoElement.playsInline = true;
         activeVideoElement.preload = 'auto';
@@ -1019,8 +1031,9 @@ export async function exportCinemaMasterMp4(
 
         await new Promise<void>((res) => {
           activeVideoElement!.onloadeddata = () => res();
+          activeVideoElement!.oncanplay = () => res();
           activeVideoElement!.onerror = () => res();
-          setTimeout(res, 1500); // 1.5s resilience timeout
+          setTimeout(res, 2000); // 2s resilience timeout
         });
       } else {
         try {
@@ -1029,21 +1042,49 @@ export async function exportCinemaMasterMp4(
           // fallback
         }
       }
-    } else if (frame?.imageUrl && (frame.imageUrl.startsWith('http') || frame.imageUrl.startsWith('data:'))) {
-      // Fallback to image tag
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise<void>((res) => {
-          img.onload = () => res();
-          img.onerror = () => res();
-          img.src = frame.imageUrl!;
-          setTimeout(res, 1200);
-        });
-        if (img.complete && img.naturalWidth > 0) {
-          activeBitmap = await createImageBitmap(img);
+    } else {
+      // Robust Fallback: Handle relative URLs (/assets/...), blob URLs, http, data for both video and still images
+      const mediaUrl = frame?.imageUrl || slide?.remoteUrl || '';
+      const isVideoMedia = Boolean(
+        frame?.isVideo ||
+        slide?.isVideo ||
+        mediaUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
+      );
+
+      if (mediaUrl) {
+        if (isVideoMedia) {
+          activeVideoElement = document.createElement('video');
+          activeVideoElement.crossOrigin = 'anonymous';
+          activeVideoElement.muted = true;
+          activeVideoElement.playsInline = true;
+          activeVideoElement.preload = 'auto';
+          activeVideoElement.src = mediaUrl;
+
+          await new Promise<void>((res) => {
+            activeVideoElement!.onloadeddata = () => res();
+            activeVideoElement!.oncanplay = () => res();
+            activeVideoElement!.onerror = () => res();
+            setTimeout(res, 2500);
+          });
+        } else {
+          try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            await new Promise<void>((res) => {
+              img.onload = () => res();
+              img.onerror = () => res();
+              img.src = mediaUrl;
+              setTimeout(res, 1800);
+            });
+            if (img.complete && img.naturalWidth > 0) {
+              activeBitmap = await createImageBitmap(img);
+            }
+          } catch (imgErr) {
+            console.warn('[exportCinemaMasterMp4] Image load fallback warning:', imgErr);
+          }
         }
-      } catch {}
+      }
     }
 
     const shotDurationSec = perShotDurationsSec[shotListIdx];
@@ -1064,7 +1105,12 @@ export async function exportCinemaMasterMp4(
         const targetVideoSec = activeVideoElement.duration > 0
           ? localSec % activeVideoElement.duration
           : Math.min(localSec, shotDurationSec);
-        await waitForSeek(activeVideoElement, targetVideoSec, 600);
+        await waitForSeek(activeVideoElement, targetVideoSec, 800);
+      } else if (activeVideoElement && activeVideoElement.readyState < 2) {
+        await new Promise<void>((res) => {
+          activeVideoElement!.oncanplay = () => res();
+          setTimeout(res, 300);
+        });
       }
 
       // Composite onto master export canvas with exact shotStartTimeSec & totalFramesInShot

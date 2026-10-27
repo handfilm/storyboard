@@ -304,6 +304,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <video
               ref={videoRef}
               src={mediaUrl}
+              crossOrigin="anonymous"
               muted={isMuted}
               loop={isLooping}
               playsInline

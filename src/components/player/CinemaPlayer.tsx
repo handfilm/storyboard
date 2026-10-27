@@ -722,6 +722,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
                 key={activeFrame.imageUrl}
                 ref={videoRef}
                 src={activeFrame.imageUrl}
+                crossOrigin="anonymous"
                 muted={isMuted}
                 autoPlay={isPlaying}
                 loop={!playSubclipOnly}

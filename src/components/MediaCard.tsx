@@ -287,6 +287,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           <video
             ref={videoRef}
             src={videoBlobUrl}
+            crossOrigin="anonymous"
             muted
             playsInline
             preload="metadata"
@@ -300,6 +301,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         {activeThumbnailSource ? (
           <img
             src={activeThumbnailSource}
+            crossOrigin="anonymous"
             alt={item.name}
             className="w-full h-full object-cover transition-opacity duration-100"
             loading="lazy"

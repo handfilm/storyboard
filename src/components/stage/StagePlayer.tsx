@@ -153,6 +153,7 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
             <video
               ref={videoRef}
               src={backgroundMediaUrl}
+              crossOrigin="anonymous"
               muted={isMuted}
               loop={autoLoop}
               playsInline
@@ -161,6 +162,7 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
           ) : (
             <img
               src={backgroundMediaUrl}
+              crossOrigin="anonymous"
               alt="Cinema Background"
               className="w-full h-full object-cover opacity-50 filter brightness-75 contrast-110"
             />

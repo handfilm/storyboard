@@ -585,6 +585,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       <video
         ref={prebufferVideoRef}
         src={sourceUrl || undefined}
+        crossOrigin="anonymous"
         className="hidden"
         preload="auto"
         muted
@@ -604,6 +605,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
               {outgoingPlate.isVideo ? (
                 <video
                   src={outgoingPlate.url}
+                  crossOrigin="anonymous"
                   muted
                   playsInline
                   className="w-full h-full object-cover pointer-events-none"
@@ -634,6 +636,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
                   key={mediaUrl}
                   ref={videoRef}
                   src={mediaUrl}
+                  crossOrigin="anonymous"
                   playsInline
                   muted={isMuted}
                   autoPlay

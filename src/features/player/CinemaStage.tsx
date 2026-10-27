@@ -218,6 +218,7 @@ export const CinemaStage: React.FC = () => {
               key={imageUrl}
               ref={videoRef}
               src={imageUrl}
+              crossOrigin="anonymous"
               autoPlay
               loop
               muted={isVideoMuted}

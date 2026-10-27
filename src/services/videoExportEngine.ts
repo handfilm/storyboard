@@ -394,10 +394,10 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       ctx.strokeRect(0, targetScopeY, width, targetScopeH);
 
     } else {
-      // Standard / Scope Landscape:
-      // Ken Burns subtle push-in animation (1.0 to 1.04)
+      // Ken Burns subtle push-in animation (1.0 to 1.04) with smooth ease-in-out curve
       const panProgress = frameInShot / totalFramesInShot;
-      const zoom = 1.0 + panProgress * 0.04;
+      const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
+      const zoom = 1.0 + smoothProgress * 0.04;
 
       const mediaRatio = srcW / srcH;
       const canvasRatio = width / height;

@@ -1,50 +1,12 @@
 /**
  * @file /src/components/modules/UnifiedExportStudio.tsx
- * @description Unified Cinema Export Studio Wrapper for HANDFILM & RAWx.
- * Delegates directly to the full hardware-accelerated WebCodecs Unified Master Export Studio
- * (`CutNativeExportModal`) with Shared Shot Sequence Matrix, Dedicated Frame Preview Monitor,
+ * @description Unified Cinema Export Studio for HANDFILM & RAWx.
+ * Full hardware-accelerated WebCodecs Unified Master Export Studio
+ * with Shared Shot Sequence Matrix, Dedicated Frame Preview Monitor with GSAP transitions,
+ * 'Export as 4K Master' button with 80 Mbps predefined encoder configuration,
  * Resolution & Aspect presets, Bitrate Profiles, Composite Layers, Premiere XML, CapCut/DaVinci FCPXML,
  * Production Package (.zip), Contact Sheet PDF, Director's Cut (.zip), and RAWX Backup.
  */
 
-import React from 'react';
-import { AnthologyFrame } from '../../types/anthology';
-import { CutNativeExportModal, ExportModalTab } from '../CutNativeExportModal';
-
-export type UnifiedExportTab = ExportModalTab;
-
-export interface UnifiedExportStudioProps {
-  isOpen: boolean;
-  onClose: () => void;
-  frames?: AnthologyFrame[];
-  currentIndex?: number;
-  projectTitle?: string;
-  directorName?: string;
-  aspectRatio?: string;
-  initialTab?: ExportModalTab;
-}
-
-export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
-  isOpen,
-  onClose,
-  frames = [],
-  currentIndex = 0,
-  projectTitle = 'RAWx // Master Anthology Engine 100',
-  directorName = 'Rakib Himon',
-  aspectRatio = '2.39:1',
-  initialTab = 'mp4'
-}) => {
-  return (
-    <CutNativeExportModal
-      isOpen={isOpen}
-      onClose={onClose}
-      frames={frames}
-      currentSlideIndex={currentIndex}
-      totalSlides={frames.length || 100}
-      projectTitle={projectTitle}
-      directorName={directorName}
-      aspectRatio={aspectRatio}
-      initialTab={initialTab}
-    />
-  );
-};
+export * from '../export/UnifiedExportStudio';
+export { UnifiedExportStudio as default } from '../export/UnifiedExportStudio';

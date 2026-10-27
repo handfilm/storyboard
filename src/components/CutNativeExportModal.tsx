@@ -17,6 +17,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import gsap from 'gsap';
 import { AnthologyFrame, AnthologyProject } from '../types/anthology';
 import { SlideDraft } from '../types/project';
 import { 
@@ -62,7 +63,8 @@ import {
   Check,
   Archive,
   Package,
-  Camera
+  Camera,
+  Crown
 } from 'lucide-react';
 
 export type ExportModalTab = 'mp4' | 'premiere' | 'fcpxml' | 'package' | 'pdf' | 'directors_cut' | 'backup';
@@ -74,6 +76,7 @@ export interface CutNativeExportModalProps {
   frames?: AnthologyFrame[];
   slides?: SlideDraft[];
   currentSlideIndex?: number;
+  currentIndex?: number;
   totalSlides?: number;
   initialTab?: ExportModalTab;
   directorName?: string;
@@ -125,12 +128,15 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   projectTitle = 'UNTITLED_PROJECT',
   frames = [],
   slides = [],
-  currentSlideIndex = 0,
+  currentSlideIndex: rawSlideIndex = 0,
+  currentIndex,
   totalSlides = 1,
   initialTab = 'mp4',
   directorName = 'Rakib Himon',
   aspectRatio = '2.39:1'
 }) => {
+  const currentSlideIndex = typeof currentIndex === 'number' ? currentIndex : (rawSlideIndex ?? 0);
+
   // =========================================================================
   // HOOKS SECTION: ALL HOOKS DECLARED UNCONDITIONALLY AT THE VERY TOP
   // =========================================================================
@@ -234,6 +240,11 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dedicatedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const shotStripScrollRef = useRef<HTMLDivElement | null>(null);
+  // 8b. GSAP Transition Refs for Fluid Canvas Frame & Shot Rendering
+  const gsapTransitionRef = useRef<{ alpha: number }>({ alpha: 1 });
+  const gsapTweenRef = useRef<gsap.core.Tween | null>(null);
+  const prevRenderedCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const prevPreviewCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // 9. Interactive Shot Preview Selection (for dedicated canvas monitor)
   const [previewShotIdx, setPreviewShotIdx] = useState<number>(currentSlideIndex || 0);
@@ -380,10 +391,21 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     });
   }, [candidateSelection.indices.length]);
 
-  // Blit rendered frame from offline canvas to dedicated preview canvas and live thumbnail monitor
+  // Blit rendered frame from offline canvas to dedicated preview canvas with subtle GSAP transition
   const handleFrameRendered = useCallback((sourceCanvas: HTMLCanvasElement) => {
     const targets = [dedicatedCanvasRef.current, previewCanvasRef.current].filter(Boolean) as HTMLCanvasElement[];
     if (targets.length === 0) return;
+
+    // Subtle GSAP transition for fluid sequence rendering to canvas
+    if (gsapTweenRef.current) {
+      gsapTweenRef.current.kill();
+    }
+    gsapTransitionRef.current.alpha = 0.88;
+    gsapTweenRef.current = gsap.to(gsapTransitionRef.current, {
+      alpha: 1,
+      duration: 0.15,
+      ease: 'power2.out'
+    });
 
     for (const destCanvas of targets) {
       const destCtx = destCanvas.getContext('2d');
@@ -411,7 +433,31 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
       }
 
       try {
+        // Subtle fluid frame blend if previous snapshot exists
+        if (prevRenderedCanvasRef.current && gsapTransitionRef.current.alpha < 1) {
+          destCtx.save();
+          destCtx.globalAlpha = 1 - gsapTransitionRef.current.alpha;
+          destCtx.drawImage(prevRenderedCanvasRef.current, dX, dY, dW, dH);
+          destCtx.restore();
+        }
+
+        destCtx.save();
+        destCtx.globalAlpha = gsapTransitionRef.current.alpha;
         destCtx.drawImage(sourceCanvas, dX, dY, dW, dH);
+        destCtx.restore();
+      } catch {}
+    }
+
+    // Save previous frame snapshot for smooth transition into next frame
+    if (!prevRenderedCanvasRef.current) {
+      prevRenderedCanvasRef.current = document.createElement('canvas');
+    }
+    prevRenderedCanvasRef.current.width = 640;
+    prevRenderedCanvasRef.current.height = 360;
+    const pCtx = prevRenderedCanvasRef.current.getContext('2d');
+    if (pCtx) {
+      try {
+        pCtx.drawImage(sourceCanvas, 0, 0, 640, 360);
       } catch {}
     }
   }, []);
@@ -619,8 +665,44 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
             dX = Math.round((w - dW) / 2);
           }
 
-          ctx.drawImage(vid, dX, dY, dW, dH);
-          drawCompositingOverlay();
+          // GSAP subtle fluid crossfade transition
+          const tweenState = { progress: prevPreviewCanvasRef.current ? 0 : 1 };
+          gsap.killTweensOf(tweenState);
+          gsap.to(tweenState, {
+            progress: 1,
+            duration: 0.28,
+            ease: 'power2.out',
+            onUpdate: () => {
+              if (isCancelled || !dedicatedCanvasRef.current) return;
+              ctx.fillStyle = '#06070B';
+              ctx.fillRect(0, 0, w, h);
+
+              if (prevPreviewCanvasRef.current && tweenState.progress < 1) {
+                ctx.save();
+                ctx.globalAlpha = 1 - tweenState.progress;
+                ctx.drawImage(prevPreviewCanvasRef.current, 0, 0, w, h);
+                ctx.restore();
+              }
+
+              ctx.save();
+              ctx.globalAlpha = tweenState.progress;
+              ctx.drawImage(vid, dX, dY, dW, dH);
+              ctx.restore();
+              drawCompositingOverlay();
+            },
+            onComplete: () => {
+              if (isCancelled || !dedicatedCanvasRef.current) return;
+              if (!prevPreviewCanvasRef.current) {
+                prevPreviewCanvasRef.current = document.createElement('canvas');
+              }
+              prevPreviewCanvasRef.current.width = w;
+              prevPreviewCanvasRef.current.height = h;
+              const pCtx = prevPreviewCanvasRef.current.getContext('2d');
+              if (pCtx) {
+                pCtx.drawImage(dedicatedCanvasRef.current, 0, 0, w, h);
+              }
+            }
+          });
         };
         vid.onerror = () => {
           if (!isCancelled) drawCompositingOverlay();
@@ -646,8 +728,44 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
             dX = Math.round((w - dW) / 2);
           }
 
-          ctx.drawImage(img, dX, dY, dW, dH);
-          drawCompositingOverlay();
+          // GSAP subtle fluid crossfade transition
+          const tweenState = { progress: prevPreviewCanvasRef.current ? 0 : 1 };
+          gsap.killTweensOf(tweenState);
+          gsap.to(tweenState, {
+            progress: 1,
+            duration: 0.28,
+            ease: 'power2.out',
+            onUpdate: () => {
+              if (isCancelled || !dedicatedCanvasRef.current) return;
+              ctx.fillStyle = '#06070B';
+              ctx.fillRect(0, 0, w, h);
+
+              if (prevPreviewCanvasRef.current && tweenState.progress < 1) {
+                ctx.save();
+                ctx.globalAlpha = 1 - tweenState.progress;
+                ctx.drawImage(prevPreviewCanvasRef.current, 0, 0, w, h);
+                ctx.restore();
+              }
+
+              ctx.save();
+              ctx.globalAlpha = tweenState.progress;
+              ctx.drawImage(img, dX, dY, dW, dH);
+              ctx.restore();
+              drawCompositingOverlay();
+            },
+            onComplete: () => {
+              if (isCancelled || !dedicatedCanvasRef.current) return;
+              if (!prevPreviewCanvasRef.current) {
+                prevPreviewCanvasRef.current = document.createElement('canvas');
+              }
+              prevPreviewCanvasRef.current.width = w;
+              prevPreviewCanvasRef.current.height = h;
+              const pCtx = prevPreviewCanvasRef.current.getContext('2d');
+              if (pCtx) {
+                pCtx.drawImage(dedicatedCanvasRef.current, 0, 0, w, h);
+              }
+            }
+          });
         };
         img.onerror = () => {
           if (!isCancelled) drawCompositingOverlay();
@@ -765,6 +883,100 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
     burnInTitles,
     simulateFlare,
     includeAudio,
+    customFilename,
+    handleFrameRendered
+  ]);
+
+  // Launch Professional Cinematography 4K Master MP4 Render Pipeline (3840×1608 4K DCI Scope @ 80 Mbps)
+  const handleStart4KMasterExport = useCallback(async () => {
+    if (activeSelection.totalShots === 0) {
+      setExportError('At least one shot must be included in the sequence.');
+      return;
+    }
+
+    // Predefined professional cinematography configuration:
+    // - 3840×1608 4K DCI Scope Master
+    // - 80 Mbps Master AVC Level 5.1 high-bitrate encoder
+    // - 320 kbps High-Fidelity AAC Stereo Audio (48 kHz)
+    // - Anamorphic flare streak simulation
+    // - Frame-accurate 24.0 FPS SMPTE timecode
+    setResolutionPreset('4k_scope');
+    setBitrateProfile('master');
+    setSimulateFlare(true);
+    setIncludeAudio(true);
+
+    setIsExporting(true);
+    setIsFinished(false);
+    setExportError(null);
+
+    const abortCtrl = new AbortController();
+    abortControllerRef.current = abortCtrl;
+
+    try {
+      const result = await exportCinemaMasterMp4({
+        projectTitle,
+        frames,
+        slides,
+        currentSlideIndex,
+        totalSlides: totalCount,
+        selectionMode,
+        rangeStart,
+        rangeEnd,
+        customListText,
+        excludedShotIndices: excludedIndices,
+        overrideShotIndices: activeSelection.indices,
+        resolutionPreset: '4k_scope',
+        bitrateProfile: 'master',
+        burnInTitles,
+        cleanPlates: false,
+        simulateFlare: true,
+        includeAudio: true,
+        previewCanvas: previewCanvasRef.current,
+        onProgress: (tel) => setTelemetry(tel),
+        onFrameRendered: (canvas) => handleFrameRendered(canvas),
+        abortSignal: abortCtrl.signal
+      });
+
+      const baseName = customFilename.trim().replace(/\.mp4$/i, '') || `HANDFILM_${projectTitle}_4K_Master`;
+      const targetName = `${baseName}.mp4`;
+
+      const downloadUrl = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = targetName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 8000);
+
+      playExportSuccessChime();
+      setDownloadedFileName(targetName);
+      setIsFinished(true);
+      setIsExporting(false);
+
+    } catch (err: any) {
+      if (err?.message?.includes('cancelled') || err?.message?.includes('aborted')) {
+        setExportError('Render aborted by user.');
+      } else {
+        console.error('[CinemaExportStudio] 4K Master Render failed:', err);
+        setExportError(err?.message || '4K Master video encoding pipeline failed.');
+      }
+      setIsExporting(false);
+    }
+  }, [
+    activeSelection.totalShots,
+    activeSelection.indices,
+    projectTitle,
+    frames,
+    slides,
+    currentSlideIndex,
+    totalCount,
+    selectionMode,
+    rangeStart,
+    rangeEnd,
+    customListText,
+    excludedIndices,
+    burnInTitles,
     customFilename,
     handleFrameRendered
   ]);
@@ -2366,14 +2578,29 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
                 </button>
 
                 {activeTab === 'mp4' && (
-                  <button
-                    type="button"
-                    onClick={handleStartMp4Export}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
-                  >
-                    <Zap className="w-4 h-4 fill-black" />
-                    <span>START MP4 EXPORT</span>
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleStartMp4Export}
+                      disabled={isExporting}
+                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all disabled:opacity-50"
+                    >
+                      <Zap className="w-4 h-4 fill-black" />
+                      <span>START MP4 EXPORT</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleStart4KMasterExport}
+                      disabled={isExporting}
+                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-400 via-[#F5A623] to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_25px_rgba(245,166,35,0.6)] border border-amber-300/80 active:scale-[0.98] transition-all disabled:opacity-50"
+                      title="Export 3840×1608 4K DCI Master Scope at 80 Mbps AVC Level 5.1 with 320 kbps AAC Audio"
+                    >
+                      <Crown className="w-4 h-4 fill-black text-black" />
+                      <span>Export as 4K Master</span>
+                      <span className="text-[9px] font-mono font-bold bg-black/20 px-1.5 py-0.5 rounded text-black">80 Mbps</span>
+                    </button>
+                  </div>
                 )}
 
                 {activeTab === 'premiere' && (
@@ -2476,3 +2703,6 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
 
   return ReactDOM.createPortal(modalNode, document.body);
 };
+
+export const UnifiedExportStudio = CutNativeExportModal;
+export default CutNativeExportModal;

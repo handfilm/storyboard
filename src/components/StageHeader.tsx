@@ -117,7 +117,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isAIForgeOpen, setIsAIForgeOpen] = useState(false);
   const [isB2BHubOpen, setIsB2BHubOpen] = useState(false);
   const [isExportStudioOpen, setIsExportStudioOpen] = useState(false);
-  const [isEcosystemGridOpen, setIsEcosystemGridOpen] = useState(false);
+  const [isAppsModalOpen, setIsAppsModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTemplatesDrawerOpen, setIsTemplatesDrawerOpen] = useState(false);
   const [isInspectorDrawerOpen, setIsInspectorDrawerOpen] = useState(false);
@@ -285,7 +285,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       queueMicrotask(() => setIsB2BHubOpen(true));
     });
     const unsubEco = eventBus.on('ecosystem:open', () => {
-      queueMicrotask(() => setIsEcosystemGridOpen(true));
+      queueMicrotask(() => setIsAppsModalOpen(true));
     });
     const unsubExport = eventBus.on('export:open', () => {
       if (!onOpenExport) {
@@ -594,9 +594,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           {/* 3. APPS Trigger: Launches Full-Screen [ THE HIMON ECOSYSTEM ] Visual Card Launcher */}
           <button
             type="button"
-            onClick={() => setIsEcosystemGridOpen(true)}
+            onClick={() => setIsAppsModalOpen(true)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer whitespace-nowrap border ${
-              isEcosystemGridOpen
+              isAppsModalOpen
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-[0_0_14px_rgba(245,166,35,0.35)]'
                 : 'bg-white/[0.04] text-zinc-300 border-white/10 hover:text-white hover:border-amber-500/50 hover:bg-amber-500/10 hover:shadow-[0_0_10px_rgba(245,166,35,0.2)]'
             }`}
@@ -604,7 +604,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           >
             <span className="text-amber-400 text-xs">㗊</span>
             <span>APPS</span>
-            <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform duration-200 shrink-0 ${isEcosystemGridOpen ? 'rotate-180 text-amber-400' : ''}`} />
+            <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform duration-200 shrink-0 ${isAppsModalOpen ? 'rotate-180 text-amber-400' : ''}`} />
           </button>
         </div>
 
@@ -929,8 +929,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         currentIndex={currentIndex}
       />
       <EcosystemGridModal
-        isOpen={isEcosystemGridOpen}
-        onClose={() => setIsEcosystemGridOpen(false)}
+        isOpen={isAppsModalOpen}
+        onClose={() => setIsAppsModalOpen(false)}
       />
 
       {/* Zero-Cloud Privacy Policy Modal */}

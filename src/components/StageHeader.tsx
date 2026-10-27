@@ -20,7 +20,11 @@ import {
   Database,
   Trash2,
   Check,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  Film,
+  Sliders,
+  Sparkles
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
@@ -40,6 +44,7 @@ import { B2BCommandCenter } from './modules/B2BCommandCenter';
 import { UnifiedExportStudio } from './modules/UnifiedExportStudio';
 import { EcosystemGridModal } from './menus/EcosystemGridModal';
 import { TextTypographyDrawer } from './drawers/TextTypographyDrawer';
+import { ecosystemSearchEngine } from '../services/ecosystemSearchIndex';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -131,6 +136,456 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const dissolveTimeoutRef = useRef<number | null>(null);
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecording, setIsRecording] = useState(false);
+
+  // Global Search State: Unified Application State, Panels, Tools & Ecosystem Index
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [searchHighlightIdx, setSearchHighlightIdx] = useState(0);
+  const [searchFilterTab, setSearchFilterTab] = useState<'ALL' | 'SHOTS' | 'TOOLS' | 'APPS'>('ALL');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search dropdown on outside click
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsGlobalSearchOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleGlobalClick);
+    return () => window.removeEventListener('mousedown', handleGlobalClick);
+  }, []);
+
+  // Keyboard shortcut ⌘K / Ctrl+K listener for global search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsGlobalSearchOpen(true);
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }, 10);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  interface UnifiedSearchItem {
+    id: string;
+    type: 'shot' | 'panel' | 'studio-tool' | 'ecosystem';
+    title: string;
+    sub: string;
+    badge: string;
+    badgeColor?: string;
+    categoryGroup: string;
+    score: number;
+    url?: string;
+    actionId?: string;
+    shotIndex?: number;
+    panelTarget?: StagePanelType;
+    viewTarget?: 'HOME' | 'STUDIO';
+    thumbnailUrl?: string;
+    colorAccent?: string;
+  }
+
+  // Live unified search across existing application state (shots & panels), tools, and ecosystem apps
+  const unifiedSearchResults = React.useMemo<UnifiedSearchItem[]>(() => {
+    const raw = globalSearchQuery.trim().toLowerCase();
+    const queryTokens = raw.split(/\s+/).filter(Boolean);
+
+    // 1. Featured Suggestions when query is empty
+    if (!raw) {
+      const featured: UnifiedSearchItem[] = [];
+
+      // Current & upcoming sequence shots from existing state
+      if (frames && frames.length > 0) {
+        const activeIdx = typeof currentIndex === 'number' && currentIndex < frames.length ? currentIndex : 0;
+        const currentF = frames[activeIdx];
+        if (currentF) {
+          featured.push({
+            id: `shot-${currentF.id}`,
+            type: 'shot',
+            title: `Shot ${currentF.epNumber || `#${activeIdx + 1}`}: ${currentF.title || 'Current Active Frame'}`,
+            sub: `${currentF.bengaliTitle ? `${currentF.bengaliTitle} • ` : ''}${currentF.tagline || 'Current Timeline Frame'}`,
+            badge: `CURRENT SHOT`,
+            badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+            categoryGroup: 'APPLICATION STATE',
+            score: 100,
+            shotIndex: activeIdx,
+            thumbnailUrl: currentF.imageUrl || currentF.thumbnailUrl || currentF.thumbnail,
+            colorAccent: currentF.colorAccent
+          });
+        }
+        if (frames.length > activeIdx + 1) {
+          const nextF = frames[activeIdx + 1];
+          featured.push({
+            id: `shot-${nextF.id}`,
+            type: 'shot',
+            title: `Shot ${nextF.epNumber || `#${activeIdx + 2}`}: ${nextF.title || 'Next Shot'}`,
+            sub: `${nextF.bengaliTitle ? `${nextF.bengaliTitle} • ` : ''}${nextF.tagline || 'Next Sequence Frame'}`,
+            badge: `NEXT SHOT`,
+            badgeColor: 'text-zinc-400 bg-white/5 border-white/10',
+            categoryGroup: 'APPLICATION STATE',
+            score: 90,
+            shotIndex: activeIdx + 1,
+            thumbnailUrl: nextF.imageUrl || nextF.thumbnailUrl || nextF.thumbnail,
+            colorAccent: nextF.colorAccent
+          });
+        }
+      }
+
+      // Quick-jump workspace panels
+      featured.push(
+        {
+          id: 'panel-stage',
+          type: 'panel',
+          title: 'TACTILE STAGE',
+          sub: 'Primary 2.39:1 / 16:9 cinema viewport and canvas deck',
+          badge: 'WORKSPACE',
+          badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+          categoryGroup: 'WORKSPACE',
+          score: 85,
+          panelTarget: 'TACTILE_STAGE'
+        },
+        {
+          id: 'panel-reels',
+          type: 'panel',
+          title: '9:16 REELS & DUAL SPLIT',
+          sub: 'Vertical short-form dopamine cut & dual split editor',
+          badge: 'WORKSPACE',
+          badgeColor: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+          categoryGroup: 'WORKSPACE',
+          score: 80,
+          panelTarget: 'SPLIT'
+        }
+      );
+
+      // Studio tools
+      featured.push(
+        {
+          id: 'tool-ai-forge',
+          type: 'studio-tool',
+          title: 'AI CINE FORGE',
+          sub: 'Director prompt synth, scene loglines & cinematic script generation',
+          badge: 'STUDIO TOOL',
+          badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+          categoryGroup: 'STUDIO OS',
+          score: 75,
+          actionId: 'aiforge:open'
+        },
+        {
+          id: 'tool-export-studio',
+          type: 'studio-tool',
+          title: 'UNIFIED MASTER EXPORT',
+          sub: '4K WebCodecs MP4, Premiere XML, DaVinci FCPXML & PDF contact sheets',
+          badge: 'STUDIO TOOL',
+          badgeColor: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+          categoryGroup: 'STUDIO OS',
+          score: 70,
+          actionId: 'export:open'
+        }
+      );
+
+      // Featured Ecosystem Apps
+      featured.push(
+        {
+          id: 'b2b',
+          type: 'ecosystem',
+          title: 'B2B GLOBAL ENGINE',
+          sub: 'Wholesale & International Trade',
+          badge: 'ENTERPRISE',
+          categoryGroup: 'COMMERCE & ENTERPRISE',
+          score: 65,
+          url: 'https://b2b.handsandhead.com'
+        },
+        {
+          id: 'vault',
+          type: 'ecosystem',
+          title: 'CENTRAL ASSET VAULT',
+          sub: 'Lossless RAW Storage Pipeline',
+          badge: 'MEDIA',
+          categoryGroup: 'CINEMA, AUDIO & MEDIA',
+          score: 60,
+          url: 'https://vault.handsandhead.com'
+        }
+      );
+
+      if (searchFilterTab === 'SHOTS') return featured.filter((f) => f.type === 'shot');
+      if (searchFilterTab === 'TOOLS') return featured.filter((f) => f.type === 'panel' || f.type === 'studio-tool');
+      if (searchFilterTab === 'APPS') return featured.filter((f) => f.type === 'ecosystem');
+      return featured;
+    }
+
+    const matches: UnifiedSearchItem[] = [];
+
+    // 1. FILTER EXISTING APPLICATION STATE: Shots / Frames in current sequence
+    if (frames && frames.length > 0) {
+      frames.forEach((f, idx) => {
+        let score = 0;
+        const shotNumStr = String(idx + 1);
+        const epStr = (f.epNumber || '').toLowerCase();
+        const titleStr = (f.title || '').toLowerCase();
+        const bengaliStr = (f.bengaliTitle || '').toLowerCase();
+        const taglineStr = (f.tagline || '').toLowerCase();
+        const notesStr = (f.directorNotes || '').toLowerCase();
+
+        // Exact shot number query matching (e.g. "1", "01", "#01", "shot 1", "sh1")
+        const isNumericShotQuery =
+          raw === shotNumStr ||
+          raw === `#${shotNumStr}` ||
+          raw === `shot ${shotNumStr}` ||
+          raw === `sh${shotNumStr}` ||
+          raw === `shot${shotNumStr}` ||
+          epStr.includes(raw);
+
+        if (isNumericShotQuery) {
+          score += 220;
+        } else if (titleStr.includes(raw)) {
+          score += 100;
+        } else if (bengaliStr.includes(raw)) {
+          score += 90;
+        } else if (taglineStr.includes(raw) || notesStr.includes(raw)) {
+          score += 50;
+        }
+
+        for (const token of queryTokens) {
+          if (token === shotNumStr || epStr.includes(token)) score += 45;
+          if (titleStr.includes(token)) score += 25;
+          if (bengaliStr.includes(token)) score += 20;
+          if (taglineStr.includes(token)) score += 10;
+        }
+
+        if (score > 0) {
+          matches.push({
+            id: `shot-${f.id}`,
+            type: 'shot',
+            title: `Shot ${f.epNumber || `#${idx + 1}`}: ${f.title || 'Frame ' + (idx + 1)}`,
+            sub: `${f.bengaliTitle ? `${f.bengaliTitle} • ` : ''}${f.tagline || f.cameraMove || 'Active Sequence Frame'}`,
+            badge: `SHOT ${f.epNumber || `#${idx + 1}`}`,
+            badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+            categoryGroup: 'SEQUENCE TIMELINE',
+            score,
+            shotIndex: idx,
+            thumbnailUrl: f.imageUrl || f.thumbnailUrl || f.thumbnail,
+            colorAccent: f.colorAccent
+          });
+        }
+      });
+    }
+
+    // 2. FILTER WORKSPACE PANELS & MODES
+    const panelsData: Array<{
+      id: string;
+      title: string;
+      sub: string;
+      badge: string;
+      panelTarget?: StagePanelType;
+      viewTarget?: 'HOME' | 'STUDIO';
+      keywords: string[];
+    }> = [
+      {
+        id: 'panel-stage',
+        title: 'TACTILE STAGE',
+        sub: 'Primary 2.39:1 / 16:9 cinema viewport and canvas deck',
+        badge: 'WORKSPACE',
+        panelTarget: 'TACTILE_STAGE',
+        keywords: ['stage', 'cinema', 'viewport', 'tactile', 'player', 'view', 'canvas']
+      },
+      {
+        id: 'panel-reels',
+        title: 'REELS & SPLIT',
+        sub: '9:16 vertical short-form dopamine cut & dual split editor',
+        badge: 'WORKSPACE',
+        panelTarget: 'SPLIT',
+        keywords: ['reels', 'split', 'vertical', '9:16', 'tiktok', 'shorts', 'dual split']
+      },
+      {
+        id: 'panel-scrub',
+        title: 'SCRUB TIMELINE',
+        sub: 'Sub-frame precision scrub reel and keyframe navigation deck',
+        badge: 'WORKSPACE',
+        panelTarget: 'SEQUENCER',
+        keywords: ['scrub', 'timeline', 'sequencer', 'sub-frame', 'keyframes', 'scrubber']
+      },
+      {
+        id: 'panel-multicam',
+        title: 'MULTI-CAM GRID',
+        sub: '4-up multi-camera real-time synchronized live cutting matrix',
+        badge: 'WORKSPACE',
+        panelTarget: 'MULTICAM',
+        keywords: ['multicam', 'multi-cam', 'grid', 'cameras', 'angles', 'matrix']
+      },
+      {
+        id: 'panel-monitor',
+        title: 'OPTICAL MONITOR',
+        sub: '2.39:1 optical master reference display & cinema parade scopes',
+        badge: 'WORKSPACE',
+        panelTarget: 'OPTICAL',
+        keywords: ['monitor', 'optical', 'scopes', 'waveform', 'parade', 'histogram', 'lut']
+      },
+      {
+        id: 'view-home',
+        title: 'HOME OVERVIEW',
+        sub: 'Director manifesto, production metrics & ecosystem entrance',
+        badge: 'VIEW',
+        viewTarget: 'HOME',
+        keywords: ['home', 'overview', 'manifesto', 'portfolio', 'landing', 'start']
+      }
+    ];
+
+    panelsData.forEach((p) => {
+      let score = 0;
+      const titleLower = p.title.toLowerCase();
+      const subLower = p.sub.toLowerCase();
+      if (titleLower.includes(raw)) score += 110;
+      if (subLower.includes(raw)) score += 30;
+      p.keywords.forEach((kw) => {
+        if (kw === raw) score += 95;
+        else if (kw.includes(raw)) score += 40;
+        queryTokens.forEach((token) => {
+          if (kw === token) score += 25;
+          else if (kw.includes(token)) score += 10;
+        });
+      });
+
+      if (score > 0) {
+        matches.push({
+          id: p.id,
+          type: 'panel',
+          title: p.title,
+          sub: p.sub,
+          badge: p.badge,
+          badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+          categoryGroup: 'WORKSPACE NAVIGATION',
+          score,
+          panelTarget: p.panelTarget,
+          viewTarget: p.viewTarget
+        });
+      }
+    });
+
+    // 3. STUDIO TOOLS & 4. ECOSYSTEM APPS VIA KEYWORD SEARCH ENGINE
+    const ecoMatches = ecosystemSearchEngine.search(raw, 20);
+    ecoMatches.forEach((em) => {
+      matches.push({
+        id: em.id,
+        type: em.type,
+        title: em.title,
+        sub: em.sub,
+        badge: em.category,
+        badgeColor: em.type === 'studio-tool' 
+          ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+          : 'text-zinc-400 bg-white/5 border-white/10',
+        categoryGroup: em.categoryGroup,
+        score: em.score,
+        url: em.url,
+        actionId: em.actionId
+      });
+    });
+
+    // Sort by descending score
+    matches.sort((a, b) => b.score - a.score);
+
+    // Apply active category filter tab
+    if (searchFilterTab === 'SHOTS') {
+      return matches.filter((m) => m.type === 'shot').slice(0, 10);
+    }
+    if (searchFilterTab === 'TOOLS') {
+      return matches.filter((m) => m.type === 'panel' || m.type === 'studio-tool').slice(0, 10);
+    }
+    if (searchFilterTab === 'APPS') {
+      return matches.filter((m) => m.type === 'ecosystem').slice(0, 10);
+    }
+
+    return matches.slice(0, 12);
+  }, [globalSearchQuery, frames, currentIndex, searchFilterTab]);
+
+  const handleSelectSearchResult = (item: UnifiedSearchItem) => {
+    setIsGlobalSearchOpen(false);
+    setGlobalSearchQuery('');
+
+    // Handle Quick Jump to Sequence Shot
+    if (item.type === 'shot' && typeof item.shotIndex === 'number') {
+      const idx = item.shotIndex;
+      if (onSelectView && currentView !== 'STUDIO') {
+        onSelectView('STUDIO');
+      }
+      handleWorkspacePanelSelect('TACTILE_STAGE');
+      eventBus.emit('frame:select', { index: idx });
+      eventBus.emit('timeline:seek_shot', { index: idx });
+      return;
+    }
+
+    // Handle Quick Jump to Workspace Panel / View
+    if (item.type === 'panel') {
+      if (item.viewTarget === 'HOME') {
+        handleHomeClick();
+        return;
+      }
+      if (item.panelTarget) {
+        handleWorkspacePanelSelect(item.panelTarget);
+        return;
+      }
+    }
+
+    // Handle Quick Jump to Studio Tool Modal
+    if (item.type === 'studio-tool' && item.actionId) {
+      eventBus.emit(item.actionId);
+      if (item.actionId === 'aiforge:open') setIsAIForgeOpen(true);
+      if (item.actionId === 'rapsync:open') setIsRapSyncModalOpen(true);
+      if (item.actionId === 'neuralvox:open') setIsNeuralVoxOpen(true);
+      if (item.actionId === 'vectorforge:open') setIsVectorForgeOpen(true);
+      if (item.actionId === 'export:open') {
+        if (onOpenExport) onOpenExport();
+        else setIsExportStudioOpen(true);
+      }
+      if (item.actionId === 'recorder:open') {
+        if (onOpenRecorder) onOpenRecorder();
+        else eventBus.emit('recorder:open');
+      }
+      return;
+    }
+
+    // Handle Navigation to Ecosystem Project Subdomain
+    if (item.url && item.url !== '#') {
+      window.open(item.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsGlobalSearchOpen(false);
+      searchInputRef.current?.blur();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSearchHighlightIdx((prev) => 
+        unifiedSearchResults.length ? (prev + 1) % unifiedSearchResults.length : 0
+      );
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSearchHighlightIdx((prev) => 
+        unifiedSearchResults.length ? (prev - 1 + unifiedSearchResults.length) % unifiedSearchResults.length : 0
+      );
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const selected = unifiedSearchResults[searchHighlightIdx] || unifiedSearchResults[0];
+      if (selected) {
+        handleSelectSearchResult(selected);
+      } else {
+        setIsAppsModalOpen(true);
+        setIsGlobalSearchOpen(false);
+      }
+    }
+  };
 
   // Synchronize recording state with the screenRecorderEngine status
   useEffect(() => {
@@ -780,25 +1235,225 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
       {/* 3. RIGHT COLUMN (flex-1 pushes content to far right) */}
       <div className="flex-1 flex items-center justify-end gap-2.5 lg:gap-4">
-        {/* 1. Search Icon / Command Palette Trigger */}
-        <SmartHoverCard
-          code="[ ⌘K // SHOT FINDER ]"
-          description="Quick command palette and shot finder across all 100 timeline cards."
-          shortcut="⌘K"
-          align="right"
-        >
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenSearch) onOpenSearch();
-              else eventBus.emit('command:open');
-            }}
-            className="flex items-center justify-center h-8 px-2.5! rounded-lg bg-black/40 border border-white/10 hover:border-white/30 text-xs font-mono text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors shrink-0"
-            title="Search Master Shots (⌘K)"
-          >
+        {/* 1. Global Search Bar: Existing Application State, Workspace Panels, Tools & Ecosystem */}
+        <div ref={searchContainerRef} className="relative shrink-0">
+          <div className="relative flex items-center h-8 bg-black/60 border border-white/10 hover:border-white/25 focus-within:border-amber-400/60 focus-within:ring-1 focus-within:ring-amber-400/30 rounded-lg px-2.5 gap-2 transition-all w-36 sm:w-52 lg:w-64 shadow-inner">
             <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-          </button>
-        </SmartHoverCard>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={globalSearchQuery}
+              onChange={(e) => {
+                setGlobalSearchQuery(e.target.value);
+                setSearchHighlightIdx(0);
+                if (!isGlobalSearchOpen) setIsGlobalSearchOpen(true);
+              }}
+              onFocus={() => setIsGlobalSearchOpen(true)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search shots, tools, apps... (⌘K)"
+              className="w-full bg-transparent text-[11px] font-mono text-white placeholder:text-zinc-500 focus:outline-none"
+            />
+            {globalSearchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setGlobalSearchQuery('');
+                  searchInputRef.current?.focus();
+                }}
+                className="text-zinc-500 hover:text-white p-0.5 cursor-pointer shrink-0"
+                title="Clear Search"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            ) : (
+              <span className="hidden sm:inline-flex text-[9px] font-mono text-zinc-500 border border-white/10 rounded px-1 py-0.2 pointer-events-none shrink-0">
+                ⌘K
+              </span>
+            )}
+          </div>
+
+          {/* Unified Keyword Indexed Search Dropdown Popover */}
+          {isGlobalSearchOpen && (
+            <div className="absolute top-full right-0 mt-1.5 w-80 sm:w-[420px] max-h-[480px] overflow-y-auto bg-[#08090C]/98 backdrop-blur-3xl border border-white/15 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(245,166,35,0.12)] p-2 space-y-1.5 z-[99999] font-mono text-xs select-none">
+              {/* Header Telemetry & Category Filter Tabs */}
+              <div className="flex flex-col gap-1.5 px-1 pb-1.5 border-b border-white/10">
+                <div className="flex items-center justify-between text-[9px] text-zinc-400 uppercase tracking-widest px-1">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span>CENTRAL STUDIO &amp; ECOSYSTEM SEARCH</span>
+                  </span>
+                  <span className="text-amber-400 font-bold">
+                    {globalSearchQuery ? `${unifiedSearchResults.length} FOUND` : 'QUICK JUMP'}
+                  </span>
+                </div>
+
+                {/* Filter Category Tabs */}
+                <div className="flex items-center gap-1 pt-0.5">
+                  {(['ALL', 'SHOTS', 'TOOLS', 'APPS'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => {
+                        setSearchFilterTab(tab);
+                        setSearchHighlightIdx(0);
+                      }}
+                      className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded tracking-wider uppercase transition-colors cursor-pointer border ${
+                        searchFilterTab === tab
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                          : 'bg-white/[0.03] text-zinc-400 border-white/10 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {tab === 'SHOTS' ? '🎬 SHOTS' : tab === 'TOOLS' ? '⚡ TOOLS & PANELS' : tab === 'APPS' ? '🌐 APPS' : 'ALL'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Results List */}
+              <div className="py-1 space-y-0.5">
+                {unifiedSearchResults.length === 0 ? (
+                  <div className="p-5 text-center text-zinc-500 text-xs font-mono space-y-2">
+                    <p>No results match &ldquo;{globalSearchQuery}&rdquo; in {searchFilterTab}</p>
+                    <div className="flex justify-center gap-2 pt-1">
+                      {searchFilterTab !== 'ALL' && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchFilterTab('ALL')}
+                          className="text-[10px] text-zinc-300 hover:text-white underline cursor-pointer"
+                        >
+                          Clear category filter
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsGlobalSearchOpen(false);
+                          setIsAppsModalOpen(true);
+                        }}
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
+                      >
+                        Browse All 28 Apps [ 㗊 ]
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  unifiedSearchResults.map((item, idx) => {
+                    const isSelected = idx === searchHighlightIdx;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelectSearchResult(item)}
+                        onMouseEnter={() => setSearchHighlightIdx(idx)}
+                        className={`w-full px-2.5 py-2 rounded-lg flex items-center justify-between gap-3 text-left transition-all cursor-pointer border ${
+                          isSelected
+                            ? 'bg-amber-500/15 border-amber-500/40 text-white shadow-[0_0_12px_rgba(245,166,35,0.15)]'
+                            : 'bg-transparent border-transparent text-zinc-300 hover:bg-white/5'
+                        }`}
+                      >
+                        {/* Leading Graphic / Thumbnail / Icon */}
+                        <div className="shrink-0 flex items-center justify-center">
+                          {item.type === 'shot' ? (
+                            item.thumbnailUrl ? (
+                              <div className="w-9 h-7 rounded overflow-hidden border border-white/15 bg-black/50 shrink-0">
+                                <img
+                                  src={item.thumbnailUrl}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : (
+                              <div
+                                style={{ borderColor: item.colorAccent || '#D4AF37' }}
+                                className="w-8 h-7 rounded border flex items-center justify-center bg-black/60 text-[9px] font-mono text-amber-400 font-bold"
+                              >
+                                #{String((item.shotIndex ?? 0) + 1).padStart(2, '0')}
+                              </div>
+                            )
+                          ) : item.type === 'panel' ? (
+                            <div className="w-8 h-7 rounded border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                              <LayoutGrid className="w-3.5 h-3.5" />
+                            </div>
+                          ) : item.type === 'studio-tool' ? (
+                            <div className="w-8 h-7 rounded border border-amber-500/30 bg-amber-500/10 flex items-center justify-center text-amber-400">
+                              <Zap className="w-3.5 h-3.5" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-7 rounded border border-white/15 bg-white/5 flex items-center justify-center text-zinc-400">
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Title, Category & Subtitle */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs truncate group-hover:text-amber-300">
+                              {item.title}
+                            </span>
+                            <span
+                              className={`text-[8px] px-1.5 py-0.2 rounded border font-semibold uppercase tracking-wider shrink-0 ${
+                                item.badgeColor || 'text-zinc-400 bg-black/60 border-white/10'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          </div>
+                          <p className="text-[9.5px] text-zinc-400 truncate mt-0.5 leading-snug">
+                            {item.sub}
+                          </p>
+                          {item.url && item.url !== '#' && (
+                            <span className="text-[8.5px] text-zinc-500 block truncate mt-0.5">
+                              {item.url.replace(/^https?:\/\//, '')}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Action Quick-Jump Badge */}
+                        <div className="shrink-0 flex items-center gap-1.5 text-zinc-400 group-hover:text-amber-400">
+                          {item.type === 'shot' ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                              JUMP ↵
+                            </span>
+                          ) : item.type === 'panel' ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                              SWITCH ↵
+                            </span>
+                          ) : item.type === 'studio-tool' ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                              OPEN ↵
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-300 border border-white/10 font-bold flex items-center gap-1">
+                              <span>LAUNCH</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Bottom Quick Jump Action */}
+              <div className="pt-1.5 border-t border-white/10 flex items-center justify-between px-2 text-[9px] text-zinc-500 font-mono">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsGlobalSearchOpen(false);
+                    setIsAppsModalOpen(true);
+                  }}
+                  className="text-amber-400 hover:text-amber-300 font-bold tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <span>㗊</span>
+                  <span>VIEW ALL 28 APPS IN LAUNCHER</span>
+                </button>
+                <span>[ESC] TO CLOSE</span>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 2. REC Toggle Button */}
         <SmartHoverCard

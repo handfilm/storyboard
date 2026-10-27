@@ -49,8 +49,14 @@ export const EcosystemGridModal: React.FC<EcosystemGridModalProps> = ({ isOpen, 
               {group.projects.map((proj) => (
                 <div
                   key={proj.id}
-                  className="group relative bg-[#0A0C10] border border-white/10 rounded-2xl overflow-hidden flex flex-col hover:border-white/30 transition-all duration-300 shadow-2xl"
+                  className="group relative bg-[#0A0C10] border border-white/10 rounded-2xl overflow-hidden flex flex-col hover:border-amber-400/60 hover:scale-105 hover:-translate-y-1.5 hover:shadow-[0_0_32px_rgba(245,166,35,0.32),0_20px_45px_rgba(0,0,0,0.9)] transition-all duration-300 ease-out transform-gpu will-change-transform shadow-2xl"
                 >
+                  {/* Soft box-shadow glow animation backdrop */}
+                  <div 
+                    aria-hidden="true" 
+                    className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-amber-500/0 via-amber-400/35 to-amber-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none blur-md animate-pulse" 
+                  />
+
                   {/* CARD IMAGE */}
                   <div className="h-52 w-full overflow-hidden bg-black/40 relative">
                     <img
@@ -59,15 +65,15 @@ export const EcosystemGridModal: React.FC<EcosystemGridModalProps> = ({ isOpen, 
                       className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
                       loading="lazy"
                     />
-                    <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-mono text-white/70 uppercase tracking-widest border border-white/10">
+                    <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-mono text-white/70 uppercase tracking-widest border border-white/10 group-hover:border-amber-400/40 group-hover:text-amber-300 transition-colors">
                       {proj.category}
                     </div>
                   </div>
 
                   {/* CARD DETAILS */}
-                  <div className="p-6 flex-1 flex flex-col justify-between bg-gradient-to-b from-[#0A0C10] to-[#050608]">
+                  <div className="p-6 flex-1 flex flex-col justify-between bg-gradient-to-b from-[#0A0C10] to-[#050608] relative z-10">
                     <div>
-                      <h3 className="text-lg font-black text-white uppercase tracking-wider font-mono">
+                      <h3 className="text-lg font-black text-white uppercase tracking-wider font-mono group-hover:text-amber-300 transition-colors duration-300">
                         {proj.title}
                       </h3>
                       <p className="text-xs text-white/50 font-mono mt-1 leading-relaxed">
@@ -81,7 +87,7 @@ export const EcosystemGridModal: React.FC<EcosystemGridModalProps> = ({ isOpen, 
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="mt-6 block w-full py-3 bg-white/[0.03] border border-white/15 text-center text-[10px] font-mono font-bold text-white tracking-[0.2em] rounded-lg uppercase hover:bg-white hover:text-black transition-all duration-200 cursor-pointer"
+                      className="mt-6 block w-full py-3 bg-white/[0.03] border border-white/15 text-center text-[10px] font-mono font-bold text-white tracking-[0.2em] rounded-lg uppercase group-hover:border-amber-400/50 group-hover:bg-amber-500/10 group-hover:text-amber-200 hover:group-hover:bg-white hover:group-hover:text-black hover:group-hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-200 cursor-pointer shadow-sm"
                     >
                       [ LAUNCH // ENTER ENGINE ] ↗
                     </a>

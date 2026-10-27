@@ -1,9 +1,295 @@
 /**
  * @file /src/constants/ecosystemApps.ts
- * @description Central Master Registry of the 25+ Subdomains in the handsandhead.com Ecosystem.
- * Powering the Mega Ecosystem Launcher (Omniverse Central Command OS).
+ * @description Central Master Registry of the 28 Subdomains in the handsandhead.com Ecosystem.
+ * Powering [ THE HIMON ECOSYSTEM ] visual card launcher & Omniverse Central Command.
  */
 
+export interface EcosystemProject {
+  id: string;
+  category: string;
+  title: string;
+  sub: string;
+  url: string;
+  image: string;
+}
+
+export interface EcosystemCategory {
+  categoryName: string;
+  projects: EcosystemProject[];
+}
+
+export const ECOSYSTEM_DATA: EcosystemCategory[] = [
+  {
+    categoryName: "COMMERCE & ENTERPRISE",
+    projects: [
+      { 
+        id: "b2b", 
+        category: "ENTERPRISE", 
+        title: "B2B GLOBAL ENGINE", 
+        sub: "Wholesale & International Trade", 
+        url: "https://b2b.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800" 
+      },
+      { 
+        id: "admin", 
+        category: "OPERATIONS", 
+        title: "ADMIN BACKEND", 
+        sub: "Mission Control & Analytics", 
+        url: "https://admin.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?q=80&w=800" 
+      },
+      { 
+        id: "d2c", 
+        category: "COMMERCE", 
+        title: "D2C STOREFRONT", 
+        sub: "Direct Consumer Platform", 
+        url: "https://d2c.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?q=80&w=800" 
+      }
+    ]
+  },
+  {
+    categoryName: "CINEMA, AUDIO & MEDIA",
+    projects: [
+      { 
+        id: "handfilm", 
+        category: "CINEMA & AI", 
+        title: "HANDFILM STUDIO", 
+        sub: "B2B Video Assembly Engine", 
+        url: "https://b2b.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1601506521937-0121a7fc2a6b?q=80&w=800" 
+      },
+      { 
+        id: "hub", 
+        category: "MEDIA", 
+        title: "MEDIA HUB", 
+        sub: "Central Production Vault", 
+        url: "https://hub.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?q=80&w=800" 
+      },
+      { 
+        id: "vault", 
+        category: "ARCHIVE", 
+        title: "ASSET VAULT", 
+        sub: "Zero-Loss Asset Pipeline", 
+        url: "https://vault.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=800" 
+      },
+      { 
+        id: "deeper", 
+        category: "CINEMA", 
+        title: "DEEPER DOCS", 
+        sub: "Narrative & Moral Exploration", 
+        url: "https://deeper.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?q=80&w=800" 
+      },
+      { 
+        id: "r2", 
+        category: "STREAMING", 
+        title: "R2 MEDIA STREAM", 
+        sub: "Direct Edge Distribution", 
+        url: "https://xvideos-r2.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1536240478700-b869070f9279?q=80&w=800" 
+      }
+    ]
+  },
+  {
+    categoryName: "CREATOR & UTILITY OS",
+    projects: [
+      { 
+        id: "aural", 
+        category: "AUDIO", 
+        title: "AURAL ENGINE", 
+        sub: "Metal, Rap & Reggae Fusion", 
+        url: "https://aural.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800" 
+      },
+      { 
+        id: "picseed", 
+        category: "PHOTO", 
+        title: "PICSEED STUDIO", 
+        sub: "Automated Editorial Staging", 
+        url: "https://picseed.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=800" 
+      },
+      { 
+        id: "account", 
+        category: "FINANCE", 
+        title: "ACCOUNT OS", 
+        sub: "Ledger & Cash-Flow Engine", 
+        url: "https://account.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=800" 
+      },
+      { 
+        id: "note", 
+        category: "KNOWLEDGE", 
+        title: "CHOPPER NOTES", 
+        sub: "Fast Markdown Knowledge Graph", 
+        url: "https://note.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1517842645767-c639042777db?q=80&w=800" 
+      }
+    ]
+  },
+  {
+    categoryName: "ED-TECH & NEXT GENERATION",
+    projects: [
+      { 
+        id: "bloom", 
+        category: "ED-TECH", 
+        title: "KHUKIR BAGAN (BLOOM)", 
+        sub: "Bangla Smart TV Platform", 
+        url: "https://play.google.com/store/apps", 
+        image: "https://images.unsplash.com/photo-1512626120412-faf41adb4874?q=80&w=800" 
+      },
+      { 
+        id: "hiya", 
+        category: "EDUCATION", 
+        title: "HIYA LEARNING", 
+        sub: "Interactive Children's Sandbox", 
+        url: "https://hiya.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=800" 
+      }
+    ]
+  },
+  {
+    categoryName: "ATELIER & PHYSICAL CRAFT",
+    projects: [
+      { 
+        id: "rawx", 
+        category: "ATELIER", 
+        title: "RAWx APPAREL", 
+        sub: "Full-Grain Leather Jackets", 
+        url: "https://handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=800" 
+      },
+      { 
+        id: "arutemika", 
+        category: "FOOTWEAR", 
+        title: "ARUTEMIKA", 
+        sub: "Goodyear Welted Boots", 
+        url: "https://handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1608256246200-53e635b5b65f?q=80&w=800" 
+      },
+      { 
+        id: "jacket", 
+        category: "STREETWEAR", 
+        title: "JACKET ATELIER", 
+        sub: "Peak Performance Brutalist UI", 
+        url: "https://jacket.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1520975954732-57dd22299614?q=80&w=800" 
+      },
+      { 
+        id: "leather", 
+        category: "LEATHER", 
+        title: "CRUST TANNERY PARK", 
+        sub: "Hemayetpur Sourced Cowhide", 
+        url: "https://leather.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1559551409-dadc959f76b8?q=80&w=800" 
+      },
+      { 
+        id: "bracelets", 
+        category: "ACCESSORIES", 
+        title: "SOLID BRASS WRISTWEAR", 
+        sub: "Bridle Leather & Hardware", 
+        url: "https://bracelets.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1611591475841-86d495761eb8?q=80&w=800" 
+      },
+      { 
+        id: "rmg", 
+        category: "GARMENTS", 
+        title: "RMG EXPORT PIPELINE", 
+        sub: "260-300 GSM Heavy Streetwear", 
+        url: "https://rmg.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=800" 
+      },
+      { 
+        id: "textile", 
+        category: "MILLS", 
+        title: "SAVAR SELVEDGE TEXTILE", 
+        sub: "Shuttle-Loom Vintage Weaves", 
+        url: "https://textile.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=800" 
+      },
+      { 
+        id: "jute", 
+        category: "NATURAL FIBERS", 
+        title: "BANGLADESH JUTE DIVERSIFIED", 
+        sub: "Two Decades Association Line", 
+        url: "https://jute.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1530587191325-3db32d826c18?q=80&w=800" 
+      }
+    ]
+  },
+  {
+    categoryName: "LIFESTYLE, ESSAYS & CULTURE",
+    projects: [
+      { 
+        id: "me", 
+        category: "PORTFOLIO", 
+        title: "RAKIB HIMON DIRECT", 
+        sub: "Personal Archive & Creative Notes", 
+        url: "https://me.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=800" 
+      },
+      { 
+        id: "articles", 
+        category: "DISCOURSE", 
+        title: "CRITICAL ESSAYS", 
+        sub: "Indo-Aryan & Bengali Literature", 
+        url: "https://articles.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=800" 
+      },
+      { 
+        id: "gym", 
+        category: "KINETICS", 
+        title: "SHADOW BOXING & REPS", 
+        sub: "High-Cadence Physical Conditioning", 
+        url: "https://gym.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=800" 
+      },
+      { 
+        id: "food", 
+        category: "CULINARY", 
+        title: "DHAKA FOOD ARCHIVE", 
+        sub: "Old Town Spices & Tradition", 
+        url: "https://food.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800" 
+      }
+    ]
+  },
+  {
+    categoryName: "CONCEPT & EXPERIMENTAL LIBRARIES",
+    projects: [
+      { 
+        id: "lingerie", 
+        category: "ATELIER COUTURE", 
+        title: "LINGERIE ATELIER", 
+        sub: "Geometric Silk & Mesh Previs", 
+        url: "https://lingerie.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1583846783214-7229a91b20ed?q=80&w=800" 
+      },
+      { 
+        id: "harness", 
+        category: "LEATHER DESIGN", 
+        title: "MODULAR HARNESS RIGS", 
+        sub: "Industrial Rivets & Harnessing", 
+        url: "https://harness.handsandhead.com", 
+        image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=800" 
+      }
+    ]
+  }
+];
+
+export const TOTAL_ECOSYSTEM_COUNT = ECOSYSTEM_DATA.reduce(
+  (acc, cat) => acc + cat.projects.length,
+  0
+);
+
+export const ALL_ECOSYSTEM_PROJECTS: EcosystemProject[] = ECOSYSTEM_DATA.flatMap(
+  (cat) => cat.projects
+);
+
+// Backward-compatibility adapters for legacy consumers
 export interface EcosystemAppItem {
   id: string;
   name: string;
@@ -15,7 +301,7 @@ export interface EcosystemAppItem {
   isInternalTool?: boolean;
 }
 
-export interface EcosystemCategory {
+export interface LegacyEcosystemCategory {
   id: string;
   title: string;
   icon: string;
@@ -23,291 +309,21 @@ export interface EcosystemCategory {
   apps: EcosystemAppItem[];
 }
 
-export const ECOSYSTEM_CATEGORIES: EcosystemCategory[] = [
-  {
-    id: 'commerce',
-    title: '[ 🌐 COMMERCE & ENTERPRISE ]',
-    icon: 'Globe',
-    badge: '3 PORTALS',
-    apps: [
-      {
-        id: 'b2b',
-        name: 'B2B Global',
-        subdomain: 'b2b.handsandhead.com',
-        url: 'https://b2b.handsandhead.com',
-        description: 'Worldwide wholesale commerce & manufacturing hub',
-        iconName: 'Building2',
-        badge: 'B2B'
-      },
-      {
-        id: 'admin',
-        name: 'Admin Backend',
-        subdomain: 'admin.handsandhead.com',
-        url: 'https://admin.handsandhead.com',
-        description: 'Enterprise ERP, multi-tenant inventory & ledger',
-        iconName: 'ShieldCheck',
-        badge: 'AUTH'
-      },
-      {
-        id: 'd2c',
-        name: 'D2C Storefront',
-        subdomain: 'd2c.handsandhead.com',
-        url: 'https://d2c.handsandhead.com',
-        description: 'Direct-to-consumer flagship retail experience',
-        iconName: 'ShoppingBag',
-        badge: 'RETAIL'
-      }
-    ]
-  },
-  {
-    id: 'studio',
-    title: '[ 🎬 STUDIO & MEDIA ]',
-    icon: 'Film',
-    badge: '4 PORTALS',
-    apps: [
-      {
-        id: 'hub',
-        name: 'Media Hub',
-        subdomain: 'hub.handsandhead.com',
-        url: 'https://hub.handsandhead.com',
-        description: 'Central creative command desk and client review',
-        iconName: 'Layers',
-        badge: 'HQ'
-      },
-      {
-        id: 'vault',
-        name: 'Vault',
-        subdomain: 'vault.handsandhead.com',
-        url: 'https://vault.handsandhead.com',
-        description: 'Permanent 4K uncompressed RAW footage media storage',
-        iconName: 'FolderLock',
-        badge: 'STORAGE'
-      },
-      {
-        id: 'deeper',
-        name: 'Deeper Scopes',
-        subdomain: 'deeper.handsandhead.com',
-        url: 'https://deeper.handsandhead.com',
-        description: 'Real-time hardware optical scopes & parade analyzers',
-        iconName: 'Activity',
-        badge: 'MONITOR'
-      },
-      {
-        id: 'r2',
-        name: 'R2 Stream',
-        subdomain: 'xvideos-r2.handsandhead.com',
-        url: 'https://xvideos-r2.handsandhead.com',
-        description: 'Cloudflare R2 global zero-egress video edge streaming',
-        iconName: 'Cloud',
-        badge: 'EDGE'
-      }
-    ]
-  },
-  {
-    id: 'tools',
-    title: '[ 🛠️ CREATOR TOOLS ]',
-    icon: 'Wrench',
-    badge: '4 PORTALS',
-    apps: [
-      {
-        id: 'aural',
-        name: 'Aural Music',
-        subdomain: 'aural.handsandhead.com',
-        url: 'https://aural.handsandhead.com',
-        description: 'Procedural 140 BPM audio synthesizer & DSP mastering',
-        iconName: 'Music',
-        badge: 'AUDIO'
-      },
-      {
-        id: 'picseed',
-        name: 'Picseed Photo',
-        subdomain: 'picseed.handsandhead.com',
-        url: 'https://picseed.handsandhead.com',
-        description: 'Batch optical RAW image color grader & darkroom',
-        iconName: 'Image',
-        badge: 'STILLS'
-      },
-      {
-        id: 'account',
-        name: 'Account & Finance',
-        subdomain: 'account.handsandhead.com',
-        url: 'https://account.handsandhead.com',
-        description: 'Studio billing, royalties & production cost ledger',
-        iconName: 'CreditCard',
-        badge: 'FINANCE'
-      },
-      {
-        id: 'note',
-        name: 'Note Director Pad',
-        subdomain: 'note.handsandhead.com',
-        url: 'https://note.handsandhead.com',
-        description: 'Scriptwriting markdown scratchpad & shot notes',
-        iconName: 'FileText',
-        badge: 'SCRATCH'
-      }
-    ]
-  },
-  {
-    id: 'kids',
-    title: '[ 🧠 KIDS & LEARNING ]',
-    icon: 'Sparkles',
-    badge: '2 PORTALS',
-    apps: [
-      {
-        id: 'hiya',
-        name: 'Hiya World',
-        subdomain: 'hiya.handsandhead.com',
-        url: 'https://hiya.handsandhead.com',
-        description: 'Interactive gamified learning for young storytellers',
-        iconName: 'Smile',
-        badge: 'EDU'
-      },
-      {
-        id: 'bloom',
-        name: 'Bloom App',
-        subdomain: 'bloom.handsandhead.com',
-        url: 'https://bloom.handsandhead.com',
-        description: 'Kinetic visual sandbox & procedural color bloom',
-        iconName: 'Sparkles',
-        badge: 'CREATIVE'
-      }
-    ]
-  },
-  {
-    id: 'atelier',
-    title: '[ 📦 ATELIER (PHYSICAL GOODS) ]',
-    icon: 'Package',
-    badge: '6 ATELIERS',
-    apps: [
-      {
-        id: 'rmg',
-        name: 'RMG Production',
-        subdomain: 'rmg.handsandhead.com',
-        url: 'https://rmg.handsandhead.com',
-        description: 'Ready-made garment manufacturing & technical specs',
-        iconName: 'Scissors',
-        badge: 'MFG'
-      },
-      {
-        id: 'textile',
-        name: 'Textile Studio',
-        subdomain: 'textile.handsandhead.com',
-        url: 'https://textile.handsandhead.com',
-        description: 'Raw denim, organic cotton & weave composition',
-        iconName: 'Shirt',
-        badge: 'FABRIC'
-      },
-      {
-        id: 'leather',
-        name: 'Leather Atelier',
-        subdomain: 'leather.handsandhead.com',
-        url: 'https://leather.handsandhead.com',
-        description: 'Full-grain vegetable-tanned artisanal leather goods',
-        iconName: 'Briefcase',
-        badge: 'LEATHER'
-      },
-      {
-        id: 'jute',
-        name: 'Jute Natural Fiber',
-        subdomain: 'jute.handsandhead.com',
-        url: 'https://jute.handsandhead.com',
-        description: 'Golden fiber sustainable packaging & biodegradable goods',
-        iconName: 'Leaf',
-        badge: 'ECO'
-      },
-      {
-        id: 'jacket',
-        name: 'Jacket Workshop',
-        subdomain: 'jacket.handsandhead.com',
-        url: 'https://jacket.handsandhead.com',
-        description: 'Architectural outerwear, bombers & heavy coats',
-        iconName: 'Sparkle',
-        badge: 'OUTERWEAR'
-      },
-      {
-        id: 'bracelets',
-        name: 'Bracelets & Metals',
-        subdomain: 'bracelets.handsandhead.com',
-        url: 'https://bracelets.handsandhead.com',
-        description: 'Handcrafted titanium & woven leather wristwear',
-        iconName: 'Watch',
-        badge: 'JEWELRY'
-      }
-    ]
-  },
-  {
-    id: 'lifestyle',
-    title: '[ 📓 LIFESTYLE & BLOGS ]',
-    icon: 'Compass',
-    badge: '4 PORTALS',
-    apps: [
-      {
-        id: 'me',
-        name: 'Me (Personal Dossier)',
-        subdomain: 'me.handsandhead.com',
-        url: 'https://me.handsandhead.com',
-        description: 'Director portfolio, personal manifesto & timeline',
-        iconName: 'User',
-        badge: 'BIO'
-      },
-      {
-        id: 'articles',
-        name: 'Articles & Essays',
-        subdomain: 'articles.handsandhead.com',
-        url: 'https://articles.handsandhead.com',
-        description: 'Long-form editorial essays on cinema, culture & craft',
-        iconName: 'BookOpen',
-        badge: 'ESSAYS'
-      },
-      {
-        id: 'gym',
-        name: 'Gym & Kinetic Health',
-        subdomain: 'gym.handsandhead.com',
-        url: 'https://gym.handsandhead.com',
-        description: 'Daily training regimens, metabolic health & athletic metrics',
-        iconName: 'Dumbbell',
-        badge: 'FITNESS'
-      },
-      {
-        id: 'food',
-        name: 'Food & Culinary',
-        subdomain: 'food.handsandhead.com',
-        url: 'https://food.handsandhead.com',
-        description: 'Culinary alchemy, specialty coffee & gastronomy notes',
-        iconName: 'Coffee',
-        badge: 'CULINARY'
-      }
-    ]
-  },
-  {
-    id: 'concepts',
-    title: '[ 🔞 CONCEPT LIBRARIES ]',
-    icon: 'Flame',
-    badge: '2 ARCHIVES',
-    apps: [
-      {
-        id: 'lingerie',
-        name: 'Lingerie Design',
-        subdomain: 'lingerie.handsandhead.com',
-        url: 'https://lingerie.handsandhead.com',
-        description: 'Avant-garde intimate apparel design & couture lines',
-        iconName: 'Heart',
-        badge: 'COUTURE'
-      },
-      {
-        id: 'harness',
-        name: 'Harness & Leather Bond',
-        subdomain: 'harness.handsandhead.com',
-        url: 'https://harness.handsandhead.com',
-        description: 'Saddlery hardware, architectural body harnesses',
-        iconName: 'Lock',
-        badge: 'LEATHERCRAFT'
-      }
-    ]
-  }
-];
-
-export const TOTAL_ECOSYSTEM_COUNT = ECOSYSTEM_CATEGORIES.reduce(
-  (acc, cat) => acc + cat.apps.length,
-  0
-);
+export const ECOSYSTEM_CATEGORIES: LegacyEcosystemCategory[] = ECOSYSTEM_DATA.map((cat) => ({
+  id: cat.categoryName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+  title: `[ ${cat.categoryName} ]`,
+  icon: 'Globe',
+  badge: `${cat.projects.length} PORTALS`,
+  apps: cat.projects.map((p) => {
+    let hostname = p.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    return {
+      id: p.id,
+      name: p.title,
+      subdomain: hostname,
+      url: p.url,
+      description: p.sub,
+      iconName: 'Globe',
+      badge: p.category
+    };
+  })
+}));

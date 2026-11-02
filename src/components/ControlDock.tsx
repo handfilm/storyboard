@@ -41,7 +41,8 @@ import {
   Activity,
   ZoomIn,
   Repeat,
-  Music
+  Music,
+  Layers
 } from 'lucide-react';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 import { AudioFrequencyVisualizer } from './audio/AudioFrequencyVisualizer';
@@ -89,6 +90,8 @@ export interface ControlDockProps {
   onToggleGuides?: () => void;
   onCaptureStill?: () => void;
   onToggleZen?: () => void;
+  isTelemetryRackOpen?: boolean;
+  onToggleTelemetryRack?: () => void;
 }
 
 const LUT_PRESETS: { id: LutPreset; label: string }[] = [
@@ -142,7 +145,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onOpenLiquify,
   onToggleGuides,
   onCaptureStill,
-  onToggleZen
+  onToggleZen,
+  isTelemetryRackOpen = false,
+  onToggleTelemetryRack
 }) => {
   const stripRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
@@ -908,6 +913,25 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               {fgZoom.toFixed(1)}x/{bgZoom.toFixed(1)}x
             </span>
           </button>
+
+          {/* Modular Telemetry Rack (Audio Sync, Voice/Sub, 3D LUT Grade) */}
+          {onToggleTelemetryRack && (
+            <button
+              type="button"
+              onClick={onToggleTelemetryRack}
+              className={`px-2 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+                isTelemetryRackOpen
+                  ? 'bg-[#2dd4bf]/25 border-[#2dd4bf] text-[#2dd4bf] font-bold shadow-[0_0_12px_rgba(45,212,191,0.45)]'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:text-[#2dd4bf] hover:border-[#2dd4bf]/50'
+              }`}
+              title="Toggle Modular Telemetry Rack: Audio-Reactive Sync, Voiceover/Subtitles & 3D LUT Engine"
+              aria-label="Toggle Modular Telemetry Rack"
+            >
+              <Layers className="w-3 h-3 text-[#2dd4bf]" />
+              <span className="hidden sm:inline">RACK</span>
+              <span className="text-[7.5px] px-1 py-0.2 rounded bg-[#2dd4bf]/20 text-[#2dd4bf] font-bold">3P</span>
+            </button>
+          )}
 
           {/* Grid / Contact Sheet */}
           <button

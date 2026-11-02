@@ -28,6 +28,7 @@ import { StudioDrawer } from './components/StudioDrawer';
 import { R2AutomationModal } from './components/R2AutomationModal';
 import { CutNativeExportModal, ExportModalTab } from './components/CutNativeExportModal';
 import { CompilationWizardModal } from './components/CompilationWizardModal';
+import { ModularTelemetryRack } from './components/modules/ModularTelemetryRack';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
   ComponentsMatrixPopover, 
@@ -146,6 +147,7 @@ export default function App() {
   const [isCinemaPlayerOpen, setIsCinemaPlayerOpen] = useState(false);
   const [isSnapToBeat, setIsSnapToBeat] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState(120);
+  const [isTelemetryRackOpen, setIsTelemetryRackOpen] = useState(false);
 
   // Screen Recorder & WebCodecs Trimmer Suite State
   const [isScreenRecorderOpen, setIsScreenRecorderOpen] = useState(false);
@@ -1972,6 +1974,7 @@ export default function App() {
       case 'view.toggleFullscreen': toggleFullscreen(); break;
       case 'tools.scopes': setIsVideoScopesOpen(true); break;
       case 'tools.animatic': setIsAnimaticOpen(true); break;
+      case 'tools.telemetryRack': setIsTelemetryRackOpen(o => !o); break;
       case 'hollywood.otio': {
         const content = exportToOTIO(project);
         triggerFileDownload(`${project.title || 'project'}.otio`, content, 'application/json');
@@ -2365,6 +2368,18 @@ export default function App() {
         )}
       </div>
 
+      {/* Brutalist Modular Telemetry Rack (Audio Sync, Voice/Sub, 3D LUT Color Engine) */}
+      {isTelemetryRackOpen && (
+        <ModularTelemetryRack
+          currentFrame={currentFrame}
+          slideTimeSec={slideTimeSec}
+          durationSec={currentFrame ? getShotDurationSec(currentFrame, 12.0) : 12.0}
+          onUpdateFrame={handleUpdateFrame}
+          isOpen={isTelemetryRackOpen}
+          onToggleOpen={() => setIsTelemetryRackOpen(false)}
+        />
+      )}
+
       {/* Resizable Bottom Control Dock */}
       <ControlDock
         frames={project.frames}
@@ -2408,6 +2423,8 @@ export default function App() {
         onOpenLiquify={() => setIsLiquifyOpen(true)}
         onToggleGuides={() => setShowGuides(g => !g)}
         onCaptureStill={handleCaptureStill}
+        isTelemetryRackOpen={isTelemetryRackOpen}
+        onToggleTelemetryRack={() => setIsTelemetryRackOpen(o => !o)}
       />
       </>
       )}

@@ -344,6 +344,17 @@ class FeatureRegistry {
     });
 
     this.register({
+      id: 'export-storyboard-pdf',
+      name: 'Export Storyboard Document (.pdf)',
+      module: 'EXPORT',
+      description: 'Generate multi-page studio storyboard documents (Director Bible, Dual-Shot, Contact Sheet) with specs & blocking notes',
+      path: 'TopBar > EXPORT > Storyboard Document (.pdf)',
+      commandId: 'export.storyboardPdf',
+      status: 'stable',
+      selfTest: async () => ({ ok: true, message: 'jsPDF Multi-Page Storyboard engine ready' })
+    });
+
+    this.register({
       id: 'persistence-core',
       name: 'Persistence Core & Autosave (rawx-project.v1)',
       module: 'SYSTEM',

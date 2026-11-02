@@ -469,3 +469,98 @@ test('ComponentsMatrixPopover titleOpacity helpers clamp and persist --title-blo
   assert.doesNotThrow(() => applyTitleBlockOpacityCssVar(0.45));
 });
 
+test('Multi-Page Storyboard PDF Exporter: timecodes, layouts, themes, and PDF Blob generation', async () => {
+  const { formatSmpteTimecode, exportStoryboardToPdf } = await import('./pdfExport.ts');
+
+  // 1. Verify SMPTE timecode calculation
+  assert.equal(formatSmpteTimecode(0, 24), '00:00:00:00');
+  assert.equal(formatSmpteTimecode(12, 24), '00:00:12:00');
+  assert.equal(formatSmpteTimecode(3661.5, 24), '01:01:01:12');
+
+  // 2. Mock sample sequence frames with complete metadata & director notes
+  const mockFrames: any[] = [
+    {
+      id: 1,
+      epNumber: '#001',
+      title: 'Neon Rain Descent',
+      bengaliTitle: 'বৃষ্টির নিচে ছায়া',
+      tagline: 'The descent into Old Dhaka at midnight.',
+      directorNotes: 'Slow dolly-in towards protagonist. Maintain low-key amber backlight reflecting on wet tarmac. Actor pauses at street corner.',
+      soundCue: 'Heavy rain, distant melancholic esraj drone, street puddles splashing.',
+      slideHoldSec: 12.0,
+      cameraSpec: {
+        focalLength: '35mm T1.5 Master Prime',
+        aperture: 'T1.5',
+        shutter: '1/48s 180°',
+        iso: 'ISO 800',
+        sensor: 'ARRI Large Format LF',
+        format: 'ARRIRAW'
+      },
+      lutFilter: 'cinematic',
+      adjustments: { bloom: 25, grain: 15 }
+    },
+    {
+      id: 2,
+      epNumber: '#002',
+      title: 'Monochrome Reflection',
+      bengaliTitle: 'দর্পণে নিঃশব্দ প্রতিবিম্ব',
+      tagline: 'A silent confrontation before dawn.',
+      directorNotes: 'Medium close-up over-the-shoulder through antique silvered mirror. Key light cuts across actor eye-line.',
+      soundCue: 'Clock ticking rhythmically, air conditioning hum, muted footsteps.',
+      slideHoldSec: 12.0,
+      cameraSpec: {
+        focalLength: '50mm f/1.4 Anamorphic',
+        aperture: 'f/1.4',
+        shutter: '1/48s 180°',
+        iso: 'ISO 400',
+        sensor: 'ARRI 35 Sensor',
+        format: 'ProRes 4444 XQ'
+      },
+      lutFilter: 'noir',
+      adjustments: { bloom: 10, grain: 30 }
+    }
+  ];
+
+  // 3. Verify PDF generation for Director's Bible layout (1 shot/page) in print theme
+  const bibleBlob = await exportStoryboardToPdf(mockFrames, {
+    projectTitle: 'Bengali Cinema Chronicles',
+    directorName: 'Directorial Team',
+    framesPerPage: 1,
+    theme: 'print',
+    includeCoverPage: true,
+    includeIndexPage: true,
+    includeSpecs: true,
+    includeAudio: true,
+    includeNotes: true,
+    includeBilingual: true
+  });
+  assert.ok(bibleBlob instanceof Blob, 'Expected exportStoryboardToPdf to return a Blob instance');
+  assert.ok(bibleBlob.size > 1000, `Expected PDF Blob size > 1KB, got ${bibleBlob.size} bytes`);
+
+  // 4. Verify PDF generation for Stacked Studio layout (2 shots/page) in dark theme
+  const darkBlob = await exportStoryboardToPdf(mockFrames, {
+    projectTitle: 'Obsidian Noir Master',
+    directorName: 'Directorial Team',
+    framesPerPage: 2,
+    theme: 'dark',
+    includeCoverPage: true,
+    includeIndexPage: true,
+    includeSpecs: true,
+    includeAudio: true,
+    includeNotes: true
+  });
+  assert.ok(darkBlob instanceof Blob);
+  assert.ok(darkBlob.size > 1000);
+
+  // 5. Verify PDF generation for 4-up Contact Sheet layout
+  const contactBlob = await exportStoryboardToPdf(mockFrames, {
+    projectTitle: 'Contact Sheet Review',
+    directorName: 'Directorial Team',
+    framesPerPage: 4,
+    theme: 'print'
+  });
+  assert.ok(contactBlob instanceof Blob);
+  assert.ok(contactBlob.size > 1000);
+});
+
+

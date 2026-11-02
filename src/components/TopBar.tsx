@@ -634,7 +634,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <span className="text-[8px] bg-amber-950/90 border border-amber-400/50 text-amber-300 px-1.5 py-0.5 rounded font-bold">NLE ZIP</span>
                 </button>
 
-                {/* 4. Contact Sheet PDF */}
+                {/* 4. Storyboard Document (.pdf) */}
                 <button
                   type="button"
                   onClick={() => {
@@ -642,13 +642,13 @@ export const TopBar: React.FC<TopBarProps> = ({
                     else handleExportContactSheet();
                     setIsExportMenuOpen(false);
                   }}
-                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
+                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-amber-950/30 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Contact Sheet PDF</span>
+                    <span>Storyboard Document (.pdf)</span>
                   </div>
-                  <span className="text-[8px] bg-white/10 px-1.5 py-0.5 rounded text-zinc-300 font-bold">PDF</span>
+                  <span className="text-[8px] bg-amber-950/80 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded font-bold">PDF BIBLE</span>
                 </button>
 
                 {/* 5. Full Project Backup (.rawx) */}

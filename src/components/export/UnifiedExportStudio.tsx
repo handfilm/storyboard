@@ -37,7 +37,13 @@ import {
 import { exportFullIdbBackup } from '../../utils/backup';
 import { exportDirectorsCutBundle } from '../../services/directorsCutExport';
 import { exportProductionPackageZip } from '../../services/productionPackageExport';
-import { downloadStoryboardPdf, exportFrameAsJpeg, exportFramesAsJpegZip } from '../../utils/pdfExport';
+import { 
+  downloadStoryboardPdf, 
+  exportFrameAsJpeg, 
+  exportFramesAsJpegZip,
+  StoryboardPdfLayout,
+  StoryboardPdfTheme 
+} from '../../utils/pdfExport';
 import { eventBus } from '../../core/eventBus';
 import { 
   Film, 
@@ -64,7 +70,11 @@ import {
   Archive,
   Package,
   Camera,
-  Crown
+  Crown,
+  BookOpen,
+  Grid3X3,
+  Layout,
+  CheckSquare
 } from 'lucide-react';
 
 export type ExportModalTab = 'mp4' | 'premiere' | 'fcpxml' | 'package' | 'pdf' | 'directors_cut' | 'backup';
@@ -208,10 +218,19 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   const [includeXmlMarkers, setIncludeXmlMarkers] = useState<boolean>(true);
   const [isXmlCopied, setIsXmlCopied] = useState<boolean>(false);
 
-  // 6. PDF Contact Sheet & High-Res JPEG Options
-  const [pdfColumns, setPdfColumns] = useState<number>(4);
+  // 6. Multi-Page Storyboard PDF & High-Res JPEG Options
+  const [pdfLayout, setPdfLayout] = useState<StoryboardPdfLayout>(1);
+  const [pdfTheme, setPdfTheme] = useState<StoryboardPdfTheme>('print');
+  const [includePdfCover, setIncludePdfCover] = useState<boolean>(true);
+  const [includePdfIndex, setIncludePdfIndex] = useState<boolean>(true);
   const [includePdfSpecs, setIncludePdfSpecs] = useState<boolean>(true);
+  const [includePdfAudio, setIncludePdfAudio] = useState<boolean>(true);
+  const [includePdfNotes, setIncludePdfNotes] = useState<boolean>(true);
+  const [includePdfBilingual, setIncludePdfBilingual] = useState<boolean>(true);
+  const [pdfProgressText, setPdfProgressText] = useState<string>('Ready to compile');
+  const [pdfProgressPercent, setPdfProgressPercent] = useState<number>(0);
   const [includeJpegSlate, setIncludeJpegSlate] = useState<boolean>(true);
+  const pdfColumns = pdfLayout; // backwards compatibility alias
 
   // 6b. Production Package ZIP Options
   const [packageBurnInTitles, setPackageBurnInTitles] = useState<boolean>(false);
@@ -376,6 +395,15 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       cameraSpecs: { focalLength: '35mm', aperture: 'T1.5', fps: 24 }
     });
   }, [activeSelection.indices, frames]);
+
+  // Estimated Storyboard PDF total page count
+  const estimatedPdfPages = useMemo(() => {
+    const shotCount = selectedFrames.length > 0 ? selectedFrames.length : totalCount;
+    const contentPages = Math.ceil(shotCount / pdfLayout);
+    const coverPages = includePdfCover ? 1 : 0;
+    const indexPages = includePdfIndex ? Math.max(1, Math.ceil(shotCount / 14)) : 0;
+    return coverPages + indexPages + contentPages;
+  }, [selectedFrames.length, totalCount, pdfLayout, includePdfCover, includePdfIndex]);
 
   // Toggle exclusion of a shot in the matrix
   const handleToggleExcludeShot = useCallback((shotIdx: number) => {
@@ -1126,29 +1154,67 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     }
   }, [projectTitle, directorName, selectedFrames, activeSelection.indices, activeSelection.totalShots, dynamicRuntime, pdfColumns, includePdfSpecs]);
 
-  // Direct download of Printable Storyboard PDF with camera specs
+  // Direct download of Multi-Page Storyboard PDF document with full metadata & director notes
   const handleDownloadStoryboardPdf = useCallback(async () => {
+    const targets = selectedFrames.length > 0 ? selectedFrames : (frames || []);
+    if (targets.length === 0) {
+      setExportError('No storyboard frames available to export.');
+      return;
+    }
     try {
       setIsExporting(true);
-      await downloadStoryboardPdf(selectedFrames, {
+      setExportError(null);
+      setPdfProgressPercent(5);
+      setPdfProgressText('Initializing Storyboard Document Engine...');
+
+      await downloadStoryboardPdf(targets, {
         projectTitle,
         directorName,
         aspectRatio,
-        framesPerPage: pdfColumns === 4 ? 4 : 6,
-        theme: 'print',
+        framesPerPage: pdfLayout,
+        theme: pdfTheme,
+        includeCoverPage: includePdfCover,
+        includeIndexPage: includePdfIndex,
         includeSpecs: includePdfSpecs,
-        includeAudio: true
+        includeAudio: includePdfAudio,
+        includeNotes: includePdfNotes,
+        includeBilingual: includePdfBilingual,
+        onProgress: (percent, message) => {
+          setPdfProgressPercent(percent);
+          setPdfProgressText(message);
+        }
       });
+
       playExportSuccessChime();
       setIsFinished(true);
-      setDownloadedFileName(`${projectTitle}_Storyboard_ContactSheet.pdf`);
+      const layoutLabel =
+        pdfLayout === 1
+          ? 'Director_Bible'
+          : pdfLayout === 2
+          ? 'Dual_Shot'
+          : `${pdfLayout}Up`;
+      setDownloadedFileName(`${projectTitle}_Storyboard_${layoutLabel}.pdf`);
     } catch (err: any) {
       console.error('[PDF Download Error]', err);
       setExportError(err?.message || 'Could not download Storyboard PDF.');
     } finally {
       setIsExporting(false);
     }
-  }, [selectedFrames, projectTitle, directorName, aspectRatio, pdfColumns, includePdfSpecs]);
+  }, [
+    selectedFrames,
+    frames,
+    projectTitle,
+    directorName,
+    aspectRatio,
+    pdfLayout,
+    pdfTheme,
+    includePdfCover,
+    includePdfIndex,
+    includePdfSpecs,
+    includePdfAudio,
+    includePdfNotes,
+    includePdfBilingual
+  ]);
 
   // Direct download of Individual Storyboard Frame as High-Resolution JPEG (1920x1080)
   const handleExportSingleFrameJpeg = useCallback(async () => {
@@ -1416,7 +1482,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
               <span className="truncate">PRODUCTION PKG</span>
             </button>
 
-            {/* 5. CONTACT SHEET (PDF) */}
+            {/* 5. STORYBOARD (PDF) */}
             <button
               type="button"
               disabled={isExporting}
@@ -1428,7 +1494,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span className="truncate">CONTACT SHEET</span>
+              <span className="truncate">STORYBOARD (PDF)</span>
             </button>
 
             {/* 6. DIRECTOR'S CUT (ZIP) */}
@@ -2274,59 +2340,278 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             </div>
           )}
 
-          {/* TAB 5: CONTACT SHEET PDF */}
+          {/* TAB 5: MULTI-PAGE STORYBOARD PDF */}
           {activeTab === 'pdf' && (
             <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                  <FileText className="w-5 h-5" />
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>Multi-Page Studio Storyboard Document (.pdf)</span>
+                      <span className="text-[9px] font-mono font-bold bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] px-2 py-0.5 rounded-full">
+                        PUBLICATION GRADE
+                      </span>
+                    </h3>
+                    <p className="text-xs text-zinc-400 font-sans mt-0.5 max-w-2xl leading-relaxed">
+                      Generates publication-ready multi-page production bibles, stacked call sheets, or contact sheets with dual-language titles (Bengali &amp; English), camera specs (focal length, aperture, shutter, ISO, sensor format, LUT), complete director blocking &amp; dialogue notes, and sound design directives.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Visual Storyboard Contact Sheet (Printable PDF)</h3>
-                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                    Generates high-resolution multi-column storyboard sheets for camera crews, clients, and pitch decks.
-                  </p>
+
+                <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#101118] border border-[#2d2f42] text-right">
+                  <div>
+                    <div className="text-[9px] font-mono uppercase text-zinc-400 tracking-wider">Estimated Document</div>
+                    <div className="text-xs font-mono font-extrabold text-[#F5A623]">
+                      ~{estimatedPdfPages} PAGES A4
+                    </div>
+                  </div>
+                  <FileText className="w-4 h-4 text-[#F5A623]" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-3">
-                  <span className="text-[10.5px] text-emerald-400 font-bold uppercase block">Layout Density</span>
-                  <div className="flex items-center gap-2">
-                    {[3, 4, 6].map((cols) => (
-                      <button
-                        key={cols}
-                        type="button"
-                        onClick={() => setPdfColumns(cols)}
-                        className={`flex-1 py-1.5 rounded border text-xs font-bold transition-all cursor-pointer ${
-                          pdfColumns === cols
-                            ? 'bg-emerald-600 text-white border-emerald-400'
-                            : 'bg-black border-zinc-700 text-zinc-400'
-                        }`}
-                      >
-                        {cols} Columns
-                      </button>
-                    ))}
-                  </div>
+              {/* SECTION 1: PRESENTATION LAYOUT STRUCTURE */}
+              <div className="p-4 rounded-lg bg-[#101118] border border-[#222332] space-y-3">
+                <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Layout className="w-3.5 h-3.5" />
+                  <span>Storyboard Document Layout Mode</span>
+                </span>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs text-zinc-300">Include Technical Specs</span>
-                    <input
-                      type="checkbox"
-                      checked={includePdfSpecs}
-                      onChange={(e) => setIncludePdfSpecs(e.target.checked)}
-                      className="accent-emerald-500 w-4 h-4 cursor-pointer"
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {/* Option 1: Director's Production Bible (1 Shot / Page) */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfLayout(1)}
+                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
+                      pdfLayout === 1
+                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
+                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-extrabold text-white">1 Shot / Page</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-amber-300 font-bold">
+                        BIBLE
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-300 font-bold">Director's Master Bible</div>
+                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
+                      Full letterbox viewport with framing reticles, 4-quadrant optical slate, complete untruncated blocking notes, dialogue &amp; sound cues.
+                    </div>
+                  </button>
+
+                  {/* Option 2: Stacked Studio Storyboard (2 Shots / Page) */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfLayout(2)}
+                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
+                      pdfLayout === 2
+                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
+                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-extrabold text-white">2 Shots / Page</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-cyan-300 font-bold">
+                        DUAL
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-300 font-bold">Stacked Studio Cards</div>
+                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
+                      Dual widescreen cards with dedicated specs &amp; blocking sidebars, ideal for script supervisors &amp; cinematography crews.
+                    </div>
+                  </button>
+
+                  {/* Option 3: 4 Shots / Page (Contact Sheet) */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfLayout(4)}
+                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
+                      pdfLayout === 4
+                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
+                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-extrabold text-white">4 Shots / Page</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-emerald-300 font-bold">
+                        2×2
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-300 font-bold">Balanced Contact Sheet</div>
+                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
+                      Classic 2x2 presentation grid with camera metadata, Bengali &amp; English titles, and action summaries for client reviews.
+                    </div>
+                  </button>
+
+                  {/* Option 4: 6 Shots / Page (Crew Matrix) */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfLayout(6)}
+                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
+                      pdfLayout === 6
+                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
+                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-extrabold text-white">6 Shots / Page</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-purple-300 font-bold">
+                        3×2
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-300 font-bold">Crew Reference Matrix</div>
+                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
+                      High-density 3x2 matrix for fast on-set referencing by camera assistants, gaffers, and continuity team.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 2: THEME & INCLUSIONS */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Paper Theme */}
+                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2.5">
+                  <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider block">
+                    Document Theme / Aesthetic
+                  </span>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setPdfTheme('print')}
+                      className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
+                        pdfTheme === 'print'
+                          ? 'bg-white/10 border-amber-400 text-white'
+                          : 'bg-black/40 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-white">Print-Ready (Clean Paper)</div>
+                        <div className="text-[9px] text-zinc-400 font-sans">Crisp white paper, ink-saving contrast</div>
+                      </div>
+                      {pdfTheme === 'print' && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPdfTheme('dark')}
+                      className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
+                        pdfTheme === 'dark'
+                          ? 'bg-amber-950/40 border-amber-400 text-white'
+                          : 'bg-black/40 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-white">Obsidian Cinema (Dark OLED)</div>
+                        <div className="text-[9px] text-zinc-400 font-sans">Luxury dark theme for pitch decks</div>
+                      </div>
+                      {pdfTheme === 'dark' && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Document Content Inclusions */}
+                <div className="md:col-span-2 p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2.5">
+                  <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider block">
+                    Directorial &amp; Production Metadata Inclusions
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includePdfCover}
+                        onChange={(e) => setIncludePdfCover(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-zinc-200 font-sans text-[11px]">
+                        <strong>Executive Cover Page</strong> &amp; Production Slate
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includePdfIndex}
+                        onChange={(e) => setIncludePdfIndex(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-zinc-200 font-sans text-[11px]">
+                        <strong>Shot Index Matrix</strong> &amp; SMPTE Timecodes
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includePdfSpecs}
+                        onChange={(e) => setIncludePdfSpecs(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-zinc-200 font-sans text-[11px]">
+                        <strong>Camera &amp; Optics Slate</strong> (Lens, Aperture, LUT)
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includePdfNotes}
+                        onChange={(e) => setIncludePdfNotes(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-zinc-200 font-sans text-[11px]">
+                        <strong>Director Blocking Notes</strong> (Complete &amp; Uncut)
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includePdfAudio}
+                        onChange={(e) => setIncludePdfAudio(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-zinc-200 font-sans text-[11px]">
+                        <strong>Audio Cues &amp; Spoken Dialogue</strong> Directives
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includePdfBilingual}
+                        onChange={(e) => setIncludePdfBilingual(e.target.checked)}
+                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-zinc-200 font-sans text-[11px]">
+                        <strong>Dual-Language Titles</strong> (Bengali &amp; English)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress bar when exporting PDF */}
+              {isExporting && activeTab === 'pdf' && (
+                <div className="p-3.5 rounded-lg bg-amber-950/20 border border-amber-500/40 space-y-2">
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <span className="text-[#F5A623] font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-ping" />
+                      {pdfProgressText}
+                    </span>
+                    <span className="text-white font-bold">{pdfProgressPercent}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-[#2a2c3d]">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#d4af37] via-[#F5A623] to-[#fbbf24] rounded-full transition-all duration-150 shadow-[0_0_10px_rgba(245,166,35,0.5)]"
+                      style={{ width: `${Math.max(4, pdfProgressPercent)}%` }}
                     />
                   </div>
                 </div>
-
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2">
-                  <span className="text-[10.5px] text-emerald-400 font-bold uppercase block">PDF Delivery</span>
-                  <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
-                    Clicking Download Storyboard PDF generates a multi-frame A4 storyboard packet, or use Print Preview for Light/Dark call sheets.
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* INDIVIDUAL HIGH-RESOLUTION JPEG FRAME EXPORT */}
               <div className="p-4 rounded-lg bg-[#101118] border border-cyan-500/30 space-y-3">
@@ -2658,7 +2943,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all disabled:opacity-50"
                     >
                       <Download className="w-4 h-4" />
-                      <span>DOWNLOAD STORYBOARD PDF</span>
+                      <span>DOWNLOAD STORYBOARD PDF ({estimatedPdfPages} PAGES)</span>
                     </button>
                     <button
                       type="button"

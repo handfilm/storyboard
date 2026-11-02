@@ -1960,6 +1960,10 @@ export default function App() {
       case 'export.captureStill': handleCaptureStill(); break;
       case 'export.mp4': handleOpenExportStudio('mp4'); break;
       case 'export.nle': handleOpenExportStudio('premiere'); break;
+      case 'export.pdf':
+      case 'export.storyboardPdf':
+        handleOpenExportStudio('pdf');
+        break;
       case 'system.selfTest': setIsSelfTestOpen(true); break;
       case 'system.shortcuts': setIsShortcutsOpen(true); break;
       case 'system.exportBackup': exportFullIdbBackup(); break;

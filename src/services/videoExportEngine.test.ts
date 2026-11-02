@@ -71,3 +71,12 @@ test('parseShotSelection filters out excludedIndices accurately', () => {
   assert.strictEqual(result.durationSec, 36.0);
 });
 
+test('parseShotSelection supports per-shot variable durations', () => {
+  const durations = [5.0, 10.0, 2.5]; // 120 frames, 240 frames, 60 frames => 420 total
+  const result = parseShotSelection('all', 1, 3, '', 3, 0, 288, [], durations);
+  assert.strictEqual(result.totalShots, 3);
+  assert.strictEqual(result.totalFrames, 420);
+  assert.strictEqual(result.durationSec, 17.5);
+});
+
+

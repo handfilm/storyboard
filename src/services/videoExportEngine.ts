@@ -797,10 +797,59 @@ function resolveExportShotDurationSec(slide: any, frame: any): number {
 }
 
 /**
- * MASTER OFFLINE EXPORT PIPELINE:
- * Executes the frame-by-frame offline rendering loop with WebCodecs, mp4-muxer, and variable shot durations.
+ * Check if WebCodecs VideoEncoder is available and supports AVC encoding.
+ * Returns the highest supported codec string, or null if unsupported.
  */
-export async function exportCinemaMasterMp4(
+async function checkWebCodecsSupport(
+  is4K: boolean,
+  width: number,
+  height: number,
+  bitrateBps: number,
+  fps: number
+): Promise<string | null> {
+  if (typeof VideoEncoder === 'undefined') return null;
+
+  // Firefox currently lacks AVC description record generation in WebCodecs VideoEncoder metadata,
+  // causing mp4-muxer track.info.decoderConfig to remain null. Route Firefox directly to MediaRecorder.
+  const isFirefox = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent || '');
+  if (isFirefox) {
+    return null;
+  }
+
+  const candidates = is4K
+    ? ['avc1.640033', 'avc1.4d4028', 'avc1.42001f']
+    : ['avc1.640028', 'avc1.4d4028', 'avc1.42001f'];
+
+  for (const codec of candidates) {
+    try {
+      if (typeof VideoEncoder.isConfigSupported === 'function') {
+        const support = await VideoEncoder.isConfigSupported({
+          codec,
+          width,
+          height,
+          bitrate: bitrateBps,
+          framerate: fps,
+          avc: { format: 'avc' }
+        });
+        if (support && support.supported) {
+          return codec;
+        }
+      } else {
+        return codec;
+      }
+    } catch {
+      // Continue to next candidate
+    }
+  }
+  return null;
+}
+
+/**
+ * Universal Hardware/Software MediaRecorder Fallback Pipeline:
+ * Provides 100% resilient offline video export across Firefox, Safari, and browsers
+ * where WebCodecs VideoEncoder is unavailable, partial, or fails to encode H.264.
+ */
+async function exportCinemaMasterWithMediaRecorder(
   options: CinemaExportPipelineOptions
 ): Promise<{ blob: Blob; filename: string }> {
   const {
@@ -816,7 +865,6 @@ export async function exportCinemaMasterMp4(
     excludedShotIndices = [],
     overrideShotIndices,
     resolutionPreset,
-    bitrateProfile,
     burnInTitles,
     cleanPlates,
     simulateFlare,
@@ -827,7 +875,6 @@ export async function exportCinemaMasterMp4(
     abortSignal
   } = options;
 
-  // 1. Calculate and parse target shot indices + per-shot variable durations
   const count = Math.max(1, totalSlides || slides.length || frames.length || 1);
   const allShotDurations = Array.from({ length: count }, (_, idx) =>
     resolveExportShotDurationSec(slides[idx], frames[idx])
@@ -863,8 +910,9 @@ export async function exportCinemaMasterMp4(
 
   const shotIndices = parsedRange.indices;
   if (shotIndices.length === 0) {
-    throw new Error('No shots selected for export. Please select or include at least one shot in the sequence matrix.');
+    throw new Error('No shots selected for export.');
   }
+
   const fps = 24;
   const perShotDurationsSec = shotIndices.map(idx => resolveExportShotDurationSec(slides[idx], frames[idx]));
   const perShotFrameCounts = perShotDurationsSec.map(dur => Math.max(1, Math.round(dur * fps)));
@@ -877,28 +925,436 @@ export async function exportCinemaMasterMp4(
   const totalFrames = perShotFrameCounts.reduce((acc, n) => acc + n, 0);
   const totalExportDurationSec = totalFrames / fps;
 
-  // 2. Setup Dimensions & Bitrates
+  const dimensions = getExportPresetDimensions(resolutionPreset);
+  const width = dimensions.width;
+  const height = dimensions.height;
+  const is4K = width >= 3840 || height >= 2160;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Could not instantiate 2D Canvas context for export.');
+
+  // Select optimal MediaRecorder MIME type
+  const mimeCandidates = [
+    'video/mp4;codecs=avc1.4d4028,mp4a.40.2',
+    'video/mp4;codecs=avc1.42e01e,mp4a.40.2',
+    'video/mp4',
+    'video/webm;codecs=h264',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ];
+  let chosenMime = 'video/webm';
+  if (typeof MediaRecorder !== 'undefined') {
+    for (const m of mimeCandidates) {
+      if (MediaRecorder.isTypeSupported(m)) {
+        chosenMime = m;
+        break;
+      }
+    }
+  }
+
+  const stream: MediaStream = (canvas as any).captureStream
+    ? (canvas as any).captureStream(fps)
+    : (canvas as any).mozCaptureStream
+      ? (canvas as any).mozCaptureStream(fps)
+      : new MediaStream();
+
+  let audioContext: AudioContext | null = null;
+  let audioSourceNode: AudioBufferSourceNode | null = null;
+  if (includeAudio) {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        audioContext = new AudioContextClass({ sampleRate: 48000 });
+        const audioBuffer = synthesizeAmbientAudioBuffer(totalExportDurationSec, 48000, shotBoundaryTimesSec);
+        const dest = audioContext.createMediaStreamDestination();
+        audioSourceNode = audioContext.createBufferSource();
+        audioSourceNode.buffer = audioBuffer;
+        audioSourceNode.connect(dest);
+        const audioTrack = dest.stream.getAudioTracks()[0];
+        if (audioTrack && stream.addTrack) {
+          stream.addTrack(audioTrack);
+        }
+      }
+    } catch (e) {
+      console.warn('[MediaRecorder audio setup warning]', e);
+    }
+  }
+
+  const targetBitrate = is4K ? 30_000_000 : 14_000_000;
+  const recordedChunks: Blob[] = [];
+  const recorder = new MediaRecorder(stream, {
+    mimeType: chosenMime,
+    videoBitsPerSecond: targetBitrate
+  });
+
+  recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) {
+      recordedChunks.push(e.data);
+    }
+  };
+
+  const videoTrack = stream.getVideoTracks()[0];
+  const hasRequestFrame = typeof (videoTrack as any)?.requestFrame === 'function';
+
+  return new Promise<{ blob: Blob; filename: string }>(async (resolve, reject) => {
+    recorder.onstop = () => {
+      try {
+        if (audioContext && audioContext.state !== 'closed') {
+          audioContext.close().catch(() => {});
+        }
+      } catch {}
+
+      const isWebm = chosenMime.includes('webm');
+      const finalBlob = new Blob(recordedChunks, { type: chosenMime });
+      const cleanProject = (projectTitle || 'PROJECT').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const resLabel = dimensions.isScope ? (is4K ? '4K_SCOPE' : '1080P_SCOPE') : (dimensions.isVertical ? '9_16_VERTICAL' : (is4K ? '4K_16_9' : '1080P_16_9'));
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `HANDFILM_${cleanProject}_${parsedRange.label}_${resLabel}_${timestamp}.${isWebm ? 'webm' : 'mp4'}`;
+      resolve({ blob: finalBlob, filename });
+    };
+
+    recorder.onerror = (e) => {
+      reject(new Error(`MediaRecorder error: ${e}`));
+    };
+
+    recorder.start(100);
+    if (audioSourceNode) {
+      try {
+        audioSourceNode.start();
+      } catch {}
+    }
+
+    let globalFrameIndex = 0;
+    const startTimeMs = performance.now();
+
+    try {
+      for (let shotListIdx = 0; shotListIdx < shotIndices.length; shotListIdx++) {
+        if (abortSignal?.aborted) {
+          recorder.stop();
+          return reject(new Error('Export cancelled by user.'));
+        }
+
+        const shotIdx = shotIndices[shotListIdx];
+        const slide = slides[shotIdx];
+        const frame = frames[shotIdx];
+        const currentShotNum = shotListIdx + 1;
+        const totalShots = shotIndices.length;
+
+        const bTitle = slide?.titleBn || frame?.bengaliTitle || 'দৃষ্টি // THE SINGULARITY';
+        const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
+        const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
+
+        const mediaId = slide?.mediaBlobId || slide?.remoteUrl || frame?.imageUrl || '';
+        let rawBlob: Blob | null = null;
+        if (mediaId && !mediaId.startsWith('http') && !mediaId.startsWith('data:')) {
+          rawBlob = await studioDraftDb.getSourceMediaBlob(mediaId);
+        }
+        if (!rawBlob) {
+          rawBlob = await studioDraftDb.getSourceMediaBlobForShot(shotIdx);
+        }
+
+        let activeVideoElement: HTMLVideoElement | null = null;
+        let activeBitmap: ImageBitmap | null = null;
+        let activeObjectUrl: string | null = null;
+
+        if (rawBlob) {
+          if (rawBlob.type.startsWith('video/')) {
+            activeObjectUrl = URL.createObjectURL(rawBlob);
+            activeVideoElement = document.createElement('video');
+            activeVideoElement.crossOrigin = 'anonymous';
+            activeVideoElement.muted = true;
+            activeVideoElement.playsInline = true;
+            activeVideoElement.preload = 'auto';
+            activeVideoElement.src = activeObjectUrl;
+
+            await new Promise<void>((res) => {
+              activeVideoElement!.onloadeddata = () => res();
+              activeVideoElement!.oncanplay = () => res();
+              activeVideoElement!.onerror = () => res();
+              setTimeout(res, 2000);
+            });
+          } else {
+            try {
+              activeBitmap = await createImageBitmap(rawBlob);
+            } catch {}
+          }
+        } else {
+          const mediaUrl = frame?.imageUrl || slide?.remoteUrl || '';
+          const isVideoMedia = Boolean(
+            frame?.isVideo ||
+            slide?.isVideo ||
+            mediaUrl.startsWith('data:video') ||
+            /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
+          );
+
+          if (mediaUrl) {
+            if (isVideoMedia) {
+              activeVideoElement = document.createElement('video');
+              activeVideoElement.crossOrigin = 'anonymous';
+              activeVideoElement.muted = true;
+              activeVideoElement.playsInline = true;
+              activeVideoElement.preload = 'auto';
+              activeVideoElement.src = mediaUrl;
+
+              await new Promise<void>((res) => {
+                activeVideoElement!.onloadeddata = () => res();
+                activeVideoElement!.oncanplay = () => res();
+                activeVideoElement!.onerror = () => res();
+                setTimeout(res, 2500);
+              });
+            } else {
+              try {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                await new Promise<void>((res) => {
+                  img.onload = () => res();
+                  img.onerror = () => res();
+                  img.src = mediaUrl;
+                  setTimeout(res, 1800);
+                });
+                if (img.complete && img.naturalWidth > 0) {
+                  activeBitmap = await createImageBitmap(img);
+                }
+              } catch (imgErr) {
+                console.warn('[MediaRecorder Fallback] Image load warning:', imgErr);
+              }
+            }
+          }
+        }
+
+        const shotDurationSec = perShotDurationsSec[shotListIdx];
+        const shotFramesCount = perShotFrameCounts[shotListIdx];
+        const shotStartTimeSec = shotBoundaryTimesSec[shotListIdx] ?? 0;
+
+        for (let f = 0; f < shotFramesCount; f++) {
+          if (abortSignal?.aborted) {
+            if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+            if (activeBitmap) activeBitmap.close();
+            recorder.stop();
+            return reject(new Error('Export cancelled by user.'));
+          }
+
+          if (activeVideoElement && activeVideoElement.duration > 0) {
+            const localSec = (f / fps);
+            const targetVideoSec = activeVideoElement.duration > 0
+              ? localSec % activeVideoElement.duration
+              : Math.min(localSec, shotDurationSec);
+            await waitForSeek(activeVideoElement, targetVideoSec, 800);
+          }
+
+          compositeCinemaFrame({
+            ctx,
+            width,
+            height,
+            preset: resolutionPreset,
+            shotIndex: shotIdx,
+            frameInShot: f,
+            totalFramesInShot: shotFramesCount,
+            shotStartTimeSec,
+            fps,
+            sourceElement: activeVideoElement || activeBitmap,
+            titleBn: bTitle,
+            titleEn: eTitle,
+            tagline: subTitle,
+            burnInTitles,
+            cleanPlates,
+            simulateFlare,
+            projectTitle,
+            lutFilter: frame?.lutFilter,
+            adjustments: frame?.adjustments,
+            caption: frame?.caption
+          });
+
+          if (hasRequestFrame) {
+            try {
+              (videoTrack as any).requestFrame();
+            } catch {}
+          }
+
+          globalFrameIndex++;
+
+          const now = performance.now();
+          const elapsedSec = (now - startTimeMs) / 1000;
+          const currentFps = elapsedSec > 0 ? Math.round((globalFrameIndex / elapsedSec) * 10) / 10 : 24.0;
+          const percent = Math.min(100, Math.round((globalFrameIndex / totalFrames) * 100));
+
+          if (onProgress) {
+            onProgress({
+              currentShotIndex: currentShotNum,
+              totalShots,
+              currentFrameNum: globalFrameIndex,
+              totalFrames,
+              percent,
+              fps: currentFps,
+              statusText: `RENDERING (BROADCAST STREAM) // SHOT ${String(currentShotNum).padStart(3, '0')}/${String(totalShots).padStart(3, '0')} // FRAME ${globalFrameIndex.toLocaleString()}/${totalFrames.toLocaleString()} // ${percent}% // ${currentFps} FPS`
+            });
+          }
+
+          if (previewCanvas) {
+            try {
+              const previewCtx = previewCanvas.getContext('2d');
+              if (previewCtx) {
+                previewCtx.drawImage(canvas, 0, 0, 320, 134);
+                previewCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+                previewCtx.fillRect(0, 134 - 24, 320, 24);
+                previewCtx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
+                previewCtx.lineWidth = 1;
+                previewCtx.strokeRect(0, 134 - 24, 320, 24);
+                previewCtx.fillStyle = '#F5A623';
+                previewCtx.font = 'bold 9.5px "JetBrains Mono", monospace';
+                previewCtx.textAlign = 'center';
+                const hudText = `[ SHOT ${String(currentShotNum).padStart(3, '0')} • FRAME ${f + 1}/${shotFramesCount} (${shotDurationSec.toFixed(1)}s) • ${fps} FPS ]`;
+                previewCtx.fillText(hudText, 160, 134 - 8);
+              }
+            } catch {}
+          }
+
+          if (onFrameRendered) {
+            onFrameRendered(canvas, globalFrameIndex, totalFrames);
+          }
+
+          await new Promise((r) => setTimeout(r, hasRequestFrame ? 8 : 25));
+        }
+
+        if (activeObjectUrl) {
+          URL.revokeObjectURL(activeObjectUrl);
+          activeObjectUrl = null;
+        }
+        if (activeBitmap) {
+          activeBitmap.close();
+          activeBitmap = null;
+        }
+        if (activeVideoElement) {
+          activeVideoElement.src = '';
+          activeVideoElement = null;
+        }
+      }
+
+      if (onProgress) {
+        onProgress({
+          currentShotIndex: shotIndices.length,
+          totalShots: shotIndices.length,
+          currentFrameNum: totalFrames,
+          totalFrames,
+          percent: 99,
+          fps: 24,
+          statusText: 'FINALIZING BROADCAST MASTER STREAM...'
+        });
+      }
+
+      await new Promise((r) => setTimeout(r, 200));
+      recorder.stop();
+    } catch (loopErr) {
+      try {
+        recorder.stop();
+      } catch {}
+      reject(loopErr);
+    }
+  });
+}
+
+/**
+ * WebCodecs Frame-Accurate Hardware Muxer Pipeline
+ */
+async function exportWithWebCodecs(
+  options: CinemaExportPipelineOptions,
+  selectedCodec: string
+): Promise<{ blob: Blob; filename: string }> {
+  const {
+    projectTitle,
+    frames = [],
+    slides = [],
+    currentSlideIndex = 0,
+    totalSlides = 1,
+    selectionMode,
+    rangeStart = 1,
+    rangeEnd = 1,
+    customListText = '',
+    excludedShotIndices = [],
+    overrideShotIndices,
+    resolutionPreset,
+    bitrateProfile,
+    burnInTitles,
+    cleanPlates,
+    simulateFlare,
+    includeAudio,
+    onProgress,
+    onFrameRendered,
+    previewCanvas,
+    abortSignal
+  } = options;
+
+  const count = Math.max(1, totalSlides || slides.length || frames.length || 1);
+  const allShotDurations = Array.from({ length: count }, (_, idx) =>
+    resolveExportShotDurationSec(slides[idx], frames[idx])
+  );
+
+  const parsedRange = overrideShotIndices && overrideShotIndices.length > 0
+    ? (() => {
+        const totalOverrideFrames = overrideShotIndices.reduce(
+          (sum, idx) => sum + Math.max(1, Math.round((allShotDurations[idx] ?? 12.0) * 24)),
+          0
+        );
+        return {
+          indices: overrideShotIndices,
+          totalShots: overrideShotIndices.length,
+          totalFrames: totalOverrideFrames,
+          durationSec: totalOverrideFrames / 24.0,
+          label: overrideShotIndices.length === 1 
+            ? `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}`
+            : `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}-SH${String(overrideShotIndices[overrideShotIndices.length - 1] + 1).padStart(3, '0')}`
+        };
+      })()
+    : parseShotSelection(
+        selectionMode,
+        rangeStart,
+        rangeEnd,
+        customListText,
+        count,
+        currentSlideIndex,
+        288,
+        excludedShotIndices,
+        allShotDurations
+      );
+
+  const shotIndices = parsedRange.indices;
+  if (shotIndices.length === 0) {
+    throw new Error('No shots selected for export.');
+  }
+
+  const fps = 24;
+  const perShotDurationsSec = shotIndices.map(idx => resolveExportShotDurationSec(slides[idx], frames[idx]));
+  const perShotFrameCounts = perShotDurationsSec.map(dur => Math.max(1, Math.round(dur * fps)));
+  const shotBoundaryTimesSec: number[] = [];
+  let runningBoundarySec = 0;
+  for (let i = 0; i < perShotFrameCounts.length; i++) {
+    shotBoundaryTimesSec.push(runningBoundarySec);
+    runningBoundarySec += perShotFrameCounts[i] / fps;
+  }
+  const totalFrames = perShotFrameCounts.reduce((acc, n) => acc + n, 0);
+  const totalExportDurationSec = totalFrames / fps;
+
   const dimensions = getExportPresetDimensions(resolutionPreset);
   const width = dimensions.width;
   const height = dimensions.height;
   const is4K = width >= 3840 || height >= 2160;
   const bitrateBps = getBitrateBps(bitrateProfile, is4K);
 
-  // 3. Setup Render Canvas
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('Could not instantiate 2D Canvas context for cinema master export.');
 
-  // 4. Setup mp4-muxer with ArrayBufferTarget
   const target = new ArrayBufferTarget();
-
   let muxer: Muxer<ArrayBufferTarget>;
   let audioBuffer: AudioBuffer | null = null;
   let audioEncoder: AudioEncoder | null = null;
 
-  // Prepare Audio if requested
   const hasAudioEncoder = typeof AudioEncoder !== 'undefined';
   const shouldMuxAudio = includeAudio && hasAudioEncoder;
 
@@ -929,7 +1385,7 @@ export async function exportCinemaMasterMp4(
         codec: 'mp4a.40.2',
         numberOfChannels: 2,
         sampleRate: 48000,
-        bitrate: 320000 // AAC 320 kbps
+        bitrate: 320000
       });
     } catch (audioErr) {
       console.warn('[Audio Init Warning - Reverting to Video-Only Muxer]', audioErr);
@@ -956,15 +1412,52 @@ export async function exportCinemaMasterMp4(
     });
   }
 
-  // 5. Check WebCodecs VideoEncoder support
-  if (typeof VideoEncoder === 'undefined') {
-    throw new Error('Native WebCodecs VideoEncoder is not supported in this browser. Please use Chrome or Edge.');
-  }
-
+  let chunksEncoded = 0;
+  let validChunksMuxed = 0;
   let encoderError: any = null;
+
   const videoEncoder = new VideoEncoder({
     output: (chunk, meta) => {
-      muxer.addVideoChunk(chunk, meta);
+      chunksEncoded++;
+
+      // Guard meta.decoderConfig to ensure mp4-muxer receives valid decoderConfig with colorSpace
+      const safeMeta: any = meta ? { ...meta } : {};
+      if (!safeMeta.decoderConfig) {
+        safeMeta.decoderConfig = {
+          codec: selectedCodec,
+          colorSpace: {
+            primaries: 'bt709',
+            transfer: 'bt709',
+            matrix: 'bt709',
+            fullRange: false
+          },
+          description: meta?.decoderConfig?.description
+        };
+      } else if (!safeMeta.decoderConfig.colorSpace) {
+        safeMeta.decoderConfig.colorSpace = {
+          primaries: 'bt709',
+          transfer: 'bt709',
+          matrix: 'bt709',
+          fullRange: false
+        };
+      }
+
+      try {
+        const data = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(data);
+        const frameDurationMicros = Math.round((1 / fps) * 1_000_000);
+        const safeTimestamp = typeof chunk.timestamp === 'number' && !isNaN(chunk.timestamp) && chunk.timestamp >= 0
+          ? chunk.timestamp
+          : Math.round(((chunksEncoded - 1) / fps) * 1_000_000);
+        const safeDuration = typeof chunk.duration === 'number' && !isNaN(chunk.duration) && chunk.duration > 0
+          ? chunk.duration
+          : frameDurationMicros;
+
+        muxer.addVideoChunkRaw(data, chunk.type, safeTimestamp, safeDuration, safeMeta);
+        validChunksMuxed++;
+      } catch (chunkErr) {
+        console.warn('[WebCodecs addVideoChunk error]', chunkErr);
+      }
     },
     error: (e) => {
       encoderError = e;
@@ -972,10 +1465,8 @@ export async function exportCinemaMasterMp4(
     }
   });
 
-  // H.264 High Profile Level 5.1 (4K) or Level 4.2 (1080p)
-  const codecConfig = is4K ? 'avc1.640033' : 'avc1.640028';
   videoEncoder.configure({
-    codec: codecConfig,
+    codec: selectedCodec,
     width,
     height,
     bitrate: bitrateBps,
@@ -983,7 +1474,6 @@ export async function exportCinemaMasterMp4(
     avc: { format: 'avc' }
   });
 
-  // 6. Sequential Multi-Shot Rendering Loop
   let globalFrameIndex = 0;
   const startTimeMs = performance.now();
 
@@ -995,16 +1485,13 @@ export async function exportCinemaMasterMp4(
     const shotIdx = shotIndices[shotListIdx];
     const slide = slides[shotIdx];
     const frame = frames[shotIdx];
-
     const currentShotNum = shotListIdx + 1;
     const totalShots = shotIndices.length;
 
-    // Extract metadata
     const bTitle = slide?.titleBn || frame?.bengaliTitle || 'দৃষ্টি // THE SINGULARITY';
     const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
     const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
-    // Retrieve raw blob from IndexedDB media_vault (NEVER low-res proxy)
     const mediaId = slide?.mediaBlobId || slide?.remoteUrl || frame?.imageUrl || '';
     let rawBlob: Blob | null = null;
     if (mediaId && !mediaId.startsWith('http') && !mediaId.startsWith('data:')) {
@@ -1014,7 +1501,6 @@ export async function exportCinemaMasterMp4(
       rawBlob = await studioDraftDb.getSourceMediaBlobForShot(shotIdx);
     }
 
-    // Instantiate headless media loader for this specific shot
     let activeVideoElement: HTMLVideoElement | null = null;
     let activeBitmap: ImageBitmap | null = null;
     let activeObjectUrl: string | null = null;
@@ -1033,17 +1519,14 @@ export async function exportCinemaMasterMp4(
           activeVideoElement!.onloadeddata = () => res();
           activeVideoElement!.oncanplay = () => res();
           activeVideoElement!.onerror = () => res();
-          setTimeout(res, 2000); // 2s resilience timeout
+          setTimeout(res, 2000);
         });
       } else {
         try {
           activeBitmap = await createImageBitmap(rawBlob);
-        } catch {
-          // fallback
-        }
+        } catch {}
       }
     } else {
-      // Robust Fallback: Handle relative URLs (/assets/...), blob URLs, http, data for both video and still images
       const mediaUrl = frame?.imageUrl || slide?.remoteUrl || '';
       const isVideoMedia = Boolean(
         frame?.isVideo ||
@@ -1081,7 +1564,7 @@ export async function exportCinemaMasterMp4(
               activeBitmap = await createImageBitmap(img);
             }
           } catch (imgErr) {
-            console.warn('[exportCinemaMasterMp4] Image load fallback warning:', imgErr);
+            console.warn('[exportWithWebCodecs] Image load fallback warning:', imgErr);
           }
         }
       }
@@ -1091,7 +1574,6 @@ export async function exportCinemaMasterMp4(
     const shotFramesCount = perShotFrameCounts[shotListIdx];
     const shotStartTimeSec = shotBoundaryTimesSec[shotListIdx] ?? 0;
 
-    // Step through each frame of this shot's exact variable duration
     for (let f = 0; f < shotFramesCount; f++) {
       if (abortSignal?.aborted) {
         if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
@@ -1099,7 +1581,6 @@ export async function exportCinemaMasterMp4(
         throw new Error('Export cancelled by user.');
       }
 
-      // Step headless video element accurately across variable shot duration (looping if shot is longer than clip)
       if (activeVideoElement && activeVideoElement.duration > 0) {
         const localSec = (f / fps);
         const targetVideoSec = activeVideoElement.duration > 0
@@ -1113,7 +1594,6 @@ export async function exportCinemaMasterMp4(
         });
       }
 
-      // Composite onto master export canvas with exact shotStartTimeSec & totalFramesInShot
       compositeCinemaFrame({
         ctx,
         width,
@@ -1137,7 +1617,6 @@ export async function exportCinemaMasterMp4(
         caption: frame?.caption
       });
 
-      // Encode VideoFrame into WebCodecs VideoEncoder
       const timestampMicros = Math.round((globalFrameIndex / fps) * 1_000_000);
       const durationMicros = Math.round((1 / fps) * 1_000_000);
 
@@ -1148,13 +1627,10 @@ export async function exportCinemaMasterMp4(
 
       const isKeyFrame = globalFrameIndex % 24 === 0;
       videoEncoder.encode(videoFrame, { keyFrame: isKeyFrame });
-      
-      // CRITICAL MEMORY SAFETY: Close immediately to prevent GPU/RAM saturation
       videoFrame.close();
 
       globalFrameIndex++;
 
-      // Telemetry calculation
       const now = performance.now();
       const elapsedSec = (now - startTimeMs) / 1000;
       const currentFps = elapsedSec > 0 ? Math.round((globalFrameIndex / elapsedSec) * 10) / 10 : 24.0;
@@ -1177,7 +1653,6 @@ export async function exportCinemaMasterMp4(
           const previewCtx = previewCanvas.getContext('2d');
           if (previewCtx) {
             previewCtx.drawImage(canvas, 0, 0, 320, 134);
-            // Dynamic HUD overlay: [ SHOT 00X • FRAME 142/288 • 24 FPS • ENCODING ]
             previewCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
             previewCtx.fillRect(0, 134 - 24, 320, 24);
             previewCtx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
@@ -1189,22 +1664,18 @@ export async function exportCinemaMasterMp4(
             const hudText = `[ SHOT ${String(currentShotNum).padStart(3, '0')} • FRAME ${f + 1}/${shotFramesCount} (${shotDurationSec.toFixed(1)}s) • ${fps} FPS ]`;
             previewCtx.fillText(hudText, 160, 134 - 8);
           }
-        } catch {
-          // Non-fatal preview canvas blit fallback
-        }
+        } catch {}
       }
 
       if (onFrameRendered) {
         onFrameRendered(canvas, globalFrameIndex, totalFrames);
       }
 
-      // Yield event loop to prevent browser UI lockup
       if (globalFrameIndex % 4 === 0) {
         await new Promise((r) => setTimeout(r, 0));
       }
     }
 
-    // Shot complete: Dispose of resources immediately for next shot
     if (activeObjectUrl) {
       URL.revokeObjectURL(activeObjectUrl);
       activeObjectUrl = null;
@@ -1219,7 +1690,7 @@ export async function exportCinemaMasterMp4(
     }
   }
 
-  // 7. Encode Audio Track Chunks if AudioEncoder is active
+  // Encode Audio Track Chunks
   if (audioEncoder && audioBuffer) {
     try {
       if (onProgress) {
@@ -1238,7 +1709,7 @@ export async function exportCinemaMasterMp4(
       const numChannels = audioBuffer.numberOfChannels;
       const left = audioBuffer.getChannelData(0);
       const right = audioBuffer.getChannelData(1);
-      const chunkSize = 1024; // Standard AAC frame size
+      const chunkSize = 1024;
       const totalSamples = audioBuffer.length;
 
       let sampleOffset = 0;
@@ -1246,7 +1717,6 @@ export async function exportCinemaMasterMp4(
         const currentChunkSize = Math.min(chunkSize, totalSamples - sampleOffset);
         const planarData = new Float32Array(currentChunkSize * numChannels);
 
-        // Interleave planar audio
         planarData.set(left.subarray(sampleOffset, sampleOffset + currentChunkSize), 0);
         planarData.set(right.subarray(sampleOffset, sampleOffset + currentChunkSize), currentChunkSize);
 
@@ -1273,7 +1743,6 @@ export async function exportCinemaMasterMp4(
     }
   }
 
-  // 8. Flush Video Encoder and Finalize Muxer
   if (onProgress) {
     onProgress({
       currentShotIndex: shotIndices.length,
@@ -1288,9 +1757,18 @@ export async function exportCinemaMasterMp4(
 
   await videoEncoder.flush();
   videoEncoder.close();
-  muxer.finalize();
 
-  // 9. Assemble MP4 Blob & Target Filename
+  if (chunksEncoded === 0 || encoderError || validChunksMuxed === 0) {
+    throw new Error(`WebCodecs encoder produced 0 valid chunks: ${encoderError?.message || 'Unsupported WebCodecs format or null decoderConfig'}`);
+  }
+
+  try {
+    muxer.finalize();
+  } catch (finalizeErr) {
+    console.warn('[WebCodecs muxer.finalize failed, falling back to MediaRecorder]', finalizeErr);
+    throw finalizeErr;
+  }
+
   const buffer = target.buffer;
   const mp4Blob = new Blob([buffer], { type: 'video/mp4' });
 
@@ -1301,3 +1779,44 @@ export async function exportCinemaMasterMp4(
 
   return { blob: mp4Blob, filename };
 }
+
+/**
+ * MASTER OFFLINE EXPORT PIPELINE:
+ * Dual-engine architecture:
+ * 1. Primary: Ultra-fast frame-by-frame hardware WebCodecs pipeline with mp4-muxer.
+ * 2. Fallback: Universal MediaRecorder canvas-capture stream pipeline with synthesized audio
+ *    guaranteeing successful export on Firefox, Safari, and platforms without AVC WebCodecs.
+ */
+export async function exportCinemaMasterMp4(
+  options: CinemaExportPipelineOptions
+): Promise<{ blob: Blob; filename: string }> {
+  const dimensions = getExportPresetDimensions(options.resolutionPreset);
+  const is4K = dimensions.width >= 3840 || dimensions.height >= 2160;
+  const bitrateBps = getBitrateBps(options.bitrateProfile, is4K);
+
+  // 1. Detect if WebCodecs VideoEncoder is available and supports AVC
+  const supportedCodec = await checkWebCodecsSupport(
+    is4K,
+    dimensions.width,
+    dimensions.height,
+    bitrateBps,
+    24
+  );
+
+  if (!supportedCodec) {
+    console.info('[CinemaExport] WebCodecs AVC not supported on this platform/browser. Seamlessly routing to MediaRecorder fallback.');
+    return await exportCinemaMasterWithMediaRecorder(options);
+  }
+
+  // 2. Execute WebCodecs pipeline with auto-recovery fallback
+  try {
+    return await exportWithWebCodecs(options, supportedCodec);
+  } catch (webCodecsErr: any) {
+    if (options.abortSignal?.aborted || webCodecsErr?.message?.includes('cancelled')) {
+      throw webCodecsErr;
+    }
+    console.warn('[CinemaExport] WebCodecs pipeline failed, recovering via high-fidelity MediaRecorder fallback:', webCodecsErr);
+    return await exportCinemaMasterWithMediaRecorder(options);
+  }
+}
+

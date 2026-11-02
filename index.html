@@ -44,6 +44,23 @@
         }
     </style>
     <script>
+      // Suppress benign Vite HMR WebSocket connection failure notices in iframe/proxy environments
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event && event.reason;
+        var msg = (reason && (reason.message || String(reason))) || '';
+        if (msg.indexOf('WebSocket') !== -1 || msg.indexOf('createWebSocketModuleRunnerTransport') !== -1) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
+      window.addEventListener('error', function(event) {
+        var msg = (event && (event.message || '')) || '';
+        if (msg.indexOf('WebSocket') !== -1 || msg.indexOf('createWebSocketModuleRunnerTransport') !== -1) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
+
       // Fallback for static hosting if root index.html is served directly on GitHub Pages without Vite dev server
       window.addEventListener('error', function(event) {
         if (event && event.target && event.target.tagName === 'SCRIPT' && event.target.src && event.target.src.indexOf('main.tsx') !== -1) {

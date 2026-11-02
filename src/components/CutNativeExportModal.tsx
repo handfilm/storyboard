@@ -839,8 +839,9 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         abortSignal: abortCtrl.signal
       });
 
-      const baseName = customFilename.trim().replace(/\.mp4$/i, '') || `HANDFILM_${projectTitle}_Master`;
-      const targetName = `${baseName}.mp4`;
+      const ext = result.blob.type.includes('webm') ? '.webm' : '.mp4';
+      const baseName = customFilename.trim().replace(/\.(mp4|webm)$/i, '') || result.filename.replace(/\.(mp4|webm)$/i, '') || `HANDFILM_${projectTitle}_Master`;
+      const targetName = `${baseName}${ext}`;
 
       const downloadUrl = URL.createObjectURL(result.blob);
       const link = document.createElement('a');
@@ -937,8 +938,9 @@ export const CutNativeExportModal: React.FC<CutNativeExportModalProps> = ({
         abortSignal: abortCtrl.signal
       });
 
-      const baseName = customFilename.trim().replace(/\.mp4$/i, '') || `HANDFILM_${projectTitle}_4K_Master`;
-      const targetName = `${baseName}.mp4`;
+      const ext = result.blob.type.includes('webm') ? '.webm' : '.mp4';
+      const baseName = customFilename.trim().replace(/\.(mp4|webm)$/i, '') || result.filename.replace(/\.(mp4|webm)$/i, '') || `HANDFILM_${projectTitle}_4K_Master`;
+      const targetName = `${baseName}${ext}`;
 
       const downloadUrl = URL.createObjectURL(result.blob);
       const link = document.createElement('a');

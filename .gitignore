@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 .aistudio/
+assets/
+docs/assets/
+docs/index*.html

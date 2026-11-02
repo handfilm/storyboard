@@ -555,7 +555,40 @@ async function renderWithWebCodecs(
   // Initialize WebCodecs VideoEncoder
   const videoEncoder = new window.VideoEncoder({
     output: (chunk, meta) => {
-      muxer.addVideoChunk(chunk, meta);
+      const safeMeta: any = meta ? { ...meta } : {};
+      if (!safeMeta.decoderConfig) {
+        safeMeta.decoderConfig = {
+          codec: 'avc1.640028',
+          colorSpace: {
+            primaries: 'bt709',
+            transfer: 'bt709',
+            matrix: 'bt709',
+            fullRange: false
+          },
+          description: meta?.decoderConfig?.description
+        };
+      } else if (!safeMeta.decoderConfig.colorSpace) {
+        safeMeta.decoderConfig.colorSpace = {
+          primaries: 'bt709',
+          transfer: 'bt709',
+          matrix: 'bt709',
+          fullRange: false
+        };
+      }
+      try {
+        const data = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(data);
+        const durationMicros = Math.round((1 / fps) * 1_000_000);
+        muxer.addVideoChunkRaw(
+          data,
+          chunk.type,
+          chunk.timestamp ?? 0,
+          chunk.duration ?? durationMicros,
+          safeMeta
+        );
+      } catch (e) {
+        console.warn('exportEngine addVideoChunk warning:', e);
+      }
     },
     error: (e) => {
       console.error('WebCodecs VideoEncoder error:', e);

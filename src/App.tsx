@@ -106,6 +106,10 @@ export default function App() {
   const [activeDualPanel, setActiveDualPanel] = useState<StagePanelType>('TACTILE_STAGE');
   const [isOpticalMonitorModalOpen, setIsOpticalMonitorModalOpen] = useState(false);
   const [slideTimeSec, setSlideTimeSec] = useState<number>(0);
+  const slideTimeSecRef = useRef<number>(0);
+  useEffect(() => {
+    slideTimeSecRef.current = slideTimeSec;
+  }, [slideTimeSec]);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
 
   // New Studio State & Preserved Optical Controls
@@ -973,50 +977,48 @@ export default function App() {
     const FRAME_DELTA = 1 / shotFps;
     const SLIDE_DURATION = getShotDurationSec(activeShot, project.defaultSlideHoldSec ?? 12.0);
     const totalCount = Math.max(1, project.frames.length);
+    const currentTime = slideTimeSecRef.current;
 
     if (playbackMode === 'solo') {
-      setSlideTimeSec(prev => {
-        let updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
-        if (updated < 0) updated = 0;
-        if (updated > SLIDE_DURATION) updated = SLIDE_DURATION;
-        try {
-          useStudioStore.getState().setSlideTimeSec(updated);
-        } catch {}
-        return updated;
-      });
+      let updated = forward ? currentTime + FRAME_DELTA : currentTime - FRAME_DELTA;
+      if (updated < 0) updated = 0;
+      if (updated > SLIDE_DURATION) updated = SLIDE_DURATION;
+      slideTimeSecRef.current = updated;
+      setSlideTimeSec(updated);
+      try {
+        useStudioStore.getState().setSlideTimeSec(updated);
+      } catch {}
     } else {
-      setSlideTimeSec(prev => {
-        const updated = forward ? prev + FRAME_DELTA : prev - FRAME_DELTA;
-        if (updated >= SLIDE_DURATION) {
-          const nextIdx = (currentIndex + 1) % totalCount;
-          queueMicrotask(() => {
-            setCurrentIndex(nextIdx);
-            try {
-              useStudioStore.getState().setActiveShotIndex(nextIdx);
-              useStudioStore.getState().setSlideTimeSec(0);
-            } catch {}
-          });
-          return 0;
-        } else if (updated < 0) {
-          const prevIdx = (currentIndex - 1 + totalCount) % totalCount;
-          const prevShot = project.frames[prevIdx] || activeShot;
-          const prevShotDur = getShotDurationSec(prevShot, project.defaultSlideHoldSec ?? 12.0);
-          const prevShotFps = getShotTargetFps(prevShot, 24);
-          const loopTime = Math.max(0, prevShotDur - 1 / prevShotFps);
-          queueMicrotask(() => {
-            setCurrentIndex(prevIdx);
-            try {
-              useStudioStore.getState().setActiveShotIndex(prevIdx);
-              useStudioStore.getState().setSlideTimeSec(loopTime);
-            } catch {}
-          });
-          return loopTime;
-        }
+      const updated = forward ? currentTime + FRAME_DELTA : currentTime - FRAME_DELTA;
+      if (updated >= SLIDE_DURATION) {
+        const nextIdx = (currentIndex + 1) % totalCount;
+        slideTimeSecRef.current = 0;
+        setCurrentIndex(nextIdx);
+        setSlideTimeSec(0);
+        try {
+          useStudioStore.getState().setActiveShotIndex(nextIdx);
+          useStudioStore.getState().setSlideTimeSec(0);
+        } catch {}
+      } else if (updated < 0) {
+        const prevIdx = (currentIndex - 1 + totalCount) % totalCount;
+        const prevShot = project.frames[prevIdx] || activeShot;
+        const prevShotDur = getShotDurationSec(prevShot, project.defaultSlideHoldSec ?? 12.0);
+        const prevShotFps = getShotTargetFps(prevShot, 24);
+        const loopTime = Math.max(0, prevShotDur - 1 / prevShotFps);
+        slideTimeSecRef.current = loopTime;
+        setCurrentIndex(prevIdx);
+        setSlideTimeSec(loopTime);
+        try {
+          useStudioStore.getState().setActiveShotIndex(prevIdx);
+          useStudioStore.getState().setSlideTimeSec(loopTime);
+        } catch {}
+      } else {
+        slideTimeSecRef.current = updated;
+        setSlideTimeSec(updated);
         try {
           useStudioStore.getState().setSlideTimeSec(updated);
         } catch {}
-        return updated;
-      });
+      }
     }
     audioEngine.playShutterClick();
   }, [playbackMode, project.frames, project.defaultSlideHoldSec, currentIndex]);
@@ -1076,49 +1078,51 @@ export default function App() {
       if (lastTimestampRef.current !== null) {
         const deltaSec = ((now - lastTimestampRef.current) / 1000) * playbackSpeed;
         const safeDelta = Math.min(deltaSec, 0.25);
+        const prevTime = slideTimeSecRef.current;
+        const nextTime = prevTime + safeDelta;
+        const globalPlaybackSec = shotStartSec + nextTime;
+        audioEngine.syncPlaybackTime(globalPlaybackSec);
 
-        setSlideTimeSec(prevTime => {
-          const nextTime = prevTime + safeDelta;
-          const globalPlaybackSec = shotStartSec + nextTime;
-          audioEngine.syncPlaybackTime(globalPlaybackSec);
+        try {
+          useStudioStore.getState().setSlideTimeSec(nextTime);
+        } catch {}
 
-          try {
-            useStudioStore.getState().setSlideTimeSec(nextTime);
-          } catch {}
+        if (playbackMode === 'sequence') {
+          // Elastic Sequence mode: respect per-shot durationSec and snap to nearest audio beat when enabled
+          const boundaryDuration = (isSnapToBeat || currentFrame?.beatSnapEnabled)
+            ? audioEngine.snapDurationToNearestBeat(shotStartSec, shotSlideHold)
+            : shotSlideHold;
 
-          if (playbackMode === 'sequence') {
-            // Elastic Sequence mode: respect per-shot durationSec and snap to nearest audio beat when enabled
-            const boundaryDuration = (isSnapToBeat || currentFrame?.beatSnapEnabled)
-              ? audioEngine.snapDurationToNearestBeat(shotStartSec, shotSlideHold)
-              : shotSlideHold;
-
-            if (nextTime >= boundaryDuration) {
-              const framesLength = Math.max(1, project.frames.length);
-              const nextIdx = (currentIndex + 1) % framesLength;
-              const nextShotDur = shotOffsets[nextIdx]?.durationSec ?? 12.0;
-              const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
-              queueMicrotask(() => {
-                setCurrentIndex(nextIdx);
-                try {
-                  useStudioStore.getState().setActiveShotIndex(nextIdx);
-                  useStudioStore.getState().setSlideTimeSec(remainderTime);
-                } catch {}
-              });
-              return remainderTime;
-            }
-            return nextTime;
+          if (nextTime >= boundaryDuration) {
+            const framesLength = Math.max(1, project.frames.length);
+            const nextIdx = (currentIndex + 1) % framesLength;
+            const nextShotDur = shotOffsets[nextIdx]?.durationSec ?? 12.0;
+            const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
+            slideTimeSecRef.current = remainderTime;
+            setCurrentIndex(nextIdx);
+            setSlideTimeSec(remainderTime);
+            try {
+              useStudioStore.getState().setActiveShotIndex(nextIdx);
+              useStudioStore.getState().setSlideTimeSec(remainderTime);
+            } catch {}
           } else {
-            // Solo Scrub mode: loops strictly within this shot's elastic durationSec
-            if (nextTime >= shotSlideHold) {
-              const loopTime = shotSlideHold > 0 ? nextTime % shotSlideHold : 0;
-              try {
-                useStudioStore.getState().setSlideTimeSec(loopTime);
-              } catch {}
-              return loopTime;
-            }
-            return nextTime;
+            slideTimeSecRef.current = nextTime;
+            setSlideTimeSec(nextTime);
           }
-        });
+        } else {
+          // Solo Scrub mode: loops strictly within this shot's elastic durationSec
+          if (nextTime >= shotSlideHold) {
+            const loopTime = shotSlideHold > 0 ? nextTime % shotSlideHold : 0;
+            slideTimeSecRef.current = loopTime;
+            setSlideTimeSec(loopTime);
+            try {
+              useStudioStore.getState().setSlideTimeSec(loopTime);
+            } catch {}
+          } else {
+            slideTimeSecRef.current = nextTime;
+            setSlideTimeSec(nextTime);
+          }
+        }
       }
       lastTimestampRef.current = now;
       animFrameRef.current = requestAnimationFrame(tick);

@@ -189,9 +189,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
     if (currentFrame && onUpdateFrame) {
       const updated = applyTitleTemplateToFrame(currentFrame, preset);
-      queueMicrotask(() => {
-        onUpdateFrame(updated);
-      });
+      onUpdateFrame(updated);
     } else {
       eventBus.emit('shot:updated', {
         index: targetShotIndex,
@@ -343,19 +341,17 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     }
 
     if (onUpdateFrame) {
-      queueMicrotask(() => {
-        onUpdateFrame(updatedFrame);
+      onUpdateFrame(updatedFrame);
+    } else {
+      // (d) Emit global events for timeline and stage canvas sync only if direct callback not present
+      eventBus.emit('shot:updated', {
+        index: activeShotIndex,
+        partial: updatedShotPartial
       });
     }
     if (onApplyPreset) {
       onApplyPreset(preset);
     }
-
-    // (d) Emit global events for timeline and stage canvas sync
-    eventBus.emit('shot:updated', {
-      index: activeShotIndex,
-      partial: updatedShotPartial
-    });
 
     if (mediaUrl) {
       eventBus.emit('asset_assigned_to_shot', {

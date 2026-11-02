@@ -47,20 +47,17 @@ export const TextStudio: React.FC<TextStudioProps> = ({
   currentFrame,
   onUpdateFrame
 }) => {
-  const {
-    activeShotIndex,
-    project,
-    updateShot,
-    titleConfig,
-    setTitlePreset,
-    setTitleSize,
-    setTitleGlowIntensity,
-    setTitleVerticalOffset,
-    setTitleTracking,
-    toggleTitles
-  } = useStudioStore();
+  const activeShotIndex = useStudioStore((s) => s.activeShotIndex);
+  const currentShot = useStudioStore((s) => s.project.shots[s.activeShotIndex] || {});
+  const updateShot = useStudioStore((s) => s.updateShot);
+  const titleConfig = useStudioStore((s) => s.titleConfig);
+  const setTitlePreset = useStudioStore((s) => s.setTitlePreset);
+  const setTitleSize = useStudioStore((s) => s.setTitleSize);
+  const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
+  const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
+  const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
+  const toggleTitles = useStudioStore((s) => s.toggleTitles);
 
-  const currentShot = project.shots[activeShotIndex] || {};
   const currentTheme = baseThemesData[activeShotIndex % baseThemesData.length];
 
   // Derive active frame values with zero-lag fallback
@@ -118,10 +115,14 @@ export const TextStudio: React.FC<TextStudioProps> = ({
       ...partial
     };
 
-    // 1. Immediately notify stage & App.tsx for 0ms visual repaint & autosave queue
+    // 1. Notify stage & App.tsx for visual repaint
     if (onUpdateFrame) {
-      queueMicrotask(() => {
-        onUpdateFrame(updatedFrame);
+      onUpdateFrame(updatedFrame);
+    } else {
+      // Emit global event only if direct parent callback is not provided
+      eventBus.emit('shot:updated', {
+        index: activeShotIndex,
+        partial
       });
     }
 
@@ -134,21 +135,16 @@ export const TextStudio: React.FC<TextStudioProps> = ({
       soundCue: updatedFrame.soundCue,
       titleAnimation: updatedFrame.titleAnimation
     });
-
-    // 3. Emit global event for any decoupled listeners
-    eventBus.emit('shot:updated', {
-      index: activeShotIndex,
-      partial
-    });
   };
 
   const handleExportSRT = () => {
     let srtContent = '';
-    const total = Math.max(100, project.shots.length);
+    const shots = useStudioStore.getState().project.shots;
+    const total = Math.max(100, shots.length);
     let currentTime = 0;
 
     for (let i = 0; i < total; i++) {
-      const shot = project.shots[i] || {};
+      const shot = shots[i] || {};
       const theme = baseThemesData[i % baseThemesData.length];
       const duration = shot.durationSeconds || 12.0;
       const startTimeStr = formatSRTTime(currentTime);

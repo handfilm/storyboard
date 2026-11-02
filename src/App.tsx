@@ -148,6 +148,7 @@ export default function App() {
   const [isSnapToBeat, setIsSnapToBeat] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState(120);
   const [isTelemetryRackOpen, setIsTelemetryRackOpen] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(true);
 
   // Screen Recorder & WebCodecs Trimmer Suite State
   const [isScreenRecorderOpen, setIsScreenRecorderOpen] = useState(false);
@@ -1766,6 +1767,11 @@ export default function App() {
             setIsInspectorOpen(o => !o);
           }
           break;
+        case 'z':
+        case 'Z':
+          e.preventDefault();
+          setIsZenMode(prev => !prev);
+          break;
         case 'Escape':
           setIsContactSheetOpen(false);
           setIsInspectorOpen(false);
@@ -2022,7 +2028,7 @@ export default function App() {
 
   return (
     <div
-      className="relative w-screen h-screen bg-[#070709] text-zinc-200 overflow-hidden select-none flex flex-col font-mono-tech"
+      className={`relative w-screen h-screen bg-[#070709] text-zinc-200 overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -2037,6 +2043,8 @@ export default function App() {
 
       {/* Sleek Single-Tier Master Header */}
       <StageHeader
+        isZenMode={isZenMode}
+        onToggleZen={() => setIsZenMode(z => !z)}
         currentPanel={activeDualPanel}
         onSelectPanel={(panel) => {
           setActiveDualPanel(panel);
@@ -2119,66 +2127,68 @@ export default function App() {
         <>
           {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
           <div className="flex-1 w-full flex overflow-hidden relative">
-        <LeftRail
-          activeModule={activeModule}
-          onSelectModule={(mod) => {
-            if (
-              mod === 'PRODUCTION' ||
-              mod === 'REVIEW' ||
-              mod === 'AI' ||
-              mod === 'R2_STORAGE' ||
-              mod === 'LIBRARY' ||
-              mod === 'SETTINGS'
-            ) {
-              if (activeModule === mod && isDrawerOpen && workspaceMode === 'STAGE') {
+        <div className="zen-rail-container h-full flex shrink-0">
+          <LeftRail
+            activeModule={activeModule}
+            onSelectModule={(mod) => {
+              if (
+                mod === 'PRODUCTION' ||
+                mod === 'REVIEW' ||
+                mod === 'AI' ||
+                mod === 'R2_STORAGE' ||
+                mod === 'LIBRARY' ||
+                mod === 'SETTINGS'
+              ) {
+                if (activeModule === mod && isDrawerOpen && workspaceMode === 'STAGE') {
+                  setIsDrawerOpen(false);
+                } else {
+                  setActiveModule(mod);
+                  setWorkspaceMode('STAGE');
+                  setIsDrawerOpen(true);
+                }
+              } else if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
+                handleGoHome();
+              } else if (mod === 'BLOOM') {
+                setWorkspaceMode('BLOOM');
                 setIsDrawerOpen(false);
-              } else {
-                setActiveModule(mod);
+              } else if (mod === 'BOARD') {
+                setWorkspaceMode('BOARD');
+                setIsDrawerOpen(false);
+              } else if (mod === 'EDIT/CUT') {
+                setWorkspaceMode('CUT');
+                setIsDrawerOpen(false);
+              } else if (mod === 'EXPORT') {
+                setIsPublishModalOpen(true);
+              } else if (mod === 'LIQUIFY') {
+                setIsLiquifyOpen(true);
+              } else if (mod === 'OPTICS') {
+                setActiveModule('OPTICS');
                 setWorkspaceMode('STAGE');
                 setIsDrawerOpen(true);
-              }
-            } else if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
-              handleGoHome();
-            } else if (mod === 'BLOOM') {
-              setWorkspaceMode('BLOOM');
-              setIsDrawerOpen(false);
-            } else if (mod === 'BOARD') {
-              setWorkspaceMode('BOARD');
-              setIsDrawerOpen(false);
-            } else if (mod === 'EDIT/CUT') {
-              setWorkspaceMode('CUT');
-              setIsDrawerOpen(false);
-            } else if (mod === 'EXPORT') {
-              setIsPublishModalOpen(true);
-            } else if (mod === 'LIQUIFY') {
-              setIsLiquifyOpen(true);
-            } else if (mod === 'OPTICS') {
-              setActiveModule('OPTICS');
-              setWorkspaceMode('STAGE');
-              setIsDrawerOpen(true);
-            } else {
-              // Functional modules: STORY, MEDIA, TEXT, SOUND
-              if (activeModule === mod && isDrawerOpen && workspaceMode === 'STAGE') {
-                setIsDrawerOpen(false);
               } else {
-                setActiveModule(mod);
-                setWorkspaceMode('STAGE');
-                setIsDrawerOpen(true);
+                // Functional modules: STORY, MEDIA, TEXT, SOUND
+                if (activeModule === mod && isDrawerOpen && workspaceMode === 'STAGE') {
+                  setIsDrawerOpen(false);
+                } else {
+                  setActiveModule(mod);
+                  setWorkspaceMode('STAGE');
+                  setIsDrawerOpen(true);
+                }
               }
-            }
-          }}
-          isCollapsed={isRailCollapsed}
-          onToggleCollapse={() => setIsRailCollapsed(c => !c)}
-          isProMode={isProMode}
-          onToggleProMode={() => setIsProMode(p => !p)}
-          onOpenVaultMode={() => setIsProjectManagerOpen(true)}
-          onOpenSelfTest={() => setIsSelfTestOpen(true)}
-          onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
-          onOpenMultiCam={handleToggleMultiCam}
-          totalShots={project.frames?.length || 100}
-          currentShotIndex={currentIndex}
-          saveState={saveState}
-        />
+            }}
+            isCollapsed={isRailCollapsed}
+            onToggleCollapse={() => setIsRailCollapsed(c => !c)}
+            isProMode={isProMode}
+            onToggleProMode={() => setIsProMode(p => !p)}
+            onOpenVaultMode={() => setIsProjectManagerOpen(true)}
+            onOpenSelfTest={() => setIsSelfTestOpen(true)}
+            onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+            onOpenMultiCam={handleToggleMultiCam}
+            totalShots={project.frames?.length || 100}
+            currentShotIndex={currentIndex}
+            saveState={saveState}
+          />
+        </div>
 
         {/* Functional Studio Drawer in STAGE Mode */}
         {workspaceMode === 'STAGE' && isDrawerOpen && (

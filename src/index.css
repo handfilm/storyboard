@@ -503,9 +503,100 @@
   .matrix-opacity-slider::-moz-range-thumb,
   .workspace-cross-dissolve-container,
   .animate-workspace-cross-dissolve,
-  .animate-workspace-dissolve-veil {
+  .animate-workspace-dissolve-veil,
+  .console-zen-mode .zen-disclose-header,
+  .console-zen-mode .zen-export-suite-shelf,
+  .console-zen-mode .zen-secondary-panel {
     transition-duration: 0ms !important;
     transition-delay: 0ms !important;
     animation-duration: 0ms !important;
   }
 }
+
+/* =========================================================================
+   CONSOLE ZEN MODE — PROGRESSIVE DISCLOSURE ARCHITECTURE
+   ========================================================================= */
+
+.console-zen-mode {
+  --zen-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --zen-timing: 100ms;
+}
+
+/* 1. RESTING STATE: Mute non-essential chrome, keep canvas and scrub timeline 100% visible */
+.console-zen-mode .zen-disclose-header {
+  opacity: 0.22;
+  transition: opacity var(--zen-timing) var(--zen-ease), border-color var(--zen-timing) var(--zen-ease);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.console-zen-mode .zen-disclose-header:hover,
+.console-zen-mode .zen-disclose-header:focus-within {
+  opacity: 1;
+  border-bottom-color: rgba(245, 166, 35, 0.35);
+}
+
+/* Header hover reveal: UNIFIED MASTER EXPORT SUITE shelf */
+.console-zen-mode .zen-export-suite-shelf {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: max-height 120ms var(--zen-ease), opacity 100ms var(--zen-ease), transform 100ms var(--zen-ease);
+}
+
+.console-zen-mode .zen-disclose-header:hover .zen-export-suite-shelf,
+.console-zen-mode .zen-disclose-header:focus-within .zen-export-suite-shelf {
+  max-height: 52px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Secondary telemetry & navigation rail resting state */
+.console-zen-mode .zen-rail-container {
+  opacity: 0.15;
+  transition: opacity var(--zen-timing) var(--zen-ease);
+}
+
+.console-zen-mode .zen-rail-container:hover,
+.console-zen-mode .zen-rail-container:focus-within {
+  opacity: 1;
+}
+
+/* Floating micro-telemetry tooltips (revealed only on hover) */
+.zen-micro-tooltip-container {
+  position: relative;
+}
+
+.zen-micro-tooltip-container .zen-micro-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 80ms var(--zen-ease), transform 80ms var(--zen-ease);
+  background: rgba(11, 12, 16, 0.95);
+  border: 1px solid rgba(245, 166, 35, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  z-index: 60;
+  border-radius: 3px;
+}
+
+.zen-micro-tooltip-container:hover .zen-micro-tooltip,
+.zen-micro-tooltip-container:focus-within .zen-micro-tooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Primary Viewport & Master Scrub Timeline remain 100% visible */
+.console-zen-mode .zen-primary-canvas,
+.console-zen-mode .zen-master-timeline {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+

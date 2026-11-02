@@ -80,6 +80,8 @@ export interface StageHeaderProps {
   onOpenInspector?: () => void;
   onOpenRapSync?: () => void;
   onOpenCacheManager?: () => void;
+  isZenMode?: boolean;
+  onToggleZen?: () => void;
 }
 
 export const StageHeader: React.FC<StageHeaderProps> = ({
@@ -113,7 +115,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   onOpenDiagnostics,
   onOpenInspector,
   onOpenRapSync,
-  onOpenCacheManager
+  onOpenCacheManager,
+  isZenMode = true,
+  onToggleZen
 }) => {
   const [isCompileModalOpen, setIsCompileModalOpen] = useState(false);
   const [isRapSyncModalOpen, setIsRapSyncModalOpen] = useState(false);
@@ -902,7 +906,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   return (
     <>
-    <header className={`relative w-full h-14 flex items-center px-4 px-4! gap-3 z-50 bg-[#0A0C10] border-b border-white/5 select-none shrink-0 font-sans ${className}`}>
+    <header className={`relative w-full h-14 flex items-center px-4 px-4! gap-3 z-50 bg-[#0A0C10] border-b border-white/5 select-none shrink-0 font-sans zen-disclose-header ${className}`}>
       {/* 1. LEFT COLUMN (flex-1 pushes center to middle) */}
       <div className="flex-1 flex items-center justify-start gap-3 lg:gap-4">
         {/* Wordmark Logo */}
@@ -1477,6 +1481,24 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </button>
         </SmartHoverCard>
 
+        {/* Zen Mode Progressive Disclosure Indicator / Toggle (Z) */}
+        {onToggleZen && (
+          <button
+            type="button"
+            onClick={onToggleZen}
+            className={`h-8 px-2.5 rounded-lg border text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+              isZenMode
+                ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
+            }`}
+            title="Toggle Zen Mode Progressive Disclosure (Z)"
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isZenMode ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+            <span>ZEN</span>
+            <kbd className="text-[8px] opacity-60">Z</kbd>
+          </button>
+        )}
+
         {/* 3. EXPORT Button (Triggers UnifiedExportStudio Modal) */}
         <SmartHoverCard
           code="[ 📤 EXPORT // 24FPS NATIVE ]"
@@ -1529,6 +1551,53 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           onOpenInspector={handleTriggerInspector}
           onOpenCacheManager={handleTriggerCacheManager}
         />
+      </div>
+
+      {/* Dynamic Slide-Down Export Suite on Header Hover */}
+      <div className="zen-export-suite-shelf absolute top-full inset-x-0 bg-[#07080C]/98 border-b border-[#F5A623]/30 shadow-[0_12px_32px_rgba(0,0,0,0.95)] backdrop-blur-xl z-40 px-4 py-2 flex items-center justify-between font-mono text-xs">
+        <div className="flex items-center gap-2">
+          <Film className="w-3.5 h-3.5 text-[#F5A623]" />
+          <span className="text-[10px] font-bold tracking-widest text-[#F5A623] uppercase">
+            UNIFIED MASTER EXPORT SUITE
+          </span>
+          <span className="text-[8px] text-zinc-500 uppercase hidden md:inline">
+            // ZERO-CLOUD 24FPS RENDER
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenExport) onOpenExport();
+              else setIsExportStudioOpen(true);
+            }}
+            className="px-2.5 py-1 rounded bg-[#F5A623]/20 hover:bg-[#F5A623]/30 border border-[#F5A623]/50 text-[#FFE066] text-[9.5px] font-bold tracking-wider uppercase transition-all"
+          >
+            [ MP4 4K / PRORES ]
+          </button>
+          <button
+            type="button"
+            onClick={() => eventBus.emit('export:xml')}
+            className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-[9.5px] font-bold tracking-wider uppercase transition-all"
+          >
+            [ PREMIERE XML ]
+          </button>
+          <button
+            type="button"
+            onClick={() => eventBus.emit('export:fcpxml')}
+            className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-[9.5px] font-bold tracking-wider uppercase transition-all"
+          >
+            [ CAPCUT / FCPXML ]
+          </button>
+          <button
+            type="button"
+            onClick={() => eventBus.emit('hollywood.otio')}
+            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 text-[9.5px] font-bold tracking-wider uppercase transition-all hidden sm:inline"
+          >
+            [ OTIO ]
+          </button>
+        </div>
       </div>
     </header>
 

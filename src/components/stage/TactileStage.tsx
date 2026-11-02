@@ -60,6 +60,7 @@ import {
 } from '../../services/cinematicFilterEngine';
 import { FilterGradingTray } from './FilterGradingTray';
 import { KineticCaptionOverlay } from './KineticCaptionOverlay';
+import { KineticAdTextDrawer } from './KineticAdTextDrawer';
 import { DopamineCompilationSequence } from './templates/DopamineCompilationSequence';
 import { FrameAdjustments, LutPreset } from '../../types/anthology';
 
@@ -986,6 +987,19 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           />
         )}
 
+        {/* Floating Kinetic Title Rack Drawer docked above the text track */}
+        {isTitlesActive && !frame?.dopamineConfig && (
+          <div className="absolute bottom-14 sm:bottom-16 inset-x-4 max-w-xl mx-auto z-30 pointer-events-auto">
+            <KineticAdTextDrawer
+              currentFrame={frame}
+              slideTimeSec={slideTimeSec}
+              durationSec={activeShotDurationSec}
+              bpm={detectedBpm}
+              onUpdateFrame={handleUpdateCurrentFrame}
+            />
+          </div>
+        )}
+
         {/* Floating 35mm Film Stock & Color Grading Tray */}
         <FilterGradingTray
           isOpen={isFilterTrayOpen}
@@ -1138,9 +1152,26 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             </div>
           </div>
 
-          <span className="hidden sm:inline text-[9.5px] font-mono text-zinc-300 tabular-nums px-1">
-            F{String(activeFrameNum).padStart(3, '0')}/{activeTotalFrames}
-          </span>
+          {/* Micro-Telemetry Tooltip on Hover (FPS, Frame Count, Resolution) */}
+          <div className="zen-micro-tooltip-container hidden sm:inline-block">
+            <span className="text-[9.5px] font-mono text-zinc-300 tabular-nums px-1.5 py-0.5 rounded bg-black/40 border border-white/10 cursor-help">
+              F{String(activeFrameNum).padStart(3, '0')}/{activeTotalFrames}
+            </span>
+            <div className="zen-micro-tooltip p-2 text-[9px] font-mono text-zinc-200 space-y-1">
+              <div className="flex justify-between gap-3 text-zinc-400">
+                <span>FRAME:</span>
+                <span className="text-[#FFE066] font-bold">{activeFrameNum} / {activeTotalFrames}</span>
+              </div>
+              <div className="flex justify-between gap-3 text-zinc-400">
+                <span>TIMING:</span>
+                <span className="text-cyan-400 font-bold">{activeShotFps} FPS (24FPS TICK)</span>
+              </div>
+              <div className="flex justify-between gap-3 text-zinc-400">
+                <span>MEDIA PIPELINE:</span>
+                <span className="text-emerald-400 font-bold">{isScrubbing ? '540p 24FPS PROXY' : 'MASTER 4K RAW'}</span>
+              </div>
+            </div>
+          </div>
 
           {/* Quick Cadence Selector Capsule Pill: [ ⏱ DURATION: 12.0s ▾ ] */}
           <CadenceSelectorPill

@@ -31,6 +31,7 @@ export interface KeyboardShortcutsHandlers {
   onToggleTitles?: () => void;
   onToggleShortcuts?: () => void;
   onToggleScreenRecorder?: () => void;
+  onToggleZen?: () => void;
 }
 
 function matchesCombo(e: KeyboardEvent, shortcutId: string, fallback: boolean): boolean {
@@ -77,7 +78,8 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
     onOpenExportRange,
     onToggleTitles,
     onToggleShortcuts,
-    onToggleScreenRecorder
+    onToggleScreenRecorder,
+    onToggleZen
   } = handlers;
 
   useEffect(() => {
@@ -207,6 +209,13 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
         onToggleTitles?.();
         return;
       }
+
+      // Zen Mode Progressive Disclosure Toggle (Z)
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        onToggleZen?.();
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -226,6 +235,7 @@ export function useGlobalKeyboardShortcuts(handlers: KeyboardShortcutsHandlers) 
     onToggleFullscreen,
     onOpenExportRange,
     onToggleTitles,
-    onToggleShortcuts
+    onToggleShortcuts,
+    onToggleZen
   ]);
 }

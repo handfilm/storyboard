@@ -485,6 +485,11 @@ export class CinematicAudioEngine {
     this.isSnapToBeatEnabled = enabled;
   }
 
+  public toggleSnapToBeat(): boolean {
+    this.isSnapToBeatEnabled = !this.isSnapToBeatEnabled;
+    return this.isSnapToBeatEnabled;
+  }
+
   public subscribeToAnalysis(listener: AnalysisListener): () => void {
     this.analysisListeners.add(listener);
     if (this.currentAnalysis) {

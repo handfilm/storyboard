@@ -249,6 +249,23 @@
   animation: crossDissolveFadeOut 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Subtle Compositor-Accelerated Fade-In for Stage & Telemetry HUD Elements */
+@keyframes hudFadeIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-hud-fade-in {
+  animation: hudFadeIn 220ms var(--ease-hypersonic) both;
+  will-change: opacity, transform;
+}
+
 /* Title Block Container controlled by Components Matrix --title-block-opacity CSS variable */
 .title-block {
   opacity: var(--title-block-opacity, 1);
@@ -494,6 +511,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .title-block,
+  .animate-hud-fade-in,
   .matrix-body .matrix-category-card,
   .matrix-slide-reveal,
   .matrix-slide-inner,

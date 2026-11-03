@@ -172,7 +172,10 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
 
       {/* Directorial HUD Overlay */}
       {showHud && (
-        <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/70">
+        <div
+          data-testid="optical-frame-hud"
+          className="animate-hud-fade-in absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/70"
+        >
           <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-2.5 py-1 border border-white/10 rounded-[1px]">
             <span className="text-[#d4af37] font-bold">EP {frame?.epNumber || '001'}</span>
             <span className="text-white/40">|</span>

@@ -579,6 +579,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onPurgeMedia={onPurgeMedia}
               onOpenCinemaPlayer={onOpenCinemaPlayer}
               projectTitle={projectTitle}
+              showHud={showHud}
               showTitles={isTitleVisible}
               componentsVisibility={componentsVisibility}
             />

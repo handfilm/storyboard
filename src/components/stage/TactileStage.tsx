@@ -852,7 +852,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       />
 
       {/* Sleek Tactical Scene Hairline Ribbon (Above Video Player) */}
-      <div className="w-full max-w-[1360px] mx-auto px-2 mb-2 flex items-center justify-between text-white/40 text-[10px] font-mono tracking-widest uppercase select-none shrink-0 border-b border-white/5 pb-1">
+      <div
+        data-testid="tactile-stage-scene-hud"
+        className={`w-full max-w-[1360px] mx-auto px-2 mb-2 flex items-center justify-between text-white/40 text-[10px] font-mono tracking-widest uppercase select-none shrink-0 border-b border-white/5 pb-1 ${
+          showHud ? 'animate-hud-fade-in' : 'opacity-0 pointer-events-none'
+        }`}
+      >
         <div className="flex items-center gap-2 truncate">
           <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>
           <span className="text-white/20">//</span>
@@ -1011,16 +1016,20 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         )}
 
         {/* Persistent Right-Edge Title FX Toggle */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onToggleTitles) onToggleTitles();
-            else toggleTitlesStore();
-          }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs px-3 px-3! py-1 py-1! rounded hover:bg-white/20 transition-all cursor-pointer pointer-events-auto"
-        >
-          {isTitlesActive ? '[ T ] TITLE FX : ON' : '[ T ] TITLE FX : OFF'}
-        </button>
+        {showHud && (
+          <div className="animate-hud-fade-in absolute inset-y-0 right-4 z-50 flex items-center pointer-events-none">
+            <button
+              type="button"
+              onClick={() => {
+                if (onToggleTitles) onToggleTitles();
+                else toggleTitlesStore();
+              }}
+              className="bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs px-3 px-3! py-1 py-1! rounded hover:bg-white/20 transition-all cursor-pointer pointer-events-auto whitespace-nowrap"
+            >
+              {isTitlesActive ? '[ T ] TITLE FX : ON' : '[ T ] TITLE FX : OFF'}
+            </button>
+          </div>
+        )}
 
         {/* Real-Time Bilingual Titles / Dopamine Sequence Overlay (Foreground Multi-Layer Zoom) */}
         {isTitlesActive && (Boolean(frame?.dopamineConfig) || !kineticOcclusion.enabled) && (
@@ -1184,7 +1193,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
 
         {/* In-Player Playhead Transport & Quick Cadence Selector Bar */}
-        <div className="absolute bottom-3 left-3 z-40 pointer-events-auto flex items-center gap-1.5 bg-black/80 backdrop-blur-md border border-white/15 rounded-lg px-2 py-1 shadow-xl">
+        {showHud && (
+        <div
+          data-testid="tactile-stage-transport-hud"
+          className="animate-hud-fade-in absolute bottom-3 left-3 z-40 pointer-events-auto flex items-center gap-1.5 bg-black/80 backdrop-blur-md border border-white/15 rounded-lg px-2 py-1 shadow-xl"
+        >
           {onTogglePlay && (
             <button
               type="button"
@@ -1306,9 +1319,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             <span className="text-cyan-400">{isScrubbing ? 'PROXY 540p' : 'MASTER 4K'}</span>
           </div>
         </div>
+        )}
 
         {/* Bottom Transport Bar Right Telemetry: TOTAL RUNTIME & ASPECT RATIO */}
-        <div className="absolute bottom-3 right-3 z-40 pointer-events-auto flex items-center gap-2">
+        {showHud && (
+        <div
+          data-testid="tactile-stage-runtime-hud"
+          className="animate-hud-fade-in absolute bottom-3 right-3 z-40 pointer-events-auto flex items-center gap-2"
+        >
           {/* Relocated Telemetry: TOTAL RUNTIME */}
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-black/60 border border-white/10 text-[10px] font-mono tracking-wider text-emerald-400 select-none backdrop-blur-md shadow-lg">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1351,6 +1369,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

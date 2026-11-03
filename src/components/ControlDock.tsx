@@ -73,7 +73,7 @@ export interface ControlDockProps {
   onApplyDurationToAll?: (durationSec: number) => void;
   onMatchAudioBeats?: () => void;
   isSnapToBeat?: boolean;
-  onToggleSnapToBeat?: () => void;
+  onToggleSnapToBeat?: (nextState?: boolean) => void;
   onTogglePlay: () => void;
   onSpeedChange: (speed: number) => void;
   onToggleHud: () => void;
@@ -128,7 +128,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onUpdateFrameAtIndex,
   onApplyDurationToAll,
   onMatchAudioBeats,
-  isSnapToBeat = false,
+  isSnapToBeat,
   onToggleSnapToBeat,
   onTogglePlay,
   onSpeedChange,
@@ -153,6 +153,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const [jumpInput, setJumpInput] = useState('');
   const [isFreqVisualizerOpen, setIsFreqVisualizerOpen] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
+  const [effectiveSnapToBeat, setEffectiveSnapToBeat] = useState<boolean>(
+    () => isSnapToBeat ?? audioEngine.getIsSnapToBeatEnabled()
+  );
+
+  useEffect(() => {
+    if (typeof isSnapToBeat === 'boolean') {
+      setEffectiveSnapToBeat(isSnapToBeat);
+      audioEngine.setSnapToBeatEnabled(isSnapToBeat);
+    }
+  }, [isSnapToBeat]);
+
+  const handleSnapToBeatToggle = () => {
+    const nextSnap = audioEngine.toggleSnapToBeat();
+    setEffectiveSnapToBeat(nextSnap);
+    onToggleSnapToBeat?.(nextSnap);
+  };
   const [dragShotState, setDragShotState] = useState<{
     index: number;
     durationSec: number;
@@ -253,7 +269,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     const startDuration = getShotDurationSec(targetFrame, 12.0);
     const shotStartSec = shotOffsets[idx]?.startSec ?? idx * 12.0;
     const snapActive =
-      isSnapToBeat || Boolean(targetFrame.beatSnapEnabled) || audioEngine.getIsSnapToBeatEnabled();
+      effectiveSnapToBeat || Boolean(targetFrame.beatSnapEnabled) || audioEngine.getIsSnapToBeatEnabled();
 
     setDragShotState({
       index: idx,
@@ -667,7 +683,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
       {/* Real-time Audio Frequency Visualizer Floating Overlay */}
       {isFreqVisualizerOpen && (
-        <div className="w-full max-w-5xl mb-2 pointer-events-auto">
+        <div className="animate-hud-fade-in w-full max-w-5xl mb-2 pointer-events-auto">
           <AudioFrequencyVisualizer
             isOpen={isFreqVisualizerOpen}
             onClose={() => setIsFreqVisualizerOpen(false)}
@@ -679,7 +695,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
       {/* Multi-Layer Zoom HUD Floating Overlay */}
       {isZoomControlsOpen && (
-        <div className="w-full max-w-md mb-2 pointer-events-auto">
+        <div className="animate-hud-fade-in w-full max-w-md mb-2 pointer-events-auto">
           <MultiLayerZoomControls
             onClose={() => setIsZoomControlsOpen(false)}
           />
@@ -744,11 +760,46 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 })
               }
               onApplyDurationToAll={onApplyDurationToAll}
-              isSnapToBeat={isSnapToBeat}
-              onToggleSnapToBeat={onToggleSnapToBeat}
+              isSnapToBeat={effectiveSnapToBeat}
+              onToggleSnapToBeat={() => handleSnapToBeatToggle()}
               compact
             />
           )}
+
+          {/* Dedicated Snap-to-Beat Toggle Button */}
+          <button
+            type="button"
+            data-testid="control-dock-snap-to-beat"
+            aria-pressed={effectiveSnapToBeat}
+            aria-label="Toggle Snap to Beat"
+            onClick={handleSnapToBeatToggle}
+            title={
+              effectiveSnapToBeat
+                ? 'Snap to Beat: ON — Cuts quantize to audio transients'
+                : 'Snap to Beat: OFF — Click to quantize cuts to audio transients'
+            }
+            className={`px-2.5 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+              effectiveSnapToBeat
+                ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_12px_rgba(212,175,55,0.4)]'
+                : 'bg-white/5 border-white/10 text-white/60 hover:text-[#FFE066] hover:border-[#D4AF37]/50'
+            }`}
+          >
+            <Music
+              className={`w-3 h-3 shrink-0 transition-colors ${
+                effectiveSnapToBeat ? 'text-[#FFE066]' : 'text-[#D4AF37]'
+              }`}
+            />
+            <span>BEAT SNAP</span>
+            <span
+              className={`px-1 py-0.2 rounded-[1px] text-[8px] font-mono tabular-nums transition-colors ${
+                effectiveSnapToBeat
+                  ? 'bg-[#D4AF37] text-black font-black'
+                  : 'bg-white/10 text-white/45'
+              }`}
+            >
+              {effectiveSnapToBeat ? 'ON' : 'OFF'}
+            </span>
+          </button>
 
           {/* Pace Slider */}
           <div className="hidden xl:flex items-center gap-1.5 border-l border-white/10 pl-2 shrink-0 whitespace-nowrap tabular-nums">
@@ -845,6 +896,23 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <span>T</span>
             </button>
           )}
+          {/* Stage HUD Overlay Toggle */}
+          <button
+            type="button"
+            data-testid="control-dock-hud-toggle"
+            aria-pressed={showHud}
+            aria-label="Toggle Stage HUD (H)"
+            onClick={onToggleHud}
+            className={`p-1.5 rounded-[2px] border cursor-pointer transition-all shrink-0 ${
+              showHud
+                ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+            }`}
+            title={`Toggle Stage HUD Overlay (H) — ${showHud ? 'ON' : 'OFF'}`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+
           {/* Thirds Guides */}
           {onToggleGuides && (
             <button

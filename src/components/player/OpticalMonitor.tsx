@@ -172,6 +172,7 @@ interface OpticalMonitorProps {
   onCaptureStill?: () => void;
   onOpenCinemaPlayer?: () => void;
   projectTitle?: string;
+  showHud?: boolean;
   showTitles?: boolean;
   componentsVisibility?: ComponentVisibility;
   className?: string;
@@ -206,6 +207,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   onCaptureStill,
   onOpenCinemaPlayer,
   projectTitle = 'RAWx Storyboard',
+  showHud = true,
   showTitles: propShowTitles,
   componentsVisibility,
   className = ''
@@ -713,7 +715,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
           {/* ========================================================================= */}
           
           {/* Top Left: Scene ID, Frame Telemetry, SMPTE Timecode */}
-          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-40 tabular-nums">
+          {showHud && (
+          <div
+            data-testid="optical-monitor-hud-left"
+            className="animate-hud-fade-in absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-40 tabular-nums"
+          >
             <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
             <span className="text-white/30">·</span>
             <span className="text-white font-bold">
@@ -726,9 +732,14 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
             <span className="text-white/30">·</span>
             <span className="text-emerald-400 text-[9.5px]">{activeFps}.0 fps</span>
           </div>
+          )}
 
           {/* Top Right: Transport Velocity & NLE Status */}
-          <div className="absolute top-3 right-3 flex items-center gap-2 z-40">
+          {showHud && (
+          <div
+            data-testid="optical-monitor-hud-right"
+            className="animate-hud-fade-in absolute top-3 right-3 flex items-center gap-2 z-40"
+          >
             {/* JKL Velocity Badge */}
             <div className={`px-2.5 py-1 rounded-full border text-[9.5px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md ${velocityBadge.color}`}>
               <Activity className="w-3 h-3" />
@@ -847,6 +858,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
               </span>
             </div>
           </div>
+          )}
 
           {/* ========================================================================= */}
           {/* REAL-TIME DUAL-LANGUAGE TYPOGRAPHY (FOREGROUND MULTI-LAYER ZOOM)          */}

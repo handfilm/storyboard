@@ -432,9 +432,9 @@ export default function App() {
     }
   }, [audioVolume]);
 
-  const handleToggleSnapToBeat = useCallback(() => {
+  const handleToggleSnapToBeat = useCallback((explicitNext?: boolean) => {
     setIsSnapToBeat(prev => {
-      const next = !prev;
+      const next = typeof explicitNext === 'boolean' ? explicitNext : !prev;
       try {
         audioEngine.setSnapToBeatEnabled(next);
       } catch (err) {

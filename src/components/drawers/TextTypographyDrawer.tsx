@@ -22,6 +22,7 @@ import {
 } from '../../constants/compilationData';
 import { applyTemplateToShot } from '../../core/store/timelineState';
 import { DopamineCompilationSequence } from '../stage/templates/DopamineCompilationSequence';
+import { BrutalistKineticHudStrip } from './BrutalistKineticHudStrip';
 import { 
   Type, 
   Sparkles, 
@@ -42,12 +43,14 @@ export interface TextTypographyDrawerProps {
   currentFrame?: AnthologyFrame;
   onUpdateFrame?: (updated: AnthologyFrame) => void;
   onApplyPreset?: (preset: TitleTemplatePreset) => void;
+  hideAutonomousStrip?: boolean;
 }
 
 export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   currentFrame,
   onUpdateFrame,
-  onApplyPreset
+  onApplyPreset,
+  hideAutonomousStrip = false
 }) => {
   const activeShotIndex = useStudioStore((s) => s.activeShotIndex);
   const titleSize = useStudioStore((s) => s.titleConfig?.titleSize ?? 72);
@@ -374,7 +377,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col space-y-6 p-4 sm:p-5 text-white font-mono select-none">
+    <div className="w-full flex flex-col space-y-5 p-4 sm:p-5 text-white font-mono select-none">
+      {!hideAutonomousStrip && <BrutalistKineticHudStrip />}
+
       {/* Category Filter Chips */}
       <div>
         <div className="flex items-center justify-between mb-2">

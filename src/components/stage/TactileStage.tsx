@@ -63,6 +63,8 @@ import { KineticCaptionOverlay } from './KineticCaptionOverlay';
 import { KineticAdTextDrawer } from './KineticAdTextDrawer';
 import { DopamineCompilationSequence } from './templates/DopamineCompilationSequence';
 import { FrameAdjustments, LutPreset } from '../../types/anthology';
+import { depthOcclusionService } from '../../services/depthOcclusionService';
+import { transientPunchEngine } from '../../services/transientPunchEngine';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -195,6 +197,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const storeTitleConfig = useStudioStore(s => s.titleConfig);
   const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
   const toggleTitlesStore = useStudioStore(s => s.toggleTitles);
+  const kineticOcclusion = useStudioStore(s => s.kineticOcclusion);
   const isTitlesActive = componentsVisibility !== undefined
     ? Boolean(
         showTitles !== false &&
@@ -207,6 +210,31 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   // Active frame fallback
   const frame = currentFrame || frames[currentIndex] || frames[0];
+
+  const kineticOcclusionRef = useRef(kineticOcclusion);
+  kineticOcclusionRef.current = kineticOcclusion;
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
+  const isTitlesActiveRef = useRef(isTitlesActive);
+  isTitlesActiveRef.current = isTitlesActive;
+  const isAutoplayRef = useRef(isAutoplay);
+  isAutoplayRef.current = isAutoplay;
+  const storeTitleConfigRef = useRef(storeTitleConfig);
+  storeTitleConfigRef.current = storeTitleConfig;
+
+  // Sync client-side AudioBufferSourceNode dual-band transient detector with transport
+  useEffect(() => {
+    transientPunchEngine.syncTransport(
+      Boolean(isAutoplay && kineticOcclusion.enabled),
+      slideTimeSecRef.current
+    );
+  }, [isAutoplay, kineticOcclusion.enabled, kineticOcclusion.audioPunchMode]);
+
+  useEffect(() => {
+    return () => {
+      transientPunchEngine.stopBufferSourceNode();
+    };
+  }, []);
   const activeShotDurationSec = getShotDurationSec(frame, 12.0);
   const activeShotFps = getShotTargetFps(frame, 24);
   const activeTotalFrames = getShotFrameCount(activeShotDurationSec, activeShotFps);
@@ -513,17 +541,17 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             canvas.height = targetH;
           }
 
-          const isVideo = Boolean(frame?.isVideo || activeMediaUrl?.includes('video') || activeMediaUrl?.endsWith('.mp4') || activeMediaUrl?.endsWith('.webm'));
+          const curFrame = frameRef.current;
+          const ko = kineticOcclusionRef.current;
+          const isVideo = Boolean(curFrame?.isVideo || activeMediaUrl?.includes('video') || activeMediaUrl?.endsWith('.mp4') || activeMediaUrl?.endsWith('.webm'));
           const video = videoRef.current;
 
-          const filmFilter = buildFilmStockCssFilter(frame?.lutFilter || 'kodak_vision3', frame?.adjustments);
-          if (filmFilter && filmFilter !== 'none') {
-            ctx.filter = filmFilter;
-          }
+          const filmFilter = buildFilmStockCssFilter(curFrame?.lutFilter || 'kodak_vision3', curFrame?.adjustments);
 
+          // Resolve active media source for both Base Pass and scrubbing bitmap cache
+          let activeSource: CanvasImageSource | null = null;
           if (isVideo && video) {
             if (isScrubbingRef.current && (video.seeking || video.readyState < 2)) {
-              // During active timeline scrubbing: Blit closest cached frame bitmap with 0ms DOM lag
               const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
               let closestBmp: ImageBitmap | null = null;
               let minDiff = Infinity;
@@ -535,14 +563,13 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 }
               }
               if (closestBmp) {
-                drawCover(ctx, closestBmp, targetW, targetH);
+                activeSource = closestBmp;
               } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
-                drawCover(ctx, cachedPosterImgRef.current, targetW, targetH);
+                activeSource = cachedPosterImgRef.current;
               }
             } else if (video.readyState >= 2 && video.videoWidth > 0) {
-              drawCover(ctx, video, targetW, targetH);
+              activeSource = video;
 
-              // Cache decoded frame bitmap for frictionless instant scrubbing blit
               const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
               if (!frameBitmapCacheRef.current.has(currentF) && frameBitmapCacheRef.current.size < 60) {
                 createImageBitmap(video).then(bmp => {
@@ -557,24 +584,66 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 }).catch(() => {});
               }
             } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
-              drawCover(ctx, cachedPosterImgRef.current, targetW, targetH);
+              activeSource = cachedPosterImgRef.current;
             }
           } else if (imageElementRef.current && imageElementRef.current.complete && imageElementRef.current.naturalWidth > 0) {
-            drawCover(ctx, imageElementRef.current, targetW, targetH);
+            activeSource = imageElementRef.current;
           } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
-            drawCover(ctx, cachedPosterImgRef.current, targetW, targetH);
+            activeSource = cachedPosterImgRef.current;
           }
 
-          // Reset filter and execute 35mm optical shader pass (temperature tint, anamorphic glow, 60fps grain)
-          ctx.filter = 'none';
-          applyCinematicPostProcess(
-            ctx,
-            targetW,
-            targetH,
-            frame?.lutFilter || 'kodak_vision3',
-            frame?.adjustments,
-            slideTimeSecRef.current
+          const useAutonomousCanvas = Boolean(
+            ko?.enabled && isTitlesActiveRef.current && !curFrame?.dopamineConfig
           );
+
+          if (useAutonomousCanvas) {
+            ctx.filter = 'none';
+            depthOcclusionService.compositeFrame({
+              ctx,
+              width: targetW,
+              height: targetH,
+              sourceElement: activeSource as any,
+              timeSec: slideTimeSecRef.current,
+              durationSec: getShotDurationSec(curFrame, 12.0),
+              fps: getShotTargetFps(curFrame, 24),
+              isLivePlaying: isAutoplayRef.current,
+              titleBn: curFrame?.bengaliTitle || 'দৃষ্টির সীমানা',
+              titleEn: curFrame?.title || 'THE SINGULARITY',
+              lyricText: curFrame?.caption?.text || curFrame?.tagline || curFrame?.title || '',
+              filmFilter,
+              zoomScale: 1.0,
+              titleSize: storeTitleConfigRef.current?.titleSize ?? 72,
+              verticalOffset: storeTitleConfigRef.current?.verticalOffset ?? 0,
+              postBaseHook: (baseCtx, w, h) => {
+                if (activeSource) {
+                  applyCinematicPostProcess(
+                    baseCtx as CanvasRenderingContext2D,
+                    w,
+                    h,
+                    curFrame?.lutFilter || 'kodak_vision3',
+                    curFrame?.adjustments,
+                    slideTimeSecRef.current
+                  );
+                }
+              }
+            });
+          } else {
+            if (filmFilter && filmFilter !== 'none') {
+              ctx.filter = filmFilter;
+            }
+            if (activeSource) {
+              drawCover(ctx, activeSource, targetW, targetH);
+            }
+            ctx.filter = 'none';
+            applyCinematicPostProcess(
+              ctx,
+              targetW,
+              targetH,
+              curFrame?.lutFilter || 'kodak_vision3',
+              curFrame?.adjustments,
+              slideTimeSecRef.current
+            );
+          }
         }
       }
 
@@ -881,7 +950,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         ) : cachedPosterUrl ? (
           <div
             key={`cached_shot_${currentIndex}`}
-            className="w-full h-full flex items-center justify-center overflow-hidden z-10"
+            className="relative w-full h-full flex items-center justify-center overflow-hidden z-10"
             style={{ transform: zoomTransforms.bgTransform }}
           >
             <img
@@ -891,27 +960,43 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               className="w-full h-full object-cover"
               style={{ filter: combinedMediaFilter }}
             />
+            {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full object-cover z-1"
+              />
+            )}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
-              <Film className="w-8 h-8 opacity-60" />
+          <div className="relative w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center z-10">
+            {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+              />
+            )}
+            <div className={`relative z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-200 ${
+              kineticOcclusion.enabled && isTitlesActive ? 'opacity-0 group-hover:opacity-100 bg-black/75 p-4 rounded-[2px] border border-white/10' : ''
+            }`}>
+              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
+                <Film className="w-8 h-8 opacity-60" />
+              </div>
+              <div>
+                <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
+                  SHOT {frame?.epNumber || '001'} // READY FOR INGEST
+                </p>
+                <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
+                  Drag & Drop 4K video or photo directly into this monitor
+                </p>
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Select Media Asset</span>
+              </button>
             </div>
-            <div>
-              <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
-                SHOT {frame?.epNumber || '001'} // READY FOR INGEST
-              </p>
-              <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
-                Drag & Drop 4K video or photo directly into this monitor
-              </p>
-            </div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Select Media Asset</span>
-            </button>
           </div>
         )}
 
@@ -938,7 +1023,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </button>
 
         {/* Real-Time Bilingual Titles / Dopamine Sequence Overlay (Foreground Multi-Layer Zoom) */}
-        {isTitlesActive && (
+        {isTitlesActive && (Boolean(frame?.dopamineConfig) || !kineticOcclusion.enabled) && (
           <div
             ref={stageTitleContainerRef}
             data-title-container="tactile-stage"
@@ -975,8 +1060,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
-        {/* Dynamic Word-Level Kinetic Caption & Subtitle Overlay */}
-        {isTitlesActive && !frame?.dopamineConfig && (
+        {/* Dynamic Word-Level Kinetic Caption & Subtitle Overlay (DOM mode when 3D Occlusion Canvas is bypassed) */}
+        {isTitlesActive && !frame?.dopamineConfig && !kineticOcclusion.enabled && (
           <KineticCaptionOverlay
             currentFrame={frame}
             slideTimeSec={slideTimeSec}

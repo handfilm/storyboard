@@ -13,9 +13,13 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Sparkles, Zap, Flame, Type, Check, ChevronUp, ChevronDown } from 'lucide-react';
+import { Zap, Flame, Type, ChevronUp, ChevronDown, Layers } from 'lucide-react';
 import { AnthologyFrame, ShotCaption } from '../../types/anthology';
 import { KineticAdPreset, kineticAdEngine } from '../../services/kineticAdEngine';
+import { useStudioStore } from '../../core/store';
+import { AutonomousKineticPreset } from '../../services/kineticTypographyStyles';
+import { transientPunchEngine } from '../../services/transientPunchEngine';
+import { BrutalistKineticHudStrip } from '../drawers/BrutalistKineticHudStrip';
 
 export interface KineticAdTextDrawerProps {
   currentFrame: AnthologyFrame;
@@ -30,41 +34,62 @@ export const KineticAdTextDrawer: React.FC<KineticAdTextDrawerProps> = ({
   currentFrame,
   slideTimeSec = 0,
   durationSec = 5.0,
-  bpm = 120,
   onUpdateFrame,
   className = ''
 }) => {
-  const [activePreset, setActivePreset] = useState<KineticAdPreset>('chopper_rap_snapping');
+  const kineticOcclusion = useStudioStore((s) => s.kineticOcclusion);
+  const setAutonomousKineticPreset = useStudioStore((s) => s.setAutonomousKineticPreset);
+  const setKineticOcclusionEnabled = useStudioStore((s) => s.setKineticOcclusionEnabled);
+
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
 
+  const mappedLegacyPreset: KineticAdPreset =
+    kineticOcclusion.preset === 'CHOPPER_RAP_PUNCH'
+      ? 'chopper_rap_snapping'
+      : kineticOcclusion.preset === 'COMMERCIAL_TITAN_DROP'
+      ? 'commercial_ad_punch'
+      : 'editorial_minimal';
+
   const caption: ShotCaption = useMemo(() => {
-    return currentFrame.caption || {
-      text: currentFrame.tagline || currentFrame.title || 'RAWX ON THE BEAT',
-      bengaliText: currentFrame.bengaliTitle || 'দৃশ্যপট // আলোর ছন্দ',
-      style: 'rap_pop'
-    };
+    return (
+      currentFrame.caption || {
+        text: currentFrame.tagline || currentFrame.title || 'RAWX ON THE BEAT',
+        bengaliText: currentFrame.bengaliTitle || 'দৃশ্যপট // আলোর ছন্দ',
+        style: 'rap_pop'
+      }
+    );
   }, [currentFrame]);
 
-  // Compute live frame preview
   const frameOutput = useMemo(() => {
     return kineticAdEngine.computeKineticFrame(
       caption,
       slideTimeSec,
       durationSec,
-      activePreset,
+      mappedLegacyPreset,
       currentFrame.bengaliTitle,
       currentFrame.title
     );
-  }, [caption, slideTimeSec, durationSec, activePreset, currentFrame.bengaliTitle, currentFrame.title]);
+  }, [caption, slideTimeSec, durationSec, mappedLegacyPreset, currentFrame.bengaliTitle, currentFrame.title]);
 
-  const handleSelectPreset = (preset: KineticAdPreset) => {
-    setActivePreset(preset);
+  const handleSelectAutonomousPreset = (preset: AutonomousKineticPreset) => {
+    if (!kineticOcclusion.enabled) {
+      setKineticOcclusionEnabled(true);
+    }
+    setAutonomousKineticPreset(preset);
+
+    if (preset === 'CHOPPER_RAP_PUNCH') {
+      transientPunchEngine.emitVocalHit(0.92);
+    } else if (preset === 'COMMERCIAL_TITAN_DROP') {
+      transientPunchEngine.emitKickPunch(0.85);
+    }
+
     if (onUpdateFrame) {
-      const updatedStyle = preset === 'commercial_ad_punch'
-        ? 'bilingual_dual'
-        : preset === 'editorial_minimal'
-        ? 'cinematic_minimal'
-        : 'rap_pop';
+      const updatedStyle =
+        preset === 'COMMERCIAL_TITAN_DROP'
+          ? 'bilingual_dual'
+          : preset === 'MINIMAL'
+          ? 'cinematic_minimal'
+          : 'rap_pop';
 
       onUpdateFrame({
         ...currentFrame,
@@ -78,86 +103,93 @@ export const KineticAdTextDrawer: React.FC<KineticAdTextDrawerProps> = ({
 
   return (
     <div
-      className={`group/drawer relative transition-all duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] ${className}`}
+      className={`group/drawer relative transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${className}`}
     >
-      <div className="relative bg-[#07080C]/90 hover:bg-[#0A0B10]/98 focus-within:bg-[#0A0B10]/98 border border-white/10 hover:border-[#F5A623]/50 focus-within:border-[#F5A623]/50 rounded-[4px] shadow-[0_8px_32px_rgba(0,0,0,0.85)] backdrop-blur-xl p-2 transition-all duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]">
-        {/* Header / Preset Switcher Row */}
+      <div className="relative bg-[#07080C]/92 hover:bg-[#090B11]/98 focus-within:bg-[#090B11]/98 border border-[#272732] hover:border-[#F5A623]/60 focus-within:border-[#F5A623]/60 rounded-[2px] shadow-[0_8px_32px_rgba(0,0,0,0.88)] backdrop-blur-xl p-2 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
+        {/* Resting Brutalist Console Bar */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#F5A623] uppercase flex items-center gap-1">
               <Type className="w-3 h-3" />
-              <span>KINETIC TITLE RACK</span>
+              <span>TYPOGRAPHY HUD</span>
             </span>
-            <span className="text-[8px] font-mono text-zinc-500 uppercase hidden sm:inline">
-              // 24FPS SNAPPED
+            <span className="text-[8.5px] font-mono text-zinc-400 uppercase hidden md:inline items-center gap-1">
+              <Layers className="w-2.5 h-2.5 inline mr-0.5 text-[#F5A623]" />
+              {kineticOcclusion.layerMode === 'BEHIND_SUBJECT' ? 'BEHIND SUBJECT' : 'FOREGROUND'} • {kineticOcclusion.audioPunchMode}
             </span>
           </div>
 
-          {/* Preset Buttons */}
+          {/* Quick Brutalist Preset Switchers */}
           <div className="flex items-center gap-1 overflow-x-auto">
             <button
-              onClick={() => handleSelectPreset('chopper_rap_snapping')}
-              className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 ${
-                activePreset === 'chopper_rap_snapping'
-                  ? 'bg-[#F5A623] text-black shadow-[0_0_10px_rgba(245,166,35,0.4)]'
-                  : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/10'
+              type="button"
+              onClick={() => handleSelectAutonomousPreset('CHOPPER_RAP_PUNCH')}
+              className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 cursor-pointer ${
+                kineticOcclusion.preset === 'CHOPPER_RAP_PUNCH'
+                  ? 'bg-[#F5A623] text-black border border-[#F5A623]'
+                  : 'bg-[#0D0F16] text-zinc-400 hover:text-white border border-[#272732] hover:border-zinc-500'
               }`}
-              title="Chopper Rap Snapping: Word-level timecode sync with 1.1x dynamic pop & motion blur"
+              title="CHOPPER_RAP_PUNCH: Single-word replacement with 4-frame 120% -> 100% scale & -3px -> 0px tracking"
             >
               <Zap className="w-2.5 h-2.5" />
-              <span>[RAP BEAT SYNC]</span>
+              <span>[ RAP CHOPPER ]</span>
             </button>
 
             <button
-              onClick={() => handleSelectPreset('commercial_ad_punch')}
-              className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 ${
-                activePreset === 'commercial_ad_punch'
-                  ? 'bg-[#2DD4BF] text-black shadow-[0_0_10px_rgba(45,212,191,0.4)]'
-                  : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/10'
+              type="button"
+              onClick={() => handleSelectAutonomousPreset('COMMERCIAL_TITAN_DROP')}
+              className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 cursor-pointer ${
+                kineticOcclusion.preset === 'COMMERCIAL_TITAN_DROP'
+                  ? 'bg-[#F5A623] text-black border border-[#F5A623]'
+                  : 'bg-[#0D0F16] text-zinc-400 hover:text-white border border-[#272732] hover:border-zinc-500'
               }`}
-              title="Commercial Ad Punch: 4-frame slam entry from 140% to 100% with chromatic decay"
+              title="COMMERCIAL_TITAN_DROP: Heavy Bengali Unicode + laser-line wipe + directional motion blur fragment pass"
             >
               <Flame className="w-2.5 h-2.5" />
-              <span>[COMMERCIAL IMPACT]</span>
+              <span>[ AD TITAN ]</span>
             </button>
 
             <button
-              onClick={() => handleSelectPreset('editorial_minimal')}
-              className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 ${
-                activePreset === 'editorial_minimal'
-                  ? 'bg-zinc-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.3)]'
-                  : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/10'
+              type="button"
+              onClick={() => handleSelectAutonomousPreset('MINIMAL')}
+              className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 cursor-pointer ${
+                kineticOcclusion.preset === 'MINIMAL'
+                  ? 'bg-[#EDEDED] text-black border border-[#EDEDED]'
+                  : 'bg-[#0D0F16] text-zinc-400 hover:text-white border border-[#272732] hover:border-zinc-500'
               }`}
-              title="Editorial Minimal: Clean typography with subtle opacity breath"
+              title="Minimal console typography"
             >
-              <span>[EDITORIAL]</span>
+              <span>[ MINIMAL ]</span>
             </button>
           </div>
 
           <button
+            type="button"
             onClick={() => setIsManuallyExpanded(!isManuallyExpanded)}
-            className="p-1 text-zinc-500 hover:text-zinc-200 rounded"
-            title="Toggle Detailed Words Tray"
+            className="p-1 text-zinc-500 hover:text-zinc-200 rounded-[2px] cursor-pointer"
+            title="Pin / Unpin Brutalist Occlusion & Transient Strip"
           >
             {isManuallyExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
         </div>
 
-        {/* Word Chips Drawer (Expands on container hover or manual toggle) */}
+        {/* CSS Hover-Triggered Brutalist Control Strip + Word Cadence Matrix */}
         <div
-          className={`overflow-hidden transition-all duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`overflow-hidden transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             isManuallyExpanded
-              ? 'max-h-24 opacity-100 mt-2'
-              : 'max-h-0 opacity-0 group-hover/drawer:max-h-24 group-hover/drawer:opacity-100 group-hover/drawer:mt-2 group-focus-within/drawer:max-h-24 group-focus-within/drawer:opacity-100 group-focus-within/drawer:mt-2'
+              ? 'max-h-96 opacity-100 mt-2'
+              : 'max-h-0 opacity-0 group-hover/drawer:max-h-96 group-hover/drawer:opacity-100 group-hover/drawer:mt-2 group-focus-within/drawer:max-h-96 group-focus-within/drawer:opacity-100 group-focus-within/drawer:mt-2'
           }`}
         >
-          <div className="pt-2 border-t border-white/10 flex flex-wrap items-center gap-1.5 max-h-20 overflow-y-auto no-scrollbar">
+          <BrutalistKineticHudStrip compact={false} className="border-white/10" />
+
+          <div className="mt-2 pt-2 border-t border-white/10 flex flex-wrap items-center gap-1.5 max-h-16 overflow-y-auto no-scrollbar">
             {frameOutput.words.map((w, idx) => (
               <span
                 key={`${w.word}_${idx}`}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition-all duration-75 select-none ${
+                className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono tabular-nums transition-all duration-75 select-none ${
                   w.isActive
-                    ? 'bg-[#F5A623] text-black font-black scale-110 shadow-[0_0_10px_rgba(245,166,35,0.6)]'
+                    ? 'bg-[#F5A623] text-black font-black scale-105'
                     : w.isPast
                     ? 'bg-white/10 text-white/70'
                     : 'bg-black/60 text-white/35 border border-white/5'

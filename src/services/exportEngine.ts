@@ -27,6 +27,7 @@ import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { AnthologyFrame } from '../types/anthology';
 import { SLIDE_DURATION_SEC } from '../types/editor';
 import { audioEngine } from './audioEngine';
+import { depthOcclusionService } from './depthOcclusionService';
 
 export type ExportResolution = '1080p' | '4K';
 export type ExportRangeMode = 'shot' | 'frame';
@@ -193,94 +194,115 @@ export function renderStageFrameToCanvas(
   fps: number = 24,
   directorName: string = 'Rakib Himon'
 ): void {
-  // 1. Clear & Dark Cinema Canvas
-  ctx.fillStyle = '#06070a';
-  ctx.fillRect(0, 0, width, height);
+  const useAutonomousOcclusion = depthOcclusionService.isEnabled();
 
-  // 2. Active Background Media Frame (Scaled with cover fit)
-  if (imageEl && imageEl.complete && imageEl.naturalWidth > 0) {
-    const imgRatio = imageEl.naturalWidth / imageEl.naturalHeight;
-    const canvasRatio = width / height;
-
-    let drawW = width;
-    let drawH = height;
-    let drawX = 0;
-    let drawY = 0;
-
-    if (imgRatio > canvasRatio) {
-      drawW = height * imgRatio;
-      drawX = (width - drawW) / 2;
-    } else {
-      drawH = width / imgRatio;
-      drawY = (height - drawH) / 2;
-    }
-
-    // Subtle Ken Burns slow pan for cinematic life
-    const panProgress = (localFrameIndex % (fps * 12)) / (fps * 12);
+  if (useAutonomousOcclusion) {
+    const panProgress = (localFrameIndex % (fps * 12)) / Math.max(1, fps * 12);
     const zoomScale = 1.0 + panProgress * 0.04;
-    const scaledW = drawW * zoomScale;
-    const scaledH = drawH * zoomScale;
-    const scaledX = drawX - (scaledW - drawW) / 2;
-    const scaledY = drawY - (scaledH - drawH) / 2;
+    const validImg = imageEl && imageEl.complete && imageEl.naturalWidth > 0 ? imageEl : null;
 
-    ctx.drawImage(imageEl, scaledX, scaledY, scaledW, scaledH);
+    depthOcclusionService.compositeFrame({
+      ctx,
+      width,
+      height,
+      sourceElement: validImg,
+      timeSec: localFrameIndex / Math.max(1, fps),
+      durationSec: frame.durationSec || frame.slideHoldSec || SLIDE_DURATION_SEC,
+      fps,
+      isLivePlaying: true,
+      titleBn: frame.bengaliTitle || 'দৃষ্টি / সূচনা',
+      titleEn: frame.title || 'THE SINGULARITY',
+      lyricText: frame.caption?.text || frame.tagline || frame.directorNotes || '',
+      zoomScale,
+      skipBaseDraw: false
+    });
   } else {
-    // Elegant procedural dark grid background
-    ctx.fillStyle = '#0c0d14';
+    // 1. Clear & Dark Cinema Canvas
+    ctx.fillStyle = '#06070a';
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.08)';
-    ctx.lineWidth = 1;
-    const gridSize = Math.round(width / 32);
-    for (let x = 0; x < width; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
+    // 2. Active Background Media Frame (Scaled with cover fit)
+    if (imageEl && imageEl.complete && imageEl.naturalWidth > 0) {
+      const imgRatio = imageEl.naturalWidth / imageEl.naturalHeight;
+      const canvasRatio = width / height;
+
+      let drawW = width;
+      let drawH = height;
+      let drawX = 0;
+      let drawY = 0;
+
+      if (imgRatio > canvasRatio) {
+        drawW = height * imgRatio;
+        drawX = (width - drawW) / 2;
+      } else {
+        drawH = width / imgRatio;
+        drawY = (height - drawH) / 2;
+      }
+
+      const panProgress = (localFrameIndex % (fps * 12)) / (fps * 12);
+      const zoomScale = 1.0 + panProgress * 0.04;
+      const scaledW = drawW * zoomScale;
+      const scaledH = drawH * zoomScale;
+      const scaledX = drawX - (scaledW - drawW) / 2;
+      const scaledY = drawY - (scaledH - drawH) / 2;
+
+      ctx.drawImage(imageEl, scaledX, scaledY, scaledW, scaledH);
+    } else {
+      ctx.fillStyle = '#0c0d14';
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.08)';
+      ctx.lineWidth = 1;
+      const gridSize = Math.round(width / 32);
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
     }
-    for (let y = 0; y < height; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
+
+    // 3. Cinematic Vignette & Anamorphic Shading
+    const radialGrad = ctx.createRadialGradient(
+      width / 2, height / 2, Math.min(width, height) * 0.3,
+      width / 2, height / 2, Math.max(width, height) * 0.75
+    );
+    radialGrad.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
+    radialGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.65)');
+    radialGrad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
+    ctx.fillStyle = radialGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // 4. Horizontal Anamorphic Flare Streak
+    const flareY = height * 0.5;
+    const flareH = Math.max(8, height * 0.035);
+
+    const flareGrad = ctx.createLinearGradient(0, flareY - flareH, 0, flareY + flareH);
+    flareGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+    flareGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.08)');
+    flareGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
+    flareGrad.addColorStop(0.65, 'rgba(234, 179, 8, 0.12)');
+    flareGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+
+    ctx.fillStyle = flareGrad;
+    ctx.fillRect(0, flareY - flareH, width, flareH * 2);
+
+    const coreH = Math.max(2, height * 0.005);
+    const coreGrad = ctx.createLinearGradient(width * 0.15, flareY, width * 0.85, flareY);
+    coreGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+    coreGrad.addColorStop(0.3, 'rgba(56, 189, 248, 0.4)');
+    coreGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.85)');
+    coreGrad.addColorStop(0.7, 'rgba(234, 179, 8, 0.4)');
+    coreGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+    ctx.fillStyle = coreGrad;
+    ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
-
-  // 3. Cinematic Vignette & Anamorphic Shading
-  const radialGrad = ctx.createRadialGradient(
-    width / 2, height / 2, Math.min(width, height) * 0.3,
-    width / 2, height / 2, Math.max(width, height) * 0.75
-  );
-  radialGrad.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
-  radialGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.65)');
-  radialGrad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
-  ctx.fillStyle = radialGrad;
-  ctx.fillRect(0, 0, width, height);
-
-  // 4. Horizontal Anamorphic Flare Streak (Cyan / Blue-Gold Anamorphic streak)
-  const flareY = height * 0.5;
-  const flareH = Math.max(8, height * 0.035);
-
-  const flareGrad = ctx.createLinearGradient(0, flareY - flareH, 0, flareY + flareH);
-  flareGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
-  flareGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.08)');
-  flareGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
-  flareGrad.addColorStop(0.65, 'rgba(234, 179, 8, 0.12)');
-  flareGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
-
-  ctx.fillStyle = flareGrad;
-  ctx.fillRect(0, flareY - flareH, width, flareH * 2);
-
-  // Intense central horizontal laser core
-  const coreH = Math.max(2, height * 0.005);
-  const coreGrad = ctx.createLinearGradient(width * 0.15, flareY, width * 0.85, flareY);
-  coreGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
-  coreGrad.addColorStop(0.3, 'rgba(56, 189, 248, 0.4)');
-  coreGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.85)');
-  coreGrad.addColorStop(0.7, 'rgba(234, 179, 8, 0.4)');
-  coreGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
-  ctx.fillStyle = coreGrad;
-  ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
 
   // 5. Safe Action & Corner Reticle Brackets (Tungsten Gold #d4af37)
   const margin = Math.round(width * 0.03);
@@ -288,105 +310,96 @@ export function renderStageFrameToCanvas(
   ctx.strokeStyle = 'rgba(212, 175, 55, 0.7)';
   ctx.lineWidth = Math.max(2, Math.round(width * 0.0015));
 
-  // Top-left
   ctx.beginPath();
   ctx.moveTo(margin + bracketLen, margin);
   ctx.lineTo(margin, margin);
   ctx.lineTo(margin, margin + bracketLen);
   ctx.stroke();
 
-  // Top-right
   ctx.beginPath();
   ctx.moveTo(width - margin - bracketLen, margin);
   ctx.lineTo(width - margin, margin);
   ctx.lineTo(width - margin, margin + bracketLen);
   ctx.stroke();
 
-  // Bottom-left
   ctx.beginPath();
   ctx.moveTo(margin + bracketLen, height - margin);
   ctx.lineTo(margin, height - margin);
   ctx.lineTo(margin, height - margin - bracketLen);
   ctx.stroke();
 
-  // Bottom-right
   ctx.beginPath();
   ctx.moveTo(width - margin - bracketLen, height - margin);
   ctx.lineTo(width - margin, height - margin);
   ctx.lineTo(width - margin, height - margin - bracketLen);
   ctx.stroke();
 
-  // 6. Typographic Hierarchy (Bengali Headline, English Title, Specs, Subtitles)
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  const centerY = height * 0.44;
-
-  // Layer A: Massive Glowing Bengali Title (Anek Bangla / Noto Serif Bengali)
-  const bnTitle = frame.bengaliTitle || 'দৃষ্টি / সূচনা';
-  const bnFontSize = Math.round(height * 0.17);
-  ctx.font = `bold ${bnFontSize}px "Anek Bangla", "Noto Serif Bengali", sans-serif`;
-
-  // Deep shadow blur
-  ctx.shadowColor = 'rgba(234, 179, 8, 0.75)';
-  ctx.shadowBlur = Math.round(bnFontSize * 0.35);
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 4;
-
-  // Metallic gold gradient fill
-  const bnGrad = ctx.createLinearGradient(0, centerY - bnFontSize / 2, 0, centerY + bnFontSize / 2);
-  bnGrad.addColorStop(0, '#ffffff');
-  bnGrad.addColorStop(0.25, '#ffe58f');
-  bnGrad.addColorStop(0.6, '#d4af37');
-  bnGrad.addColorStop(0.85, '#996515');
-  bnGrad.addColorStop(1, '#593907');
-
-  ctx.fillStyle = bnGrad;
-  ctx.fillText(bnTitle, width / 2, centerY);
-
-  // Crisp fine metallic stroke for sharpness
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255, 230, 140, 0.6)';
-  ctx.lineWidth = Math.max(1, Math.round(bnFontSize * 0.015));
-  ctx.strokeText(bnTitle, width / 2, centerY);
-
-  // Layer B: English Cinzel Subtitle
-  const enTitle = (frame.title || 'THE SINGULARITY').toUpperCase();
-  const enFontSize = Math.round(height * 0.05);
-  const enY = centerY + bnFontSize * 0.62;
-  ctx.font = `bold ${enFontSize}px "Cinzel", "Times New Roman", serif`;
-
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-  ctx.shadowBlur = Math.round(enFontSize * 0.5);
-  ctx.shadowOffsetY = 2;
-
-  ctx.fillStyle = '#f4f4f5';
-  ctx.fillText(enTitle, width / 2, enY);
-
-  // Thin gold divider bar below English title
-  const dividerW = Math.round(width * 0.18);
-  const dividerY = enY + enFontSize * 0.85;
-  const divGrad = ctx.createLinearGradient(width / 2 - dividerW / 2, dividerY, width / 2 + dividerW / 2, dividerY);
-  divGrad.addColorStop(0, 'rgba(212, 175, 55, 0)');
-  divGrad.addColorStop(0.5, 'rgba(212, 175, 55, 0.8)');
-  divGrad.addColorStop(1, 'rgba(212, 175, 55, 0)');
-  ctx.fillStyle = divGrad;
-  ctx.fillRect(width / 2 - dividerW / 2, dividerY, dividerW, Math.max(1.5, height * 0.002));
-
-  // Layer C: Scene & Dialogue / Director Notes Subtitle
   const epStr = String(frame.epNumber || '001');
-  const directorNotes = frame.directorNotes || frame.tagline || 'A RAWx Master Anthology Sequence';
-  const subFontSize = Math.round(height * 0.032);
-  const subY = dividerY + enFontSize * 0.85;
 
-  ctx.font = `500 ${subFontSize}px "JetBrains Mono", monospace`;
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-  ctx.shadowBlur = 6;
-  ctx.fillStyle = '#fbbf24';
-  ctx.fillText(`SC01-SH${epStr} // ${directorNotes}`, width / 2, subY);
+  // 6. Legacy Typographic Hierarchy Fallback (when Autonomous Occlusion is bypassed)
+  if (!useAutonomousOcclusion) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-  ctx.restore();
+    const centerY = height * 0.44;
+    const bnTitle = frame.bengaliTitle || 'দৃষ্টি / সূচনা';
+    const bnFontSize = Math.round(height * 0.17);
+    ctx.font = `bold ${bnFontSize}px "Anek Bangla", "Noto Serif Bengali", sans-serif`;
+
+    ctx.shadowColor = 'rgba(234, 179, 8, 0.75)';
+    ctx.shadowBlur = Math.round(bnFontSize * 0.35);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 4;
+
+    const bnGrad = ctx.createLinearGradient(0, centerY - bnFontSize / 2, 0, centerY + bnFontSize / 2);
+    bnGrad.addColorStop(0, '#ffffff');
+    bnGrad.addColorStop(0.25, '#ffe58f');
+    bnGrad.addColorStop(0.6, '#d4af37');
+    bnGrad.addColorStop(0.85, '#996515');
+    bnGrad.addColorStop(1, '#593907');
+
+    ctx.fillStyle = bnGrad;
+    ctx.fillText(bnTitle, width / 2, centerY);
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 230, 140, 0.6)';
+    ctx.lineWidth = Math.max(1, Math.round(bnFontSize * 0.015));
+    ctx.strokeText(bnTitle, width / 2, centerY);
+
+    const enTitle = (frame.title || 'THE SINGULARITY').toUpperCase();
+    const enFontSize = Math.round(height * 0.05);
+    const enY = centerY + bnFontSize * 0.62;
+    ctx.font = `bold ${enFontSize}px "Cinzel", "Times New Roman", serif`;
+
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = Math.round(enFontSize * 0.5);
+    ctx.shadowOffsetY = 2;
+
+    ctx.fillStyle = '#f4f4f5';
+    ctx.fillText(enTitle, width / 2, enY);
+
+    const dividerW = Math.round(width * 0.18);
+    const dividerY = enY + enFontSize * 0.85;
+    const divGrad = ctx.createLinearGradient(width / 2 - dividerW / 2, dividerY, width / 2 + dividerW / 2, dividerY);
+    divGrad.addColorStop(0, 'rgba(212, 175, 55, 0)');
+    divGrad.addColorStop(0.5, 'rgba(212, 175, 55, 0.8)');
+    divGrad.addColorStop(1, 'rgba(212, 175, 55, 0)');
+    ctx.fillStyle = divGrad;
+    ctx.fillRect(width / 2 - dividerW / 2, dividerY, dividerW, Math.max(1.5, height * 0.002));
+
+    const directorNotes = frame.directorNotes || frame.tagline || 'A RAWx Master Anthology Sequence';
+    const subFontSize = Math.round(height * 0.032);
+    const subY = dividerY + enFontSize * 0.85;
+
+    ctx.font = `500 ${subFontSize}px "JetBrains Mono", monospace`;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillText(`SC01-SH${epStr} // ${directorNotes}`, width / 2, subY);
+
+    ctx.restore();
+  }
 
   // 7. Corner Telemetry Strips (Top & Bottom Left/Right)
   ctx.save();

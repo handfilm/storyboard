@@ -20,6 +20,7 @@ import { baseThemesData } from '../../data/frames';
 import { TitleAnimationStyle, AnthologyFrame } from '../../types/anthology';
 import { eventBus } from '../../core/eventBus';
 import { TextTypographyDrawer } from '../../components/drawers/TextTypographyDrawer';
+import { BrutalistKineticHudStrip } from '../../components/drawers/BrutalistKineticHudStrip';
 import { KineticTributeSequence } from '../../components/stage/templates/KineticTributeSequence';
 import { TributeProfile, TRIBUTE_PROFILES } from '../../constants/tributeData';
 import { 
@@ -252,6 +253,11 @@ export const TextStudio: React.FC<TextStudioProps> = ({
         </div>
       </div>
 
+      {/* Minimalist Brutalist Control Strip: 3D Depth Occlusion & Transient Punch */}
+      <div className="px-3.5 pt-3 pb-2 bg-[#07070a] border-b border-[#272732] shrink-0">
+        <BrutalistKineticHudStrip />
+      </div>
+
       {/* Studio Tab Switcher: [ ✦ DIRECTOR PRESETS (10) ] / [ ✎ ADVANCED CONTROLS ] */}
       <div className="flex border-b border-[#272732] bg-[#0c0c10] px-3 gap-2 shrink-0">
         <button
@@ -296,6 +302,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
         <TextTypographyDrawer
           currentFrame={currentFrame}
           onUpdateFrame={onUpdateFrame}
+          hideAutonomousStrip={true}
         />
       ) : activeTab === 'tributes' ? (
         <div className="flex-1 flex flex-col p-4 bg-[#08090C] overflow-y-auto">

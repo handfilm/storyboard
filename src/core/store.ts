@@ -10,6 +10,9 @@ import { StudioProject, Shot, MediaItem } from './schemas';
 import { HistoryManager } from './history';
 import { eventBus } from './eventBus';
 import { generateInitialFrames } from '../data/frames';
+import { depthOcclusionService, DepthLayerMode } from '../services/depthOcclusionService';
+import { AudioPunchMode } from '../services/transientPunchEngine';
+import { AutonomousKineticPreset } from '../services/kineticTypographyStyles';
 
 export type StudioModule =
   | 'STORY'
@@ -88,6 +91,20 @@ export interface StudioState {
   setTitleOpacity: (opacity: number) => void;
   toggleTitles: () => void;
   setTitleConfig: (partial: Partial<HeroTitleConfig>) => void;
+
+  // Autonomous Kinetic Typography & 3D Depth Occlusion Engine
+  kineticOcclusion: {
+    enabled: boolean;
+    layerMode: DepthLayerMode;
+    audioPunchMode: AudioPunchMode;
+    preset: AutonomousKineticPreset;
+    impact: number;
+  };
+  setKineticOcclusionEnabled: (enabled: boolean) => void;
+  setDepthLayerMode: (mode: DepthLayerMode) => void;
+  setAudioPunchMode: (mode: AudioPunchMode) => void;
+  setAutonomousKineticPreset: (preset: AutonomousKineticPreset) => void;
+  setKineticImpact: (impact: number) => void;
   
   // Workspace Layout & Navigation
   activeModule: StudioModule;
@@ -389,6 +406,46 @@ export const useStudioStore = create<StudioState>()(
           );
         }
       });
+    },
+
+    // Autonomous Kinetic Typography & 3D Depth Occlusion Engine
+    kineticOcclusion: {
+      enabled: true,
+      layerMode: 'BEHIND_SUBJECT',
+      audioPunchMode: 'KICK',
+      preset: 'COMMERCIAL_TITAN_DROP',
+      impact: 1.0
+    },
+    setKineticOcclusionEnabled: (enabled: boolean) => {
+      set((state) => {
+        state.kineticOcclusion.enabled = enabled;
+      });
+      depthOcclusionService.setConfig({ enabled });
+    },
+    setDepthLayerMode: (mode: DepthLayerMode) => {
+      set((state) => {
+        state.kineticOcclusion.layerMode = mode;
+      });
+      depthOcclusionService.setConfig({ layerMode: mode });
+    },
+    setAudioPunchMode: (mode: AudioPunchMode) => {
+      set((state) => {
+        state.kineticOcclusion.audioPunchMode = mode;
+      });
+      depthOcclusionService.setConfig({ audioPunchMode: mode });
+    },
+    setAutonomousKineticPreset: (preset: AutonomousKineticPreset) => {
+      set((state) => {
+        state.kineticOcclusion.preset = preset;
+      });
+      depthOcclusionService.setConfig({ preset });
+    },
+    setKineticImpact: (impact: number) => {
+      const clamped = Math.max(0.0, Math.min(2.0, Math.round(impact * 100) / 100));
+      set((state) => {
+        state.kineticOcclusion.impact = clamped;
+      });
+      depthOcclusionService.setConfig({ impact: clamped });
     },
 
     setActiveShotIndex: (index: number) => {

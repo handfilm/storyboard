@@ -35,6 +35,7 @@ import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption } from '../typ
 import { SlideDraft } from '../types/project';
 import { buildFilmStockCssFilter, applyCinematicPostProcess } from './cinematicFilterEngine';
 import { renderCanvasBurnInCaption } from './captionEngine';
+import { depthOcclusionService } from './depthOcclusionService';
 
 export type ShotSelectionMode = 'all' | 'range' | 'custom' | 'current';
 
@@ -348,131 +349,182 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   const isVertical = preset === '9_16_vertical';
   const is4K = width >= 3840 || height >= 2160;
 
-  // 1. Dark Obsidian Canvas Base
-  ctx.fillStyle = '#06070B';
-  ctx.fillRect(0, 0, width, height);
+  const useAutonomousOcclusion = Boolean(!cleanPlates && burnInTitles && depthOcclusionService.isEnabled());
 
-  // 2. Render Media Frame or Procedural Background
-  if (sourceElement) {
-    let srcW = 1920;
-    let srcH = 1080;
-    if (sourceElement instanceof HTMLVideoElement) {
-      srcW = sourceElement.videoWidth || 1920;
-      srcH = sourceElement.videoHeight || 1080;
-    } else if (sourceElement instanceof ImageBitmap) {
-      srcW = sourceElement.width;
-      srcH = sourceElement.height;
-    } else if (sourceElement instanceof HTMLImageElement) {
-      srcW = sourceElement.naturalWidth || 1920;
-      srcH = sourceElement.naturalHeight || 1080;
-    }
+  if (useAutonomousOcclusion && !isVertical) {
+    // Modular 3-Layer Offscreen Canvas Compositing Hook (Base Pass -> Text Pass -> Subject Matte Pass)
+    // Executes immediately prior to WebCodecs VideoFrame grab without mutating VideoEncoder loop.
+    const panProgress = frameInShot / Math.max(1, totalFramesInShot);
+    const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
+    const zoom = 1.0 + smoothProgress * 0.04;
+    const currentLocalSec = frameInShot / Math.max(1, fps);
+    const shotTotalSec = totalFramesInShot / Math.max(1, fps);
+    const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
 
-    if (isVertical) {
-      // 9:16 Vertical Reel Mode:
-      // Ambient blurred scope backing + sharp centered letterbox
-      ctx.save();
-      // Ambient blurred background filling 9:16 frame
-      ctx.filter = 'blur(30px) brightness(0.4)';
-      ctx.drawImage(sourceElement as any, -width * 0.5, 0, width * 2, height);
-      ctx.restore();
-
-      // Sharp Scope Letterbox in center
-      const targetScopeH = Math.round(width / 2.39);
-      const targetScopeY = Math.round((height - targetScopeH) / 2);
-
-      // Subtle drop shadow behind letterboxed plate
-      ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      ctx.shadowBlur = 24;
-      ctx.shadowOffsetY = 4;
-      ctx.drawImage(sourceElement as any, 0, targetScopeY, width, targetScopeH);
-      ctx.restore();
-
-      // Framing Borders
-      ctx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(0, targetScopeY, width, targetScopeH);
-
-    } else {
-      // Ken Burns subtle push-in animation (1.0 to 1.04) with smooth ease-in-out curve
-      const panProgress = frameInShot / totalFramesInShot;
-      const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
-      const zoom = 1.0 + smoothProgress * 0.04;
-
-      const mediaRatio = srcW / srcH;
-      const canvasRatio = width / height;
-
-      let drawW = width;
-      let drawH = height;
-      let drawX = 0;
-      let drawY = 0;
-
-      if (mediaRatio > canvasRatio) {
-        drawW = height * mediaRatio;
-        drawX = (width - drawW) / 2;
-      } else {
-        drawH = width / mediaRatio;
-        drawY = (height - drawH) / 2;
+    depthOcclusionService.compositeFrame({
+      ctx,
+      width,
+      height,
+      sourceElement: (sourceElement as any) || null,
+      timeSec: currentLocalSec,
+      durationSec: shotTotalSec,
+      fps,
+      isLivePlaying: true,
+      titleBn,
+      titleEn,
+      lyricText: caption?.text || tagline,
+      filmFilter,
+      zoomScale: zoom,
+      skipBaseDraw: false,
+      postBaseHook: (baseCtx, w, h) => {
+        if (sourceElement) {
+          applyCinematicPostProcess(
+            baseCtx as CanvasRenderingContext2D,
+            w,
+            h,
+            lutFilter || 'kodak_vision3',
+            adjustments,
+            currentLocalSec
+          );
+        }
       }
-
-      const scaledW = drawW * zoom;
-      const scaledH = drawH * zoom;
-      const scaledX = drawX - (scaledW - drawW) / 2;
-      const scaledY = drawY - (scaledH - drawH) / 2;
-
-      ctx.save();
-      const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
-      if (filmFilter && filmFilter !== 'none') {
-        ctx.filter = filmFilter;
-      }
-      try {
-        ctx.drawImage(sourceElement as any, scaledX, scaledY, scaledW, scaledH);
-      } catch {
-        // Fallback
-      }
-      ctx.restore();
-    }
-
-    // Hardware-accelerated 35mm optical shader pass: temperature tint, anamorphic glow, dynamic 60fps grain
-    const currentLocalSec = frameInShot / fps;
-    applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
+    });
   } else {
-    // Elegant procedural obsidian & amber cinema gradient slate
-    const grad = ctx.createRadialGradient(
-      width / 2, height / 2, Math.min(width, height) * 0.2,
-      width / 2, height / 2, Math.max(width, height) * 0.7
-    );
-    grad.addColorStop(0, '#10121C');
-    grad.addColorStop(0.7, '#07080C');
-    grad.addColorStop(1, '#020305');
-    ctx.fillStyle = grad;
+    // 1. Dark Obsidian Canvas Base
+    ctx.fillStyle = '#06070B';
     ctx.fillRect(0, 0, width, height);
 
-    // Grid lines
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.06)';
-    ctx.lineWidth = 1;
-    const step = Math.round(width / 24);
-    for (let x = 0; x < width; x += step) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < height; y += step) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
+    // 2. Render Media Frame or Procedural Background
+    if (sourceElement) {
+      let srcW = 1920;
+      let srcH = 1080;
+      if (sourceElement instanceof HTMLVideoElement) {
+        srcW = sourceElement.videoWidth || 1920;
+        srcH = sourceElement.videoHeight || 1080;
+      } else if (sourceElement instanceof ImageBitmap) {
+        srcW = sourceElement.width;
+        srcH = sourceElement.height;
+      } else if (sourceElement instanceof HTMLImageElement) {
+        srcW = sourceElement.naturalWidth || 1920;
+        srcH = sourceElement.naturalHeight || 1080;
+      }
+
+      if (isVertical) {
+        // 9:16 Vertical Reel Mode:
+        // Ambient blurred scope backing + sharp centered letterbox
+        ctx.save();
+        ctx.filter = 'blur(30px) brightness(0.4)';
+        ctx.drawImage(sourceElement as any, -width * 0.5, 0, width * 2, height);
+        ctx.restore();
+
+        const targetScopeH = Math.round(width / 2.39);
+        const targetScopeY = Math.round((height - targetScopeH) / 2);
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 4;
+        ctx.drawImage(sourceElement as any, 0, targetScopeY, width, targetScopeH);
+        ctx.restore();
+
+        ctx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, targetScopeY, width, targetScopeH);
+      } else {
+        const panProgress = frameInShot / totalFramesInShot;
+        const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
+        const zoom = 1.0 + smoothProgress * 0.04;
+
+        const mediaRatio = srcW / srcH;
+        const canvasRatio = width / height;
+
+        let drawW = width;
+        let drawH = height;
+        let drawX = 0;
+        let drawY = 0;
+
+        if (mediaRatio > canvasRatio) {
+          drawW = height * mediaRatio;
+          drawX = (width - drawW) / 2;
+        } else {
+          drawH = width / mediaRatio;
+          drawY = (height - drawH) / 2;
+        }
+
+        const scaledW = drawW * zoom;
+        const scaledH = drawH * zoom;
+        const scaledX = drawX - (scaledW - drawW) / 2;
+        const scaledY = drawY - (scaledH - drawH) / 2;
+
+        ctx.save();
+        const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
+        if (filmFilter && filmFilter !== 'none') {
+          ctx.filter = filmFilter;
+        }
+        try {
+          ctx.drawImage(sourceElement as any, scaledX, scaledY, scaledW, scaledH);
+        } catch {
+          // Fallback
+        }
+        ctx.restore();
+      }
+
+      const currentLocalSec = frameInShot / fps;
+      applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
+    } else {
+      const grad = ctx.createRadialGradient(
+        width / 2, height / 2, Math.min(width, height) * 0.2,
+        width / 2, height / 2, Math.max(width, height) * 0.7
+      );
+      grad.addColorStop(0, '#10121C');
+      grad.addColorStop(0.7, '#07080C');
+      grad.addColorStop(1, '#020305');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.06)';
+      ctx.lineWidth = 1;
+      const step = Math.round(width / 24);
+      for (let x = 0; x < width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(245, 166, 35, 0.25)';
+      ctx.lineWidth = 1;
+      const centerBadgeW = is4K ? 360 : 180;
+      const centerBadgeH = is4K ? 160 : 80;
+      ctx.strokeRect((width - centerBadgeW) / 2, (height - centerBadgeH) / 2, centerBadgeW, centerBadgeH);
+      ctx.restore();
     }
 
-    // Central subtle cinematic emblem badge for standalone graphic slate
-    ctx.save();
-    ctx.strokeStyle = 'rgba(245, 166, 35, 0.25)';
-    ctx.lineWidth = 1;
-    const centerBadgeW = is4K ? 360 : 180;
-    const centerBadgeH = is4K ? 160 : 80;
-    ctx.strokeRect((width - centerBadgeW) / 2, (height - centerBadgeH) / 2, centerBadgeW, centerBadgeH);
-    ctx.restore();
+    if (useAutonomousOcclusion && isVertical) {
+      const currentLocalSec = frameInShot / Math.max(1, fps);
+      const shotTotalSec = totalFramesInShot / Math.max(1, fps);
+      depthOcclusionService.compositeFrame({
+        ctx,
+        width,
+        height,
+        sourceElement: (sourceElement as any) || null,
+        timeSec: currentLocalSec,
+        durationSec: shotTotalSec,
+        fps,
+        isLivePlaying: true,
+        titleBn,
+        titleEn,
+        lyricText: caption?.text || tagline,
+        skipBaseDraw: true
+      });
+    }
   }
 
   // 2b. Theatrical 2.39:1 Scope Mattes (Letterbox boundaries) for Standard 16:9 or standalone slates
@@ -511,18 +563,17 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     width / 2, height / 2, Math.max(width, height) * 0.8
   );
   vignette.addColorStop(0, 'rgba(0,0,0,0)');
-  vignette.addColorStop(0.65, 'rgba(0,0,0,0.4)');
-  vignette.addColorStop(1, 'rgba(0,0,0,0.88)');
+  vignette.addColorStop(0.65, useAutonomousOcclusion ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.4)');
+  vignette.addColorStop(1, useAutonomousOcclusion ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.88)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, width, height);
 
-  // 4. Anamorphic Flare & Light Streak Simulation (Guaranteed for standalone slates or when enabled)
-  const shouldRenderFlare = simulateFlare || !sourceElement;
+  // 4. Anamorphic Flare & Light Streak Simulation
+  const shouldRenderFlare = useAutonomousOcclusion ? Boolean(simulateFlare) : (simulateFlare || !sourceElement);
   if (shouldRenderFlare) {
     const flareY = isVertical ? height * 0.5 : height * 0.48;
     const flareH = Math.max(8, height * 0.035);
 
-    // Subtle horizontal laser bloom
     const flareGrad = ctx.createLinearGradient(0, flareY - flareH, 0, flareY + flareH);
     flareGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
     flareGrad.addColorStop(0.3, 'rgba(56, 189, 248, 0.08)');
@@ -532,7 +583,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillStyle = flareGrad;
     ctx.fillRect(0, flareY - flareH, width, flareH * 2);
 
-    // Core filament with animated breathing intensity
     const pulse = 0.85 + 0.15 * Math.sin((frameInShot / Math.max(1, totalFramesInShot)) * Math.PI * 2);
     const coreH = Math.max(2, height * 0.004);
     const coreGrad = ctx.createLinearGradient(width * 0.15, flareY, width * 0.85, flareY);
@@ -545,8 +595,8 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
 
-  // 5. Burn-In Glowing Bilingual Typography with Elastic Variable-Duration Fade-In/Out & Molten Gold
-  if (burnInTitles) {
+  // 5. Legacy Burn-In Typography Fallback (when Autonomous Occlusion Compositor is bypassed)
+  if (burnInTitles && !useAutonomousOcclusion) {
     const rampFrames = Math.min(16, Math.max(3, Math.floor(totalFramesInShot * 0.25)));
     const fadeIn = Math.min(1.0, Math.max(0.08, (frameInShot + 1) / rampFrames));
     const fadeOutFrames = Math.min(8, Math.max(2, Math.floor(totalFramesInShot * 0.12)));
@@ -567,9 +617,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     const titleY = centerY - 20 * scaleFactor;
     const subTitleY = centerY + 40 * scaleFactor;
 
-    // Multi-Pass Volumetric Bloom & Molten Gold Base
     const scale = scaleFactor;
-    // Pass 1: Broad ambient diffuse glow
     ctx.save();
     ctx.shadowColor = 'rgba(245, 166, 35, 0.45)';
     ctx.shadowBlur = 48 * scale;
@@ -579,7 +627,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillText(titleBn, width / 2, titleY);
     ctx.restore();
 
-    // Pass 2: High-intensity inner core rim
     ctx.save();
     ctx.shadowColor = 'rgba(255, 213, 79, 0.95)';
     ctx.shadowBlur = 12 * scale;
@@ -589,7 +636,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillText(titleBn, width / 2, titleY);
     ctx.restore();
 
-    // Pass 3: Crisp Core Layer (Gradient-like rich warm gold fill)
     ctx.save();
     ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
@@ -597,7 +643,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillText(titleBn, width / 2, titleY);
     ctx.restore();
 
-    // English Tracked Subtitle
     ctx.save();
     ctx.fillStyle = '#E2E8F0';
     ctx.shadowColor = 'rgba(0,0,0,0.9)';
@@ -607,7 +652,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillText(titleEn.toUpperCase(), width / 2, subTitleY);
     ctx.restore();
 
-    // Horizontal Anamorphic Optical Flare Divider
     const flareW = Math.min(width * 0.45, 420 * scaleFactor);
     const flareY = centerY + 58 * scaleFactor;
     const flareGrad = ctx.createLinearGradient((width - flareW) / 2, flareY, (width + flareW) / 2, flareY);
@@ -617,7 +661,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillStyle = flareGrad;
     ctx.fillRect((width - flareW) / 2, flareY, flareW, Math.max(2, 2.5 * scaleFactor));
 
-    // Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule
     const dialogueLine = tagline || '24.0 FPS RAW • MASTER CINE PROJECTION';
     if (dialogueLine) {
       ctx.save();
@@ -657,54 +700,47 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   const smpte = formatTimecode(timeSec, activeFps);
   const shotDurSec = (totalFramesInShot / activeFps).toFixed(1);
 
-  // Top Left: Project & Shot Slate
   ctx.save();
   ctx.fillStyle = '#F5A623';
   ctx.font = `bold ${is4K ? 22 : 12}px monospace`;
   ctx.textAlign = 'left';
   ctx.fillText(`HANDFILM // SHOT ${String(shotIndex + 1).padStart(3, '0')} (${shotDurSec}s) // TC: ${smpte}`, pad, pad + (is4K ? 20 : 12));
 
-  // Top Right: FPS & Master Status
   ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
   ctx.fillText(`${activeFps.toFixed(2)} FPS • ACEScg • DCI 4K RAW`, width - pad, pad + (is4K ? 20 : 12));
   ctx.restore();
 
-  // Subtle corner brackets
   ctx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
   ctx.lineWidth = is4K ? 3 : 1.5;
   const bSize = is4K ? 36 : 18;
 
-  // Top Left
   ctx.beginPath();
   ctx.moveTo(pad + bSize, pad);
   ctx.lineTo(pad, pad);
   ctx.lineTo(pad, pad + bSize);
   ctx.stroke();
 
-  // Top Right
   ctx.beginPath();
   ctx.moveTo(width - pad - bSize, pad);
   ctx.lineTo(width - pad, pad);
   ctx.lineTo(width - pad, pad + bSize);
   ctx.stroke();
 
-  // Bottom Left
   ctx.beginPath();
   ctx.moveTo(pad, height - pad - bSize);
   ctx.lineTo(pad, height - pad);
   ctx.lineTo(pad + bSize, height - pad);
   ctx.stroke();
 
-  // Bottom Right
   ctx.beginPath();
   ctx.moveTo(width - pad - bSize, height - pad);
   ctx.lineTo(width - pad, height - pad);
   ctx.lineTo(width - pad, height - pad - bSize);
   ctx.stroke();
 
-  // 6. Kinetic Rap Captions & Lyrical Typography Burn-In
-  if (caption && caption.text && burnInTitles) {
+  // 7. Kinetic Rap Captions & Lyrical Typography Burn-In (when legacy compositor is active)
+  if (!useAutonomousOcclusion && caption && caption.text && burnInTitles) {
     const currentLocalSec = frameInShot / fps;
     const shotTotalSec = totalFramesInShot / fps;
     renderCanvasBurnInCaption(ctx, width, height, caption, currentLocalSec, shotTotalSec);

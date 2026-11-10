@@ -420,7 +420,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 
   return (
     <aside
-      className={`h-full select-none z-30 shrink-0 bg-[#07070b]/98 border-r border-[#22222d] flex flex-col justify-between font-mono-tech transition-all duration-200 relative ${
+      className={`h-full select-none z-30 shrink-0 bg-black/90 backdrop-blur-2xl border-r border-white/5 flex flex-col justify-between font-mono-tech transition-all duration-200 relative ${
         isCollapsed ? 'w-[72px]' : 'w-60 sm:w-64'
       }`}
     >

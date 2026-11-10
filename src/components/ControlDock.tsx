@@ -355,7 +355,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   }, [hoveredMarker, dragShotState, safeFrames, shotOffsets]);
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4">
+    <div className={`fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4 transition-all duration-300 ease-out ${
+      isPlaying ? 'opacity-35 hover:opacity-100' : 'opacity-100'
+    }`}>
       {/* Floating Real-Time Drag Handle Tooltip */}
       {dragShotState && (
         <div
@@ -471,7 +473,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         <div
           ref={stripRef}
           onMouseLeave={() => setHoveredMarker(null)}
-          className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1.5 px-2 bg-[#060609]/95 backdrop-blur-md border border-white/15 rounded-[4px] no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.85)] scroll-smooth h-11"
+          className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1.5 px-2 bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg no-scrollbar shadow-[0_8px_32px_rgba(0,0,0,0.9)] scroll-smooth h-11"
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -703,7 +705,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       )}
 
       {/* Main Transport & Optics Toolbar */}
-      <div className="relative w-full max-w-5xl pointer-events-auto bg-[#08080B]/95 backdrop-blur-xl border border-white/15 rounded-[3px] shadow-[0_8px_32px_rgba(0,0,0,0.85)] p-2 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
+      <div className="relative w-full max-w-5xl pointer-events-auto bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.9)] p-2 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
         {/* Subtle Ambient Gold Audio Reactivity Edge */}
         <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
         {/* Left Section: Playback, Timecode & Quick Cadence Selector */}

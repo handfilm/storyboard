@@ -323,7 +323,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   // 1. BLOOM VIEW (Consolidated with Tactile Cinema Stage)
   if (activeMode === 'BLOOM') {
     return (
-      <main className="flex-1 w-full h-full overflow-hidden bg-[#07070A]">
+      <main className="flex-1 w-full h-full overflow-hidden bg-[#000000]">
         <TactileStage
           frames={frames}
           currentIndex={currentIndex}
@@ -396,7 +396,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   return (
     <main
       id="handfilm-workspace-container"
-      className="workspace-cross-dissolve-container relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#070709] font-mono transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
+      className="workspace-cross-dissolve-container relative flex-1 w-full h-full flex flex-col overflow-hidden bg-[#000000] font-mono transition-opacity duration-200 ease-out transform-gpu will-change-[opacity,transform]"
     >
       {/* Main Viewport Content based on active panel with GPU Cross-Dissolve */}
       <div className="flex-1 w-full relative grid grid-cols-1 grid-rows-1 overflow-hidden">

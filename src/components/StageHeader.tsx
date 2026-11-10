@@ -7,7 +7,7 @@
  * - Right: Action block with [ 🔍 Search... ⌘K ], massively prominent [ ⚡ STUDIO ] red button, and 3-dot overflow menu.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Zap, 
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
+import { formatFullSMPTETimecode, getCumulativeShotOffsets } from '../types/storyboard';
 import { eventBus } from '../core/eventBus';
 import { useStudioStore } from '../core/store';
 import { studioDraftDb } from '../services/db';
@@ -143,6 +144,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const dissolveTimeoutRef = useRef<number | null>(null);
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecording, setIsRecording] = useState(false);
+
+  // Live Hollywood Master Timecode for 4K Minimalist Header
+  const shotOffsets = useMemo(() => getCumulativeShotOffsets(frames), [frames]);
+  const currentStartSec = shotOffsets[currentIndex]?.startSec ?? (currentIndex * slideDurationSec);
+  const liveTimecode = formatFullSMPTETimecode(currentStartSec, fps);
 
   // Global Search State: Unified Application State, Panels, Tools & Ecosystem Index
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -930,7 +936,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   return (
     <>
-    <header className={`relative w-full h-14 flex items-center px-4 px-4! gap-3 z-50 bg-[#0A0C10] border-b border-white/5 select-none shrink-0 font-sans zen-disclose-header ${className}`}>
+    <header className={`relative w-full h-12 flex items-center px-4 gap-3 z-50 bg-[#000000]/90 backdrop-blur-xl border-b border-white/5 select-none shrink-0 font-sans zen-disclose-header ${className}`}>
       {/* 1. LEFT COLUMN (flex-1 pushes center to middle) */}
       <div className="flex-1 flex items-center justify-start gap-3 lg:gap-4">
         {/* Wordmark Logo */}
@@ -1181,15 +1187,28 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. CENTER COLUMN (flex-none keeps it isolated) */}
+      {/* 2. CENTER COLUMN: Live Hollywood SMPTE Timecode & Playback Mode Toggle */}
       {(() => {
         const isMasterMode = currentMode === 'MASTER';
         return (
           <div
             data-current-mode={currentMode}
-            className="flex-none flex justify-center items-center shrink-0"
+            className="flex-none flex items-center gap-2.5 shrink-0"
           >
-            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-0.5 p-0.5! shadow-inner">
+            {/* Live Master SMPTE Timecode Readout */}
+            <div
+              className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-[10.5px] font-mono tracking-wider tabular-nums shadow-inner select-none"
+              title={`Master Hardware Timecode: ${liveTimecode} at locked ${fps}.000fps`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-zinc-500 font-semibold text-[8.5px]">TC</span>
+              <span className="text-[#FFE066] font-bold">{liveTimecode}</span>
+              <span className="text-zinc-500 text-[8.5px]">[{fps}F]</span>
+              <span className="text-zinc-600">•</span>
+              <span className="text-zinc-300 font-semibold text-[9.5px]">SHOT {String(currentIndex + 1).padStart(2, '0')}/{totalShots}</span>
+            </div>
+
+            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-0.5 shadow-inner">
               {/* SHRUNKEN TOGGLE */}
               <div
                 role="button"
@@ -1756,10 +1775,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         >
           <aside
             aria-label="Typography & Templates Drawer"
-            className="w-[440px] sm:w-[500px] max-w-[92vw] h-full bg-[#08090C]/98 backdrop-blur-3xl border-r border-amber-500/30 shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col font-mono text-white overflow-hidden"
+            style={{ backdropFilter: 'blur(20px)', background: 'rgba(10, 10, 10, 0.85)' }}
+            className="w-[440px] sm:w-[500px] max-w-[92vw] h-full border-r border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col font-mono text-white overflow-hidden animate-in slide-in-from-left duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-14 px-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#050505]/90">
+            <div className="h-14 px-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-black/40">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
                   <Type className="w-4 h-4" />

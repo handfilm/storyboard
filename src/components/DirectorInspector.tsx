@@ -128,9 +128,12 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-[460px] md:w-[500px] bg-[#0A0A10]/98 backdrop-blur-2xl border-l border-[#272732] shadow-[0_0_60px_rgba(0,0,0,0.98)] z-50 flex flex-col font-mono-tech select-none animate-in slide-in-from-right duration-200">
+    <div
+      style={{ backdropFilter: 'blur(20px)', background: 'rgba(10, 10, 10, 0.85)' }}
+      className="fixed inset-y-0 right-0 w-full sm:w-[460px] md:w-[500px] border-l border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.95)] z-50 flex flex-col font-mono-tech select-none animate-in slide-in-from-right duration-200"
+    >
       {/* Header */}
-      <div className="p-3.5 border-b border-[#272732] bg-[#0C0C14] flex items-center justify-between shrink-0">
+      <div className="p-3.5 border-b border-white/10 bg-black/40 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-[2px] bg-[#d4af37]/15 border border-[#d4af37]/50 flex items-center justify-center text-[#fbbf24] font-bold text-xs shrink-0">
             {frame.epNumber}
@@ -155,7 +158,7 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#272732] bg-[#08080C] shrink-0">
+      <div className="flex border-b border-white/10 bg-black/30 shrink-0">
         {[
           { id: 'cam_rig', label: '3D CAM RIG', icon: Camera },
           { id: 'optics_lut', label: 'OPTICS & LUTS', icon: Sliders },

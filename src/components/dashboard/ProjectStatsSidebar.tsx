@@ -137,10 +137,13 @@ export const ProjectStatsSidebar: React.FC<ProjectStatsSidebarProps> = ({
       />
 
       {/* Main Sidebar Container */}
-      <aside className="relative w-full sm:w-[420px] h-full bg-[#0B0B10]/98 border-l border-[#242432] shadow-[0_0_60px_rgba(0,0,0,0.9)] flex flex-col font-mono text-zinc-300 select-none z-10 animate-in slide-in-from-right duration-300 ease-out">
+      <aside
+        style={{ backdropFilter: 'blur(20px)', background: 'rgba(10, 10, 10, 0.85)' }}
+        className="relative w-full sm:w-[420px] h-full border-l border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col font-mono text-zinc-300 select-none z-10 animate-in slide-in-from-right duration-300 ease-out"
+      >
         
         {/* Header */}
-        <div className="h-14 px-5 border-b border-[#20202C] flex items-center justify-between shrink-0 bg-[#0E0E15]">
+        <div className="h-14 px-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-black/40">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#F5A623]/10 border border-[#F5A623]/30 flex items-center justify-center text-[#F5A623]">
               <BarChart2 className="w-4 h-4" />

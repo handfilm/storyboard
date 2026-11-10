@@ -782,24 +782,25 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   // Dynamic Aspect Ratio Auto-Fitting:
   // - Vertical (9:16): Auto-fit stage height with dynamic pillarbox margins (calc(76vh * 9 / 16))
-  // - Landscape (16:9 / 2.39:1): Auto-fit stage width edge-to-edge up to max 1360px
+  // - Vertical (9:16): Centered uncropped framing with dynamic pillarbox margins
+  // - Landscape (16:9 / 2.39:1): Edge-to-edge cinematic expansion for 55-inch 4K screen dominance
   const getAspectStyle = (ar: string): React.CSSProperties => {
     switch (ar) {
       case '9:16':
         return {
           aspectRatio: '9 / 16',
-          height: '76vh',
-          maxHeight: '76vh',
-          width: 'calc(76vh * 9 / 16)',
+          height: '80vh',
+          maxHeight: '80vh',
+          width: 'calc(80vh * 9 / 16)',
           maxWidth: '100%',
           margin: '0 auto'
         };
       case '1:1':
         return {
           aspectRatio: '1 / 1',
-          height: '76vh',
-          maxHeight: '76vh',
-          width: '76vh',
+          height: '80vh',
+          maxHeight: '80vh',
+          width: '80vh',
           maxWidth: '100%',
           margin: '0 auto'
         };
@@ -807,23 +808,26 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         return {
           aspectRatio: '4 / 3',
           width: '100%',
-          maxWidth: '1360px',
-          maxHeight: '76vh'
+          maxWidth: 'min(94vw, 1600px)',
+          maxHeight: '80vh',
+          margin: '0 auto'
         };
       case '16:9':
         return {
           aspectRatio: '16 / 9',
           width: '100%',
-          maxWidth: '1360px',
-          maxHeight: '76vh'
+          maxWidth: 'min(96vw, 1780px)',
+          maxHeight: '80vh',
+          margin: '0 auto'
         };
       case '2.39:1':
       default:
         return {
           aspectRatio: '2.39 / 1',
           width: '100%',
-          maxWidth: '1360px',
-          maxHeight: '76vh'
+          maxWidth: 'min(98vw, 1920px)',
+          maxHeight: '80vh',
+          margin: '0 auto'
         };
     }
   };
@@ -833,7 +837,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       ref={containerRef}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
-      className="relative w-full h-full flex flex-col items-center justify-center pt-2 sm:pt-3 pb-10 sm:pb-14 bg-[#050505] overflow-hidden select-none px-2 sm:px-6"
+      className="relative w-full h-full flex flex-col items-center justify-center pt-1 pb-16 bg-[#000000] overflow-hidden select-none px-0 sm:px-4"
     >
       {/* Hidden File Input */}
       <input
@@ -880,10 +884,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* Sleek Tactical Scene Hairline Ribbon (Above Video Player) */}
+      {/* Sleek Minimalist Tactical Scene Ribbon */}
       <div
         data-testid="tactile-stage-scene-hud"
-        className={`w-full max-w-[1360px] mx-auto px-2 mb-2 flex items-center justify-between text-white/40 text-[10px] font-mono tracking-widest uppercase select-none shrink-0 border-b border-white/5 pb-1 ${
+        className={`w-full max-w-[min(98vw,1920px)] mx-auto px-3 mb-1.5 flex items-center justify-between text-white/40 text-[9.5px] font-mono tracking-widest uppercase select-none shrink-0 border-b border-white/5 pb-1 ${
           showHud ? 'animate-hud-fade-in' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -922,10 +926,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       </div>
 
-      {/* Primary Video / Image Viewport Container (Scaled up ~16% to 1360px / max-h-[76vh]) */}
+      {/* Primary Video / Image Viewport Container (~80% screen dominance on OLED black) */}
       <div
         style={getAspectStyle(aspectRatio)}
-        className="relative w-full max-h-[76vh] max-w-[1360px] mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
+        className="relative w-full max-h-[80vh] mx-auto bg-[#000000] border-0 rounded-none shadow-[0_20px_100px_rgba(0,0,0,1)] overflow-hidden flex items-center justify-center group"
       >
         {/* WebCodecs Hardware Ping-Pong Compositor Viewport */}
         {isWebCodecsEngineActive && activeMediaUrl ? (

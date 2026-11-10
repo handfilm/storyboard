@@ -82,6 +82,10 @@ else
   echo "✅ Remote 'origin' updated."
 fi
 
+# Build static production bundle and synchronize all assets
+echo "🔨 Running production build & static asset sync..."
+npm run build
+
 # Stage files
 echo "📦 Staging files..."
 git add .

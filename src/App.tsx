@@ -56,6 +56,7 @@ import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';
 import { thumbnailMemoryCache } from './services/thumbnailEngine';
+import { opfsMediaStorage } from './services/media/opfsMediaStorage';
 import { PlaybackMode } from './types/editor';
 import { SlideDraft, AspectRatioType, ProjectDraft } from './types/project';
 import { CinemaPlayer } from './components/player/CinemaPlayer';
@@ -1586,6 +1587,14 @@ export default function App() {
       await studioDraftDb.assignMediaToShot(vaultItem.id, currentIndex);
       url = studioDraftDb.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
       thumbUrl = vaultItem.thumbnailUrl || (!isVideo ? url : '');
+
+      // Low-Overhead OPFS Ingestion & Fast 720p 24fps Scrub Proxy Pipeline
+      opfsMediaStorage.storeSourceFile(vaultItem.id, file, file.name).then(async (asset) => {
+        await opfsMediaStorage.generate720pScrubProxy(file, vaultItem.id, asset.dimensions);
+        console.info(`*Verification:* [OPFS Pipeline] Asset ${vaultItem.id} stored in OPFS and 720p 24fps proxy generated.`);
+      }).catch((err) => {
+        console.warn('[OPFS Ingest Warning]', err);
+      });
     } catch (err) {
       console.warn('[App] Vault media persistence error:', err);
       url = URL.createObjectURL(file);

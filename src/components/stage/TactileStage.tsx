@@ -31,8 +31,11 @@ import {
   Type,
   ZoomIn,
   Repeat,
-  Music
+  Music,
+  Zap
 } from 'lucide-react';
+import { WebCodecsStageCompositor } from './WebCodecsStageCompositor';
+import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
 import { StudioModuleId } from '../StudioNavRail';
 import { ReviewMarkupCanvas } from './ReviewMarkupCanvas';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
@@ -166,6 +169,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [isIngesting, setIsIngesting] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
   const [isFilterTrayOpen, setIsFilterTrayOpen] = useState(false);
+  const [isWebCodecsEngineActive, setIsWebCodecsEngineActive] = useState<boolean>(true);
 
   // Auto-open filter dock when OPTICS or LIBRARY module is selected
   useEffect(() => {
@@ -763,6 +767,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           console.warn('Background proxy generation note:', err);
         }
 
+        // Low-Overhead OPFS Ingestion & Fast 720p 24fps Scrub Proxy Pipeline
+        opfsMediaStorage.storeSourceFile(mediaId, file, file.name).then(async (asset) => {
+          await opfsMediaStorage.generate720pScrubProxy(file, mediaId, asset.dimensions);
+          console.info(`*Verification:* [OPFS Ingestion & Fast Proxy] Ingested ${mediaId} into OPFS & created 720p 24fps proxy.`);
+        }).catch((err) => {
+          console.warn('[OPFS Ingestion Warning]', err);
+        });
+
         const objectUrl = URL.createObjectURL(file);
         setSourceUrl(objectUrl);
         setProxyUrl(objectUrl);
@@ -868,6 +880,20 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           <span className="text-[#FFE066]/70">{aspectRatio || '2.39:1'} ANAMORPHIC SCOPE</span>
         </div>
         <div className="hidden sm:flex items-center gap-3 text-[9px] text-white/30 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
+            className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isWebCodecsEngineActive
+                ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_10px_rgba(245,166,35,0.4)]'
+                : 'bg-black/50 border-white/20 text-amber-400 hover:bg-white/10'
+            }`}
+            title="Toggle WebCodecs 24fps WebGL2 Ping-Pong Engine"
+          >
+            <Zap className="w-3 h-3 text-current" />
+            <span>{isWebCodecsEngineActive ? 'WEBCODECS 24FPS [ACTIVE]' : 'WEBCODECS 24FPS [ENGAGE]'}</span>
+          </button>
+          <span className="text-white/20">|</span>
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-zinc-400">CALIBRATED</span>
@@ -884,125 +910,144 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         style={getAspectStyle(aspectRatio)}
         className="relative w-full max-h-[76vh] max-w-[1360px] mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
       >
-        {/* Outgoing Base Plate for Cinematic Cross-Dissolve Transition */}
-        {outgoingMedia && isCrossDissolving && (
-          <div
-            className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pointer-events-none z-0 animate-cross-dissolve-out"
-            style={{ transform: zoomTransforms.bgTransform }}
-          >
-            {outgoingMedia.isVideo ? (
-              <video
-                src={outgoingMedia.url}
-                crossOrigin="anonymous"
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-                style={{ filter: outgoingMedia.filter }}
-              />
-            ) : (
-              <img
-                src={outgoingMedia.url}
-                crossOrigin="anonymous"
-                alt="Outgoing Plate"
-                className="w-full h-full object-cover"
-                style={{ filter: outgoingMedia.filter }}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Incoming / Active Media Plate */}
-        {activeMediaUrl ? (
-          <div
-            key={`shot_${currentIndex}`}
-            className={`w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center z-10 ${
-              isCrossDissolving ? 'animate-cross-dissolve' : ''
-            }`}
-            style={{ transform: zoomTransforms.bgTransform }}
-          >
-            {/* Underlying cached thumbnail plate ensures zero black frames while master stream loads */}
-            {cachedPosterUrl && (
-              <img
-                src={cachedPosterUrl}
-                crossOrigin="anonymous"
-                alt="Thumbnail Plate Fallback"
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                style={{ filter: combinedMediaFilter }}
-              />
-            )}
-            {/* Hidden hardware decoding element */}
-            {(frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm')) && (
-              <video
-                ref={videoRef}
-                src={activeMediaUrl}
-                crossOrigin="anonymous"
-                poster={cachedPosterUrl || undefined}
-                autoPlay={isAutoplay}
-                loop
-                muted
-                playsInline
-                className="hidden"
-                aria-hidden="true"
-              />
-            )}
-            {/* Canvas-Accelerated Blit Viewport: draws active frames via requestAnimationFrame */}
-            <canvas
-              ref={canvasRef}
-              className="w-full h-full object-cover transition-opacity duration-150 relative z-1"
-              style={{ filter: combinedMediaFilter }}
+        {/* WebCodecs Hardware Ping-Pong Compositor Viewport */}
+        {isWebCodecsEngineActive ? (
+          <div className="w-full h-full relative z-10 flex items-center justify-center">
+            <WebCodecsStageCompositor
+              currentMediaUrl={activeMediaUrl}
+              incomingMediaUrl={frames[(currentIndex + 1) % frames.length]?.imageUrl || outgoingMedia?.url || null}
+              mediaId={String(frame?.id || currentIndex)}
+              incomingMediaId={String(frames[(currentIndex + 1) % frames.length]?.id || currentIndex + 1)}
+              isPlaying={isAutoplay}
+              slideTimeSec={slideTimeSec}
+              durationSec={activeShotDurationSec}
+              aspectRatio={typeof aspectRatio === 'string' ? aspectRatio : '2.39:1'}
+              className="w-full h-full"
             />
-          </div>
-        ) : cachedPosterUrl ? (
-          <div
-            key={`cached_shot_${currentIndex}`}
-            className="relative w-full h-full flex items-center justify-center overflow-hidden z-10"
-            style={{ transform: zoomTransforms.bgTransform }}
-          >
-            <img
-              src={cachedPosterUrl}
-              crossOrigin="anonymous"
-              alt="Cached Shot Poster"
-              className="w-full h-full object-cover"
-              style={{ filter: combinedMediaFilter }}
-            />
-            {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
-              <canvas
-                ref={canvasRef}
-                className="absolute inset-0 w-full h-full object-cover z-1"
-              />
-            )}
           </div>
         ) : (
-          <div className="relative w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center z-10">
-            {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
-              <canvas
-                ref={canvasRef}
-                className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
-              />
-            )}
-            <div className={`relative z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-200 ${
-              kineticOcclusion.enabled && isTitlesActive ? 'opacity-0 group-hover:opacity-100 bg-black/75 p-4 rounded-[2px] border border-white/10' : ''
-            }`}>
-              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
-                <Film className="w-8 h-8 opacity-60" />
-              </div>
-              <div>
-                <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
-                  SHOT {frame?.epNumber || '001'} // READY FOR INGEST
-                </p>
-                <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
-                  Drag & Drop 4K video or photo directly into this monitor
-                </p>
-              </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
+          <>
+            {/* Outgoing Base Plate for Cinematic Cross-Dissolve Transition */}
+            {outgoingMedia && isCrossDissolving && (
+              <div
+                className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pointer-events-none z-0 animate-cross-dissolve-out"
+                style={{ transform: zoomTransforms.bgTransform }}
               >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Select Media Asset</span>
-              </button>
-            </div>
-          </div>
+                {outgoingMedia.isVideo ? (
+                  <video
+                    src={outgoingMedia.url}
+                    crossOrigin="anonymous"
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                    style={{ filter: outgoingMedia.filter }}
+                  />
+                ) : (
+                  <img
+                    src={outgoingMedia.url}
+                    crossOrigin="anonymous"
+                    alt="Outgoing Plate"
+                    className="w-full h-full object-cover"
+                    style={{ filter: outgoingMedia.filter }}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Incoming / Active Media Plate */}
+            {activeMediaUrl ? (
+              <div
+                key={`shot_${currentIndex}`}
+                className={`w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center z-10 ${
+                  isCrossDissolving ? 'animate-cross-dissolve' : ''
+                }`}
+                style={{ transform: zoomTransforms.bgTransform }}
+              >
+                {/* Underlying cached thumbnail plate ensures zero black frames while master stream loads */}
+                {cachedPosterUrl && (
+                  <img
+                    src={cachedPosterUrl}
+                    crossOrigin="anonymous"
+                    alt="Thumbnail Plate Fallback"
+                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                    style={{ filter: combinedMediaFilter }}
+                  />
+                )}
+                {/* Hidden hardware decoding element */}
+                {(frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm')) && (
+                  <video
+                    ref={videoRef}
+                    src={activeMediaUrl}
+                    crossOrigin="anonymous"
+                    poster={cachedPosterUrl || undefined}
+                    autoPlay={isAutoplay}
+                    loop
+                    muted
+                    playsInline
+                    className="hidden"
+                    aria-hidden="true"
+                  />
+                )}
+                {/* Canvas-Accelerated Blit Viewport: draws active frames via requestAnimationFrame */}
+                <canvas
+                  ref={canvasRef}
+                  className="w-full h-full object-cover transition-opacity duration-150 relative z-1"
+                  style={{ filter: combinedMediaFilter }}
+                />
+              </div>
+            ) : cachedPosterUrl ? (
+              <div
+                key={`cached_shot_${currentIndex}`}
+                className="relative w-full h-full flex items-center justify-center overflow-hidden z-10"
+                style={{ transform: zoomTransforms.bgTransform }}
+              >
+                <img
+                  src={cachedPosterUrl}
+                  crossOrigin="anonymous"
+                  alt="Cached Shot Poster"
+                  className="w-full h-full object-cover"
+                  style={{ filter: combinedMediaFilter }}
+                />
+                {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
+                  <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 w-full h-full object-cover z-1"
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="relative w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center z-10">
+                {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
+                  <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+                  />
+                )}
+                <div className={`relative z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-200 ${
+                  kineticOcclusion.enabled && isTitlesActive ? 'opacity-0 group-hover:opacity-100 bg-black/75 p-4 rounded-[2px] border border-white/10' : ''
+                }`}>
+                  <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
+                    <Film className="w-8 h-8 opacity-60" />
+                  </div>
+                  <div>
+                    <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
+                      SHOT {frame?.epNumber || '001'} // READY FOR INGEST
+                    </p>
+                    <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
+                      Drag & Drop 4K video or photo directly into this monitor
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Select Media Asset</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Ingesting Spinner Overlay */}

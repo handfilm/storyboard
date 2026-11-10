@@ -20,6 +20,7 @@
  */
 
 import { audioEngine } from './audioEngine';
+import { masterAudioClock } from './media/masterAudioClock';
 import { studioDraftDb, VaultMediaItem } from './db';
 import { useStudioStore } from '../core/store';
 import { eventBus } from '../core/eventBus';
@@ -159,6 +160,7 @@ export class PlaybackEngineService {
       this.wasAudioMutedBeforeScrub = audioEngine.getIsMuted();
       // Mute audio during rapid cursor scrubbing
       audioEngine.setMuted(true);
+      masterAudioClock.handleScrubStart(0);
     }
     if (this.scrubMuteTimeout) {
       clearTimeout(this.scrubMuteTimeout);
@@ -183,6 +185,7 @@ export class PlaybackEngineService {
     if (!this.isScrubbing) {
       this.handleScrubStart();
     }
+    masterAudioClock.scrubTo(clampedSec);
 
     const now = performance.now();
     // 16ms throttler (approx 60fps ceiling for blitting)
@@ -200,6 +203,7 @@ export class PlaybackEngineService {
 
   public handleScrubEnd(resumePlayback = false): void {
     this.isScrubbing = false;
+    masterAudioClock.handleScrubEnd(resumePlayback);
     if (this.lastScrubRafId) {
       cancelAnimationFrame(this.lastScrubRafId);
       this.lastScrubRafId = null;
@@ -325,6 +329,7 @@ export class PlaybackEngineService {
     this.isPlaying = true;
     this.playStartTime = performance.now();
     this.lastFrameTimestamp = performance.now();
+    masterAudioClock.startClock(this.playStartMediaTime);
 
     const loop = (now: DOMHighResTimeStamp) => {
       if (!this.isPlaying) return;
@@ -357,6 +362,7 @@ export class PlaybackEngineService {
 
   public pausePlayback(): void {
     this.isPlaying = false;
+    masterAudioClock.pauseClock();
     if (this.playRafId) {
       cancelAnimationFrame(this.playRafId);
       this.playRafId = null;

@@ -57,6 +57,7 @@ import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';
 import { thumbnailMemoryCache } from './services/thumbnailEngine';
 import { opfsMediaStorage } from './services/media/opfsMediaStorage';
+import { handleFileUpload } from './services/mediaIngestService';
 import { PlaybackMode } from './types/editor';
 import { SlideDraft, AspectRatioType, ProjectDraft } from './types/project';
 import { CinemaPlayer } from './components/player/CinemaPlayer';
@@ -1575,69 +1576,58 @@ export default function App() {
     }
   }, []);
 
-  // Rapid Ingestion Pipeline: Direct IndexedDB Storage + High-Impact Overlays
+  // Rapid Ingestion Pipeline: Direct Synchronous Preview + Background Persistence
   const handleUploadImage = useCallback(async (file: File) => {
-    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
-    
-    // 1. Direct write to IndexedDB media_vault store & timeline_slots
-    let url = '';
-    let thumbUrl = '';
     try {
-      const vaultItem = await studioDraftDb.saveMediaToVault(file);
-      await studioDraftDb.assignMediaToShot(vaultItem.id, currentIndex);
-      url = studioDraftDb.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
-      thumbUrl = vaultItem.thumbnailUrl || (!isVideo ? url : '');
+      await handleFileUpload(file, {
+        shotIndex: currentIndex,
+        onImmediatePreview: (item) => {
+          const current = project.frames[currentIndex] || { id: currentIndex + 1 };
+          const shotNum = String(currentIndex + 1).padStart(3, '0');
+          const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
+            ? `SH${shotNum} // KINETIC FLOW`
+            : current.title;
+          const titleBn = (!current.bengaliTitle || current.bengaliTitle.includes('নতুন ফ্রেম'))
+            ? `দৃশ্য ${shotNum} // গতিশীল দৃষ্টিভঙ্গি`
+            : current.bengaliTitle;
+          const soundCue = current.soundCue || 'Cinematic Tension Bass // 24fps Stem';
 
-      // Low-Overhead OPFS Ingestion & Fast 720p 24fps Scrub Proxy Pipeline
-      opfsMediaStorage.storeSourceFile(vaultItem.id, file, file.name).then(async (asset) => {
-        await opfsMediaStorage.generate720pScrubProxy(file, vaultItem.id, asset.dimensions);
-        console.info(`*Verification:* [OPFS Pipeline] Asset ${vaultItem.id} stored in OPFS and 720p 24fps proxy generated.`);
-      }).catch((err) => {
-        console.warn('[OPFS Ingest Warning]', err);
+          handleUpdateFrame({
+            ...current,
+            imageUrl: item.objectUrl,
+            thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
+            isVideo: item.isVideo,
+            title: titleEn,
+            bengaliTitle: titleBn,
+            soundCue: soundCue
+          });
+
+          useStudioStore.getState().updateShot(currentIndex, {
+            imageUrl: item.objectUrl,
+            thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
+            isVideo: item.isVideo,
+            title: titleEn,
+            bengaliTitle: titleBn,
+            soundCue: soundCue
+          });
+        },
+        onMetadataReady: (item) => {
+          const current = project.frames[currentIndex];
+          if (item.thumbnailUrl && current) {
+            thumbnailMemoryCache.set(String(current.id ?? currentIndex + 1), item.thumbnailUrl);
+            thumbnailMemoryCache.set(`shot_${currentIndex}`, item.thumbnailUrl);
+            handleUpdateFrame({
+              ...current,
+              thumbnailUrl: item.thumbnailUrl
+            });
+            useStudioStore.getState().updateShot(currentIndex, {
+              thumbnailUrl: item.thumbnailUrl
+            });
+          }
+        }
       });
     } catch (err) {
-      console.warn('[App] Vault media persistence error:', err);
-      url = URL.createObjectURL(file);
-      thumbUrl = !isVideo ? url : '';
-    }
-
-    const current = project.frames[currentIndex];
-    if (thumbUrl) {
-      thumbnailMemoryCache.set(String(current?.id ?? currentIndex + 1), thumbUrl);
-      thumbnailMemoryCache.set(`shot_${currentIndex}`, thumbUrl);
-    }
-
-    // 2. Auto-pair with default high-impact bilingual title overlays and audio cue
-    const shotNum = String(currentIndex + 1).padStart(3, '0');
-    const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
-      ? `SH${shotNum} // KINETIC FLOW`
-      : current.title;
-    const titleBn = (!current.bengaliTitle || current.bengaliTitle.includes('নতুন ফ্রেম'))
-      ? `দৃশ্য ${shotNum} // গতিশীল দৃষ্টিভঙ্গি`
-      : current.bengaliTitle;
-    const soundCue = current.soundCue || 'Cinematic Tension Bass // 24fps Stem';
-
-    handleUpdateFrame({
-      ...current,
-      imageUrl: url,
-      thumbnailUrl: thumbUrl || current.thumbnailUrl,
-      isVideo: isVideo,
-      title: titleEn,
-      bengaliTitle: titleBn,
-      soundCue: soundCue
-    });
-
-    try {
-      useStudioStore.getState().updateShot(currentIndex, {
-        imageUrl: url,
-        thumbnailUrl: thumbUrl || current.thumbnailUrl,
-        isVideo: isVideo,
-        title: titleEn,
-        bengaliTitle: titleBn,
-        soundCue: soundCue
-      });
-    } catch {
-      // safe fallback
+      console.warn('[RECOVERY FALLBACK] handleUploadImage error:', err);
     }
   }, [currentIndex, project.frames, handleUpdateFrame]);
 

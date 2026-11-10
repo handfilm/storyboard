@@ -44,6 +44,7 @@ import {
   thumbnailMemoryCache, 
   cleanupVideoElement 
 } from '../../services/thumbnailEngine';
+import { handleFileUpload } from '../../services/mediaIngestService';
 import { useTitleContainerRepaint } from '../../hooks/useTitleContainerRepaint';
 import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
 import { audioEngine } from '../../utils/audioEngine';
@@ -725,81 +726,44 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       setIsIngesting(true);
       const safetyTimeout = window.setTimeout(() => {
         setIsIngesting(false);
       }, 2500);
 
       try {
-        const objectUrl = URL.createObjectURL(file);
-        setSourceUrl(objectUrl);
-        setProxyUrl(objectUrl);
-        const isVideo = file.type.startsWith('video/');
-
-        if (onUpdateFrame) {
-          onUpdateFrame({
-            ...frame,
-            imageUrl: objectUrl,
-            isVideo
-          });
-        }
-
-        const mediaId = `vault_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-        let posterDataUrl = '';
-
-        if (isVideo) {
-          try {
-            const posterResult = await extractVideoPoster(file);
-            posterDataUrl = posterResult.base64;
-            thumbnailMemoryCache.set(mediaId, posterDataUrl);
-            thumbnailMemoryCache.set(String(frame?.id ?? currentIndex), posterDataUrl);
-            thumbnailMemoryCache.set(`shot_${currentIndex}`, posterDataUrl);
-            setCachedPosterUrl(posterDataUrl);
-
+        await handleFileUpload(e.dataTransfer.files, {
+          shotIndex: currentIndex,
+          onImmediatePreview: (item) => {
+            setSourceUrl(item.objectUrl);
+            setProxyUrl(item.objectUrl);
             if (onUpdateFrame) {
               onUpdateFrame({
                 ...frame,
-                imageUrl: objectUrl,
-                thumbnailUrl: posterDataUrl,
-                isVideo: true
+                imageUrl: item.objectUrl,
+                isVideo: item.isVideo
               });
             }
-          } catch (err) {
-            console.warn('Poster extraction during drop:', err);
+          },
+          onMetadataReady: (item) => {
+            if (item.thumbnailUrl) {
+              setCachedPosterUrl(item.thumbnailUrl);
+              thumbnailMemoryCache.set(String(frame?.id ?? currentIndex), item.thumbnailUrl);
+              thumbnailMemoryCache.set(`shot_${currentIndex}`, item.thumbnailUrl);
+            }
+            if (onUpdateFrame) {
+              onUpdateFrame({
+                ...frame,
+                imageUrl: item.objectUrl,
+                thumbnailUrl: item.thumbnailUrl || undefined,
+                isVideo: item.isVideo
+              });
+            }
           }
-        }
-
-        // Asynchronously save to IndexedDB and OPFS in background without holding UI hostage
-        (async () => {
-          try {
-            await studioDraftDb.addVaultMediaItem({
-              id: mediaId,
-              name: file.name,
-              mimeType: file.type || 'video/mp4',
-              size: file.size,
-              blob: file,
-              thumbnailUrl: posterDataUrl,
-              createdAt: Date.now(),
-              assignedShotIndex: currentIndex
-            });
-            await studioDraftDb.setTimelineSlot(currentIndex, mediaId);
-            await studioDraftDb.generateProxyForMedia(mediaId, file);
-          } catch (err) {
-            console.warn('[Background Vault Persistence Note]:', err);
-          }
-        })();
-
-        opfsMediaStorage.storeSourceFile(mediaId, file, file.name).then(async (asset) => {
-          await opfsMediaStorage.generate720pScrubProxy(file, mediaId, asset.dimensions);
-          console.info(`*Verification:* [OPFS Ingestion & Fast Proxy] Ingested ${mediaId} into OPFS & created 720p 24fps proxy.`);
-        }).catch((err) => {
-          console.warn('[OPFS Ingestion Warning]', err);
         });
-
       } catch (err) {
-        console.error('Failed to ingest dropped media:', err);
+        console.warn('[RECOVERY FALLBACK] Failed to ingest dropped media:', err);
       } finally {
         window.clearTimeout(safetyTimeout);
         setIsIngesting(false);
@@ -816,20 +780,51 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     }
   };
 
-  const getAspectStyle = (ar: string) => {
+  // Dynamic Aspect Ratio Auto-Fitting:
+  // - Vertical (9:16): Auto-fit stage height with dynamic pillarbox margins (calc(76vh * 9 / 16))
+  // - Landscape (16:9 / 2.39:1): Auto-fit stage width edge-to-edge up to max 1360px
+  const getAspectStyle = (ar: string): React.CSSProperties => {
     switch (ar) {
-      case '2.39:1':
-        return { aspectRatio: '2.39 / 1' };
-      case '16:9':
-        return { aspectRatio: '16 / 9' };
-      case '4:3':
-        return { aspectRatio: '4 / 3' };
-      case '1:1':
-        return { aspectRatio: '1 / 1' };
       case '9:16':
-        return { aspectRatio: '9 / 16' };
+        return {
+          aspectRatio: '9 / 16',
+          height: '76vh',
+          maxHeight: '76vh',
+          width: 'calc(76vh * 9 / 16)',
+          maxWidth: '100%',
+          margin: '0 auto'
+        };
+      case '1:1':
+        return {
+          aspectRatio: '1 / 1',
+          height: '76vh',
+          maxHeight: '76vh',
+          width: '76vh',
+          maxWidth: '100%',
+          margin: '0 auto'
+        };
+      case '4:3':
+        return {
+          aspectRatio: '4 / 3',
+          width: '100%',
+          maxWidth: '1360px',
+          maxHeight: '76vh'
+        };
+      case '16:9':
+        return {
+          aspectRatio: '16 / 9',
+          width: '100%',
+          maxWidth: '1360px',
+          maxHeight: '76vh'
+        };
+      case '2.39:1':
       default:
-        return { aspectRatio: '2.39 / 1' };
+        return {
+          aspectRatio: '2.39 / 1',
+          width: '100%',
+          maxWidth: '1360px',
+          maxHeight: '76vh'
+        };
     }
   };
 
@@ -844,32 +839,42 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       <input
         type="file"
         ref={fileInputRef}
-        accept="video/*,image/*"
+        accept="video/*,image/*,.mp4,.mov,.webm,.m4v,.avi,.mkv"
         className="hidden"
         onChange={async (e) => {
-          if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const url = URL.createObjectURL(file);
-            setSourceUrl(url);
-            setProxyUrl(url);
-            let posterDataUrl = '';
-            if (file.type.startsWith('video/')) {
-              try {
-                const posterResult = await extractVideoPoster(file);
-                posterDataUrl = posterResult.base64;
-                thumbnailMemoryCache.set(String(frame?.id || currentIndex), posterDataUrl);
-                setCachedPosterUrl(posterDataUrl);
-              } catch (err) {
-                console.warn('Poster extraction during file select:', err);
-              }
-            }
-            if (onUpdateFrame) {
-              onUpdateFrame({
-                ...frame,
-                imageUrl: url,
-                thumbnailUrl: posterDataUrl || undefined,
-                isVideo: file.type.startsWith('video/')
+          if (e.target.files && e.target.files.length > 0) {
+            try {
+              await handleFileUpload(e.target.files, {
+                shotIndex: currentIndex,
+                onImmediatePreview: (item) => {
+                  setSourceUrl(item.objectUrl);
+                  setProxyUrl(item.objectUrl);
+                  if (onUpdateFrame) {
+                    onUpdateFrame({
+                      ...frame,
+                      imageUrl: item.objectUrl,
+                      isVideo: item.isVideo
+                    });
+                  }
+                },
+                onMetadataReady: (item) => {
+                  if (item.thumbnailUrl) {
+                    setCachedPosterUrl(item.thumbnailUrl);
+                    thumbnailMemoryCache.set(String(frame?.id ?? currentIndex), item.thumbnailUrl);
+                    thumbnailMemoryCache.set(`shot_${currentIndex}`, item.thumbnailUrl);
+                  }
+                  if (onUpdateFrame) {
+                    onUpdateFrame({
+                      ...frame,
+                      imageUrl: item.objectUrl,
+                      thumbnailUrl: item.thumbnailUrl || undefined,
+                      isVideo: item.isVideo
+                    });
+                  }
+                }
               });
+            } catch (err) {
+              console.warn('[RECOVERY FALLBACK] File upload input error:', err);
             }
           }
         }}
@@ -923,7 +928,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         className="relative w-full max-h-[76vh] max-w-[1360px] mx-auto bg-black border border-white/10 rounded-[2px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center group"
       >
         {/* WebCodecs Hardware Ping-Pong Compositor Viewport */}
-        {isWebCodecsEngineActive ? (
+        {isWebCodecsEngineActive && activeMediaUrl ? (
           <div className="w-full h-full relative z-10 flex items-center justify-center">
             <WebCodecsStageCompositor
               currentMediaUrl={activeMediaUrl}
@@ -934,6 +939,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               slideTimeSec={slideTimeSec}
               durationSec={activeShotDurationSec}
               aspectRatio={typeof aspectRatio === 'string' ? aspectRatio : '2.39:1'}
+              onError={(err) => {
+                console.warn('[RECOVERY FALLBACK] WebCodecsStageCompositor failed, reverting to 2D Canvas:', err);
+                setIsWebCodecsEngineActive(false);
+              }}
               className="w-full h-full"
             />
           </div>

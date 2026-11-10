@@ -210,32 +210,39 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     setIngestDone(0);
 
     const BATCH_SIZE = 3;
-    for (let i = 0; i < files.length && !isCancelledRef.current; i += BATCH_SIZE) {
-      const chunk = files.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        chunk.map(async (file) => {
-          setCurrentIngestFilename(file.name);
-          try {
-            const savedItem = await db.saveMediaToVault(file);
-            // Immediately append newly saved item into local React state in real time
-            setVaultItems(prev => {
-              const filtered = prev.filter(p => p.id !== savedItem.id);
-              return [savedItem, ...filtered];
-            });
-          } catch (err) {
-            console.warn('[Ingest Queue] Failed to save file:', file.name, err);
-          }
-        })
-      );
-      setIngestDone(Math.min(files.length, i + chunk.length));
+    try {
+      for (let i = 0; i < files.length && !isCancelledRef.current; i += BATCH_SIZE) {
+        const chunk = files.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          chunk.map(async (file) => {
+            setCurrentIngestFilename(file.name);
+            try {
+              const savedItem = await db.saveMediaToVault(file);
+              // Immediately append newly saved item into local React state in real time
+              setVaultItems(prev => {
+                const filtered = prev.filter(p => p.id !== savedItem.id);
+                return [savedItem, ...filtered];
+              });
+            } catch (err) {
+              console.warn('[RECOVERY FALLBACK] Ingest Queue failed to save file:', file.name, err);
+            }
+          })
+        );
+        setIngestDone(Math.min(files.length, i + chunk.length));
+      }
+    } catch (err) {
+      console.warn('[RECOVERY FALLBACK] runBatchIngestion error:', err);
+    } finally {
+      setIsIngesting(false);
+      setCurrentIngestFilename('');
+      try {
+        // Final synchronization pass with IndexedDB
+        const finalVault = await db.getMasterVaultMedia();
+        setVaultItems(finalVault);
+      } catch (err) {
+        console.warn('[RECOVERY FALLBACK] Final vault sync error:', err);
+      }
     }
-
-    setIsIngesting(false);
-    setCurrentIngestFilename('');
-
-    // Final synchronization pass with IndexedDB (strict master user vault query)
-    const finalVault = await db.getMasterVaultMedia();
-    setVaultItems(finalVault);
   };
 
   // Recursive Directory Reader for Dropped Folders

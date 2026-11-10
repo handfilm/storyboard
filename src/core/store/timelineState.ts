@@ -183,6 +183,102 @@ export const appendClipToTimeline = addShotToTimeline;
 export const addShot = addShotToTimeline;
 export const appendClip = addShotToTimeline;
 
+/**
+ * Non-destructive removal of a shot from the global timeline.
+ */
+export function removeShotFromTimeline(index: number): boolean {
+  try {
+    const currentStore = useStudioStore.getState();
+    const currentShots = currentStore.project?.shots || [];
+    if (index < 0 || index >= currentShots.length || currentShots.length <= 1) {
+      return false;
+    }
+    const nextShots = currentShots.filter((_, i) => i !== index);
+    const safeIndex = Math.min(nextShots.length - 1, Math.max(0, index === currentStore.activeShotIndex ? index - 1 : currentStore.activeShotIndex ?? 0));
+
+    useStudioStore.setState((state) => ({
+      ...state,
+      project: {
+        ...state.project,
+        shots: nextShots
+      },
+      activeShotIndex: safeIndex
+    }));
+
+    eventBus.emit('timeline:remove_shot', { index });
+    eventBus.emit('shot:change', safeIndex);
+    return true;
+  } catch (err) {
+    console.warn('[RECOVERY FALLBACK] removeShotFromTimeline error:', err);
+    return false;
+  }
+}
+
+/**
+ * Non-destructive duplication of a shot on the global timeline.
+ */
+export function duplicateShotOnTimeline(index: number): Shot | null {
+  try {
+    const currentStore = useStudioStore.getState();
+    const currentShots = currentStore.project?.shots || [];
+    if (index < 0 || index >= currentShots.length) return null;
+
+    const source = currentShots[index];
+    const newIndex = index + 1;
+    const duplicated: Shot = {
+      ...source,
+      id: Date.now(),
+      epNumber: String(newIndex + 1).padStart(3, '0'),
+      title: `${source.title || 'Shot'} (Copy)`,
+      updatedAt: Date.now()
+    };
+
+    const nextShots = [...currentShots.slice(0, newIndex), duplicated, ...currentShots.slice(newIndex)];
+
+    useStudioStore.setState((state) => ({
+      ...state,
+      project: {
+        ...state.project,
+        shots: nextShots
+      },
+      activeShotIndex: newIndex
+    }));
+
+    eventBus.emit('timeline:add_shot', { shot: duplicated, index: newIndex });
+    eventBus.emit('shot:change', newIndex);
+    return duplicated;
+  } catch (err) {
+    console.warn('[RECOVERY FALLBACK] duplicateShotOnTimeline error:', err);
+    return null;
+  }
+}
+
+/**
+ * Non-destructive reordering of shots on the global timeline.
+ */
+export function reorderShotsOnTimeline(newShots: Shot[]): boolean {
+  try {
+    if (!Array.isArray(newShots) || newShots.length === 0) return false;
+    const currentStore = useStudioStore.getState();
+    const safeActiveIndex = Math.max(0, Math.min(newShots.length - 1, currentStore.activeShotIndex ?? 0));
+
+    useStudioStore.setState((state) => ({
+      ...state,
+      project: {
+        ...state.project,
+        shots: [...newShots]
+      },
+      activeShotIndex: safeActiveIndex
+    }));
+
+    eventBus.emit('timeline:reorder', { shots: newShots });
+    return true;
+  } catch (err) {
+    console.warn('[RECOVERY FALLBACK] reorderShotsOnTimeline error:', err);
+    return false;
+  }
+}
+
 export interface DopamineTemplateParameters {
   presetId?: string;
   presetName?: string;

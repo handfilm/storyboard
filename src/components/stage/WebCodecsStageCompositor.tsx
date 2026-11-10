@@ -71,6 +71,7 @@ export interface WebCodecsStageCompositorProps {
   durationSec?: number;
   aspectRatio?: string;
   onTimeUpdate?: (timeSec: number) => void;
+  onError?: (err: any) => void;
   className?: string;
 }
 
@@ -84,6 +85,7 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
   durationSec = 12.0,
   aspectRatio = '2.39:1',
   onTimeUpdate,
+  onError,
   className = ''
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -196,23 +198,37 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      console.warn('[RECOVERY FALLBACK] WebGL2 context lost, triggering 2D fallback.');
+      if (onError) onError(new Error('WebGL2 context lost'));
+    };
+    canvas.addEventListener('webglcontextlost', handleContextLost, false);
+
     try {
       const compositor = new WebGL2PingPongCompositor(canvas);
       compositorRef.current = compositor;
       addLog('*Verification:* [WebGL2 Pipeline] Shaders compiled & linked successfully.');
     } catch (err) {
-      console.error('[WebCodecsStageCompositor] WebGL2 init error:', err);
+      console.warn('[RECOVERY FALLBACK] WebGL2 Pipeline failed, engaging fallback:', err);
       addLog(`[Error] WebGL2 Pipeline failed: ${err}`);
+      if (onError) onError(err);
     }
 
-    const queue = new WebCodecsLookaheadQueue(24);
-    lookaheadQueueRef.current = queue;
-
-    const unsubQueue = queue.onTelemetry((t) => {
-      setQueueTelemetry(t);
-    });
+    let queue: WebCodecsLookaheadQueue | null = null;
+    let unsubQueue = () => {};
+    try {
+      queue = new WebCodecsLookaheadQueue(24);
+      lookaheadQueueRef.current = queue;
+      unsubQueue = queue.onTelemetry((t) => {
+        setQueueTelemetry(t);
+      });
+    } catch (qErr) {
+      console.warn('[RECOVERY FALLBACK] WebCodecsLookaheadQueue init note:', qErr);
+    }
 
     return () => {
+      canvas.removeEventListener('webglcontextlost', handleContextLost);
       unsubQueue();
       if (lookaheadQueueRef.current) {
         lookaheadQueueRef.current.destroy();
@@ -223,7 +239,7 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
         compositorRef.current = null;
       }
     };
-  }, [addLog]);
+  }, [addLog, onError]);
 
   // Master Render & 24fps Frame Pacing Loop
   useEffect(() => {

@@ -156,19 +156,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     if (e.target.files && e.target.files[0] && uploadTargetIndex !== null && onUploadMedia) {
       const file = e.target.files[0];
       try {
-        await studioDraftDb.putMediaBlob(`media_shot_${uploadTargetIndex + 1}_${Date.now()}`, file, file.type, file.name);
-        if (file.type.startsWith('video/')) {
-          try {
-            const poster = await extractVideoPoster(file);
-            thumbnailMemoryCache.set(slides[uploadTargetIndex]?.id || `shot_${uploadTargetIndex}`, poster.base64);
-          } catch {
-            // optional poster cache
-          }
-        }
-      } catch {
-        // ignore IndexedDB quota warnings
+        onUploadMedia(uploadTargetIndex, file);
+      } catch (err) {
+        console.warn('[RECOVERY FALLBACK] TimelineSequencer onUploadMedia error:', err);
       }
-      onUploadMedia(uploadTargetIndex, file);
     }
     e.target.value = '';
     setUploadTargetIndex(null);

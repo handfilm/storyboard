@@ -42,6 +42,9 @@ import { MultiCamViewportGrid, MultiCamGridConfig } from './MultiCamViewportGrid
 import { multiCamRenderPipeline } from '../../services/multiCamRenderPipeline';
 import { VaultMediaItem, db } from '../../services/db';
 import { samplePacks } from '../../data/frames';
+import { EventSourcedJournal } from '../../services/media/eventSourcedJournal';
+import { proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';
+import { multiCamSyncEngine } from '../../services/multiCamSyncEngine';
 
 export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
   id: 'multicam-default-group',
@@ -128,6 +131,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   const [layoutPreset, setLayoutPreset] = useState<MultiCamGridConfig>(controlledConfig || '2x2');
   const [isExpanded, setIsExpanded] = useState(false);
   const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(null);
+  const [isAfvEnabled, setIsAfvEnabled] = useState(false);
+  const [isSynthesizingFeeds, setIsSynthesizingFeeds] = useState(false);
+  const [synthesisProgress, setSynthesisProgress] = useState<string | null>(null);
 
   // Undo/Redo append-only cut log stack
   const [cutStack, setCutStack] = useState<MultiCamCutEvent[]>([]);
@@ -151,6 +157,116 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   useEffect(() => {
     setGroup(initialGroup);
   }, [initialGroup]);
+
+  // Auto-provision 4 distinct synchronized video sources if not already present
+  useEffect(() => {
+    let isCancelled = false;
+    const needsVideoSources = group.angles.some(
+      a => !a.blobUrl || (!a.blobUrl.startsWith('blob:') && !a.blobUrl.endsWith('.mp4') && !a.blobUrl.endsWith('.webm'))
+    );
+
+    if (needsVideoSources && !isSynthesizingFeeds) {
+      setIsSynthesizingFeeds(true);
+      proceduralMultiCamFeeds.getSynchronizedAngles(
+        group.angles[group.activeAngleIndex || 0]?.id || 'ang-1',
+        (idx, total, label) => {
+          if (!isCancelled) {
+            setSynthesisProgress(`Synthesizing ${label} (${idx + 1}/${total})...`);
+          }
+        }
+      ).then(synchedAngles => {
+        if (!isCancelled && synchedAngles && synchedAngles.length > 0) {
+          setGroup(prev => {
+            const merged = prev.angles.map((oldAngle, idx) => {
+              const synched = synchedAngles[idx];
+              if (!synched) return oldAngle;
+              return {
+                ...oldAngle,
+                blobUrl: synched.blobUrl || oldAngle.blobUrl,
+                name: oldAngle.name || synched.name
+              };
+            });
+            const next = { ...prev, angles: merged };
+            onSaveGroup?.(next);
+            return next;
+          });
+          setIsSynthesizingFeeds(false);
+          setSynthesisProgress(null);
+        }
+      }).catch(err => {
+        console.warn('[MultiCamGridMonitor] Procedural feed generation error:', err);
+        if (!isCancelled) {
+          setIsSynthesizingFeeds(false);
+          setSynthesisProgress(null);
+        }
+      });
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // Upload or replace video file for a specific camera angle
+  const handleUploadAngleVideo = useCallback(async (angleIndex: number, file: File) => {
+    try {
+      const blobUrl = URL.createObjectURL(file);
+      const angleName = file.name.replace(/\.[^/.]+$/, '');
+
+      setGroup(prev => {
+        const updated = [...prev.angles];
+        if (updated[angleIndex]) {
+          updated[angleIndex] = {
+            ...updated[angleIndex],
+            blobUrl,
+            name: angleName,
+            mediaId: `user-${Date.now()}`
+          };
+        }
+        const next = { ...prev, angles: updated };
+        onSaveGroup?.(next);
+        return next;
+      });
+
+      setSendSuccessMessage(`⚡ Ingested "${file.name}" into CAM 0${angleIndex + 1}!`);
+      setTimeout(() => setSendSuccessMessage(null), 3000);
+
+      multiCamSyncEngine.extractAudioBuffer(blobUrl).then(buffer => {
+        if (buffer) {
+          console.log(`[MultiCamGridMonitor] Audio decoded for CAM 0${angleIndex + 1}`);
+        }
+      }).catch(() => {});
+    } catch (err: any) {
+      console.warn('[MultiCamGridMonitor] Upload video error:', err);
+    }
+  }, [onSaveGroup]);
+
+  // Re-synthesize fresh cinema feeds on demand
+  const handleResynthesizeFeeds = useCallback(async () => {
+    setIsSynthesizingFeeds(true);
+    try {
+      const synchedAngles = await proceduralMultiCamFeeds.getSynchronizedAngles(
+        group.angles[group.activeAngleIndex || 0]?.id || 'ang-1',
+        (idx, total, label) => {
+          setSynthesisProgress(`Synthesizing ${label} (${idx + 1}/${total})...`);
+        }
+      );
+      if (synchedAngles && synchedAngles.length > 0) {
+        setGroup(prev => {
+          const next = { ...prev, angles: synchedAngles };
+          onSaveGroup?.(next);
+          return next;
+        });
+        setSendSuccessMessage('⚡ 4 Cinema Camera Video Feeds Synthesized & Locked!');
+        setTimeout(() => setSendSuccessMessage(null), 3000);
+      }
+    } catch (e: any) {
+      console.warn('[MultiCamGridMonitor] Synthesize error:', e);
+    } finally {
+      setIsSynthesizingFeeds(false);
+      setSynthesisProgress(null);
+    }
+  }, [group.activeAngleIndex, group.angles, onSaveGroup]);
 
   // Master audio angle index (CAM 01 by default / index 0)
   const masterAudioIndex = Math.max(0, Math.min(group.angles.length - 1, group.masterAudioAngleIndex || 0));
@@ -211,6 +327,21 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         activeAngleIndex: angleIndex,
         cutEvents: updatedCuts
       };
+
+      // Commit to event-sourced transaction journal
+      EventSourcedJournal.getInstance().commitAction({
+        actionType: 'SPLIT_SHOT',
+        frameIndex: frameNum,
+        payload: {
+          angleIndex,
+          timeMs: currentTimeMs,
+          label: prev.angles[angleIndex]?.label || `CAM 0${angleIndex + 1}`
+        },
+        inversePayload: {
+          previousAngle: prevAngle,
+          timeMs: currentTimeMs
+        }
+      }).catch(() => {});
 
       onSaveGroup?.(next);
       return next;
@@ -298,6 +429,13 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         }
       }
 
+      // Hotkey 'a' or 'A': Toggle Audio Follows Video (AFV)
+      if ((e.key === 'a' || e.key === 'A') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setIsAfvEnabled(a => !a);
+        return;
+      }
+
       // Spacebar toggles Play/Pause with zero latency
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
@@ -365,8 +503,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           video.currentTime = targetSec;
         }
 
-        // Configure continuous audio routing: strictly unmute master audio angle without reset
-        if (idx === masterAudioIndex) {
+        // Configure continuous audio routing: respect Audio Follows Video (AFV) or Master Audio
+        const effectiveSoundIdx = isAfvEnabled ? currentActiveAngleIdx : masterAudioIndex;
+        if (idx === effectiveSoundIdx) {
           video.muted = isMuted;
           video.volume = masterVolume;
         } else {
@@ -448,7 +587,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [isPlaying, isLooping, durationMs, group.angles, masterAudioIndex, isMuted, masterVolume, isOpen, layoutPreset, controlledConfig, currentActiveAngleIdx]);
+  }, [isPlaying, isLooping, durationMs, group.angles, masterAudioIndex, isMuted, masterVolume, isOpen, layoutPreset, controlledConfig, currentActiveAngleIdx, isAfvEnabled]);
 
   // Handle Scrubbing
   const handleSeekMs = (targetMs: number) => {
@@ -523,6 +662,33 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
         {/* Header Actions */}
         <div className="flex items-center gap-2.5">
+          {/* AFV Mode Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsAfvEnabled(a => !a)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              isAfvEnabled
+                ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                : 'bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-400 hover:text-white'
+            }`}
+            title="Toggle Audio Follows Video (Key 'A'): Automatically routes audio to currently focused camera"
+          >
+            <Radio className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{isAfvEnabled ? 'AFV ON (AUTO SOUND)' : 'CAM 1 SOUND LOCKED'}</span>
+          </button>
+
+          {/* Re-Synthesize Cinema Video Feeds */}
+          <button
+            type="button"
+            onClick={handleResynthesizeFeeds}
+            disabled={isSynthesizingFeeds}
+            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-40 transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Re-synthesize all 4 camera feeds with fresh procedural cinematography and audio"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#FFE066] ${isSynthesizingFeeds ? 'animate-spin' : ''}`} />
+            <span>{isSynthesizingFeeds ? (synthesisProgress || 'Generating...') : 'Re-Gen 4 Feeds'}</span>
+          </button>
+
           {/* Direct Send to Master Storyboard Timeline */}
           <button
             type="button"
@@ -535,7 +701,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
             title="Send multi-camera live cuts directly to Master Storyboard Shots 001-100"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>⚡ Send Multi-Cam Sequence to Master Timeline (Shots 001-100)</span>
+            <span>⚡ Send Cuts to Storyboard (001-100)</span>
           </button>
 
           <button
@@ -545,7 +711,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
             title="Undo last live cut (Ctrl+Z / Cmd+Z)"
           >
             <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>↶ Undo Cut</span>
+            <span>↶ Undo</span>
           </button>
 
           <button
@@ -555,7 +721,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
             title="Redo cut (Ctrl+Y / Cmd+Y / Ctrl+Shift+Z)"
           >
             <RotateCw className="w-3.5 h-3.5 text-cyan-400" />
-            <span>↷ Redo Cut</span>
+            <span>↷ Redo</span>
           </button>
 
           <button
@@ -597,6 +763,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           isMuted={isMuted}
           masterAudioIndex={masterAudioIndex}
           onSelectAngle={switchAngle}
+          onUploadAngleVideo={handleUploadAngleVideo}
           videoRefs={videoRefs}
           config={controlledConfig !== undefined ? controlledConfig : layoutPreset}
           onChangeConfig={(cfg) => {

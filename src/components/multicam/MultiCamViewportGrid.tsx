@@ -40,14 +40,49 @@ import {
   Sliders,
   Sparkles,
   Check,
-  ChevronDown
+  ChevronDown,
+  Upload
 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
 import { samplePacks } from '../../data/frames';
 import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
 import { MultiCamGridSelectionMenu } from './MultiCamGridSelectionMenu';
+import { ANGLE_CONFIGS, proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';
 
 export type MultiCamGridConfig = '1x1' | '1x3' | '2x2';
+
+export const ProceduralAngleCanvas: React.FC<{
+  index: number;
+  currentTimeMs: number;
+  isActive: boolean;
+  label: string;
+}> = ({ index, currentTimeMs, isActive }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
+
+    const config = ANGLE_CONFIGS[index % ANGLE_CONFIGS.length];
+    if (config) {
+      const timeSec = currentTimeMs / 1000;
+      const frame = Math.floor(timeSec * 24);
+      config.renderFrame(ctx, canvas.width, canvas.height, timeSec, frame);
+      proceduralMultiCamFeeds.drawCinemaTelemetryHUD(ctx, canvas.width, canvas.height, timeSec, config, isActive ? config.id : '');
+    }
+  }, [index, currentTimeMs, isActive]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={480}
+      height={854}
+      className="w-full h-full object-cover pointer-events-none select-none"
+    />
+  );
+};
 
 export interface MultiCamViewportGridProps {
   group: MultiCamGroup;
@@ -59,6 +94,7 @@ export interface MultiCamViewportGridProps {
   masterAudioIndex?: number;
   onSelectAngle: (angleIndex: number) => void;
   onSetMasterAudio?: (angleIndex: number) => void;
+  onUploadAngleVideo?: (angleIndex: number, file: File) => void;
   videoRefs?: React.MutableRefObject<(HTMLVideoElement | null)[]>;
   config?: MultiCamGridConfig;
   onChangeConfig?: (config: MultiCamGridConfig) => void;
@@ -79,6 +115,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   masterAudioIndex = 0,
   onSelectAngle,
   onSetMasterAudio,
+  onUploadAngleVideo,
   videoRefs: externalVideoRefs,
   config: controlledConfig,
   onChangeConfig,
@@ -347,10 +384,9 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     return { transition: baseTransition };
   };
 
-  // Render video or image media element for a camera feed
+  // Render video or procedural moving canvas for a camera feed
   const renderAngleMedia = (angle: MultiCamAngle, index: number) => {
     const isVideo = angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm'));
-    const fallbackImage = samplePacks.cyberNoir[index % samplePacks.cyberNoir.length] || samplePacks.cosmicMacro[0];
 
     if (isVideo) {
       return (
@@ -365,12 +401,13 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
       );
     }
 
+    // High-performance procedural animated canvas fallback
     return (
-      <img
-        src={angle.blobUrl || fallbackImage}
-        crossOrigin="anonymous"
-        alt={angle.label}
-        className="w-full h-full object-cover pointer-events-none select-none transition-all duration-500"
+      <ProceduralAngleCanvas
+        index={index}
+        currentTimeMs={currentTimeMs}
+        isActive={index === heroIdx}
+        label={angle.label}
       />
     );
   };
@@ -591,6 +628,34 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5 pointer-events-auto">
+                    {/* Mini Dynamic VU Meter */}
+                    <div className="flex items-end gap-0.5 h-3 px-1.5 py-0.5 rounded bg-black/80 border border-white/10" title="Audio Activity">
+                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-3 bg-emerald-400 animate-pulse' : 'h-1 bg-white/20'}`} />
+                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-2.5 bg-emerald-400' : 'h-1 bg-white/20'}`} />
+                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-2 bg-amber-400' : 'h-1 bg-white/20'}`} />
+                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-1.5 bg-red-500' : 'h-1 bg-white/20'}`} />
+                    </div>
+
+                    {/* Video Upload input trigger */}
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1 rounded-md bg-black/80 hover:bg-white/15 border border-white/20 text-neutral-300 hover:text-white cursor-pointer transition-colors"
+                      title={`Upload custom video file for ${angle.label}`}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            onUploadAngleVideo?.(idx, file);
+                          }
+                        }}
+                      />
+                    </label>
+
                     {isMaster && (
                       <span className="p-1 rounded-md bg-black/80 border border-cyan-500/30 text-cyan-400" title="Master Audio Feed">
                         <Volume2 className="w-3.5 h-3.5" />
@@ -608,9 +673,14 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                         </span>
                       </div>
                     ) : (
-                      <span className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded-md bg-black/80 border border-white/20 text-neutral-300 font-mono text-[9px] transition-opacity">
-                        CLICK TO FOCUS
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 rounded bg-black/80 border border-white/20 text-neutral-300 font-mono text-[9px] transition-opacity">
+                          PRESS [{idx + 1}]
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-black/60 border border-white/10 text-neutral-400 font-mono text-[9px]">
+                          STANDBY
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -620,9 +690,14 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                   <span className="text-neutral-300 font-medium truncate max-w-[160px]">
                     {angle.name || `Angle 0${idx + 1}`}
                   </span>
-                  <span className="text-[#FFE066] font-bold tabular-nums">
-                    {angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : '0ms SYNC'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded text-[9px]">
+                      LOCKED 24FPS
+                    </span>
+                    <span className="text-[#FFE066] font-bold tabular-nums">
+                      {angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : '0ms SYNC'}
+                    </span>
+                  </div>
                 </div>
               </div>
             );

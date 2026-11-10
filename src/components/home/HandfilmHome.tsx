@@ -128,7 +128,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               </h2>
             </div>
 
-            <p className="text-xs font-mono text-zinc-400">
+            <p className="text-white/40 text-xs tracking-wider font-mono">
               STRICT 12.0S (288 FRAMES @ 24FPS) • 2.39:1 OPTICAL SCOPE
             </p>
           </div>
@@ -195,14 +195,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 {/* Bottom Shot Information Slate */}
                 <div className="relative p-3 bg-[#0d0d14] border-t border-[#232330] z-20 space-y-1">
                   <div className="text-right">
-                    <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">
+                    <span className="text-white/40 text-xs tracking-wider font-mono uppercase">
                       {frame.cameraSpec?.focalLength || '35mm Cine'}
                     </span>
                   </div>
                   <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-[#F5A623] transition-colors truncate">
                     {frame.bengaliTitle || 'সূচনা'} // {frame.title}
                   </h3>
-                  <p className="text-[10px] text-zinc-400 truncate font-mono">
+                  <p className="text-white/40 text-xs tracking-wider truncate font-mono">
                     {frame.tagline || '12.0s Narrative Arc Frame'}
                   </p>
                 </div>
@@ -408,7 +408,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               <span className="text-zinc-400 font-medium">Built for the cut. Not the queue.</span>
             </div>
 
-            <div className="font-mono text-[11px] text-zinc-600">
+            <div className="font-mono text-white/40 text-xs tracking-wider">
               HANDFILM // 12.0S CINEMA PREVIS & NLE ENGINE
             </div>
           </div>

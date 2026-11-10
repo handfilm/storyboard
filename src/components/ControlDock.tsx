@@ -883,21 +883,6 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
         {/* Right Section: Cinema Tools */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Kinetic Hero Titles Toggle: Symbol "T" ONLY */}
-          {onToggleTitles && (
-            <button
-              onClick={onToggleTitles}
-              className={`w-6 h-6 rounded-[2px] border font-serif text-xs font-black flex items-center justify-center cursor-pointer transition-all ${
-                showTitles
-                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.4)]'
-                  : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
-              }`}
-              title="Toggle Kinetic Hero Typography (T)"
-              aria-label="Toggle Kinetic Hero Typography"
-            >
-              <span>T</span>
-            </button>
-          )}
           {/* Stage HUD Overlay Toggle */}
           <button
             type="button"

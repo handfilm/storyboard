@@ -293,7 +293,42 @@ export const MultiCamPresetThumbnail: React.FC<MultiCamPresetThumbnailProps> = (
   }
 
   // =========================================================================
-  // 3. CONFIGURATION: 2x2 QUAD GRID PREVIEW
+  // 3. CONFIGURATION: 3x3 DIRECTORS GRID PREVIEW
+  // =========================================================================
+  if (config === '3x3') {
+    const nineAngles = effectiveAngles.slice(0, 9);
+    while (nineAngles.length < 9) {
+      nineAngles.push(DEFAULT_PREVIEW_ANGLES[nineAngles.length % DEFAULT_PREVIEW_ANGLES.length]);
+    }
+
+    if (size === 'sm') {
+      return (
+        <div
+          className={`relative w-6 h-4.5 rounded-[4px] border grid grid-cols-3 grid-rows-3 p-0.5 gap-0.5 overflow-hidden transition-all ${
+            isActive
+              ? 'border-cyan-400 shadow-[0_0_8px_rgba(0,240,255,0.5)] ring-1 ring-cyan-300'
+              : 'border-white/20 bg-neutral-900'
+          } ${className}`}
+          title="3x3 Directors Grid Preview"
+        >
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => {
+            const isSelected = idx === safeActiveIdx;
+            return (
+              <div
+                key={idx}
+                className={`w-full h-full rounded-[1px] ${
+                  isSelected ? 'bg-cyan-400' : isActive ? 'bg-cyan-400/40' : 'bg-white/30'
+                }`}
+              />
+            );
+          })}
+        </div>
+      );
+    }
+  }
+
+  // =========================================================================
+  // 4. CONFIGURATION: 2x2 QUAD GRID PREVIEW
   // =========================================================================
   // 4 Quadrants
   const quadAngles = effectiveAngles.slice(0, 4);

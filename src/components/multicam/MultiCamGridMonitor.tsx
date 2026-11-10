@@ -48,12 +48,12 @@ import { multiCamSyncEngine } from '../../services/multiCamSyncEngine';
 
 export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
   id: 'multicam-default-group',
-  name: 'DIRECTOR MULTI-CAM 4-ANGLE SYNC',
+  name: 'DIRECTOR MULTI-CAM 9-CAMERA DIRECTORS GRID',
   angles: [
     {
       id: 'ang-1',
       mediaId: 'm1',
-      label: 'CAM 01 (WIDE)',
+      label: 'CAM 01',
       blobUrl: samplePacks.cyberNoir[0] || '',
       aspectRatio: 9 / 16,
       syncOffsetMs: 0,
@@ -62,7 +62,7 @@ export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
     {
       id: 'ang-2',
       mediaId: 'm2',
-      label: 'CAM 02 (MEDIUM)',
+      label: 'CAM 02',
       blobUrl: samplePacks.cosmicMacro[1] || '',
       aspectRatio: 9 / 16,
       syncOffsetMs: 0,
@@ -71,7 +71,7 @@ export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
     {
       id: 'ang-3',
       mediaId: 'm3',
-      label: 'CAM 03 (CLOSE)',
+      label: 'CAM 03',
       blobUrl: samplePacks.liquidGold[2] || '',
       aspectRatio: 9 / 16,
       syncOffsetMs: 0,
@@ -80,11 +80,56 @@ export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
     {
       id: 'ang-4',
       mediaId: 'm4',
-      label: 'CAM 04 (LOW ANG)',
+      label: 'CAM 04',
       blobUrl: samplePacks.cyberNoir[3] || '',
       aspectRatio: 9 / 16,
       syncOffsetMs: 0,
       name: 'Low-Angle 24mm f/1.8'
+    },
+    {
+      id: 'ang-5',
+      mediaId: 'm5',
+      label: 'CAM 05',
+      blobUrl: samplePacks.liquidGold[0] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Overhead Tracking 18mm'
+    },
+    {
+      id: 'ang-6',
+      mediaId: 'm6',
+      label: 'CAM 06',
+      blobUrl: samplePacks.cosmicMacro[2] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Macro Profile 100mm Cine'
+    },
+    {
+      id: 'ang-7',
+      mediaId: 'm7',
+      label: 'CAM 07',
+      blobUrl: samplePacks.cyberNoir[1] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Steadicam Orbit 28mm'
+    },
+    {
+      id: 'ang-8',
+      mediaId: 'm8',
+      label: 'CAM 08',
+      blobUrl: samplePacks.liquidGold[1] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Dutch Tilt 40mm Cine'
+    },
+    {
+      id: 'ang-9',
+      mediaId: 'm9',
+      label: 'CAM 09',
+      blobUrl: samplePacks.cosmicMacro[0] || '',
+      aspectRatio: 9 / 16,
+      syncOffsetMs: 0,
+      name: 'Master Telephoto 135mm'
     }
   ],
   duration: 12.0,

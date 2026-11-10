@@ -49,7 +49,7 @@ import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
 import { MultiCamGridSelectionMenu } from './MultiCamGridSelectionMenu';
 import { ANGLE_CONFIGS, proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';
 
-export type MultiCamGridConfig = '1x1' | '1x3' | '2x2';
+export type MultiCamGridConfig = '1x1' | '1x3' | '2x2' | '3x3';
 
 export const ProceduralAngleCanvas: React.FC<{
   index: number;
@@ -129,7 +129,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   const internalVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const videoRefs = externalVideoRefs || internalVideoRefs;
 
-  const [localConfig, setLocalConfig] = useState<MultiCamGridConfig>('2x2');
+  const [localConfig, setLocalConfig] = useState<MultiCamGridConfig>('3x3');
   const [localExpanded, setLocalExpanded] = useState<boolean>(false);
   const [isCompact, setIsCompact] = useState<boolean>(false);
   const [recentlySwitchedPreset, setRecentlySwitchedPreset] = useState<MultiCamGridConfig | null>(null);
@@ -177,7 +177,38 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     onSelectAngle(angleIdx);
   }, [onSelectAngle]);
 
-  // Keyboard shortcut listener: '1', '2', '3', '4' for instant camera switching; Alt+1/2/3 or 'c' for layout presets
+  // Safe angles up to 9 for 3x3 Directors Grid (CAM 01 through CAM 09)
+  const displayAngles = useMemo(() => {
+    const existing = group.angles || [];
+    const maxAngles = 9;
+    const angles: MultiCamAngle[] = [];
+    for (let i = 0; i < maxAngles; i++) {
+      if (existing[i]) {
+        angles.push({
+          ...existing[i],
+          label: existing[i].label?.startsWith('CAM') ? existing[i].label : `CAM ${String(i + 1).padStart(2, '0')}`
+        });
+      } else {
+        angles.push({
+          id: `ang-slot-${i + 1}`,
+          mediaId: `m-slot-${i + 1}`,
+          label: `CAM ${String(i + 1).padStart(2, '0')}`,
+          blobUrl: '',
+          aspectRatio: 9 / 16,
+          syncOffsetMs: 0,
+          name: `Standby Feed Angle ${i + 1}`
+        });
+      }
+    }
+    return angles;
+  }, [group.angles]);
+
+  const heroIdx = currentActiveAngleIdx < displayAngles.length ? currentActiveAngleIdx : 0;
+  const secondaryIndices = useMemo(() => {
+    return [0, 1, 2, 3, 4, 5, 6, 7, 8].slice(0, displayAngles.length).filter(i => i !== heroIdx);
+  }, [displayAngles.length, heroIdx]);
+
+  // Keyboard shortcut listener: Numeric keys '1' through '9' for live punch-in cuts; Alt+1/2/3/4 or 'c' for layout presets
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input or textarea
@@ -192,7 +223,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         return;
       }
 
-      // Alt + 1/2/3: Layout preset selection
+      // Alt + 1/2/3/4: Layout preset selection
       if (e.altKey && e.key === '1') {
         e.preventDefault();
         setConfig('1x1');
@@ -208,20 +239,25 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         setConfig('2x2');
         return;
       }
+      if (e.altKey && e.key === '4') {
+        e.preventDefault();
+        setConfig('3x3');
+        return;
+      }
 
       // Hotkey 'c' cycles layout presets
       if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
-        const cycleOrder: MultiCamGridConfig[] = ['1x1', '1x3', '2x2'];
+        const cycleOrder: MultiCamGridConfig[] = ['3x3', '2x2', '1x3', '1x1'];
         const nextIdx = (cycleOrder.indexOf(activeConfig) + 1) % cycleOrder.length;
         setConfig(cycleOrder[nextIdx]);
         return;
       }
 
-      // Direct punch-in camera switching: Number keys '1', '2', '3', '4' (and Numpad 1-4)
-      if (['1', '2', '3', '4'].includes(e.key) && !e.metaKey && !e.ctrlKey) {
+      // Direct punch-in camera switching: Number keys '1' through '9' for live punch-in cuts
+      if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const targetIndex = parseInt(e.key, 10) - 1;
-        if (targetIndex < group.angles.length) {
+        if (targetIndex < displayAngles.length) {
           e.preventDefault();
           handleSelectAngleWithFlash(targetIndex);
         }
@@ -230,7 +266,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setConfig, activeConfig, group.angles.length, handleSelectAngleWithFlash]);
+  }, [setConfig, activeConfig, displayAngles.length, handleSelectAngleWithFlash]);
 
   // Format timecode
   const formatTimecode = (ms: number) => {
@@ -241,19 +277,30 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
   };
 
-  // Safe angles up to 4
-  const displayAngles = useMemo(() => {
-    return group.angles.slice(0, 4);
-  }, [group.angles]);
-
-  const heroIdx = currentActiveAngleIdx < displayAngles.length ? currentActiveAngleIdx : 0;
-  const secondaryIndices = useMemo(() => {
-    return [0, 1, 2, 3].slice(0, displayAngles.length).filter(i => i !== heroIdx);
-  }, [displayAngles.length, heroIdx]);
-
   // Compute smooth morphing layout coordinates for angle `idx`
   const getCardLayoutStyle = (idx: number): React.CSSProperties => {
     const baseTransition = 'top 480ms cubic-bezier(0.25, 1, 0.5, 1), left 480ms cubic-bezier(0.25, 1, 0.5, 1), width 480ms cubic-bezier(0.25, 1, 0.5, 1), height 480ms cubic-bezier(0.25, 1, 0.5, 1), opacity 400ms ease, transform 480ms cubic-bezier(0.25, 1, 0.5, 1), border-color 200ms ease, box-shadow 200ms ease';
+
+    // 0. CONFIGURATION: 3x3 DIRECTORS GRID (3 columns x 3 rows = 9 angles)
+    if (activeConfig === '3x3') {
+      const col = idx % 3;
+      const row = Math.floor(idx / 3);
+      const topCalc = `calc(${row * 33.333}% + ${row === 0 ? 0 : row === 1 ? 3 : 6}px)`;
+      const leftCalc = `calc(${col * 33.333}% + ${col === 0 ? 0 : col === 1 ? 3 : 6}px)`;
+      return {
+        position: 'absolute',
+        top: topCalc,
+        left: leftCalc,
+        width: 'calc(33.333% - 6px)',
+        height: 'calc(33.333% - 6px)',
+        opacity: 1,
+        transform: 'scale(1)',
+        pointerEvents: 'auto',
+        zIndex: idx === heroIdx ? 20 : 10,
+        willChange: 'top, left, width, height, transform, opacity',
+        transition: baseTransition
+      };
+    }
 
     // 1. CONFIGURATION: 2x2 QUAD GRID
     if (activeConfig === '2x2') {
@@ -384,9 +431,10 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     return { transition: baseTransition };
   };
 
-  // Render video or procedural moving canvas for a camera feed
+  // Render video, image, or standby slate for a camera feed with Blank Media Safeguard
   const renderAngleMedia = (angle: MultiCamAngle, index: number) => {
     const isVideo = angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm'));
+    const isImage = angle.blobUrl && (angle.blobUrl.startsWith('http') || angle.blobUrl.startsWith('data:') || angle.blobUrl.startsWith('/'));
 
     if (isVideo) {
       return (
@@ -401,14 +449,27 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
       );
     }
 
-    // High-performance procedural animated canvas fallback
+    if (isImage) {
+      return (
+        <img
+          src={angle.blobUrl}
+          alt={angle.label}
+          className="w-full h-full object-cover pointer-events-none select-none"
+        />
+      );
+    }
+
+    // Blank Media Safeguard:
+    // If any camera slot (CAM 01–CAM 09) lacks an assigned video stream, render a clean, non-blocking standby slate
     return (
-      <ProceduralAngleCanvas
-        index={index}
-        currentTimeMs={currentTimeMs}
-        isActive={index === heroIdx}
-        label={angle.label}
-      />
+      <div className="cam-standby-slate w-full h-full flex flex-col items-center justify-center bg-[#07080c] border border-white/5 text-center p-2 select-none">
+        <span className="cam-id text-xs font-mono font-bold text-zinc-400">
+          CAM {String(index + 1).padStart(2, '0')}
+        </span>
+        <span className="cam-status text-[10px] font-mono text-zinc-600 mt-1">
+          STANDBY / NO FEED
+        </span>
+      </div>
     );
   };
 
@@ -495,6 +556,25 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
               <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activeConfig === '2x2'} angles={displayAngles} activeAngleIdx={heroIdx} />
               <span>2x2 QUAD</span>
             </button>
+
+            {/* 3x3 Directors Grid Preset Button (Shortcut '4') */}
+            <button
+              type="button"
+              onClick={() => setConfig('3x3')}
+              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                activeConfig === '3x3'
+                  ? 'bg-gradient-to-r from-cyan-400 to-sky-500 text-black shadow-[0_0_12px_rgba(0,240,255,0.45)] ring-1 ring-cyan-200'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              }`}
+              title="Press '4' to activate 3x3 9-Camera Directors Grid Preset"
+            >
+              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
+                activeConfig === '3x3' ? 'bg-black/40 text-cyan-300' : 'bg-white/10 text-neutral-400'
+              }`}>
+                4
+              </kbd>
+              <span>3x3 DIRECTORS (9-CAM)</span>
+            </button>
           </div>
         </div>
 
@@ -508,6 +588,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             {activeConfig === '1x1' && <span>1x1 SOLO MONITOR [KEY 1]</span>}
             {activeConfig === '1x3' && <span>1x3 DIRECTOR SPLIT [KEY 2]</span>}
             {activeConfig === '2x2' && <span>2x2 QUAD GRID [KEY 3]</span>}
+            {activeConfig === '3x3' && <span>3x3 DIRECTORS GRID [9 CAMERAS]</span>}
           </div>
         </div>
 
@@ -571,14 +652,17 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             return (
               <div
                 key={angle.id}
-                style={layoutStyle}
+                style={{
+                  ...layoutStyle,
+                  ...(isHero && !isFlashing ? { border: '2px solid #00f0ff', boxShadow: '0 0 12px rgba(0,240,255,0.4)' } : {})
+                }}
                 onClick={() => handleSelectAngleWithFlash(idx)}
                 className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl transition-all duration-75 ${
                   isFlashing
                     ? 'border-[4px] border-white shadow-[0_0_45px_#FFFFFF] ring-4 ring-white z-30 scale-[1.01]'
                     : isHero
-                    ? 'border-[3px] border-[#00F0FF] shadow-[0_0_35px_rgba(0,240,255,0.75)] ring-2 ring-[#00F0FF]/80 ring-offset-2 ring-offset-black z-20'
-                    : 'border-white/10 hover:border-[#00F0FF]/50 opacity-75 hover:opacity-100 z-10'
+                    ? 'border-[2px] border-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.4)] z-20'
+                    : 'border-white/10 hover:border-[#00f0ff]/50 opacity-75 hover:opacity-100 z-10'
                 }`}
               >
                 {/* Traveling Cyan Broadcast Border Beam for Active Camera Feed */}

@@ -12,7 +12,7 @@
  * 7. Aspect Ratio Adaptation: Native support for 9:16 Shorts, 16:9 Widescreen, and 2.39:1 Cinema Scope.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Grid2X2, 
   LayoutList, 
@@ -33,7 +33,7 @@ import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
 import { samplePacks } from '../../data/frames';
 import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
 
-export type MultiCamLayoutPreset = '2x2' | '1x3' | '1x1';
+export type MultiCamLayoutPreset = '2x2' | '1x3' | '1x1' | '3x3';
 
 export interface ExpandableMultiCamLayoutProps {
   group: MultiCamGroup;
@@ -106,6 +106,30 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
     }
   };
 
+  // Keyboard shortcut listener: Numeric keys '1' through '9' for live punch-in cuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const targetIndex = parseInt(e.key, 10) - 1;
+        onSelectAngle(targetIndex);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onSelectAngle]);
+
   // Format timecode
   const formatTimecode = (ms: number) => {
     const totalSec = Math.floor(ms / 1000);
@@ -116,7 +140,20 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
   };
 
   // Helper to render video or image element for a camera angle
-  const renderAngleMedia = (angle: MultiCamAngle, index: number, isFill = true) => {
+  const renderAngleMedia = (angle?: MultiCamAngle, index: number = 0, isFill = true) => {
+    if (!angle || (!angle.blobUrl && !samplePacks.cyberNoir[index % samplePacks.cyberNoir.length])) {
+      return (
+        <div className="cam-standby-slate w-full h-full flex flex-col items-center justify-center bg-[#07080c] border border-white/5 text-center p-2 select-none">
+          <span className="cam-id text-xs font-mono font-bold text-zinc-400">
+            CAM {String(index + 1).padStart(2, '0')}
+          </span>
+          <span className="cam-status text-[10px] font-mono text-zinc-600 mt-1">
+            STANDBY / NO FEED
+          </span>
+        </div>
+      );
+    }
+
     const isVideo = angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm'));
     const fallbackImage = samplePacks.cyberNoir[index % samplePacks.cyberNoir.length] || samplePacks.cosmicMacro[0];
 
@@ -135,7 +172,7 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
     return (
       <img
         src={angle.blobUrl || fallbackImage}
-        alt={angle.label}
+        alt={angle.label || `CAM ${index + 1}`}
         className={`w-full h-full ${isFill ? 'object-cover' : 'object-contain'} pointer-events-none select-none`}
       />
     );
@@ -207,6 +244,21 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
             >
               <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activePreset === '1x1'} angles={group.angles} activeAngleIdx={currentActiveAngleIdx} />
               <span>1x1 SOLO</span>
+            </button>
+
+            {/* Preset 3x3: 9-Camera Directors Grid */}
+            <button
+              type="button"
+              onClick={() => setPreset('3x3')}
+              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                activePreset === '3x3'
+                  ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-black shadow-md font-bold'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              }`}
+              title="3x3 Directors Grid Preset (9 synchronized camera angles)"
+            >
+              <MultiCamPresetThumbnail config="3x3" size="sm" isActive={activePreset === '3x3'} angles={group.angles} activeAngleIdx={currentActiveAngleIdx} />
+              <span>3x3 DIRECTORS</span>
             </button>
           </div>
         </div>
@@ -523,6 +575,74 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* PRESET 4: 3x3 DIRECTORS 9-CAMERA GRID CONFIGURATION                  */}
+        {/* ==================================================================== */}
+        {activePreset === '3x3' && (
+          <div className="w-full h-full max-h-full grid grid-cols-3 grid-rows-3 gap-2.5 p-1 overflow-hidden">
+            {Array.from({ length: 9 }).map((_, idx) => {
+              const angle = group.angles[idx];
+              const isActive = idx === currentActiveAngleIdx;
+              const isMaster = idx === masterAudioIndex;
+
+              return (
+                <div
+                  key={angle?.id || `cam-angle-${idx + 1}`}
+                  onClick={() => onSelectAngle(idx)}
+                  className={`group relative w-full h-full bg-black rounded-xl overflow-hidden cursor-pointer transition-all duration-150 flex flex-col justify-between ${
+                    isActive
+                      ? 'border-2 border-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.4)] z-10'
+                      : 'border border-white/10 hover:border-amber-400/50 opacity-75 hover:opacity-100'
+                  }`}
+                >
+                  {/* Media Viewport */}
+                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                    {renderAngleMedia(angle, idx, true)}
+                  </div>
+
+                  {/* Top Broadcast Tally Overlay */}
+                  <div className="relative z-10 p-1.5 flex items-center justify-between pointer-events-none">
+                    <div className="flex items-center gap-1">
+                      <span className={`w-5 h-5 rounded flex items-center justify-center font-mono font-bold text-[10px] ${
+                        isActive ? 'bg-[#00f0ff] text-black shadow-md' : 'bg-black/80 text-white border border-white/20'
+                      }`}>
+                        {idx + 1}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/15 text-white font-mono font-bold text-[9px] tracking-wider">
+                        {angle?.label || `CAM 0${idx + 1}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 pointer-events-auto">
+                      {isMaster && (
+                        <span className="p-0.5 rounded bg-black/80 border border-amber-500/30 text-amber-400" title="Master Audio Mic">
+                          <Volume2 className="w-3 h-3" />
+                        </span>
+                      )}
+
+                      {isActive && (
+                        <span className="px-1.5 py-0.5 rounded bg-[#EF4444] text-white font-black text-[8px] tracking-wider uppercase animate-pulse shadow-[0_0_8px_#EF4444]">
+                          ON AIR
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Camera Spec Bar */}
+                  <div className="relative z-10 p-1.5 flex items-center justify-between text-[9px] font-mono bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
+                    <span className="text-neutral-300 font-medium truncate max-w-[100px]">
+                      {angle?.name || `CAM 0${idx + 1}`}
+                    </span>
+                    <span className="text-cyan-400 tabular-nums">
+                      {angle?.syncOffsetMs !== undefined && angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : 'SYNC'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -1187,7 +1187,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. CENTER COLUMN: Live Hollywood SMPTE Timecode & Playback Mode Toggle */}
+      {/* 2. CENTER COLUMN: Playback Mode Toggle */}
       {(() => {
         const isMasterMode = currentMode === 'MASTER';
         return (
@@ -1195,19 +1195,6 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             data-current-mode={currentMode}
             className="flex-none flex items-center gap-2.5 shrink-0"
           >
-            {/* Live Master SMPTE Timecode Readout */}
-            <div
-              className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-[10.5px] font-mono tracking-wider tabular-nums shadow-inner select-none"
-              title={`Master Hardware Timecode: ${liveTimecode} at locked ${fps}.000fps`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-zinc-500 font-semibold text-[8.5px]">TC</span>
-              <span className="text-[#FFE066] font-bold">{liveTimecode}</span>
-              <span className="text-zinc-500 text-[8.5px]">[{fps}F]</span>
-              <span className="text-zinc-600">•</span>
-              <span className="text-zinc-300 font-semibold text-[9.5px]">SHOT {String(currentIndex + 1).padStart(2, '0')}/{totalShots}</span>
-            </div>
-
             <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-0.5 shadow-inner">
               {/* SHRUNKEN TOGGLE */}
               <div

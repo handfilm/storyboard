@@ -421,6 +421,21 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     ? `${lutFilterStyle} ${zoomTransforms.bgDepthBlur}`
     : lutFilterStyle;
 
+  // Synchronous Media Pass-Through: Keep native video playback locked to slideTimeSec and isAutoplay
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video && !isScrubbing) {
+      if (Math.abs(video.currentTime - slideTimeSec) > 0.25) {
+        video.currentTime = slideTimeSec;
+      }
+      if (isAutoplay && video.paused) {
+        video.play().catch(() => {});
+      } else if (!isAutoplay && !video.paused) {
+        video.pause();
+      }
+    }
+  }, [slideTimeSec, isAutoplay, isScrubbing]);
+
   // Track Shot Changes for Subtle Filmic Cross-Dissolve Animation
   useEffect(() => {
     if (prevIndexRef.current !== currentIndex) {
@@ -539,8 +554,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         if (ctx) {
           const rect = canvas.getBoundingClientRect();
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
-          const targetW = Math.round((rect.width || 1280) * dpr);
-          const targetH = Math.round((rect.height || 536) * dpr);
+          const targetW = Math.max(320, Math.round((rect.width || 1280) * dpr));
+          const targetH = Math.max(180, Math.round((rect.height || 536) * dpr));
           if (canvas.width !== targetW || canvas.height !== targetH) {
             canvas.width = targetW;
             canvas.height = targetH;
@@ -884,195 +899,124 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* Sleek Minimalist Tactical Scene Ribbon */}
+      {/* 1. MASTER STAGE MEDIA CONTAINER (Strict Export Integrity - NO overlapping UI HUD badges) */}
       <div
-        data-testid="tactile-stage-scene-hud"
-        className={`w-full max-w-[min(98vw,1920px)] mx-auto px-3 mb-1.5 flex items-center justify-between text-white/40 text-[9.5px] font-mono tracking-widest uppercase select-none shrink-0 border-b border-white/5 pb-1 ${
-          showHud ? 'animate-hud-fade-in' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <div className="flex items-center gap-2 truncate">
-          <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>
-          <span className="text-white/20">//</span>
-          <span className="text-white/80 font-semibold">SHOT {String(currentIndex + 1).padStart(2, '0')}</span>
-          <span className="text-white/20">•</span>
-          <span className="text-zinc-300 truncate">"{frame?.title || 'UNTITLED SHOT'}"</span>
-          <span className="text-white/20">•</span>
-          <span className="text-[#FFE066]/70">{aspectRatio || '2.39:1'} ANAMORPHIC SCOPE</span>
-        </div>
-        <div className="hidden sm:flex items-center gap-3 text-[9px] text-white/30 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
-            className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              isWebCodecsEngineActive
-                ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_10px_rgba(245,166,35,0.4)]'
-                : 'bg-black/50 border-white/20 text-amber-400 hover:bg-white/10'
-            }`}
-            title="Toggle WebCodecs 24fps WebGL2 Ping-Pong Engine"
-          >
-            <Zap className="w-3 h-3 text-current" />
-            <span>{isWebCodecsEngineActive ? 'WEBCODECS 24FPS [ACTIVE]' : 'WEBCODECS 24FPS [ENGAGE]'}</span>
-          </button>
-          <span className="text-white/20">|</span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-zinc-400">CALIBRATED</span>
-          </span>
-          <span className="text-white/20">|</span>
-          <span>MASTER MONITOR</span>
-          <span className="text-white/20">|</span>
-          <span className="text-emerald-400 font-mono">14-BIT ARRI</span>
-        </div>
-      </div>
-
-      {/* Primary Video / Image Viewport Container (~80% screen dominance on OLED black) */}
-      <div
+        id="stage-media-container"
         style={getAspectStyle(aspectRatio)}
-        className="relative w-full max-h-[80vh] mx-auto bg-[#000000] border-0 rounded-none shadow-[0_20px_100px_rgba(0,0,0,1)] overflow-hidden flex items-center justify-center group"
+        className="relative w-full max-h-[75vh] mx-auto bg-[#000000] border-0 rounded-none shadow-[0_20px_100px_rgba(0,0,0,1)] overflow-hidden flex items-center justify-center select-none"
       >
-        {/* WebCodecs Hardware Ping-Pong Compositor Viewport */}
-        {isWebCodecsEngineActive && activeMediaUrl ? (
-          <div className="w-full h-full relative z-10 flex items-center justify-center">
-            <WebCodecsStageCompositor
-              currentMediaUrl={activeMediaUrl}
-              incomingMediaUrl={frames[(currentIndex + 1) % frames.length]?.imageUrl || outgoingMedia?.url || null}
-              mediaId={String(frame?.id || currentIndex)}
-              incomingMediaId={String(frames[(currentIndex + 1) % frames.length]?.id || currentIndex + 1)}
-              isPlaying={isAutoplay}
-              slideTimeSec={slideTimeSec}
-              durationSec={activeShotDurationSec}
-              aspectRatio={typeof aspectRatio === 'string' ? aspectRatio : '2.39:1'}
-              onError={(err) => {
-                console.warn('[RECOVERY FALLBACK] WebCodecsStageCompositor failed, reverting to 2D Canvas:', err);
-                setIsWebCodecsEngineActive(false);
-              }}
-              className="w-full h-full"
+        {/* SAFE INSTANT FALLBACK LAYER: Synchronous media pass-through mirroring active media so stage NEVER renders blank */}
+        {activeMediaUrl && (
+          (frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm')) ? (
+            <video
+              id="stage-fallback-video"
+              ref={videoRef}
+              src={activeMediaUrl}
+              crossOrigin="anonymous"
+              poster={cachedPosterUrl || undefined}
+              autoPlay={isAutoplay}
+              loop
+              muted
+              playsInline
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+              style={{ filter: combinedMediaFilter }}
             />
-          </div>
-        ) : (
-          <>
-            {/* Outgoing Base Plate for Cinematic Cross-Dissolve Transition */}
-            {outgoingMedia && isCrossDissolving && (
-              <div
-                className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pointer-events-none z-0 animate-cross-dissolve-out"
-                style={{ transform: zoomTransforms.bgTransform }}
-              >
-                {outgoingMedia.isVideo ? (
-                  <video
-                    src={outgoingMedia.url}
-                    crossOrigin="anonymous"
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                    style={{ filter: outgoingMedia.filter }}
-                  />
-                ) : (
-                  <img
-                    src={outgoingMedia.url}
-                    crossOrigin="anonymous"
-                    alt="Outgoing Plate"
-                    className="w-full h-full object-cover"
-                    style={{ filter: outgoingMedia.filter }}
-                  />
-                )}
-              </div>
-            )}
+          ) : (
+            <img
+              id="stage-fallback-img"
+              src={activeMediaUrl}
+              crossOrigin="anonymous"
+              alt="Active Shot Plate"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+              style={{ filter: combinedMediaFilter }}
+            />
+          )
+        )}
+        {!activeMediaUrl && cachedPosterUrl && (
+          <img
+            id="stage-fallback-poster"
+            src={cachedPosterUrl}
+            crossOrigin="anonymous"
+            alt="Cached Shot Poster"
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+            style={{ filter: combinedMediaFilter }}
+          />
+        )}
 
-            {/* Incoming / Active Media Plate */}
-            {activeMediaUrl ? (
-              <div
-                key={`shot_${currentIndex}`}
-                className={`w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center z-10 ${
-                  isCrossDissolving ? 'animate-cross-dissolve' : ''
-                }`}
-                style={{ transform: zoomTransforms.bgTransform }}
-              >
-                {/* Underlying cached thumbnail plate ensures zero black frames while master stream loads */}
-                {cachedPosterUrl && (
-                  <img
-                    src={cachedPosterUrl}
-                    crossOrigin="anonymous"
-                    alt="Thumbnail Plate Fallback"
-                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                    style={{ filter: combinedMediaFilter }}
-                  />
-                )}
-                {/* Hidden hardware decoding element */}
-                {(frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm')) && (
-                  <video
-                    ref={videoRef}
-                    src={activeMediaUrl}
-                    crossOrigin="anonymous"
-                    poster={cachedPosterUrl || undefined}
-                    autoPlay={isAutoplay}
-                    loop
-                    muted
-                    playsInline
-                    className="hidden"
-                    aria-hidden="true"
-                  />
-                )}
-                {/* Canvas-Accelerated Blit Viewport: draws active frames via requestAnimationFrame */}
-                <canvas
-                  ref={canvasRef}
-                  className="w-full h-full object-cover transition-opacity duration-150 relative z-1"
-                  style={{ filter: combinedMediaFilter }}
-                />
-              </div>
-            ) : cachedPosterUrl ? (
-              <div
-                key={`cached_shot_${currentIndex}`}
-                className="relative w-full h-full flex items-center justify-center overflow-hidden z-10"
-                style={{ transform: zoomTransforms.bgTransform }}
-              >
-                <img
-                  src={cachedPosterUrl}
-                  crossOrigin="anonymous"
-                  alt="Cached Shot Poster"
-                  className="w-full h-full object-cover"
-                  style={{ filter: combinedMediaFilter }}
-                />
-                {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
-                  <canvas
-                    ref={canvasRef}
-                    className="absolute inset-0 w-full h-full object-cover z-1"
-                  />
-                )}
-              </div>
-            ) : (
-              <div className="relative w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center z-10">
-                {kineticOcclusion.enabled && isTitlesActive && !frame?.dopamineConfig && (
-                  <canvas
-                    ref={canvasRef}
-                    className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
-                  />
-                )}
-                <div className={`relative z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-200 ${
-                  kineticOcclusion.enabled && isTitlesActive ? 'opacity-0 group-hover:opacity-100 bg-black/75 p-4 rounded-[2px] border border-white/10' : ''
-                }`}>
-                  <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
-                    <Film className="w-8 h-8 opacity-60" />
-                  </div>
-                  <div>
-                    <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
-                      SHOT {frame?.epNumber || '001'} // READY FOR INGEST
-                    </p>
-                    <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
-                      Drag & Drop 4K video or photo directly into this monitor
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Select Media Asset</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+        {/* PRIMARY RENDERER: Hardware / 2D Canvas Synchronous Media Pass-Through */}
+        <canvas
+          id="stage-canvas"
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full object-contain relative z-1"
+          style={{ filter: combinedMediaFilter }}
+        />
+
+        {/* TYPOGRAPHY STAGE RESTORATION LAYER: Mounted directly above the stage canvas */}
+        <div
+          id="stage-typography-layer"
+          ref={stageTitleContainerRef}
+          data-title-container="tactile-stage"
+          style={{
+            zIndex: 10,
+            pointerEvents: 'none',
+            opacity: isTitlesActive ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out',
+            transform: zoomTransforms.fgTransform,
+            filter: zoomTransforms.fgShadow
+          }}
+          className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 pointer-events-none"
+        >
+          {frame?.dopamineConfig ? (
+            <DopamineCompilationSequence
+              hookText={frame.dopamineConfig.hookText}
+              subText={frame.dopamineConfig.subText}
+              glitchIntensity={frame.dopamineConfig.glitchIntensity}
+              strobeRate={frame.dopamineConfig.strobeRate}
+              motionSpeed={frame.dopamineConfig.motionSpeed}
+              accentColor={frame.dopamineConfig.accentColor}
+              audioBeatSync={frame.dopamineConfig.audioBeatSync ?? true}
+              currentTime={slideTimeSec}
+              durationSec={activeShotDurationSec}
+              isPlaying={isAutoplay}
+              showTelemetry={false}
+            />
+          ) : (
+            <StageTextOverlay
+              shotIndex={currentIndex}
+              banglaTitle={frame?.bengaliTitle || 'সীমানা'}
+              englishTitle={frame?.title || 'EVENT HORIZON'}
+              subtitle={frame?.tagline || '12.0S CINEMA PREVIS & NLE MONTAGE'}
+              directorNotes={frame?.directorNotes}
+              cameraInfo={frame?.cameraSpec?.focalLength}
+              isVisible={isTitlesActive}
+              allowQuickControls={false}
+              componentsVisibility={componentsVisibility}
+            />
+          )}
+        </div>
+
+        {/* Drag & Drop Ready Standby when no media exists */}
+        {!activeMediaUrl && !cachedPosterUrl && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center z-20 pointer-events-auto">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
+              <Film className="w-8 h-8 opacity-60" />
+            </div>
+            <div>
+              <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
+                SHOT {frame?.epNumber || String(currentIndex + 1).padStart(3, '0')} // READY FOR INGEST
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
+                Drag & Drop 4K video or photo directly into this monitor
+              </p>
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Select Media Asset</span>
+            </button>
+          </div>
         )}
 
         {/* Ingesting Spinner Overlay */}
@@ -1082,163 +1026,175 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             <span className="text-xs font-mono-tech text-[#ffe066] tracking-wider text-center px-4">
               INGESTING RAW 4K ASSET &amp; GENERATING 540P PROXY...
             </span>
-            <button
-              type="button"
-              onClick={() => setIsIngesting(false)}
-              className="mt-1 px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-[11px] font-mono text-white/80 cursor-pointer transition-all hover:text-white"
-            >
-              Dismiss / Continue in Background
-            </button>
           </div>
         )}
+      </div>
 
-        {/* Persistent Right-Edge Title FX Toggle */}
-        {showHud && (
-          <div className="animate-hud-fade-in absolute inset-y-0 right-4 z-50 flex items-center pointer-events-none">
+      {/* 2. DEDICATED EXTERNAL SHELF: Separated outside bounding box of render export container */}
+      <div className="stage-external-shelf w-full max-w-[min(98vw,1920px)] mx-auto mt-2 px-3 py-2 bg-[#090a0f] border border-white/10 rounded-xl flex flex-col gap-2 shrink-0 select-none shadow-lg">
+        {/* Shelf Header Ribbon: Scene Metadata & Engine Flags */}
+        <div className="w-full flex items-center justify-between text-white/40 text-[10px] font-mono tracking-wider uppercase border-b border-white/5 pb-1.5">
+          <div className="flex items-center gap-2 truncate">
+            <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>
+            <span className="text-white/20">//</span>
+            <span className="text-white/80 font-semibold">SHOT {String(currentIndex + 1).padStart(2, '0')}</span>
+            <span className="text-white/20">•</span>
+            <span className="text-zinc-300 truncate">"{frame?.title || 'UNTITLED SHOT'}"</span>
+            <span className="text-white/20">•</span>
+            <span className="text-[#FFE066]/70">{aspectRatio || '2.39:1'} ANAMORPHIC SCOPE</span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-3 text-[9.5px] text-white/40 shrink-0">
             <button
               type="button"
-              onClick={() => {
-                if (onToggleTitles) onToggleTitles();
-                else toggleTitlesStore();
-              }}
-              className="bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs px-3 px-3! py-1 py-1! rounded hover:bg-white/20 transition-all cursor-pointer pointer-events-auto whitespace-nowrap"
+              onClick={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
+              className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isWebCodecsEngineActive
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_10px_rgba(245,166,35,0.4)]'
+                  : 'bg-black/50 border-white/20 text-amber-400 hover:bg-white/10'
+              }`}
+              title="Toggle WebCodecs 24fps WebGL2 Ping-Pong Engine"
             >
-              {isTitlesActive ? '[ T ] TITLE FX : ON' : '[ T ] TITLE FX : OFF'}
+              <Zap className="w-3 h-3 text-current" />
+              <span>{isWebCodecsEngineActive ? 'WEBCODECS 24FPS [ACTIVE]' : 'WEBCODECS 24FPS [ENGAGE]'}</span>
             </button>
+            <span className="text-white/20">|</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-zinc-400">CALIBRATED</span>
+            </span>
+            <span className="text-white/20">|</span>
+            <span>MASTER MONITOR</span>
+            <span className="text-white/20">|</span>
+            <span className="text-emerald-400 font-mono">14-BIT ARRI</span>
           </div>
-        )}
+        </div>
 
-        {/* Real-Time Bilingual Titles / Dopamine Sequence Overlay (Foreground Multi-Layer Zoom) */}
-        {isTitlesActive && (Boolean(frame?.dopamineConfig) || !kineticOcclusion.enabled) && (
-          <div
-            ref={stageTitleContainerRef}
-            data-title-container="tactile-stage"
-            className="absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center flex flex-col"
-            style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
-          >
-            {frame?.dopamineConfig ? (
-              <DopamineCompilationSequence
-                hookText={frame.dopamineConfig.hookText}
-                subText={frame.dopamineConfig.subText}
-                glitchIntensity={frame.dopamineConfig.glitchIntensity}
-                strobeRate={frame.dopamineConfig.strobeRate}
-                motionSpeed={frame.dopamineConfig.motionSpeed}
-                accentColor={frame.dopamineConfig.accentColor}
-                audioBeatSync={frame.dopamineConfig.audioBeatSync ?? true}
-                currentTime={slideTimeSec}
-                durationSec={activeShotDurationSec}
-                isPlaying={isAutoplay}
-                showTelemetry={false}
-              />
-            ) : (
-              <StageTextOverlay
-                shotIndex={currentIndex}
-                banglaTitle={frame?.bengaliTitle}
-                englishTitle={frame?.title}
-                subtitle={frame?.tagline}
-                directorNotes={frame?.directorNotes}
-                cameraInfo={frame?.cameraSpec?.focalLength}
-                isVisible={isTitlesActive}
-                allowQuickControls={true}
-                componentsVisibility={componentsVisibility}
-              />
+        {/* Shelf Lower Row: Transport Controls, Timeline Scrub, Cadence, Optics & Actions */}
+        <div className="w-full flex items-center justify-between gap-2 flex-wrap">
+          {/* Left Transport Cluster */}
+          <div className="flex items-center gap-1.5">
+            {onTogglePlay && (
+              <button
+                type="button"
+                onClick={onTogglePlay}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  isAutoplay
+                    ? 'bg-[#F5A623] text-black font-bold shadow-[0_0_10px_rgba(245,166,35,0.5)]'
+                    : 'bg-white/10 hover:bg-white/20 text-white'
+                }`}
+                title={isAutoplay ? 'Pause (Space)' : 'Play (Space)'}
+              >
+                {isAutoplay ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+              </button>
+            )}
+
+            {onStepFrame && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onStepFrame(false)}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-[9.5px] font-mono text-zinc-300 hover:text-white cursor-pointer"
+                  title="Step -1 Frame"
+                >
+                  -1F
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStepFrame(true)}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-[9.5px] font-mono text-zinc-300 hover:text-white cursor-pointer"
+                  title="Step +1 Frame"
+                >
+                  +1F
+                </button>
+              </div>
+            )}
+
+            {/* Interactive Frictionless Scrub Track */}
+            <div
+              onPointerDown={handleScrubPointerDown}
+              onPointerMove={handleScrubPointerMove}
+              onPointerUp={handleScrubPointerUp}
+              onPointerCancel={handleScrubPointerUp}
+              className="flex items-center w-28 sm:w-40 h-2.5 bg-zinc-900 rounded-full overflow-hidden border border-white/15 cursor-ew-resize mx-1 relative select-none touch-none group/scrub"
+              title={`Drag to Scrub Shot (${slideTimeSec.toFixed(2)}s / ${activeShotDurationSec.toFixed(1)}s) [Throttled 16ms]`}
+            >
+              <div
+                className="h-full bg-gradient-to-r from-[#d4af37] via-[#FFE066] to-[#F5A623] transition-[width] duration-75 relative"
+                style={{ width: `${progressPercent}%` }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(245,166,35,0.8)] opacity-90 group-hover/scrub:scale-125 transition-transform" />
+              </div>
+            </div>
+
+            {/* Micro-Telemetry Badge */}
+            <span className="text-[9.5px] font-mono text-zinc-300 tabular-nums px-2 py-0.5 rounded bg-black/60 border border-white/10">
+              F{String(activeFrameNum).padStart(3, '0')}/{activeTotalFrames}
+            </span>
+
+            {/* Cadence Selector Pill */}
+            <CadenceSelectorPill
+              durationSec={activeShotDurationSec}
+              targetFps={activeShotFps}
+              onChangeDuration={handleChangeCurrentDuration}
+              onChangeTargetFps={handleChangeCurrentFps}
+              onApplyDurationToAll={onApplyDurationToAll}
+              onMatchAudioBeats={handleMatchBeats}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
+              compact={true}
+            />
+
+            {/* Ripple All Action Button */}
+            {onApplyDurationToAll && (
+              <button
+                type="button"
+                onClick={handleRippleAll}
+                className="px-2 py-1 rounded bg-[#F5A623]/15 hover:bg-[#F5A623]/25 border border-[#F5A623]/50 text-[#FFE066] text-[9.5px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                title={`Ripple apply ${activeShotDurationSec.toFixed(1)}s hold across all ${frames.length} timeline shots`}
+              >
+                <Repeat className="w-2.5 h-2.5" />
+                <span className="hidden md:inline">Ripple All</span>
+              </button>
+            )}
+
+            {/* Match Beats Action Button */}
+            {onMatchAudioBeats && (
+              <button
+                type="button"
+                onClick={handleMatchBeats}
+                className="px-2 py-1 rounded bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-[9.5px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                title="Align all timeline shot cuts to detected musical transients (Auto-Cut)"
+              >
+                <Music className="w-2.5 h-2.5 text-cyan-400" />
+                <span className="hidden md:inline">Match Beats</span>
+              </button>
             )}
           </div>
-        )}
 
-        {/* Dynamic Word-Level Kinetic Caption & Subtitle Overlay (DOM mode when 3D Occlusion Canvas is bypassed) */}
-        {isTitlesActive && !frame?.dopamineConfig && !kineticOcclusion.enabled && (
-          <KineticCaptionOverlay
-            currentFrame={frame}
-            slideTimeSec={slideTimeSec}
-            durationSec={activeShotDurationSec}
-            detectedBpm={detectedBpm}
-            onUpdateFrame={handleUpdateCurrentFrame}
-            showCaptions={isTitlesActive}
-          />
-        )}
-
-        {/* Floating Kinetic Title Rack Drawer docked above the text track */}
-        {isTitlesActive && !frame?.dopamineConfig && (
-          <div className="absolute bottom-14 sm:bottom-16 inset-x-4 max-w-xl mx-auto z-30 pointer-events-auto">
-            <KineticAdTextDrawer
-              currentFrame={frame}
-              slideTimeSec={slideTimeSec}
-              durationSec={activeShotDurationSec}
-              bpm={detectedBpm}
-              onUpdateFrame={handleUpdateCurrentFrame}
-            />
-          </div>
-        )}
-
-        {/* Floating 35mm Film Stock & Color Grading Tray */}
-        <FilterGradingTray
-          isOpen={isFilterTrayOpen}
-          currentFrame={frame}
-          currentIndex={currentIndex}
-          totalShots={frames.length}
-          onUpdateFrame={handleUpdateCurrentFrame}
-          onApplyGradeToAll={handleApplyGradeToAll}
-          onClose={() => setIsFilterTrayOpen(false)}
-        />
-
-        {/* Module 11: Review Visual Markup Canvas Overlay */}
-        {activeModule === 'REVIEW' && (
-          <ReviewMarkupCanvas
-            shotIndex={currentIndex}
-            slideTimeSec={slideTimeSec}
-            onJumpToFrame={(targetShotIdx, targetTimeSec) => {
-              onSelectFrame(targetShotIdx);
-              if (onScrubSlideTime) onScrubSlideTime(targetTimeSec);
-            }}
-          />
-        )}
-
-        {/* Pristine Viewport: Zero-distraction cinematic frame with quick tools on hover */}
-        <div className="absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/80 z-40 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {/* Right Action Cluster */}
           <div className="flex items-center gap-2">
-            {/* Quick [ T ] Symbol Toggle on Stage */}
-            <button
-              type="button"
-              onClick={() => {
-                if (onToggleTitles) onToggleTitles();
-                else toggleTitlesStore();
-              }}
-              className={`pointer-events-auto w-7 h-7 rounded-[3px] border font-serif text-xs font-black flex items-center justify-center transition-all cursor-pointer backdrop-blur-md shadow-lg ${
-                isTitlesActive
-                  ? 'bg-[#d4af37]/30 border-[#d4af37] text-[#ffe066] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
-                  : 'bg-black/80 border-white/20 text-zinc-400 hover:text-white hover:border-white/40'
-              }`}
-              title="Toggle Real-Time Kinetic Titles (T)"
-              aria-label="Toggle Kinetic Titles"
-            >
-              <span>T</span>
-            </button>
-
-            {/* Tactical Multi-Layer Zoom HUD Capsule */}
-            <div className="relative pointer-events-auto">
+            {/* Multi-Layer Zoom HUD Button */}
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsZoomControlsOpen((prev) => !prev)}
-                className={`px-2.5 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md ${
+                className={`px-2 py-1 rounded border text-[9.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
                   isZoomControlsOpen || fgZoom !== 1.0 || bgZoom !== 1.0
                     ? 'bg-[#d4af37]/30 border-[#d4af37] text-[#ffe066] font-bold shadow-[0_0_12px_rgba(212,175,55,0.45)]'
-                    : 'bg-black/80 border-white/20 text-zinc-300 hover:text-white hover:border-white/40'
+                    : 'bg-black/60 border-white/20 text-zinc-300 hover:text-white'
                 }`}
                 title="Multi-Layer Zoom: Scale Foreground (titles) & Background (media) independently"
               >
                 <ZoomIn className="w-3 h-3 text-[#d4af37]" />
-                <span className="hidden sm:inline">ZOOM</span>
-                <span className="text-[8px] text-[#ffe066] tabular-nums font-bold">
+                <span className="hidden lg:inline">ZOOM</span>
+                <span className="text-[8.5px] text-[#ffe066] tabular-nums font-bold">
                   {fgZoom.toFixed(1)}x / {bgZoom.toFixed(1)}x
                 </span>
-                {isVertigo && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="Vertigo Link Active" />
-                )}
               </button>
 
               {isZoomControlsOpen && (
-                <div className="absolute left-0 top-full mt-2 w-76 sm:w-80 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 bottom-full mb-2 w-76 sm:w-80 z-50 animate-in fade-in zoom-in-95 duration-150">
                   <MultiLayerZoomControls
                     onClose={() => setIsZoomControlsOpen(false)}
                   />
@@ -1247,207 +1203,76 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             </div>
 
             {/* 35mm Film Stock Grading Dock Trigger */}
-            <div className="relative pointer-events-auto">
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsFilterTrayOpen((prev) => !prev)}
-                className={`px-2.5 py-1 rounded-[2px] border text-[9px] font-mono-tech flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md ${
+                className={`px-2 py-1 rounded border text-[9.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
                   isFilterTrayOpen
                     ? 'bg-[#f5a623]/30 border-[#f5a623] text-[#ffe066] font-bold shadow-[0_0_12px_rgba(245,166,35,0.45)]'
-                    : 'bg-black/80 border-white/20 text-zinc-300 hover:text-white hover:border-[#f5a623]/60'
+                    : 'bg-black/60 border-white/20 text-zinc-300 hover:text-white'
                 }`}
                 title="Open 35mm Film Stock & Color Grading Dock"
-                aria-label="35mm Film Stock & Color Grading Dock"
               >
                 <Sliders className="w-3 h-3 text-[#f5a623]" />
-                <span className="hidden sm:inline">35MM GRADE</span>
-                <span className="text-[8px] text-[#ffe066] font-bold">
+                <span className="hidden lg:inline">35MM GRADE</span>
+                <span className="text-[8.5px] text-[#ffe066] font-bold">
                   {getFilmStockMeta(frame?.lutFilter || 'kodak_vision3').code}
                 </span>
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* In-Player Playhead Transport & Quick Cadence Selector Bar */}
-        {showHud && (
-        <div
-          data-testid="tactile-stage-transport-hud"
-          className="animate-hud-fade-in absolute bottom-3 left-3 z-40 pointer-events-auto flex items-center gap-1.5 bg-black/80 backdrop-blur-md border border-white/15 rounded-lg px-2 py-1 shadow-xl"
-        >
-          {onTogglePlay && (
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              className={`w-6 h-6 rounded flex items-center justify-center transition-colors cursor-pointer ${
-                isAutoplay
-                  ? 'bg-[#F5A623] text-black font-bold'
-                  : 'bg-white/10 hover:bg-white/20 text-white'
-              }`}
-              title={isAutoplay ? 'Pause (Space)' : 'Play (Space)'}
-            >
-              {isAutoplay ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
-            </button>
-          )}
-          {onStepFrame && (
-            <div className="hidden sm:flex items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => onStepFrame(false)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[9px] font-mono text-zinc-300 hover:text-white cursor-pointer"
-                title="Step -1 Frame"
-              >
-                -1F
-              </button>
-              <button
-                type="button"
-                onClick={() => onStepFrame(true)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[9px] font-mono text-zinc-300 hover:text-white cursor-pointer"
-                title="Step +1 Frame"
-              >
-                +1F
-              </button>
+            {/* Runtime Readout */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-black/60 border border-white/10 text-[10px] font-mono text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>RUNTIME: {totalRuntimeTimecode}</span>
+              <span className="text-white/30">|</span>
+              <span className="text-white/60">{frames.length} SHOTS</span>
             </div>
-          )}
 
-          {/* Interactive Frictionless Scrub Track (Throttled to 16ms with Audio Muting & Instant Cached Frame Blit) */}
-          <div
-            onPointerDown={handleScrubPointerDown}
-            onPointerMove={handleScrubPointerMove}
-            onPointerUp={handleScrubPointerUp}
-            onPointerCancel={handleScrubPointerUp}
-            className="hidden md:flex items-center w-28 sm:w-36 h-2.5 bg-zinc-900/90 rounded-full overflow-hidden border border-white/15 cursor-ew-resize mx-1.5 relative select-none touch-none group/scrub"
-            title={`Drag to Scrub Shot (${slideTimeSec.toFixed(2)}s / ${activeShotDurationSec.toFixed(1)}s) [Throttled 16ms]`}
-          >
-            <div
-              className="h-full bg-gradient-to-r from-[#d4af37] via-[#FFE066] to-[#F5A623] transition-[width] duration-75 relative"
-              style={{ width: `${progressPercent}%` }}
-            >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(245,166,35,0.8)] opacity-90 group-hover/scrub:scale-125 transition-transform" />
-            </div>
-          </div>
-
-          {/* Micro-Telemetry Tooltip on Hover (FPS, Frame Count, Resolution) */}
-          <div className="zen-micro-tooltip-container hidden sm:inline-block">
-            <span className="text-[9.5px] font-mono text-zinc-300 tabular-nums px-1.5 py-0.5 rounded bg-black/40 border border-white/10 cursor-help">
-              F{String(activeFrameNum).padStart(3, '0')}/{activeTotalFrames}
-            </span>
-            <div className="zen-micro-tooltip p-2 text-[9px] font-mono text-zinc-200 space-y-1">
-              <div className="flex justify-between gap-3 text-zinc-400">
-                <span>FRAME:</span>
-                <span className="text-[#FFE066] font-bold">{activeFrameNum} / {activeTotalFrames}</span>
-              </div>
-              <div className="flex justify-between gap-3 text-zinc-400">
-                <span>TIMING:</span>
-                <span className="text-cyan-400 font-bold">{activeShotFps} FPS (24FPS TICK)</span>
-              </div>
-              <div className="flex justify-between gap-3 text-zinc-400">
-                <span>MEDIA PIPELINE:</span>
-                <span className="text-emerald-400 font-bold">{isScrubbing ? '540p 24FPS PROXY' : 'MASTER 4K RAW'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Cadence Selector Capsule Pill: [ ⏱ DURATION: 12.0s ▾ ] */}
-          <CadenceSelectorPill
-            durationSec={activeShotDurationSec}
-            targetFps={activeShotFps}
-            onChangeDuration={handleChangeCurrentDuration}
-            onChangeTargetFps={handleChangeCurrentFps}
-            onApplyDurationToAll={onApplyDurationToAll}
-            onMatchAudioBeats={handleMatchBeats}
-            isSnapToBeat={isSnapToBeat}
-            onToggleSnapToBeat={onToggleSnapToBeat}
-            compact={true}
-          />
-
-          {/* Quick [ Ripple All ] Action Button */}
-          {onApplyDurationToAll && (
-            <button
-              type="button"
-              onClick={handleRippleAll}
-              className="px-2 py-0.5 rounded bg-[#F5A623]/15 hover:bg-[#F5A623]/25 border border-[#F5A623]/50 text-[#FFE066] text-[9.5px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
-              title={`Ripple apply ${activeShotDurationSec.toFixed(1)}s hold across all ${frames.length} timeline shots`}
-            >
-              <Repeat className="w-2.5 h-2.5" />
-              <span className="hidden lg:inline">Ripple All</span>
-            </button>
-          )}
-
-          {/* Quick [ Match Beats ] Action Button */}
-          {onMatchAudioBeats && (
-            <button
-              type="button"
-              onClick={handleMatchBeats}
-              className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-[9.5px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
-              title="Align all timeline shot cuts to detected musical transients (Auto-Cut)"
-            >
-              <Music className="w-2.5 h-2.5 text-cyan-400" />
-              <span className="hidden lg:inline">Match Beats</span>
-            </button>
-          )}
-
-          {/* Camera Spec Telemetry on Hover (Cleanly relocalized from screen overlay) */}
-          <div className="hidden xl:flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-zinc-400 hover:text-white transition-colors" title="Active Camera & Media Pipeline">
-            <span className="text-[#FFE066] font-bold">{frame?.cameraSpec?.focalLength || '35mm Cine'}</span>
-            <span className="text-white/30">·</span>
-            <span className="text-white/80">{frame?.cameraSpec?.aperture || 'f/1.4'}</span>
-            <span className="text-white/30">·</span>
-            <span className="text-cyan-400">{isScrubbing ? 'PROXY 540p' : 'MASTER 4K'}</span>
-          </div>
-        </div>
-        )}
-
-        {/* Bottom Transport Bar Right Telemetry: TOTAL RUNTIME & ASPECT RATIO */}
-        {showHud && (
-        <div
-          data-testid="tactile-stage-runtime-hud"
-          className="animate-hud-fade-in absolute bottom-3 right-3 z-40 pointer-events-auto flex items-center gap-2"
-        >
-          {/* Relocated Telemetry: TOTAL RUNTIME */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-black/60 border border-white/10 text-[10px] font-mono tracking-wider text-emerald-400 select-none backdrop-blur-md shadow-lg">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>RUNTIME: {totalRuntimeTimecode}</span>
-            <span className="text-white/30">|</span>
-            <span className="text-white/60">{frames.length} SHOTS</span>
-          </div>
-
-          {/* ASPECT 2.39:1 // Cinema 35 */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 border border-white/10 text-[10px] font-mono tracking-wider text-white/70 select-none backdrop-blur-md shadow-lg">
-            <span className="text-[#FFE066] font-bold">ASPECT {aspectRatio || '2.39:1'}</span>
-            <span className="text-white/30">//</span>
-            <span className="text-white/50">Cinema 35</span>
-          </div>
-
-          {/* Hover Action Controls */}
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ml-0.5">
+            {/* Replace Media */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="p-1.5 rounded-lg bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
+              className="p-1 rounded bg-black/60 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
               title="Replace Media"
             >
               <Upload className="w-3.5 h-3.5" />
             </button>
-            {onOpenInspector && (
-              <button
-                onClick={onOpenInspector}
-                className="p-1.5 rounded-lg bg-black/85 hover:bg-black text-white/80 hover:text-[#ffe066] border border-white/20 transition-all cursor-pointer"
-                title="Open Color & Lens Inspector"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-              </button>
-            )}
+
+            {/* Fullscreen */}
             <button
               onClick={toggleFullscreen}
-              className="p-1.5 rounded-lg bg-black/85 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
+              className="p-1 rounded bg-black/60 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
               title="Toggle Stage Fullscreen"
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-        )}
       </div>
+
+      {/* Floating 35mm Film Stock & Color Grading Tray */}
+      <FilterGradingTray
+        isOpen={isFilterTrayOpen}
+        currentFrame={frame}
+        currentIndex={currentIndex}
+        totalShots={frames.length}
+        onUpdateFrame={handleUpdateCurrentFrame}
+        onApplyGradeToAll={handleApplyGradeToAll}
+        onClose={() => setIsFilterTrayOpen(false)}
+      />
+
+      {/* Module 11: Review Visual Markup Canvas Overlay */}
+      {activeModule === 'REVIEW' && (
+        <ReviewMarkupCanvas
+          shotIndex={currentIndex}
+          slideTimeSec={slideTimeSec}
+          onJumpToFrame={(targetShotIdx, targetTimeSec) => {
+            onSelectFrame(targetShotIdx);
+            if (onScrubSlideTime) onScrubSlideTime(targetTimeSec);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -26,11 +26,12 @@ export type TransitionType =
   | 'DIRECTIONAL_WIPE' 
   | 'KINETIC_ZOOM' 
   | 'GLITCH_CUT' 
-  | 'FILM_FLASH';
+  | 'FILM_FLASH'
+  | 'WHIP_PAN';
 
 export type AspectFitMode = 
   | 'CONTAIN'         // Pillarbox/Letterbox preserving unclipped full frame
-  | 'BLURRED_MIRROR'  // Stylized blurred-mirror margin pass for 9:16 vertical in widescreen
+  | 'BLURRED_MIRROR'  // Ambience Glow (Gaussian box-blur + saturation boost for 9:16 vertical in widescreen)
   | 'COVER';          // Edge-to-edge center crop
 
 export interface CompositorFrameStats {
@@ -49,13 +50,20 @@ const TRANS_CODE_MAP: Record<TransitionType, number> = Object.freeze({
   DIRECTIONAL_WIPE: 2,
   KINETIC_ZOOM: 3,
   GLITCH_CUT: 4,
-  FILM_FLASH: 5
+  FILM_FLASH: 5,
+  WHIP_PAN: 6
 });
 
 const FIT_CODE_MAP: Record<AspectFitMode, number> = Object.freeze({
   CONTAIN: 0,
   BLURRED_MIRROR: 1,
   COVER: 2
+});
+
+const COLOR_SPACE_MAP: Record<string, number> = Object.freeze({
+  'Rec.709': 0,
+  'DCI-P3': 1,
+  'ACEScg': 2
 });
 
 const VS_SOURCE = `#version 300 es
@@ -85,28 +93,59 @@ uniform vec2 u_canvasRes;
 uniform vec2 u_resA;
 uniform vec2 u_resB;
 uniform float u_time;
+uniform int u_colorSpace; // 0=Rec.709, 1=DCI-P3, 2=ACEScg
 
 // Random hash helper for glitch shaders
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
 
-// 9-tap Gaussian blur sample for portrait blurred-mirror margin pass
-vec4 sampleBlurred(sampler2D tex, vec2 uv, vec2 res) {
+// Color Space Transform 3x3 Matrices
+vec3 acescgToRec709(vec3 rgb) {
+  mat3 m = mat3(
+     1.704859, -0.130078, -0.023964,
+    -0.624072,  1.107138, -0.140410,
+    -0.080787,  0.022940,  1.164374
+  );
+  return clamp(m * rgb, 0.0, 1.0);
+}
+
+vec3 dcip3ToRec709(vec3 rgb) {
+  mat3 m = mat3(
+     1.2249, -0.0420, -0.0197,
+    -0.2247,  1.0420, -0.0786,
+     0.0000,  0.0000,  1.0983
+  );
+  return clamp(m * rgb, 0.0, 1.0);
+}
+
+vec4 applyColorSpace(vec4 col) {
+  if (u_colorSpace == 1) {
+    return vec4(dcip3ToRec709(col.rgb), col.a);
+  } else if (u_colorSpace == 2) {
+    return vec4(acescgToRec709(col.rgb), col.a);
+  }
+  return col;
+}
+
+// 9-tap Gaussian blur sample with Ambience Glow for portrait margin pass
+vec4 sampleAmbienceGlow(sampler2D tex, vec2 uv, vec2 res) {
   vec2 texel = 1.0 / res;
   vec4 color = vec4(0.0);
   float weights[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
 
   color += texture(tex, uv) * weights[0];
   for (int i = 1; i < 5; i++) {
-    vec2 offset = vec2(float(i) * 2.5) * texel;
+    vec2 offset = vec2(float(i) * 3.5) * texel;
     color += texture(tex, uv + vec2(offset.x, 0.0)) * weights[i];
     color += texture(tex, uv - vec2(offset.x, 0.0)) * weights[i];
     color += texture(tex, uv + vec2(0.0, offset.y)) * weights[i];
     color += texture(tex, uv - vec2(0.0, offset.y)) * weights[i];
   }
-  // Subtle dark cinema vignette on background mirror
-  return color * 0.55;
+  // Ambient glow saturation & contrast enhancement for cinematic side margins
+  float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+  vec3 saturated = mix(vec3(luma), color.rgb, 1.35) * 0.60;
+  return vec4(saturated, 1.0);
 }
 
 // Aspect ratio mapping preserving 1:1 pixel aspect ratio
@@ -146,9 +185,9 @@ vec4 sampleAspectFit(sampler2D tex, vec2 screenUv, vec2 mediaRes, vec2 canvasRes
 
   // Margin area:
   if (fitMode == 1 && isPortrait) {
-    // Stylized blurred-mirror margin pass for 9:16 vertical media
+    // Stylized blurred-mirror margin pass for 9:16 vertical media with Ambience Glow
     vec2 mirrorUv = clamp(screenUv, vec2(0.05), vec2(0.95));
-    return sampleBlurred(tex, mirrorUv, mediaRes);
+    return sampleAmbienceGlow(tex, mirrorUv, mediaRes);
   }
 
   // Clean matte black pillarbox
@@ -165,6 +204,7 @@ void main() {
     } else {
       fragColor = sampleAspectFit(u_textureB, uv, u_resB, u_canvasRes, u_fitMode);
     }
+    fragColor = applyColorSpace(fragColor);
     return;
   }
 
@@ -173,6 +213,7 @@ void main() {
     vec4 colA = sampleAspectFit(u_textureA, uv, u_resA, u_canvasRes, u_fitMode);
     vec4 colB = sampleAspectFit(u_textureB, uv, u_resB, u_canvasRes, u_fitMode);
     fragColor = mix(colA, colB, smoothstep(0.0, 1.0, u_mix));
+    fragColor = applyColorSpace(fragColor);
     return;
   }
 
@@ -184,6 +225,7 @@ void main() {
     vec4 colA = sampleAspectFit(u_textureA, uv, u_resA, u_canvasRes, u_fitMode);
     vec4 colB = sampleAspectFit(u_textureB, uv, u_resB, u_canvasRes, u_fitMode);
     fragColor = mix(colB, colA, edge);
+    fragColor = applyColorSpace(fragColor);
     return;
   }
 
@@ -196,6 +238,7 @@ void main() {
     vec4 colA = sampleAspectFit(u_textureA, uvA, u_resA, u_canvasRes, u_fitMode);
     vec4 colB = sampleAspectFit(u_textureB, uvB, u_resB, u_canvasRes, u_fitMode);
     fragColor = mix(colA, colB, smoothstep(0.2, 0.8, u_mix));
+    fragColor = applyColorSpace(fragColor);
     return;
   }
 
@@ -226,6 +269,7 @@ void main() {
     }
 
     fragColor = mix(colA, colB, step(0.5, u_mix));
+    fragColor = applyColorSpace(fragColor);
     return;
   }
 
@@ -236,11 +280,35 @@ void main() {
     float flash = sin(u_mix * 3.14159) * 0.85;
     vec4 base = mix(colA, colB, step(0.5, u_mix));
     fragColor = clamp(base + vec4(flash * 1.2, flash * 1.0, flash * 0.7, 0.0), 0.0, 1.0);
+    fragColor = applyColorSpace(fragColor);
+    return;
+  }
+
+  // 7. WHIP PAN (High-speed directional motion blur velocity vectors)
+  if (u_transitionType == 6) {
+    float panOffset = (u_mix - 0.5) * 2.0; // -1.0 to 1.0
+    float motionBlur = sin(u_mix * 3.14159) * 0.06;
+    vec2 panUvA = uv - vec2(u_mix * 1.2, 0.0);
+    vec2 panUvB = uv + vec2((1.0 - u_mix) * 1.2, 0.0);
+
+    vec4 sampleA = vec4(0.0);
+    vec4 sampleB = vec4(0.0);
+    for (int i = -3; i <= 3; i++) {
+      float weight = 1.0 - abs(float(i)) / 4.0;
+      vec2 off = vec2(float(i) * motionBlur * 0.3, 0.0);
+      sampleA += sampleAspectFit(u_textureA, panUvA + off, u_resA, u_canvasRes, u_fitMode) * weight;
+      sampleB += sampleAspectFit(u_textureB, panUvB + off, u_resB, u_canvasRes, u_fitMode) * weight;
+    }
+    sampleA /= 4.0;
+    sampleB /= 4.0;
+
+    fragColor = mix(sampleA, sampleB, smoothstep(0.4, 0.6, u_mix));
+    fragColor = applyColorSpace(fragColor);
     return;
   }
 
   // Default fallback
-  fragColor = sampleAspectFit(u_textureA, uv, u_resA, u_canvasRes, u_fitMode);
+  fragColor = applyColorSpace(sampleAspectFit(u_textureA, uv, u_resA, u_canvasRes, u_fitMode));
 }
 `;
 
@@ -271,6 +339,7 @@ export class WebGL2PingPongCompositor {
   private uResALoc: WebGLUniformLocation | null = null;
   private uResBLoc: WebGLUniformLocation | null = null;
   private uTimeLoc: WebGLUniformLocation | null = null;
+  private uColorSpaceLoc: WebGLUniformLocation | null = null;
 
   private isDestroyed = false;
   private frameCount = 0;
@@ -335,6 +404,7 @@ export class WebGL2PingPongCompositor {
     this.uResALoc = gl.getUniformLocation(program, 'u_resA');
     this.uResBLoc = gl.getUniformLocation(program, 'u_resB');
     this.uTimeLoc = gl.getUniformLocation(program, 'u_time');
+    this.uColorSpaceLoc = gl.getUniformLocation(program, 'u_colorSpace');
 
     // Create Fullscreen Quad VAO
     this.quadVao = gl.createVertexArray();
@@ -484,7 +554,8 @@ export class WebGL2PingPongCompositor {
   public render(
     mixProgress: number = 0.0,
     transitionType: TransitionType = 'CROSS_DISSOLVE',
-    fitMode: AspectFitMode = 'CONTAIN'
+    fitMode: AspectFitMode = 'CONTAIN',
+    colorSpace: 'Rec.709' | 'DCI-P3' | 'ACEScg' = 'Rec.709'
   ): CompositorFrameStats {
     if (this.isDestroyed || !this.program) {
       return {
@@ -518,6 +589,7 @@ export class WebGL2PingPongCompositor {
     gl.uniform1f(this.uMixLoc, Math.max(0.0, Math.min(1.0, mixProgress)));
     gl.uniform1i(this.uTransitionTypeLoc, TRANS_CODE_MAP[transitionType] ?? 1);
     gl.uniform1i(this.uFitModeLoc, FIT_CODE_MAP[fitMode] ?? 0);
+    gl.uniform1i(this.uColorSpaceLoc, COLOR_SPACE_MAP[colorSpace] ?? 0);
 
     gl.uniform2f(this.uCanvasResLoc, canvas.width, canvas.height);
     gl.uniform2f(this.uResALoc, this.resA.width, this.resA.height);

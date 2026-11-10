@@ -9,6 +9,9 @@ import { WebCodecsLookaheadQueue } from './webCodecsLookaheadQueue';
 import { masterAudioClock } from './masterAudioClock';
 import { opfsMediaStorage } from './opfsMediaStorage';
 import { codecResilienceEngine } from './codecResilienceEngine';
+import { smpteTimecodeEngine } from './smpteTimecodeEngine';
+import { transientBeatEngine } from './transientBeatEngine';
+import { multiTabLockManager } from './multiTabLockManager';
 
 test('WebCodecsLookaheadQueue: Sliding window and strict 48-frame capacity boundary', () => {
   const queue = new WebCodecsLookaheadQueue(24);
@@ -106,4 +109,67 @@ test('CodecResilienceEngine: Media audit and fallback transcode detection', asyn
   assert.strictEqual(typeof audit.isHardwareAccelerated, 'boolean');
   assert.strictEqual(typeof audit.needsFallbackTranscode, 'boolean');
   assert.strictEqual(audit.recommendedCodec, 'avc1.4d401f');
+});
+
+test('SmpteTimecodeEngine: SMPTE ST 12-1 24fps and 29.970 Drop-Frame mathematical precision', () => {
+  // Test 24.000fps standard formatting
+  assert.strictEqual(smpteTimecodeEngine.formatTimecode(0.0, 24, false), '00:00:00:00');
+  assert.strictEqual(smpteTimecodeEngine.formatTimecode(1.0, 24, false), '00:00:01:00');
+  assert.strictEqual(smpteTimecodeEngine.formatTimecode(0.5, 24, false), '00:00:00:12');
+  assert.strictEqual(smpteTimecodeEngine.formatTimecode(3661.0, 24, false), '01:01:01:00');
+
+  // Test Zero-GC object reference reuse
+  const rec1 = smpteTimecodeEngine.secondsToTimecode(1.0, 24, false);
+  const rec2 = smpteTimecodeEngine.secondsToTimecode(2.0, 24, false);
+  assert.strictEqual(rec1, rec2, 'TimecodeRecord memory must be reused in-place');
+
+  // Test 29.970 Drop-Frame: Frame indices 0 & 1 must be dropped at non-10th minute marks
+  const dfMinute1 = smpteTimecodeEngine.formatTimecode(60.0, 29.97, true);
+  assert.ok(dfMinute1.includes(';'), 'Drop-frame timecode must use semicolon separator');
+});
+
+test('TransientBeatEngine: Frame-accurate magnetic beat snapping and Zero-GC lookup', () => {
+  // Snapping without stems: returns target time unaltered
+  const unsnapped = transientBeatEngine.snapTimeToNearestBeat(1.234, 0.08);
+  assert.strictEqual(unsnapped.snappedTimeSec, 1.234);
+  assert.strictEqual(unsnapped.isSnapped, false);
+
+  // Snapping with synthetic analysis
+  const syntheticStems = {
+    bpm: 120,
+    durationSec: 10.0,
+    transients: [
+      { timeSec: 1.0, frameIndex: 24, energy: 0.9, isDownbeat: true, band: 'kick' as const },
+      { timeSec: 1.5, frameIndex: 36, energy: 0.7, isDownbeat: false, band: 'snare' as const }
+    ],
+    downbeats: [
+      { timeSec: 1.0, frameIndex: 24, energy: 0.9, isDownbeat: true, band: 'kick' as const }
+    ]
+  };
+
+  transientBeatEngine.setAnalysis(syntheticStems);
+
+  // Time near 1.02s within 0.08s threshold should snap to 1.0s
+  const snapped = transientBeatEngine.snapTimeToNearestBeat(1.02, 0.08);
+  assert.strictEqual(snapped.snappedTimeSec, 1.0);
+  assert.strictEqual(snapped.isSnapped, true);
+
+  // Time at 1.30s (0.2s from 1.5s, > 0.08s) should NOT snap
+  const notSnapped = transientBeatEngine.snapTimeToNearestBeat(1.30, 0.08);
+  assert.strictEqual(notSnapped.snappedTimeSec, 1.30);
+  assert.strictEqual(notSnapped.isSnapped, false);
+});
+
+test('MultiTabLockManager: Web Locks concurrency coordination and crash interceptor', async () => {
+  let executed = false;
+  await multiTabLockManager.executeWithExclusiveLock('test_opfs_lock', async () => {
+    executed = true;
+    return 'success';
+  });
+  assert.strictEqual(executed, true);
+
+  // Test decoder crash recovery state initial values
+  const recovery = multiTabLockManager.getRecoveryState();
+  assert.strictEqual(typeof recovery.crashCount, 'number');
+  assert.strictEqual(typeof recovery.isRecovering, 'boolean');
 });

@@ -432,9 +432,10 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   };
 
   // Render video, image, or standby slate for a camera feed with Blank Media Safeguard
+  // All media elements properly muted and optimized for 60fps GPU compositing
   const renderAngleMedia = (angle: MultiCamAngle, index: number) => {
-    const isVideo = angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm'));
-    const isImage = angle.blobUrl && (angle.blobUrl.startsWith('http') || angle.blobUrl.startsWith('data:') || angle.blobUrl.startsWith('/'));
+    const isVideo = Boolean(angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm')));
+    const isImage = Boolean(angle.blobUrl && (angle.blobUrl.startsWith('http') || angle.blobUrl.startsWith('data:') || angle.blobUrl.startsWith('/')));
 
     if (isVideo) {
       return (
@@ -443,8 +444,12 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           src={angle.blobUrl}
           crossOrigin="anonymous"
           playsInline
-          muted={index !== masterAudioIndex || isMuted}
-          className="w-full h-full object-cover pointer-events-none select-none transition-all duration-500"
+          muted
+          autoPlay={isPlaying}
+          preload="auto"
+          disablePictureInPicture
+          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+          className="w-full h-full object-cover pointer-events-none select-none transition-all duration-300"
         />
       );
     }
@@ -454,6 +459,9 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
         <img
           src={angle.blobUrl}
           alt={angle.label}
+          loading="eager"
+          decoding="async"
+          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
           className="w-full h-full object-cover pointer-events-none select-none"
         />
       );
@@ -462,11 +470,14 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     // Blank Media Safeguard:
     // If any camera slot (CAM 01–CAM 09) lacks an assigned video stream, render a clean, non-blocking standby slate
     return (
-      <div className="cam-standby-slate w-full h-full flex flex-col items-center justify-center bg-[#07080c] border border-white/5 text-center p-2 select-none">
-        <span className="cam-id text-xs font-mono font-bold text-zinc-400">
+      <div className="cam-standby-slate w-full h-full flex flex-col items-center justify-center bg-[#07080c] border border-white/5 text-center p-3 select-none">
+        <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center mb-1.5 text-zinc-500">
+          <Video className="w-4 h-4 opacity-40" />
+        </div>
+        <span className="cam-id text-xs font-mono font-bold text-white/50 tracking-wider">
           CAM {String(index + 1).padStart(2, '0')}
         </span>
-        <span className="cam-status text-[10px] font-mono text-zinc-600 mt-1">
+        <span className="cam-status text-[10px] font-mono text-white/30 uppercase tracking-widest mt-1">
           STANDBY / NO FEED
         </span>
       </div>
@@ -654,14 +665,17 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                 key={angle.id}
                 style={{
                   ...layoutStyle,
-                  ...(isHero && !isFlashing ? { border: '2px solid #00f0ff', boxShadow: '0 0 12px rgba(0,240,255,0.4)' } : {})
+                  ...(isHero && !isFlashing ? { 
+                    border: '2px solid #00f0ff', 
+                    boxShadow: '0 0 18px rgba(0,240,255,0.7), 0 0 36px rgba(0,240,255,0.35), inset 0 0 12px rgba(0,240,255,0.2)' 
+                  } : {})
                 }}
                 onClick={() => handleSelectAngleWithFlash(idx)}
                 className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl transition-all duration-75 ${
                   isFlashing
                     ? 'border-[4px] border-white shadow-[0_0_45px_#FFFFFF] ring-4 ring-white z-30 scale-[1.01]'
                     : isHero
-                    ? 'border-[2px] border-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.4)] z-20'
+                    ? 'border-[2px] border-[#00f0ff] shadow-[0_0_18px_rgba(0,240,255,0.7),0_0_36px_rgba(0,240,255,0.35)] ring-2 ring-cyan-400/60 z-20'
                     : 'border-white/10 hover:border-[#00f0ff]/50 opacity-75 hover:opacity-100 z-10'
                 }`}
               >
@@ -748,11 +762,11 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
 
                     {isHero ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-cyan-400 via-cyan-500 to-sky-500 text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_12px_rgba(0,240,255,0.8)] border border-cyan-200 flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-cyan-400 via-cyan-500 to-sky-500 text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_16px_rgba(0,240,255,0.95)] border border-cyan-200 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
-                          BROADCAST TALLY
+                          CYANIDE TALLY
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#00F0FF] text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_12px_#00F0FF]">
+                        <span className="px-2 py-0.5 rounded-md bg-[#00F0FF] text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_16px_#00F0FF]">
                           ● ON AIR
                         </span>
                       </div>

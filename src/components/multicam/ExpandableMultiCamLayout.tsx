@@ -139,15 +139,18 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
   };
 
-  // Helper to render video or image element for a camera angle
+  // Helper to render video or image element for a camera angle (muted & 60fps optimized)
   const renderAngleMedia = (angle?: MultiCamAngle, index: number = 0, isFill = true) => {
-    if (!angle || (!angle.blobUrl && !samplePacks.cyberNoir[index % samplePacks.cyberNoir.length])) {
+    if (!angle || !angle.blobUrl) {
       return (
-        <div className="cam-standby-slate w-full h-full flex flex-col items-center justify-center bg-[#07080c] border border-white/5 text-center p-2 select-none">
-          <span className="cam-id text-xs font-mono font-bold text-zinc-400">
+        <div className="cam-standby-slate w-full h-full flex flex-col items-center justify-center bg-[#07080c] border border-white/5 text-center p-3 select-none">
+          <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center mb-1 text-zinc-500">
+            <Video className="w-4 h-4 opacity-40" />
+          </div>
+          <span className="cam-id text-xs font-mono font-bold text-white/50 tracking-wider">
             CAM {String(index + 1).padStart(2, '0')}
           </span>
-          <span className="cam-status text-[10px] font-mono text-zinc-600 mt-1">
+          <span className="cam-status text-[10px] font-mono text-white/30 uppercase tracking-widest mt-0.5">
             STANDBY / NO FEED
           </span>
         </div>
@@ -163,8 +166,11 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
           ref={el => { videoRefs.current[index] = el; }}
           src={angle.blobUrl}
           playsInline
-          muted={index !== masterAudioIndex || isMuted}
-          className={`w-full h-full ${isFill ? 'object-cover' : 'object-contain'} pointer-events-none select-none`}
+          muted
+          preload="auto"
+          disablePictureInPicture
+          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+          className={`w-full h-full ${isFill ? 'object-cover' : 'object-contain'} pointer-events-none select-none transition-all duration-300`}
         />
       );
     }
@@ -594,8 +600,8 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
                   onClick={() => onSelectAngle(idx)}
                   className={`group relative w-full h-full bg-black rounded-xl overflow-hidden cursor-pointer transition-all duration-150 flex flex-col justify-between ${
                     isActive
-                      ? 'border-2 border-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.4)] z-10'
-                      : 'border border-white/10 hover:border-amber-400/50 opacity-75 hover:opacity-100'
+                      ? 'border-2 border-[#00f0ff] shadow-[0_0_16px_rgba(0,240,255,0.7),0_0_32px_rgba(0,240,255,0.35)] ring-2 ring-cyan-400/50 z-10'
+                      : 'border border-white/10 hover:border-[#00f0ff]/50 opacity-75 hover:opacity-100'
                   }`}
                 >
                   {/* Media Viewport */}
@@ -618,14 +624,14 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
 
                     <div className="flex items-center gap-1 pointer-events-auto">
                       {isMaster && (
-                        <span className="p-0.5 rounded bg-black/80 border border-amber-500/30 text-amber-400" title="Master Audio Mic">
+                        <span className="p-0.5 rounded bg-black/80 border border-cyan-500/30 text-cyan-400" title="Master Audio Mic">
                           <Volume2 className="w-3 h-3" />
                         </span>
                       )}
 
                       {isActive && (
-                        <span className="px-1.5 py-0.5 rounded bg-[#EF4444] text-white font-black text-[8px] tracking-wider uppercase animate-pulse shadow-[0_0_8px_#EF4444]">
-                          ON AIR
+                        <span className="px-1.5 py-0.5 rounded bg-[#00f0ff] text-black font-black text-[8px] tracking-wider uppercase animate-pulse shadow-[0_0_10px_#00f0ff]">
+                          ● ON AIR
                         </span>
                       )}
                     </div>

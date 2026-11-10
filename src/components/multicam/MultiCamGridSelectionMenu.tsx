@@ -52,6 +52,14 @@ const PRESET_OPTIONS: PresetOption[] = [
     subtitle: 'Synchronized 4-Quadrant Comparison',
     description: 'Equally proportions 4 camera angles in a 2x2 matrix for comprehensive simultaneous multicam monitoring.',
     bestFor: 'Multi-camera studio shoots, coverage alignment & group action scenes'
+  },
+  {
+    id: '3x3',
+    keyBadge: '4',
+    title: '3x3 DIRECTORS GRID',
+    subtitle: '9-Camera Synchronized Multicam',
+    description: 'Displays all 9 camera feeds in a 3x3 matrix with live numeric cutting, cyanide tally lights, and standby slates.',
+    bestFor: 'Complex multi-angle concert coverage, stadium multicam & director master control'
   }
 ];
 
@@ -63,7 +71,7 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
   angles = [],
   activeAngleIdx = 0
 }) => {
-  // ESC to close or '1', '2', '3' to select and close
+  // ESC to close or '1', '2', '3', '4' to select and close
   useEffect(() => {
     if (!isOpen) return;
 
@@ -88,6 +96,12 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
       if (e.key === '3') {
         e.preventDefault();
         onSelectConfig('2x2');
+        onClose();
+        return;
+      }
+      if (e.key === '4') {
+        e.preventDefault();
+        onSelectConfig('3x3');
         onClose();
         return;
       }
@@ -130,7 +144,7 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
                 </span>
               </div>
               <p className="text-xs text-neutral-400 font-sans mt-0.5">
-                Select monitor geometry or press keys <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">1</kbd>, <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">2</kbd>, or <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">3</kbd> anytime
+                Select monitor geometry or press keys <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">1</kbd>, <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">2</kbd>, <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-amber-300 font-mono font-bold">3</kbd>, or <kbd className="px-1 py-0.2 bg-white/10 rounded text-[10px] text-cyan-300 font-mono font-bold">4</kbd> anytime
               </p>
             </div>
           </div>
@@ -146,7 +160,7 @@ export const MultiCamGridSelectionMenu: React.FC<MultiCamGridSelectionMenuProps>
         </div>
 
         {/* Preset Cards Grid with Dynamic Visual Thumbnail Previews */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#060709]">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-[#060709]">
           {PRESET_OPTIONS.map(preset => {
             const isSelected = activeConfig === preset.id;
 

@@ -145,10 +145,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecording, setIsRecording] = useState(false);
 
-  // Live Hollywood Master Timecode for 4K Minimalist Header
+  // Cumulative shot offsets for timing
   const shotOffsets = useMemo(() => getCumulativeShotOffsets(frames), [frames]);
-  const currentStartSec = shotOffsets[currentIndex]?.startSec ?? (currentIndex * slideDurationSec);
-  const liveTimecode = formatFullSMPTETimecode(currentStartSec, fps);
 
   // Global Search State: Unified Application State, Panels, Tools & Ecosystem Index
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -1187,88 +1185,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. CENTER COLUMN: Playback Mode Toggle */}
-      {(() => {
-        const isMasterMode = currentMode === 'MASTER';
-        return (
-          <div
-            data-current-mode={currentMode}
-            className="flex-none flex items-center gap-2.5 shrink-0"
-          >
-            <div className="relative flex items-center bg-[#050505] border border-white/10 rounded-full p-0.5 shadow-inner">
-              {/* SHRUNKEN TOGGLE */}
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={!isMasterMode}
-                onClick={() => handleModeSelect('SOLO')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') handleModeSelect('SOLO');
-                }}
-                className={`relative z-10 w-16 py-1 py-1! flex justify-center items-center text-[9px] font-black tracking-wider uppercase cursor-pointer rounded-full transition-colors ${
-                  !isMasterMode
-                    ? 'text-[#050505] bg-gradient-to-r from-amber-500 to-amber-400'
-                    : 'text-white/40 hover:text-white/75'
-                }`}
-              >
-                {!isMasterMode && (
-                  <motion.span
-                    aria-hidden="true"
-                    initial={{ scale: 1, opacity: 0.5 }}
-                    animate={{
-                      scale: [1, 1.08, 1.02, 1.1, 1],
-                      opacity: [0.5, 0.2, 0.4, 0.1, 0.5]
-                    }}
-                    transition={{
-                      duration: 2.2,
-                      repeat: Infinity,
-                      ease: 'easeInOut'
-                    }}
-                    className="absolute -inset-0.5 rounded-full border border-amber-400/70 pointer-events-none motion-reduce:hidden"
-                  />
-                )}
-                <span className="relative z-10">SOLO</span>
-              </div>
-
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={isMasterMode}
-                onClick={() => handleModeSelect('MASTER')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') handleModeSelect('MASTER');
-                }}
-                className={`relative z-10 w-16 py-1 py-1! flex justify-center items-center text-[9px] font-black tracking-wider uppercase cursor-pointer rounded-full transition-colors ${
-                  isMasterMode
-                    ? 'text-[#050505] bg-gradient-to-r from-amber-500 to-amber-400'
-                    : 'text-white/40 hover:text-white/75'
-                }`}
-              >
-                {isMasterMode && (
-                  <motion.span
-                    aria-hidden="true"
-                    initial={{ scale: 1, opacity: 0.5 }}
-                    animate={{
-                      scale: [1, 1.08, 1.02, 1.1, 1],
-                      opacity: [0.5, 0.2, 0.4, 0.1, 0.5]
-                    }}
-                    transition={{
-                      duration: 2.2,
-                      repeat: Infinity,
-                      ease: 'easeInOut'
-                    }}
-                    className="absolute -inset-0.5 rounded-full border border-amber-400/70 pointer-events-none motion-reduce:hidden"
-                  />
-                )}
-                <span className="relative z-10">MASTER</span>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* 3. RIGHT COLUMN (flex-1 pushes content to far right) */}
-      <div className="flex-1 flex items-center justify-end gap-2.5 lg:gap-4">
+      {/* 2. RIGHT COLUMN: Master/Export Action Pod & Studio Tools */}
+      <div className="flex-1 flex items-center justify-end gap-2.5 lg:gap-3">
         {/* 1. Global Search Bar: Existing Application State, Workspace Panels, Tools & Ecosystem */}
         <div ref={searchContainerRef} className="relative shrink-0">
           <div className="relative flex items-center h-8 bg-black/60 border border-white/10 hover:border-white/25 focus-within:border-amber-400/60 focus-within:ring-1 focus-within:ring-amber-400/30 rounded-lg px-2.5 gap-2 transition-all w-36 sm:w-52 lg:w-64 shadow-inner">
@@ -1549,29 +1467,71 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           </SmartHoverCard>
         )}
 
-        {/* 3. EXPORT Button (Triggers UnifiedExportStudio Modal) */}
-        <SmartHoverCard
-          code="[ 📤 EXPORT // 24FPS NATIVE ]"
-          description="Open Unified Export Studio for 4K WebCodecs MP4, Premiere XML, DaVinci FCPXML & PDF."
-          shortcut="⇧E"
-          align="right"
-        >
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenExport) {
-                onOpenExport();
-              } else {
-                setIsExportStudioOpen(true);
-              }
-            }}
-            className="h-8 px-2.5! rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,166,35,0.18)] shrink-0 whitespace-nowrap"
-            title="Open Unified Master Export Studio"
+        {/* Master / Export Action Pod */}
+        <div className="flex items-center gap-1.5 p-0.5 bg-[#050505] border border-white/10 rounded-xl shadow-inner shrink-0">
+          {/* Playback Mode Toggle: SOLO vs MASTER */}
+          {(() => {
+            const isMasterMode = currentMode === 'MASTER';
+            return (
+              <div
+                data-current-mode={currentMode}
+                className="flex items-center"
+                title="Playback Mode: Solo Shot vs Master Sequence"
+              >
+                <button
+                  type="button"
+                  aria-pressed={!isMasterMode}
+                  onClick={() => handleModeSelect('SOLO')}
+                  className={`px-2.5 py-1 text-[9px] font-black tracking-wider uppercase rounded-lg transition-all cursor-pointer ${
+                    !isMasterMode
+                      ? 'text-black bg-gradient-to-r from-amber-500 to-amber-400 font-bold shadow-sm'
+                      : 'text-white/40 hover:text-white/75'
+                  }`}
+                >
+                  SOLO
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={isMasterMode}
+                  onClick={() => handleModeSelect('MASTER')}
+                  className={`px-2.5 py-1 text-[9px] font-black tracking-wider uppercase rounded-lg transition-all cursor-pointer ${
+                    isMasterMode
+                      ? 'text-black bg-gradient-to-r from-amber-500 to-amber-400 font-bold shadow-sm'
+                      : 'text-white/40 hover:text-white/75'
+                  }`}
+                >
+                  MASTER
+                </button>
+              </div>
+            );
+          })()}
+
+          <div className="w-px h-4 bg-white/10 my-auto" />
+
+          {/* EXPORT Button (Triggers UnifiedExportStudio Modal) */}
+          <SmartHoverCard
+            code="[ 📤 EXPORT // 24FPS NATIVE ]"
+            description="Open Unified Export Studio for 4K WebCodecs MP4, Premiere XML, DaVinci FCPXML & PDF."
+            shortcut="⇧E"
+            align="right"
           >
-            <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>EXPORT</span>
-          </button>
-        </SmartHoverCard>
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenExport) {
+                  onOpenExport();
+                } else {
+                  setIsExportStudioOpen(true);
+                }
+              }}
+              className="h-7 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_10px_rgba(245,166,35,0.2)] shrink-0 whitespace-nowrap"
+              title="Open Unified Master Export Studio"
+            >
+              <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>EXPORT</span>
+            </button>
+          </SmartHoverCard>
+        </div>
 
         {/* 4. STUDIO (Red) Button */}
         <button

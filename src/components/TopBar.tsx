@@ -441,55 +441,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          {/* Dynamic Master Telemetry HUD Badge (Solo vs Master Sequence) */}
-          <div className="hidden xl:block relative group/topbar-telemetry font-mono tabular-nums">
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectPlaybackMode) {
-                  onSelectPlaybackMode(playbackMode === 'solo' ? 'sequence' : 'solo');
-                }
-              }}
-              className={`px-3 py-1.5 rounded-lg border text-[10.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer tabular-nums ${
-                playbackMode === 'solo'
-                  ? 'bg-black/75 border-[#F5A623]/45 hover:border-[#F5A623] text-[#F5A623]'
-                  : 'bg-black/75 border-emerald-500/35 hover:border-emerald-400 text-emerald-300'
-              }`}
-              title="Dynamic Master Telemetry HUD — Click to toggle Shot Solo vs Master Sequence Runtime"
-            >
-              <span className="text-zinc-500">[</span>
-              <span>{playbackMode === 'solo' ? soloHudLabel : masterRuntimeLabel}</span>
-              <span className="text-zinc-500">]</span>
-            </button>
 
-            <div className="pointer-events-none absolute right-0 top-full mt-2 w-80 p-3 bg-[#0a0a12]/98 border border-[#d4af37]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 group-hover/topbar-telemetry:opacity-100 group-hover/topbar-telemetry:translate-y-0 transition-all duration-200 z-50 text-left font-mono text-[10px] tabular-nums">
-              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[#fbbf24] font-bold uppercase tracking-wider">
-                <span className="flex items-center gap-1.5">
-                  <Activity className="w-3 h-3" />
-                  MASTER TELEMETRY HUD
-                </span>
-                <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-[#F5A623]/20 text-[#F5A623]">
-                  {playbackMode === 'solo' ? 'SHOT SOLO' : 'SEQUENCE'}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Shot Solo:</span>
-                  <span className="text-[#FFE066] font-bold">[ {soloHudLabel} ]</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Master Sequence:</span>
-                  <span className="text-emerald-300 font-bold">[ {masterRuntimeLabel} ]</span>
-                </div>
-                {onOpenProjectStats && (
-                  <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between">
-                    <span className="text-[9.5px] text-zinc-400">Full Analytics:</span>
-                    <span className="text-[#F5A623] text-[9.5px] font-bold">Click STATS Button ↗</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* Cloud Sync & Google Auth Pill */}
           {authUser ? (

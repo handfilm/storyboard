@@ -1938,8 +1938,10 @@ class StudioDraftDbService {
     const tx = db.transaction('media_vault', 'readwrite');
     tx.objectStore('media_vault').put(item);
     await new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      const timer = setTimeout(() => resolve(), 3000);
+      tx.oncomplete = () => { clearTimeout(timer); resolve(); };
+      tx.onerror = () => { clearTimeout(timer); reject(tx.error); };
+      tx.onabort = () => { clearTimeout(timer); resolve(); };
     });
   }
 
@@ -1953,8 +1955,10 @@ class StudioDraftDbService {
     const tx = db.transaction('timeline_slots', 'readwrite');
     tx.objectStore('timeline_slots').delete(slotIndex);
     await new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      const timer = setTimeout(() => resolve(), 3000);
+      tx.oncomplete = () => { clearTimeout(timer); resolve(); };
+      tx.onerror = () => { clearTimeout(timer); reject(tx.error); };
+      tx.onabort = () => { clearTimeout(timer); resolve(); };
     });
   }
 

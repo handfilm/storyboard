@@ -728,11 +728,28 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setIsIngesting(true);
+      const safetyTimeout = window.setTimeout(() => {
+        setIsIngesting(false);
+      }, 2500);
+
       try {
+        const objectUrl = URL.createObjectURL(file);
+        setSourceUrl(objectUrl);
+        setProxyUrl(objectUrl);
+        const isVideo = file.type.startsWith('video/');
+
+        if (onUpdateFrame) {
+          onUpdateFrame({
+            ...frame,
+            imageUrl: objectUrl,
+            isVideo
+          });
+        }
+
         const mediaId = `vault_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         let posterDataUrl = '';
 
-        if (file.type.startsWith('video/')) {
+        if (isVideo) {
           try {
             const posterResult = await extractVideoPoster(file);
             posterDataUrl = posterResult.base64;
@@ -740,34 +757,40 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             thumbnailMemoryCache.set(String(frame?.id ?? currentIndex), posterDataUrl);
             thumbnailMemoryCache.set(`shot_${currentIndex}`, posterDataUrl);
             setCachedPosterUrl(posterDataUrl);
+
+            if (onUpdateFrame) {
+              onUpdateFrame({
+                ...frame,
+                imageUrl: objectUrl,
+                thumbnailUrl: posterDataUrl,
+                isVideo: true
+              });
+            }
           } catch (err) {
             console.warn('Poster extraction during drop:', err);
           }
         }
 
-        // Save raw source file with authentic non-black poster to media_vault in IndexedDB
-        await studioDraftDb.addVaultMediaItem({
-          id: mediaId,
-          name: file.name,
-          mimeType: file.type || 'video/mp4',
-          size: file.size,
-          blob: file,
-          thumbnailUrl: posterDataUrl,
-          createdAt: Date.now(),
-          assignedShotIndex: currentIndex
-        });
+        // Asynchronously save to IndexedDB and OPFS in background without holding UI hostage
+        (async () => {
+          try {
+            await studioDraftDb.addVaultMediaItem({
+              id: mediaId,
+              name: file.name,
+              mimeType: file.type || 'video/mp4',
+              size: file.size,
+              blob: file,
+              thumbnailUrl: posterDataUrl,
+              createdAt: Date.now(),
+              assignedShotIndex: currentIndex
+            });
+            await studioDraftDb.setTimelineSlot(currentIndex, mediaId);
+            await studioDraftDb.generateProxyForMedia(mediaId, file);
+          } catch (err) {
+            console.warn('[Background Vault Persistence Note]:', err);
+          }
+        })();
 
-        // Assign to timeline slot
-        await studioDraftDb.setTimelineSlot(currentIndex, mediaId);
-
-        // Auto-generate lightweight proxy in background via OffscreenCanvas
-        try {
-          await studioDraftDb.generateProxyForMedia(mediaId, file);
-        } catch (err) {
-          console.warn('Background proxy generation note:', err);
-        }
-
-        // Low-Overhead OPFS Ingestion & Fast 720p 24fps Scrub Proxy Pipeline
         opfsMediaStorage.storeSourceFile(mediaId, file, file.name).then(async (asset) => {
           await opfsMediaStorage.generate720pScrubProxy(file, mediaId, asset.dimensions);
           console.info(`*Verification:* [OPFS Ingestion & Fast Proxy] Ingested ${mediaId} into OPFS & created 720p 24fps proxy.`);
@@ -775,21 +798,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           console.warn('[OPFS Ingestion Warning]', err);
         });
 
-        const objectUrl = URL.createObjectURL(file);
-        setSourceUrl(objectUrl);
-        setProxyUrl(objectUrl);
-
-        if (onUpdateFrame) {
-          onUpdateFrame({
-            ...frame,
-            imageUrl: objectUrl,
-            thumbnailUrl: posterDataUrl || (!file.type.startsWith('video/') ? objectUrl : frame?.thumbnailUrl),
-            isVideo: file.type.startsWith('video/')
-          });
-        }
       } catch (err) {
         console.error('Failed to ingest dropped media:', err);
       } finally {
+        window.clearTimeout(safetyTimeout);
         setIsIngesting(false);
       }
     }
@@ -1052,11 +1064,18 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
         {/* Ingesting Spinner Overlay */}
         {isIngesting && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-30">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2.5 z-30">
             <div className="w-6 h-6 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-mono-tech text-[#ffe066] tracking-wider">
-              INGESTING RAW 4K ASSET & GENERATING 540P PROXY...
+            <span className="text-xs font-mono-tech text-[#ffe066] tracking-wider text-center px-4">
+              INGESTING RAW 4K ASSET &amp; GENERATING 540P PROXY...
             </span>
+            <button
+              type="button"
+              onClick={() => setIsIngesting(false)}
+              className="mt-1 px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-[11px] font-mono text-white/80 cursor-pointer transition-all hover:text-white"
+            >
+              Dismiss / Continue in Background
+            </button>
           </div>
         )}
 

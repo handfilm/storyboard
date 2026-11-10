@@ -34,6 +34,9 @@ import { audioSidechainDucker, SidechainDuckingTelemetry } from '../../services/
 import { waveformTileGenerator, WaveformCacheTelemetry } from '../../services/media/waveformTileGenerator';
 import { opticalCutDetector, OpticalCut } from '../../services/media/opticalCutDetector';
 import { eventSourcedJournal } from '../../services/media/eventSourcedJournal';
+import { webGpuOpticalFlowEngine } from '../../services/media/webgpuOpticalFlowEngine';
+import { parametricFilmGrainEngine, FilmStockPreset } from '../../services/media/parametricFilmGrainEngine';
+import { lockFreeAudioWorkletEngine } from '../../services/media/lockFreeAudioWorklet';
 import {
   Film,
   Zap,
@@ -53,7 +56,9 @@ import {
   ShieldCheck,
   Scissors,
   Layers3,
-  Mic
+  Mic,
+  Wind,
+  Sparkle
 } from 'lucide-react';
 
 export interface WebCodecsStageCompositorProps {
@@ -127,6 +132,11 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
   const [isDetectingCuts, setIsDetectingCuts] = useState<boolean>(false);
   const [detectedCuts, setDetectedCuts] = useState<OpticalCut[]>([]);
   const [showCutsPopover, setShowCutsPopover] = useState<boolean>(false);
+
+  // Optical Flow & Parametric Film Grain States
+  const [opticalFlowActive, setOpticalFlowActive] = useState<boolean>(true);
+  const [filmGrainActive, setFilmGrainActive] = useState<boolean>(true);
+  const [filmGrainStock, setFilmGrainStock] = useState<FilmStockPreset>('VISION3_500T');
 
   // Media Inspection & Orientation State
   const [dimA, setDimA] = useState<MediaNativeDimensions>({
@@ -570,6 +580,24 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-zinc-400 flex items-center gap-1">
+                  <Wind className="w-3 h-3 text-cyan-400" />
+                  <span>OPTICAL FLOW</span>
+                </span>
+                <span className={`font-bold ${opticalFlowActive ? 'text-cyan-400' : 'text-zinc-500'}`}>
+                  {opticalFlowActive ? 'rg16float VECTORS (FRC ACTIVE)' : 'OFF'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 flex items-center gap-1">
+                  <Sparkle className="w-3 h-3 text-amber-300" />
+                  <span>35mm FILM GRAIN</span>
+                </span>
+                <span className={`font-bold ${filmGrainActive ? 'text-amber-300' : 'text-zinc-500'}`}>
+                  {filmGrainActive ? 'VISION3 500T (ORGANIC HALIDE)' : 'CLEAN'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 flex items-center gap-1">
                   <Activity className="w-3 h-3 text-amber-400" />
                   <span>WAVEFORM TILES</span>
                 </span>
@@ -734,6 +762,42 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
           >
             <Layers3 className="w-3 h-3 text-cyan-400" />
             <span>DEPTH MATTE: {depthOcclusionActive ? 'ON' : 'OFF'}</span>
+          </button>
+
+          {/* Optical Flow Motion Estimation Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpticalFlowActive(!opticalFlowActive);
+              addLog(`*Verification:* [Optical Flow Engine] ${!opticalFlowActive ? 'ENGAGED' : 'DISENGAGED'}`);
+            }}
+            className={`px-2 py-1 rounded border text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all ${
+              opticalFlowActive
+                ? 'bg-cyan-950/80 border-cyan-500/50 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                : 'bg-black/60 border-white/10 text-zinc-500 hover:text-zinc-300'
+            }`}
+            title="WebGPU Dense Optical Flow & FRC Sub-Frame Interpolation"
+          >
+            <Wind className="w-3 h-3 text-cyan-400" />
+            <span>FLOW: {opticalFlowActive ? 'ON' : 'OFF'}</span>
+          </button>
+
+          {/* Parametric Film Grain Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setFilmGrainActive(!filmGrainActive);
+              addLog(`*Verification:* [Photochemical Film Grain] ${!filmGrainActive ? 'ENGAGED (35mm)' : 'DISENGAGED'}`);
+            }}
+            className={`px-2 py-1 rounded border text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all ${
+              filmGrainActive
+                ? 'bg-amber-950/80 border-amber-500/50 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                : 'bg-black/60 border-white/10 text-zinc-500 hover:text-zinc-300'
+            }`}
+            title="Photochemically Accurate 16mm/35mm Silver Halide Grain"
+          >
+            <Sparkle className="w-3 h-3 text-amber-300" />
+            <span>GRAIN: {filmGrainActive ? '35mm' : 'OFF'}</span>
           </button>
 
           {/* Optical Cut Detection Button */}

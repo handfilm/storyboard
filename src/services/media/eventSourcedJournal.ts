@@ -19,11 +19,14 @@ export interface TimelineAction {
   id: string;
   actionType: 
     | 'ADD_SHOT' 
+    | 'INSERT_SHOT'
     | 'DELETE_SHOT' 
+    | 'RIPPLE_EDIT'
     | 'REORDER_SHOTS' 
     | 'UPDATE_DURATION' 
     | 'SPLIT_SHOT' 
     | 'APPLY_COLOR_GRADE' 
+    | 'SET_AUTO_FRAME'
     | 'UPDATE_TITLES';
   timestamp: number;
   frameIndex?: number;

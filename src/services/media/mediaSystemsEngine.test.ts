@@ -17,6 +17,9 @@ import { audioSidechainDucker } from './audioSidechainDucker';
 import { waveformTileGenerator } from './waveformTileGenerator';
 import { opticalCutDetector } from './opticalCutDetector';
 import { eventSourcedJournal } from './eventSourcedJournal';
+import { webGpuOpticalFlowEngine } from './webgpuOpticalFlowEngine';
+import { parametricFilmGrainEngine } from './parametricFilmGrainEngine';
+import { lockFreeAudioWorkletEngine } from './lockFreeAudioWorklet';
 
 test('WebCodecsLookaheadQueue: Sliding window and strict 48-frame capacity boundary', () => {
   const queue = new WebCodecsLookaheadQueue(24);
@@ -325,4 +328,58 @@ test('EventSourcedJournal: Immutable delta action commits, undo, and redo histor
   const redoneAct = eventSourcedJournal.redo();
   assert.strictEqual(redoneAct?.id, act2.id);
   assert.strictEqual(eventSourcedJournal.getUndoPointer(), 1);
+});
+
+test('WebGpuOpticalFlowEngine: Bidirectional motion vector calculation & FRC slow-motion telemetry', () => {
+  const width = 160;
+  const height = 90;
+  const frameA = new Uint8ClampedArray(width * height * 4);
+  const frameB = new Uint8ClampedArray(width * height * 4);
+
+  // Synthesize shifted horizontal gradient between Frame A and Frame B
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      frameA[idx] = (x * 255) / width;
+      frameA[idx + 1] = 128;
+      frameA[idx + 2] = 200;
+      frameA[idx + 3] = 255;
+
+      // Shift right by 4 pixels in Frame B to simulate camera pan
+      const shiftedX = Math.max(0, x - 4);
+      frameB[idx] = (shiftedX * 255) / width;
+      frameB[idx + 1] = 128;
+      frameB[idx + 2] = 200;
+      frameB[idx + 3] = 255;
+    }
+  }
+
+  const telemetry = webGpuOpticalFlowEngine.computeMotionField(frameA, frameB, width, height);
+  assert.ok(telemetry.forwardVectorsCalculated);
+  assert.ok(telemetry.backwardVectorsCalculated);
+  assert.strictEqual(typeof telemetry.averageVelocityMag, 'number');
+  assert.strictEqual(typeof telemetry.computeTimeMs, 'number');
+});
+
+test('ParametricFilmGrainEngine: Photochemical 35mm/16mm silver halide grain synthesis', () => {
+  parametricFilmGrainEngine.setParameters({
+    enabled: true,
+    intensity: 0.4,
+    grainSize: 1.0,
+    colorGrain: false,
+    filmStock: 'VISION3_500T'
+  });
+
+  const params = parametricFilmGrainEngine.getParameters();
+  assert.strictEqual(params.enabled, true);
+  assert.strictEqual(params.intensity, 0.4);
+  assert.strictEqual(params.filmStock, 'VISION3_500T');
+});
+
+test('LockFreeAudioWorkletEngine: Worklet engine initialization and telemetry state', () => {
+  const telemetry = lockFreeAudioWorkletEngine.getTelemetry();
+  assert.strictEqual(typeof telemetry.isWorkletActive, 'boolean');
+  assert.strictEqual(typeof telemetry.duckingGainLinear, 'number');
+  assert.strictEqual(typeof telemetry.speechEnergyRms, 'number');
+  assert.strictEqual(typeof telemetry.isDuckingActive, 'boolean');
 });

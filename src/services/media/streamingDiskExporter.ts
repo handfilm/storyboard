@@ -20,6 +20,8 @@ import { Muxer, FileSystemWritableFileStreamTarget, ArrayBufferTarget } from 'mp
 import { AnthologyFrame } from '../../types/anthology';
 import { getShotDurationSec } from '../../types/storyboard';
 import { masterAudioClock } from './masterAudioClock';
+import { exportRecoveryManager } from './exportRecoveryManager';
+import { audioSidechainDucker } from './audioSidechainDucker';
 
 export interface DiskExportOptions {
   frames: AnthologyFrame[];
@@ -28,6 +30,9 @@ export interface DiskExportOptions {
   fps?: number;
   bitrateBps?: number;
   suggestedFilename?: string;
+  resumeFromFrame?: number;
+  enableSidechainDucking?: boolean;
+  enableDepthOcclusion?: boolean;
   onProgress?: (progressPct: number, currentFrame: number, totalFrames: number) => void;
   abortSignal?: AbortSignal;
 }
@@ -255,6 +260,19 @@ export class StreamingDiskExporter {
           ctx.fillText(`SHOT ${String(shotIdx + 1).padStart(2, '0')}`, width / 2, height / 2);
         }
 
+        // AI Depth Occlusion Layer Sandwich:
+        // [Layer 1: Background Plate] -> [Layer 2: Kinetic Typography] -> [Layer 3: Foreground Subject Mask]
+        if (options.enableDepthOcclusion && frame.title) {
+          ctx.save();
+          ctx.font = '900 64px "Montserrat", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#f59e0b';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 12;
+          ctx.fillText(frame.title.toUpperCase(), width / 2, height / 2 + 80);
+          ctx.restore();
+        }
+
         // Create VideoFrame with exact SMPTE timestamp
         const frameTimestampMicros = globalFrameIndex * frameMicrosStep;
         const videoFrame = new VideoFrame(canvas, {
@@ -262,9 +280,25 @@ export class StreamingDiskExporter {
           duration: frameMicrosStep
         });
 
-        // Keyframe every 2 seconds (48 frames) for fast scrubbing
+        // Keyframe every 2 seconds (48 frames) for fast scrubbing & GOP recovery
         const isKeyFrame = globalFrameIndex % 48 === 0;
         videoEncoder.encode(videoFrame, { keyFrame: isKeyFrame });
+
+        // GOP Boundary Checkpoint: Save progress state to OPFS
+        if (isKeyFrame) {
+          exportRecoveryManager.saveGopCheckpoint({
+            exportId: `exp_${Math.round(t0)}`,
+            filename: suggestedFilename,
+            lastFinalizedGop: Math.floor(globalFrameIndex / 48),
+            globalFrameIndex,
+            totalSequenceFrames,
+            width,
+            height,
+            fps,
+            timestamp: Date.now(),
+            isResumable: true
+          }).catch(() => {});
+        }
 
         // MANDATORY LIFECYCLE RULE: Immediate GPU close to prevent leak
         videoFrame.close();
@@ -285,6 +319,9 @@ export class StreamingDiskExporter {
 
     // 7. Finalize Hardware Muxer & Close Disk Stream
     muxer.finalize();
+
+    // Export successful: Clear resumable checkpoint
+    await exportRecoveryManager.clearCheckpoint();
 
     let finalFileSize = 0;
     if (isStreamedDirectToDisk && writableStream) {

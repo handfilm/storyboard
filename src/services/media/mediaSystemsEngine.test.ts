@@ -12,6 +12,11 @@ import { codecResilienceEngine } from './codecResilienceEngine';
 import { smpteTimecodeEngine } from './smpteTimecodeEngine';
 import { transientBeatEngine } from './transientBeatEngine';
 import { multiTabLockManager } from './multiTabLockManager';
+import { exportRecoveryManager } from './exportRecoveryManager';
+import { audioSidechainDucker } from './audioSidechainDucker';
+import { waveformTileGenerator } from './waveformTileGenerator';
+import { opticalCutDetector } from './opticalCutDetector';
+import { eventSourcedJournal } from './eventSourcedJournal';
 
 test('WebCodecsLookaheadQueue: Sliding window and strict 48-frame capacity boundary', () => {
   const queue = new WebCodecsLookaheadQueue(24);
@@ -172,4 +177,152 @@ test('MultiTabLockManager: Web Locks concurrency coordination and crash intercep
   const recovery = multiTabLockManager.getRecoveryState();
   assert.strictEqual(typeof recovery.crashCount, 'number');
   assert.strictEqual(typeof recovery.isRecovering, 'boolean');
+});
+
+test('ExportRecoveryManager: GOP checkpoint persistence, load, and clearing', async () => {
+  await exportRecoveryManager.saveGopCheckpoint({
+    exportId: 'test_exp_123',
+    filename: 'master_cut.mp4',
+    lastFinalizedGop: 2,
+    globalFrameIndex: 96,
+    totalSequenceFrames: 288,
+    width: 3840,
+    height: 2160,
+    fps: 24,
+    timestamp: Date.now(),
+    isResumable: true
+  });
+
+  const checkpoint = await exportRecoveryManager.loadLastCheckpoint();
+  assert.ok(checkpoint !== null);
+  assert.strictEqual(checkpoint?.exportId, 'test_exp_123');
+  assert.strictEqual(checkpoint?.globalFrameIndex, 96);
+  assert.strictEqual(checkpoint?.isResumable, true);
+
+  await exportRecoveryManager.clearCheckpoint();
+  const cleared = await exportRecoveryManager.loadLastCheckpoint();
+  assert.strictEqual(cleared, null);
+});
+
+test('AudioSidechainDucker: Dynamic vocal auto-ducking attenuation and smooth parameter curves', () => {
+  audioSidechainDucker.setParameters({
+    duckingDb: -12.0,
+    thresholdDb: -22.0,
+    enabled: true
+  });
+
+  // Speech energy at 0.001 (-60dBFS) is below threshold -> 1.0 (no ducking)
+  const quietGain = audioSidechainDucker.computeOfflineDuckingGain(0.001);
+  assert.strictEqual(quietGain, 1.0);
+
+  // Speech energy at 0.5 (-6dBFS) exceeds threshold -> -12dB attenuation (~0.251 linear)
+  const loudGain = audioSidechainDucker.computeOfflineDuckingGain(0.5);
+  const expectedGain = Math.pow(10, -12 / 20);
+  assert.ok(Math.abs(loudGain - expectedGain) < 0.01, 'Vocal burst must trigger -12dB attenuation');
+});
+
+test('WaveformTileGenerator: 256px chunked peak computation and telemetry tracking', async () => {
+  // Generate 1 second of synthetic 44.1kHz sine audio
+  const sampleRate = 44100;
+  const channelData = new Float32Array(sampleRate);
+  for (let i = 0; i < sampleRate; i++) {
+    channelData[i] = Math.sin((i / sampleRate) * 2 * Math.PI * 440);
+  }
+
+  const tile = await waveformTileGenerator.getTile(
+    'stem_main',
+    0,
+    channelData,
+    sampleRate,
+    100, // 100 px per sec
+    256,
+    64
+  );
+
+  assert.strictEqual(tile.tileIndex, 0);
+  assert.strictEqual(tile.width, 256);
+  assert.strictEqual(tile.minPeaks.length, 256);
+  assert.strictEqual(tile.maxPeaks.length, 256);
+
+  // Sine wave peak should be near 1.0 and -1.0
+  let maxFound = -1;
+  for (let i = 0; i < 256; i++) {
+    if (tile.maxPeaks[i] > maxFound) maxFound = tile.maxPeaks[i];
+  }
+  assert.ok(maxFound > 0.8, 'Waveform peak extraction should preserve high amplitudes');
+
+  const telemetry = waveformTileGenerator.getTelemetry();
+  assert.ok(telemetry.totalCachedTiles >= 1);
+  assert.strictEqual(telemetry.maxTileCapacity, 64);
+});
+
+test('OpticalCutDetector: 64-bin luma histogram delta & automated cut detection', () => {
+  // Frame 1: Pure black pixels
+  const blackPixels = new Uint8ClampedArray(160 * 90 * 4);
+  blackPixels.fill(0);
+
+  // Frame 2: Pure white pixels
+  const whitePixels = new Uint8ClampedArray(160 * 90 * 4);
+  whitePixels.fill(255);
+
+  const hist1 = new Float32Array(64);
+  const hist2 = new Float32Array(64);
+
+  opticalCutDetector.computeLumaHistogram(blackPixels, hist1);
+  opticalCutDetector.computeLumaHistogram(whitePixels, hist2);
+
+  // Verify histogram normalization
+  let sum1 = 0;
+  let sum2 = 0;
+  for (let i = 0; i < 64; i++) {
+    sum1 += hist1[i];
+    sum2 += hist2[i];
+  }
+  assert.ok(Math.abs(sum1 - 1.0) < 0.001);
+  assert.ok(Math.abs(sum2 - 1.0) < 0.001);
+
+  // Pure black to pure white delta should equal maximum (2.0 in L1 norm)
+  const delta = opticalCutDetector.calculateHistogramDelta(hist1, hist2);
+  assert.strictEqual(delta, 2.0);
+
+  // Test detectCutsFromFrames
+  const samples = [
+    { pixels: blackPixels, timeSec: 0.0, frameIndex: 0 },
+    { pixels: blackPixels, timeSec: 0.5, frameIndex: 12 },
+    { pixels: whitePixels, timeSec: 1.0, frameIndex: 24 }, // Sharp cut!
+    { pixels: whitePixels, timeSec: 1.5, frameIndex: 36 }
+  ];
+
+  const result = opticalCutDetector.detectCutsFromFrames(samples, 0.35, 24);
+  assert.strictEqual(result.detectedCuts.length, 1);
+  assert.strictEqual(result.detectedCuts[0].frameIndex, 24);
+});
+
+test('EventSourcedJournal: Immutable delta action commits, undo, and redo history', async () => {
+  await eventSourcedJournal.clearJournal();
+
+  const act1 = await eventSourcedJournal.commitAction({
+    actionType: 'ADD_SHOT',
+    payload: { shotId: 'shot_101', durationSec: 3.5 },
+    inversePayload: { shotId: 'shot_101' }
+  });
+
+  const act2 = await eventSourcedJournal.commitAction({
+    actionType: 'UPDATE_DURATION',
+    payload: { shotId: 'shot_101', newDurationSec: 5.0 },
+    inversePayload: { shotId: 'shot_101', previousDurationSec: 3.5 }
+  });
+
+  assert.strictEqual(eventSourcedJournal.getHistoryLength(), 2);
+  assert.strictEqual(eventSourcedJournal.canUndo(), true);
+
+  // Undo back to state 1
+  const undoneAct = eventSourcedJournal.undo();
+  assert.strictEqual(undoneAct?.id, act2.id);
+  assert.strictEqual(eventSourcedJournal.getUndoPointer(), 0);
+
+  // Redo back to state 2
+  const redoneAct = eventSourcedJournal.redo();
+  assert.strictEqual(redoneAct?.id, act2.id);
+  assert.strictEqual(eventSourcedJournal.getUndoPointer(), 1);
 });

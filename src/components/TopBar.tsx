@@ -50,7 +50,8 @@ import {
   LogIn,
   LogOut,
   Package,
-  Zap
+  Zap,
+  BarChart2
 } from 'lucide-react';
 import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/firebase';
 import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
@@ -118,6 +119,7 @@ export interface TopBarProps {
   onOpenCompilationWizard?: () => void;
   playbackMode?: PlaybackMode;
   onSelectPlaybackMode?: (mode: PlaybackMode) => void;
+  onOpenProjectStats?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -130,6 +132,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenCompilationWizard,
   playbackMode = 'sequence',
   onSelectPlaybackMode,
+  onOpenProjectStats,
   isProMode = true,
   onToggleProMode,
   componentsBadgeText = '12/13 ON',
@@ -424,7 +427,20 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Right: Tactical Action Cluster + Dynamic Master Telemetry HUD */}
-        <div className="gap-2.5 sm:gap-3 flex items-center shrink-0">
+        <div className="flex items-center gap-2">
+          {/* Project Statistics Dashboard Trigger */}
+          {onOpenProjectStats && (
+            <button
+              type="button"
+              onClick={onOpenProjectStats}
+              className="px-2.5 py-1.5 rounded-lg bg-[#14141E] hover:bg-[#1E1E2C] border border-[#2A2A3A] hover:border-[#F5A623] text-zinc-300 hover:text-[#FFE066] text-[10.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Open Project Statistics & Sequence Analytics Dashboard"
+            >
+              <BarChart2 className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span className="hidden sm:inline">STATS</span>
+            </button>
+          )}
+
           {/* Dynamic Master Telemetry HUD Badge (Solo vs Master Sequence) */}
           <div className="hidden xl:block relative group/topbar-telemetry font-mono tabular-nums">
             <button
@@ -465,6 +481,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <span className="text-zinc-400">Master Sequence:</span>
                   <span className="text-emerald-300 font-bold">[ {masterRuntimeLabel} ]</span>
                 </div>
+                {onOpenProjectStats && (
+                  <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-[9.5px] text-zinc-400">Full Analytics:</span>
+                    <span className="text-[#F5A623] text-[9.5px] font-bold">Click STATS Button ↗</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

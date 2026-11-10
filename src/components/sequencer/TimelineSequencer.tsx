@@ -166,7 +166,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   };
 
   return (
-    <div className={`w-full h-full flex flex-col bg-[#0E0E12] border-t border-[#1C1C24] font-mono select-none overflow-hidden ${className}`}>
+    <div className={`w-full h-full flex flex-col bg-[#0E0E12] border-t border-[#1C1C24] font-mono select-none overflow-hidden transition-all duration-300 ease-out ${className}`}>
       {/* Top Header & Tactical Mode Command Dock */}
       <div className="min-h-[40px] px-4 py-1 bg-[#0E0E12] border-b border-[#1C1C24] flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
         <div className="flex items-center gap-2.5 flex-wrap">

@@ -24,7 +24,8 @@ import {
   ExternalLink,
   Film,
   Sliders,
-  Sparkles
+  Sparkles,
+  BarChart2
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
@@ -80,6 +81,7 @@ export interface StageHeaderProps {
   onOpenInspector?: () => void;
   onOpenRapSync?: () => void;
   onOpenCacheManager?: () => void;
+  onOpenProjectStats?: () => void;
   isZenMode?: boolean;
   onToggleZen?: () => void;
 }
@@ -116,6 +118,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   onOpenInspector,
   onOpenRapSync,
   onOpenCacheManager,
+  onOpenProjectStats,
   isZenMode = true,
   onToggleZen
 }) => {
@@ -289,6 +292,17 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           categoryGroup: 'STUDIO OS',
           score: 70,
           actionId: 'export:open'
+        },
+        {
+          id: 'tool-project-stats',
+          type: 'studio-tool',
+          title: 'PROJECT STATISTICS & ANALYTICS',
+          sub: 'Calculate total runtime (SMPTE), shot count, average duration, and pacing rhythm',
+          badge: 'ANALYTICS',
+          badgeColor: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+          categoryGroup: 'STUDIO OS',
+          score: 68,
+          actionId: 'stats:open'
         }
       );
 
@@ -549,6 +563,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         if (onOpenRecorder) onOpenRecorder();
         else eventBus.emit('recorder:open');
       }
+      if (item.actionId === 'stats:open') {
+        if (onOpenProjectStats) onOpenProjectStats();
+        else eventBus.emit('stats:open');
+      }
       return;
     }
 
@@ -759,6 +777,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     const unsubDrawerClose = eventBus.on('drawer:close', () => {
       queueMicrotask(() => setIsTemplatesDrawerOpen(false));
     });
+    const unsubStats = eventBus.on('stats:open', () => {
+      if (onOpenProjectStats) {
+        queueMicrotask(() => onOpenProjectStats());
+      }
+    });
 
     return () => {
       unsubAI();
@@ -767,6 +790,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       unsubExport();
       unsubDrawerOpen();
       unsubDrawerClose();
+      unsubStats();
     };
   }, [onOpenExport]);
 
@@ -1497,6 +1521,26 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <span>ZEN</span>
             <kbd className="text-[8px] opacity-60">Z</kbd>
           </button>
+        )}
+
+        {/* Project Statistics & Sequence Analytics Dashboard Overlay (Shift+D) */}
+        {onOpenProjectStats && (
+          <SmartHoverCard
+            code="[ 📊 STATS // ANALYTICS ]"
+            description="Project Analytics Dashboard: Total runtime (SMPTE), shot count, average hold duration, pacing cadence, and interactive shot sequence navigator."
+            shortcut="⇧D"
+            align="right"
+          >
+            <button
+              type="button"
+              onClick={onOpenProjectStats}
+              className="h-8 px-2.5! rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-400 text-blue-300 hover:text-blue-100 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap shadow-[0_0_10px_rgba(59,130,246,0.15)]"
+              title="Project Statistics & Analytics (Shift+D)"
+            >
+              <BarChart2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span>STATS</span>
+            </button>
+          </SmartHoverCard>
         )}
 
         {/* 3. EXPORT Button (Triggers UnifiedExportStudio Modal) */}

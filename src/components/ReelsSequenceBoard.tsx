@@ -299,14 +299,14 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
           onDropMedia(e.dataTransfer.files[0]);
         }
       }}
-      className={`shrink-0 w-64 h-44 rounded-xl border transition-colors duration-150 ease-out cursor-pointer relative flex flex-col justify-between p-3 select-none ${
+      className={`shrink-0 w-64 h-44 rounded-xl border transition-all duration-300 ease-out cursor-pointer relative flex flex-col justify-between p-3 select-none will-change-transform ${
         dragDurationSec !== null
-          ? 'bg-[#171722] border-[#FFE066] ring-1 ring-[#F5A623] z-40'
+          ? 'bg-[#171722] border-[#FFE066] ring-1 ring-[#F5A623] z-40 scale-[1.02]'
           : isDragOver
-          ? 'border-2 border-dashed border-[#F5A623] bg-[#14141B]'
+          ? 'border-2 border-dashed border-[#F5A623] bg-[#14141B] scale-[1.02]'
           : isActive
-          ? 'bg-[#14141C] border-[#F5A623] shadow-[0_4px_20px_rgba(245,166,35,0.25)]'
-          : 'bg-[#101016] hover:bg-[#15151F] border-[#1C1C26]'
+          ? 'bg-[#14141C] border-[#F5A623] shadow-[0_4px_24px_rgba(245,166,35,0.32)] scale-[1.03] z-20 ring-1 ring-[#F5A623]/60'
+          : 'bg-[#101016] hover:bg-[#15151F] border-[#1C1C26] hover:border-white/20 hover:scale-[1.01] opacity-80 hover:opacity-100'
       }`}
     >
       {/* Real-time Duration Resize Tooltip */}
@@ -714,7 +714,8 @@ export const ReelsSequenceBoard: React.FC<ReelsSequenceBoardProps> = ({
 
       <div
         ref={containerRef}
-        className="flex-1 p-3 overflow-x-auto no-scrollbar flex items-center gap-3"
+        className="flex-1 p-3 overflow-x-auto no-scrollbar flex items-center gap-3 scroll-smooth transition-all duration-300 ease-out"
+        style={{ scrollBehavior: 'smooth' }}
       >
         {slides.map((slide, idx) => {
           const isWithinBuffer = idx >= visibleRange.start && idx <= visibleRange.end;

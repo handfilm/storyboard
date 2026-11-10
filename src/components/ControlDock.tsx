@@ -533,12 +533,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
-                className={`group relative shrink-0 w-13 sm:w-14 h-7.5 sm:h-8.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 border ${
+                className={`group relative shrink-0 w-13 sm:w-14 h-7.5 sm:h-8.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-300 ease-out will-change-transform border ${
                   isActive
-                    ? 'border-[#FFE066] ring-2 ring-[#D4AF37] shadow-[0_0_14px_rgba(212,175,55,0.7)] scale-105 z-20'
+                    ? 'border-[#FFE066] ring-2 ring-[#D4AF37] shadow-[0_0_16px_rgba(212,175,55,0.75)] scale-105 z-20'
                     : hasMedia
-                    ? 'border-white/20 hover:border-[#FFE066]/90 hover:scale-105 bg-[#121218]'
-                    : 'border-white/10 hover:border-white/30 hover:scale-105 bg-[#0e0e14]'
+                    ? 'border-white/20 hover:border-[#FFE066]/90 hover:scale-105 bg-[#121218] opacity-85 hover:opacity-100'
+                    : 'border-white/10 hover:border-white/30 hover:scale-105 bg-[#0e0e14] opacity-75 hover:opacity-100'
                 }`}
               >
                 {/* Virtualized Persistent Media Thumbnail Preview */}

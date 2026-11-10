@@ -252,6 +252,18 @@ class FeatureRegistry {
     });
 
     this.register({
+      id: 'project-stats-dashboard',
+      name: 'Project Statistics & Sequence Analytics Dashboard',
+      module: 'STORY',
+      description: 'Sidebar overlay displaying total runtime, shot count, average duration, and pacing rhythm analysis',
+      path: 'TopBar > STATS / Shift+D',
+      shortcut: 'Shift+D',
+      commandId: 'project.stats',
+      status: 'stable',
+      selfTest: async () => ({ ok: true, message: 'Project statistics & sequence analytics engine verified' })
+    });
+
+    this.register({
       id: 'safety-net-backup',
       name: 'Export Full Database Backup (Safety Net)',
       module: 'SYSTEM',

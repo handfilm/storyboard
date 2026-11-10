@@ -28,6 +28,7 @@ import { StudioDrawer } from './components/StudioDrawer';
 import { R2AutomationModal } from './components/R2AutomationModal';
 import { CutNativeExportModal, ExportModalTab } from './components/CutNativeExportModal';
 import { CompilationWizardModal } from './components/CompilationWizardModal';
+import { ProjectStatsSidebar } from './components/dashboard/ProjectStatsSidebar';
 import { ModularTelemetryRack } from './components/modules/ModularTelemetryRack';
 import { exportToOTIO, exportToCMX3600EDL, exportToFountainScreenplay, exportToSRT, exportToCSVShotList, triggerFileDownload } from './data/hollywoodExporters';
 import { 
@@ -140,6 +141,7 @@ export default function App() {
   const [isExportStudioOpen, setIsExportStudioOpen] = useState(false);
   const [exportStudioTab, setExportStudioTab] = useState<ExportModalTab>('mp4');
   const [isCompilationWizardOpen, setIsCompilationWizardOpen] = useState(false);
+  const [isProjectStatsOpen, setIsProjectStatsOpen] = useState(false);
 
   const handleOpenExportStudio = useCallback((tab: ExportModalTab = 'mp4') => {
     setExportStudioTab(tab);
@@ -617,6 +619,9 @@ export default function App() {
     const unsubTheme = eventBus.on('theme:open', () => {
       setIsThemeSettingsOpen(true);
     });
+    const unsubStats = eventBus.on('stats:open', () => {
+      setIsProjectStatsOpen(true);
+    });
 
     const unsubDrawerClose = eventBus.on('drawer:close', () => {
       setIsDrawerOpen(false);
@@ -692,6 +697,7 @@ export default function App() {
       unsubShortcuts();
       unsubDiagnostics();
       unsubTheme();
+      unsubStats();
       unsubDrawerClose();
       unsubAddShot();
       unsubShotsDeleted();
@@ -1771,6 +1777,13 @@ export default function App() {
           e.preventDefault();
           setIsZenMode(prev => !prev);
           break;
+        case 'd':
+        case 'D':
+          if (e.shiftKey) {
+            e.preventDefault();
+            setIsProjectStatsOpen(prev => !prev);
+          }
+          break;
         case 'Escape':
           setIsContactSheetOpen(false);
           setIsInspectorOpen(false);
@@ -1782,6 +1795,7 @@ export default function App() {
           setIsComponentsOpen(false);
           setIsThemeSettingsOpen(false);
           setIsExportStudioOpen(false);
+          setIsProjectStatsOpen(false);
           if (workspaceMode !== 'STAGE') setWorkspaceMode('STAGE');
           break;
       }
@@ -1975,6 +1989,10 @@ export default function App() {
       case 'system.shortcuts': setIsShortcutsOpen(true); break;
       case 'system.exportBackup': exportFullIdbBackup(); break;
       case 'system.projectManager': setIsProjectManagerOpen(true); break;
+      case 'project.stats':
+      case 'tools.stats':
+        setIsProjectStatsOpen(true);
+        break;
       case 'sound.toggleAudio': toggleAudio(); break;
       case 'view.toggleFullscreen': toggleFullscreen(); break;
       case 'tools.scopes': setIsVideoScopesOpen(true); break;
@@ -2085,6 +2103,7 @@ export default function App() {
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenDiagnostics={() => setIsSelfTestOpen(true)}
+        onOpenProjectStats={() => setIsProjectStatsOpen(true)}
         onOpenInspector={() => {
           setIsDrawerOpen(false);
           setIsInspectorOpen(o => !o);
@@ -2685,6 +2704,21 @@ export default function App() {
         onBatchInjectFrames={handleBatchInjectCompilation}
         detectedBpm={detectedBpm}
         totalTargetShots={100}
+      />
+
+      {/* Master Project Statistics & Sequence Analytics Dashboard Overlay */}
+      <ProjectStatsSidebar
+        isOpen={isProjectStatsOpen}
+        onClose={() => setIsProjectStatsOpen(false)}
+        frames={project.frames}
+        currentIndex={currentIndex}
+        onSelectFrame={(idx) => {
+          goToFrame(idx);
+          if (currentView !== 'STUDIO') setCurrentView('STUDIO');
+        }}
+        aspectRatio={aspectRatio}
+        projectTitle={project.title}
+        directorName={project.director}
       />
     </div>
   );

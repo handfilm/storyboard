@@ -365,6 +365,17 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     testCodes: ['KeyK', 'k', 'K']
   },
   {
+    id: 'project_stats_toggle',
+    name: 'Project Statistics & Analytics Dashboard',
+    description: 'Calculate and display total runtime, shot count, average duration, and pacing cadence in sidebar overlay',
+    category: 'system',
+    defaultKey: 'Shift + D',
+    currentKey: 'Shift + D',
+    scope: 'GLOBAL',
+    tag: 'ANALYTICS',
+    testCodes: ['KeyD', 'd', 'D']
+  },
+  {
     id: 'shortcuts_cheat_sheet',
     name: 'Keyboard Shortcuts Cheat Sheet',
     description: 'Open or close the interactive categorized keyboard shortcuts reference',

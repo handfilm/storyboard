@@ -174,8 +174,10 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
     let lastTick = performance.now();
     const frameIntervalMs = 1000 / 24.0; // 41.666ms per frame
 
+    let frameTick = 0;
     const renderLoop = (now: number) => {
       animId = requestAnimationFrame(renderLoop);
+      frameTick++;
 
       const compositor = compositorRef.current;
       const videoA = videoARef.current;
@@ -192,7 +194,7 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
       // Sync active textures
       if (videoA && videoA.readyState >= 2) {
         compositor.uploadTextureA(videoA, dimA.width, dimA.height);
-        if (queue && isPlaying) {
+        if (queue && isPlaying && frameTick % 6 === 0) {
           queue.prefetchWindow(videoA, 1);
         }
       }
@@ -201,9 +203,11 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
         compositor.uploadTextureB(videoB, dimB.width, dimB.height);
       }
 
-      // Execute WebGL2 render pass
+      // Execute Zero-GC WebGL2 render pass
       const stats = compositor.render(transitionMix, transitionType, aspectFitMode);
-      setFrameStats(stats);
+      if (frameTick % 12 === 0) {
+        setFrameStats({ ...stats });
+      }
     };
 
     animId = requestAnimationFrame(renderLoop);

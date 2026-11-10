@@ -42,6 +42,22 @@ export interface CompositorFrameStats {
   transitionType: TransitionType;
 }
 
+// Pre-allocated static code maps for Zero-GC render ticks
+const TRANS_CODE_MAP: Record<TransitionType, number> = Object.freeze({
+  HARD_CUT: 0,
+  CROSS_DISSOLVE: 1,
+  DIRECTIONAL_WIPE: 2,
+  KINETIC_ZOOM: 3,
+  GLITCH_CUT: 4,
+  FILM_FLASH: 5
+});
+
+const FIT_CODE_MAP: Record<AspectFitMode, number> = Object.freeze({
+  CONTAIN: 0,
+  BLURRED_MIRROR: 1,
+  COVER: 2
+});
+
 const VS_SOURCE = `#version 300 es
 in vec2 a_position;
 in vec2 a_texCoord;
@@ -259,6 +275,14 @@ export class WebGL2PingPongCompositor {
   private isDestroyed = false;
   private frameCount = 0;
   private lastRenderTimeMs = 0;
+  private reusableFrameStats: CompositorFrameStats = {
+    renderTimeMs: 0,
+    fps: 24,
+    u_mix: 0,
+    activeTextures: 2,
+    vramEstMb: 0,
+    transitionType: 'CROSS_DISSOLVE'
+  };
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -492,23 +516,8 @@ export class WebGL2PingPongCompositor {
 
     // Set uniforms
     gl.uniform1f(this.uMixLoc, Math.max(0.0, Math.min(1.0, mixProgress)));
-
-    const transCodeMap: Record<TransitionType, number> = {
-      HARD_CUT: 0,
-      CROSS_DISSOLVE: 1,
-      DIRECTIONAL_WIPE: 2,
-      KINETIC_ZOOM: 3,
-      GLITCH_CUT: 4,
-      FILM_FLASH: 5
-    };
-    gl.uniform1i(this.uTransitionTypeLoc, transCodeMap[transitionType] ?? 1);
-
-    const fitCodeMap: Record<AspectFitMode, number> = {
-      CONTAIN: 0,
-      BLURRED_MIRROR: 1,
-      COVER: 2
-    };
-    gl.uniform1i(this.uFitModeLoc, fitCodeMap[fitMode] ?? 0);
+    gl.uniform1i(this.uTransitionTypeLoc, TRANS_CODE_MAP[transitionType] ?? 1);
+    gl.uniform1i(this.uFitModeLoc, FIT_CODE_MAP[fitMode] ?? 0);
 
     gl.uniform2f(this.uCanvasResLoc, canvas.width, canvas.height);
     gl.uniform2f(this.uResALoc, this.resA.width, this.resA.height);
@@ -536,14 +545,15 @@ export class WebGL2PingPongCompositor {
       );
     }
 
-    return {
-      renderTimeMs,
-      fps: renderTimeMs > 0 ? Math.min(60, Math.round(1000 / renderTimeMs)) : 60,
-      u_mix: mixProgress,
-      activeTextures: 2,
-      vramEstMb: totalVramMb,
-      transitionType
-    };
+    // Zero-GC in-place stats update
+    this.reusableFrameStats.renderTimeMs = renderTimeMs;
+    this.reusableFrameStats.fps = renderTimeMs > 0 ? Math.min(60, Math.round(1000 / renderTimeMs)) : 60;
+    this.reusableFrameStats.u_mix = mixProgress;
+    this.reusableFrameStats.activeTextures = 2;
+    this.reusableFrameStats.vramEstMb = totalVramMb;
+    this.reusableFrameStats.transitionType = transitionType;
+
+    return this.reusableFrameStats;
   }
 
   /**

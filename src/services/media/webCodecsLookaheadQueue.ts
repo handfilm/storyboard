@@ -81,6 +81,18 @@ export class WebCodecsLookaheadQueue {
   private currentPlayheadSec = 0;
   private evictedFramesCount = 0;
   private isDestroyed = false;
+  private cachedTelemetry: LookaheadQueueTelemetry = {
+    playheadSec: 0,
+    currentFrameIndex: 0,
+    activeFramesCount: 0,
+    maxFramesCapacity: 48,
+    windowStartSec: 0,
+    windowEndSec: 2.0,
+    estimatedVramMb: 0,
+    evictedFramesTotal: 0,
+    isBuffering: false,
+    isLocked24Fps: true
+  };
 
   private worker: Worker | null = null;
   private telemetryListeners = new Set<(t: LookaheadQueueTelemetry) => void>();
@@ -278,18 +290,19 @@ export class WebCodecsLookaheadQueue {
     const estMbPerFrame = (1280 * 720 * 4) / (1024 * 1024); // ~3.5MB per frame
     const totalVramMb = Math.round(this.queue.size * estMbPerFrame * 10) / 10;
 
-    return {
-      playheadSec: this.currentPlayheadSec,
-      currentFrameIndex,
-      activeFramesCount: this.queue.size,
-      maxFramesCapacity: this.maxActiveFrames,
-      windowStartSec,
-      windowEndSec,
-      estimatedVramMb: totalVramMb,
-      evictedFramesTotal: this.evictedFramesCount,
-      isBuffering: this.queue.size < 6,
-      isLocked24Fps: true
-    };
+    // Zero-GC in-place telemetry update
+    this.cachedTelemetry.playheadSec = this.currentPlayheadSec;
+    this.cachedTelemetry.currentFrameIndex = currentFrameIndex;
+    this.cachedTelemetry.activeFramesCount = this.queue.size;
+    this.cachedTelemetry.maxFramesCapacity = this.maxActiveFrames;
+    this.cachedTelemetry.windowStartSec = windowStartSec;
+    this.cachedTelemetry.windowEndSec = windowEndSec;
+    this.cachedTelemetry.estimatedVramMb = totalVramMb;
+    this.cachedTelemetry.evictedFramesTotal = this.evictedFramesCount;
+    this.cachedTelemetry.isBuffering = this.queue.size < 6;
+    this.cachedTelemetry.isLocked24Fps = true;
+
+    return this.cachedTelemetry;
   }
 
   public onTelemetry(cb: (t: LookaheadQueueTelemetry) => void): () => void {

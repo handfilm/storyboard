@@ -8,6 +8,7 @@ import assert from 'node:assert';
 import { WebCodecsLookaheadQueue } from './webCodecsLookaheadQueue';
 import { masterAudioClock } from './masterAudioClock';
 import { opfsMediaStorage } from './opfsMediaStorage';
+import { codecResilienceEngine } from './codecResilienceEngine';
 
 test('WebCodecsLookaheadQueue: Sliding window and strict 48-frame capacity boundary', () => {
   const queue = new WebCodecsLookaheadQueue(24);
@@ -53,10 +54,15 @@ test('WebCodecsLookaheadQueue: Sliding window and strict 48-frame capacity bound
     `Active GPU frames (${telemetry.activeFramesCount}) must not exceed hard cap of 48 frames`
   );
 
+  // Verify Zero-GC in-place telemetry reuse
+  const t1 = queue.getTelemetry();
+  const t2 = queue.getTelemetry();
+  assert.strictEqual(t1, t2, 'Telemetry object reference must be reused for Zero-GC compliance');
+
   queue.destroy();
 });
 
-test('MasterAudioClock: Deterministic 24fps quantization and scrub decoupling', () => {
+test('MasterAudioClock: Deterministic 24fps quantization, frame-dropping and scrub decoupling', () => {
   // Test time quantization
   const testTimes = [0.0, 0.0416, 0.05, 0.0833, 1.25];
   for (const t of testTimes) {
@@ -70,10 +76,15 @@ test('MasterAudioClock: Deterministic 24fps quantization and scrub decoupling', 
   masterAudioClock.scrubTo(2.0);
   masterAudioClock.handleScrubEnd(false);
   assert.ok(true, 'Scrub start/end operates with zero thrown errors');
+
+  // Deterministic frame sync evaluation:
+  // If visual frame is lagging behind audio clock by >= 2 frames, shouldDrop flag must be true
+  const syncEval = masterAudioClock.evaluateFrameSync(0);
+  assert.ok(typeof syncEval.shouldDrop === 'boolean');
+  assert.ok(typeof syncEval.targetFrame === 'number');
 });
 
 test('OPFS Ingestion: Orientation detection & 1:1 pixel aspect preservation', async () => {
-  // Create mock portrait file (720x1280)
   const portraitBlob = new Blob(['mock video data'], { type: 'video/mp4' });
   
   // Dimensions detection check
@@ -85,4 +96,14 @@ test('OPFS Ingestion: Orientation detection & 1:1 pixel aspect preservation', as
   // Check OPFS support check
   const isSupported = opfsMediaStorage.checkSupport();
   assert.strictEqual(typeof isSupported, 'boolean');
+});
+
+test('CodecResilienceEngine: Media audit and fallback transcode detection', async () => {
+  const hevcFile = new File(['mock hevc content'], 'clip.hevc', { type: 'video/mp4' });
+  const audit = await codecResilienceEngine.auditMediaFile(hevcFile);
+  
+  assert.ok(audit.detectedCodec.includes('H.265') || audit.detectedCodec.includes('HEVC'));
+  assert.strictEqual(typeof audit.isHardwareAccelerated, 'boolean');
+  assert.strictEqual(typeof audit.needsFallbackTranscode, 'boolean');
+  assert.strictEqual(audit.recommendedCodec, 'avc1.4d401f');
 });

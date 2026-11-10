@@ -34,6 +34,38 @@ class MasterAudioClockService {
   private targetFps = 24.0;
   private sampleRate = 48000;
   private telemetryListeners = new Set<(t: AudioClockTelemetry) => void>();
+  private reusableTelemetry: AudioClockTelemetry = {
+    audioContextTime: 0,
+    playheadSec: 0,
+    frameIndex: 0,
+    driftMs: 0,
+    sampleRate: 48000,
+    isLocked: true,
+    isMuted: false
+  };
+
+  /**
+   * Deterministic Frame Drop Engine:
+   * Slaves visual decoding ticks directly to AudioContext.currentTime (48kHz).
+   * If visual decode falls behind the audio anchor by >= 2 frames (>83ms),
+   * signals an immediate deterministic drop/skip to preserve absolute 0ms A/V sync.
+   */
+  public evaluateFrameSync(currentVisualFrame: number): {
+    shouldDrop: boolean;
+    targetFrame: number;
+    driftFrames: number;
+  } {
+    const playhead = this.getPlayheadTime();
+    const expectedFrame = Math.floor(playhead * this.targetFps);
+    const drift = expectedFrame - currentVisualFrame;
+    const shouldDrop = drift >= 2;
+
+    return {
+      shouldDrop,
+      targetFrame: expectedFrame,
+      driftFrames: drift
+    };
+  }
 
   constructor() {
     this.initAudioContext();
@@ -125,15 +157,16 @@ class MasterAudioClockService {
     const quantizedTime = frameNumber / this.targetFps;
     const driftMs = (t - quantizedTime) * 1000;
 
-    this.notifyTelemetry({
-      audioContextTime: now,
-      playheadSec: quantizedTime,
-      frameIndex: frameNumber,
-      driftMs,
-      sampleRate: this.sampleRate,
-      isLocked: true,
-      isMuted: this.isScrubbing
-    });
+    // Zero-GC in-place telemetry update
+    this.reusableTelemetry.audioContextTime = now;
+    this.reusableTelemetry.playheadSec = quantizedTime;
+    this.reusableTelemetry.frameIndex = frameNumber;
+    this.reusableTelemetry.driftMs = driftMs;
+    this.reusableTelemetry.sampleRate = this.sampleRate;
+    this.reusableTelemetry.isLocked = true;
+    this.reusableTelemetry.isMuted = this.isScrubbing;
+
+    this.notifyTelemetry(this.reusableTelemetry);
 
     return quantizedTime;
   }

@@ -1407,206 +1407,143 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           )}
         </div>
 
-        {/* 2. REC Toggle Button */}
-        <SmartHoverCard
-          code="[ 🔴 REC // 4K CAPTURE ]"
-          description="Record screen, studio canvas & WebAudio DSP directly to IndexedDB Vault."
-          shortcut="Alt+R"
-          align="right"
-        >
+        {/* Global Minimalist Icon Dock across ALL tabs */}
+        <div className="flex items-center gap-2 pr-3 shrink-0">
+          {/* Priority 1: STUDIO Hero (Primary red pill, #e50914) */}
           <button
             type="button"
-            onClick={() => (isRecording ? stopRecording() : startRecording())}
-            className={`h-8 px-2.5! rounded-lg border text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-              isRecording
-                ? 'bg-rose-600/25 border-rose-500 text-rose-100 shadow-[0_0_16px_rgba(244,63,94,0.45)]'
-                : 'bg-rose-950/40 hover:bg-rose-900/50 border-rose-500/40 hover:border-rose-400 text-rose-300 hover:text-white'
-            }`}
-            title="Toggle 4K Screen & Audio Recorder"
+            onClick={handleStudioLaunch}
+            className="h-9 px-4 rounded-full bg-[#e50914] hover:bg-[#ff1e2b] text-white font-mono font-bold flex items-center gap-1.5 shadow-[0_0_14px_rgba(229,9,20,0.6)] hover:shadow-[0_0_20px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95 shrink-0"
+            title="Launch Master Cinema Studio"
           >
-            <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse shrink-0" />
-            <span>REC</span>
+            <span>⚡</span>
+            <span className="text-xs tracking-wider font-black">STUDIO</span>
           </button>
-        </SmartHoverCard>
 
-        {/* Zen Mode Progressive Disclosure Indicator / Toggle (Z) */}
-        {onToggleZen && (
-          <button
-            type="button"
-            onClick={onToggleZen}
-            className={`h-8 px-2.5 rounded-lg border text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
-              isZenMode
-                ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
-            }`}
-            title="Toggle Zen Mode Progressive Disclosure (Z)"
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${isZenMode ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
-            <span>ZEN</span>
-            <kbd className="text-[8px] opacity-60">Z</kbd>
-          </button>
-        )}
-
-        {/* Project Statistics & Sequence Analytics Dashboard Overlay (Shift+D) */}
-        {onOpenProjectStats && (
-          <SmartHoverCard
-            code="[ 📊 STATS // ANALYTICS ]"
-            description="Project Analytics Dashboard: Total runtime (SMPTE), shot count, average hold duration, pacing cadence, and interactive shot sequence navigator."
-            shortcut="⇧D"
-            align="right"
-          >
-            <button
-              type="button"
-              onClick={onOpenProjectStats}
-              className="h-8 px-2.5! rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-400 text-blue-300 hover:text-blue-100 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap shadow-[0_0_10px_rgba(59,130,246,0.15)]"
-              title="Project Statistics & Analytics (Shift+D)"
-            >
-              <BarChart2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span>STATS</span>
-            </button>
-          </SmartHoverCard>
-        )}
-
-        {/* Master / Export Action Pod */}
-        <div className="flex items-center gap-1.5 p-0.5 bg-[#050505] border border-white/10 rounded-xl shadow-inner shrink-0">
-          {/* Playback Mode Toggle: SOLO vs MASTER */}
-          {(() => {
-            const isMasterMode = currentMode === 'MASTER';
-            return (
-              <div
-                data-current-mode={currentMode}
-                className="flex items-center"
-                title="Playback Mode: Solo Shot vs Master Sequence"
-              >
-                <button
-                  type="button"
-                  aria-pressed={!isMasterMode}
-                  onClick={() => handleModeSelect('SOLO')}
-                  className={`px-2.5 py-1 text-[9px] font-black tracking-wider uppercase rounded-lg transition-all cursor-pointer ${
-                    !isMasterMode
-                      ? 'text-black bg-gradient-to-r from-amber-500 to-amber-400 font-bold shadow-sm'
-                      : 'text-white/40 hover:text-white/75'
-                  }`}
-                >
-                  SOLO
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={isMasterMode}
-                  onClick={() => handleModeSelect('MASTER')}
-                  className={`px-2.5 py-1 text-[9px] font-black tracking-wider uppercase rounded-lg transition-all cursor-pointer ${
-                    isMasterMode
-                      ? 'text-black bg-gradient-to-r from-amber-500 to-amber-400 font-bold shadow-sm'
-                      : 'text-white/40 hover:text-white/75'
-                  }`}
-                >
-                  MASTER
-                </button>
-              </div>
-            );
-          })()}
-
-          <div className="w-px h-4 bg-white/10 my-auto" />
-
-          {/* EXPORT Button (Triggers UnifiedExportStudio Modal) */}
-          <SmartHoverCard
-            code="[ 📤 EXPORT // 24FPS NATIVE ]"
-            description="Open Unified Export Studio for 4K WebCodecs MP4, Premiere XML, DaVinci FCPXML & PDF."
-            shortcut="⇧E"
-            align="right"
-          >
-            <button
-              type="button"
-              onClick={() => {
-                if (onOpenExport) {
-                  onOpenExport();
-                } else {
-                  setIsExportStudioOpen(true);
-                }
-              }}
-              className="h-7 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 hover:border-amber-400 text-amber-300 hover:text-amber-100 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_10px_rgba(245,166,35,0.2)] shrink-0 whitespace-nowrap"
-              title="Open Unified Master Export Studio"
-            >
-              <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>EXPORT</span>
-            </button>
-          </SmartHoverCard>
-        </div>
-
-        {/* 4. STUDIO (Red) Button */}
-        <button
-          type="button"
-          onClick={handleStudioLaunch}
-          className="h-8 px-3.5! bg-red-600 text-white font-black tracking-widest rounded-sm border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:bg-red-500 hover:scale-105 transition-all uppercase cursor-pointer flex items-center gap-1.5 font-mono text-[10px] active:scale-95 shrink-0 whitespace-nowrap"
-          title="Launch Master Cinema Studio"
-        >
-          <Zap className="w-3.5 h-3.5 fill-current text-white shrink-0" />
-          <span>STUDIO</span>
-        </button>
-
-        {/* 5. 3-Dot Overflow Settings Menu */}
-        <OverflowSettingsMenu
-          onOpenCompile={() => {
-            if (onCompile) onCompile();
-            else setIsCompileModalOpen(true);
-          }}
-          onOpenRapSync={() => {
-            if (onOpenRapSync) onOpenRapSync();
-            else setIsRapSyncModalOpen(true);
-          }}
-          onOpenSettings={() => {
-            if (onOpenSettings) onOpenSettings();
-            else eventBus.emit('settings:open');
-          }}
-          onOpenInspector={handleTriggerInspector}
-          onOpenCacheManager={handleTriggerCacheManager}
-        />
-      </div>
-
-      {/* Dynamic Slide-Down Export Suite on Header Hover */}
-      <div className="zen-export-suite-shelf absolute top-full inset-x-0 bg-[#07080C]/98 border-b border-[#F5A623]/30 shadow-[0_12px_32px_rgba(0,0,0,0.95)] backdrop-blur-xl z-40 px-4 py-2 flex items-center justify-between font-mono text-xs">
-        <div className="flex items-center gap-2">
-          <Film className="w-3.5 h-3.5 text-[#F5A623]" />
-          <span className="text-[10px] font-bold tracking-widest text-[#F5A623] uppercase">
-            UNIFIED MASTER EXPORT SUITE
-          </span>
-          <span className="text-[8px] text-zinc-500 uppercase hidden md:inline">
-            // ZERO-CLOUD 24FPS RENDER
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
+          {/* Priority 2: EXPORT (Amber border #ffaa00) */}
           <button
             type="button"
             onClick={() => {
               if (onOpenExport) onOpenExport();
               else setIsExportStudioOpen(true);
             }}
-            className="px-2.5 py-1 rounded bg-[#F5A623]/20 hover:bg-[#F5A623]/30 border border-[#F5A623]/50 text-[#FFE066] text-[9.5px] font-bold tracking-wider uppercase transition-all"
+            className="h-9 w-9 rounded-full bg-neutral-900 border border-[#ffaa00]/70 text-[#ffaa00] hover:bg-[#ffaa00]/15 flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0 shadow-[0_0_10px_rgba(255,170,0,0.25)]"
+            title="Export 4K Video & NLE Timelines"
           >
-            [ MP4 4K / PRORES ]
+            ⭳
           </button>
+
+          {/* Priority 3: RECORD (Record tally icon) */}
           <button
             type="button"
-            onClick={() => eventBus.emit('export:xml')}
-            className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-[9.5px] font-bold tracking-wider uppercase transition-all"
+            onClick={() => {
+              if (onOpenRecorder) onOpenRecorder();
+              else setIsRecording(r => !r);
+            }}
+            className={`h-9 w-9 rounded-full bg-neutral-900 border flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0 ${
+              isRecording
+                ? 'border-red-500 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.7)] animate-pulse'
+                : 'border-white/10 hover:border-red-500 text-red-500'
+            }`}
+            title="Record 4K Screen & Studio Audio"
           >
-            [ PREMIERE XML ]
+            ●
           </button>
-          <button
-            type="button"
-            onClick={() => eventBus.emit('export:fcpxml')}
-            className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-[9.5px] font-bold tracking-wider uppercase transition-all"
-          >
-            [ CAPCUT / FCPXML ]
-          </button>
-          <button
-            type="button"
-            onClick={() => eventBus.emit('hollywood.otio')}
-            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 text-[9.5px] font-bold tracking-wider uppercase transition-all hidden sm:inline"
-          >
-            [ OTIO ]
-          </button>
+
+          {/* Priority 4: ZEN (Zen focus mode toggle) */}
+          {onToggleZen && (
+            <button
+              type="button"
+              onClick={onToggleZen}
+              className={`h-9 w-9 rounded-full bg-neutral-900 border flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0 ${
+                isZenMode
+                  ? 'border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(0,240,255,0.4)]'
+                  : 'border-white/10 hover:bg-white/10 text-white/70'
+              }`}
+              title="Zen Focus Mode (Z)"
+            >
+              ⛶
+            </button>
+          )}
+
+          {/* Priority 5: STATS (Stats & telemetry toggle) */}
+          {onOpenProjectStats && (
+            <button
+              type="button"
+              onClick={onOpenProjectStats}
+              className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0"
+              title="Stats & Engine Telemetry (Shift+D)"
+            >
+              📊
+            </button>
+          )}
+
+          {/* Priority 6: OPTIONS (Encapsulates technical presets & formats) */}
+          <div className="relative group">
+            <button
+              type="button"
+              className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center text-sm transition-all cursor-pointer shrink-0"
+              title="More Formats & Settings"
+            >
+              •••
+            </button>
+            <div className="hidden group-hover:flex flex-col absolute right-0 top-full mt-2 w-52 bg-neutral-950/98 backdrop-blur-2xl border border-white/15 rounded-xl p-2 shadow-2xl z-50 font-mono text-xs space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenExport) onOpenExport();
+                  else setIsExportStudioOpen(true);
+                }}
+                className="text-left text-xs px-3 py-2 text-white/80 hover:text-[#FFE066] hover:bg-white/5 rounded cursor-pointer transition-colors"
+              >
+                MP4 4K / PRORES
+              </button>
+              <button
+                type="button"
+                onClick={() => eventBus.emit('export:xml')}
+                className="text-left text-xs px-3 py-2 text-white/80 hover:text-[#FFE066] hover:bg-white/5 rounded cursor-pointer transition-colors"
+              >
+                PREMIERE XML
+              </button>
+              <button
+                type="button"
+                onClick={() => eventBus.emit('export:fcpxml')}
+                className="text-left text-xs px-3 py-2 text-white/80 hover:text-[#FFE066] hover:bg-white/5 rounded cursor-pointer transition-colors"
+              >
+                CAPCUT / FCPXML
+              </button>
+              <div className="border-t border-white/10 my-1" />
+              <button
+                type="button"
+                onClick={() => {
+                  if (onCompile) onCompile();
+                  else setIsCompileModalOpen(true);
+                }}
+                className="text-left text-xs px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded cursor-pointer transition-colors"
+              >
+                Compile Engine
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenSettings) onOpenSettings();
+                  else eventBus.emit('settings:open');
+                }}
+                className="text-left text-xs px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded cursor-pointer transition-colors"
+              >
+                Studio Settings
+              </button>
+              {onOpenShortcuts && (
+                <button
+                  type="button"
+                  onClick={onOpenShortcuts}
+                  className="text-left text-xs px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded cursor-pointer transition-colors"
+                >
+                  Shortcuts (Shift+/)
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </header>

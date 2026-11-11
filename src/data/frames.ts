@@ -1,11 +1,11 @@
 import { AnthologyFrame, LutPreset } from '../types/anthology';
 
 export const baseThemesData: Array<{ title: string; sub: string; tag: string; directorNotes: string; soundCue: string; tags: string[] }> = [
-  { title: "THE SINGULARITY", sub: "দৃষ্টি", tag: "MACRO EYES: PUPILS DILATING INTO THE VOID", directorNotes: "Extreme close-up macro on iris contraction under tungsten key light. Atmospheric tension.", soundCue: "Sub-bass pulse 36Hz with metallic drone", tags: ["macro", "cosmic", "eyes", "intro"] },
-  { title: "EVENT HORIZON", sub: "সীমানা", tag: "FIRST GLIMPSE OF THE MACRO BLOOM", directorNotes: "Boundary definition between observer and subject. Light bending around perimeter.", soundCue: "Gravitational sweep with high-pass whistle", tags: ["macro", "horizon", "bloom"] },
-  { title: "PHOTON SPHERE", sub: "আলো", tag: "TISSUE TEXTURES SHIFTING UNDER MICRO LIGHTING", directorNotes: "Micro-fiber epidermal texture under continuous ring light. Grazing light angle.", soundCue: "Resonant glass tone 440Hz", tags: ["light", "micro", "texture"] },
+  { title: "THE SINGULARITY // 24 FPS", sub: "সূচনা", tag: "MACRO EYES: PUPILS DILATING INTO THE VOID", directorNotes: "Extreme close-up macro on iris contraction under tungsten key light. Atmospheric tension.", soundCue: "Sub-bass pulse 36Hz with metallic drone", tags: ["macro", "cosmic", "eyes", "intro"] },
+  { title: "EVENT HORIZON // 35MM RETRO FILM", sub: "সীমানা", tag: "ANAMORPHIC PORTRAIT // DRAMATIC HIGH-CONTRAST KEY", directorNotes: "Boundary definition between observer and subject. Light bending around perimeter.", soundCue: "Gravitational sweep with high-pass whistle", tags: ["macro", "horizon", "bloom"] },
+  { title: "SYSTEM ARCHITECTURE // CAM 01 LOCKED", sub: "শিল্প ও প্রযুক্তি", tag: "COLD TELEMETRY // MACRO ARCHITECTURAL PLATE", directorNotes: "Micro-fiber epidermal texture under continuous ring light. Grazing light angle.", soundCue: "Resonant glass tone 440Hz", tags: ["light", "micro", "texture"] },
   { title: "SHOCK // CORE", sub: "সংঘাত", tag: "SUDDEN VISUAL: GLOSSY LUBE & SUBTLE YELLOW TINT", directorNotes: "High-contrast dynamic flash. Specular reflections highlighting surface tension.", soundCue: "Impact transient with visceral low-end boom", tags: ["shock", "gloss", "dynamic"] },
-  { title: "SPATIAL DISTORTION", sub: "বাঁক", tag: "EYES ROLLING BACK AS GRAVITY HITS", directorNotes: "Dutch angle roll. Subject in ecstatic sensory overload. Anamorphic stretch.", soundCue: "Phase-shifted harmonic drone", tags: ["distortion", "trance", "spatial"] },
+  { title: "PHOTON SPHERE", sub: "আলো", tag: "TISSUE TEXTURES SHIFTING UNDER MICRO LIGHTING", directorNotes: "Micro-fiber epidermal texture under continuous ring light. Grazing light angle.", soundCue: "Resonant glass tone 440Hz", tags: ["light", "micro", "texture"] },
   { title: "THE APERTURE", sub: "উন্মোচন", tag: "THE BLOOM STRETCHING LIKE SCATTERED STARLIGHT", directorNotes: "Soft center bloom expanding into shadows. Controlled aperture pull.", soundCue: "Aperture diaphragm mechanical click & shimmer", tags: ["aperture", "bloom", "starlight"] },
   { title: "DARK MATTER", sub: "অন্ধকার", tag: "HEAVY CONTRAST ON THE OUTER RIDGES", directorNotes: "Deep crushed blacks with neon rim accent. High-latitude cinema negative profile.", soundCue: "Low rumble with vinyl crackle texture", tags: ["shadow", "noir", "contrast"] },
   { title: "SHOCK // NEBULA", sub: "মিশ্রণ", tag: "FLASH OF WHITE FLUID MIXING WITH RAW AMBER", directorNotes: "Microcosmic turbulence captured at 120fps high-speed capture.", soundCue: "Hydrodynamic surge with choral undertone", tags: ["shock", "nebula", "amber"] },
@@ -127,20 +127,10 @@ export const lutPresetsList: Array<{ id: LutPreset; label: string; desc: string 
 
 // Curated high quality cinematic sample packs using bundled 4K master plates
 export const localCinematicPlates = [
-  "/assets/aistudio/02_4487d60a.jpg",
-  "/assets/aistudio/01_5fdc96be.jpg",
-  "/assets/aistudio/03_307d68f5.jpg",
-  "/assets/aistudio/04_a108e8eb.jpg",
-  "/assets/aistudio/05__2__6d814b04.jpg",
-  "/assets/aistudio/image_332d00ec.png",
-  "/assets/aistudio/image_5ea6c84c.png",
-  "/assets/aistudio/image_7e972830.png",
-  "/assets/aistudio/image_a4619b66.png",
-  "/assets/aistudio/image_b3398899.png",
-  "/assets/aistudio/image_b98e020f.png",
-  "/assets/aistudio/image_bdefbc06.png",
-  "/assets/aistudio/image_c26145a7.png",
-  "/assets/aistudio/image_5cf780a3.png"
+  "/assets/aistudio/image_3a1afa90.png",
+  "/assets/aistudio/image_630b2490.png",
+  "/assets/aistudio/image_3a1afa90.png",
+  "/assets/aistudio/image_630b2490.png"
 ];
 
 export const samplePacks = {

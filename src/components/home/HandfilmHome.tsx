@@ -101,10 +101,10 @@ export const SHOWCASE_PRESETS: ShowcaseShot[] = [
   {
     id: 1,
     shotNumber: '01',
-    titleEn: 'THE SINGULARITY',
+    titleEn: 'THE SINGULARITY // 24 FPS',
     titleBn: 'সূচনা',
     tagline: 'MACRO EYES // PUPILS DILATING INTO THE VOID',
-    directorNotes: 'Extreme close-up macro on iris contraction under tungsten key light. Atmospheric tension.',
+    directorNotes: 'Neon street cyberpunk bokeh loop. Extreme close-up macro on iris contraction under tungsten key light.',
     lensSpec: '35mm Anamorphic T1.4',
     durationSec: 12.0,
     imageUrl: '/assets/aistudio/image_3a1afa90.png',
@@ -115,10 +115,10 @@ export const SHOWCASE_PRESETS: ShowcaseShot[] = [
   {
     id: 2,
     shotNumber: '02',
-    titleEn: 'EVENT HORIZON',
+    titleEn: 'EVENT HORIZON // 35MM RETRO FILM',
     titleBn: 'সীমানা',
     tagline: 'BOUNDARY DEFINITION // LIGHT BENDING AROUND PERIMETER',
-    directorNotes: 'Boundary definition between observer and subject. Light bending around perimeter.',
+    directorNotes: 'Anamorphic portrait under dramatic key light. Boundary definition between observer and subject.',
     lensSpec: '50mm Prime f/1.2',
     durationSec: 12.0,
     imageUrl: '/assets/aistudio/image_630b2490.png',
@@ -129,10 +129,10 @@ export const SHOWCASE_PRESETS: ShowcaseShot[] = [
   {
     id: 3,
     shotNumber: '03',
-    titleEn: 'THE GAZE',
-    titleBn: 'দৃষ্টি',
-    tagline: 'MACRO CORNEAL REFLECTION // TUNGSTEN CATCHLIGHT',
-    directorNotes: 'Corneal reflection capturing high-intensity halogen fixture in shallow focus.',
+    titleEn: 'SYSTEM ARCHITECTURE // CAM 01 LOCKED',
+    titleBn: 'শিল্প ও প্রযুক্তি',
+    tagline: 'COLD TELEMETRY // MACRO ARCHITECTURAL PLATE',
+    directorNotes: 'Cold telemetry macro architectural plate with precision corneal reflection.',
     lensSpec: '100mm Macro Probe T2.8',
     durationSec: 12.0,
     imageUrl: '/assets/aistudio/image_3a1afa90.png',
@@ -469,87 +469,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   return (
     <div className={`flex-1 w-full h-full overflow-y-auto overflow-x-hidden bg-[#070709] text-white font-sans selection:bg-[#E50914] selection:text-white pb-16 ${isZenModeActive ? 'zen-distraction-free' : ''}`}>
       
-      {/* ========================================================= */}
-      {/* SECTION 1: MASTER 4K TOP NAVIGATION HEADER (ICON-FIRST TIERS) */}
-      {/* ========================================================= */}
-      <header className="sticky top-0 z-50 w-full h-14 bg-[#0a0a0e]/95 backdrop-blur-2xl border-b border-[#232330] px-4 md:px-8 flex items-center justify-between shadow-[0_4px_24px_rgba(0,0,0,0.85)]">
-        
-        {/* Left: Two-Tone Brand Wordmark */}
-        <div className="flex items-center gap-3">
-          <button 
-            type="button" 
-            onClick={() => setActiveShotIndex(0)}
-            className="flex items-baseline gap-1 text-left cursor-pointer group"
-          >
-            <span className="font-extrabold text-lg tracking-wider text-[#e50914] font-cinzel group-hover:scale-105 transition-transform">
-              HAND
-            </span>
-            <span className="font-bold text-lg tracking-wider text-white font-cinzel">
-              FILM
-            </span>
-            <span className="ml-2 text-[9px] font-mono font-bold tracking-widest text-[#F5A623] px-1.5 py-0.5 rounded bg-[#F5A623]/15 border border-[#F5A623]/30 hidden sm:inline-block">
-              55" 4K WORKSTATION
-            </span>
-          </button>
-        </div>
 
-        {/* Center: Live Shot Indicator / Playhead Status */}
-        <div className="hidden lg:flex items-center gap-3 font-mono text-xs text-zinc-400">
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 border border-white/10">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-zinc-300 font-bold">4K DUAL-BUFFER RENDER</span>
-          </span>
-          <span className="text-zinc-600">|</span>
-          <span className="text-zinc-300">
-            SHOT {activeShot.shotNumber} // {activeShot.titleBn}
-          </span>
-          <span className="text-zinc-600">|</span>
-          <span className="text-[#F5A623] font-bold tabular-nums">
-            {activeShot.lensSpec}
-          </span>
-        </div>
-
-        {/* Right: Icon-First Priority Dock */}
-        <div className="flex items-center gap-2 pr-4">
-          {/* Priority 1: STUDIO Hero */}
-          <button onClick={handleStudioToggle} className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold flex items-center gap-1.5 shadow-[0_0_12px_rgba(229,9,20,0.5)]">
-            <span>⚡</span>
-            <span className="text-xs tracking-wider">STUDIO</span>
-          </button>
-
-          {/* Priority 2: EXPORT */}
-          <button onClick={handleExport} className="h-9 w-9 rounded-full bg-neutral-900 border border-amber-500/60 text-amber-400 hover:bg-amber-500/10 flex items-center justify-center" title="Export 4K">
-            ⭳
-          </button>
-
-          {/* Priority 3: RECORD */}
-          <button onClick={handleRecordToggle} className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:border-red-500 flex items-center justify-center text-red-500" title="Record">
-            ●
-          </button>
-
-          {/* Priority 4: ZEN */}
-          <button onClick={handleZenToggle} className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center" title="Zen Mode">
-            ⛶
-          </button>
-
-          {/* Priority 5: STATS */}
-          <button onClick={handleStatsToggle} className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center" title="Stats">
-            📊
-          </button>
-
-          {/* Priority 6: OPTIONS (Encapsulates technical presets) */}
-          <div className="relative group">
-            <button className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center text-sm">
-              •••
-            </button>
-            <div className="hidden group-hover:flex flex-col absolute right-0 top-full mt-2 w-48 bg-neutral-950 border border-white/10 rounded-xl p-2 shadow-2xl z-50">
-              <button onClick={handleExport} className="text-left text-xs px-3 py-2 text-white/70 hover:bg-white/5 rounded">MP4 4K / PRORES</button>
-              <button onClick={onOpenExportXml} className="text-left text-xs px-3 py-2 text-white/70 hover:bg-white/5 rounded">PREMIERE XML</button>
-              <button onClick={onOpenExportXml} className="text-left text-xs px-3 py-2 text-white/70 hover:bg-white/5 rounded">CAPCUT / FCPXML</button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* ========================================================= */}
       {/* ENGINE TELEMETRY OVERLAY (STATS BUTTON TOGGLE) */}
@@ -663,22 +583,65 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             {/* CREATIVE KINETIC BILINGUAL TYPOGRAPHY LAYER ONLY */}
             {titlesLayerActive && (
               <div className="absolute inset-x-8 bottom-8 md:bottom-12 z-20 pointer-events-none select-none text-center sm:text-left animate-in fade-in duration-300">
-                {/* Bangla Title with Gold Metallic Bloom */}
-                <h1 
-                  className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla tracking-tight leading-none mb-2"
-                  style={{
-                    background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF2B2 25%, #F5A623 60%, #B45309 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 0 35px rgba(245, 166, 35, 0.45))'
-                  }}
-                >
-                  {activeShot.titleBn}
-                </h1>
+                {/* Dynamic Per-Shot Distinctive Bangla Typography Styling */}
+                {activeShot.id === 1 ? (
+                  /* Shot 01: Electric yellow/cyan neon glow, rapid letter expansion */
+                  <h1 
+                    className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla tracking-wider leading-none mb-2 animate-pulse"
+                    style={{
+                      background: 'linear-gradient(180deg, #FFFFFF 0%, #FACC15 40%, #00F0FF 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 0 30px rgba(0, 240, 255, 0.75)) drop-shadow(0 0 45px rgba(250, 204, 21, 0.6))',
+                      letterSpacing: '0.04em'
+                    }}
+                  >
+                    {activeShot.titleBn}
+                  </h1>
+                ) : activeShot.id === 2 ? (
+                  /* Shot 02: Crisp white with soft amber drop-shadow, rhythmic slide-up */
+                  <h1 
+                    className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla tracking-tight leading-none mb-2"
+                    style={{
+                      background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF5EB 50%, #FFD6A5 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 8px 30px rgba(255, 170, 0, 0.65)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9))'
+                    }}
+                  >
+                    {activeShot.titleBn}
+                  </h1>
+                ) : activeShot.id === 3 ? (
+                  /* Shot 03: Monospace grid styling, typewriter scanline pass */
+                  <h1 
+                    className="text-4xl sm:text-6xl md:text-7xl font-black font-mono font-bangla tracking-normal leading-none mb-2"
+                    style={{
+                      background: 'linear-gradient(180deg, #FFFFFF 0%, #99F6E4 50%, #14B8A6 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 0 25px rgba(20, 184, 166, 0.6)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.5))'
+                    }}
+                  >
+                    {activeShot.titleBn}
+                  </h1>
+                ) : (
+                  /* Default 04-06: Gold Metallic Bloom */
+                  <h1 
+                    className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla tracking-tight leading-none mb-2"
+                    style={{
+                      background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF2B2 25%, #F5A623 60%, #B45309 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 0 35px rgba(245, 166, 35, 0.45))'
+                    }}
+                  >
+                    {activeShot.titleBn}
+                  </h1>
+                )}
 
                 {/* English Subtext Title */}
                 <p className="text-sm sm:text-lg md:text-xl font-bold font-cinzel tracking-widest text-zinc-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                  {activeShot.titleEn} // 24FPS CINE RAW
+                  {activeShot.titleEn}
                 </p>
               </div>
             )}

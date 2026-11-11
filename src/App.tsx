@@ -2456,6 +2456,9 @@ export default function App() {
         onOpenLiquify={() => setIsLiquifyOpen(true)}
         onToggleGuides={() => setShowGuides(g => !g)}
         onCaptureStill={handleCaptureStill}
+        playbackMode={playbackMode}
+        onSelectPlaybackMode={setPlaybackMode}
+        onStepFrame={handleStepFrame}
         isTelemetryRackOpen={isTelemetryRackOpen}
         onToggleTelemetryRack={() => setIsTelemetryRackOpen(o => !o)}
       />

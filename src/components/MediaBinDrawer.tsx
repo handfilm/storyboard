@@ -42,6 +42,7 @@ import {
   BarChart2
 } from 'lucide-react';
 import { db, VaultMediaItem, createFallbackSvgThumbnail } from '../services/db';
+import { extractVideoPoster } from '../services/thumbnailEngine';
 import { useStudioStore } from '../core/store';
 import { eventBus } from '../core/eventBus';
 import { MediaCard } from './MediaCard';
@@ -246,6 +247,18 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     setVaultItems(prev => {
       const existingIds = new Set(newAssets.map(a => a.id));
       return [...newAssets, ...prev.filter(p => !existingIds.has(p.id))];
+    });
+
+    // Immediate Tier: Asynchronously extract video thumbnails without blocking
+    newAssets.forEach(asset => {
+      const isVid = asset.mimeType?.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(asset.name);
+      if (isVid && asset.url) {
+        extractVideoPoster(asset.url, 0.2).then((thumb) => {
+          if (thumb && thumb.base64) {
+            setVaultItems(items => items.map(it => it.id === asset.id ? { ...it, thumbnailUrl: thumb.base64, thumbnails: [thumb.base64] } : it));
+          }
+        }).catch(() => {});
+      }
     });
 
     // Update UI status to [ READY // X ASSETS ] instantly without waiting for disk/DB

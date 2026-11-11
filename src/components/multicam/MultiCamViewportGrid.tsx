@@ -58,11 +58,21 @@ export const ProceduralAngleCanvas: React.FC<{
   label: string;
 }> = ({ index, currentTimeMs, isActive }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastDrawTimeMsRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // Mandate 3: Throttle inactive background cameras to 12-15 FPS (~70ms) to conserve GPU/decoding buffers
+    if (!isActive) {
+      if (Math.abs(currentTimeMs - lastDrawTimeMsRef.current) < 70) {
+        return;
+      }
+    }
+    lastDrawTimeMsRef.current = currentTimeMs;
+
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (!ctx) return;
 
     const config = ANGLE_CONFIGS[index % ANGLE_CONFIGS.length];
@@ -79,6 +89,7 @@ export const ProceduralAngleCanvas: React.FC<{
       ref={canvasRef}
       width={480}
       height={854}
+      style={{ willChange: 'transform', transform: 'translateZ(0)' }}
       className="w-full h-full object-cover pointer-events-none select-none"
     />
   );

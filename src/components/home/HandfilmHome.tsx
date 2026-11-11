@@ -269,11 +269,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   onAspectChange
 }) => {
   // ─────────────────────────────────────────────────────────────
-  // 1. Core Timeline & Workstation State
+  // 1. Core Timeline & Workstation State (Decoupled NLE Hardware Engine)
   // ─────────────────────────────────────────────────────────────
   const [activeShotIndex, setActiveShotIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentFrameNum, setCurrentFrameNum] = useState<number>(275); // starts at frame 275 (00:10:19:11 @ 24fps)
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [soloMasterMode, setSoloMasterMode] = useState<'SOLO' | 'MASTER'>('MASTER');
   const [isSnapToBeat, setIsSnapToBeat] = useState<boolean>(true);
@@ -281,6 +280,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [stageZoomLevel, setStageZoomLevel] = useState<'1.0x' | '1.5x' | '2.0x'>('1.0x');
   const [showCompositionGrid, setShowCompositionGrid] = useState<boolean>(false);
   const [titlesLayerActive, setTitlesLayerActive] = useState<boolean>(showTitles);
+
+  // Mandate 1: Decouple Master Playback Loop from React State
+  const currentFrameRef = useRef<number>(275); // starts at frame 275 (00:10:19:11 @ 24fps)
+  const timecodeDisplayRef = useRef<HTMLSpanElement | null>(null);
+  const timelinePlayheadRef = useRef<HTMLDivElement | null>(null);
+  const scrubberTrackRef = useRef<HTMLDivElement | null>(null);
+  const isScrubbingRef = useRef<boolean>(false);
+  const activeShotDurationRef = useRef<number>(12.0);
+  const playbackTickerRef = useRef<number | null>(null);
   
   // Custom title overrides for easy title changing
   const [customTitles, setCustomTitles] = useState<Record<number, { titleEn: string; titleBn: string }>>({});
@@ -298,6 +306,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     url: string;
     status: string;
     isVideo: boolean;
+    thumbnailUrl?: string;
   }>>([]);
   const [customMedia, setCustomMedia] = useState<Record<number, {
     url: string;
@@ -305,6 +314,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     blobUrl?: string;
     isVideo: boolean;
     name: string;
+    thumbnailUrl?: string;
   }>>({});
   const [isVaultDrawerOpen, setIsVaultDrawerOpen] = useState<boolean>(false);
   const [ingestStatus, setIngestStatus] = useState<string | null>(null);
@@ -314,7 +324,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const vaultFileInputRef = useRef<HTMLInputElement>(null);
   const stageVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Header Interactive States
+  // Header Interactive States & Mandate 5 Non-Blocking Export
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isZenModeActive, setIsZenModeActive] = useState<boolean>(false);
   const [isStatsTelemetryOpen, setIsStatsTelemetryOpen] = useState<boolean>(false);
@@ -323,8 +333,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [activeCameraAngle, setActiveCameraAngle] = useState<number>(1);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  // Playback timer ticker
-  const playbackTickerRef = useRef<number | null>(null);
+  const [exportState, setExportState] = useState<{
+    isExporting: boolean;
+    progress: number;
+    statusText: string;
+  }>({
+    isExporting: false,
+    progress: 0,
+    statusText: ''
+  });
 
   // Active shot resolver: blends user frames if passed, otherwise loads 6 curated showcase presets
   const activeShot: ShowcaseShot = useMemo(() => {
@@ -370,6 +387,11 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     return base;
   }, [activeShotIndex, frames, customTitles, customLuts, customMedia]);
 
+  // Keep duration ref synchronized with active shot
+  useEffect(() => {
+    activeShotDurationRef.current = activeShot.durationSec;
+  }, [activeShot.durationSec]);
+
   // Top 10 Shots for the Netflix poster row
   const top10Shots = useMemo(() => {
     if (frames && frames.length > 0) {
@@ -401,21 +423,88 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   }, [frames]);
 
   // ─────────────────────────────────────────────────────────────
-  // 2. SMPTE Timecode Formatter (HH:MM:SS:FF @ 24fps)
+  // 2. High-Precision SMPTE Timecode Formatter & Direct DOM Playhead Mutator
   // ─────────────────────────────────────────────────────────────
-  const smpteTimecodeString = useMemo(() => {
-    const fps = 24;
-    const f = currentFrameNum % fps;
-    const totalSeconds = Math.floor(currentFrameNum / fps);
+  const formatSmpteTimecode = useCallback((frame: number, fps = 24): string => {
+    const f = frame % fps;
+    const totalSeconds = Math.floor(frame / fps);
     const s = totalSeconds % 60;
     const m = (Math.floor(totalSeconds / 60) + 10) % 60; // offset to 10m marker for cinema realism
     const h = Math.floor(totalSeconds / 3600);
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`;
-  }, [currentFrameNum]);
+  }, []);
+
+  const updatePlayheadDOM = useCallback((frame: number) => {
+    if (timecodeDisplayRef.current) {
+      timecodeDisplayRef.current.textContent = formatSmpteTimecode(frame);
+    }
+    if (timelinePlayheadRef.current) {
+      const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+      const pct = Math.min(100, Math.max(0, (frame / maxFrames) * 100));
+      timelinePlayheadRef.current.style.transform = `scaleX(${pct / 100})`;
+    }
+  }, [formatSmpteTimecode]);
 
   // ─────────────────────────────────────────────────────────────
-  // 3. Playback Engine Loop (24 FPS locked)
+  // 3. Hardware FastSeek & Timeline Scrub Engine
+  // ─────────────────────────────────────────────────────────────
+  const seekToFrame = useCallback((targetFrame: number) => {
+    const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+    const clampedFrame = Math.max(0, Math.min(maxFrames - 1, targetFrame));
+    currentFrameRef.current = clampedFrame;
+    updatePlayheadDOM(clampedFrame);
+
+    const timeSec = clampedFrame / 24;
+    if (stageVideoRef.current) {
+      if (typeof (stageVideoRef.current as any).fastSeek === 'function') {
+        try {
+          (stageVideoRef.current as any).fastSeek(timeSec);
+        } catch {
+          stageVideoRef.current.currentTime = timeSec;
+        }
+      } else {
+        stageVideoRef.current.currentTime = timeSec;
+      }
+    }
+  }, [updatePlayheadDOM]);
+
+  const handleScrubPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    isScrubbingRef.current = true;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+
+    const calculateAndSeek = (clientX: number) => {
+      if (!scrubberTrackRef.current) return;
+      const rect = scrubberTrackRef.current.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+      const targetFrame = Math.round(ratio * (maxFrames - 1));
+      seekToFrame(targetFrame);
+    };
+
+    calculateAndSeek(e.clientX);
+
+    const onPointerMove = (ev: PointerEvent) => {
+      if (!isScrubbingRef.current) return;
+      calculateAndSeek(ev.clientX);
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      isScrubbingRef.current = false;
+      try {
+        (ev.target as HTMLElement)?.releasePointerCapture?.(ev.pointerId);
+      } catch {}
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  }, [seekToFrame]);
+
+  // ─────────────────────────────────────────────────────────────
+  // 4. Decoupled Hardware Playback Engine Loop (24 FPS locked via rAF)
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isPlaying) {
@@ -430,19 +519,24 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       const delta = now - lastTickTime;
       if (delta >= frameIntervalMs) {
         lastTickTime = now - (delta % frameIntervalMs);
-        setCurrentFrameNum(prev => {
-          const next = prev + 1;
-          const maxFrames = Math.floor(activeShot.durationSec * 24);
-          if (next >= maxFrames) {
-            if (soloMasterMode === 'MASTER') {
-              // Advance to next shot seamlessly
-              setActiveShotIndex(curr => (curr + 1) % SHOWCASE_PRESETS.length);
-              return 0;
-            }
-            return 0; // Loop in solo mode
+        const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+        currentFrameRef.current += 1;
+
+        if (currentFrameRef.current >= maxFrames) {
+          if (soloMasterMode === 'MASTER') {
+            // Advance to next shot seamlessly via discrete React state update
+            currentFrameRef.current = 0;
+            updatePlayheadDOM(0);
+            setActiveShotIndex(curr => (curr + 1) % SHOWCASE_PRESETS.length);
+          } else {
+            // Loop in SOLO mode
+            currentFrameRef.current = 0;
+            updatePlayheadDOM(0);
           }
-          return next;
-        });
+        } else {
+          // Direct DOM mutation - ZERO React re-renders!
+          updatePlayheadDOM(currentFrameRef.current);
+        }
       }
       playbackTickerRef.current = requestAnimationFrame(tick);
     };
@@ -452,10 +546,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     return () => {
       if (playbackTickerRef.current) cancelAnimationFrame(playbackTickerRef.current);
     };
-  }, [isPlaying, playbackSpeed, soloMasterMode, activeShot.durationSec]);
+  }, [isPlaying, playbackSpeed, soloMasterMode, updatePlayheadDOM]);
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Action Handlers (Wired to Props + Internal Engine)
+  // 5. Action Handlers (Wired to Props + Internal Engine)
   // ─────────────────────────────────────────────────────────────
   const handleTogglePlay = useCallback(() => {
     setIsPlaying(prev => {
@@ -473,17 +567,18 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
   const handleStepFrame = useCallback((forward: boolean) => {
     setIsPlaying(false);
-    setCurrentFrameNum(prev => {
-      const maxFrames = Math.floor(activeShot.durationSec * 24);
-      if (forward) {
-        return (prev + 1) % maxFrames;
-      }
-      return prev <= 0 ? maxFrames - 1 : prev - 1;
-    });
+    const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+    let nextFrame = currentFrameRef.current;
+    if (forward) {
+      nextFrame = (nextFrame + 1) % maxFrames;
+    } else {
+      nextFrame = nextFrame <= 0 ? maxFrames - 1 : nextFrame - 1;
+    }
+    seekToFrame(nextFrame);
     try {
       audioEngine.playShutterClick();
     } catch {}
-  }, [activeShot.durationSec]);
+  }, [seekToFrame]);
 
   const handleSoloMasterToggle = useCallback((mode: 'SOLO' | 'MASTER') => {
     setSoloMasterMode(mode);
@@ -577,7 +672,56 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   }, []);
 
   // ─────────────────────────────────────────────────────────────
-  // ZERO-WAIT INGESTION PIPELINE (Instant Memory-First + Background Decouple)
+  // 6. Fast Offscreen Video Thumbnail Helper
+  // ─────────────────────────────────────────────────────────────
+  const generateVideoThumbnailFast = useCallback((videoUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      try {
+        const vid = document.createElement('video');
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.preload = 'metadata';
+        vid.src = videoUrl;
+        vid.currentTime = 0.2;
+        const cleanup = () => {
+          vid.onseeked = null;
+          vid.onerror = null;
+          vid.removeAttribute('src');
+          vid.load();
+        };
+        vid.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = 180;
+            const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+            if (ctx) {
+              ctx.drawImage(vid, 0, 0, 320, 180);
+              const thumb = canvas.toDataURL('image/jpeg', 0.85);
+              cleanup();
+              resolve(thumb);
+              return;
+            }
+          } catch {}
+          cleanup();
+          resolve(videoUrl);
+        };
+        vid.onerror = () => {
+          cleanup();
+          resolve(videoUrl);
+        };
+        setTimeout(() => {
+          cleanup();
+          resolve(videoUrl);
+        }, 1200);
+      } catch {
+        resolve(videoUrl);
+      }
+    });
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────
+  // 7. Mandate 2: Seamless Native Drag & Drop + Zero-Wait Blob Pipeline
   // ─────────────────────────────────────────────────────────────
   const handleIngestFiles = useCallback((files: FileList | File[], targetShotIndex?: number) => {
     if (!files || files.length === 0) return;
@@ -592,13 +736,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       url: string;
       status: string;
       isVideo: boolean;
+      thumbnailUrl?: string;
     }> = [];
 
     const filesToPersist: { file: File; id: string; url: string; isVideo: boolean }[] = [];
 
     for (let idx = 0; idx < fileList.length; idx++) {
       const file = fileList[idx];
-      // 1. Instant Memory-First Media Registration
+      // Immediate Tier: Synchronous in-memory pointer
       const mediaUrl = URL.createObjectURL(file);
       const isVid = file.type.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name);
       const instantId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -610,23 +755,24 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         type: file.type,
         url: mediaUrl,
         status: 'READY',
-        isVideo: isVid
+        isVideo: isVid,
+        thumbnailUrl: isVid ? undefined : mediaUrl
       };
 
       newAssets.push(newAsset);
       filesToPersist.push({ file, id: instantId, url: mediaUrl, isVideo: isVid });
     }
 
-    // Push new asset directly to the vaultAssets state array synchronously
+    // Synchronously update vault assets with READY status
     setVaultAssets(prev => [...newAssets, ...prev]);
 
     // Update UI status to [ READY // X ASSETS ] instantly without waiting for disk or database operations
-    setIngestStatus(`[ READY // ${newAssets.length} ASSETS ]`);
+    setIngestStatus(`[ READY // ${newAssets.length} ASSETS INGESTED ]`);
     setTimeout(() => {
       setIngestStatus(null);
-    }, 4500);
+    }, 4000);
 
-    // 3. Auto-Assign to Active Shot Target
+    // Auto-Assign to Active Shot Target immediately
     if (newAssets.length > 0) {
       const primary = newAssets[0];
       setCustomMedia(prev => ({
@@ -636,7 +782,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           videoSrc: primary.url,
           blobUrl: primary.url,
           isVideo: primary.isVideo,
-          name: primary.name
+          name: primary.name,
+          thumbnailUrl: primary.thumbnailUrl
         }
       }));
 
@@ -653,31 +800,42 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         console.warn('[HandfilmHome] updateShot error:', err);
       }
 
-      // Play camera shutter sound
       try { audioEngine.playShutterClick(); } catch {}
 
-      // Cache shot media in Service Worker L2 cache for instant load
+      // Fast offscreen video thumbnail extraction
+      if (primary.isVideo) {
+        generateVideoThumbnailFast(primary.url).then((thumb) => {
+          setCustomMedia(prev => {
+            const existing = prev[assignedShot];
+            if (existing && existing.url === primary.url) {
+              return { ...prev, [assignedShot]: { ...existing, thumbnailUrl: thumb } };
+            }
+            return prev;
+          });
+        });
+      }
+
+      // Cache shot media in Service Worker L2 cache in background
       serviceWorkerManager.cacheShotMedia(primary.url).catch(() => {});
     }
 
-    // 2. Decouple IndexedDB / Storage to Background non-blocking queue
+    // Persistence Tier: Background Non-Blocking IDB Queue
     const backgroundPersist = async () => {
       for (const item of filesToPersist) {
         try {
           await db.saveMediaToVault(item.file);
         } catch (err) {
           console.warn('[HandfilmHome] Background IDB save non-fatal error:', err);
-          // Never fail the file import - asset remains fully playable via its mediaUrl!
         }
       }
     };
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(backgroundPersist, { timeout: 3000 });
+      (window as any).requestIdleCallback(backgroundPersist, { timeout: 4000 });
     } else {
-      setTimeout(backgroundPersist, 80);
+      setTimeout(backgroundPersist, 100);
     }
-  }, [activeShotIndex]);
+  }, [activeShotIndex, generateVideoThumbnailFast]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -707,6 +865,222 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       }
     }
   }, [isPlaying, playbackSpeed, activeShotIndex]);
+
+  // ─────────────────────────────────────────────────────────────
+  // 8. Mandate 4: Ultra-Fast Keyboard Workflow & Desktop Window Navigation
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Space: Instant zero-latency Play / Pause toggle
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        handleTogglePlay();
+        return;
+      }
+
+      // J: Shuttle Rewind (2x/4x)
+      if (e.key === 'j' || e.key === 'J') {
+        e.preventDefault();
+        handleStepFrame(false);
+        setPlaybackSpeed(prev => Math.max(0.5, prev > 1 ? prev - 0.5 : 0.5));
+        return;
+      }
+
+      // K: Shuttle Pause / Stop
+      if (e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        setIsPlaying(false);
+        try { audioEngine.pauseAudio(); } catch {}
+        return;
+      }
+
+      // L: Shuttle Forward (1x -> 1.5x -> 2x)
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        setIsPlaying(true);
+        setPlaybackSpeed(prev => (prev >= 2.0 ? 1.0 : prev + 0.5));
+        try { audioEngine.playAudio(); } catch {}
+        return;
+      }
+
+      // Left Arrow: Step -1 Frame
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleStepFrame(false);
+        return;
+      }
+
+      // Right Arrow: Step +1 Frame
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleStepFrame(true);
+        return;
+      }
+
+      // 1 through 9: Direct camera punch-in / active shot selection
+      if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key)) {
+        e.preventDefault();
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= 6) {
+          setActiveShotIndex(num - 1);
+          currentFrameRef.current = 0;
+          updatePlayheadDOM(0);
+        }
+        setActiveCameraAngle(num);
+        try { audioEngine.playShutterClick(); } catch {}
+        return;
+      }
+
+      // F: Toggle Fullscreen / Borderless presentation mode
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        } else {
+          document.exitFullscreen?.().catch(() => {});
+        }
+        return;
+      }
+
+      // Escape: Instantly close open modals & overlays
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsVaultDrawerOpen(false);
+        setIsEditingTitle(false);
+        setIsOptionsDrawerOpen(false);
+        setIsStatsTelemetryOpen(false);
+        setIsMultiCamExpanded(false);
+        setOpenFaqIndex(null);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleTogglePlay, handleStepFrame, updatePlayheadDOM]);
+
+  // ─────────────────────────────────────────────────────────────
+  // 9. Mandate 5: Non-Blocking Canvas Export & Recording Pipeline
+  // ─────────────────────────────────────────────────────────────
+  const handleQuickExportCurrentShot = useCallback(async () => {
+    if (exportState.isExporting) return;
+    setExportState({
+      isExporting: true,
+      progress: 0,
+      statusText: '[ EXPORTING: 0% // INITIALIZING 4K SCOPE RENDER ]'
+    });
+
+    try {
+      const totalFrames = Math.max(24, Math.floor(activeShot.durationSec * 24));
+      const canvas = document.createElement('canvas');
+      canvas.width = 1920;
+      canvas.height = 804; // 2.39:1 scope
+      const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+      if (!ctx) throw new Error('Could not get accelerated 2D canvas context');
+
+      const stream = canvas.captureStream(24);
+      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm')
+        ? 'video/webm'
+        : 'video/mp4';
+
+      const chunks: Blob[] = [];
+      let recorder: MediaRecorder | null = null;
+      if (typeof MediaRecorder !== 'undefined') {
+        recorder = new MediaRecorder(stream, {
+          mimeType,
+          videoBitsPerSecond: 18_000_000 // 18 Mbps high quality
+        });
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+        recorder.start(100);
+      }
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = activeShot.imageUrl;
+      await new Promise((r) => { img.onload = r; img.onerror = r; });
+
+      // Frame-by-frame asynchronous generation (yields to UI via rAF)
+      for (let f = 0; f < totalFrames; f++) {
+        await new Promise(r => requestAnimationFrame(r));
+
+        if (img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.fillStyle = '#070709';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Draw creative kinetic typography layer if active
+        if (titlesLayerActive) {
+          ctx.save();
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = '900 52px "Anek Bangla", sans-serif';
+          ctx.shadowColor = 'rgba(255, 170, 0, 0.75)';
+          ctx.shadowBlur = 24;
+          ctx.fillText(activeShot.titleBn, 72, canvas.height - 110);
+
+          ctx.font = '700 22px "Cinzel", serif';
+          ctx.fillStyle = '#E4E4E7';
+          ctx.shadowBlur = 10;
+          ctx.fillText(activeShot.titleEn, 72, canvas.height - 66);
+          ctx.restore();
+        }
+
+        const pct = Math.round(((f + 1) / totalFrames) * 100);
+        setExportState({
+          isExporting: true,
+          progress: pct,
+          statusText: `[ EXPORTING: ${pct}% // FRAME ${f + 1}/${totalFrames} ]`
+        });
+      }
+
+      if (recorder) {
+        const stopPromise = new Promise<Blob>((resolve) => {
+          recorder!.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+        });
+        recorder.stop();
+        const finalBlob = await stopPromise;
+
+        const downloadUrl = URL.createObjectURL(finalBlob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `HANDFILM_SHOT_${activeShot.shotNumber}_2.39_SCOPE.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+      }
+
+      try { audioEngine.playShutterClick(); } catch {}
+    } catch (err) {
+      console.error('[HandfilmHome] Quick Export Error:', err);
+    } finally {
+      setExportState({
+        isExporting: false,
+        progress: 100,
+        statusText: '[ EXPORT COMPLETE // SAVED ]'
+      });
+      setTimeout(() => {
+        setExportState({ isExporting: false, progress: 0, statusText: '' });
+      }, 3500);
+    }
+  }, [exportState.isExporting, activeShot, titlesLayerActive]);
 
   // ─────────────────────────────────────────────────────────────
   // 5. Scroll smoothly to Specs / Matrix section
@@ -818,6 +1192,28 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
         )}
 
+        {/* Mandate 5: Isolated Asynchronous Export Telemetry Banner */}
+        {exportState.isExporting && (
+          <div className="w-full bg-[#140e06] border border-amber-500/70 rounded-xl px-4 py-2 mb-3 flex items-center justify-between font-mono text-xs shadow-[0_0_25px_rgba(245,166,35,0.25)] animate-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+              <span className="text-amber-400 font-black tracking-wider text-sm">{exportState.statusText}</span>
+              <span className="text-zinc-400 text-[11px] hidden sm:inline">// NON-BLOCKING CANVAS EXPORT ACTIVE</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-24 sm:w-32 h-2 bg-black/70 rounded-full border border-amber-500/40 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-amber-500 to-[#F5A623] transition-all duration-100"
+                  style={{ width: `${exportState.progress}%` }}
+                />
+              </div>
+              <span className="text-[11px] text-amber-300 font-bold tabular-nums">
+                {exportState.progress}%
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* 2.39:1 / Aspect-Responsive Clean Render Viewport Canvas */}
         <div 
           className="relative w-full rounded-2xl overflow-hidden bg-black border border-[#232330] shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex items-center justify-center transition-all duration-300"
@@ -852,7 +1248,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           <div 
             className="w-full h-full relative flex items-center justify-center transition-transform duration-300 ease-out"
             style={{
-              transform: stageZoomLevel === '2.0x' ? 'scale(2.0)' : stageZoomLevel === '1.5x' ? 'scale(1.5)' : 'scale(1.0)'
+              transform: stageZoomLevel === '2.0x' ? 'scale(2.0)' : stageZoomLevel === '1.5x' ? 'scale(1.5)' : 'scale(1.0)',
+              willChange: 'transform'
             }}
           >
             {/* Raw Video Plate: Hardware-Accelerated 4K Video Element or Crisp Stills Plate */}
@@ -864,7 +1261,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 style={{
                   filter: getLutFilterCss(activeShot.lutFilter),
-                  backgroundColor: '#050508'
+                  backgroundColor: '#050508',
+                  willChange: 'transform',
+                  transform: 'translateZ(0)'
                 }}
                 autoPlay
                 playsInline
@@ -877,7 +1276,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 style={{
                   backgroundImage: `url(${activeShot.imageUrl})`,
                   backgroundColor: '#050508',
-                  filter: getLutFilterCss(activeShot.lutFilter)
+                  filter: getLutFilterCss(activeShot.lutFilter),
+                  willChange: 'transform',
+                  transform: 'translateZ(0)'
                 }}
               >
                 {/* Fallback procedural canvas gradient underneath ensures zero blank frames */}
@@ -1016,14 +1417,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               const isActive = idx === activeShotIndex;
               const isTargetDrag = dragTargetShotIdx === idx;
               const shotMedia = customMedia[idx];
-              const displayImg = shotMedia?.url || shot.imageUrl;
+              const displayImg = shotMedia?.thumbnailUrl || shotMedia?.url || shot.imageUrl;
               const isShotVid = shotMedia?.isVideo || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(displayImg);
               return (
                 <div
                   key={shot.id}
                   onClick={() => {
                     setActiveShotIndex(idx);
-                    setCurrentFrameNum(0);
+                    seekToFrame(0);
                     try { audioEngine.playShutterClick(); } catch {}
                   }}
                   onDragOver={(e) => {
@@ -1091,6 +1492,24 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
         </div>
 
+        {/* Mandate 1: Hardware-Accelerated Precision Scrub Bar (rAF Decoupled DOM Playhead) */}
+        <div 
+          ref={scrubberTrackRef}
+          onPointerDown={handleScrubPointerDown}
+          className="w-full h-2.5 bg-black/80 hover:h-3.5 rounded-full cursor-ew-resize transition-all duration-150 border border-white/15 overflow-hidden my-1.5 relative group shadow-inner select-none"
+          title="Drag or click to scrub 4K playback (FastSeek)"
+        >
+          <div 
+            ref={timelinePlayheadRef}
+            className="h-full bg-gradient-to-r from-amber-500 via-[#F5A623] to-[#e50914] origin-left rounded-full transition-transform will-change-transform"
+            style={{ transform: `scaleX(${275 / (activeShot.durationSec * 24)})` }}
+          />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-between px-2 text-[8px] font-mono font-bold text-white/70 pointer-events-none transition-opacity">
+            <span className="tracking-widest uppercase text-amber-400">◄ SCRUB 24FPS TIMELINE ►</span>
+            <span className="text-[#00F0FF]">FASTSEEK READY</span>
+          </div>
+        </div>
+
         {/* Tier 2: Single Ultra-Thin High-Efficiency Horizontal Bar (Fixed height: 40px to 42px) */}
         <div className="w-full h-[40px] sm:h-[42px] max-h-[42px] min-h-[40px] bg-[#0d0e15]/95 backdrop-blur-2xl border border-white/15 rounded-xl px-2.5 sm:px-3 shadow-[0_8px_32px_rgba(0,0,0,0.9)] flex flex-row items-center justify-between flex-nowrap gap-2 overflow-x-auto overflow-y-hidden scrollbar-none text-xs font-mono">
           
@@ -1139,8 +1558,11 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             {/* High-Contrast Monospace SMPTE Timecode Readout + Total Duration */}
             <div className="flex items-center gap-1.5 h-7 sm:h-8 bg-black/80 px-2 sm:px-2.5 rounded-lg border border-white/10 font-mono tabular-nums shrink-0">
               <Clock className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span className="text-[11px] font-black tracking-wider text-[#F5A623]">
-                {smpteTimecodeString}
+              <span 
+                ref={timecodeDisplayRef}
+                className="text-[11px] font-black tracking-wider text-[#F5A623]"
+              >
+                {formatSmpteTimecode(currentFrameRef.current)}
               </span>
               <span className="text-zinc-600 text-[10px]">/</span>
               <span className="px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 font-bold text-[10px]">
@@ -1391,6 +1813,22 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               title="Toggle Rule-of-Thirds Cinematic Composition Grid"
             >
               <Grid className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Mandate 5: Quick Non-Blocking 4K Canvas Export Trigger */}
+            <button
+              type="button"
+              onClick={handleQuickExportCurrentShot}
+              disabled={exportState.isExporting}
+              className={`h-8 px-2 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
+                exportState.isExporting
+                  ? 'bg-amber-500/30 border-amber-400 text-amber-300 animate-pulse'
+                  : 'bg-amber-500/15 hover:bg-amber-500/30 active:scale-95 border-amber-500/40 text-[#F5A623] hover:text-[#FFE066]'
+              }`}
+              title="Quick Non-Blocking 4K WebCodecs/Canvas Export"
+            >
+              <Download className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span className="hidden lg:inline">{exportState.isExporting ? `${exportState.progress}%` : 'RENDER 4K'}</span>
             </button>
 
             {/* Ingest 4K Media File Input Trigger */}

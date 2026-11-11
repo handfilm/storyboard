@@ -2140,6 +2140,11 @@ export default function App() {
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
           showTitles={componentsVisibility.titlesAll}
           componentsVisibility={componentsVisibility}
+          onSoloMasterToggle={(mode) => setPlaybackMode(mode === 'SOLO' ? 'solo' : 'sequence')}
+          onExport={() => handleOpenExportStudio('mp4')}
+          onRecordToggle={() => setIsScreenRecorderOpen(prev => !prev)}
+          onZenToggle={() => setIsZenMode(prev => !prev)}
+          onAspectChange={(ratio) => setAspectRatio(ratio as any)}
         />
       ) : (
         <>

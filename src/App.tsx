@@ -94,7 +94,7 @@ export default function App() {
   }));
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentView, setCurrentView] = useState<'HOME' | 'STUDIO'>('HOME');
+  const [currentView, setCurrentView] = useState<'HOME' | 'STUDIO'>('STUDIO');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('STAGE');
   const [activeModule, setActiveModule] = useState<StudioModuleId>('PLAYER');
   const [isProMode, setIsProMode] = useState(false);

@@ -793,12 +793,19 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
   // Persistent Video Resolver & Safe URL Resolver
   const activeVideoSrc = useMemo(() => {
-    return (
-      activeShot.videoSrc ||
-      activeShot.blobUrl ||
-      (/\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(activeShot.imageUrl) ? activeShot.imageUrl : '')
-    );
-  }, [activeShot.videoSrc, activeShot.blobUrl, activeShot.imageUrl]);
+    if (activeShot.videoSrc) return activeShot.videoSrc;
+    if (activeShot.blobUrl && (activeShot.isVideo || /\.(mp4|webm|mov|mkv|ogg|m4v)($|\?)/i.test(activeShot.blobUrl))) return activeShot.blobUrl;
+    if (activeShot.imageUrl) {
+      if (
+        activeShot.isVideo ||
+        activeShot.imageUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|mkv|ogg|m4v)($|\?)/i.test(activeShot.imageUrl)
+      ) {
+        return activeShot.imageUrl;
+      }
+    }
+    return '';
+  }, [activeShot.videoSrc, activeShot.blobUrl, activeShot.imageUrl, activeShot.isVideo]);
 
   const hasVideo = Boolean(activeVideoSrc);
   const hasImage = Boolean(activeShot.imageUrl && !hasVideo);
@@ -1733,28 +1740,28 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       {/* Strictly NO non-creative UI text or player controls inside canvas */}
       {/* Raw video plate + Creative Kinetic Bangla Typography ONLY */}
       {/* ========================================================= */}
-      <section className="relative w-full max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-4">
+      <section className="relative w-full max-w-7xl mx-auto px-2 md:px-4 pt-1 pb-1">
         
         {/* Externalized Top Telemetry Shelf (OUTSIDE the render viewport) */}
-        <div className="flex items-center justify-between py-2 px-1 text-xs font-mono text-zinc-400 border-b border-white/10 mb-3">
-          <div className="flex items-center gap-3">
-            <span className="px-2 py-0.5 rounded bg-[#e50914]/20 border border-[#e50914]/50 text-[#e50914] font-black text-[10px] tracking-wider uppercase">
+        <div className="flex items-center justify-between py-1 px-1 text-xs font-mono text-zinc-400 border-b border-white/10 mb-1">
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.2 rounded bg-[#e50914]/20 border border-[#e50914]/50 text-[#e50914] font-black text-[9px] tracking-wider uppercase">
               SHOT {activeShot.shotNumber} / {String(SHOWCASE_PRESETS.length).padStart(2, '0')}
             </span>
-            <span className="text-white font-bold tracking-wider">
+            <span className="text-white font-bold tracking-wider text-xs">
               {activeShot.titleEn}
             </span>
-            <span className="text-zinc-500 hidden sm:inline">
+            <span className="text-zinc-500 hidden sm:inline text-[10px]">
               // {activeShot.lensSpec}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-[#F5A623] font-bold text-[10px] tracking-widest uppercase">
+          <div className="flex items-center gap-2">
+            <span className="text-[#F5A623] font-bold text-[9px] tracking-widest uppercase">
               {activeShot.lutFilter}
             </span>
             <span className="text-zinc-600">|</span>
-            <span className="text-emerald-400 font-bold text-[10px]">
+            <span className="text-emerald-400 font-bold text-[9px]">
               24.000 FPS RAW LOCKED
             </span>
           </div>
@@ -1803,7 +1810,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           className="relative w-full rounded-2xl overflow-hidden bg-black border border-[#232330] shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex items-center justify-center transition-all duration-300"
           style={{
             aspectRatio: selectedAspectRatio === '2.39:1' ? '2.39 / 1' : selectedAspectRatio === '16:9' ? '16 / 9' : selectedAspectRatio === '9:16' ? '9 / 16' : selectedAspectRatio === '4:3' ? '4 / 3' : '1 / 1',
-            maxHeight: '62vh'
+            maxHeight: '74vh'
           }}
           onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverStage(true); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isDraggingOverStage) setIsDraggingOverStage(true); }}

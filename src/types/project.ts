@@ -35,6 +35,7 @@ export interface SlideDraft {
   mediaBlobId?: string; // Key in media_blobs store
   remoteUrl?: string; // Pre-signed Cloudflare R2 URL or Edge CDN stream
   thumbnailUrl?: string;
+  imageUrl?: string;
   dopamineConfig?: any;
   titleBn?: string;
   titleEn?: string;

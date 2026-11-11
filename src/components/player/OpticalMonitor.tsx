@@ -388,6 +388,8 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const isVideo = Boolean(
     currentSlide?.isVideo ||
     (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl)) ||
+    (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl)) ||
+    (currentSlide?.imageUrl?.startsWith('blob:') && currentSlide?.isVideo !== false) ||
     currentSlide?.mediaBlobId
   );
 
@@ -401,9 +403,9 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   // Hydrate dual streams for active shot and pre-buffer source
   useEffect(() => {
     let isMounted = true;
-    const mediaId = currentSlide?.mediaBlobId || currentSlide?.remoteUrl;
+    const mediaId = currentSlide?.mediaBlobId || currentSlide?.remoteUrl || currentSlide?.imageUrl || currentSlide?.thumbnailUrl;
     if (mediaId) {
-      if (mediaId.startsWith('http') || mediaId.startsWith('data:')) {
+      if (mediaId.startsWith('http') || mediaId.startsWith('data:') || mediaId.startsWith('blob:')) {
         setSourceUrl(mediaId);
         setProxyUrl(mediaId);
       } else {
@@ -419,7 +421,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       setProxyUrl('');
     }
     return () => { isMounted = false; };
-  }, [currentSlide?.mediaBlobId, currentSlide?.remoteUrl]);
+  }, [currentSlide?.mediaBlobId, currentSlide?.remoteUrl, currentSlide?.imageUrl, currentSlide?.thumbnailUrl]);
 
   // Adaptive Playback State Machine:
   // - Dragging / Scrubbing Playhead: feed stage <video> with proxyUrl (540p)

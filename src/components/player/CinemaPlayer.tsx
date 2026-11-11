@@ -107,12 +107,17 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const [pipWarning, setPipWarning] = useState<string | null>(null);
 
   const isVideo = Boolean(
-    activeFrame?.isVideo !== undefined
-      ? activeFrame.isVideo
-      : (activeFrame?.imageUrl && (
-          activeFrame.imageUrl.startsWith('data:video') ||
-          /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(activeFrame.imageUrl)
-        ))
+    activeFrame?.isVideo ||
+    (activeFrame?.imageUrl && (
+      activeFrame.imageUrl.startsWith('data:video') ||
+      activeFrame.imageUrl.startsWith('blob:') ||
+      /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(activeFrame.imageUrl)
+    )) ||
+    (activeFrame?.videoSrc && (
+      activeFrame.videoSrc.startsWith('data:video') ||
+      activeFrame.videoSrc.startsWith('blob:') ||
+      /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(activeFrame.videoSrc)
+    ))
   );
 
   // Key Scope Layer Management & Hardware Fullscreen
@@ -716,12 +721,12 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         <div className={`relative ${getAspectClass()} bg-black shadow-[0_30px_90px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center`}>
           
           {/* Active Media Plate */}
-          {activeFrame?.imageUrl ? (
+          {(activeFrame?.imageUrl || activeFrame?.videoSrc || activeFrame?.blobUrl) ? (
             isVideo ? (
               <video
-                key={activeFrame.imageUrl}
+                key={activeFrame?.videoSrc || activeFrame?.blobUrl || activeFrame?.imageUrl}
                 ref={videoRef}
-                src={activeFrame.imageUrl}
+                src={activeFrame?.videoSrc || activeFrame?.blobUrl || activeFrame?.imageUrl}
                 crossOrigin="anonymous"
                 muted={isMuted}
                 autoPlay={isPlaying}
@@ -742,7 +747,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
               <div
                 className="w-full h-full bg-cover bg-no-repeat transition-transform duration-700 ease-out"
                 style={{
-                  backgroundImage: `url(${activeFrame.imageUrl})`,
+                  backgroundImage: `url(${activeFrame?.imageUrl || activeFrame?.blobUrl || activeFrame?.videoSrc})`,
                   backgroundPosition: `center ${activeFrame?.panY ?? 50}%`,
                   filter: filterCSS
                 }}

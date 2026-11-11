@@ -95,6 +95,8 @@ export interface AnthologyFrame {
   imageUrl?: string;
   thumbnailUrl?: string;
   thumbnail?: string;
+  videoSrc?: string;
+  blobUrl?: string;
   isVideo?: boolean;
   colorAccent: string;
   hoverStyle: number;

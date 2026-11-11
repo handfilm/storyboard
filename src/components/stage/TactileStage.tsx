@@ -416,6 +416,17 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   // - While Playing / Fullscreen -> Pristine full-resolution sourceUrl
   const activeMediaUrl = (isScrubbing && proxyUrl) ? proxyUrl : (sourceUrl || frame?.imageUrl || null);
 
+  const isVideoMedia = Boolean(
+    frame?.isVideo ||
+    (frame as any)?.mimeType?.startsWith('video/') ||
+    (activeMediaUrl && (
+      /\.(mp4|webm|mov|m4v|mkv)(\?|$)/i.test(activeMediaUrl) ||
+      activeMediaUrl.includes('video') ||
+      activeMediaUrl.startsWith('data:video')
+    )) ||
+    (activeMediaUrl?.startsWith('blob:') && frame?.isVideo !== false)
+  );
+
   const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
   const combinedMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
     ? `${lutFilterStyle} ${zoomTransforms.bgDepthBlur}`
@@ -431,8 +442,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         video.muted = true;
         video.play().catch(() => {});
       }
-      // ONLY seek during active scrubbing or severe playback drift (>1.0s)
-      if (isScrubbing || Math.abs(video.currentTime - slideTimeSec) > 1.0) {
+      // ONLY seek during active scrubbing or severe playback drift (>1.2s)
+      if (isScrubbing || Math.abs(video.currentTime - slideTimeSec) > 1.2) {
         if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
           try { (video as any).fastSeek(slideTimeSec); } catch { video.currentTime = slideTimeSec; }
         } else {
@@ -564,159 +575,169 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     const render = () => {
       const canvas = canvasRef.current;
       if (canvas) {
-        const ctx = canvas.getContext('2d', { alpha: false });
-        if (ctx) {
-          const rect = canvas.getBoundingClientRect();
-          const dpr = Math.min(window.devicePixelRatio || 1, 2);
-          const targetW = Math.max(320, Math.round((rect.width || 1280) * dpr));
-          const targetH = Math.max(180, Math.round((rect.height || 536) * dpr));
-          if (canvas.width !== targetW || canvas.height !== targetH) {
-            canvas.width = targetW;
-            canvas.height = targetH;
-          }
+          const ctx = canvas.getContext('2d', { alpha: true });
+          if (ctx) {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const targetW = Math.max(320, Math.round((rect.width || 1280) * dpr));
+            const targetH = Math.max(180, Math.round((rect.height || 536) * dpr));
+            if (canvas.width !== targetW || canvas.height !== targetH) {
+              canvas.width = targetW;
+              canvas.height = targetH;
+            }
 
-          const curFrame = frameRef.current;
-          const ko = kineticOcclusionRef.current;
-          const isVideo = Boolean(curFrame?.isVideo || activeMediaUrl?.includes('video') || activeMediaUrl?.endsWith('.mp4') || activeMediaUrl?.endsWith('.webm'));
-          const video = videoRef.current;
+            const curFrame = frameRef.current;
+            const ko = kineticOcclusionRef.current;
+            const isVideo = isVideoMedia;
+            const video = videoRef.current;
 
-          const filmFilter = buildFilmStockCssFilter(curFrame?.lutFilter || 'kodak_vision3', curFrame?.adjustments);
+            const filmFilter = buildFilmStockCssFilter(curFrame?.lutFilter || 'kodak_vision3', curFrame?.adjustments);
 
-          // Resolve active media source for both Base Pass and scrubbing bitmap cache
-          let activeSource: CanvasImageSource | null = null;
-          if (isVideo && video) {
-            if (isScrubbingRef.current && (video.seeking || video.readyState < 2)) {
-              const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
-              let closestBmp: ImageBitmap | null = null;
-              let minDiff = Infinity;
-              for (const [fn, bmp] of frameBitmapCacheRef.current.entries()) {
-                const diff = Math.abs(fn - currentF);
-                if (diff < minDiff) {
-                  minDiff = diff;
-                  closestBmp = bmp;
+            // Resolve active media source for both Base Pass and scrubbing bitmap cache
+            let activeSource: CanvasImageSource | null = null;
+            if (isVideo && video) {
+              if (isScrubbingRef.current && (video.seeking || video.readyState < 2)) {
+                const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
+                let closestBmp: ImageBitmap | null = null;
+                let minDiff = Infinity;
+                for (const [fn, bmp] of frameBitmapCacheRef.current.entries()) {
+                  const diff = Math.abs(fn - currentF);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    closestBmp = bmp;
+                  }
                 }
-              }
-              if (closestBmp) {
-                activeSource = closestBmp;
+                if (closestBmp) {
+                  activeSource = closestBmp;
+                } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
+                  activeSource = cachedPosterImgRef.current;
+                }
+              } else if (video.readyState >= 2 && video.videoWidth > 0) {
+                activeSource = video;
+
+                const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
+                if (!frameBitmapCacheRef.current.has(currentF) && frameBitmapCacheRef.current.size < 60) {
+                  createImageBitmap(video).then(bmp => {
+                    if (frameBitmapCacheRef.current.size >= 60) {
+                      const oldest = frameBitmapCacheRef.current.keys().next().value;
+                      if (oldest !== undefined) {
+                        frameBitmapCacheRef.current.get(oldest)?.close();
+                        frameBitmapCacheRef.current.delete(oldest);
+                      }
+                    }
+                    frameBitmapCacheRef.current.set(currentF, bmp);
+                  }).catch(() => {});
+                }
               } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
                 activeSource = cachedPosterImgRef.current;
               }
-            } else if (video.readyState >= 2 && video.videoWidth > 0) {
-              activeSource = video;
-
-              const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
-              if (!frameBitmapCacheRef.current.has(currentF) && frameBitmapCacheRef.current.size < 60) {
-                createImageBitmap(video).then(bmp => {
-                  if (frameBitmapCacheRef.current.size >= 60) {
-                    const oldest = frameBitmapCacheRef.current.keys().next().value;
-                    if (oldest !== undefined) {
-                      frameBitmapCacheRef.current.get(oldest)?.close();
-                      frameBitmapCacheRef.current.delete(oldest);
-                    }
-                  }
-                  frameBitmapCacheRef.current.set(currentF, bmp);
-                }).catch(() => {});
-              }
+            } else if (imageElementRef.current && imageElementRef.current.complete && imageElementRef.current.naturalWidth > 0) {
+              activeSource = imageElementRef.current;
             } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
               activeSource = cachedPosterImgRef.current;
             }
-          } else if (imageElementRef.current && imageElementRef.current.complete && imageElementRef.current.naturalWidth > 0) {
-            activeSource = imageElementRef.current;
-          } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
-            activeSource = cachedPosterImgRef.current;
-          }
 
-          const useAutonomousCanvas = Boolean(
-            ko?.enabled && isTitlesActiveRef.current && !curFrame?.dopamineConfig
-          );
-
-          if (useAutonomousCanvas) {
-            ctx.filter = 'none';
-            depthOcclusionService.compositeFrame({
-              ctx,
-              width: targetW,
-              height: targetH,
-              sourceElement: activeSource as any,
-              timeSec: slideTimeSecRef.current,
-              durationSec: getShotDurationSec(curFrame, 12.0),
-              fps: getShotTargetFps(curFrame, 24),
-              isLivePlaying: isAutoplayRef.current,
-              titleBn: curFrame?.bengaliTitle || 'দৃষ্টির সীমানা',
-              titleEn: curFrame?.title || 'THE SINGULARITY',
-              lyricText: curFrame?.caption?.text || curFrame?.tagline || curFrame?.title || '',
-              filmFilter,
-              zoomScale: 1.0,
-              titleSize: storeTitleConfigRef.current?.titleSize ?? 72,
-              verticalOffset: storeTitleConfigRef.current?.verticalOffset ?? 0,
-              postBaseHook: (baseCtx, w, h) => {
-                if (activeSource) {
-                  applyCinematicPostProcess(
-                    baseCtx as CanvasRenderingContext2D,
-                    w,
-                    h,
-                    curFrame?.lutFilter || 'kodak_vision3',
-                    curFrame?.adjustments,
-                    slideTimeSecRef.current
-                  );
-                }
-              }
-            });
-          } else {
-            if (filmFilter && filmFilter !== 'none') {
-              ctx.filter = filmFilter;
-            }
-            if (activeSource) {
-              drawCover(ctx, activeSource, targetW, targetH);
-            } else {
-              // Minimalist Dark Studio Fallback Slate (4K crosshair + slate aesthetic)
-              const grad = ctx.createLinearGradient(0, 0, 0, targetH);
-              grad.addColorStop(0, '#0a0a0f');
-              grad.addColorStop(1, '#121218');
-              ctx.fillStyle = grad;
-              ctx.fillRect(0, 0, targetW, targetH);
-
-              // 4K Target Crosshair & Grid
-              ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
-              ctx.lineWidth = 1;
-              const cx = targetW / 2;
-              const cy = targetH / 2;
-              ctx.beginPath();
-              ctx.moveTo(cx - 30, cy);
-              ctx.lineTo(cx + 30, cy);
-              ctx.moveTo(cx, cy - 30);
-              ctx.lineTo(cx, cy + 30);
-              ctx.stroke();
-
-              // Crosshair circle
-              ctx.beginPath();
-              ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-              ctx.stroke();
-
-              // Telemetry watermark
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-              ctx.font = '10px monospace';
-              ctx.textAlign = 'center';
-              ctx.fillText(`SHOT ${curFrame?.epNumber || '001'} // CINEMA MONITOR STANDBY`, cx, cy + 42);
-            }
-            ctx.filter = 'none';
-            applyCinematicPostProcess(
-              ctx,
-              targetW,
-              targetH,
-              curFrame?.lutFilter || 'kodak_vision3',
-              curFrame?.adjustments,
-              slideTimeSecRef.current
+            const useAutonomousCanvas = Boolean(
+              ko?.enabled && isTitlesActiveRef.current && !curFrame?.dopamineConfig
             );
+
+            if (useAutonomousCanvas) {
+              ctx.filter = 'none';
+              depthOcclusionService.compositeFrame({
+                ctx,
+                width: targetW,
+                height: targetH,
+                sourceElement: activeSource as any,
+                timeSec: slideTimeSecRef.current,
+                durationSec: getShotDurationSec(curFrame, 12.0),
+                fps: getShotTargetFps(curFrame, 24),
+                isLivePlaying: isAutoplayRef.current,
+                titleBn: curFrame?.bengaliTitle || 'দৃষ্টির সীমানা',
+                titleEn: curFrame?.title || 'THE SINGULARITY',
+                lyricText: curFrame?.caption?.text || curFrame?.tagline || curFrame?.title || '',
+                filmFilter,
+                zoomScale: 1.0,
+                titleSize: storeTitleConfigRef.current?.titleSize ?? 72,
+                verticalOffset: storeTitleConfigRef.current?.verticalOffset ?? 0,
+                postBaseHook: (baseCtx, w, h) => {
+                  if (activeSource) {
+                    applyCinematicPostProcess(
+                      baseCtx as CanvasRenderingContext2D,
+                      w,
+                      h,
+                      curFrame?.lutFilter || 'kodak_vision3',
+                      curFrame?.adjustments,
+                      slideTimeSecRef.current
+                    );
+                  }
+                }
+              });
+            } else {
+              ctx.clearRect(0, 0, targetW, targetH);
+              if (activeSource && (!isVideo || isScrubbingRef.current)) {
+                if (filmFilter && filmFilter !== 'none') {
+                  ctx.filter = filmFilter;
+                }
+                drawCover(ctx, activeSource, targetW, targetH);
+                ctx.filter = 'none';
+                applyCinematicPostProcess(
+                  ctx,
+                  targetW,
+                  targetH,
+                  curFrame?.lutFilter || 'kodak_vision3',
+                  curFrame?.adjustments,
+                  slideTimeSecRef.current
+                );
+              } else if (!activeMediaUrl && !cachedPosterUrl) {
+                // Minimalist Dark Studio Fallback Slate ONLY when shot has NO media
+                const grad = ctx.createLinearGradient(0, 0, 0, targetH);
+                grad.addColorStop(0, '#0a0a0f');
+                grad.addColorStop(1, '#121218');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, targetW, targetH);
+
+                // 4K Target Crosshair & Grid
+                ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
+                ctx.lineWidth = 1;
+                const cx = targetW / 2;
+                const cy = targetH / 2;
+                ctx.beginPath();
+                ctx.moveTo(cx - 30, cy);
+                ctx.lineTo(cx + 30, cy);
+                ctx.moveTo(cx, cy - 30);
+                ctx.lineTo(cx, cy + 30);
+                ctx.stroke();
+
+                // Crosshair circle
+                ctx.beginPath();
+                ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Telemetry watermark
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`SHOT ${curFrame?.epNumber || '001'} // CINEMA MONITOR STANDBY`, cx, cy + 42);
+              }
+              ctx.filter = 'none';
+              applyCinematicPostProcess(
+                ctx,
+                targetW,
+                targetH,
+                curFrame?.lutFilter || 'kodak_vision3',
+                curFrame?.adjustments,
+                slideTimeSecRef.current
+              );
+            }
           }
         }
-      }
+
+        animId = requestAnimationFrame(render);
+      };
 
       animId = requestAnimationFrame(render);
-    };
-
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
-  }, [activeMediaUrl, activeShotFps, frame?.isVideo, frame?.lutFilter, frame?.adjustments]);
+      return () => cancelAnimationFrame(animId);
+    }, [activeMediaUrl, activeShotFps, frame?.isVideo, frame?.lutFilter, frame?.adjustments]);
 
   // Frictionless Scrubbing: 16ms Throttled Pointer Drag Handlers with Audio Mute & Restore
   const handleScrubPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -848,18 +869,18 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       case '9:16':
         return {
           aspectRatio: '9 / 16',
-          height: 'calc(100vh - 170px)',
-          maxHeight: 'calc(100vh - 170px)',
-          width: 'calc((100vh - 170px) * 9 / 16)',
+          height: 'calc(100vh - 120px)',
+          maxHeight: 'calc(100vh - 120px)',
+          width: 'calc((100vh - 120px) * 9 / 16)',
           maxWidth: '100%',
           margin: '0 auto'
         };
       case '1:1':
         return {
           aspectRatio: '1 / 1',
-          height: 'calc(100vh - 170px)',
-          maxHeight: 'calc(100vh - 170px)',
-          width: 'calc(100vh - 170px)',
+          height: 'calc(100vh - 120px)',
+          maxHeight: 'calc(100vh - 120px)',
+          width: 'calc(100vh - 120px)',
           maxWidth: '100%',
           margin: '0 auto'
         };
@@ -868,15 +889,15 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           aspectRatio: '4 / 3',
           width: '100%',
           maxWidth: 'min(94vw, 1500px)',
-          maxHeight: 'calc(100vh - 170px)',
+          maxHeight: 'calc(100vh - 120px)',
           margin: '0 auto'
         };
       case '16:9':
         return {
           aspectRatio: '16 / 9',
           width: '100%',
-          maxWidth: 'min(96vw, 1680px)',
-          maxHeight: 'calc(100vh - 170px)',
+          maxWidth: 'min(98vw, 1840px)',
+          maxHeight: 'calc(100vh - 120px)',
           margin: '0 auto'
         };
       case '2.39:1':
@@ -885,7 +906,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           aspectRatio: '2.39 / 1',
           width: '100%',
           maxWidth: 'min(98vw, 1840px)',
-          maxHeight: 'calc(100vh - 170px)',
+          maxHeight: 'calc(100vh - 120px)',
           margin: '0 auto'
         };
     }
@@ -896,7 +917,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       ref={containerRef}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
-      className="relative w-full h-full flex flex-col items-center justify-start pt-0 pb-1 bg-[#000000] overflow-hidden select-none px-0 sm:px-3"
+      className="relative w-full h-full flex flex-col items-center justify-start pt-0 mt-0 pb-0 bg-[#000000] overflow-hidden select-none px-0"
     >
       {/* Hidden File Input */}
       <input
@@ -947,11 +968,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       <div
         id="stage-media-container"
         style={getAspectStyle(aspectRatio)}
-        className="relative w-full mx-auto bg-[#000000] border-0 rounded-none shadow-[0_16px_80px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center select-none shrink-0"
+        className="relative w-full mx-auto bg-[#000000] border-0 rounded-none shadow-[0_16px_80px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center select-none shrink-0 mt-0 pt-0"
       >
         {/* SAFE INSTANT FALLBACK LAYER: Synchronous media pass-through mirroring active media so stage NEVER renders blank */}
         {activeMediaUrl && (
-          (frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4') || activeMediaUrl.endsWith('.webm')) ? (
+          isVideoMedia ? (
             <video
               id="stage-fallback-video"
               ref={videoRef}
@@ -962,6 +983,17 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               loop
               muted
               playsInline
+              preload="auto"
+              onCanPlay={(e) => {
+                if (isAutoplay && e.currentTarget.paused) {
+                  e.currentTarget.play().catch(() => {});
+                }
+              }}
+              onLoadedData={(e) => {
+                if (isAutoplay && e.currentTarget.paused) {
+                  e.currentTarget.play().catch(() => {});
+                }
+              }}
               className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
               style={{ filter: combinedMediaFilter }}
             />
@@ -991,7 +1023,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         <canvas
           id="stage-canvas"
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full object-contain relative z-1"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-1"
           style={{ filter: combinedMediaFilter }}
         />
 
@@ -1074,25 +1106,25 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         )}
       </div>
 
-      {/* 2. SLEEK CINEMA MONITOR BEZEL RIBBON (Ultra-compact 24px bar directly under the monitor) */}
-      <div className="w-full max-w-[min(98vw,1840px)] mx-auto mt-1 px-2.5 py-1 bg-[#090a0f]/90 border border-white/10 rounded-md flex items-center justify-between gap-2 shrink-0 select-none shadow-md">
+      {/* 2. SLEEK CINEMA MONITOR BEZEL RIBBON (Ultra-compact 22px bar directly under the monitor) */}
+      <div className="w-full max-w-[min(98vw,1840px)] mx-auto mt-0.5 px-2 py-0.5 bg-[#090a0f]/95 border border-white/10 rounded flex items-center justify-between gap-1.5 shrink-0 select-none shadow-md h-5.5 text-[8.5px]">
         {/* Left: Scene & Shot Metadata */}
-        <div className="flex items-center gap-2 truncate text-[9.5px] font-mono tracking-wider uppercase text-white/40">
+        <div className="flex items-center gap-1.5 truncate text-[8.5px] font-mono tracking-wider uppercase text-white/40">
           <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>
           <span className="text-white/20">//</span>
           <span className="text-white/80 font-semibold">SHOT {String(currentIndex + 1).padStart(2, '0')}</span>
           <span className="text-white/20">•</span>
-          <span className="text-zinc-300 truncate max-w-[140px] sm:max-w-[240px]">"{frame?.title || 'UNTITLED SHOT'}"</span>
+          <span className="text-zinc-300 truncate max-w-[120px] sm:max-w-[200px]">"{frame?.title || 'UNTITLED SHOT'}"</span>
           <span className="text-white/20 hidden sm:inline">•</span>
           <span className="text-[#FFE066]/70 hidden sm:inline">{aspectRatio || '2.39:1'} SCOPE</span>
         </div>
 
         {/* Right: Telemetry Indicators & Quick Bezel Triggers */}
-        <div className="flex items-center gap-2 sm:gap-3 text-[9px] text-white/40 shrink-0 font-mono">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-[8px] text-white/40 shrink-0 font-mono">
           <button
             type="button"
             onClick={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
-            className={`px-1.5 py-0.5 rounded border text-[8.5px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`px-1 py-0.2 rounded border text-[8px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
               isWebCodecsEngineActive
                 ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_8px_rgba(245,166,35,0.4)]'
                 : 'bg-black/50 border-white/20 text-amber-400 hover:bg-white/10'
@@ -1100,7 +1132,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             title="Toggle WebCodecs 24fps WebGL2 Ping-Pong Engine"
           >
             <Zap className="w-2.5 h-2.5 text-current" />
-            <span>{isWebCodecsEngineActive ? 'WEBCODECS [ACTIVE]' : 'WEBCODECS [OFF]'}</span>
+            <span>{isWebCodecsEngineActive ? 'WEBCODECS' : 'NATIVE'}</span>
           </button>
 
           <span className="hidden md:inline text-white/20">|</span>
@@ -1126,7 +1158,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               className="p-1 rounded bg-black/60 hover:bg-white/15 text-white/80 hover:text-white border border-white/15 transition-all cursor-pointer"
               title="Upload / Replace Media Plate"
             >
-              <Upload className="w-3 h-3" />
+              <Upload className="w-2.5 h-2.5" />
             </button>
 
             {/* Quick Fullscreen */}

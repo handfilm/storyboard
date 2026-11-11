@@ -129,8 +129,10 @@ export const lutPresetsList: Array<{ id: LutPreset; label: string; desc: string 
 export const localCinematicPlates = [
   "/assets/aistudio/image_3a1afa90.png",
   "/assets/aistudio/image_630b2490.png",
-  "/assets/aistudio/image_3a1afa90.png",
-  "/assets/aistudio/image_630b2490.png"
+  "/assets/aistudio/image_9f20ab3c.png",
+  "/assets/aistudio/image_1a583b2c.png",
+  "/assets/aistudio/image_1019804d.png",
+  "/assets/aistudio/image_0d1ae916.png"
 ];
 
 export const samplePacks = {

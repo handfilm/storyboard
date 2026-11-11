@@ -101,7 +101,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Detect whether media is video or image
   const isVideo = Boolean(
     currentSlide?.isVideo ||
-    (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl))
+    (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl)) ||
+    (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl)) ||
+    (currentSlide?.imageUrl?.startsWith('blob:') && currentSlide?.isVideo !== false)
   );
 
   // Synchronize Fullscreen Events
@@ -240,10 +242,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  // Cloudflare R2 Edge Stream URL resolution
+  // Cloudflare R2 Edge Stream URL resolution or local fallback
   const mediaUrl = currentSlide?.remoteUrl 
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
-    : '';
+    : (currentSlide?.imageUrl || currentSlide?.thumbnailUrl || '');
 
   const handleCaptureStill = () => {
     setIsExporting(true);

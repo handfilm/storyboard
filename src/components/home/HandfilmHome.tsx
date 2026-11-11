@@ -197,6 +197,54 @@ const MULTICAM_9_ANGLES = [
   { id: 9, label: 'CAM 09', name: 'INFRARED THERMAL AUX', active: false, standby: true }
 ];
 
+export const HOME_LUT_PRESETS = [
+  { id: 'RAWx Cinema 35', label: 'Cinema 35' },
+  { id: 'Golden Hour 2800K', label: 'Golden Hour' },
+  { id: 'Neo-Noir Chiaroscuro', label: 'Neo-Noir' },
+  { id: 'Matrix Emerald', label: 'Matrix' },
+  { id: 'Vintage 1970s', label: 'Vintage' },
+  { id: 'Cyberpunk Neon', label: 'Cyberpunk' },
+  { id: 'Teal & Orange', label: 'Teal & Orange' },
+  { id: 'Bleach Bypass 50%', label: 'Bleach Bypass' },
+  { id: 'Infrared Aerochrome', label: 'Infrared' },
+  { id: 'Kodachrome 64', label: 'Kodachrome' },
+  { id: 'Monochrome High-Contrast', label: 'B&W Contrast' },
+  { id: 'Tungsten 3200K', label: 'Cold Tungsten' },
+  { id: 'RAW Flat Log', label: 'Raw Flat' }
+];
+
+export const getLutFilterCss = (lut: string): string => {
+  switch (lut) {
+    case 'RAWx Cinema 35':
+      return 'contrast(1.18) saturate(1.1) brightness(0.96) sepia(0.08)';
+    case 'Golden Hour 2800K':
+      return 'sepia(0.28) saturate(1.3) hue-rotate(-12deg) contrast(1.1)';
+    case 'Neo-Noir Chiaroscuro':
+      return 'contrast(1.4) saturate(0.7) brightness(0.9)';
+    case 'Matrix Emerald':
+      return 'hue-rotate(65deg) saturate(1.2) contrast(1.15) brightness(0.95)';
+    case 'Vintage 1970s':
+      return 'sepia(0.35) contrast(0.95) saturate(1.1) brightness(0.98)';
+    case 'Cyberpunk Neon':
+      return 'contrast(1.25) saturate(1.5) hue-rotate(-20deg)';
+    case 'Teal & Orange':
+      return 'contrast(1.2) saturate(1.25) hue-rotate(-15deg)';
+    case 'Bleach Bypass 50%':
+      return 'contrast(1.35) saturate(0.5) brightness(1.05)';
+    case 'Infrared Aerochrome':
+      return 'hue-rotate(180deg) saturate(1.4) contrast(1.1)';
+    case 'Kodachrome 64':
+      return 'contrast(1.22) saturate(1.2) brightness(0.98)';
+    case 'Monochrome High-Contrast':
+      return 'grayscale(1) contrast(1.45) brightness(0.95)';
+    case 'Tungsten 3200K':
+      return 'hue-rotate(200deg) saturate(0.9) brightness(0.95)';
+    case 'RAW Flat Log':
+    default:
+      return 'none';
+  }
+};
+
 export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   frames = [],
   onEnterStudio,
@@ -228,6 +276,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   
   // Custom title overrides for easy title changing
   const [customTitles, setCustomTitles] = useState<Record<number, { titleEn: string; titleBn: string }>>({});
+  const [customLuts, setCustomLuts] = useState<Record<number, string>>({});
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const [editingTitleEn, setEditingTitleEn] = useState<string>('');
   const [editingTitleBn, setEditingTitleBn] = useState<string>('');
@@ -248,6 +297,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const activeShot: ShowcaseShot = useMemo(() => {
     const preset = SHOWCASE_PRESETS[activeShotIndex % SHOWCASE_PRESETS.length];
     const custom = customTitles[activeShotIndex];
+    const lutOverride = customLuts[activeShotIndex];
     let base = preset;
     if (frames && frames.length > 0 && frames[activeShotIndex]) {
       const userFrame = frames[activeShotIndex];
@@ -261,6 +311,12 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         durationSec: userFrame.durationSec || userFrame.slideHoldSec || 12.0
       };
     }
+    if (lutOverride) {
+      base = {
+        ...base,
+        lutFilter: lutOverride
+      };
+    }
     if (custom) {
       return {
         ...base,
@@ -269,7 +325,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       };
     }
     return base;
-  }, [activeShotIndex, frames, customTitles]);
+  }, [activeShotIndex, frames, customTitles, customLuts]);
 
   // Top 10 Shots for the Netflix poster row
   const top10Shots = useMemo(() => {
@@ -435,6 +491,13 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     }
   }, [onAspectChange]);
 
+  const handleLutChange = useCallback((lut: string) => {
+    setCustomLuts(prev => ({
+      ...prev,
+      [activeShotIndex]: lut
+    }));
+  }, [activeShotIndex]);
+
   const handleCycleZoom = useCallback(() => {
     setStageZoomLevel(prev => {
       if (prev === '1.0x') return '1.5x';
@@ -569,7 +632,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           className="relative w-full rounded-2xl overflow-hidden bg-black border border-[#232330] shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex items-center justify-center transition-all duration-300"
           style={{
             aspectRatio: selectedAspectRatio === '2.39:1' ? '2.39 / 1' : selectedAspectRatio === '16:9' ? '16 / 9' : selectedAspectRatio === '9:16' ? '9 / 16' : selectedAspectRatio === '4:3' ? '4 / 3' : '1 / 1',
-            maxHeight: '68vh'
+            maxHeight: '62vh'
           }}
         >
           {/* Zoom Transform Wrapper */}
@@ -584,7 +647,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               className="absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-500"
               style={{
                 backgroundImage: `url(${activeShot.imageUrl})`,
-                backgroundColor: '#050508'
+                backgroundColor: '#050508',
+                filter: getLutFilterCss(activeShot.lutFilter)
               }}
             >
               {/* Fallback procedural canvas gradient underneath ensures zero blank frames */}
@@ -692,42 +756,118 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       </section>
 
       {/* ========================================================= */}
-      {/* SECTION 3: NEXT-LEVEL BOTTOM TOOLBAR RESTRUCTURE & RESIZING */}
-      {/* 55" 4K Ergonomic Runtime: Large Hit Targets, Zero Dead Space */}
-      {/* Strict 3-Section Distribution: Left Wing, Center Wing, Right Wing */}
+      {/* CONSOLIDATED MASTER BOTTOM CONTROLS & TIMELINE DOCK */}
+      {/* Tier 1: 6-Shot Master Timeline Presets (Shot Cards Carousel) */}
+      {/* Tier 2: Unified Single-Tier Horizontal Bar (Height: 40px-42px) */}
+      {/* Anchored above taskbar with bottom: 8px; margin-bottom: env(safe-area-inset-bottom, 0px); */}
       {/* ========================================================= */}
-      <section className="w-full max-w-7xl mx-auto px-4 md:px-8 my-4">
-        <div className="w-full bg-[#0d0e15]/95 backdrop-blur-2xl border border-white/15 rounded-2xl p-3 md:p-4 shadow-[0_16px_40px_rgba(0,0,0,0.9)] flex flex-col md:flex-row items-center justify-between gap-4">
+      <section 
+        className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-8 my-2 sticky z-30"
+        style={{ bottom: '8px', marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        {/* Tier 1: 6-Shot Interactive Timeline Strip */}
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-1.5 px-0.5">
+            <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-widest text-zinc-400 uppercase">
+              6-SHOT MASTER TIMELINE PRESETS
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsMultiCamExpanded(prev => !prev)}
+              className="text-[10px] sm:text-[11px] font-mono font-bold text-[#F5A623] hover:text-[#FFE066] flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>{isMultiCamExpanded ? 'HIDE 9-CAM MATRIX' : 'EXPAND 9-CAM MATRIX'}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+            {SHOWCASE_PRESETS.map((shot, idx) => {
+              const isActive = idx === activeShotIndex;
+              return (
+                <div
+                  key={shot.id}
+                  onClick={() => {
+                    setActiveShotIndex(idx);
+                    setCurrentFrameNum(0);
+                    try { audioEngine.playShutterClick(); } catch {}
+                  }}
+                  className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group border flex flex-col aspect-[16/9] ${
+                    isActive
+                      ? 'border-[#ffaa00] ring-2 ring-[#ffaa00]/50 shadow-[0_0_20px_rgba(255,170,0,0.4)] scale-102 z-10'
+                      : 'border-white/10 hover:border-white/30 bg-[#0d0d14] opacity-75 hover:opacity-100'
+                  }`}
+                >
+                  {/* Thumbnail Background Image */}
+                  <div 
+                    className="w-full h-full bg-cover bg-center"
+                    style={{
+                      backgroundImage: `url(${shot.imageUrl})`,
+                      backgroundColor: '#070709'
+                    }}
+                  >
+                    <div className="w-full h-full" style={{ background: shot.fallbackGradient, opacity: 0.8 }} />
+                  </div>
+
+                  {/* Scrim overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+
+                  {/* Top Shot Tag */}
+                  <div className="absolute top-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-mono">
+                    <span className={`px-1.5 py-0.5 rounded font-black ${isActive ? 'bg-[#ffaa00] text-black' : 'bg-black/80 text-white'}`}>
+                      SH {shot.shotNumber}
+                    </span>
+                    <span className="text-zinc-300 bg-black/60 px-1 py-0.5 rounded">
+                      {shot.durationSec.toFixed(1)}s
+                    </span>
+                  </div>
+
+                  {/* Bottom Title Slate */}
+                  <div className="absolute bottom-1 left-1.5 right-1.5 font-mono">
+                    <div className="text-xs font-bold text-white font-bangla truncate">
+                      {customTitles[idx]?.titleBn || shot.titleBn}
+                    </div>
+                    <div className="text-[9px] text-zinc-400 truncate">
+                      {customTitles[idx]?.titleEn || shot.titleEn}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tier 2: Single Ultra-Thin High-Efficiency Horizontal Bar (Fixed height: 40px to 42px) */}
+        <div className="w-full h-[40px] sm:h-[42px] max-h-[42px] min-h-[40px] bg-[#0d0e15]/95 backdrop-blur-2xl border border-white/15 rounded-xl px-2.5 sm:px-3 shadow-[0_8px_32px_rgba(0,0,0,0.9)] flex flex-row items-center justify-between flex-nowrap gap-2 overflow-x-auto overflow-y-hidden scrollbar-none text-xs font-mono">
           
           {/* ======================================================= */}
-          {/* 1. LEFT WING: TRANSPORT & CLOCKS */}
+          {/* 1. LEFT WING: TRANSPORT & SMPTE TIME (32px-36px button, steps, TC) */}
           {/* ======================================================= */}
-          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-            
-            {/* Large 44px Circular Play/Pause Button */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Circular Play/Pause Button (32px–36px) */}
             <button
               type="button"
               onClick={handleTogglePlay}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-90 shadow-lg shrink-0 ${
+              className={`w-8 h-8 sm:w-[34px] sm:h-[34px] rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-90 shadow-md shrink-0 ${
                 isPlaying 
-                  ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-4 ring-amber-500/30 shadow-[0_0_24px_rgba(245,166,35,0.7)]' 
-                  : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-4 ring-red-500/30 shadow-[0_0_24px_rgba(229,9,20,0.7)]'
+                  ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-2 ring-amber-500/30 shadow-[0_0_16px_rgba(245,166,35,0.7)]' 
+                  : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-2 ring-red-500/30 shadow-[0_0_16px_rgba(229,9,20,0.7)]'
               }`}
               title={isPlaying ? "Pause Playback (Space)" : "Play 24fps Sequence (Space)"}
             >
               {isPlaying ? (
-                <Pause className="w-5 h-5 fill-current" />
+                <Pause className="w-4 h-4 fill-current" />
               ) : (
-                <Play className="w-5 h-5 fill-current ml-0.5" />
+                <Play className="w-4 h-4 fill-current ml-0.5" />
               )}
             </button>
 
             {/* Frame-Step Buttons (-1F / +1F) */}
-            <div className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 shrink-0">
+            <div className="flex items-center gap-0.5 bg-black/60 p-0.5 rounded-lg border border-white/10 shrink-0">
               <button
                 type="button"
                 onClick={() => handleStepFrame(false)}
-                className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white font-mono text-xs font-bold transition-colors cursor-pointer"
+                className="h-7 px-1.5 sm:px-2 rounded bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
                 title="Step -1 Frame (Left Arrow)"
               >
                 -1F
@@ -735,107 +875,101 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               <button
                 type="button"
                 onClick={() => handleStepFrame(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white font-mono text-xs font-bold transition-colors cursor-pointer"
+                className="h-7 px-1.5 sm:px-2 rounded bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
                 title="Step +1 Frame (Right Arrow)"
               >
                 +1F
               </button>
             </div>
 
-            {/* Large SMPTE Timecode Readout + Duration Pill */}
-            <div className="flex items-center gap-2 bg-black/80 px-3.5 py-1.5 rounded-xl border border-white/10 font-mono tabular-nums shrink-0">
-              <Clock className="w-4 h-4 text-[#F5A623]" />
-              <span className="text-sm font-black tracking-wider text-[#F5A623]">
+            {/* High-Contrast Monospace SMPTE Timecode Readout + Total Duration */}
+            <div className="flex items-center gap-1.5 h-7 sm:h-8 bg-black/80 px-2 sm:px-2.5 rounded-lg border border-white/10 font-mono tabular-nums shrink-0">
+              <Clock className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span className="text-[11px] font-black tracking-wider text-[#F5A623]">
                 {smpteTimecodeString}
               </span>
-              <span className="text-zinc-600">|</span>
-              <span className="px-2 py-0.5 rounded bg-white/10 text-zinc-300 font-bold text-xs">
+              <span className="text-zinc-600 text-[10px]">/</span>
+              <span className="px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 font-bold text-[10px]">
                 {activeShot.durationSec.toFixed(1)}s
               </span>
             </div>
           </div>
 
           {/* ======================================================= */}
-          {/* 2. CENTER WING: COMMAND HUB & SYNC (PROMINENT SOLO/MASTER POD) */}
+          {/* 2. CENTER WING: COMMAND HUB & SYNC (SOLO/MASTER 32px, BEAT SNAP, SPEED) */}
           {/* ======================================================= */}
-          <div className="flex items-center gap-3 w-full md:w-auto justify-center">
-            
-            {/* Prominent High-Visibility Dual-State Segmented Command Hub (38px–40px Height) */}
-            <div className="flex items-center p-1 bg-black/85 rounded-xl border border-white/20 shadow-inner">
-              
-              {/* SOLO STATE: Glowing Cyan Indicator */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 justify-center">
+            {/* Prominent Dual-State Segmented [ SOLO | MASTER ] Hub (Height: 32px) */}
+            <div className="flex items-center h-8 p-0.5 bg-black/85 rounded-lg border border-white/20 shadow-inner shrink-0">
+              {/* SOLO STATE */}
               <button
                 type="button"
                 onClick={() => handleSoloMasterToggle('SOLO')}
                 style={
                   soloMasterMode === 'SOLO'
                     ? {
-                        border: '2px solid #00f0ff',
-                        background: 'rgba(0, 240, 255, 0.15)',
-                        color: '#fff',
+                        border: '1.5px solid #00f0ff',
+                        background: 'rgba(0, 240, 255, 0.18)',
+                        color: '#00f0ff',
                         fontWeight: 800,
-                        letterSpacing: '0.1em',
-                        boxShadow: '0 0 20px rgba(0, 240, 255, 0.5)'
+                        letterSpacing: '0.08em',
+                        boxShadow: '0 0 14px rgba(0, 240, 255, 0.5)'
                       }
                     : undefined
                 }
-                className={`h-9 px-4 rounded-lg font-mono text-xs uppercase flex items-center gap-2 transition-all cursor-pointer ${
-                  soloMasterMode === 'SOLO'
-                    ? ''
-                    : 'text-zinc-500 hover:text-zinc-300'
+                className={`h-7 px-2.5 rounded font-mono text-[10px] uppercase font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  soloMasterMode === 'SOLO' ? '' : 'text-zinc-400 hover:text-white'
                 }`}
                 title="SOLO MODE: Lock playback strictly into isolated active shot"
               >
-                <span className={`w-2 h-2 rounded-full ${soloMasterMode === 'SOLO' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${soloMasterMode === 'SOLO' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
                 <span>SOLO</span>
               </button>
 
-              {/* MASTER STATE: Bold Amber/Gold Indicator */}
+              {/* MASTER STATE */}
               <button
                 type="button"
                 onClick={() => handleSoloMasterToggle('MASTER')}
                 style={
                   soloMasterMode === 'MASTER'
                     ? {
-                        border: '2px solid #ffaa00',
-                        background: 'rgba(255, 170, 0, 0.2)',
-                        color: '#fff',
+                        border: '1.5px solid #ffaa00',
+                        background: 'rgba(255, 170, 0, 0.22)',
+                        color: '#ffaa00',
                         fontWeight: 800,
-                        letterSpacing: '0.1em',
-                        boxShadow: '0 0 20px rgba(255, 170, 0, 0.5)'
+                        letterSpacing: '0.08em',
+                        boxShadow: '0 0 14px rgba(255, 170, 0, 0.5)'
                       }
                     : undefined
                 }
-                className={`h-9 px-4 rounded-lg font-mono text-xs uppercase flex items-center gap-2 transition-all cursor-pointer ${
-                  soloMasterMode === 'MASTER'
-                    ? ''
-                    : 'text-zinc-500 hover:text-zinc-300'
+                className={`h-7 px-2.5 rounded font-mono text-[10px] uppercase font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  soloMasterMode === 'MASTER' ? '' : 'text-zinc-400 hover:text-white'
                 }`}
                 title="MASTER MODE: Continuous narrative playback across full sequence"
               >
-                <span className={`w-2 h-2 rounded-full ${soloMasterMode === 'MASTER' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${soloMasterMode === 'MASTER' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
                 <span>MASTER</span>
               </button>
             </div>
 
-            {/* Beat-Snap Waveform Toggle Pill (♫ BEAT SNAP) */}
+            {/* Beat Snap Toggle Button (♫ BEAT SNAP) */}
             <button
               type="button"
               onClick={() => setIsSnapToBeat(prev => !prev)}
-              className={`h-10 px-3.5 rounded-xl border font-mono font-bold text-xs tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+              className={`h-8 px-2.5 rounded-lg border font-mono font-bold text-[10px] tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                 isSnapToBeat
-                  ? 'bg-cyan-950/60 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,240,255,0.3)]'
+                  ? 'bg-cyan-950/60 border-cyan-400 text-cyan-200 shadow-[0_0_12px_rgba(0,240,255,0.3)]'
                   : 'bg-black/60 border-white/10 text-zinc-500 hover:text-zinc-300'
               }`}
               title="Snap cuts & transitions to detected audio transients"
             >
-              <Music className="w-3.5 h-3.5 text-cyan-400" />
+              <Music className="w-3 h-3 text-cyan-400" />
               <span>♫ BEAT SNAP</span>
             </button>
 
-            {/* Playback Speed Multiplier Slider */}
-            <div className="hidden xl:flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-xl border border-white/10 font-mono text-xs text-zinc-400 shrink-0">
-              <span className="text-[10px] text-zinc-500 uppercase">SPEED</span>
+            {/* Compact Horizontal Speed Slider with active numerical multiplier readout */}
+            <div className="hidden lg:flex items-center gap-1.5 h-8 bg-black/60 px-2 rounded-lg border border-white/10 font-mono text-[10px] text-zinc-400 shrink-0">
+              <span className="text-[9px] text-zinc-500 uppercase">SPEED</span>
               <input
                 type="range"
                 min="0.5"
@@ -843,50 +977,48 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 step="0.25"
                 value={playbackSpeed}
                 onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-                className="w-16 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded"
+                className="w-12 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
               />
-              <span className="text-[#F5A623] font-bold tabular-nums w-8">
+              <span className="text-[#F5A623] font-bold tabular-nums text-[10px] w-6">
                 {playbackSpeed.toFixed(2)}x
               </span>
             </div>
           </div>
 
           {/* ======================================================= */}
-          {/* 3. RIGHT WING: TITLES WITH EASY TITLE CHANGER, ZEN, OPTICS & TOOLS */}
+          {/* 3. RIGHT WING: RELOCATED CONTROLS (TITLES, EDIT, ASPECT, LUT, ZEN) */}
           {/* ======================================================= */}
-          <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
-            
-            {/* Easy Title Change & Titles ON/OFF Hub */}
-            <div className="relative flex items-center bg-black/80 border border-white/20 rounded-xl p-0.5 shadow-inner">
-              {/* Master Title Layer Toggle Pill ([ T ] TITLES ON/OFF with amber indicator dot) */}
+          <div className="flex items-center gap-1.5 shrink-0 justify-end">
+            {/* Consolidated Master Title Toggle Pill with glowing amber indicator dot */}
+            <div className="relative flex items-center bg-black/80 border border-white/20 rounded-lg p-0.5 shadow-inner shrink-0">
               <button
                 type="button"
                 onClick={handleToggleTitles}
-                className={`h-9 px-3 rounded-lg font-mono font-bold text-xs tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                className={`h-7 px-2 rounded font-mono font-bold text-[10px] tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                   titlesLayerActive
-                    ? 'bg-amber-950/50 border border-amber-400 text-amber-200 shadow-[0_0_12px_rgba(245,166,35,0.4)]'
+                    ? 'bg-amber-950/60 border border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(245,166,35,0.4)]'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 title="Toggle Creative Kinetic Typography Layer On/Off"
               >
-                <span className={`w-2 h-2 rounded-full ${titlesLayerActive ? 'bg-[#ffaa00] shadow-[0_0_8px_#ffaa00]' : 'bg-zinc-600'}`} />
-                <span className="text-[10px] font-black">[ T ]</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${titlesLayerActive ? 'bg-[#ffaa00] shadow-[0_0_8px_#ffaa00]' : 'bg-zinc-600'}`} />
+                <span className="font-black">[ T ]</span>
                 <span className="hidden sm:inline">{titlesLayerActive ? 'TITLES ON' : 'TITLES OFF'}</span>
               </button>
 
-              {/* Quick Title Edit Button with live Title preview */}
+              {/* Inline Title Edit Trigger */}
               <button
                 type="button"
                 onClick={handleOpenTitleEditor}
-                className={`h-9 px-2.5 rounded-lg font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer max-w-[150px] truncate ${
+                className={`h-7 px-1.5 sm:px-2 rounded font-mono text-[10px] flex items-center gap-1 transition-all cursor-pointer max-w-[100px] sm:max-w-[130px] truncate ${
                   isEditingTitle
                     ? 'bg-white/20 text-white font-bold'
                     : 'text-zinc-400 hover:text-white hover:bg-white/10'
                 }`}
                 title="Quickly Change Active Shot Title and Bengali Subtitle"
               >
-                <span className="text-amber-400">✏️</span>
-                <span className="truncate">{activeShot.titleBn || 'Change Title'}</span>
+                <span className="text-amber-400 text-[10px]">✏️</span>
+                <span className="truncate">{activeShot.titleBn || 'Title'}</span>
               </button>
 
               {/* Quick Title Edit Popover */}
@@ -954,137 +1086,75 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               )}
             </div>
 
-            {/* Aspect Ratio Selector Dropdown */}
-            <div className="relative">
-              <select
-                value={selectedAspectRatio}
-                onChange={(e) => handleAspectChange(e.target.value)}
-                className="h-9 px-3 rounded-lg bg-black/80 border border-white/15 text-white font-mono text-xs font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors"
-                title="Canvas Optical Aspect Ratio"
-              >
-                <option value="2.39:1">2.39:1 Cinema 35</option>
-                <option value="16:9">16:9 Broadcast</option>
-                <option value="9:16">9:16 Vertical Reel</option>
-                <option value="4:3">4:3 Academy</option>
-                <option value="1:1">1:1 Square</option>
-              </select>
-            </div>
+            {/* Aspect Ratio Dropdown (2.39:1 Cinema 35 / 16:9 / 9:16) */}
+            <select
+              value={selectedAspectRatio}
+              onChange={(e) => handleAspectChange(e.target.value)}
+              className="h-8 px-2 rounded-lg bg-black/80 border border-white/15 text-white font-mono text-[10px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0"
+              title="Canvas Optical Aspect Ratio"
+            >
+              <option value="2.39:1">2.39:1 Cinema 35</option>
+              <option value="16:9">16:9 Broadcast</option>
+              <option value="9:16">9:16 Vertical Reel</option>
+              <option value="4:3">4:3 Academy</option>
+              <option value="1:1">1:1 Square</option>
+            </select>
 
-            {/* Stage Zoom Readout (1.0x / 1.5x / 2.0x) */}
+            {/* LUT Preset Dropdown */}
+            <select
+              value={activeShot.lutFilter || 'RAWx Cinema 35'}
+              onChange={(e) => handleLutChange(e.target.value)}
+              className="h-8 px-2 rounded-lg bg-black/80 border border-white/15 text-amber-300 font-mono text-[10px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0 max-w-[110px] sm:max-w-[130px] truncate"
+              title="Cinematic Color Grading LUT Preset"
+            >
+              {HOME_LUT_PRESETS.map((p) => (
+                <option key={p.id} value={p.id} className="bg-[#101014] text-white">
+                  {p.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Zoom Magnification Button */}
             <button
               type="button"
               onClick={handleCycleZoom}
-              className="h-9 px-3 rounded-lg bg-black/60 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="hidden xl:flex h-8 px-2 rounded-lg bg-black/60 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer shrink-0"
               title="Cycle Stage Viewport Magnification (1.0x / 1.5x / 2.0x)"
             >
               <span>ZOOM</span>
-              <span className="text-[#F5A623] font-bold">{stageZoomLevel}</span>
+              <span className="text-[#F5A623]">{stageZoomLevel}</span>
             </button>
 
-            {/* Composition Grid Toggle Button */}
+            {/* Rule of Thirds Grid Toggle Button */}
             <button
               type="button"
               onClick={() => setShowCompositionGrid(prev => !prev)}
-              className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+              className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                 showCompositionGrid
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.4)]'
+                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(0,240,255,0.4)]'
                   : 'bg-black/60 border-white/15 text-zinc-400 hover:text-white'
               }`}
               title="Toggle Rule-of-Thirds Cinematic Composition Grid"
             >
-              <Grid className="w-4 h-4" />
+              <Grid className="w-3.5 h-3.5" />
             </button>
 
-            {/* Zen Focus Mode Button in Bottom Toolbar */}
+            {/* Minimal Zen Focus Mode Icon Button */}
             <button
               type="button"
               onClick={handleZenToggle}
-              className={`h-9 px-3 rounded-lg border font-mono text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+              className={`h-8 px-2.5 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
                 isZenModeActive
-                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_14px_rgba(0,240,255,0.45)]'
+                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.45)]'
                   : 'bg-black/60 border-white/15 text-zinc-400 hover:text-cyan-300 hover:border-cyan-400/50'
               }`}
               title="Zen Focus Mode: Distraction-free clean viewport (Z)"
             >
-              <span className="text-sm">⛶</span>
+              <span className="text-xs">⛶</span>
               <span className="hidden sm:inline">ZEN</span>
             </button>
           </div>
 
-        </div>
-      </section>
-
-      {/* ========================================================= */}
-      {/* SECTION 4: 6-SHOT INTERACTIVE TIMELINE STRIP */}
-      {/* ========================================================= */}
-      <section className="w-full max-w-7xl mx-auto px-4 md:px-8 my-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-mono font-bold tracking-widest text-zinc-400 uppercase">
-            6-SHOT MASTER TIMELINE PRESETS
-          </span>
-          <button
-            type="button"
-            onClick={() => setIsMultiCamExpanded(prev => !prev)}
-            className="text-[11px] font-mono font-bold text-[#F5A623] hover:text-[#FFE066] flex items-center gap-1 cursor-pointer"
-          >
-            <Video className="w-3.5 h-3.5" />
-            <span>{isMultiCamExpanded ? 'HIDE 9-CAM MATRIX' : 'EXPAND 9-CAM MATRIX'}</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-          {SHOWCASE_PRESETS.map((shot, idx) => {
-            const isActive = idx === activeShotIndex;
-            return (
-              <div
-                key={shot.id}
-                onClick={() => {
-                  setActiveShotIndex(idx);
-                  setCurrentFrameNum(0);
-                  try { audioEngine.playShutterClick(); } catch {}
-                }}
-                className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group border flex flex-col aspect-[16/9] ${
-                  isActive
-                    ? 'border-[#ffaa00] ring-2 ring-[#ffaa00]/50 shadow-[0_0_20px_rgba(255,170,0,0.4)] scale-102 z-10'
-                    : 'border-white/10 hover:border-white/30 bg-[#0d0d14] opacity-75 hover:opacity-100'
-                }`}
-              >
-                {/* Thumbnail Background Image */}
-                <div 
-                  className="w-full h-full bg-cover bg-center"
-                  style={{
-                    backgroundImage: `url(${shot.imageUrl})`,
-                    backgroundColor: '#070709'
-                  }}
-                >
-                  <div className="w-full h-full" style={{ background: shot.fallbackGradient, opacity: 0.8 }} />
-                </div>
-
-                {/* Scrim overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-
-                {/* Top Shot Tag */}
-                <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-mono">
-                  <span className={`px-1.5 py-0.5 rounded font-black ${isActive ? 'bg-[#ffaa00] text-black' : 'bg-black/80 text-white'}`}>
-                    SH {shot.shotNumber}
-                  </span>
-                  <span className="text-zinc-300 bg-black/60 px-1 py-0.5 rounded">
-                    {shot.durationSec.toFixed(1)}s
-                  </span>
-                </div>
-
-                {/* Bottom Title Slate */}
-                <div className="absolute bottom-1.5 left-1.5 right-1.5 font-mono">
-                  <div className="text-xs font-bold text-white font-bangla truncate">
-                    {shot.titleBn}
-                  </div>
-                  <div className="text-[9px] text-zinc-400 truncate">
-                    {shot.titleEn}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
 

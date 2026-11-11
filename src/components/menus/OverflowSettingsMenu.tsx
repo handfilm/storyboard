@@ -20,7 +20,12 @@ import {
   Database,
   Check,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Film,
+  FileCode,
+  Share2,
+  BarChart2,
+  Keyboard
 } from 'lucide-react';
 import { SmartHoverCard } from '../ui/SmartHoverCard';
 import { studioDraftDb } from '../../services/db';
@@ -33,6 +38,11 @@ export interface OverflowSettingsMenuProps {
   onOpenSettings?: () => void;
   onOpenInspector?: () => void;
   onOpenCacheManager?: () => void;
+  onOpenExport?: () => void;
+  onOpenExportXml?: () => void;
+  onOpenExportFcpxml?: () => void;
+  onOpenProjectStats?: () => void;
+  onOpenShortcuts?: () => void;
   className?: string;
 }
 
@@ -42,6 +52,11 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
   onOpenSettings,
   onOpenInspector,
   onOpenCacheManager,
+  onOpenExport,
+  onOpenExportXml,
+  onOpenExportFcpxml,
+  onOpenProjectStats,
+  onOpenShortcuts,
   className = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -91,6 +106,26 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
         break;
       case 'CACHE_MANAGER':
         handlePurgeCache();
+        break;
+      case 'STATS':
+        if (onOpenProjectStats) onOpenProjectStats();
+        else eventBus.emit('stats:open');
+        break;
+      case 'MP4':
+        if (onOpenExport) onOpenExport();
+        else eventBus.emit('export:open');
+        break;
+      case 'XML':
+        if (onOpenExportXml) onOpenExportXml();
+        else eventBus.emit('export:xml');
+        break;
+      case 'FCPXML':
+        if (onOpenExportFcpxml) onOpenExportFcpxml();
+        else eventBus.emit('export:fcpxml');
+        break;
+      case 'SHORTCUTS':
+        if (onOpenShortcuts) onOpenShortcuts();
+        else eventBus.emit('shortcuts:open');
         break;
       default:
         break;
@@ -305,6 +340,168 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
                 </div>
               </div>
               <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⌘⇧⌫</kbd>
+            </button>
+          </SmartHoverCard>
+
+          {/* Section Divider: FORMATS & EXPORT PIPELINE */}
+          <div className="pt-2 pb-1 px-2.5 text-[8.5px] font-bold text-amber-400 border-t border-white/10 uppercase tracking-wider flex items-center justify-between">
+            <span>FORMATS & EXPORT PIPELINE</span>
+            <span className="text-zinc-500">NLE // 4K</span>
+          </div>
+
+          {/* Module 6: MP4 4K / PRORES */}
+          <SmartHoverCard
+            code="[ 🎥 MP4 4K / PRORES ]"
+            description="Client-side hardware WebCodecs 4K MP4 and ProRes rasterizer with zero cloud latency."
+            align="right"
+            className="w-full"
+          >
+            <button
+              type="button"
+              onClick={() => handleAction('MP4')}
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-amber-300"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
+                  <Film className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-bold text-[11px] flex items-center gap-1.5">
+                    <span>MP4 4K / PRORES</span>
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      4K MUX
+                    </span>
+                  </div>
+                  <div className="text-[8.5px] text-zinc-400">Direct WebCodecs hardware export</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⌘E</kbd>
+            </button>
+          </SmartHoverCard>
+
+          {/* Module 7: PREMIERE XML */}
+          <SmartHoverCard
+            code="[ 🎬 PREMIERE XML ]"
+            description="Standard Final Cut Pro 7 XML timeline exchange format for Adobe Premiere Pro."
+            align="right"
+            className="w-full"
+          >
+            <button
+              type="button"
+              onClick={() => handleAction('XML')}
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-cyan-300"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
+                  <FileCode className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-bold text-[11px] flex items-center gap-1.5">
+                    <span>PREMIERE XML</span>
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                      FCP7
+                    </span>
+                  </div>
+                  <div className="text-[8.5px] text-zinc-400">Hollywood NLE sequence XML</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">XML</kbd>
+            </button>
+          </SmartHoverCard>
+
+          {/* Module 8: CAPCUT / FCPXML */}
+          <SmartHoverCard
+            code="[ ✂️ CAPCUT / FCPXML ]"
+            description="Apple Final Cut Pro X & CapCut Desktop XML sequence export with track markers."
+            align="right"
+            className="w-full"
+          >
+            <button
+              type="button"
+              onClick={() => handleAction('FCPXML')}
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-emerald-300"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
+                  <Share2 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-bold text-[11px] flex items-center gap-1.5">
+                    <span>CAPCUT / FCPXML</span>
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      FCPXML
+                    </span>
+                  </div>
+                  <div className="text-[8.5px] text-zinc-400">CapCut & DaVinci sequence export</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">FCP</kbd>
+            </button>
+          </SmartHoverCard>
+
+          {/* Section Divider: STATS & SHORTCUTS */}
+          <div className="pt-2 pb-1 px-2.5 text-[8.5px] font-bold text-amber-400 border-t border-white/10 uppercase tracking-wider flex items-center justify-between">
+            <span>DIAGNOSTICS & HELP</span>
+            <span className="text-zinc-500">HUD</span>
+          </div>
+
+          {/* Module 9: STATS & TELEMETRY */}
+          <SmartHoverCard
+            code="[ 📊 STATS & TELEMETRY ]"
+            description="Live playback engine stats, total SMPTE duration, average cut speed and pacing histogram."
+            align="right"
+            className="w-full"
+          >
+            <button
+              type="button"
+              onClick={() => handleAction('STATS')}
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-blue-300"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded bg-blue-500/15 border border-blue-500/40 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
+                  <BarChart2 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-bold text-[11px] flex items-center gap-1.5">
+                    <span>STATS & TELEMETRY</span>
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                      METRICS
+                    </span>
+                  </div>
+                  <div className="text-[8.5px] text-zinc-400">Total runtime, shot count & pacing</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⇧D</kbd>
+            </button>
+          </SmartHoverCard>
+
+          {/* Module 10: KEYBOARD SHORTCUTS */}
+          <SmartHoverCard
+            code="[ ⌨️ KEYBOARD SHORTCUTS ]"
+            description="Complete directory of Hollywood editorial hotkeys and transport shortcuts."
+            align="right"
+            className="w-full"
+          >
+            <button
+              type="button"
+              onClick={() => handleAction('SHORTCUTS')}
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-yellow-300"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded bg-yellow-500/15 border border-yellow-500/40 flex items-center justify-center text-yellow-400 group-hover:scale-105 transition-transform">
+                  <Keyboard className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-bold text-[11px] flex items-center gap-1.5">
+                    <span>KEYBOARD SHORTCUTS</span>
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+                      KEYS
+                    </span>
+                  </div>
+                  <div className="text-[8.5px] text-zinc-400">Directorial hotkey cheatsheet</div>
+                </div>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⇧?</kbd>
             </button>
           </SmartHoverCard>
 

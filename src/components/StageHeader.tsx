@@ -1449,87 +1449,25 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             ●
           </button>
 
-          {/* Priority 4: OPTIONS (Encapsulates technical presets, formats & telemetry) */}
-          <div className="relative group">
-            <button
-              type="button"
-              className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center text-sm transition-all cursor-pointer shrink-0"
-              title="More Formats, Telemetry & Settings"
-            >
-              •••
-            </button>
-            <div className="hidden group-hover:flex flex-col absolute right-0 top-full mt-2 w-56 bg-neutral-950/98 backdrop-blur-2xl border border-white/15 rounded-xl p-2 shadow-2xl z-50 font-mono text-xs space-y-1">
-              {/* Stats & Engine Telemetry inside 3-dots dropdown */}
-              {onOpenProjectStats && (
-                <button
-                  type="button"
-                  onClick={onOpenProjectStats}
-                  className="w-full text-left text-xs px-3 py-2 text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 rounded flex items-center justify-between cursor-pointer transition-colors border border-amber-500/20"
-                >
-                  <span className="flex items-center gap-2">
-                    <span>📊</span>
-                    <span className="font-bold">Stats &amp; Telemetry</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-400 font-mono">Shift+D</span>
-                </button>
-              )}
-              <div className="border-t border-white/10 my-1" />
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenExport) onOpenExport();
-                  else setIsExportStudioOpen(true);
-                }}
-                className="text-left text-xs px-3 py-2 text-white/80 hover:text-[#FFE066] hover:bg-white/5 rounded cursor-pointer transition-colors"
-              >
-                MP4 4K / PRORES
-              </button>
-              <button
-                type="button"
-                onClick={() => eventBus.emit('export:xml')}
-                className="text-left text-xs px-3 py-2 text-white/80 hover:text-[#FFE066] hover:bg-white/5 rounded cursor-pointer transition-colors"
-              >
-                PREMIERE XML
-              </button>
-              <button
-                type="button"
-                onClick={() => eventBus.emit('export:fcpxml')}
-                className="text-left text-xs px-3 py-2 text-white/80 hover:text-[#FFE066] hover:bg-white/5 rounded cursor-pointer transition-colors"
-              >
-                CAPCUT / FCPXML
-              </button>
-              <div className="border-t border-white/10 my-1" />
-              <button
-                type="button"
-                onClick={() => {
-                  if (onCompile) onCompile();
-                  else setIsCompileModalOpen(true);
-                }}
-                className="text-left text-xs px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded cursor-pointer transition-colors"
-              >
-                Compile Engine
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenSettings) onOpenSettings();
-                  else eventBus.emit('settings:open');
-                }}
-                className="text-left text-xs px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded cursor-pointer transition-colors"
-              >
-                Studio Settings
-              </button>
-              {onOpenShortcuts && (
-                <button
-                  type="button"
-                  onClick={onOpenShortcuts}
-                  className="text-left text-xs px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded cursor-pointer transition-colors"
-                >
-                  Shortcuts (Shift+/)
-                </button>
-              )}
-            </div>
-          </div>
+          {/* Priority 4: OPTIONS & WORKSPACE SUITE (3-Dots Dropdown Menu with all restored & present menus) */}
+          <OverflowSettingsMenu
+            onOpenCompile={onCompile || (() => setIsCompileModalOpen(true))}
+            onOpenRapSync={() => {
+              if (onOpenRapSync) onOpenRapSync();
+              else setIsRapSyncModalOpen(true);
+            }}
+            onOpenSettings={onOpenSettings || (() => eventBus.emit('settings:open'))}
+            onOpenInspector={handleTriggerInspector}
+            onOpenCacheManager={() => {
+              if (onOpenCacheManager) onOpenCacheManager();
+              else setIsCacheManagerOpen(true);
+            }}
+            onOpenExport={onOpenExport || (() => setIsExportStudioOpen(true))}
+            onOpenExportXml={() => eventBus.emit('export:xml')}
+            onOpenExportFcpxml={() => eventBus.emit('export:fcpxml')}
+            onOpenProjectStats={onOpenProjectStats}
+            onOpenShortcuts={onOpenShortcuts || (() => eventBus.emit('shortcuts:open'))}
+          />
         </div>
       </div>
     </header>

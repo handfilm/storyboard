@@ -386,9 +386,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   }, [hoveredMarker, dragShotState, safeFrames, shotOffsets]);
 
   return (
-    <div className={`fixed bottom-0 inset-x-0 z-40 flex flex-col items-center pointer-events-none pb-2 px-2 sm:px-4 transition-all duration-300 ease-out ${
-      isPlaying ? 'opacity-35 hover:opacity-100' : 'opacity-100'
-    }`}>
+    <div
+      style={{ bottom: '8px', marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className={`fixed inset-x-0 z-40 flex flex-col items-center pointer-events-none px-2 sm:px-4 transition-all duration-300 ease-out ${
+        isPlaying ? 'opacity-35 hover:opacity-100' : 'opacity-100'
+      }`}
+    >
       {/* Floating Real-Time Drag Handle Tooltip */}
       {dragShotState && (
         <div
@@ -736,40 +739,40 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       )}
 
       {/* Main Transport & Optics Toolbar */}
-      <div className="relative w-full max-w-5xl pointer-events-auto bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.9)] p-2 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech">
+      <div className="relative w-full max-w-5xl h-[40px] sm:h-[42px] max-h-[42px] min-h-[40px] pointer-events-auto bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.9)] px-2.5 sm:px-3 flex flex-row items-center justify-between flex-nowrap gap-2 overflow-x-auto overflow-y-hidden scrollbar-none text-xs font-mono-tech">
         {/* Subtle Ambient Gold Audio Reactivity Edge */}
         <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
         {/* ======================================================= */}
         {/* 1. LEFT WING: LARGE PLAY/PAUSE, STEP BUTTONS & SMPTE CLOCK */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Large Circular Play/Pause Button (42px) */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Circular Play/Pause Button (32px–34px) */}
           <button
             type="button"
             onClick={onTogglePlay}
             aria-label={isPlaying ? 'Pause Loop' : 'Play Loop'}
-            className={`w-[42px] h-[42px] rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
+            className={`w-8 h-8 sm:w-[34px] sm:h-[34px] rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
               isPlaying
-                ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-4 ring-amber-500/30 shadow-[0_0_20px_rgba(245,166,35,0.6)]'
-                : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-4 ring-red-500/30 shadow-[0_0_20px_rgba(229,9,20,0.6)]'
+                ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-2 ring-amber-500/30 shadow-[0_0_16px_rgba(245,166,35,0.6)]'
+                : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-2 ring-red-500/30 shadow-[0_0_16px_rgba(229,9,20,0.6)]'
             }`}
           >
             {isPlaying ? (
-              <Pause className="w-5 h-5 fill-current" />
+              <Pause className="w-4 h-4 fill-current" />
             ) : (
-              <Play className="w-5 h-5 fill-current ml-0.5" />
+              <Play className="w-4 h-4 fill-current ml-0.5" />
             )}
           </button>
 
           {/* Frame Step Controls (-1F / +1F) */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               type="button"
               onClick={() => {
                 if (onStepFrame) onStepFrame(false);
                 else onPrev();
               }}
-              className="h-9 px-2 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[10px] font-bold transition-all cursor-pointer"
+              className="h-7 px-1.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[9px] font-bold transition-all cursor-pointer"
               title="Step Backward 1 Frame (Left Arrow)"
             >
               -1F
@@ -780,7 +783,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 if (onStepFrame) onStepFrame(true);
                 else onNext();
               }}
-              className="h-9 px-2 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[10px] font-bold transition-all cursor-pointer"
+              className="h-7 px-1.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[9px] font-bold transition-all cursor-pointer"
               title="Step Forward 1 Frame (Right Arrow)"
             >
               +1F
@@ -789,14 +792,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
           {/* Monospace SMPTE Timecode Badge (00:10:11:11 / 12.0s) */}
           <div
-            className="flex items-center gap-2 h-9 px-3 rounded-lg bg-black/90 border border-white/15 text-xs font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums"
+            className="flex items-center gap-1.5 h-7 sm:h-8 px-2 rounded-lg bg-black/90 border border-white/15 text-xs font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums"
             title={`Sequence SMPTE Timecode (HH:MM:SS:FF) at ${currentFps} FPS`}
           >
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-white/40 text-[10px] font-bold">TC</span>
-            <span className="text-amber-400 font-bold tracking-wider">{tcString}</span>
-            <span className="text-zinc-500">/</span>
-            <span className="text-zinc-300 font-bold">{currentDurationSec.toFixed(1)}s</span>
+            <Clock className="w-3 h-3 text-amber-400" />
+            <span className="text-white/40 text-[9px] font-bold">TC</span>
+            <span className="text-amber-400 font-bold tracking-wider text-[11px]">{tcString}</span>
+            <span className="text-zinc-500 text-[10px]">/</span>
+            <span className="text-zinc-300 font-bold text-[10px]">{currentDurationSec.toFixed(1)}s</span>
           </div>
 
           {/* In-Player Quick Cadence Selector Pill */}
@@ -828,9 +831,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         {/* ======================================================= */}
         {/* 2. CENTER WING: PROMINENT [ SOLO | MASTER ] POD, BEAT-SNAP & SPEED */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Prominent SOLO / MASTER Segmented Command Hub (Height: 40px, 55" 4K Ergonomic) */}
-          <div className="flex items-center p-1 bg-black/90 rounded-xl border border-white/20 shadow-inner">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Prominent SOLO / MASTER Segmented Command Hub (Height: 32px) */}
+          <div className="flex items-center h-8 p-0.5 bg-black/90 rounded-lg border border-white/20 shadow-inner">
             {/* SOLO Button: High-Contrast Cyan Glow */}
             <button
               type="button"
@@ -838,23 +841,23 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={
                 playbackMode === 'solo'
                   ? {
-                      border: '2px solid #00f0ff',
+                      border: '1.5px solid #00f0ff',
                       background: 'rgba(0, 240, 255, 0.18)',
                       color: '#00f0ff',
                       fontWeight: 800,
                       letterSpacing: '0.08em',
-                      boxShadow: '0 0 18px rgba(0, 240, 255, 0.55)'
+                      boxShadow: '0 0 14px rgba(0, 240, 255, 0.55)'
                     }
                   : undefined
               }
-              className={`h-[38px] px-3.5 rounded-lg font-mono text-xs uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`h-7 px-2.5 rounded font-mono text-[10px] uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
                 playbackMode === 'solo'
                   ? ''
                   : 'text-zinc-400 hover:text-white'
               }`}
               title="SOLO MODE: Lock playback strictly into isolated active shot"
             >
-              <span className={`w-2 h-2 rounded-full ${playbackMode === 'solo' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${playbackMode === 'solo' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
               <span>SOLO</span>
             </button>
 
@@ -865,23 +868,23 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={
                 playbackMode !== 'solo'
                   ? {
-                      border: '2px solid #ffaa00',
+                      border: '1.5px solid #ffaa00',
                       background: 'rgba(255, 170, 0, 0.22)',
                       color: '#ffaa00',
                       fontWeight: 800,
                       letterSpacing: '0.08em',
-                      boxShadow: '0 0 18px rgba(255, 170, 0, 0.55)'
+                      boxShadow: '0 0 14px rgba(255, 170, 0, 0.55)'
                     }
                   : undefined
               }
-              className={`h-[38px] px-3.5 rounded-lg font-mono text-xs uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`h-7 px-2.5 rounded font-mono text-[10px] uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
                 playbackMode !== 'solo'
                   ? ''
                   : 'text-zinc-400 hover:text-white'
               }`}
               title="MASTER MODE: Continuous narrative playback across full sequence"
             >
-              <span className={`w-2 h-2 rounded-full ${playbackMode !== 'solo' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${playbackMode !== 'solo' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
               <span>MASTER</span>
             </button>
           </div>
@@ -898,20 +901,20 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 ? 'Snap to Beat: ON — Cuts quantize to audio transients'
                 : 'Snap to Beat: OFF — Click to quantize cuts to audio transients'
             }
-            className={`h-10 px-3 rounded-xl border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+            className={`h-8 px-2.5 rounded-lg border text-[10px] font-mono flex items-center gap-1.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
               effectiveSnapToBeat
                 ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_12px_rgba(245,166,35,0.4)]'
                 : 'bg-white/5 border-white/10 text-white/60 hover:text-amber-300 hover:border-amber-400/50'
             }`}
           >
             <Music
-              className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+              className={`w-3 h-3 shrink-0 transition-colors ${
                 effectiveSnapToBeat ? 'text-amber-300' : 'text-amber-400'
               }`}
             />
             <span>♫ BEAT SNAP</span>
             <span
-              className={`px-1.5 py-0.5 rounded text-[9px] font-mono tabular-nums transition-colors ${
+              className={`px-1 py-0.2 rounded text-[9px] font-mono tabular-nums transition-colors ${
                 effectiveSnapToBeat
                   ? 'bg-amber-400 text-black font-black'
                   : 'bg-white/10 text-white/45'
@@ -922,7 +925,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           </button>
 
           {/* Pace & Speed Slider */}
-          <div className="hidden xl:flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-xl border border-white/10 font-mono text-xs text-zinc-400 shrink-0">
+          <div className="hidden xl:flex items-center gap-1.5 h-8 bg-black/60 px-2 rounded-lg border border-white/10 font-mono text-[10px] text-zinc-400 shrink-0">
             <span className="text-[9px] text-white/50 uppercase tracking-wider">SPEED</span>
             <input
               type="range"
@@ -930,24 +933,24 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               max="100"
               value={speed}
               onChange={(e) => onSpeedChange(Number(e.target.value))}
-              className="w-16 accent-[#F5A623] cursor-pointer h-1.5 bg-white/20 rounded shrink-0"
+              className="w-12 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
               title={`Playback tempo scalar (${intervalSeconds}s ref)`}
             />
-            <span className="text-amber-400 font-bold tabular-nums text-[11px]">{intervalSeconds}s</span>
+            <span className="text-amber-400 font-bold tabular-nums text-[10px]">{intervalSeconds}s</span>
           </div>
 
           {/* Pan Tool */}
           {onTogglePan && (
             <button
               onClick={onTogglePan}
-              className={`h-9 px-2.5 rounded-lg border text-[10px] font-mono flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+              className={`h-8 px-2 rounded-lg border text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
                 isPanActive
                   ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_10px_rgba(245,166,35,0.3)]'
                   : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
               }`}
               title="Interactive Vertical Alignment Pan Tool (P / Y)"
             >
-              <Move className="w-3.5 h-3.5 text-amber-400" />
+              <Move className="w-3 h-3 text-amber-400" />
               <span className="hidden sm:inline">PAN</span>
               <span className="text-[9px] opacity-75">{panOffsetPercent}%</span>
             </button>
@@ -957,10 +960,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           {onOpenLiquify && (
             <button
               onClick={onOpenLiquify}
-              className="h-9 px-2.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-amber-300 text-[10px] font-mono flex items-center gap-1.5 cursor-pointer transition-all shrink-0"
+              className="h-8 px-2 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-amber-300 text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-all shrink-0"
               title="HTML5 Canvas Liquify & Mesh Warp Studio (W)"
             >
-              <Wand2 className="w-3.5 h-3.5 text-amber-400" />
+              <Wand2 className="w-3 h-3 text-amber-400" />
               <span className="hidden sm:inline">WARP</span>
             </button>
           )}
@@ -969,23 +972,23 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         {/* ======================================================= */}
         {/* 3. RIGHT WING: TITLES WITH EASY TITLE CHANGER, ZEN, OPTICS & TOOLS */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Easy Change Title & Titles ON/OFF Hub */}
-          <div className="relative flex items-center bg-black/90 border border-white/20 rounded-lg p-0.5 shadow-inner">
+          <div className="relative flex items-center bg-black/90 border border-white/20 rounded-lg p-0.5 shadow-inner shrink-0">
             {/* Master Titles ON/OFF Toggle Button */}
             {onToggleTitles && (
               <button
                 type="button"
                 onClick={onToggleTitles}
-                className={`h-8 px-2.5 rounded font-mono text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                className={`h-7 px-2 rounded font-mono text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                   showTitles
-                    ? 'bg-amber-500/25 border border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,166,35,0.4)]'
+                    ? 'bg-amber-500/25 border border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,166,35,0.4)]'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 title="Toggle Creative Kinetic Titles Layer On/Off"
               >
-                <span className={`w-2 h-2 rounded-full ${showTitles ? 'bg-amber-400 shadow-[0_0_6px_#f5a623]' : 'bg-zinc-600'}`} />
-                <Type className="w-3.5 h-3.5" />
+                <span className={`w-1.5 h-1.5 rounded-full ${showTitles ? 'bg-amber-400 shadow-[0_0_6px_#f5a623]' : 'bg-zinc-600'}`} />
+                <Type className="w-3 h-3" />
                 <span>TITLES {showTitles ? 'ON' : 'OFF'}</span>
               </button>
             )}
@@ -994,14 +997,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <button
               type="button"
               onClick={() => setIsEditingTitle(prev => !prev)}
-              className={`h-8 px-2.5 rounded font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1 max-w-[140px] truncate ${
+              className={`h-7 px-2 rounded font-mono text-[10px] transition-all cursor-pointer flex items-center gap-1 max-w-[120px] truncate ${
                 isEditingTitle
                   ? 'bg-white/20 text-white font-bold'
                   : 'text-zinc-400 hover:text-white hover:bg-white/10'
               }`}
               title="Click to quickly rename Shot Title and Bengali Subtitle"
             >
-              <span className="text-amber-400">✏️</span>
+              <span className="text-amber-400 text-[10px]">✏️</span>
               <span className="truncate">{currentFrame?.title || 'Edit Title'}</span>
             </button>
 
@@ -1074,7 +1077,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <select
             value={aspectRatio}
             onChange={(e) => onChangeAspectRatio(e.target.value)}
-            className="h-9 px-2.5 rounded-lg bg-black/85 border border-white/15 text-white font-mono text-xs font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors"
+            className="h-8 px-2 rounded-lg bg-black/85 border border-white/15 text-white font-mono text-[10px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0"
             title="Aspect Ratio"
           >
             <option value="2.39:1">2.39:1 Cinema 35</option>
@@ -1088,7 +1091,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <select
             value={currentFrame?.lutFilter || 'cinematic'}
             onChange={(e) => onChangeLut(e.target.value as LutPreset)}
-            className="hidden sm:block h-9 px-2.5 bg-black/85 border border-white/15 rounded-lg text-xs text-amber-300 font-mono outline-none cursor-pointer focus:border-amber-400"
+            className="hidden sm:block h-8 px-2 bg-black/85 border border-white/15 rounded-lg text-[10px] text-amber-300 font-mono outline-none cursor-pointer focus:border-amber-400 shrink-0 max-w-[110px] truncate"
           >
             {LUT_PRESETS.map((p) => (
               <option key={p.id} value={p.id} className="bg-[#101014] text-white">
@@ -1102,14 +1105,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <button
               type="button"
               onClick={onToggleZen}
-              className={`h-9 px-3 rounded-lg border font-mono text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+              className={`h-8 px-2.5 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
                 isZenMode
-                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_14px_rgba(0,240,255,0.45)]'
+                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.45)]'
                   : 'bg-black/60 border-white/15 text-zinc-400 hover:text-cyan-300 hover:border-cyan-400/50'
               }`}
               title="Zen Focus Mode: Distraction-free clean viewport (Z)"
             >
-              <span className="text-sm">⛶</span>
+              <span className="text-xs">⛶</span>
               <span className="hidden sm:inline">ZEN</span>
             </button>
           )}

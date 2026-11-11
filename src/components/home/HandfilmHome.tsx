@@ -69,6 +69,16 @@ import { useStudioStore } from '../../core/store';
 import { db } from '../../services/db';
 import { MediaBinDrawer } from '../MediaBinDrawer';
 import { serviceWorkerManager } from '../../services/serviceWorkerManager';
+import { DirectorCockpitModal } from '../cockpit/DirectorCockpitModal';
+import { CockpitShotBridge, CockpitDispatchTarget } from '../../types/cockpit';
+import { 
+  dispatchToExternalTool, 
+  captureCurrentCanvasFrame, 
+  generateCockpitFcpxml, 
+  generateCmx3600Edl, 
+  generateCapCutQuickPack, 
+  triggerFileDownload 
+} from '../../services/cockpitBridge';
 
 export interface HandfilmHomeProps {
   frames?: AnthologyFrame[];
@@ -716,6 +726,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [showCompositionGrid, setShowCompositionGrid] = useState<boolean>(false);
   const [titlesLayerActive, setTitlesLayerActive] = useState<boolean>(showTitles);
   const [isReelTemplateActive, setIsReelTemplateActive] = useState<boolean>(false);
+  const [isCockpitOpen, setIsCockpitOpen] = useState<boolean>(false);
+  const [activeDispatchFlyoutIdx, setActiveDispatchFlyoutIdx] = useState<number | null>(null);
 
   // Dedicated Auto-Audio Routing State (The Music Floor)
   const [audioTrackInfo, setAudioTrackInfo] = useState<{
@@ -938,6 +950,33 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     }
     return s;
   }, [customTitles, customLuts, getMediaForShot, frames]);
+
+  const allCockpitShots = useMemo<CockpitShotBridge[]>(() => {
+    return SHOWCASE_PRESETS.map((p, idx) => {
+      const s = getShotData(idx);
+      const personality = getShotTitlePersonality(idx, customTitleStyles[idx]);
+      const trim = trimPoints[idx] || { in: 0, out: s.durationSec };
+      return {
+        shotId: `shot_${p.shotNumber}`,
+        shotNumber: p.shotNumber,
+        titleEn: s.titleEn,
+        titleBn: s.titleBn,
+        personality,
+        inPoint: trim.in,
+        outPoint: trim.out,
+        durationSec: Math.max(0.1, trim.out - trim.in),
+        mediaUrl: s.videoSrc || s.imageUrl,
+        thumbnailUrl: s.imageUrl,
+        lutFilter: s.lutFilter,
+        lensSpec: s.lensSpec,
+        directorNotes: s.directorNotes
+      };
+    });
+  }, [getShotData, customTitleStyles, trimPoints]);
+
+  const currentCockpitShot = useMemo<CockpitShotBridge>(() => {
+    return allCockpitShots[activeShotIndex] || allCockpitShots[0];
+  }, [allCockpitShots, activeShotIndex]);
 
   // ─────────────────────────────────────────────────────────────
   // 3. Zero-Stall Shot Switching (Permanent Decoder Mutation)
@@ -1858,7 +1897,108 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   }, [handleIngestFiles]);
 
   // ─────────────────────────────────────────────────────────────
-  // 9. Ultra-Fast Keyboard Workflow (with 'M' Mode Toggle)
+  // 8.B. The Director's Cockpit: External Pipeline Bridges & Hub
+  // ─────────────────────────────────────────────────────────────
+  const handleDispatchToTool = useCallback(async (target: CockpitDispatchTarget, shotIdx?: number) => {
+    const targetIndex = shotIdx !== undefined ? shotIdx : activeShotIndexRef.current;
+    const targetShot = allCockpitShots[targetIndex] || currentCockpitShot;
+    
+    let framePath: string | undefined;
+    if (stageCanvasRef.current) {
+      try {
+        const capture = await captureCurrentCanvasFrame(
+          stageCanvasRef.current,
+          targetShot.shotNumber,
+          targetShot.titleEn
+        );
+        framePath = capture.filePath;
+      } catch (err) {
+        console.warn('[Cockpit] Frame capture error:', err);
+      }
+    }
+
+    const result = await dispatchToExternalTool(target, targetShot, framePath);
+    setIngestStatus(result.message);
+    setActiveDispatchFlyoutIdx(null);
+    try { audioEngine.playShutterClick(); } catch {}
+    setTimeout(() => setIngestStatus(null), 5000);
+  }, [allCockpitShots, currentCockpitShot]);
+
+  const handleCaptureCurrentFrame = useCallback(async () => {
+    if (!stageCanvasRef.current) return;
+    try {
+      const capture = await captureCurrentCanvasFrame(
+        stageCanvasRef.current,
+        activeShot.shotNumber,
+        activeShot.titleEn
+      );
+      setIngestStatus(`[ 📸 FRAME CAPTURED // ${capture.filePath} ]`);
+      try { audioEngine.playShutterClick(); } catch {}
+    } catch (err: any) {
+      setIngestStatus(`[ CAPTURE FAILED ]: ${err?.message || 'Error'}`);
+    }
+    setTimeout(() => setIngestStatus(null), 4000);
+  }, [activeShot]);
+
+  const handleExportNleSequence = useCallback(() => {
+    try {
+      const xml = generateCockpitFcpxml(allCockpitShots, audioTrackInfo, 24, 'HANDFILM_SEQUENCE');
+      triggerFileDownload(xml, `HANDFILM_TIMELINE_${Date.now()}.fcpxml`, 'application/xml');
+      setIngestStatus('[ NLE FCPXML SEQUENCE EXPORTED // READY FOR PREMIERE & DAVINCI ]');
+      try { audioEngine.playShutterClick(); } catch {}
+    } catch (err: any) {
+      setIngestStatus(`[ XML ERROR ]: ${err?.message || 'Export failed'}`);
+    }
+    setTimeout(() => setIngestStatus(null), 4000);
+  }, [allCockpitShots, audioTrackInfo]);
+
+  const handleExportCapCutBundle = useCallback(async () => {
+    setIngestStatus('[ COMPILING CAPCUT QUICK-PACK BUNDLE... ]');
+    try {
+      const zipBlob = await generateCapCutQuickPack(
+        allCockpitShots,
+        audioTrackInfo,
+        stageCanvasRef.current,
+        'HANDFILM_REEL'
+      );
+      triggerFileDownload(zipBlob, `HANDFILM_CapCut_Bundle_${Date.now()}.zip`, 'application/zip');
+      setIngestStatus('[ CAPCUT QUICK-PACK EXPORTED IN 3 SECONDS // INGEST READY ]');
+      try { audioEngine.playShutterClick(); } catch {}
+    } catch (err: any) {
+      setIngestStatus(`[ PACK ERROR ]: ${err?.message || 'Bundle creation failed'}`);
+    }
+    setTimeout(() => setIngestStatus(null), 4000);
+  }, [allCockpitShots, audioTrackInfo]);
+
+  const handleHotReloadShot = useCallback((shotIdx: number, newMediaUrl: string) => {
+    customMediaImagesRef.current.delete(shotIdx);
+    mediaSourceCacheRef.current.delete(newMediaUrl);
+
+    const img = new Image();
+    img.src = newMediaUrl;
+    customMediaImagesRef.current.set(shotIdx, img);
+
+    setCustomMedia(prev => ({
+      ...prev,
+      [shotIdx]: {
+        url: newMediaUrl,
+        videoSrc: newMediaUrl,
+        blobUrl: newMediaUrl,
+        isVideo: false,
+        name: `shot_${String(shotIdx + 1).padStart(2, '0')}_master.png`
+      }
+    }));
+
+    if (shotIdx === activeShotIndexRef.current) {
+      switchShotMedia(newMediaUrl, trimPointsRef.current[shotIdx]?.in || 0);
+    }
+
+    setIngestStatus(`[ HOT-RELOAD // SHOT 0${shotIdx + 1} REPAINTED WITHOUT RESET ]`);
+    setTimeout(() => setIngestStatus(null), 4000);
+  }, [switchShotMedia]);
+
+  // ─────────────────────────────────────────────────────────────
+  // 9. Ultra-Fast Keyboard Workflow (with 'M' Mode Toggle & Cockpit Accelerators)
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1870,6 +2010,28 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           target.tagName === 'SELECT' ||
           target.isContentEditable)
       ) {
+        return;
+      }
+
+      // Keyboard Accelerators: Module 4.2
+      // Ctrl + Shift + P: Dispatches active shot to Photoshop
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        handleDispatchToTool('photoshop');
+        return;
+      }
+
+      // Ctrl + Shift + X: Instantly triggers the NLE XML export
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        handleExportNleSequence();
+        return;
+      }
+
+      // Ctrl + Shift + C: Triggers CapCut quick-pack generation
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        handleExportCapCutBundle();
         return;
       }
 
@@ -1959,6 +2121,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       // Escape: Instantly close open modals & overlays
       if (e.key === 'Escape') {
         e.preventDefault();
+        setIsCockpitOpen(false);
+        setActiveDispatchFlyoutIdx(null);
         setIsVaultDrawerOpen(false);
         setIsEditingTitle(false);
         setIsOptionsDrawerOpen(false);
@@ -1971,7 +2135,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleStepFrame, selectShot]);
+  }, [handleTogglePlay, handleStepFrame, selectShot, handleDispatchToTool, handleExportNleSequence, handleExportCapCutBundle]);
 
   // ─────────────────────────────────────────────────────────────
   // 9. Mandate 5: Non-Blocking Canvas Export & Recording Pipeline
@@ -2157,6 +2321,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
+                  onClick={() => setIsCockpitOpen(true)}
+                  className="bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-[9.5px] text-amber-400 font-mono tracking-wider px-2 py-0.5 rounded cursor-pointer flex items-center gap-1 transition-colors"
+                  title="Director's Cockpit Hub (Hotkeys: Ctrl+Shift+P / X / C)"
+                >
+                  <Sliders className="w-2.5 h-2.5" />
+                  <span>COCKPIT</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowSafeAreas(prev => !prev)}
                   className={`text-[9.5px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer ${
                     showSafeAreas
@@ -2332,6 +2505,52 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                         </span>
                       </div>
 
+                      {/* Contextual Directorial Dispatch Trigger & Flyout */}
+                      <div className="absolute bottom-1 left-1 z-20" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDispatchFlyoutIdx(prev => prev === idx ? null : idx);
+                          }}
+                          className="px-1 py-0.5 rounded bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-[7px] font-mono font-bold text-amber-300 flex items-center gap-0.5 transition-colors cursor-pointer shadow"
+                          title="Directorial Dispatch: Bridge to PS, PR, CC"
+                        >
+                          <Zap className="w-2 h-2 text-amber-400" />
+                          <span>⚡</span>
+                        </button>
+
+                        {/* Mobile Tactical Flyout */}
+                        {activeDispatchFlyoutIdx === idx && (
+                          <div className="absolute bottom-6 left-0 w-32 bg-[#0a0a0f] border border-amber-400 rounded-lg p-1 shadow-2xl z-50 font-mono text-[8px] flex flex-col gap-1 animate-in fade-in zoom-in-95">
+                            <button
+                              type="button"
+                              onClick={() => handleDispatchToTool('photoshop', idx)}
+                              className="px-1 py-0.5 rounded bg-neutral-900 hover:bg-blue-600 text-blue-300 hover:text-white text-left font-bold flex items-center justify-between cursor-pointer"
+                            >
+                              <span>PS // PAINT</span>
+                              <Camera className="w-2 h-2" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDispatchToTool('premiere', idx)}
+                              className="px-1 py-0.5 rounded bg-neutral-900 hover:bg-purple-600 text-purple-300 hover:text-white text-left font-bold flex items-center justify-between cursor-pointer"
+                            >
+                              <span>PR // NLE</span>
+                              <Film className="w-2 h-2" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDispatchToTool('capcut', idx)}
+                              className="px-1 py-0.5 rounded bg-neutral-900 hover:bg-amber-500 text-amber-300 hover:text-black text-left font-bold flex items-center justify-between cursor-pointer"
+                            >
+                              <span>CC // PACK</span>
+                              <Zap className="w-2 h-2" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Duration Badge */}
                       <div className="absolute bottom-1 right-1 px-1 rounded bg-black/80 text-[7.5px] font-mono text-amber-300 font-bold pointer-events-none">
                         {dur.toFixed(1)}s
@@ -2479,6 +2698,37 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Director's Cockpit Pipeline Hub Cluster */}
+                <button
+                  type="button"
+                  onClick={() => setIsCockpitOpen(true)}
+                  className="bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-[11px] text-amber-300 hover:text-white font-mono tracking-wider px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors shadow-sm"
+                  title="Open Director's Cockpit (Hotkeys: Ctrl+Shift+P / X / C)"
+                >
+                  <Sliders className="w-3 h-3 text-amber-400" />
+                  <span>🛠️ COCKPIT</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportNleSequence}
+                  className="bg-neutral-900 border border-neutral-700 hover:border-emerald-400 text-[11px] text-neutral-300 hover:text-white font-mono tracking-wider px-2.5 py-1 rounded-full cursor-pointer items-center gap-1.5 transition-colors shadow-sm hidden sm:flex"
+                  title="Export Universal FCPXML v1.9 Sequence (Hotkey: Ctrl+Shift+X)"
+                >
+                  <Film className="w-3 h-3 text-emerald-400" />
+                  <span>📤 NLE XML</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportCapCutBundle}
+                  className="bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-[11px] text-neutral-300 hover:text-white font-mono tracking-wider px-2.5 py-1 rounded-full cursor-pointer items-center gap-1.5 transition-colors shadow-sm hidden md:flex"
+                  title="Export CapCut Quick-Pack ZIP with Manifest & Captions (Hotkey: Ctrl+Shift+C)"
+                >
+                  <Zap className="w-3 h-3 text-amber-400" />
+                  <span>⚡ CC PACK</span>
+                </button>
+
                 {/* Quick Reel 15S Toggle */}
                 <button
                   type="button"
@@ -2716,6 +2966,58 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     )}
                   </div>
 
+                  {/* Contextual Directorial Dispatch Trigger & Flyout */}
+                  <div 
+                    className="absolute top-5 right-1 z-20" 
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDispatchFlyoutIdx(prev => prev === idx ? null : idx);
+                      }}
+                      className="px-1.5 py-0.5 rounded bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-[7px] font-mono font-bold text-amber-300 flex items-center gap-0.5 transition-colors cursor-pointer opacity-80 group-hover:opacity-100 shadow"
+                      title="Directorial Dispatch: Bridge to PS, PR, CC"
+                    >
+                      <Zap className="w-2 h-2 text-amber-400 group-hover:text-black" />
+                      <span>DISPATCH</span>
+                    </button>
+
+                    {/* High-Contrast Tactical HUD Flyout */}
+                    {activeDispatchFlyoutIdx === idx && (
+                      <div className="absolute top-5 right-0 w-36 bg-[#0a0a0f] border border-amber-400/90 rounded-lg p-1.5 shadow-2xl z-50 font-mono text-[9px] flex flex-col gap-1 animate-in fade-in zoom-in-95">
+                        <div className="text-[7.5px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-0.5">
+                          DISPATCH SHOT {shot.shotNumber}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDispatchToTool('photoshop', idx)}
+                          className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-blue-600 hover:text-white text-blue-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>PS // PAINT-OVER</span>
+                          <Camera className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDispatchToTool('premiere', idx)}
+                          className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-purple-600 hover:text-white text-purple-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>PR // TIMELINE</span>
+                          <Film className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDispatchToTool('capcut', idx)}
+                          className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-amber-500 hover:text-black text-amber-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>CC // REEL PACK</span>
+                          <Zap className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Inline IN / OUT Trim Inputs */}
                   <div 
                     className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-black/90 border border-white/20 rounded px-1 py-0.5 text-[7px] font-mono text-zinc-300 z-10 shadow-sm"
@@ -2860,6 +3162,17 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 +1F
               </button>
             </div>
+
+            {/* Direct Instant Canvas Frame Freeze */}
+            <button
+              type="button"
+              onClick={handleCaptureCurrentFrame}
+              className="h-7 px-2 rounded bg-black/60 hover:bg-amber-500/20 text-neutral-300 hover:text-amber-300 border border-white/10 hover:border-amber-400 font-mono text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+              title="Capture active frame to disk (Ctrl+Shift+P for Photoshop Paint-over)"
+            >
+              <Camera className="w-3 h-3 text-amber-400" />
+              <span className="hidden sm:inline">CAPTURE</span>
+            </button>
 
             {/* High-Contrast Monospace SMPTE Timecode Readout + Total Duration */}
             <div className="flex items-center gap-1.5 h-7 sm:h-8 bg-black/80 px-2 sm:px-2.5 rounded-lg border border-white/10 font-mono tabular-nums shrink-0">
@@ -3668,6 +3981,18 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
         </div>
       )}
+
+      {/* The Director's Cockpit — External Pipeline Bridges & Ecosystem Hub Modal */}
+      <DirectorCockpitModal
+        isOpen={isCockpitOpen}
+        onClose={() => setIsCockpitOpen(false)}
+        activeShot={currentCockpitShot}
+        allShots={allCockpitShots}
+        audioTrack={audioTrackInfo}
+        stageCanvasRef={stageCanvasRef}
+        onHotReloadShot={handleHotReloadShot}
+        fps={24}
+      />
     </div>
   );
 };

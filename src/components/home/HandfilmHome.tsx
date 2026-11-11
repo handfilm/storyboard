@@ -84,6 +84,7 @@ export interface HandfilmHomeProps {
   onRecordToggle?: () => void;
   onZenToggle?: () => void;
   onAspectChange?: (aspect: string) => void;
+  initialViewMode?: 'desktop' | 'mobile';
 }
 
 // Dynamic Title Personalities for Shot-Specific Typography & Aesthetics
@@ -333,7 +334,47 @@ export const SHOWCASE_PRESETS: ShowcaseShot[] = [
     fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
     lutFilter: 'Bleach Bypass 50%',
     aspectRatio: '2.39:1'
+  },
+  {
+    id: 13,
+    shotNumber: '13',
+    titleEn: 'SYNAPTIC TRANSIENT // 120 FPS',
+    titleBn: 'অনুভূতি',
+    tagline: 'NEURAL CONVERGENCE // RAPID OCULAR STROBE',
+    directorNotes: 'Micro-strobe key lighting illuminating ocular saccades at 120fps.',
+    lensSpec: '50mm High-Speed Cine T1.3',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'Golden Hour 2800K',
+    aspectRatio: '2.39:1'
+  },
+  {
+    id: 14,
+    shotNumber: '14',
+    titleEn: 'GENESIS FINALE // 4K HORIZON',
+    titleBn: 'পূর্ণতা',
+    tagline: 'FINAL CREATION // LIGHT DISSOLVING INTO CHRONOS',
+    directorNotes: 'Wide anamorphic horizon shot. Camera tracking into infinity horizon line.',
+    lensSpec: '35mm Anamorphic Master T1.4',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'RAWx Cinema 35',
+    aspectRatio: '2.39:1'
   }
+];
+
+export const REEL_TEMPLATE_DURATIONS: number[] = [
+  2.2, 3.0, 3.5, 3.3, 2.8, 3.1, 2.5, 3.4, 2.2, 3.0, 2.7, 3.6, 2.4, 3.2
 ];
 
 // 9-Angle Procedural Multi-Cam Configuration
@@ -438,8 +479,9 @@ export const renderTitleTypographyToCanvas = (
   offCtx.scale(dpr, dpr);
   offCtx.clearRect(0, 0, width, height);
 
-  const paddingX = Math.max(28, width * 0.05);
-  const paddingBottom = Math.max(28, height * 0.08);
+  const isVertical = height > width;
+  const paddingX = isVertical ? Math.max(24, width * 0.08) : Math.max(28, width * 0.05);
+  const paddingBottom = isVertical ? Math.max(160, height * 0.26) : Math.max(28, height * 0.08);
   const baseY = height - paddingBottom;
 
   const titleBn = shot.titleBn || 'শিরোনাম';
@@ -656,11 +698,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   onExport,
   onRecordToggle,
   onZenToggle,
-  onAspectChange
+  onAspectChange,
+  initialViewMode = 'desktop'
 }) => {
   // ─────────────────────────────────────────────────────────────
-  // 1. Core Timeline & Workstation State (Decoupled NLE Hardware Engine)
+  // 1. Dual-Mode Studio State & Workstation Core
   // ─────────────────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>(initialViewMode);
+  const [showSafeAreas, setShowSafeAreas] = useState<boolean>(true);
   const [activeShotIndex, setActiveShotIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
@@ -670,19 +715,27 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [stageZoomLevel, setStageZoomLevel] = useState<'1.0x' | '1.5x' | '2.0x'>('1.0x');
   const [showCompositionGrid, setShowCompositionGrid] = useState<boolean>(false);
   const [titlesLayerActive, setTitlesLayerActive] = useState<boolean>(showTitles);
+  const [isReelTemplateActive, setIsReelTemplateActive] = useState<boolean>(false);
 
-  // Mandate 1: Decouple Master Playback Loop from React State
-  const currentFrameRef = useRef<number>(275); // starts at frame 275 (00:10:19:11 @ 24fps)
-  const timecodeDisplayRef = useRef<HTMLSpanElement | null>(null);
-  const timelinePlayheadRef = useRef<HTMLDivElement | null>(null);
-  const scrubberTrackRef = useRef<HTMLDivElement | null>(null);
-  const isScrubbingRef = useRef<boolean>(false);
-  const activeShotDurationRef = useRef<number>(12.0);
-  const playbackTickerRef = useRef<number | null>(null);
-  const rvfcIdRef = useRef<number | null>(null);
-  const titleCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  
-  // Custom title overrides and dynamic multi-style personality engine
+  // Dedicated Auto-Audio Routing State (The Music Floor)
+  const [audioTrackInfo, setAudioTrackInfo] = useState<{
+    name: string;
+    duration: number;
+    url: string;
+    isMuted: boolean;
+    volume: number;
+  } | null>(null);
+
+  // Fast Inline Trim / Slip Per Shot (14 Shots)
+  const [trimPoints, setTrimPoints] = useState<Record<number, { in: number; out: number }>>(() => {
+    const init: Record<number, { in: number; out: number }> = {};
+    SHOWCASE_PRESETS.forEach((shot, i) => {
+      init[i] = { in: 0, out: shot.durationSec };
+    });
+    return init;
+  });
+
+  // Custom title overrides & dynamic multi-style personality engine
   const [customTitles, setCustomTitles] = useState<Record<number, { titleEn: string; titleBn: string }>>({});
   const [customTitleStyles, setCustomTitleStyles] = useState<Record<number, TitlePersonality>>({});
   const [customLuts, setCustomLuts] = useState<Record<number, string>>({});
@@ -715,10 +768,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [isDraggingOverStage, setIsDraggingOverStage] = useState<boolean>(false);
   const [dragTargetShotIdx, setDragTargetShotIdx] = useState<number | null>(null);
 
-  const vaultFileInputRef = useRef<HTMLInputElement>(null);
-  const stageVideoRef = useRef<HTMLVideoElement | null>(null);
-
-  // Header Interactive States & Mandate 5 Non-Blocking Export
+  // Header Interactive States & Non-Blocking Export
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isZenModeActive, setIsZenModeActive] = useState<boolean>(false);
   const [isStatsTelemetryOpen, setIsStatsTelemetryOpen] = useState<boolean>(false);
@@ -737,7 +787,53 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     statusText: ''
   });
 
-  // Active shot resolver: blends user frames if passed, otherwise loads 6 curated showcase presets
+  // ─────────────────────────────────────────────────────────────
+  // 2. Immortal Master Video Engine & Permanent DOM Element Refs
+  // ─────────────────────────────────────────────────────────────
+  const masterVideoRef = useRef<HTMLVideoElement | null>(null);
+  const masterAudioRef = useRef<HTMLAudioElement | null>(null);
+  const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mediaSourceCacheRef = useRef<Map<string, string>>(new Map());
+  const customMediaImagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
+  const offscreenTitleCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const vaultFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Decoupled 60 FPS DOM Metric Direct Updaters
+  const timecodeDisplayRef = useRef<HTMLSpanElement | null>(null);
+  const mobileTimecodeRef = useRef<HTMLSpanElement | null>(null);
+  const timelinePlayheadRef = useRef<HTMLDivElement | null>(null);
+  const mobilePlayheadRef = useRef<HTMLDivElement | null>(null);
+  const scrubberTrackRef = useRef<HTMLDivElement | null>(null);
+  const durationDisplayRef = useRef<HTMLSpanElement | null>(null);
+  const audioPlayheadRef = useRef<HTMLDivElement | null>(null);
+  const currentFrameRef = useRef<number>(275);
+  const isScrubbingRef = useRef<boolean>(false);
+  const activeShotDurationRef = useRef<number>(12.0);
+
+  // Hot Loop Synchronized State Mirrors (Zero React State Lag)
+  const isPlayingRef = useRef<boolean>(false);
+  const activeShotIndexRef = useRef<number>(0);
+  const soloMasterModeRef = useRef<'SOLO' | 'MASTER'>('MASTER');
+  const titlesLayerActiveRef = useRef<boolean>(showTitles);
+  const showCompositionGridRef = useRef<boolean>(false);
+  const playbackSpeedRef = useRef<number>(1.0);
+  const currentLutsRef = useRef<Record<number, string>>({});
+  const customTitleStylesRef = useRef<Record<number, TitlePersonality>>({});
+  const customTitlesRef = useRef<Record<number, { titleEn: string; titleBn: string }>>({});
+  const trimPointsRef = useRef<Record<number, { in: number; out: number }>>(trimPoints);
+
+  useEffect(() => { activeShotIndexRef.current = activeShotIndex; }, [activeShotIndex]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { soloMasterModeRef.current = soloMasterMode; }, [soloMasterMode]);
+  useEffect(() => { titlesLayerActiveRef.current = titlesLayerActive; }, [titlesLayerActive]);
+  useEffect(() => { showCompositionGridRef.current = showCompositionGrid; }, [showCompositionGrid]);
+  useEffect(() => { playbackSpeedRef.current = playbackSpeed; }, [playbackSpeed]);
+  useEffect(() => { currentLutsRef.current = customLuts; }, [customLuts]);
+  useEffect(() => { customTitleStylesRef.current = customTitleStyles; }, [customTitleStyles]);
+  useEffect(() => { customTitlesRef.current = customTitles; }, [customTitles]);
+  useEffect(() => { trimPointsRef.current = trimPoints; }, [trimPoints]);
+
+  // Active shot resolver: blends user frames if passed, otherwise loads curated showcase presets
   const activeShot: ShowcaseShot = useMemo(() => {
     const preset = SHOWCASE_PRESETS[activeShotIndex % SHOWCASE_PRESETS.length];
     const custom = customTitles[activeShotIndex];
@@ -757,10 +853,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       };
     }
     if (lutOverride) {
-      base = {
-        ...base,
-        lutFilter: lutOverride
-      };
+      base = { ...base, lutFilter: lutOverride };
     }
     if (mediaOverride) {
       base = {
@@ -781,66 +874,116 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     return base;
   }, [activeShotIndex, frames, customTitles, customLuts, customMedia]);
 
-  // Keep duration ref synchronized with active shot
   useEffect(() => {
     activeShotDurationRef.current = activeShot.durationSec;
   }, [activeShot.durationSec]);
 
-  // Title Personality Engine: Automatic 4-style cycle with manual override support
   const activeShotPersonality = useMemo<'DOPAMINE' | 'MINIMAL' | 'B2B' | 'KINETIC'>(() => {
     return getShotTitlePersonality(activeShotIndex, customTitleStyles[activeShotIndex]);
   }, [activeShotIndex, customTitleStyles]);
 
-  // Persistent Video Resolver & Safe URL Resolver
-  const activeVideoSrc = useMemo(() => {
-    if (activeShot.videoSrc) return activeShot.videoSrc;
-    if (activeShot.blobUrl && (activeShot.isVideo || /\.(mp4|webm|mov|mkv|ogg|m4v)($|\?)/i.test(activeShot.blobUrl))) return activeShot.blobUrl;
-    if (activeShot.imageUrl) {
-      if (
-        activeShot.isVideo ||
-        activeShot.imageUrl.startsWith('data:video') ||
-        /\.(mp4|webm|mov|mkv|ogg|m4v)($|\?)/i.test(activeShot.imageUrl)
-      ) {
-        return activeShot.imageUrl;
+  const getMediaForShot = useCallback((idx: number) => {
+    const custom = customMedia[idx];
+    if (custom && custom.url) return custom;
+    if (frames && frames[idx]) {
+      const f = frames[idx];
+      const src = (f as any).videoSrc || f.imageUrl;
+      if (src) {
+        return {
+          url: src,
+          videoSrc: src,
+          blobUrl: src,
+          isVideo: Boolean((f as any).videoSrc || /\.(mp4|webm|mov|mkv|ogg|m4v)($|\?)/i.test(src)),
+          name: f.title || `Shot ${idx + 1}`
+        };
       }
     }
-    return '';
-  }, [activeShot.videoSrc, activeShot.blobUrl, activeShot.imageUrl, activeShot.isVideo]);
+    const preset = SHOWCASE_PRESETS[idx % SHOWCASE_PRESETS.length];
+    if (preset && (preset.videoSrc || preset.imageUrl)) {
+      return {
+        url: preset.videoSrc || preset.imageUrl,
+        videoSrc: preset.videoSrc || preset.imageUrl,
+        blobUrl: preset.blobUrl || preset.imageUrl,
+        isVideo: preset.isVideo || /\.(mp4|webm|mov|mkv|ogg|m4v)($|\?)/i.test(preset.imageUrl || ''),
+        name: preset.titleEn
+      };
+    }
+    return null;
+  }, [customMedia, frames]);
 
-  const hasVideo = Boolean(activeVideoSrc);
-  const hasImage = Boolean(activeShot.imageUrl && !hasVideo);
-  const hasMedia = hasVideo || hasImage;
+  const getShotData = useCallback((idx: number): ShowcaseShot => {
+    const preset = SHOWCASE_PRESETS[idx % SHOWCASE_PRESETS.length];
+    const custom = customTitles[idx];
+    const lutOverride = customLuts[idx];
+    const media = getMediaForShot(idx);
+    let s = preset;
+    if (frames && frames[idx]) {
+      const f = frames[idx];
+      s = {
+        ...s,
+        titleEn: f.title || s.titleEn,
+        titleBn: f.bengaliTitle || s.titleBn,
+        tagline: f.tagline || s.tagline,
+        directorNotes: f.directorNotes || s.directorNotes,
+        imageUrl: f.imageUrl || s.imageUrl,
+        durationSec: f.durationSec || 12.0
+      };
+    }
+    if (lutOverride) s = { ...s, lutFilter: lutOverride };
+    if (media) {
+      s = { ...s, imageUrl: media.url, videoSrc: media.videoSrc, blobUrl: media.blobUrl, isVideo: media.isVideo };
+    }
+    if (custom) {
+      s = { ...s, titleEn: custom.titleEn || s.titleEn, titleBn: custom.titleBn || s.titleBn };
+    }
+    return s;
+  }, [customTitles, customLuts, getMediaForShot, frames]);
 
-  const currentVideoSrcRef = useRef<string>('');
-
-  // Surgical Playback Trigger with WebView2 Autoplay Policy Auto-Recovery
-  const triggerPlayback = useCallback(async () => {
-    const video = stageVideoRef.current;
+  // ─────────────────────────────────────────────────────────────
+  // 3. Zero-Stall Shot Switching (Permanent Decoder Mutation)
+  // ─────────────────────────────────────────────────────────────
+  const switchShotMedia = useCallback((shotMediaUrl: string, targetTime: number = 0) => {
+    const video = masterVideoRef.current;
     if (!video) return;
-    try {
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        await playPromise;
-      }
-    } catch {
-      // WebView2 / Chromium auto-recovery: enforce muted and retry immediately
-      if (video) {
-        video.muted = true;
-        try {
-          await video.play();
-        } catch {
-          // Playback safely deferred or aborted during user scrub
-        }
-      }
+    if (!shotMediaUrl) {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      return;
+    }
+    if (video.src !== shotMediaUrl) {
+      video.src = shotMediaUrl;
+      video.currentTime = targetTime;
+      video.load();
+    } else {
+      video.currentTime = targetTime;
+    }
+    if (isPlayingRef.current) {
+      video.play().catch(() => {});
     }
   }, []);
 
+  const selectShot = useCallback((idx: number) => {
+    setActiveShotIndex(idx);
+    activeShotIndexRef.current = idx;
+    const inPt = trimPointsRef.current[idx]?.in ?? 0;
+    const media = getMediaForShot(idx);
+    if (media && media.isVideo && media.url) {
+      switchShotMedia(media.url, inPt);
+    } else {
+      if (masterVideoRef.current) {
+        masterVideoRef.current.pause();
+        masterVideoRef.current.removeAttribute('src');
+        masterVideoRef.current.load();
+      }
+    }
+    seekToFrame(Math.round(inPt * 24));
+    try { audioEngine.playShutterClick(); } catch {}
+  }, [getMediaForShot, switchShotMedia]);
+
   // Top 10 Shots for the Netflix poster row
   const top10Shots = useMemo(() => {
-    if (frames && frames.length > 0) {
-      return frames.slice(0, 10);
-    }
-    // Expand showcase presets to 10
+    if (frames && frames.length > 0) return frames.slice(0, 10);
     return Array.from({ length: 10 }, (_, i) => {
       const base = SHOWCASE_PRESETS[i % SHOWCASE_PRESETS.length];
       return {
@@ -866,51 +1009,73 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   }, [frames]);
 
   // ─────────────────────────────────────────────────────────────
-  // 2. High-Precision SMPTE Timecode Formatter & Direct DOM Playhead Mutator
+  // 4. Decoupled DOM Playhead Updaters & SMPTE Timecode
   // ─────────────────────────────────────────────────────────────
   const formatSmpteTimecode = useCallback((frame: number, fps = 24): string => {
     const f = frame % fps;
     const totalSeconds = Math.floor(frame / fps);
     const s = totalSeconds % 60;
-    const m = (Math.floor(totalSeconds / 60) + 10) % 60; // offset to 10m marker for cinema realism
+    const m = (Math.floor(totalSeconds / 60) + 10) % 60;
     const h = Math.floor(totalSeconds / 3600);
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`;
   }, []);
 
-  const updatePlayheadDOM = useCallback((frame: number) => {
+  const updateDOMMetrics = useCallback((currentSec: number, inSec: number, outSec: number) => {
+    const shotDuration = Math.max(0.1, outSec - inSec);
+    const relSec = Math.max(0, Math.min(shotDuration, currentSec - inSec));
+    const currentFrame = Math.round(relSec * 24);
+    currentFrameRef.current = currentFrame;
+
+    const tcText = formatSmpteTimecode(currentFrame);
     if (timecodeDisplayRef.current) {
-      timecodeDisplayRef.current.textContent = formatSmpteTimecode(frame);
+      timecodeDisplayRef.current.textContent = tcText;
     }
+    if (mobileTimecodeRef.current) {
+      mobileTimecodeRef.current.textContent = `${tcText.substring(3)} / ${shotDuration.toFixed(1)}s`;
+    }
+    const pct = Math.min(100, Math.max(0, (relSec / shotDuration) * 100));
     if (timelinePlayheadRef.current) {
-      const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
-      const pct = Math.min(100, Math.max(0, (frame / maxFrames) * 100));
       timelinePlayheadRef.current.style.transform = `scaleX(${pct / 100})`;
+    }
+    if (mobilePlayheadRef.current) {
+      mobilePlayheadRef.current.style.left = `${pct}%`;
+    }
+    if (durationDisplayRef.current) {
+      durationDisplayRef.current.textContent = `${shotDuration.toFixed(1)}s`;
+    }
+    if (audioPlayheadRef.current && masterAudioRef.current && masterAudioRef.current.duration) {
+      const audioPct = (masterAudioRef.current.currentTime / masterAudioRef.current.duration) * 100;
+      audioPlayheadRef.current.style.transform = `scaleX(${Math.min(1, Math.max(0, audioPct / 100))})`;
     }
   }, [formatSmpteTimecode]);
 
-  // ─────────────────────────────────────────────────────────────
-  // 3. Hardware FastSeek & Timeline Scrub Engine
-  // ─────────────────────────────────────────────────────────────
   const seekToFrame = useCallback((targetFrame: number) => {
-    const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+    const currentTrim = trimPointsRef.current[activeShotIndexRef.current] || { in: 0, out: 12.0 };
+    const shotDuration = Math.max(0.1, currentTrim.out - currentTrim.in);
+    const maxFrames = Math.max(1, Math.floor(shotDuration * 24));
     const clampedFrame = Math.max(0, Math.min(maxFrames - 1, targetFrame));
     currentFrameRef.current = clampedFrame;
-    updatePlayheadDOM(clampedFrame);
 
-    const timeSec = clampedFrame / 24;
-    if (stageVideoRef.current) {
-      if (typeof (stageVideoRef.current as any).fastSeek === 'function') {
-        try {
-          (stageVideoRef.current as any).fastSeek(timeSec);
-        } catch {
-          stageVideoRef.current.currentTime = timeSec;
+    const timeSec = currentTrim.in + clampedFrame / 24;
+    const video = masterVideoRef.current;
+    if (video && video.src) {
+      try {
+        if (typeof (video as any).fastSeek === 'function') {
+          (video as any).fastSeek(timeSec);
+        } else {
+          video.currentTime = timeSec;
         }
-      } else {
-        stageVideoRef.current.currentTime = timeSec;
+      } catch {
+        video.currentTime = timeSec;
       }
     }
-  }, [updatePlayheadDOM]);
+    const audio = masterAudioRef.current;
+    if (audio && audio.src) {
+      audio.currentTime = timeSec;
+    }
+    updateDOMMetrics(timeSec, currentTrim.in, currentTrim.out);
+  }, [updateDOMMetrics]);
 
   const handleScrubPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -918,12 +1083,31 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
 
     const calculateAndSeek = (clientX: number) => {
-      if (!scrubberTrackRef.current) return;
-      const rect = scrubberTrackRef.current.getBoundingClientRect();
+      const track = scrubberTrackRef.current || (e.currentTarget as HTMLDivElement);
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
-      const targetFrame = Math.round(ratio * (maxFrames - 1));
-      seekToFrame(targetFrame);
+      const currentTrim = trimPointsRef.current[activeShotIndexRef.current] || { in: 0, out: 12.0 };
+      const shotDuration = Math.max(0.1, currentTrim.out - currentTrim.in);
+      const targetTimeSec = currentTrim.in + ratio * shotDuration;
+
+      const video = masterVideoRef.current;
+      if (video && video.src) {
+        try {
+          if (typeof (video as any).fastSeek === 'function') {
+            (video as any).fastSeek(targetTimeSec);
+          } else {
+            video.currentTime = targetTimeSec;
+          }
+        } catch {
+          video.currentTime = targetTimeSec;
+        }
+      }
+      const audio = masterAudioRef.current;
+      if (audio && audio.src) {
+        audio.currentTime = targetTimeSec;
+      }
+      updateDOMMetrics(targetTimeSec, currentTrim.in, currentTrim.out);
     };
 
     calculateAndSeek(e.clientX);
@@ -944,137 +1128,330 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-  }, [seekToFrame]);
+  }, [updateDOMMetrics]);
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Hardware-Synchronized Playback Engine Loop
-  // Prioritizes HTMLVideoElement.requestVideoFrameCallback() for zero-stutter 4K sync,
-  // falling back smoothly to 24 FPS rAF for stills, clean slates, or legacy engines
+  // 5. Canvas Compositor Math (Cover Crop, Grading, Reticle)
   // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isPlaying) {
-      if (playbackTickerRef.current) {
-        cancelAnimationFrame(playbackTickerRef.current);
-        playbackTickerRef.current = null;
-      }
-      const video = stageVideoRef.current;
-      if (video && rvfcIdRef.current !== null && typeof (video as any).cancelVideoFrameCallback === 'function') {
-        (video as any).cancelVideoFrameCallback(rvfcIdRef.current);
-        rvfcIdRef.current = null;
-      }
+  const drawCover = useCallback((
+    ctx: CanvasRenderingContext2D,
+    img: HTMLVideoElement | HTMLImageElement,
+    targetWidth: number,
+    targetHeight: number
+  ) => {
+    const srcWidth = (img as HTMLVideoElement).videoWidth || (img as HTMLImageElement).naturalWidth || targetWidth;
+    const srcHeight = (img as HTMLVideoElement).videoHeight || (img as HTMLImageElement).naturalHeight || targetHeight;
+    if (!srcWidth || !srcHeight) {
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
       return;
     }
+    const targetAspect = targetWidth / targetHeight;
+    const srcAspect = srcWidth / srcHeight;
 
-    const video = stageVideoRef.current;
-    const canUseRVFC = Boolean(
-      hasVideo &&
-      video &&
-      typeof (video as any).requestVideoFrameCallback === 'function'
-    );
-
-    if (canUseRVFC && video) {
-      let isCancelled = false;
-
-      const onVideoFrame = (_now: DOMHighResTimeStamp, metadata: any) => {
-        if (isCancelled || !stageVideoRef.current) return;
-
-        const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
-        const mediaTime = typeof metadata?.mediaTime === 'number'
-          ? metadata.mediaTime
-          : stageVideoRef.current.currentTime;
-        const currentFrame = Math.min(maxFrames - 1, Math.max(0, Math.round(mediaTime * 24)));
-
-        currentFrameRef.current = currentFrame;
-        updatePlayheadDOM(currentFrame);
-
-        // Sequence Progression Handling at shot boundary or video end
-        if (mediaTime >= activeShotDurationRef.current || stageVideoRef.current.ended) {
-          if (soloMasterMode === 'MASTER') {
-            currentFrameRef.current = 0;
-            updatePlayheadDOM(0);
-            setActiveShotIndex(curr => (curr + 1) % SHOWCASE_PRESETS.length);
-          } else {
-            // Loop in SOLO mode
-            currentFrameRef.current = 0;
-            updatePlayheadDOM(0);
-            try {
-              stageVideoRef.current.currentTime = 0;
-            } catch {}
-          }
-        }
-
-        if (!isCancelled && stageVideoRef.current && typeof (stageVideoRef.current as any).requestVideoFrameCallback === 'function') {
-          rvfcIdRef.current = (stageVideoRef.current as any).requestVideoFrameCallback(onVideoFrame);
-        }
-      };
-
-      rvfcIdRef.current = (video as any).requestVideoFrameCallback(onVideoFrame);
-
-      return () => {
-        isCancelled = true;
-        if (stageVideoRef.current && rvfcIdRef.current !== null && typeof (stageVideoRef.current as any).cancelVideoFrameCallback === 'function') {
-          (stageVideoRef.current as any).cancelVideoFrameCallback(rvfcIdRef.current);
-          rvfcIdRef.current = null;
-        }
-      };
+    let sx = 0, sy = 0, sw = srcWidth, sh = srcHeight;
+    if (srcAspect > targetAspect) {
+      sw = srcHeight * targetAspect;
+      sx = (srcWidth - sw) / 2;
     } else {
-      let lastTickTime = performance.now();
-      const frameIntervalMs = 1000 / (24 * playbackSpeed);
-
-      const tick = (now: number) => {
-        const delta = now - lastTickTime;
-        if (delta >= frameIntervalMs) {
-          lastTickTime = now - (delta % frameIntervalMs);
-          const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
-          currentFrameRef.current += 1;
-
-          if (currentFrameRef.current >= maxFrames) {
-            if (soloMasterMode === 'MASTER') {
-              currentFrameRef.current = 0;
-              updatePlayheadDOM(0);
-              setActiveShotIndex(curr => (curr + 1) % SHOWCASE_PRESETS.length);
-            } else {
-              currentFrameRef.current = 0;
-              updatePlayheadDOM(0);
-            }
-          } else {
-            updatePlayheadDOM(currentFrameRef.current);
-          }
-        }
-        playbackTickerRef.current = requestAnimationFrame(tick);
-      };
-
-      playbackTickerRef.current = requestAnimationFrame(tick);
-
-      return () => {
-        if (playbackTickerRef.current) {
-          cancelAnimationFrame(playbackTickerRef.current);
-          playbackTickerRef.current = null;
-        }
-      };
+      sh = srcWidth / targetAspect;
+      sy = (srcHeight - sh) / 2;
     }
-  }, [isPlaying, playbackSpeed, soloMasterMode, updatePlayheadDOM, hasVideo, activeShotIndex]);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
+  }, []);
+
+  const drawCleanSlateToCanvas = useCallback((
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    shot: ShowcaseShot
+  ) => {
+    const bgGrad = ctx.createLinearGradient(0, 0, width, height);
+    bgGrad.addColorStop(0, '#0c0d12');
+    bgGrad.addColorStop(0.5, '#090a0e');
+    bgGrad.addColorStop(1, '#070709');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.font = '700 12px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#71717A';
+    ctx.fillText(`┌ DCI 4K RAW // 2.39:1 SCOPE`, 28, 36);
+    ctx.fillText(`CAM 01 // LOCKED ┐`, width - 180, 36);
+    ctx.fillText(`└ 24.000 FPS // 180° SHUTTER`, 28, height - 28);
+    ctx.fillText(`PRORES 4444 XQ READY ┘`, width - 200, height - 28);
+
+    const cx = width / 2;
+    const cy = height / 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 54, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+    ctx.moveTo(cx - 70, cy); ctx.lineTo(cx + 70, cy);
+    ctx.moveTo(cx, cy - 70); ctx.lineTo(cx, cy + 70);
+    ctx.stroke();
+
+    ctx.font = '700 11px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#F5A623';
+    ctx.textAlign = 'center';
+    ctx.fillText(`SHOT ${shot.shotNumber} • CLEAN PRODUCTION SLATE`, cx, cy + 86);
+
+    ctx.font = '800 16px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#E4E4E7';
+    ctx.fillText(`DROP 4K MEDIA HERE`, cx, cy + 112);
+
+    ctx.font = '500 11px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#71717A';
+    ctx.fillText(`Drop .MP4, .MOV, .PNG, or .JPG to assign directly to Shot ${shot.shotNumber}`, cx, cy + 132);
+    ctx.textAlign = 'left';
+  }, []);
+
+  const drawGradeAndGrain = useCallback((
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    lut: string
+  ) => {
+    ctx.save();
+    const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.28, width / 2, height / 2, width * 0.68);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.5)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+    const seed = (Date.now() / 33) % 1000;
+    for (let i = 0; i < 35; i++) {
+      const gx = ((i * 123.456 + seed) % 1) * width;
+      const gy = (((i + 5) * 789.012 + seed) % 1) * height;
+      ctx.fillRect(gx, gy, 2, 2);
+    }
+    ctx.restore();
+  }, []);
+
+  const drawMobileSafeAreas = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.save();
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 1.5;
+
+    const topClearance = height * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(16, topClearance);
+    ctx.lineTo(width - 16, topClearance);
+    ctx.stroke();
+
+    const bottomClearance = height * 0.80;
+    ctx.beginPath();
+    ctx.moveTo(16, bottomClearance);
+    ctx.lineTo(width - 16, bottomClearance);
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+    ctx.font = '700 9px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillText('▲ REELS TOP CLEARANCE (15%)', 20, topClearance - 6);
+    ctx.fillText('▼ CAPTIONS & AUDIO CLEARANCE (20%)', 20, bottomClearance + 14);
+    ctx.restore();
+  }, []);
+
+  const drawGridLines = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(width / 3, 0); ctx.lineTo(width / 3, height);
+    ctx.moveTo((width * 2) / 3, 0); ctx.lineTo((width * 2) / 3, height);
+    ctx.moveTo(0, height / 3); ctx.lineTo(width, height / 3);
+    ctx.moveTo(0, (height * 2) / 3); ctx.lineTo(width, (height * 2) / 3);
+    ctx.stroke();
+    ctx.restore();
+  }, []);
+
+  const drawStageFrame = useCallback((
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    shotIdx: number
+  ) => {
+    const video = masterVideoRef.current;
+    const shot = getShotData(shotIdx);
+    const lut = currentLutsRef.current[shotIdx] || shot.lutFilter;
+
+    // 1. TIER 1: Master Video / Media Plate
+    if (video && video.src && video.readyState >= 2) {
+      ctx.save();
+      ctx.filter = getLutFilterCss(lut);
+      drawCover(ctx, video, width, height);
+      ctx.restore();
+    } else if (customMediaImagesRef.current.has(shotIdx)) {
+      const img = customMediaImagesRef.current.get(shotIdx)!;
+      ctx.save();
+      ctx.filter = getLutFilterCss(lut);
+      drawCover(ctx, img, width, height);
+      ctx.restore();
+    } else {
+      drawCleanSlateToCanvas(ctx, width, height, shot);
+    }
+
+    // 2. TIER 2: Active Filter / Grading Layer
+    drawGradeAndGrain(ctx, width, height, lut);
+
+    // 3. TIER 3: Creative Kinetic Typography Overlay
+    if (titlesLayerActiveRef.current && offscreenTitleCanvasRef.current) {
+      ctx.drawImage(offscreenTitleCanvasRef.current, 0, 0, width, height);
+    }
+
+    if (viewMode === 'mobile' && showSafeAreas) {
+      drawMobileSafeAreas(ctx, width, height);
+    }
+
+    if (showCompositionGridRef.current) {
+      drawGridLines(ctx, width, height);
+    }
+  }, [getShotData, drawCover, drawCleanSlateToCanvas, drawGradeAndGrain, drawMobileSafeAreas, drawGridLines, viewMode, showSafeAreas]);
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Action Handlers (Wired to Props + Internal Engine)
+  // 6. Decoupled 60 FPS Hardware Ticker (Hardware rAF Loop)
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let animId: number;
+    let lastFrameTime = performance.now();
+    let staticShotElapsed = 0;
+
+    const renderLoop = (now: DOMHighResTimeStamp) => {
+      const deltaSec = (now - lastFrameTime) / 1000;
+      lastFrameTime = now;
+
+      const video = masterVideoRef.current;
+      const currentShotIdx = activeShotIndexRef.current;
+      const currentTrim = trimPointsRef.current[currentShotIdx] || { in: 0, out: 12.0 };
+
+      if (isPlayingRef.current) {
+        let currentTimeSec = 0;
+        let hasReachedOut = false;
+
+        if (video && video.src && video.readyState >= 2) {
+          currentTimeSec = video.currentTime;
+          if (currentTimeSec >= currentTrim.out || video.ended) {
+            hasReachedOut = true;
+          }
+        } else {
+          staticShotElapsed += deltaSec * playbackSpeedRef.current;
+          currentTimeSec = currentTrim.in + staticShotElapsed;
+          if (currentTimeSec >= currentTrim.out) {
+            hasReachedOut = true;
+          }
+        }
+
+        updateDOMMetrics(currentTimeSec, currentTrim.in, currentTrim.out);
+
+        if (hasReachedOut) {
+          if (soloMasterModeRef.current === 'MASTER') {
+            const nextIdx = (currentShotIdx + 1) % SHOWCASE_PRESETS.length;
+            activeShotIndexRef.current = nextIdx;
+            setActiveShotIndex(nextIdx);
+            staticShotElapsed = 0;
+
+            const nextTrim = trimPointsRef.current[nextIdx] || { in: 0, out: 12.0 };
+            const nextMedia = getMediaForShot(nextIdx);
+            const nextUrl = nextMedia?.url || '';
+
+            switchShotMedia(nextUrl, nextTrim.in);
+          } else {
+            staticShotElapsed = 0;
+            if (video && video.src) {
+              video.currentTime = currentTrim.in;
+            }
+          }
+        }
+
+        const audio = masterAudioRef.current;
+        if (audio && audio.src && audio.paused) {
+          audio.play().catch(() => {});
+        }
+      } else {
+        if (video && video.src && video.readyState >= 2) {
+          updateDOMMetrics(video.currentTime, currentTrim.in, currentTrim.out);
+        }
+      }
+
+      const canvas = stageCanvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+        if (ctx) {
+          drawStageFrame(ctx, canvas.width, canvas.height, currentShotIdx);
+        }
+      }
+
+      animId = requestAnimationFrame(renderLoop);
+    };
+
+    animId = requestAnimationFrame(renderLoop);
+    return () => cancelAnimationFrame(animId);
+  }, [updateDOMMetrics, getMediaForShot, switchShotMedia, drawStageFrame]);
+
+  // Stage Canvas Resolution Synchronizer
+  useEffect(() => {
+    const canvas = stageCanvasRef.current;
+    if (!canvas) return;
+    let targetWidth = 1920;
+    let targetHeight = 803;
+    if (viewMode === 'mobile') {
+      targetWidth = 1080;
+      targetHeight = 1920;
+    } else if (selectedAspectRatio === '16:9') {
+      targetWidth = 1920;
+      targetHeight = 1080;
+    } else if (selectedAspectRatio === '9:16') {
+      targetWidth = 1080;
+      targetHeight = 1920;
+    } else if (selectedAspectRatio === '4:3') {
+      targetWidth = 1440;
+      targetHeight = 1080;
+    } else if (selectedAspectRatio === '1:1') {
+      targetWidth = 1080;
+      targetHeight = 1080;
+    }
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    if (!offscreenTitleCanvasRef.current) {
+      offscreenTitleCanvasRef.current = document.createElement('canvas');
+    }
+    offscreenTitleCanvasRef.current.width = targetWidth;
+    offscreenTitleCanvasRef.current.height = targetHeight;
+    renderTitleTypographyToCanvas(offscreenTitleCanvasRef.current, activeShot, activeShotPersonality);
+  }, [viewMode, selectedAspectRatio, activeShot, activeShotPersonality]);
+
+  // ─────────────────────────────────────────────────────────────
+  // 7. Action Handlers (Transport, Trim, Reel Template, Audio)
   // ─────────────────────────────────────────────────────────────
   const handleTogglePlay = useCallback(() => {
     setIsPlaying(prev => {
       const next = !prev;
-      try {
-        if (next) {
-          audioEngine.playAudio();
-        } else {
-          audioEngine.pauseAudio();
-        }
-      } catch {}
+      isPlayingRef.current = next;
+      const video = masterVideoRef.current;
+      const audio = masterAudioRef.current;
+
+      if (next) {
+        if (video && video.src) video.play().catch(() => {});
+        if (audio && audio.src) audio.play().catch(() => {});
+        try { audioEngine.playAudio(); } catch {}
+      } else {
+        if (video) video.pause();
+        if (audio) audio.pause();
+        try { audioEngine.pauseAudio(); } catch {}
+      }
       return next;
     });
   }, []);
 
   const handleStepFrame = useCallback((forward: boolean) => {
     setIsPlaying(false);
-    const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+    isPlayingRef.current = false;
+    const currentTrim = trimPointsRef.current[activeShotIndexRef.current] || { in: 0, out: 12.0 };
+    const shotDuration = Math.max(0.1, currentTrim.out - currentTrim.in);
+    const maxFrames = Math.max(1, Math.floor(shotDuration * 24));
     let nextFrame = currentFrameRef.current;
     if (forward) {
       nextFrame = (nextFrame + 1) % maxFrames;
@@ -1082,19 +1459,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       nextFrame = nextFrame <= 0 ? maxFrames - 1 : nextFrame - 1;
     }
     seekToFrame(nextFrame);
-    try {
-      audioEngine.playShutterClick();
-    } catch {}
+    try { audioEngine.playShutterClick(); } catch {}
   }, [seekToFrame]);
 
   const handleSoloMasterToggle = useCallback((mode: 'SOLO' | 'MASTER') => {
     setSoloMasterMode(mode);
-    if (onSoloMasterToggle) {
-      onSoloMasterToggle(mode);
-    }
-    try {
-      audioEngine.playShutterClick();
-    } catch {}
+    soloMasterModeRef.current = mode;
+    if (onSoloMasterToggle) onSoloMasterToggle(mode);
+    try { audioEngine.playShutterClick(); } catch {}
   }, [onSoloMasterToggle]);
 
   const handleStudioLaunch = useCallback(() => {
@@ -1117,30 +1489,21 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
   const handleRecordToggle = useCallback(() => {
     setIsRecording(prev => !prev);
-    if (onRecordToggle) {
-      onRecordToggle();
-    }
+    if (onRecordToggle) onRecordToggle();
   }, [onRecordToggle]);
 
   const handleZenToggle = useCallback(() => {
     setIsZenModeActive(prev => !prev);
-    if (onZenToggle) {
-      onZenToggle();
-    }
+    if (onZenToggle) onZenToggle();
   }, [onZenToggle]);
 
   const handleAspectChange = useCallback((aspect: string) => {
     setSelectedAspectRatio(aspect);
-    if (onAspectChange) {
-      onAspectChange(aspect);
-    }
+    if (onAspectChange) onAspectChange(aspect);
   }, [onAspectChange]);
 
   const handleLutChange = useCallback((lut: string) => {
-    setCustomLuts(prev => ({
-      ...prev,
-      [activeShotIndex]: lut
-    }));
+    setCustomLuts(prev => ({ ...prev, [activeShotIndex]: lut }));
   }, [activeShotIndex]);
 
   const handleCycleZoom = useCallback(() => {
@@ -1165,10 +1528,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const handleSaveCustomTitle = useCallback(() => {
     setCustomTitles(prev => ({
       ...prev,
-      [activeShotIndex]: {
-        titleEn: editingTitleEn,
-        titleBn: editingTitleBn
-      }
+      [activeShotIndex]: { titleEn: editingTitleEn, titleBn: editingTitleBn }
     }));
     setCustomTitleStyles(prev => ({
       ...prev,
@@ -1177,62 +1537,57 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     setIsEditingTitle(false);
   }, [activeShotIndex, editingTitleEn, editingTitleBn, editingTitleStyle]);
 
-  // ─────────────────────────────────────────────────────────────
-  // 5b. Offscreen-Buffered Title Canvas Synchronization
-  // Eliminates DOM layout recalculations during sequence playback
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const canvas = titleCanvasRef.current;
-    if (!canvas) return;
-
-    if (!titlesLayerActive) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-      return;
-    }
-
-    renderTitleTypographyToCanvas(canvas, activeShot, activeShotPersonality);
-
-    // Refresh if web fonts load asynchronously
-    if (typeof document !== 'undefined' && (document as any).fonts?.ready) {
-      (document as any).fonts.ready.then(() => {
-        if (titleCanvasRef.current && titlesLayerActive) {
-          renderTitleTypographyToCanvas(titleCanvasRef.current, activeShot, activeShotPersonality);
-        }
-      });
-    }
-  }, [
-    titlesLayerActive,
-    activeShot,
-    activeShotPersonality,
-    selectedAspectRatio,
-    stageZoomLevel
-  ]);
-
-  // Stage Viewport ResizeObserver for perfect crispness on container resize
-  useEffect(() => {
-    const canvas = titleCanvasRef.current;
-    if (!canvas || !canvas.parentElement) return;
-
-    const observer = new ResizeObserver(() => {
-      if (titlesLayerActive && titleCanvasRef.current) {
-        renderTitleTypographyToCanvas(titleCanvasRef.current, activeShot, activeShotPersonality);
-      }
+  const handleUpdateInPoint = useCallback((idx: number, inVal: number) => {
+    const clampedIn = Math.max(0, inVal);
+    setTrimPoints(prev => {
+      const current = prev[idx] || { in: 0, out: SHOWCASE_PRESETS[idx]?.durationSec || 12.0 };
+      const validOut = Math.max(clampedIn + 0.1, current.out);
+      const updated = { ...prev, [idx]: { in: clampedIn, out: validOut } };
+      trimPointsRef.current = updated;
+      return updated;
     });
-
-    observer.observe(canvas.parentElement);
-    return () => observer.disconnect();
-  }, [titlesLayerActive, activeShot, activeShotPersonality]);
-
-  const handleStudioToggle = handleStudioLaunch;
-  const handleExport = handleExportClick;
-  const handleStatsToggle = useCallback(() => {
-    setIsStatsTelemetryOpen(prev => !prev);
+    if (activeShotIndexRef.current === idx) {
+      const video = masterVideoRef.current;
+      if (video && video.currentTime < clampedIn) {
+        video.currentTime = clampedIn;
+      }
+    }
   }, []);
 
-  // ─────────────────────────────────────────────────────────────
-  // 6. Fast Offscreen Video Thumbnail Helper
-  // ─────────────────────────────────────────────────────────────
+  const handleUpdateOutPoint = useCallback((idx: number, outVal: number) => {
+    const clampedOut = Math.max(0.1, outVal);
+    setTrimPoints(prev => {
+      const current = prev[idx] || { in: 0, out: SHOWCASE_PRESETS[idx]?.durationSec || 12.0 };
+      const validIn = Math.min(current.in, clampedOut - 0.1);
+      const updated = { ...prev, [idx]: { in: Math.max(0, validIn), out: clampedOut } };
+      trimPointsRef.current = updated;
+      return updated;
+    });
+  }, []);
+
+  const handleToggleReelTemplate = useCallback(() => {
+    setIsReelTemplateActive(prev => {
+      const next = !prev;
+      if (next) {
+        const personalityCycle: TitlePersonality[] = ['DOPAMINE', 'MINIMAL', 'B2B', 'KINETIC'];
+        const newTrim: Record<number, { in: number; out: number }> = {};
+        const newStyles: Record<number, TitlePersonality> = {};
+        SHOWCASE_PRESETS.forEach((_, i) => {
+          const d = REEL_TEMPLATE_DURATIONS[i % REEL_TEMPLATE_DURATIONS.length];
+          newTrim[i] = { in: 0, out: d };
+          newStyles[i] = personalityCycle[i % personalityCycle.length];
+        });
+        setTrimPoints(newTrim);
+        trimPointsRef.current = newTrim;
+        setCustomTitleStyles(newStyles);
+        customTitleStylesRef.current = newStyles;
+        setIngestStatus('[ QUICK REEL TEMPLATE ACTIVE // 14 SHOTS PACED ]');
+        setTimeout(() => setIngestStatus(null), 3000);
+      }
+      return next;
+    });
+  }, []);
+
   const generateVideoThumbnailFast = useCallback((videoUrl: string): Promise<string> => {
     return new Promise((resolve) => {
       try {
@@ -1280,63 +1635,125 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   }, []);
 
   // ─────────────────────────────────────────────────────────────
-  // 7. Mandate 2: Seamless Native Drag & Drop + Zero-Wait Blob Pipeline
+  // 8. Bulk Drag & Drop Ingestion & Dedicated Audio Routing
   // ─────────────────────────────────────────────────────────────
   const handleIngestFiles = useCallback((files: FileList | File[], targetShotIndex?: number) => {
     if (!files || files.length === 0) return;
     const fileList = Array.from(files);
-    const assignedShot = typeof targetShotIndex === 'number' ? targetShotIndex : activeShotIndex;
 
-    const newAssets: Array<{
-      id: string;
-      name: string;
-      size: number;
-      type: string;
-      url: string;
-      status: string;
-      isVideo: boolean;
-      thumbnailUrl?: string;
-    }> = [];
+    // Audio interception: Never assign audio to shot card
+    const audioFiles = fileList.filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|aac|m4a|ogg|flac)$/i.test(f.name));
+    const mediaFiles = fileList.filter(f => !f.type.startsWith('audio/') && !/\.(mp3|wav|aac|m4a|ogg|flac)$/i.test(f.name));
 
-    const filesToPersist: { file: File; id: string; url: string; isVideo: boolean }[] = [];
+    if (audioFiles.length > 0) {
+      const audioFile = audioFiles[0];
+      const audioUrl = URL.createObjectURL(audioFile);
+      mediaSourceCacheRef.current.set(`audio_${Date.now()}`, audioUrl);
+      if (masterAudioRef.current) {
+        masterAudioRef.current.src = audioUrl;
+        masterAudioRef.current.load();
+        if (isPlayingRef.current) {
+          masterAudioRef.current.play().catch(() => {});
+        }
+      }
+      setAudioTrackInfo({
+        name: audioFile.name,
+        duration: 0,
+        url: audioUrl,
+        isMuted: false,
+        volume: 1.0
+      });
+      setIngestStatus(`[ AUDIO FLOOR ROUTED // ${audioFile.name.toUpperCase()} ]`);
+      setTimeout(() => setIngestStatus(null), 4000);
+    }
 
-    for (let idx = 0; idx < fileList.length; idx++) {
-      const file = fileList[idx];
-      // Immediate Tier: Synchronous in-memory pointer
-      const mediaUrl = URL.createObjectURL(file);
-      const isVid = file.type.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name);
-      const instantId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (mediaFiles.length === 0) return;
 
-      const newAsset = {
-        id: instantId,
+    // Immediate synchronous Object URLs in tight loop
+    const newAssets = mediaFiles.map(file => {
+      const url = URL.createObjectURL(file);
+      const id = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      mediaSourceCacheRef.current.set(id, url);
+      mediaSourceCacheRef.current.set(url, url);
+      return {
+        id,
         name: file.name,
         size: file.size,
         type: file.type,
-        url: mediaUrl,
+        url,
         status: 'READY',
-        isVideo: isVid,
-        thumbnailUrl: isVid ? undefined : mediaUrl
+        isVideo: file.type.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name),
+        fileRef: file,
+        thumbnailUrl: undefined as string | undefined
       };
+    });
 
-      newAssets.push(newAsset);
-      filesToPersist.push({ file, id: instantId, url: mediaUrl, isVideo: isVid });
-    }
-
-    // Synchronously update vault assets with READY status
     setVaultAssets(prev => [...newAssets, ...prev]);
 
-    // Update UI status to [ READY // X ASSETS ] instantly without waiting for disk or database operations
-    setIngestStatus(`[ READY // ${newAssets.length} ASSETS INGESTED ]`);
-    setTimeout(() => {
-      setIngestStatus(null);
-    }, 4000);
+    // Auto-Sequence: Auto-populate shots sequentially (Asset 0 to Shot 01, Asset 1 to Shot 02, etc.)
+    const shouldAutoSequence = mediaFiles.length > 1 || isReelTemplateActive || targetShotIndex === undefined;
 
-    // Auto-Assign to Active Shot Target immediately
-    if (newAssets.length > 0) {
+    if (shouldAutoSequence) {
+      const updatedMedia: Record<number, any> = {};
+      const updatedTrim: Record<number, { in: number; out: number }> = {};
+      const updatedStyles: Record<number, TitlePersonality> = {};
+      const personalityCycle: TitlePersonality[] = ['DOPAMINE', 'MINIMAL', 'B2B', 'KINETIC'];
+
+      newAssets.slice(0, 14).forEach((asset, i) => {
+        const slotDuration = isReelTemplateActive ? REEL_TEMPLATE_DURATIONS[i % REEL_TEMPLATE_DURATIONS.length] : 12.0;
+        updatedMedia[i] = {
+          url: asset.url,
+          videoSrc: asset.url,
+          blobUrl: asset.url,
+          isVideo: asset.isVideo,
+          name: asset.name,
+          thumbnailUrl: asset.thumbnailUrl
+        };
+        updatedTrim[i] = { in: 0, out: slotDuration };
+        if (isReelTemplateActive) {
+          updatedStyles[i] = personalityCycle[i % personalityCycle.length];
+        }
+
+        if (!asset.isVideo) {
+          const img = new Image();
+          img.src = asset.url;
+          customMediaImagesRef.current.set(i, img);
+        }
+
+        try {
+          useStudioStore.getState().updateShot(i, {
+            imageUrl: asset.url,
+            videoSrc: asset.url,
+            blobUrl: asset.url,
+            isVideo: asset.isVideo,
+            title: asset.name.replace(/\.[^/.]+$/, "")
+          });
+        } catch {}
+      });
+
+      setCustomMedia(prev => ({ ...prev, ...updatedMedia }));
+      setTrimPoints(prev => {
+        const merged = { ...prev, ...updatedTrim };
+        trimPointsRef.current = merged;
+        return merged;
+      });
+      if (isReelTemplateActive) {
+        setCustomTitleStyles(prev => ({ ...prev, ...updatedStyles }));
+        customTitleStylesRef.current = { ...customTitleStylesRef.current, ...updatedStyles };
+      }
+
+      const firstMedia = updatedMedia[activeShotIndexRef.current] || updatedMedia[0];
+      if (firstMedia?.url) {
+        switchShotMedia(firstMedia.url, updatedTrim[0]?.in ?? 0);
+      }
+
+      setIngestStatus(`[ INSTANT AUTO-SLOT // ${Math.min(newAssets.length, 14)} SHOTS POPULATED ]`);
+    } else {
+      const slotIdx = targetShotIndex !== undefined ? targetShotIndex : activeShotIndexRef.current;
       const primary = newAssets[0];
       setCustomMedia(prev => ({
         ...prev,
-        [assignedShot]: {
+        [slotIdx]: {
           url: primary.url,
           videoSrc: primary.url,
           blobUrl: primary.url,
@@ -1345,56 +1762,58 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           thumbnailUrl: primary.thumbnailUrl
         }
       }));
-
-      // Update global studio store so all other views update immediately
-      try {
-        useStudioStore.getState().updateShot(assignedShot, {
-          imageUrl: primary.url,
-          videoSrc: primary.url,
-          blobUrl: primary.url,
-          isVideo: primary.isVideo,
-          title: primary.name.replace(/\.[^/.]+$/, "")
-        });
-      } catch (err) {
-        console.warn('[HandfilmHome] updateShot error:', err);
+      if (!primary.isVideo) {
+        const img = new Image();
+        img.src = primary.url;
+        customMediaImagesRef.current.set(slotIdx, img);
       }
-
-      try { audioEngine.playShutterClick(); } catch {}
-
-      // Fast offscreen video thumbnail extraction
-      if (primary.isVideo) {
-        generateVideoThumbnailFast(primary.url).then((thumb) => {
-          setCustomMedia(prev => {
-            const existing = prev[assignedShot];
-            if (existing && existing.url === primary.url) {
-              return { ...prev, [assignedShot]: { ...existing, thumbnailUrl: thumb } };
-            }
-            return prev;
-          });
-        });
+      if (slotIdx === activeShotIndexRef.current) {
+        switchShotMedia(primary.url, trimPointsRef.current[slotIdx]?.in ?? 0);
       }
-
-      // Cache shot media in Service Worker L2 cache in background
-      serviceWorkerManager.cacheShotMedia(primary.url).catch(() => {});
+      setIngestStatus(`[ READY // SHOT ${SHOWCASE_PRESETS[slotIdx].shotNumber} POPULATED ]`);
     }
 
-    // Persistence Tier: Background Non-Blocking IDB Queue
-    const backgroundPersist = async () => {
-      for (const item of filesToPersist) {
-        try {
-          await db.saveMediaToVault(item.file);
-        } catch (err) {
-          console.warn('[HandfilmHome] Background IDB save non-fatal error:', err);
+    setTimeout(() => setIngestStatus(null), 4000);
+
+    // Defer thumbnail extraction to offscreen canvas using requestIdleCallback
+    const extractThumbnailsInBackground = () => {
+      newAssets.forEach((asset, idx) => {
+        if (asset.isVideo) {
+          generateVideoThumbnailFast(asset.url).then(thumb => {
+            setCustomMedia(prev => {
+              const current = prev[idx];
+              if (current && current.url === asset.url) {
+                return { ...prev, [idx]: { ...current, thumbnailUrl: thumb } };
+              }
+              return prev;
+            });
+          });
         }
-      }
+      });
     };
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(backgroundPersist, { timeout: 4000 });
+      (window as any).requestIdleCallback(extractThumbnailsInBackground, { timeout: 3000 });
     } else {
-      setTimeout(backgroundPersist, 100);
+      setTimeout(extractThumbnailsInBackground, 100);
     }
-  }, [activeShotIndex, generateVideoThumbnailFast]);
+
+    // Background Non-Blocking IndexedDB save
+    const backgroundPersist = async () => {
+      for (const asset of newAssets) {
+        if (asset.fileRef) {
+          try {
+            await db.saveMediaToVault(asset.fileRef);
+          } catch {}
+        }
+      }
+    };
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(backgroundPersist, { timeout: 5000 });
+    } else {
+      setTimeout(backgroundPersist, 200);
+    }
+  }, [isReelTemplateActive, switchShotMedia, generateVideoThumbnailFast]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -1413,38 +1832,33 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     }
   }, [handleIngestFiles, activeShotIndex]);
 
-  // Surgical Mandate 3: Persistent Video Synchronization & Playback Stall Elimination
+  // Window-level drop listener for audio auto-routing
   useEffect(() => {
-    const video = stageVideoRef.current;
-    if (!video) return;
-
-    video.playbackRate = playbackSpeed;
-
-    if (activeVideoSrc) {
-      if (currentVideoSrcRef.current !== activeVideoSrc) {
-        currentVideoSrcRef.current = activeVideoSrc;
-        video.src = activeVideoSrc;
-        video.load();
-        if (isPlaying) {
-          triggerPlayback();
-        }
-      } else {
-        if (isPlaying && video.paused) {
-          triggerPlayback();
-        } else if (!isPlaying && !video.paused) {
-          video.pause();
-        }
+    const handleWindowDrop = (e: DragEvent) => {
+      if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+      const files = Array.from(e.dataTransfer.files);
+      const audioFiles = files.filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|aac|m4a|ogg|flac)$/i.test(f.name));
+      if (audioFiles.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleIngestFiles(files);
       }
-    } else {
-      currentVideoSrcRef.current = '';
-      if (!video.paused) {
-        video.pause();
+    };
+    const handleWindowDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes('Files')) {
+        e.preventDefault();
       }
-    }
-  }, [activeVideoSrc, isPlaying, playbackSpeed, triggerPlayback]);
+    };
+    window.addEventListener('drop', handleWindowDrop);
+    window.addEventListener('dragover', handleWindowDragOver);
+    return () => {
+      window.removeEventListener('drop', handleWindowDrop);
+      window.removeEventListener('dragover', handleWindowDragOver);
+    };
+  }, [handleIngestFiles]);
 
   // ─────────────────────────────────────────────────────────────
-  // 8. Mandate 4: Ultra-Fast Keyboard Workflow & Desktop Window Navigation
+  // 9. Ultra-Fast Keyboard Workflow (with 'M' Mode Toggle)
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1459,6 +1873,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         return;
       }
 
+      // M: Instant Dual-Mode Toggle between Desktop 2.39:1 Cinema & Mobile 9:16 Reel
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        setViewMode(prev => (prev === 'desktop' ? 'mobile' : 'desktop'));
+        try { audioEngine.playShutterClick(); } catch {}
+        return;
+      }
+
       // Space: Instant zero-latency Play / Pause toggle
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
@@ -1466,7 +1888,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         return;
       }
 
-      // J: Shuttle Rewind (2x/4x)
+      // J: Shuttle Rewind
       if (e.key === 'j' || e.key === 'J') {
         e.preventDefault();
         handleStepFrame(false);
@@ -1474,19 +1896,25 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         return;
       }
 
-      // K: Shuttle Pause / Stop
+      // K: Shuttle Pause
       if (e.key === 'k' || e.key === 'K') {
         e.preventDefault();
         setIsPlaying(false);
+        isPlayingRef.current = false;
+        try { masterVideoRef.current?.pause(); } catch {}
+        try { masterAudioRef.current?.pause(); } catch {}
         try { audioEngine.pauseAudio(); } catch {}
         return;
       }
 
-      // L: Shuttle Forward (1x -> 1.5x -> 2x)
+      // L: Shuttle Forward
       if (e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         setIsPlaying(true);
+        isPlayingRef.current = true;
         setPlaybackSpeed(prev => (prev >= 2.0 ? 1.0 : prev + 0.5));
+        try { masterVideoRef.current?.play(); } catch {}
+        try { masterAudioRef.current?.play(); } catch {}
         try { audioEngine.playAudio(); } catch {}
         return;
       }
@@ -1509,17 +1937,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key)) {
         e.preventDefault();
         const num = parseInt(e.key, 10);
-        if (num >= 1 && num <= 6) {
-          setActiveShotIndex(num - 1);
-          currentFrameRef.current = 0;
-          updatePlayheadDOM(0);
+        if (num >= 1 && num <= SHOWCASE_PRESETS.length) {
+          selectShot(num - 1);
         }
         setActiveCameraAngle(num);
         try { audioEngine.playShutterClick(); } catch {}
         return;
       }
 
-      // F: Toggle Fullscreen / Borderless presentation mode
+      // F: Toggle Fullscreen
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         if (!document.fullscreenElement) {
@@ -1545,8 +1971,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleStepFrame, updatePlayheadDOM]);
+  }, [handleTogglePlay, handleStepFrame, selectShot]);
 
+  // ─────────────────────────────────────────────────────────────
+  // 9. Mandate 5: Non-Blocking Canvas Export & Recording Pipeline
   // ─────────────────────────────────────────────────────────────
   // 9. Mandate 5: Non-Blocking Canvas Export & Recording Pipeline
   // ─────────────────────────────────────────────────────────────
@@ -1555,14 +1983,17 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     setExportState({
       isExporting: true,
       progress: 0,
-      statusText: '[ EXPORTING: 0% // INITIALIZING 4K SCOPE RENDER ]'
+      statusText: '[ EXPORTING: 0% // INITIALIZING SCOPE RENDER ]'
     });
 
     try {
+      const isVerticalExport = viewMode === 'mobile' || selectedAspectRatio === '9:16';
+      const exportWidth = isVerticalExport ? 1080 : 1920;
+      const exportHeight = isVerticalExport ? 1920 : 804;
       const totalFrames = Math.max(24, Math.floor(activeShot.durationSec * 24));
       const canvas = document.createElement('canvas');
-      canvas.width = 1920;
-      canvas.height = 804; // 2.39:1 scope
+      canvas.width = exportWidth;
+      canvas.height = exportHeight;
       const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
       if (!ctx) throw new Error('Could not get accelerated 2D canvas context');
 
@@ -1586,51 +2017,26 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         recorder.start(100);
       }
 
-      const img = new Image();
-      if (hasImage && activeShot.imageUrl) {
-        img.crossOrigin = 'anonymous';
-        img.src = activeShot.imageUrl;
-        await new Promise((r) => { img.onload = r; img.onerror = r; });
-      }
+      const video = masterVideoRef.current;
+      const activeMedia = getMediaForShot(activeShotIndex);
+      const isVideoMedia = Boolean(activeMedia?.isVideo && video?.src);
 
       // Frame-by-frame asynchronous generation (yields to UI via rAF)
       for (let f = 0; f < totalFrames; f++) {
         await new Promise(r => requestAnimationFrame(r));
 
-        if (stageVideoRef.current && hasVideo && stageVideoRef.current.readyState >= 2) {
-          ctx.drawImage(stageVideoRef.current, 0, 0, canvas.width, canvas.height);
-        } else if (hasImage && img.complete && img.naturalWidth > 0) {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        if (isVideoMedia && video && video.readyState >= 2) {
+          drawCover(ctx, video, canvas.width, canvas.height);
+        } else if (customMediaImagesRef.current.has(activeShotIndex)) {
+          const img = customMediaImagesRef.current.get(activeShotIndex)!;
+          drawCover(ctx, img, canvas.width, canvas.height);
         } else {
-          ctx.fillStyle = '#0a0a0a';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          // Draw subtle crosshair reticle on blank slate export
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.arc(canvas.width / 2, canvas.height / 2, 40, 0, Math.PI * 2);
-          ctx.moveTo(canvas.width / 2 - 60, canvas.height / 2);
-          ctx.lineTo(canvas.width / 2 + 60, canvas.height / 2);
-          ctx.moveTo(canvas.width / 2, canvas.height / 2 - 60);
-          ctx.lineTo(canvas.width / 2, canvas.height / 2 + 60);
-          ctx.stroke();
+          drawCleanSlateToCanvas(ctx, canvas.width, canvas.height, activeShot);
         }
 
         // Draw creative kinetic typography layer if active
-        if (titlesLayerActive) {
-          ctx.save();
-          ctx.textAlign = 'left';
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = '900 52px "Anek Bangla", sans-serif';
-          ctx.shadowColor = 'rgba(255, 170, 0, 0.75)';
-          ctx.shadowBlur = 24;
-          ctx.fillText(activeShot.titleBn, 72, canvas.height - 110);
-
-          ctx.font = '700 22px "Cinzel", serif';
-          ctx.fillStyle = '#E4E4E7';
-          ctx.shadowBlur = 10;
-          ctx.fillText(activeShot.titleEn, 72, canvas.height - 66);
-          ctx.restore();
+        if (titlesLayerActive && offscreenTitleCanvasRef.current) {
+          ctx.drawImage(offscreenTitleCanvasRef.current, 0, 0, canvas.width, canvas.height);
         }
 
         const pct = Math.round(((f + 1) / totalFrames) * 100);
@@ -1651,7 +2057,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         const downloadUrl = URL.createObjectURL(finalBlob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `HANDFILM_SHOT_${activeShot.shotNumber}_2.39_SCOPE.webm`;
+        a.download = isVerticalExport
+          ? `HANDFILM_SHOT_${activeShot.shotNumber}_REEL_9_16.webm`
+          : `HANDFILM_SHOT_${activeShot.shotNumber}_2.39_SCOPE.webm`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1671,7 +2079,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         setExportState({ isExporting: false, progress: 0, statusText: '' });
       }, 3500);
     }
-  }, [exportState.isExporting, activeShot, titlesLayerActive]);
+  }, [exportState.isExporting, activeShot, titlesLayerActive, viewMode, selectedAspectRatio, getMediaForShot, activeShotIndex, drawCover, drawCleanSlateToCanvas]);
 
   // ─────────────────────────────────────────────────────────────
   // 5. Scroll smoothly to Specs / Matrix section
@@ -1704,272 +2112,505 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   return (
     <div className={`flex-1 w-full h-full overflow-y-auto overflow-x-hidden bg-[#070709] text-white font-sans selection:bg-[#E50914] selection:text-white pb-16 ${isZenModeActive ? 'zen-distraction-free' : ''}`}>
       
-
-
       {/* ========================================================= */}
-      {/* ENGINE TELEMETRY OVERLAY (STATS BUTTON TOGGLE) */}
+      {/* IMMORTAL HARDWARE PLAYBACK ENGINE (NEVER DESTROY DECODER) */}
+      {/* Mounted permanently at root level; never unmounted or reloaded */}
       {/* ========================================================= */}
-      {isStatsTelemetryOpen && (
-        <div className="w-full bg-[#0d0d14] border-b border-amber-500/30 px-6 py-3 font-mono text-xs flex flex-wrap items-center justify-between gap-4 text-zinc-300 animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 uppercase">GPU VRAM:</span>
-              <span className="text-emerald-400 font-bold">1.84 GB / 8.00 GB (23%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 uppercase">DECODE FPS:</span>
-              <span className="text-[#F5A623] font-bold">24.000 FPS LOCKED (0 DROPPED)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 uppercase">PIPELINE:</span>
-              <span className="text-cyan-400 font-bold">W3C WEBCODECS HARDWARE MUXER</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsStatsTelemetryOpen(false)}
-            className="text-xs text-zinc-500 hover:text-white cursor-pointer"
-          >
-            ✕ CLOSE TELEMETRY
-          </button>
-        </div>
-      )}
+      <video
+        ref={masterVideoRef}
+        playsInline
+        muted
+        preload="auto"
+        className="hidden"
+        style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+      />
+      <audio
+        ref={masterAudioRef}
+        preload="auto"
+        className="hidden"
+        style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+      />
 
-      {/* ========================================================= */}
-      {/* SECTION 2: CLEAN RENDER VIEWPORT (ZERO LOSS ARCHITECTURE) */}
-      {/* Strictly NO non-creative UI text or player controls inside canvas */}
-      {/* Raw video plate + Creative Kinetic Bangla Typography ONLY */}
-      {/* ========================================================= */}
-      <section className="relative w-full max-w-7xl mx-auto px-2 md:px-4 pt-1 pb-1">
-        
-        {/* Externalized Top Telemetry Shelf (OUTSIDE the render viewport) */}
-        <div className="flex items-center justify-between py-1 px-1 text-xs font-mono text-zinc-400 border-b border-white/10 mb-1">
-          <div className="flex items-center gap-2">
-            <span className="px-1.5 py-0.2 rounded bg-[#e50914]/20 border border-[#e50914]/50 text-[#e50914] font-black text-[9px] tracking-wider uppercase">
-              SHOT {activeShot.shotNumber} / {String(SHOWCASE_PRESETS.length).padStart(2, '0')}
-            </span>
-            <span className="text-white font-bold tracking-wider text-xs">
-              {activeShot.titleEn}
-            </span>
-            <span className="text-zinc-500 hidden sm:inline text-[10px]">
-              // {activeShot.lensSpec}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[#F5A623] font-bold text-[9px] tracking-widest uppercase">
-              {activeShot.lutFilter}
-            </span>
-            <span className="text-zinc-600">|</span>
-            <span className="text-emerald-400 font-bold text-[9px]">
-              24.000 FPS RAW LOCKED
-            </span>
-          </div>
-        </div>
-
-        {/* Instant Zero-Wait Ingest Status HUD Banner */}
-        {ingestStatus && (
-          <div className="w-full bg-[#0a120e] border border-emerald-500/60 rounded-xl px-4 py-2 mb-3 flex items-center justify-between font-mono text-xs shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-in slide-in-from-top-1 duration-200">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-emerald-400 font-black tracking-wider text-sm">{ingestStatus}</span>
-              <span className="text-zinc-400 text-[11px] hidden sm:inline">// ZERO-WAIT INGESTION ACTIVE</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-bold">
-                AUTO-ASSIGNED TO SHOT {activeShot.shotNumber}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Mandate 5: Isolated Asynchronous Export Telemetry Banner */}
-        {exportState.isExporting && (
-          <div className="w-full bg-[#140e06] border border-amber-500/70 rounded-xl px-4 py-2 mb-3 flex items-center justify-between font-mono text-xs shadow-[0_0_25px_rgba(245,166,35,0.25)] animate-in slide-in-from-top-1 duration-200">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-              <span className="text-amber-400 font-black tracking-wider text-sm">{exportState.statusText}</span>
-              <span className="text-zinc-400 text-[11px] hidden sm:inline">// NON-BLOCKING CANVAS EXPORT ACTIVE</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-24 sm:w-32 h-2 bg-black/70 rounded-full border border-amber-500/40 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-amber-500 to-[#F5A623] transition-all duration-100"
-                  style={{ width: `${exportState.progress}%` }}
-                />
+      {viewMode === 'mobile' ? (
+        /* ========================================================= */
+        /* DEDICATED MOBILE REEL 9:16 STUDIO CONTAINER               */
+        /* ========================================================= */
+        <div className="w-full min-h-[calc(100vh-64px)] flex items-center justify-center p-1 sm:p-4">
+          <div className="max-w-[440px] w-full h-[88vh] max-h-[860px] min-h-[580px] flex flex-col bg-[#050505] border border-neutral-800/60 shadow-2xl rounded-2xl overflow-hidden select-none">
+            {/* SECTION A: TOP TELEMETRY STRIP (Height: 44px) */}
+            <div className="h-11 px-3 border-b border-neutral-800/80 bg-neutral-950/90 flex items-center justify-between font-mono shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono tracking-widest text-amber-500/80 font-bold">
+                  [ REEL_V1 // 9:16 ]
+                </span>
+                {isReelTemplateActive && (
+                  <span className="text-[8.5px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold">
+                    15S REEL
+                  </span>
+                )}
               </div>
-              <span className="text-[11px] text-amber-300 font-bold tabular-nums">
-                {exportState.progress}%
-              </span>
+              <div className="text-xs font-mono font-bold text-white tabular-nums tracking-wider">
+                <span ref={mobileTimecodeRef}>
+                  00:00 / {activeShot.durationSec.toFixed(1)}s
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowSafeAreas(prev => !prev)}
+                  className={`text-[9.5px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                    showSafeAreas
+                      ? 'bg-amber-500/20 border-amber-500/60 text-amber-300'
+                      : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'
+                  }`}
+                  title="Toggle TikTok / Reels Safe-Area Guides"
+                >
+                  ⛶ SAFE
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('desktop');
+                    try { audioEngine.playShutterClick(); } catch {}
+                  }}
+                  className="bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-[10px] text-neutral-300 font-mono tracking-wider px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1 transition-colors"
+                  title="Switch to 2.39:1 Cinema Console (Hotkey: M)"
+                >
+                  <span>🖥️ CINEMA</span>
+                </button>
+              </div>
+            </div>
+
+            {/* SECTION B: DOMINANT 9:16 STAGE VIEWPORT (Height: ~58%) */}
+            <div 
+              className="w-full flex-1 flex items-center justify-center p-2 relative bg-black overflow-hidden"
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverStage(true); }}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isDraggingOverStage) setIsDraggingOverStage(true); }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setIsDraggingOverStage(false);
+              }}
+              onDrop={(e) => handleDrop(e, activeShotIndex)}
+            >
+              <div className="aspect-[9/16] h-full max-h-full max-w-full border border-neutral-800 rounded-lg overflow-hidden relative shadow-inner flex items-center justify-center bg-black">
+                {/* Active Canvas: renders 9:16 composite (Video + LUT/Grain + Typography + Safe Areas) */}
+                <canvas
+                  ref={stageCanvasRef}
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Drag & Drop Overlay */}
+                {isDraggingOverStage && (
+                  <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-md border-2 border-dashed border-[#F5A623] flex flex-col items-center justify-center pointer-events-none p-4 text-center">
+                    <HardDrive className="w-10 h-10 text-[#F5A623] animate-bounce mb-2" />
+                    <span className="text-xs font-mono font-black text-[#F5A623] tracking-widest uppercase">
+                      DROP MEDIA HERE
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-400 mt-1">
+                      AUTO-ASSIGN TO SHOT {activeShot.shotNumber}
+                    </span>
+                  </div>
+                )}
+
+                {/* Top Shot Tag Pill in Viewport */}
+                <div className="absolute top-2 left-2 z-20 pointer-events-none flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded bg-black/75 border border-white/20 text-white font-mono text-[9px] font-bold">
+                    SHOT {activeShot.shotNumber} / {SHOWCASE_PRESETS.length}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[8.5px] font-bold">
+                    {activeShotPersonality}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION C: THUMB-ZONE CONTROL PANEL (Height: ~42%) */}
+            <div className="border-t border-neutral-800/80 bg-[#08080c] flex flex-col shrink-0">
+              {/* Audio Floor Strip if active */}
+              {audioTrackInfo && (
+                <div className="h-6 px-3 bg-cyan-950/40 border-b border-cyan-500/30 flex items-center justify-between text-[10px] font-mono text-cyan-300">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Music className="w-3 h-3 text-cyan-400 shrink-0" />
+                    <span className="truncate">{audioTrackInfo.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (masterAudioRef.current) {
+                        masterAudioRef.current.pause();
+                        masterAudioRef.current.removeAttribute('src');
+                      }
+                      setAudioTrackInfo(null);
+                    }}
+                    className="text-zinc-500 hover:text-white ml-2 text-[9px]"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* SUB-BAR 1: Precision Scrubber & Beat Snap (Height: 36px) */}
+              <div className="h-9 px-3 flex items-center gap-2 border-b border-neutral-800/50">
+                <div 
+                  ref={scrubberTrackRef}
+                  onPointerDown={handleScrubPointerDown}
+                  className="flex-1 h-3 bg-neutral-900 border border-neutral-700/80 rounded-full relative cursor-ew-resize overflow-hidden"
+                >
+                  <div 
+                    ref={mobilePlayheadRef}
+                    className="absolute top-0 bottom-0 w-2 -ml-1 bg-amber-400 rounded-full shadow-[0_0_8px_#fbbf24]"
+                    style={{ left: '0%' }}
+                  />
+                  {/* Shot division tick marks */}
+                  <div className="absolute inset-0 flex justify-between pointer-events-none opacity-30">
+                    {SHOWCASE_PRESETS.map((_, i) => (
+                      <div key={i} className="w-[1px] h-full bg-white/40" />
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSnapToBeat(prev => !prev)}
+                  className={`h-6 px-2 rounded font-mono text-[9px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+                    isSnapToBeat
+                      ? 'bg-cyan-950/80 border border-cyan-400 text-cyan-300'
+                      : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
+                  }`}
+                  title="Snap cuts to audio beats"
+                >
+                  <Music className="w-2.5 h-2.5 text-cyan-400" />
+                  <span>SNAP</span>
+                </button>
+              </div>
+
+              {/* SUB-BAR 2: Snap-Scroll 14-Shot Card Strip (Height: 96px) */}
+              <div className="h-24 px-2 py-1.5 flex items-center gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory">
+                {SHOWCASE_PRESETS.map((shot, idx) => {
+                  const isActive = idx === activeShotIndex;
+                  const shotMedia = customMedia[idx];
+                  const displayImg = shotMedia?.thumbnailUrl || shotMedia?.url || shot.imageUrl;
+                  const personality = getShotTitlePersonality(idx, customTitleStyles[idx]);
+                  const trim = trimPoints[idx] || { in: 0, out: 12.0 };
+                  const dur = Math.max(0.1, trim.out - trim.in);
+
+                  return (
+                    <div
+                      key={shot.id}
+                      onClick={() => {
+                        selectShot(idx);
+                        try { audioEngine.playShutterClick(); } catch {}
+                      }}
+                      className={`w-20 h-20 shrink-0 relative rounded-lg overflow-hidden border cursor-pointer snap-start transition-all ${
+                        isActive
+                          ? 'border-amber-400 ring-2 ring-amber-400/50 shadow-[0_0_14px_rgba(251,191,36,0.5)] scale-102 z-10'
+                          : 'border-neutral-800 hover:border-neutral-600 bg-neutral-950 opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      {displayImg ? (
+                        <div 
+                          className="w-full h-full bg-cover bg-center"
+                          style={{ backgroundImage: `url(${displayImg})` }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-neutral-900 via-neutral-950 to-black flex items-center justify-center">
+                          <span className="text-[8px] font-mono text-neutral-500">+ MEDIA</span>
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
+
+                      {/* Shot Tag & Style */}
+                      <div className="absolute top-1 left-1 right-1 flex items-center justify-between text-[7.5px] font-mono pointer-events-none">
+                        <span className={`px-1 rounded font-bold ${isActive ? 'bg-amber-400 text-black' : 'bg-black/70 text-white'}`}>
+                          {shot.shotNumber}
+                        </span>
+                        <span className="px-1 rounded bg-black/60 text-zinc-400 font-bold">
+                          {personality === 'DOPAMINE' ? 'DPM' : personality === 'MINIMAL' ? 'MIN' : personality === 'B2B' ? 'B2B' : 'KIN'}
+                        </span>
+                      </div>
+
+                      {/* Duration Badge */}
+                      <div className="absolute bottom-1 right-1 px-1 rounded bg-black/80 text-[7.5px] font-mono text-amber-300 font-bold pointer-events-none">
+                        {dur.toFixed(1)}s
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* SUB-BAR 3: Rapid Action Hub (Height: 64px) */}
+              <div className="h-16 px-3 flex items-center justify-between gap-2 border-t border-neutral-800/60">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleStepFrame(false)}
+                    className="h-8 px-2 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 text-[10px] font-mono font-bold cursor-pointer"
+                    title="Step -1 Frame"
+                  >
+                    -1F
+                  </button>
+
+                  {/* Big Play / Pause */}
+                  <button
+                    type="button"
+                    onClick={handleTogglePlay}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-bold transition-transform active:scale-90 cursor-pointer shadow-lg ${
+                      isPlaying
+                        ? 'bg-amber-500 text-black shadow-[0_0_16px_rgba(245,166,35,0.7)]'
+                        : 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_16px_rgba(220,38,38,0.7)]'
+                    }`}
+                    title="Play / Pause (Space)"
+                  >
+                    {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleStepFrame(true)}
+                    className="h-8 px-2 rounded bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 text-[10px] font-mono font-bold cursor-pointer"
+                    title="Step +1 Frame"
+                  >
+                    +1F
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {/* Quick Reel 15S Toggle */}
+                  <button
+                    type="button"
+                    onClick={handleToggleReelTemplate}
+                    className={`h-8 px-2.5 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                      isReelTemplateActive
+                        ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_10px_rgba(245,166,35,0.5)]'
+                        : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'
+                    }`}
+                    title="Auto-slot 14 shots with 15-second TikTok/Reel timing"
+                  >
+                    <span>⚡ 15S</span>
+                  </button>
+
+                  {/* Media Ingest */}
+                  <button
+                    type="button"
+                    onClick={() => vaultFileInputRef.current?.click()}
+                    className="h-8 px-2.5 rounded-lg bg-neutral-900 border border-neutral-800 hover:border-amber-400 text-amber-400 font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                    title="Ingest Media"
+                  >
+                    <HardDrive className="w-3 h-3" />
+                    <span>+ MEDIA</span>
+                  </button>
+
+                  {/* Export 9:16 */}
+                  <button
+                    type="button"
+                    onClick={handleQuickExportCurrentShot}
+                    disabled={exportState.isExporting}
+                    className={`h-8 px-2.5 rounded-lg font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all ${
+                      exportState.isExporting
+                        ? 'bg-amber-500/30 border border-amber-400 text-amber-300 animate-pulse'
+                        : 'bg-amber-500 text-black hover:bg-amber-400 shadow-md active:scale-95'
+                    }`}
+                    title="Export 9:16 Vertical Video"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>{exportState.isExporting ? `${exportState.progress}%` : 'EXPORT'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-
-        {/* 2.39:1 / Aspect-Responsive Clean Render Viewport Canvas */}
-        <div 
-          className="relative w-full rounded-2xl overflow-hidden bg-black border border-[#232330] shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex items-center justify-center transition-all duration-300"
-          style={{
-            aspectRatio: selectedAspectRatio === '2.39:1' ? '2.39 / 1' : selectedAspectRatio === '16:9' ? '16 / 9' : selectedAspectRatio === '9:16' ? '9 / 16' : selectedAspectRatio === '4:3' ? '4 / 3' : '1 / 1',
-            maxHeight: '74vh'
-          }}
-          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverStage(true); }}
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isDraggingOverStage) setIsDraggingOverStage(true); }}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-            setIsDraggingOverStage(false);
-          }}
-          onDrop={(e) => handleDrop(e, activeShotIndex)}
-        >
-          {/* Viewport Drag & Drop Overlay */}
-          {isDraggingOverStage && (
-            <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-md border-2 border-dashed border-[#F5A623] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-150">
-              <HardDrive className="w-12 h-12 text-[#F5A623] animate-bounce mb-2" />
-              <span className="text-base font-mono font-black text-[#F5A623] tracking-widest uppercase">
-                [ DROP 4K MEDIA HERE // AUTO-ASSIGN TO SHOT {activeShot.shotNumber} ]
-              </span>
-              <span className="text-xs font-mono text-zinc-400 mt-1">
-                ZERO-WAIT BLOB PIPELINE • .MP4, .MOV, .PNG, .JPG
-              </span>
+        </div>
+      ) : (
+        /* ========================================================= */
+        /* FULL DESKTOP 2.39:1 WORKSTATION CONSOLE (PRESERVED)       */
+        /* ========================================================= */
+        <>
+          {/* ========================================================= */}
+          {/* ENGINE TELEMETRY OVERLAY (STATS BUTTON TOGGLE) */}
+          {/* ========================================================= */}
+          {isStatsTelemetryOpen && (
+            <div className="w-full bg-[#0d0d14] border-b border-amber-500/30 px-6 py-3 font-mono text-xs flex flex-wrap items-center justify-between gap-4 text-zinc-300 animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-500 uppercase">GPU VRAM:</span>
+                  <span className="text-emerald-400 font-bold">1.84 GB / 8.00 GB (23%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-500 uppercase">DECODE FPS:</span>
+                  <span className="text-[#F5A623] font-bold">24.000 FPS LOCKED (0 DROPPED)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-500 uppercase">PIPELINE:</span>
+                  <span className="text-cyan-400 font-bold">W3C WEBCODECS HARDWARE MUXER</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsStatsTelemetryOpen(false)}
+                className="text-xs text-zinc-500 hover:text-white cursor-pointer"
+              >
+                ✕ CLOSE TELEMETRY
+              </button>
             </div>
           )}
 
-          {/* Zoom Transform Wrapper */}
-          <div 
-            className="w-full h-full relative flex items-center justify-center transition-transform duration-300 ease-out"
-            style={{
-              transform: stageZoomLevel === '2.0x' ? 'scale(2.0)' : stageZoomLevel === '1.5x' ? 'scale(1.5)' : 'scale(1.0)',
-              willChange: 'transform'
-            }}
-          >
-            {/* Single Persistent Native 4K Video Element (Never unmounted to avoid playback stalls) */}
-            <video
-              ref={stageVideoRef}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                hasVideo ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none -z-10'
-              }`}
+          {/* ========================================================= */}
+          {/* SECTION 2: CLEAN RENDER VIEWPORT (ZERO LOSS ARCHITECTURE) */}
+          {/* Strictly NO non-creative UI text or player controls inside canvas */}
+          {/* Raw video plate + Creative Kinetic Bangla Typography ONLY */}
+          {/* ========================================================= */}
+          <section className="relative w-full max-w-7xl mx-auto px-2 md:px-4 pt-1 pb-1">
+            
+            {/* Externalized Top Telemetry Shelf (OUTSIDE the render viewport) */}
+            <div className="flex items-center justify-between py-1 px-1 text-xs font-mono text-zinc-400 border-b border-white/10 mb-1">
+              <div className="flex items-center gap-2">
+                <span className="px-1.5 py-0.2 rounded bg-[#e50914]/20 border border-[#e50914]/50 text-[#e50914] font-black text-[9px] tracking-wider uppercase">
+                  SHOT {activeShot.shotNumber} / {String(SHOWCASE_PRESETS.length).padStart(2, '0')}
+                </span>
+                <span className="text-white font-bold tracking-wider text-xs">
+                  {activeShot.titleEn}
+                </span>
+                <span className="text-zinc-500 hidden sm:inline text-[10px]">
+                  // {activeShot.lensSpec}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Quick Reel 15S Toggle */}
+                <button
+                  type="button"
+                  onClick={handleToggleReelTemplate}
+                  className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                    isReelTemplateActive
+                      ? 'bg-amber-500 text-black border border-amber-400 shadow-[0_0_10px_rgba(245,166,35,0.6)]'
+                      : 'bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-neutral-300'
+                  }`}
+                  title="Toggle 15s Quick Reel Template: 14 shots auto-timed to 15s total"
+                >
+                  <span>⚡ QUICK REEL 15S</span>
+                  {isReelTemplateActive && <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />}
+                </button>
+
+                {/* Mode Switcher Pill */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('mobile');
+                    try { audioEngine.playShutterClick(); } catch {}
+                  }}
+                  className="bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-xs text-neutral-300 font-mono tracking-wider px-3 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors"
+                  title="Switch to 9:16 Mobile Reel Studio (Hotkey: M)"
+                >
+                  <span>📱 REEL 9:16</span>
+                </button>
+
+                <span className="text-[#F5A623] font-bold text-[9px] tracking-widest uppercase hidden md:inline">
+                  {activeShot.lutFilter}
+                </span>
+                <span className="text-zinc-600 hidden md:inline">|</span>
+                <span className="text-emerald-400 font-bold text-[9px] hidden sm:inline">
+                  24.000 FPS RAW LOCKED
+                </span>
+              </div>
+            </div>
+
+            {/* Instant Zero-Wait Ingest Status HUD Banner */}
+            {ingestStatus && (
+              <div className="w-full bg-[#0a120e] border border-emerald-500/60 rounded-xl px-4 py-2 mb-3 flex items-center justify-between font-mono text-xs shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-emerald-400 font-black tracking-wider text-sm">{ingestStatus}</span>
+                  <span className="text-zinc-400 text-[11px] hidden sm:inline">// ZERO-WAIT INGESTION ACTIVE</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-bold">
+                    AUTO-ASSIGNED TO SHOT {activeShot.shotNumber}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Mandate 5: Isolated Asynchronous Export Telemetry Banner */}
+            {exportState.isExporting && (
+              <div className="w-full bg-[#140e06] border border-amber-500/70 rounded-xl px-4 py-2 mb-3 flex items-center justify-between font-mono text-xs shadow-[0_0_25px_rgba(245,166,35,0.25)] animate-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                  <span className="text-amber-400 font-black tracking-wider text-sm">{exportState.statusText}</span>
+                  <span className="text-zinc-400 text-[11px] hidden sm:inline">// NON-BLOCKING CANVAS EXPORT ACTIVE</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-24 sm:w-32 h-2 bg-black/70 rounded-full border border-amber-500/40 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-amber-500 to-[#F5A623] transition-all duration-100"
+                      style={{ width: `${exportState.progress}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-amber-300 font-bold tabular-nums">
+                    {exportState.progress}%
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 2.39:1 / Aspect-Responsive Clean Render Viewport Canvas */}
+            <div 
+              className="relative w-full rounded-2xl overflow-hidden bg-black border border-[#232330] shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex items-center justify-center transition-all duration-300"
               style={{
-                filter: getLutFilterCss(activeShot.lutFilter),
-                backgroundColor: '#050508',
-                willChange: 'transform',
-                transform: 'translateZ(0)'
+                aspectRatio: selectedAspectRatio === '2.39:1' ? '2.39 / 1' : selectedAspectRatio === '16:9' ? '16 / 9' : selectedAspectRatio === '9:16' ? '9 / 16' : selectedAspectRatio === '4:3' ? '4 / 3' : '1 / 1',
+                maxHeight: '74vh'
               }}
-              playsInline
-              muted
-              loop
-              autoPlay
-              preload="auto"
-              disablePictureInPicture
-              crossOrigin="anonymous"
-              onLoadedMetadata={() => {
-                if (isPlaying && hasVideo) {
-                  triggerPlayback();
-                }
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverStage(true); }}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isDraggingOverStage) setIsDraggingOverStage(true); }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setIsDraggingOverStage(false);
               }}
-            />
+              onDrop={(e) => handleDrop(e, activeShotIndex)}
+            >
+              {/* Viewport Drag & Drop Overlay */}
+              {isDraggingOverStage && (
+                <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-md border-2 border-dashed border-[#F5A623] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-150">
+                  <HardDrive className="w-12 h-12 text-[#F5A623] animate-bounce mb-2" />
+                  <span className="text-base font-mono font-black text-[#F5A623] tracking-widest uppercase">
+                    [ DROP 4K MEDIA HERE // AUTO-ASSIGN TO SHOT {activeShot.shotNumber} ]
+                  </span>
+                  <span className="text-xs font-mono text-zinc-400 mt-1">
+                    ZERO-WAIT BLOB PIPELINE • .MP4, .MOV, .PNG, .JPG
+                  </span>
+                </div>
+              )}
 
-            {/* Crisp Stills Plate (when active shot has custom image but not video) */}
-            {hasImage && (
+              {/* Zoom Transform Wrapper */}
               <div 
-                className="absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-500 z-10"
+                className="w-full h-full relative flex items-center justify-center transition-transform duration-300 ease-out"
                 style={{
-                  backgroundImage: `url(${activeShot.imageUrl})`,
-                  backgroundColor: '#050508',
-                  filter: getLutFilterCss(activeShot.lutFilter),
-                  willChange: 'transform',
-                  transform: 'translateZ(0)'
+                  transform: stageZoomLevel === '2.0x' ? 'scale(2.0)' : stageZoomLevel === '1.5x' ? 'scale(1.5)' : 'scale(1.0)',
+                  willChange: 'transform'
                 }}
-              />
-            )}
-
-            {/* Clean Minimalist Dark Studio Fallback Canvas (When no media is assigned) */}
-            {!hasMedia && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center select-none bg-gradient-to-br from-[#0a0a0a] via-[#101014] to-[#121212] overflow-hidden">
-                {/* 4K Optical Reticle Corner Markers */}
-                <div className="absolute top-5 left-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
-                  <span className="text-[#F5A623] font-black text-sm">┌</span>
-                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">DCI 4K RAW // 2.39:1 SCOPE</span>
-                </div>
-                <div className="absolute top-5 right-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
-                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">CAM 01 // LOCKED</span>
-                  <span className="text-[#00F0FF] font-black text-sm">┐</span>
-                </div>
-                <div className="absolute bottom-5 left-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
-                  <span className="text-[#F5A623] font-black text-sm">└</span>
-                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">24.000 FPS // 180° SHUTTER</span>
-                </div>
-                <div className="absolute bottom-5 right-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
-                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">PRORES 4444 XQ READY</span>
-                  <span className="text-[#00F0FF] font-black text-sm">┘</span>
-                </div>
-
-                {/* Center 4K Watermark Reticle */}
-                <div className="relative flex flex-col items-center justify-center p-6 text-center max-w-md">
-                  <div className="relative w-24 h-24 flex items-center justify-center mb-3">
-                    <div className="absolute inset-0 rounded-full border border-dashed border-white/10 animate-[spin_60s_linear_infinite]" />
-                    <div className="absolute inset-2.5 rounded-full border border-white/10" />
-                    <div className="absolute inset-x-0 h-[1px] bg-white/15" />
-                    <div className="absolute inset-y-0 w-[1px] bg-white/15" />
-                    <div className="relative z-10 w-11 h-11 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center backdrop-blur-sm shadow-xl">
-                      <Film className="w-5 h-5 text-[#F5A623]" />
-                    </div>
-                  </div>
-
-                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/10 text-[#F5A623] text-[10px] font-mono font-bold tracking-widest uppercase mb-1.5">
-                    <span>SHOT {activeShot.shotNumber}</span>
-                    <span className="text-zinc-600">•</span>
-                    <span className="text-zinc-400">CLEAN PRODUCTION SLATE</span>
-                  </div>
-
-                  <h2 className="text-sm sm:text-base font-bold font-mono text-zinc-200 tracking-wider uppercase mb-1">
-                    DROP 4K MEDIA HERE
-                  </h2>
-                  <p className="text-[11px] font-mono text-zinc-500 max-w-xs">
-                    Drop .MP4, .MOV, .PNG, or .JPG to assign directly to Shot {activeShot.shotNumber}.
-                  </p>
-                </div>
+              >
+                {/* Hardware-Accelerated Decoupled Master Stage Canvas */}
+                <canvas
+                  ref={stageCanvasRef}
+                  className="w-full h-full object-contain z-10"
+                />
               </div>
-            )}
+            </div>
 
-            {/* Subtle Vignette & Anamorphic Horizon Flare (Creative Layer) */}
-            <div className="absolute inset-0 z-15 bg-radial from-transparent via-black/20 to-black/80 pointer-events-none" />
-
-            {/* Optional Rule-of-Thirds Composition Grid Overlay */}
-            {showCompositionGrid && (
-              <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 border border-cyan-500/20 z-20">
-                <div className="border-r border-b border-cyan-500/20" />
-                <div className="border-r border-b border-cyan-500/20" />
-                <div className="border-b border-cyan-500/20" />
-                <div className="border-r border-b border-cyan-500/20" />
-                <div className="border-r border-b border-cyan-500/20" />
-                <div className="border-b border-cyan-500/20" />
-                <div className="border-r border-b border-cyan-500/20" />
-                <div className="border-r border-b border-cyan-500/20" />
-                <div />
-              </div>
-            )}
-
-            {/* Hardware-Accelerated Offscreen-Buffered Title Typography Canvas (Zero DOM Layout Recalculations) */}
-            <canvas
-              ref={titleCanvasRef}
-              className={`absolute inset-0 w-full h-full pointer-events-none z-25 transition-opacity duration-300 ${
-                titlesLayerActive ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
-          </div>
-        </div>
-
-        {/* Externalized Bottom Information Shelf (OUTSIDE the render viewport) */}
-        <div className="flex items-center justify-between py-2 px-1 text-xs font-mono text-zinc-400 border-t border-white/10 mt-3">
-          <p className="text-zinc-400 truncate max-w-xl">
-            <span className="text-zinc-600 font-bold uppercase">LOGLINE:</span> {activeShot.tagline}
-          </p>
-          <span className="text-zinc-500 text-[11px] font-mono shrink-0">
-            {activeShot.directorNotes}
-          </span>
-        </div>
-      </section>
+            {/* Externalized Bottom Information Shelf (OUTSIDE the render viewport) */}
+            <div className="flex items-center justify-between py-2 px-1 text-xs font-mono text-zinc-400 border-t border-white/10 mt-3">
+              <p className="text-zinc-400 truncate max-w-xl">
+                <span className="text-zinc-600 font-bold uppercase">LOGLINE:</span> {activeShot.tagline}
+              </p>
+              <span className="text-zinc-500 text-[11px] font-mono shrink-0">
+                {activeShot.directorNotes}
+              </span>
+            </div>
+          </section>
 
       {/* ========================================================= */}
       {/* CONSOLIDATED MASTER BOTTOM CONTROLS & TIMELINE DOCK */}
@@ -1985,7 +2626,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         <div className="mb-2">
           <div className="flex items-center justify-between mb-1.5 px-0.5">
             <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-widest text-zinc-400 uppercase">
-              12-SHOT MASTER TIMELINE PRESETS
+              14-SHOT MASTER TIMELINE PRESETS
             </span>
             <button
               type="button"
@@ -1997,7 +2638,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 lg:grid-cols-14 gap-1.5 sm:gap-2">
             {SHOWCASE_PRESETS.map((shot, idx) => {
               const isActive = idx === activeShotIndex;
               const isTargetDrag = dragTargetShotIdx === idx;
@@ -2011,8 +2652,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 <div
                   key={shot.id}
                   onClick={() => {
-                    setActiveShotIndex(idx);
-                    seekToFrame(0);
+                    selectShot(idx);
                     try { audioEngine.playShutterClick(); } catch {}
                   }}
                   onDragOver={(e) => {
@@ -2076,13 +2716,35 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     )}
                   </div>
 
+                  {/* Inline IN / OUT Trim Inputs */}
+                  <div 
+                    className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-black/90 border border-white/20 rounded px-1 py-0.5 text-[7px] font-mono text-zinc-300 z-10 shadow-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-zinc-500 font-bold">IN</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={Number((trimPoints[idx]?.in ?? 0).toFixed(1))}
+                      onChange={(e) => handleUpdateInPoint(idx, parseFloat(e.target.value) || 0)}
+                      className="w-5 bg-transparent border-b border-white/20 text-amber-300 font-mono text-[7px] text-center focus:border-amber-400 outline-none p-0"
+                    />
+                    <span className="text-zinc-500 font-bold ml-0.5">OUT</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      value={Number((trimPoints[idx]?.out ?? (isReelTemplateActive ? REEL_TEMPLATE_DURATIONS[idx % REEL_TEMPLATE_DURATIONS.length] : 12.0)).toFixed(1))}
+                      onChange={(e) => handleUpdateOutPoint(idx, parseFloat(e.target.value) || 12.0)}
+                      className="w-5 bg-transparent border-b border-white/20 text-amber-300 font-mono text-[7px] text-center focus:border-amber-400 outline-none p-0"
+                    />
+                  </div>
+
                   {/* Bottom Title Slate */}
-                  <div className="absolute bottom-1 left-1.5 right-1.5 font-mono pointer-events-none">
-                    <div className="text-[10px] font-bold text-white font-bangla truncate leading-tight">
+                  <div className="absolute bottom-1 left-1.5 max-w-[55%] font-mono pointer-events-none">
+                    <div className="text-[9px] font-bold text-white font-bangla truncate leading-tight">
                       {customTitles[idx]?.titleBn || shot.titleBn}
-                    </div>
-                    <div className="text-[7.5px] text-zinc-400 truncate leading-tight">
-                      {customTitles[idx]?.titleEn || shot.titleEn}
                     </div>
                   </div>
                 </div>
@@ -2090,6 +2752,51 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             })}
           </div>
         </div>
+
+        {/* Dedicated Compact Audio Waveform Strip (The Music Floor) */}
+        {audioTrackInfo && (
+          <div className="w-full bg-[#0a0f18] border border-cyan-500/40 rounded-lg px-2.5 py-1 mb-1.5 flex items-center justify-between text-xs font-mono shadow-md">
+            <div className="flex items-center gap-2">
+              <Music className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span className="text-[10px] text-cyan-300 font-bold tracking-wider truncate max-w-[180px] sm:max-w-xs">
+                ♫ {audioTrackInfo.name}
+              </span>
+              <span className="text-[9px] text-zinc-400">
+                // {audioTrackInfo.duration.toFixed(1)}s AUTO-ROUTED
+              </span>
+            </div>
+            <div className="flex-1 mx-4 h-3 bg-black/60 rounded border border-cyan-500/20 relative overflow-hidden flex items-center">
+              <div className="w-full h-full flex items-center gap-0.5 px-1 opacity-50">
+                {Array.from({ length: 48 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 bg-cyan-400 rounded-sm"
+                    style={{ height: `${20 + ((i * 17 + 23) % 70)}%` }}
+                  />
+                ))}
+              </div>
+              <div
+                ref={audioPlayheadRef}
+                className="absolute top-0 bottom-0 left-0 w-full bg-cyan-400/30 border-r-2 border-cyan-400 origin-left"
+                style={{ transform: 'scaleX(0)' }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (masterAudioRef.current) {
+                  masterAudioRef.current.pause();
+                  masterAudioRef.current.removeAttribute('src');
+                }
+                setAudioTrackInfo(null);
+              }}
+              className="text-zinc-500 hover:text-white text-[9px] cursor-pointer"
+              title="Clear audio track"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Mandate 1: Hardware-Accelerated Precision Scrub Bar (rAF Decoupled DOM Playhead) */}
         <div 
@@ -2905,13 +3612,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
         </div>
       </footer>
+      </>
+      )}
 
       {/* Hidden File Input for Direct Media Ingest */}
       <input
         type="file"
         ref={vaultFileInputRef}
         multiple
-        accept="video/*,image/*,.mp4,.mov,.png,.jpg,.jpeg,.webm,.mkv"
+        accept="video/*,image/*,audio/*,.mp4,.mov,.png,.jpg,.jpeg,.webm,.mkv,.mp3,.wav,.aac,.m4a,.ogg,.flac"
         onChange={handleFileInput}
         className="hidden"
         aria-hidden="true"

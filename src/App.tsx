@@ -80,6 +80,7 @@ import {
 import { MultiCamGridConfig } from './components/multicam/MultiCamViewportGrid';
 import { DEFAULT_SAMPLE_MULTICAM_GROUP } from './components/multicam/MultiCamGridMonitor';
 import { projectStorageEngine, SovereignProjectState } from './services/projectStorageEngine';
+import { serviceWorkerManager } from './services/serviceWorkerManager';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -796,6 +797,15 @@ export default function App() {
       unsubscribe();
     };
   }, [applyProjectV1ToState]);
+
+  // Precache Storyboard shot media in Service Worker L2 cache for instant playback & scrubbing
+  useEffect(() => {
+    if (project.frames && project.frames.length > 0) {
+      serviceWorkerManager.precacheStoryboardFrames(project.frames).catch(err => {
+        console.warn('[App] SW precache non-fatal error:', err);
+      });
+    }
+  }, [project.frames]);
 
   // Persist Active Session to LocalStorage for zero-loss reload
   useEffect(() => {

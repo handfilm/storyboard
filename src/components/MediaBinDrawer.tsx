@@ -38,7 +38,8 @@ import {
   Square,
   RefreshCw,
   Download,
-  AlertTriangle
+  AlertTriangle,
+  BarChart2
 } from 'lucide-react';
 import { db, VaultMediaItem, createFallbackSvgThumbnail } from '../services/db';
 import { useStudioStore } from '../core/store';
@@ -47,6 +48,7 @@ import { MediaCard } from './MediaCard';
 import { MultiCamBinMenu } from './multicam/MultiCamBinMenu';
 import { MultiCamGridMonitor } from './multicam/MultiCamGridMonitor';
 import { MultiCamGroup } from '../types/multicam';
+import { MediaVaultD3Dashboard } from './dashboard/MediaVaultD3Dashboard';
 
 export interface MediaBinDrawerProps {
   onAssignToShot?: (assetId: string, shotIndex: number, filename: string) => void;
@@ -85,6 +87,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
   const [readyStatus, setReadyStatus] = useState<string | null>(null);
   const [currentIngestFilename, setCurrentIngestFilename] = useState('');
   const [previewItem, setPreviewItem] = useState<{ id: string; url: string; isVideo: boolean; title: string } | null>(null);
+  const [showD3Telemetry, setShowD3Telemetry] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -717,6 +720,21 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* D3 Disk & RAM Telemetry Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowD3Telemetry(prev => !prev)}
+              className={`px-2 py-1 active:scale-95 border rounded-[2px] text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-all ${
+                showD3Telemetry 
+                  ? 'bg-[#F5A623] text-black border-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.3)]' 
+                  : 'bg-white/5 hover:bg-white/10 border-white/15 text-zinc-300 hover:text-white'
+              }`}
+              title="Toggle D3 Disk Allocation & Memory Telemetry Dashboard"
+            >
+              <BarChart2 className="w-3 h-3 text-[#F5A623]" />
+              <span>📊 D3 TELEMETRY</span>
+            </button>
+
             {/* Maintenance Trigger: Purge Orphan Thumbs & Temp Cache */}
             <button
               type="button"
@@ -821,6 +839,13 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Collapsible D3 Disk & RAM Telemetry Dashboard */}
+      {showD3Telemetry && (
+        <div className="p-3 border-b border-[#272732] bg-[#08080C] animate-in slide-in-from-top duration-200 shrink-0 max-h-[420px] overflow-y-auto custom-scrollbar">
+          <MediaVaultD3Dashboard compact />
+        </div>
+      )}
 
       {/* Target Notification Banner: Shows active shot index for quick assignment */}
       <div className="bg-[#0b0c10] border-b border-[#1c1c24] px-3 py-1 flex items-center justify-between text-[9px] text-zinc-400 shrink-0">

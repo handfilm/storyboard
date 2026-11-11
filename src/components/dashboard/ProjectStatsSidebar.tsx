@@ -12,7 +12,7 @@
  * - Clean, production-grade sidebar adhering to the Universal Frontend Design Constitution (no static pills, clean typography).
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AnthologyFrame } from '../../types/anthology';
 import {
   calculateMasterSequenceDuration,
@@ -33,8 +33,10 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   Activity,
-  Maximize2
+  Maximize2,
+  HardDrive
 } from 'lucide-react';
+import { MediaVaultD3Dashboard } from './MediaVaultD3Dashboard';
 
 export interface ProjectStatsSidebarProps {
   isOpen: boolean;
@@ -57,6 +59,7 @@ export const ProjectStatsSidebar: React.FC<ProjectStatsSidebarProps> = ({
   projectTitle = 'UNTITLED ANTHOLOGY',
   directorName = 'DIRECTOR'
 }) => {
+  const [activeTab, setActiveTab] = useState<'MEDIA_VAULT' | 'SEQUENCE'>('MEDIA_VAULT');
   // Real-Time Project Metrics Calculation
   const stats = useMemo(() => {
     const totalShots = frames && frames.length > 0 ? frames.length : 0;
@@ -168,11 +171,43 @@ export const ProjectStatsSidebar: React.FC<ProjectStatsSidebarProps> = ({
           </button>
         </div>
 
+        {/* Tab Switcher: MEDIA VAULT (D3) vs SEQUENCE METRICS */}
+        <div className="px-5 pt-3 pb-2 border-b border-white/10 bg-black/20 shrink-0 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('MEDIA_VAULT')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all border ${
+              activeTab === 'MEDIA_VAULT'
+                ? 'bg-[#F5A623] text-black border-[#F5A623] shadow-[0_0_12px_rgba(245,166,35,0.3)]'
+                : 'bg-white/5 text-zinc-400 border-white/10 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <HardDrive className="w-3.5 h-3.5" />
+            <span>MEDIA VAULT (D3)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('SEQUENCE')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all border ${
+              activeTab === 'SEQUENCE'
+                ? 'bg-[#F5A623] text-black border-[#F5A623] shadow-[0_0_12px_rgba(245,166,35,0.3)]'
+                : 'bg-white/5 text-zinc-400 border-white/10 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            <span>SEQUENCE STATS</span>
+          </button>
+        </div>
+
         {/* Scrollable Dashboard Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
-          
-          {/* Top 3 Core Metrics Grid */}
-          <div className="grid grid-cols-1 gap-3">
+          {activeTab === 'MEDIA_VAULT' ? (
+            <MediaVaultD3Dashboard frames={frames} />
+          ) : (
+            <>
+              {/* Top 3 Core Metrics Grid */}
+              <div className="grid grid-cols-1 gap-3">
             
             {/* Metric 1: Total Runtime */}
             <div className="p-4 rounded-xl bg-[#12121A] border border-[#232332] relative overflow-hidden">
@@ -388,8 +423,10 @@ export const ProjectStatsSidebar: React.FC<ProjectStatsSidebarProps> = ({
               })}
             </div>
           </div>
+        </>
+      )}
 
-        </div>
+    </div>
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-[#20202C] bg-[#0E0E15] flex items-center justify-between shrink-0">

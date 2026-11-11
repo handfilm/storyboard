@@ -68,6 +68,7 @@ import {
 import { useStudioStore } from '../../core/store';
 import { db } from '../../services/db';
 import { MediaBinDrawer } from '../MediaBinDrawer';
+import { serviceWorkerManager } from '../../services/serviceWorkerManager';
 
 export interface HandfilmHomeProps {
   frames?: AnthologyFrame[];
@@ -654,6 +655,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
       // Play camera shutter sound
       try { audioEngine.playShutterClick(); } catch {}
+
+      // Cache shot media in Service Worker L2 cache for instant load
+      serviceWorkerManager.cacheShotMedia(primary.url).catch(() => {});
     }
 
     // 2. Decouple IndexedDB / Storage to Background non-blocking queue

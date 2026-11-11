@@ -45,7 +45,6 @@ export const ColorStudio: React.FC = () => {
     currentShot.isVideo ||
     (imageUrl && (
       imageUrl.startsWith('data:video') ||
-      imageUrl.startsWith('blob:') ||
       /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(imageUrl)
     ))
   );

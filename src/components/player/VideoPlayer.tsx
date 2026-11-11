@@ -102,8 +102,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isVideo = Boolean(
     currentSlide?.isVideo ||
     (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl)) ||
-    (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl)) ||
-    (currentSlide?.imageUrl?.startsWith('blob:') && currentSlide?.isVideo !== false)
+    (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl))
   );
 
   // Synchronize Fullscreen Events

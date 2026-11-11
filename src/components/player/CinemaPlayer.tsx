@@ -110,12 +110,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     activeFrame?.isVideo ||
     (activeFrame?.imageUrl && (
       activeFrame.imageUrl.startsWith('data:video') ||
-      activeFrame.imageUrl.startsWith('blob:') ||
       /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(activeFrame.imageUrl)
     )) ||
     (activeFrame?.videoSrc && (
       activeFrame.videoSrc.startsWith('data:video') ||
-      activeFrame.videoSrc.startsWith('blob:') ||
       /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(activeFrame.videoSrc)
     ))
   );

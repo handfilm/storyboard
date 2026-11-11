@@ -13,6 +13,7 @@ export interface MultiCamAngle {
   volume?: number;
   isMuted?: boolean;
   name?: string;
+  isVideo?: boolean;
 }
 
 export interface CutEvent {

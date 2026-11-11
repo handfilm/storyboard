@@ -112,6 +112,7 @@ export interface TactileStageProps {
   detectedBpm?: number;
   isAudioMuted?: boolean;
   activeModule?: StudioModuleId;
+  fitMode?: 'cover' | 'contain' | 'fill';
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({
@@ -143,7 +144,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   isSnapToBeat = false,
   onToggleSnapToBeat,
   onReorderFrames,
-  detectedBpm = 120
+  detectedBpm = 120,
+  isAudioMuted = true,
+  fitMode = 'cover'
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -423,8 +426,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       /\.(mp4|webm|mov|m4v|mkv)(\?|$)/i.test(activeMediaUrl) ||
       activeMediaUrl.includes('video') ||
       activeMediaUrl.startsWith('data:video')
-    )) ||
-    (activeMediaUrl?.startsWith('blob:') && frame?.isVideo !== false)
+    ))
   );
 
   const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
@@ -435,19 +437,26 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   // Synchronous Media Pass-Through: Smooth native video playback without micro-stuttering seek loops
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !isVideoMedia) return;
 
     if (isAutoplay) {
+      video.muted = isAudioMuted ?? true;
       if (video.paused) {
-        video.muted = true;
-        video.play().catch(() => {});
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Autoplay with audio was prevented, fallback to muted playback
+            video.muted = true;
+            video.play().catch(() => {});
+          });
+        }
       }
-      // ONLY seek during active scrubbing or severe playback drift (>1.2s)
-      if (isScrubbing || Math.abs(video.currentTime - slideTimeSec) > 1.2) {
+      // ONLY seek during active scrubbing or severe playback drift (>0.75s)
+      if (isScrubbing || Math.abs(video.currentTime - slideTimeSec) > 0.75) {
         if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
           try { (video as any).fastSeek(slideTimeSec); } catch { video.currentTime = slideTimeSec; }
         } else {
-          video.currentTime = slideTimeSec;
+          try { video.currentTime = slideTimeSec; } catch {}
         }
       }
     } else {
@@ -456,10 +465,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       }
       // Precision frame seek when paused / stepping
       if (Math.abs(video.currentTime - slideTimeSec) > 0.04) {
-        video.currentTime = slideTimeSec;
+        try { video.currentTime = slideTimeSec; } catch {}
       }
     }
-  }, [slideTimeSec, isAutoplay, isScrubbing]);
+  }, [slideTimeSec, isAutoplay, isScrubbing, isVideoMedia, isAudioMuted]);
 
   // Track Shot Changes for Subtle Filmic Cross-Dissolve Animation
   useEffect(() => {
@@ -861,26 +870,25 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   // Dynamic Aspect Ratio Auto-Fitting:
-  // - Vertical (9:16): Auto-fit stage height with dynamic pillarbox margins (calc(76vh * 9 / 16))
-  // - Vertical (9:16): Centered uncropped framing with dynamic pillarbox margins
-  // - Landscape (16:9 / 2.39:1): Edge-to-edge cinematic expansion for 55-inch 4K screen dominance
+  // - Clean, responsive framing flush to top with no blank gap
+  // - Leaves dedicated clearance at bottom for bezel ribbon and control dock
   const getAspectStyle = (ar: string): React.CSSProperties => {
     switch (ar) {
       case '9:16':
         return {
           aspectRatio: '9 / 16',
-          height: 'calc(100vh - 120px)',
-          maxHeight: 'calc(100vh - 120px)',
-          width: 'calc((100vh - 120px) * 9 / 16)',
+          height: 'calc(100vh - 124px)',
+          maxHeight: 'calc(100vh - 124px)',
+          width: 'calc((100vh - 124px) * 9 / 16)',
           maxWidth: '100%',
           margin: '0 auto'
         };
       case '1:1':
         return {
           aspectRatio: '1 / 1',
-          height: 'calc(100vh - 120px)',
-          maxHeight: 'calc(100vh - 120px)',
-          width: 'calc(100vh - 120px)',
+          height: 'calc(100vh - 124px)',
+          maxHeight: 'calc(100vh - 124px)',
+          width: 'calc(100vh - 124px)',
           maxWidth: '100%',
           margin: '0 auto'
         };
@@ -888,16 +896,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         return {
           aspectRatio: '4 / 3',
           width: '100%',
-          maxWidth: 'min(94vw, 1500px)',
-          maxHeight: 'calc(100vh - 120px)',
+          maxWidth: 'min(98vw, 1500px)',
+          maxHeight: 'calc(100vh - 124px)',
           margin: '0 auto'
         };
       case '16:9':
         return {
           aspectRatio: '16 / 9',
           width: '100%',
-          maxWidth: 'min(98vw, 1840px)',
-          maxHeight: 'calc(100vh - 120px)',
+          maxWidth: 'min(99vw, 1880px)',
+          maxHeight: 'calc(100vh - 124px)',
           margin: '0 auto'
         };
       case '2.39:1':
@@ -905,12 +913,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         return {
           aspectRatio: '2.39 / 1',
           width: '100%',
-          maxWidth: 'min(98vw, 1840px)',
-          maxHeight: 'calc(100vh - 120px)',
+          maxWidth: 'min(99vw, 1880px)',
+          maxHeight: 'calc(100vh - 124px)',
           margin: '0 auto'
         };
     }
   };
+
+  const fitModeClass = fitMode === 'contain' ? 'object-contain' : 'object-cover';
 
   return (
     <div
@@ -964,7 +974,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* 1. MASTER STAGE MEDIA CONTAINER (Strict Export Integrity - NO overlapping UI HUD badges) */}
+      {/* 1. MASTER STAGE MEDIA CONTAINER (Flush to top, zero black gap, edge-to-edge cinema presence) */}
       <div
         id="stage-media-container"
         style={getAspectStyle(aspectRatio)}
@@ -981,7 +991,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               poster={cachedPosterUrl || undefined}
               autoPlay={isAutoplay}
               loop
-              muted
+              muted={isAudioMuted ?? true}
               playsInline
               preload="auto"
               onCanPlay={(e) => {
@@ -994,7 +1004,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                   e.currentTarget.play().catch(() => {});
                 }
               }}
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+              className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
               style={{ filter: combinedMediaFilter }}
             />
           ) : (
@@ -1003,7 +1013,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               src={activeMediaUrl}
               crossOrigin="anonymous"
               alt="Active Shot Plate"
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+              className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
               style={{ filter: combinedMediaFilter }}
             />
           )
@@ -1014,7 +1024,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             src={cachedPosterUrl}
             crossOrigin="anonymous"
             alt="Cached Shot Poster"
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+            className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
             style={{ filter: combinedMediaFilter }}
           />
         )}
@@ -1023,7 +1033,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         <canvas
           id="stage-canvas"
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-1"
+          className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-1`}
           style={{ filter: combinedMediaFilter }}
         />
 
@@ -1106,8 +1116,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         )}
       </div>
 
-      {/* 2. SLEEK CINEMA MONITOR BEZEL RIBBON (Ultra-compact 22px bar directly under the monitor) */}
-      <div className="w-full max-w-[min(98vw,1840px)] mx-auto mt-0.5 px-2 py-0.5 bg-[#090a0f]/95 border border-white/10 rounded flex items-center justify-between gap-1.5 shrink-0 select-none shadow-md h-5.5 text-[8.5px]">
+      {/* 2. SLEEK CINEMA MONITOR BEZEL RIBBON (Ultra-compact 20px bar directly under the monitor) */}
+      <div className="w-full max-w-[min(99vw,1880px)] mx-auto mt-0.5 px-2 py-0.5 bg-[#090a0f]/95 border border-white/10 rounded flex items-center justify-between gap-1.5 shrink-0 select-none shadow-md h-5 text-[8.5px]">
         {/* Left: Scene & Shot Metadata */}
         <div className="flex items-center gap-1.5 truncate text-[8.5px] font-mono tracking-wider uppercase text-white/40">
           <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>

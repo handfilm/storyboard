@@ -333,6 +333,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           nodeLocation={nodeLocation}
           showHud={showHud}
           isAutoplay={isAutoplay}
+          fitMode={fitMode}
           componentsVisibility={componentsVisibility}
           onSelectFrame={onSelectFrame}
           onUpdateFrame={onUpdateFrame}
@@ -423,6 +424,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               nodeLocation={nodeLocation}
               showHud={showHud}
               isAutoplay={isAutoplay}
+              fitMode={fitMode}
               componentsVisibility={componentsVisibility}
               onSelectFrame={onSelectFrame}
               onUpdateFrame={onUpdateFrame}
@@ -550,7 +552,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
         {/* VIEW 2: OPTICAL MONITOR (Expanded Canvas) */}
         {currentPanel === 'OPTICAL' && (
-          <div className="w-full h-full flex flex-col items-center justify-center p-3 overflow-hidden">
+          <div className="w-full h-full flex flex-col items-center justify-start p-0 pt-0 overflow-hidden">
             <OpticalMonitor
               currentSlide={slides[currentIndex]}
               nextSlide={slides[(currentIndex + 1) % slides.length]}

@@ -236,10 +236,10 @@ export const BloomInteractiveCanvas: React.FC<BloomInteractiveCanvasProps> = ({
       {/* ========================================================================= */}
       {/* MAIN VIEWPORT / SPATIAL CANVAS AREA                                       */}
       {/* ========================================================================= */}
-      <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center">
+      <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-start pt-0 flex-col">
         {canvasMode === 'viewport-focus' ? (
           /* Primary Master Optical Stage Viewport */
-          <div className="w-full h-full relative flex items-center justify-center p-2 sm:p-4">
+          <div className="w-full h-full relative flex items-center justify-start pt-0 px-2 pb-2">
             <OpticalFrame
               frame={activeFrame}
               aspectRatio={aspectRatio}

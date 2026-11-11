@@ -445,8 +445,14 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   // Render video, image, or standby slate for a camera feed with Blank Media Safeguard
   // All media elements properly muted and optimized for 60fps GPU compositing
   const renderAngleMedia = (angle: MultiCamAngle, index: number) => {
-    const isVideo = Boolean(angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm')));
-    const isImage = Boolean(angle.blobUrl && (angle.blobUrl.startsWith('http') || angle.blobUrl.startsWith('data:') || angle.blobUrl.startsWith('/')));
+    const isVideo = Boolean(
+      angle.isVideo ||
+      (angle.blobUrl && (
+        /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(angle.blobUrl) ||
+        angle.blobUrl.startsWith('data:video')
+      ))
+    );
+    const isImage = Boolean(angle.blobUrl && !isVideo);
 
     if (isVideo) {
       return (

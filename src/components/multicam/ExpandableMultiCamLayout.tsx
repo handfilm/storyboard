@@ -157,7 +157,13 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
       );
     }
 
-    const isVideo = angle.blobUrl && (angle.blobUrl.startsWith('blob:') || angle.blobUrl.endsWith('.mp4') || angle.blobUrl.endsWith('.webm'));
+    const isVideo = Boolean(
+      angle.isVideo ||
+      (angle.blobUrl && (
+        /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(angle.blobUrl) ||
+        angle.blobUrl.startsWith('data:video')
+      ))
+    );
     const fallbackImage = samplePacks.cyberNoir[index % samplePacks.cyberNoir.length] || samplePacks.cosmicMacro[0];
 
     if (isVideo) {

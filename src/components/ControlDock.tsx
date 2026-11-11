@@ -388,9 +388,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   return (
     <div
       style={{ bottom: '4px', marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      className={`fixed inset-x-0 z-40 flex flex-col items-center pointer-events-none px-1 sm:px-2 transition-all duration-300 ease-out ${
-        isPlaying ? 'opacity-35 hover:opacity-100' : 'opacity-100'
-      }`}
+      className="fixed inset-x-0 z-40 flex flex-col items-center pointer-events-none px-1 sm:px-2 transition-all duration-200 ease-out opacity-100"
     >
       {/* Floating Real-Time Drag Handle Tooltip */}
       {dragShotState && (
@@ -494,12 +492,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       )}
 
       {/* 100-Frame Strip Navigation with High-Throughput Virtualization & Per-Slide Duration Handles */}
-      <div className="w-full max-w-[min(98vw,1840px)] mb-0.5 pointer-events-auto flex items-center gap-1 sm:gap-1.5">
+      <div className="w-full max-w-[min(99vw,1880px)] mb-0.5 pointer-events-auto flex items-center gap-1 sm:gap-1.5">
         <button
           onClick={onPrev}
           aria-label="Previous Shot (J)"
           title="Previous Shot (J / Left Arrow)"
-          className="h-6 w-5.5 p-0.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95 flex items-center justify-center"
+          className="h-5.5 w-5 sm:w-5.5 p-0.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95 flex items-center justify-center"
         >
           <ChevronLeft className="w-2.5 h-2.5" />
         </button>
@@ -507,7 +505,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         <div
           ref={stripRef}
           onMouseLeave={() => setHoveredMarker(null)}
-          className="flex-1 flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5 px-1 bg-black/85 backdrop-blur-2xl border border-white/10 rounded-md no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.85)] scroll-smooth h-7 sm:h-7.5"
+          className="flex-1 flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5 px-1 bg-black/85 backdrop-blur-2xl border border-white/10 rounded-md no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.85)] scroll-smooth h-5 sm:h-5.5"
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -569,9 +567,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
-                className={`group relative shrink-0 w-10 sm:w-11 h-5.5 sm:h-6 rounded-[2px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 ease-out will-change-transform border ${
+                className={`group relative shrink-0 w-8.5 sm:w-9.5 h-4.5 sm:h-5 rounded-[2px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 ease-out will-change-transform border ${
                   isActive
-                    ? 'border-[#FFE066] ring-1.5 ring-[#D4AF37] shadow-[0_0_12px_rgba(212,175,55,0.75)] scale-105 z-20'
+                    ? 'border-[#FFE066] ring-1 ring-[#D4AF37] shadow-[0_0_10px_rgba(212,175,55,0.75)] scale-105 z-20'
                     : hasMedia
                     ? 'border-white/20 hover:border-[#FFE066]/90 hover:scale-105 bg-[#121218] opacity-85 hover:opacity-100'
                     : 'border-white/10 hover:border-white/30 hover:scale-105 bg-[#0e0e14] opacity-75 hover:opacity-100'
@@ -674,7 +672,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           onClick={onNext}
           aria-label="Next Shot (L)"
           title="Next Shot (L / Right Arrow)"
-          className="h-6 w-5.5 p-0.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95 flex items-center justify-center"
+          className="h-5 w-5 sm:w-5.5 p-0.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95 flex items-center justify-center"
         >
           <ChevronRight className="w-2.5 h-2.5" />
         </button>
@@ -685,9 +683,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             type="button"
             onClick={() => onApplyDurationToAll(currentDurationSec)}
             title={`Ripple Apply ${formatDurationPillValue(currentDurationSec)} to All Shots`}
-            className="hidden md:flex items-center gap-1 h-6 px-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/75 hover:text-[#FFE066] text-[8px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
+            className="hidden md:flex items-center gap-1 h-5 px-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/75 hover:text-[#FFE066] text-[7.5px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
           >
-            <Repeat className="w-2.5 h-2.5 text-[#D4AF37]" />
+            <Repeat className="w-2 h-2 text-[#D4AF37]" />
             <span>Ripple All</span>
           </button>
         )}
@@ -697,9 +695,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             type="button"
             onClick={onMatchAudioBeats}
             title="Match Audio Waveform Beats across all shots"
-            className="hidden lg:flex items-center gap-1 h-6 px-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-cyan-400 text-white/75 hover:text-cyan-200 text-[8px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
+            className="hidden lg:flex items-center gap-1 h-5 px-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-cyan-400 text-white/75 hover:text-cyan-200 text-[7.5px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
           >
-            <Music className="w-2.5 h-2.5 text-cyan-400" />
+            <Music className="w-2 h-2 text-cyan-400" />
             <span>Match Beats</span>
           </button>
         )}
@@ -711,7 +709,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onChange={(e) => setJumpInput(e.target.value)}
             onBlur={() => handleJumpSubmit()}
             placeholder={`# ${currentIndex + 1}`}
-            className="w-11 h-6 bg-black/85 border border-white/20 focus:border-[#D4AF37] text-white text-[8.5px] font-mono-tech px-1 rounded-[2px] text-center outline-none transition-colors tabular-nums"
+            className="w-9 sm:w-10 h-5 bg-black/85 border border-white/20 focus:border-[#D4AF37] text-white text-[7.5px] font-mono-tech px-1 rounded-[2px] text-center outline-none transition-colors tabular-nums"
             title="Type shot number and press Enter to jump"
           />
         </form>
@@ -739,28 +737,29 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       )}
 
       {/* Main Transport & Optics Toolbar */}
-      <div className="relative w-full max-w-[min(98vw,1840px)] h-[32px] sm:h-[34px] min-h-[32px] max-h-[34px] pointer-events-auto bg-black/90 backdrop-blur-2xl border border-white/10 rounded-md shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-2 flex flex-row items-center justify-between flex-nowrap gap-1.5 overflow-x-auto overflow-y-hidden scrollbar-none text-xs font-mono-tech">
+      <div className="relative w-full max-w-[min(99vw,1880px)] h-[28px] sm:h-[30px] min-h-[28px] max-h-[30px] pointer-events-auto bg-black/92 backdrop-blur-2xl border border-white/10 rounded-md shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-1 sm:px-1.5 flex flex-row items-center justify-between flex-nowrap gap-1 sm:gap-1.5 overflow-x-auto overflow-y-hidden no-scrollbar text-[8px] font-mono-tech select-none">
         {/* Subtle Ambient Gold Audio Reactivity Edge */}
-        <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
+        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
+
         {/* ======================================================= */}
-        {/* 1. LEFT WING: LARGE PLAY/PAUSE, STEP BUTTONS & SMPTE CLOCK */}
+        {/* 1. LEFT WING: PLAY/PAUSE, STEP BUTTONS & SMPTE CLOCK */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Circular Play/Pause Button */}
           <button
             type="button"
             onClick={onTogglePlay}
             aria-label={isPlaying ? 'Pause Loop' : 'Play Loop'}
-            className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
+            className={`w-5.5 h-5.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
               isPlaying
-                ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-1.5 ring-amber-500/30 shadow-[0_0_12px_rgba(245,166,35,0.6)]'
-                : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-1.5 ring-red-500/30 shadow-[0_0_12px_rgba(229,9,20,0.6)]'
+                ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-1 ring-amber-500/30 shadow-[0_0_8px_rgba(245,166,35,0.6)]'
+                : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-1 ring-red-500/30 shadow-[0_0_8px_rgba(229,9,20,0.6)]'
             }`}
           >
             {isPlaying ? (
-              <Pause className="w-3 h-3 fill-current" />
+              <Pause className="w-2.5 h-2.5 fill-current" />
             ) : (
-              <Play className="w-3 h-3 fill-current ml-0.5" />
+              <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
             )}
           </button>
 
@@ -772,7 +771,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 if (onStepFrame) onStepFrame(false);
                 else onPrev();
               }}
-              className="h-5.5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[8px] font-bold transition-all cursor-pointer"
+              className="h-5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[7px] font-bold transition-all cursor-pointer"
               title="Step Backward 1 Frame (Left Arrow)"
             >
               -1F
@@ -783,7 +782,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 if (onStepFrame) onStepFrame(true);
                 else onNext();
               }}
-              className="h-5.5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[8px] font-bold transition-all cursor-pointer"
+              className="h-5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[7px] font-bold transition-all cursor-pointer"
               title="Step Forward 1 Frame (Right Arrow)"
             >
               +1F
@@ -792,14 +791,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
           {/* Monospace SMPTE Timecode Badge */}
           <div
-            className="flex items-center gap-1 h-5.5 sm:h-6 px-1.5 rounded bg-black/90 border border-white/15 text-[8.5px] font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums"
+            className="flex items-center gap-1 h-5 px-1.5 rounded bg-black/90 border border-white/15 text-[7.5px] font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums"
             title={`Sequence SMPTE Timecode (HH:MM:SS:FF) at ${currentFps} FPS`}
           >
             <Clock className="w-2.5 h-2.5 text-amber-400" />
-            <span className="text-white/40 text-[8px] font-bold">TC</span>
-            <span className="text-amber-400 font-bold tracking-wider text-[9.5px]">{tcString}</span>
-            <span className="text-zinc-500 text-[8px]">/</span>
-            <span className="text-zinc-300 font-bold text-[8.5px]">{currentDurationSec.toFixed(1)}s</span>
+            <span className="text-white/40 text-[7px] font-bold">TC</span>
+            <span className="text-amber-400 font-bold tracking-wider text-[8.5px]">{tcString}</span>
+            <span className="text-zinc-500 text-[7px]">/</span>
+            <span className="text-zinc-300 font-bold text-[7.5px]">{currentDurationSec.toFixed(1)}s</span>
           </div>
 
           {/* In-Player Quick Cadence Selector Pill */}
@@ -829,12 +828,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
 
         {/* ======================================================= */}
-        {/* 2. CENTER WING: PROMINENT [ SOLO | MASTER ] POD, BEAT-SNAP & SPEED */}
+        {/* 2. CENTER WING: [ SOLO | MASTER ] POD, BEAT-SNAP & SPEED */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* Prominent SOLO / MASTER Segmented Command Hub */}
-          <div className="flex items-center h-6 p-0.5 bg-black/90 rounded-md border border-white/20 shadow-inner">
-            {/* SOLO Button: High-Contrast Cyan Glow */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* SOLO / MASTER Segmented Command Hub */}
+          <div className="flex items-center h-5 p-0.5 bg-black/90 rounded border border-white/20 shadow-inner">
+            {/* SOLO Button */}
             <button
               type="button"
               onClick={() => onSelectPlaybackMode?.('solo')}
@@ -845,15 +844,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                       background: 'rgba(0, 240, 255, 0.18)',
                       color: '#00f0ff',
                       fontWeight: 800,
-                      letterSpacing: '0.06em',
-                      boxShadow: '0 0 10px rgba(0, 240, 255, 0.5)'
+                      boxShadow: '0 0 8px rgba(0, 240, 255, 0.5)'
                     }
                   : undefined
               }
-              className={`h-5 px-1.5 rounded font-mono text-[8.5px] uppercase flex items-center gap-1 transition-all cursor-pointer ${
-                playbackMode === 'solo'
-                  ? ''
-                  : 'text-zinc-400 hover:text-white'
+              className={`h-4 px-1 rounded font-mono text-[7px] uppercase flex items-center gap-0.5 transition-all cursor-pointer ${
+                playbackMode === 'solo' ? '' : 'text-zinc-400 hover:text-white'
               }`}
               title="SOLO MODE: Lock playback strictly into isolated active shot"
             >
@@ -861,7 +857,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <span>SOLO</span>
             </button>
 
-            {/* MASTER Button: Rich Amber Glow */}
+            {/* MASTER Button */}
             <button
               type="button"
               onClick={() => onSelectPlaybackMode?.('sequence')}
@@ -872,15 +868,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                       background: 'rgba(255, 170, 0, 0.22)',
                       color: '#ffaa00',
                       fontWeight: 800,
-                      letterSpacing: '0.06em',
-                      boxShadow: '0 0 10px rgba(255, 170, 0, 0.5)'
+                      boxShadow: '0 0 8px rgba(255, 170, 0, 0.5)'
                     }
                   : undefined
               }
-              className={`h-5 px-1.5 rounded font-mono text-[8.5px] uppercase flex items-center gap-1 transition-all cursor-pointer ${
-                playbackMode !== 'solo'
-                  ? ''
-                  : 'text-zinc-400 hover:text-white'
+              className={`h-4 px-1 rounded font-mono text-[7px] uppercase flex items-center gap-0.5 transition-all cursor-pointer ${
+                playbackMode !== 'solo' ? '' : 'text-zinc-400 hover:text-white'
               }`}
               title="MASTER MODE: Continuous narrative playback across full sequence"
             >
@@ -901,20 +894,20 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 ? 'Snap to Beat: ON — Cuts quantize to audio transients'
                 : 'Snap to Beat: OFF — Click to quantize cuts to audio transients'
             }
-            className={`h-6 px-1.5 rounded border text-[8.5px] font-mono flex items-center gap-1 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+            className={`h-5 px-1 sm:px-1.5 rounded border text-[7px] sm:text-[7.5px] font-mono flex items-center gap-0.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
               effectiveSnapToBeat
-                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_6px_rgba(245,166,35,0.4)]'
                 : 'bg-white/5 border-white/10 text-white/60 hover:text-amber-300 hover:border-amber-400/50'
             }`}
           >
             <Music
-              className={`w-2.5 h-2.5 shrink-0 transition-colors ${
+              className={`w-2 h-2 shrink-0 transition-colors ${
                 effectiveSnapToBeat ? 'text-amber-300' : 'text-amber-400'
               }`}
             />
             <span className="hidden sm:inline">♫ BEAT</span>
             <span
-              className={`px-0.5 rounded text-[7.5px] font-mono tabular-nums transition-colors ${
+              className={`px-0.5 rounded text-[6.5px] font-mono tabular-nums transition-colors ${
                 effectiveSnapToBeat
                   ? 'bg-amber-400 text-black font-black'
                   : 'bg-white/10 text-white/45'
@@ -925,34 +918,34 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           </button>
 
           {/* Pace & Speed Slider */}
-          <div className="hidden xl:flex items-center gap-1 h-6 bg-black/60 px-1.5 rounded border border-white/10 font-mono text-[8.5px] text-zinc-400 shrink-0">
-            <span className="text-[7.5px] text-white/50 uppercase tracking-wider">SPEED</span>
+          <div className="hidden xl:flex items-center gap-1 h-5 bg-black/60 px-1 rounded border border-white/10 font-mono text-[7px] text-zinc-400 shrink-0">
+            <span className="text-[6.5px] text-white/50 uppercase tracking-wider">SPEED</span>
             <input
               type="range"
               min="1"
               max="100"
               value={speed}
               onChange={(e) => onSpeedChange(Number(e.target.value))}
-              className="w-8 sm:w-10 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
+              className="w-6 sm:w-8 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
               title={`Playback tempo scalar (${intervalSeconds}s ref)`}
             />
-            <span className="text-amber-400 font-bold tabular-nums text-[8.5px]">{intervalSeconds}s</span>
+            <span className="text-amber-400 font-bold tabular-nums text-[7px]">{intervalSeconds}s</span>
           </div>
 
           {/* Pan Tool */}
           {onTogglePan && (
             <button
               onClick={onTogglePan}
-              className={`h-6 px-1.5 rounded border text-[8.5px] font-mono flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
+              className={`h-5 px-1 rounded border text-[7px] sm:text-[7.5px] font-mono flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
                 isPanActive
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_8px_rgba(245,166,35,0.3)]'
+                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_6px_rgba(245,166,35,0.3)]'
                   : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
               }`}
               title="Interactive Vertical Alignment Pan Tool (P / Y)"
             >
-              <Move className="w-2.5 h-2.5 text-amber-400" />
+              <Move className="w-2 h-2 text-amber-400" />
               <span className="hidden sm:inline">PAN</span>
-              <span className="text-[7.5px] opacity-75">{panOffsetPercent}%</span>
+              <span className="text-[6.5px] opacity-75">{panOffsetPercent}%</span>
             </button>
           )}
 
@@ -960,35 +953,35 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           {onOpenLiquify && (
             <button
               onClick={onOpenLiquify}
-              className="h-6 px-1.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-amber-300 text-[8.5px] font-mono flex items-center gap-1 cursor-pointer transition-all shrink-0"
+              className="h-5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-amber-300 text-[7px] sm:text-[7.5px] font-mono flex items-center gap-0.5 cursor-pointer transition-all shrink-0"
               title="HTML5 Canvas Liquify & Mesh Warp Studio (W)"
             >
-              <Wand2 className="w-2.5 h-2.5 text-amber-400" />
+              <Wand2 className="w-2 h-2 text-amber-400" />
               <span className="hidden sm:inline">WARP</span>
             </button>
           )}
         </div>
 
         {/* ======================================================= */}
-        {/* 3. RIGHT WING: TITLES WITH EASY TITLE CHANGER, ZEN, OPTICS & TOOLS */}
+        {/* 3. RIGHT WING: TITLES, ZEN, OPTICS & TOOLS */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
           {/* Easy Change Title & Titles ON/OFF Hub */}
-          <div className="relative flex items-center bg-black/90 border border-white/20 rounded-md p-0.5 shadow-inner shrink-0">
+          <div className="relative flex items-center bg-black/90 border border-white/20 rounded p-0.5 shadow-inner shrink-0">
             {/* Master Titles ON/OFF Toggle Button */}
             {onToggleTitles && (
               <button
                 type="button"
                 onClick={onToggleTitles}
-                className={`h-5 px-1.5 rounded font-mono text-[8.5px] font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
+                className={`h-4 px-1 rounded font-mono text-[7px] font-bold flex items-center gap-0.5 transition-all cursor-pointer shrink-0 ${
                   showTitles
-                    ? 'bg-amber-500/25 border border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                    ? 'bg-amber-500/25 border border-amber-400 text-amber-300 shadow-[0_0_6px_rgba(245,166,35,0.4)]'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 title="Toggle Creative Kinetic Titles Layer On/Off"
               >
-                <span className={`w-1 h-1 rounded-full ${showTitles ? 'bg-amber-400 shadow-[0_0_6px_#f5a623]' : 'bg-zinc-600'}`} />
-                <Type className="w-2.5 h-2.5" />
+                <span className={`w-1 h-1 rounded-full ${showTitles ? 'bg-amber-400 shadow-[0_0_4px_#f5a623]' : 'bg-zinc-600'}`} />
+                <Type className="w-2 h-2" />
                 <span>TITLES {showTitles ? 'ON' : 'OFF'}</span>
               </button>
             )}
@@ -997,14 +990,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <button
               type="button"
               onClick={() => setIsEditingTitle(prev => !prev)}
-              className={`h-5 px-1.5 rounded font-mono text-[8px] transition-all cursor-pointer flex items-center gap-1 max-w-[80px] sm:max-w-[100px] truncate ${
+              className={`h-4 px-1 rounded font-mono text-[7px] transition-all cursor-pointer flex items-center gap-0.5 max-w-[60px] sm:max-w-[75px] truncate ${
                 isEditingTitle
                   ? 'bg-white/20 text-white font-bold'
                   : 'text-zinc-400 hover:text-white hover:bg-white/10'
               }`}
               title="Click to quickly rename Shot Title and Bengali Subtitle"
             >
-              <span className="text-amber-400 text-[8px]">✏️</span>
+              <span className="text-amber-400 text-[7px]">✏️</span>
               <span className="truncate">{currentFrame?.title || 'Edit'}</span>
             </button>
 
@@ -1077,7 +1070,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <select
             value={aspectRatio}
             onChange={(e) => onChangeAspectRatio(e.target.value)}
-            className="h-6 px-1 rounded bg-black/85 border border-white/15 text-white font-mono text-[8.5px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0"
+            className="h-5 px-1 rounded bg-black/85 border border-white/15 text-white font-mono text-[7px] sm:text-[7.5px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0"
             title="Aspect Ratio"
           >
             <option value="2.39:1">2.39:1</option>
@@ -1091,7 +1084,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <select
             value={currentFrame?.lutFilter || 'cinematic'}
             onChange={(e) => onChangeLut(e.target.value as LutPreset)}
-            className="hidden sm:block h-6 px-1 bg-black/85 border border-white/15 rounded text-[8.5px] text-amber-300 font-mono outline-none cursor-pointer focus:border-amber-400 shrink-0 max-w-[85px] truncate"
+            className="hidden sm:block h-5 px-1 bg-black/85 border border-white/15 rounded text-[7px] sm:text-[7.5px] text-amber-300 font-mono outline-none cursor-pointer focus:border-amber-400 shrink-0 max-w-[68px] truncate"
           >
             {LUT_PRESETS.map((p) => (
               <option key={p.id} value={p.id} className="bg-[#101014] text-white">
@@ -1100,19 +1093,19 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             ))}
           </select>
 
-          {/* Zen Focus Mode Button in Bottom Toolbar */}
+          {/* Zen Focus Mode Button */}
           {onToggleZen && (
             <button
               type="button"
               onClick={onToggleZen}
-              className={`h-6 px-1.5 rounded border font-mono text-[8px] font-bold flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
+              className={`h-5 px-1 rounded border font-mono text-[7px] font-bold flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
                 isZenMode
-                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.45)]'
+                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_6px_rgba(0,240,255,0.45)]'
                   : 'bg-black/60 border-white/15 text-zinc-400 hover:text-cyan-300 hover:border-cyan-400/50'
               }`}
               title="Zen Focus Mode: Distraction-free clean viewport (Z)"
             >
-              <span className="text-[9px]">⛶</span>
+              <span className="text-[7.5px]">⛶</span>
               <span className="hidden sm:inline">ZEN</span>
             </button>
           )}
@@ -1124,28 +1117,28 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             aria-pressed={showHud}
             aria-label="Toggle Stage HUD (H)"
             onClick={onToggleHud}
-            className={`h-6 w-6 p-1 rounded-[2px] border cursor-pointer transition-all shrink-0 flex items-center justify-center ${
+            className={`h-5 w-5 p-0.5 rounded-[2px] border cursor-pointer transition-all shrink-0 flex items-center justify-center ${
               showHud
                 ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_6px_rgba(212,175,55,0.3)]'
                 : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
             }`}
             title={`Toggle Stage HUD Overlay (H) — ${showHud ? 'ON' : 'OFF'}`}
           >
-            <Eye className="w-3 h-3" />
+            <Eye className="w-2.5 h-2.5" />
           </button>
 
           {/* Thirds Guides */}
           {onToggleGuides && (
             <button
               onClick={onToggleGuides}
-              className={`h-6 w-6 p-1 rounded-[2px] border cursor-pointer transition-all shrink-0 flex items-center justify-center ${
+              className={`h-5 w-5 p-0.5 rounded-[2px] border cursor-pointer transition-all shrink-0 flex items-center justify-center ${
                 showGuides
                   ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_6px_rgba(212,175,55,0.3)]'
                   : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
               }`}
               title="Toggle Rule of Thirds & Crosshair Guides (C)"
             >
-              <Crosshair className="w-3 h-3" />
+              <Crosshair className="w-2.5 h-2.5" />
             </button>
           )}
 
@@ -1153,10 +1146,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           {onCaptureStill && (
             <button
               onClick={onCaptureStill}
-              className="h-6 w-6 p-1 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+              className="h-5 w-5 p-0.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
               title="Capture High-Res Cinema Still PNG (S)"
             >
-              <Camera className="w-3 h-3" />
+              <Camera className="w-2.5 h-2.5" />
             </button>
           )}
 
@@ -1171,15 +1164,15 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <button
             type="button"
             onClick={() => setIsFreqVisualizerOpen((prev) => !prev)}
-            className={`h-6 px-1.5 rounded-[2px] border text-[8px] font-mono-tech flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
+            className={`h-5 px-1 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
               isFreqVisualizerOpen
-                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_8px_rgba(212,175,55,0.45)]'
+                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_6px_rgba(212,175,55,0.45)]'
                 : 'bg-white/5 border-white/10 text-white/60 hover:text-[#FFE066] hover:border-[#D4AF37]/50'
             }`}
             title="Toggle Real-Time Audio Frequency Visualizer Overlay"
             aria-label="Toggle Audio Frequency Visualizer"
           >
-            <Activity className="w-2.5 h-2.5 text-[#FFE066]" />
+            <Activity className="w-2 h-2 text-[#FFE066]" />
             <span className="hidden sm:inline">FREQ</span>
             <span className="w-1 h-1 rounded-full bg-[#FFE066] animate-pulse" />
           </button>
@@ -1188,70 +1181,70 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <button
             type="button"
             onClick={() => setIsZoomControlsOpen((prev) => !prev)}
-            className={`h-6 px-1.5 rounded-[2px] border text-[8px] font-mono-tech flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
+            className={`h-5 px-1 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
               isZoomControlsOpen
-                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_8px_rgba(212,175,55,0.45)]'
+                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_6px_rgba(212,175,55,0.45)]'
                 : 'bg-white/5 border-white/10 text-white/60 hover:text-[#FFE066] hover:border-[#D4AF37]/50'
             }`}
-            title="Multi-Layer Zoom: Scale Foreground & Background independently with optical depth perception"
+            title="Multi-Layer Zoom: Scale Foreground & Background independently"
             aria-label="Toggle Multi-Layer Zoom Controls"
           >
-            <ZoomIn className="w-2.5 h-2.5 text-[#D4AF37]" />
+            <ZoomIn className="w-2 h-2 text-[#D4AF37]" />
             <span className="hidden sm:inline">ZOOM</span>
-            <span className="text-[7.5px] text-[#FFE066] font-bold tabular-nums">
+            <span className="text-[6.5px] text-[#FFE066] font-bold tabular-nums">
               {fgZoom.toFixed(1)}x
             </span>
           </button>
 
-          {/* Modular Telemetry Rack (Audio Sync, Voice/Sub, 3D LUT Grade) */}
+          {/* Modular Telemetry Rack */}
           {onToggleTelemetryRack && (
             <button
               type="button"
               onClick={onToggleTelemetryRack}
-              className={`h-6 px-1.5 rounded-[2px] border text-[8px] font-mono-tech flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
+              className={`h-5 px-1 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
                 isTelemetryRackOpen
-                  ? 'bg-[#2dd4bf]/25 border-[#2dd4bf] text-[#2dd4bf] font-bold shadow-[0_0_8px_rgba(45,212,191,0.45)]'
+                  ? 'bg-[#2dd4bf]/25 border-[#2dd4bf] text-[#2dd4bf] font-bold shadow-[0_0_6px_rgba(45,212,191,0.45)]'
                   : 'bg-white/5 border-white/10 text-white/60 hover:text-[#2dd4bf] hover:border-[#2dd4bf]/50'
               }`}
               title="Toggle Modular Telemetry Rack: Audio-Reactive Sync, Voiceover/Subtitles & 3D LUT Engine"
               aria-label="Toggle Modular Telemetry Rack"
             >
-              <Layers className="w-2.5 h-2.5 text-[#2dd4bf]" />
+              <Layers className="w-2 h-2 text-[#2dd4bf]" />
               <span className="hidden sm:inline">RACK</span>
-              <span className="text-[7px] px-0.5 rounded bg-[#2dd4bf]/20 text-[#2dd4bf] font-bold">3P</span>
+              <span className="text-[6.5px] px-0.5 rounded bg-[#2dd4bf]/20 text-[#2dd4bf] font-bold">3P</span>
             </button>
           )}
 
           {/* Grid / Contact Sheet */}
           <button
             onClick={onToggleViewMode}
-            className={`h-6 px-1.5 rounded-[2px] border flex items-center gap-1 cursor-pointer transition-all text-[8.5px] shrink-0 ${
+            className={`h-5 px-1 rounded-[2px] border flex items-center gap-0.5 cursor-pointer transition-all text-[7px] sm:text-[7.5px] shrink-0 ${
               viewMode === 'grid'
                 ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
                 : 'bg-white/5 border-white/10 text-white/70 hover:text-white'
             }`}
             title="100-Frame Contact Sheet (G)"
           >
-            <Grid className="w-2.5 h-2.5" />
+            <Grid className="w-2 h-2" />
             <span className="hidden sm:inline">GRID</span>
           </button>
 
           {/* Optical Inspector */}
           <button
             onClick={onOpenInspector}
-            className="h-6 w-6 p-1 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all shrink-0 flex items-center justify-center"
+            className="h-5 w-5 p-0.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all shrink-0 flex items-center justify-center"
             title="Director Optical Inspector (E)"
           >
-            <Sliders className="w-3 h-3" />
+            <Sliders className="w-2.5 h-2.5" />
           </button>
 
           {/* Fullscreen Monitor */}
           <button
             onClick={onToggleFullscreen}
-            className="h-6 w-6 p-1 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+            className="h-5 w-5 p-0.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
             title="Toggle Cinema Fullscreen (F)"
           >
-            {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+            {isFullscreen ? <Minimize2 className="w-2.5 h-2.5" /> : <Maximize2 className="w-2.5 h-2.5" />}
           </button>
         </div>
       </div>

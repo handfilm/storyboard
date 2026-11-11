@@ -388,9 +388,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const isVideo = Boolean(
     currentSlide?.isVideo ||
     (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl)) ||
-    (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl)) ||
-    (currentSlide?.imageUrl?.startsWith('blob:') && currentSlide?.isVideo !== false) ||
-    currentSlide?.mediaBlobId
+    (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl))
   );
 
   // Dynamic Dual-Stream Engine State:

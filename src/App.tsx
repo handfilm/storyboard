@@ -1120,6 +1120,7 @@ export default function App() {
             const nextShotDur = shotOffsets[nextIdx]?.durationSec ?? 12.0;
             const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
             slideTimeSecRef.current = remainderTime;
+            lastTimestampRef.current = null;
             setCurrentIndex(nextIdx);
             setSlideTimeSec(remainderTime);
             try {

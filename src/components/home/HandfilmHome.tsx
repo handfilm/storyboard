@@ -432,6 +432,12 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     setTitlesLayerActive(prev => !prev);
   }, []);
 
+  const handleStudioToggle = handleStudioLaunch;
+  const handleExport = handleExportClick;
+  const handleStatsToggle = useCallback(() => {
+    setIsStatsTelemetryOpen(prev => !prev);
+  }, []);
+
   // ─────────────────────────────────────────────────────────────
   // 5. Scroll smoothly to Specs / Matrix section
   // ─────────────────────────────────────────────────────────────
@@ -503,149 +509,45 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </span>
         </div>
 
-        {/* Right: Icon-First Priority Dock (Hit Targets 40px–44px for 55" 4K Ergonomics) */}
-        <div className="flex items-center gap-2 relative">
-          
-          {/* 1. STUDIO (Primary Action / Hero Pill #e50914) */}
-          <button
-            type="button"
-            onClick={handleStudioLaunch}
-            className="h-10 px-4 rounded-xl bg-[#e50914] hover:bg-[#ff1e2b] border border-[#ff3b45] text-white font-mono font-extrabold text-xs tracking-wider uppercase flex items-center gap-2 shadow-[0_0_24px_rgba(229,9,20,0.65)] hover:shadow-[0_0_32px_rgba(229,9,20,0.9)] transition-all cursor-pointer active:scale-95 shrink-0"
-            title="Launch Full Pro Studio (Key Space / Enter)"
-          >
-            <Zap className="w-4 h-4 fill-current text-white animate-pulse" />
-            <span className="font-black">STUDIO</span>
+        {/* Right: Icon-First Priority Dock */}
+        <div className="flex items-center gap-2 pr-4">
+          {/* Priority 1: STUDIO Hero */}
+          <button onClick={handleStudioToggle} className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold flex items-center gap-1.5 shadow-[0_0_12px_rgba(229,9,20,0.5)]">
+            <span>⚡</span>
+            <span className="text-xs tracking-wider">STUDIO</span>
           </button>
 
-          {/* 2. EXPORT (Secondary Action: Amber glass pill #ffaa00) */}
-          <button
-            type="button"
-            onClick={handleExportClick}
-            className="h-10 px-3.5 rounded-xl bg-[#0e0e14]/90 hover:bg-[#ffaa00]/15 border border-[#ffaa00]/60 hover:border-[#ffaa00] text-[#ffaa00] hover:text-[#ffe066] font-mono font-bold text-xs tracking-wider uppercase flex items-center gap-2 shadow-[0_0_15px_rgba(255,170,0,0.2)] transition-all cursor-pointer active:scale-95 shrink-0"
-            title="Unified Master Export: 4K MP4 / Premiere XML / CapCut FCPXML"
-          >
-            <Download className="w-4 h-4 text-[#ffaa00]" />
-            <span className="hidden sm:inline">EXPORT</span>
+          {/* Priority 2: EXPORT */}
+          <button onClick={handleExport} className="h-9 w-9 rounded-full bg-neutral-900 border border-amber-500/60 text-amber-400 hover:bg-amber-500/10 flex items-center justify-center" title="Export 4K">
+            ⭳
           </button>
 
-          {/* 3. RECORD (Live Capture: Minimalist glass pill with glowing crimson tally dot) */}
-          <button
-            type="button"
-            onClick={handleRecordToggle}
-            className={`h-10 px-3.5 rounded-xl border font-mono font-bold text-xs tracking-wider flex items-center gap-2 transition-all cursor-pointer active:scale-95 shrink-0 ${
-              isRecording
-                ? 'bg-red-950/80 border-red-500 text-red-200 shadow-[0_0_20px_rgba(239,68,68,0.7)] animate-pulse'
-                : 'bg-black/60 border-white/15 text-zinc-300 hover:text-white hover:border-white/30'
-            }`}
-            title="Toggle Live Viewport Video Recorder"
-          >
-            <span className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' : 'bg-[#e50914]'}`} />
-            <span className="hidden sm:inline">{isRecording ? 'REC ON' : 'REC'}</span>
+          {/* Priority 3: RECORD */}
+          <button onClick={handleRecordToggle} className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:border-red-500 flex items-center justify-center text-red-500" title="Record">
+            ●
           </button>
 
-          {/* 4. ZEN (Focus Mode: Icon Only Minimal Ocular Frame Glyph) */}
-          <button
-            type="button"
-            onClick={handleZenToggle}
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
-              isZenModeActive
-                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_16px_rgba(0,240,255,0.4)]'
-                : 'bg-black/60 border-white/15 text-zinc-400 hover:text-white hover:border-white/30'
-            }`}
-            title="ZEN Focus Mode: Clean distraction-free 4K viewing"
-          >
-            <Maximize2 className="w-4 h-4" />
+          {/* Priority 4: ZEN */}
+          <button onClick={handleZenToggle} className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center" title="Zen Mode">
+            ⛶
           </button>
 
-          {/* 5. STATS (Engine Telemetry: Icon Only 3-Bar Histogram Glyph) */}
-          <button
-            type="button"
-            onClick={() => setIsStatsTelemetryOpen(prev => !prev)}
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
-              isStatsTelemetryOpen
-                ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_16px_rgba(245,166,35,0.4)]'
-                : 'bg-black/60 border-white/15 text-zinc-400 hover:text-white hover:border-white/30'
-            }`}
-            title="Engine Telemetry: VRAM, Decode FPS, WebCodecs status"
-          >
-            <BarChart2 className="w-4 h-4" />
+          {/* Priority 5: STATS */}
+          <button onClick={handleStatsToggle} className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center" title="Stats">
+            📊
           </button>
 
-          {/* 6. OPTIONS DRAWER (··· Three-dots dropdown housing technical format chips) */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsOptionsDrawerOpen(prev => !prev)}
-              className="w-10 h-10 rounded-xl bg-black/60 hover:bg-white/10 border border-white/15 hover:border-white/30 text-zinc-300 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
-              title="More Cinema Formats & Pipeline Options"
-            >
-              <MoreHorizontal className="w-5 h-5" />
+          {/* Priority 6: OPTIONS (Encapsulates technical presets) */}
+          <div className="relative group">
+            <button className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center text-sm">
+              •••
             </button>
-
-            {/* Dropdown Menu Housing Technical Format Chips */}
-            {isOptionsDrawerOpen && (
-              <div 
-                className="absolute right-0 top-12 w-64 bg-[#0d0e14]/98 backdrop-blur-2xl border border-[#F5A623]/40 rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.95)] p-3 space-y-2 z-50 animate-in fade-in zoom-in-95 font-mono text-xs"
-                onMouseLeave={() => setIsOptionsDrawerOpen(false)}
-              >
-                <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider px-2 pb-1 border-b border-white/10">
-                  PIPELINE FORMATS
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOptionsDrawerOpen(false);
-                    if (onOpenExportRange) onOpenExportRange();
-                    else onExport?.();
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-[#F5A623]/20 border border-white/10 hover:border-[#F5A623]/60 text-zinc-200 hover:text-[#FFE066] font-bold flex items-center justify-between transition-colors"
-                >
-                  <span>[ MP4 4K / PRORES ]</span>
-                  <span className="text-[10px] text-[#F5A623]">LOCAL</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOptionsDrawerOpen(false);
-                    onOpenExportXml();
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-[#F5A623]/20 border border-white/10 hover:border-[#F5A623]/60 text-zinc-200 hover:text-[#FFE066] font-bold flex items-center justify-between transition-colors"
-                >
-                  <span>[ PREMIERE XML ]</span>
-                  <span className="text-[10px] text-zinc-400">FCP7</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOptionsDrawerOpen(false);
-                    onOpenExportXml();
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-[#F5A623]/20 border border-white/10 hover:border-[#F5A623]/60 text-zinc-200 hover:text-[#FFE066] font-bold flex items-center justify-between transition-colors"
-                >
-                  <span>[ CAPCUT / FCPXML ]</span>
-                  <span className="text-[10px] text-zinc-400">RESOLVE</span>
-                </button>
-
-                {onOpenShortcuts && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsOptionsDrawerOpen(false);
-                      onOpenShortcuts();
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-between transition-colors"
-                  >
-                    <span>Shortcuts Cheat-Sheet</span>
-                    <kbd className="text-[9px] px-1 py-0.5 rounded bg-black border border-white/20">?</kbd>
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="hidden group-hover:flex flex-col absolute right-0 top-full mt-2 w-48 bg-neutral-950 border border-white/10 rounded-xl p-2 shadow-2xl z-50">
+              <button onClick={handleExport} className="text-left text-xs px-3 py-2 text-white/70 hover:bg-white/5 rounded">MP4 4K / PRORES</button>
+              <button onClick={onOpenExportXml} className="text-left text-xs px-3 py-2 text-white/70 hover:bg-white/5 rounded">PREMIERE XML</button>
+              <button onClick={onOpenExportXml} className="text-left text-xs px-3 py-2 text-white/70 hover:bg-white/5 rounded">CAPCUT / FCPXML</button>
+            </div>
           </div>
-
         </div>
       </header>
 

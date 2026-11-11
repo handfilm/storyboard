@@ -1409,14 +1409,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
         {/* Global Minimalist Icon Dock across ALL tabs */}
         <div className="flex items-center gap-2 pr-3 shrink-0">
-          {/* Priority 1: STUDIO Hero (Primary red pill, #e50914) */}
+          {/* Priority 1: STUDIO Hero (No icon in studio Button, only Studio) */}
           <button
             type="button"
             onClick={handleStudioLaunch}
-            className="h-9 px-4 rounded-full bg-[#e50914] hover:bg-[#ff1e2b] text-white font-mono font-bold flex items-center gap-1.5 shadow-[0_0_14px_rgba(229,9,20,0.6)] hover:shadow-[0_0_20px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95 shrink-0"
+            className="h-9 px-4 rounded-full bg-[#e50914] hover:bg-[#ff1e2b] text-white font-mono font-bold flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.6)] hover:shadow-[0_0_20px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95 shrink-0"
             title="Launch Master Cinema Studio"
           >
-            <span>⚡</span>
             <span className="text-xs tracking-wider font-black">STUDIO</span>
           </button>
 
@@ -1450,44 +1449,31 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             ●
           </button>
 
-          {/* Priority 4: ZEN (Zen focus mode toggle) */}
-          {onToggleZen && (
-            <button
-              type="button"
-              onClick={onToggleZen}
-              className={`h-9 w-9 rounded-full bg-neutral-900 border flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0 ${
-                isZenMode
-                  ? 'border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(0,240,255,0.4)]'
-                  : 'border-white/10 hover:bg-white/10 text-white/70'
-              }`}
-              title="Zen Focus Mode (Z)"
-            >
-              ⛶
-            </button>
-          )}
-
-          {/* Priority 5: STATS (Stats & telemetry toggle) */}
-          {onOpenProjectStats && (
-            <button
-              type="button"
-              onClick={onOpenProjectStats}
-              className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0"
-              title="Stats & Engine Telemetry (Shift+D)"
-            >
-              📊
-            </button>
-          )}
-
-          {/* Priority 6: OPTIONS (Encapsulates technical presets & formats) */}
+          {/* Priority 4: OPTIONS (Encapsulates technical presets, formats & telemetry) */}
           <div className="relative group">
             <button
               type="button"
               className="h-9 w-9 rounded-full bg-neutral-900 border border-white/10 hover:bg-white/10 text-white/70 flex items-center justify-center text-sm transition-all cursor-pointer shrink-0"
-              title="More Formats & Settings"
+              title="More Formats, Telemetry & Settings"
             >
               •••
             </button>
-            <div className="hidden group-hover:flex flex-col absolute right-0 top-full mt-2 w-52 bg-neutral-950/98 backdrop-blur-2xl border border-white/15 rounded-xl p-2 shadow-2xl z-50 font-mono text-xs space-y-1">
+            <div className="hidden group-hover:flex flex-col absolute right-0 top-full mt-2 w-56 bg-neutral-950/98 backdrop-blur-2xl border border-white/15 rounded-xl p-2 shadow-2xl z-50 font-mono text-xs space-y-1">
+              {/* Stats & Engine Telemetry inside 3-dots dropdown */}
+              {onOpenProjectStats && (
+                <button
+                  type="button"
+                  onClick={onOpenProjectStats}
+                  className="w-full text-left text-xs px-3 py-2 text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 rounded flex items-center justify-between cursor-pointer transition-colors border border-amber-500/20"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>📊</span>
+                    <span className="font-bold">Stats &amp; Telemetry</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-mono">Shift+D</span>
+                </button>
+              )}
+              <div className="border-t border-white/10 my-1" />
               <button
                 type="button"
                 onClick={() => {

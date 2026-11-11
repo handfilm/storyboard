@@ -90,6 +90,7 @@ export interface ControlDockProps {
   onToggleGuides?: () => void;
   onCaptureStill?: () => void;
   onToggleZen?: () => void;
+  isZenMode?: boolean;
   playbackMode?: 'solo' | 'sequence' | string;
   onSelectPlaybackMode?: (mode: 'solo' | 'sequence') => void;
   onStepFrame?: (forward: boolean) => void;
@@ -149,6 +150,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onToggleGuides,
   onCaptureStill,
   onToggleZen,
+  isZenMode = false,
   playbackMode = 'sequence',
   onSelectPlaybackMode,
   onStepFrame,
@@ -191,11 +193,34 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
 
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [quickTitleInput, setQuickTitleInput] = useState('');
+  const [quickBengaliInput, setQuickBengaliInput] = useState('');
+
   const safeFrames = Array.isArray(frames) && frames.length > 0 ? frames : [];
   const currentFrame = safeFrames[currentIndex] || safeFrames[0];
   const currentDurationSec = getShotDurationSec(currentFrame, 12.0);
   const currentFps = getShotTargetFps(currentFrame, 24);
   const intervalSeconds = (calculateSlideshowInterval(speed) / 1000).toFixed(1);
+
+  // Sync quick title input when current frame changes
+  useEffect(() => {
+    if (currentFrame) {
+      setQuickTitleInput(currentFrame.title || '');
+      setQuickBengaliInput(currentFrame.bengaliTitle || '');
+    }
+  }, [currentIndex, currentFrame?.title, currentFrame?.bengaliTitle]);
+
+  const handleSaveQuickTitle = () => {
+    if (onUpdateFrameAtIndex && currentFrame) {
+      onUpdateFrameAtIndex(currentIndex, {
+        ...currentFrame,
+        title: quickTitleInput,
+        bengaliTitle: quickBengaliInput
+      });
+    }
+    setIsEditingTitle(false);
+  };
 
   const shotOffsets = useMemo(() => getCumulativeShotOffsets(safeFrames), [safeFrames]);
   const currentShotStartSec = shotOffsets[currentIndex]?.startSec ?? 0;
@@ -942,9 +967,109 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
 
         {/* ======================================================= */}
-        {/* 3. RIGHT WING: ASPECT DROPDOWN, ZOOM READOUT, GRID & TITLES */}
+        {/* 3. RIGHT WING: TITLES WITH EASY TITLE CHANGER, ZEN, OPTICS & TOOLS */}
         {/* ======================================================= */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Easy Change Title & Titles ON/OFF Hub */}
+          <div className="relative flex items-center bg-black/90 border border-white/20 rounded-lg p-0.5 shadow-inner">
+            {/* Master Titles ON/OFF Toggle Button */}
+            {onToggleTitles && (
+              <button
+                type="button"
+                onClick={onToggleTitles}
+                className={`h-8 px-2.5 rounded font-mono text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                  showTitles
+                    ? 'bg-amber-500/25 border border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,166,35,0.4)]'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+                title="Toggle Creative Kinetic Titles Layer On/Off"
+              >
+                <span className={`w-2 h-2 rounded-full ${showTitles ? 'bg-amber-400 shadow-[0_0_6px_#f5a623]' : 'bg-zinc-600'}`} />
+                <Type className="w-3.5 h-3.5" />
+                <span>TITLES {showTitles ? 'ON' : 'OFF'}</span>
+              </button>
+            )}
+
+            {/* Quick Title Edit Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsEditingTitle(prev => !prev)}
+              className={`h-8 px-2.5 rounded font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1 max-w-[140px] truncate ${
+                isEditingTitle
+                  ? 'bg-white/20 text-white font-bold'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
+              }`}
+              title="Click to quickly rename Shot Title and Bengali Subtitle"
+            >
+              <span className="text-amber-400">✏️</span>
+              <span className="truncate">{currentFrame?.title || 'Edit Title'}</span>
+            </button>
+
+            {/* Inline Title Quick Edit Popover */}
+            {isEditingTitle && (
+              <div className="absolute right-0 bottom-full mb-2 w-72 bg-neutral-950/98 backdrop-blur-2xl border border-white/20 rounded-xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs font-mono space-y-2">
+                <div className="flex items-center justify-between text-zinc-400 border-b border-white/10 pb-1.5 text-[10px] uppercase font-bold tracking-wider">
+                  <span>QUICK EDIT TITLES</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingTitle(false)}
+                    className="text-zinc-500 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-zinc-400 uppercase">English Title</label>
+                  <input
+                    type="text"
+                    value={quickTitleInput}
+                    onChange={(e) => setQuickTitleInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveQuickTitle();
+                      if (e.key === 'Escape') setIsEditingTitle(false);
+                    }}
+                    placeholder="Scene Title..."
+                    className="w-full h-8 px-2.5 bg-black/80 border border-white/15 focus:border-amber-400 rounded text-xs text-white outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-zinc-400 uppercase">Bangla Subtitle</label>
+                  <input
+                    type="text"
+                    value={quickBengaliInput}
+                    onChange={(e) => setQuickBengaliInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveQuickTitle();
+                      if (e.key === 'Escape') setIsEditingTitle(false);
+                    }}
+                    placeholder="বাংলা শিরোনাম..."
+                    className="w-full h-8 px-2.5 bg-black/80 border border-white/15 focus:border-cyan-400 rounded text-xs font-bangla text-white outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingTitle(false)}
+                    className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-[11px]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveQuickTitle}
+                    className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px]"
+                  >
+                    Save Titles
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Aspect Ratio Selector Dropdown */}
           <select
             value={aspectRatio}
@@ -959,23 +1084,6 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <option value="1:1">1:1 Square</option>
           </select>
 
-          {/* Single [ • TITLES ON/OFF ] Pill */}
-          {onToggleTitles && (
-            <button
-              type="button"
-              onClick={onToggleTitles}
-              className={`h-9 px-3 rounded-lg border font-mono text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                showTitles
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,166,35,0.3)]'
-                  : 'bg-black/60 border-white/10 text-zinc-500 hover:text-zinc-300'
-              }`}
-              title="Toggle Kinetic Titles Overlay"
-            >
-              <Type className="w-3.5 h-3.5" />
-              <span>TITLES {showTitles ? 'ON' : 'OFF'}</span>
-            </button>
-          )}
-
           {/* LUT Preset Selector */}
           <select
             value={currentFrame?.lutFilter || 'cinematic'}
@@ -988,6 +1096,23 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               </option>
             ))}
           </select>
+
+          {/* Zen Focus Mode Button in Bottom Toolbar */}
+          {onToggleZen && (
+            <button
+              type="button"
+              onClick={onToggleZen}
+              className={`h-9 px-3 rounded-lg border font-mono text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+                isZenMode
+                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_14px_rgba(0,240,255,0.45)]'
+                  : 'bg-black/60 border-white/15 text-zinc-400 hover:text-cyan-300 hover:border-cyan-400/50'
+              }`}
+              title="Zen Focus Mode: Distraction-free clean viewport (Z)"
+            >
+              <span className="text-sm">⛶</span>
+              <span className="hidden sm:inline">ZEN</span>
+            </button>
+          )}
         </div>
 
         {/* Right Section: Cinema Tools */}

@@ -226,6 +226,12 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [showCompositionGrid, setShowCompositionGrid] = useState<boolean>(false);
   const [titlesLayerActive, setTitlesLayerActive] = useState<boolean>(showTitles);
   
+  // Custom title overrides for easy title changing
+  const [customTitles, setCustomTitles] = useState<Record<number, { titleEn: string; titleBn: string }>>({});
+  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
+  const [editingTitleEn, setEditingTitleEn] = useState<string>('');
+  const [editingTitleBn, setEditingTitleBn] = useState<string>('');
+
   // Header Interactive States
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isZenModeActive, setIsZenModeActive] = useState<boolean>(false);
@@ -241,9 +247,11 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   // Active shot resolver: blends user frames if passed, otherwise loads 6 curated showcase presets
   const activeShot: ShowcaseShot = useMemo(() => {
     const preset = SHOWCASE_PRESETS[activeShotIndex % SHOWCASE_PRESETS.length];
+    const custom = customTitles[activeShotIndex];
+    let base = preset;
     if (frames && frames.length > 0 && frames[activeShotIndex]) {
       const userFrame = frames[activeShotIndex];
-      return {
+      base = {
         ...preset,
         titleEn: userFrame.title || preset.titleEn,
         titleBn: userFrame.bengaliTitle || preset.titleBn,
@@ -253,8 +261,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         durationSec: userFrame.durationSec || userFrame.slideHoldSec || 12.0
       };
     }
-    return preset;
-  }, [activeShotIndex, frames]);
+    if (custom) {
+      return {
+        ...base,
+        titleEn: custom.titleEn || base.titleEn,
+        titleBn: custom.titleBn || base.titleBn
+      };
+    }
+    return base;
+  }, [activeShotIndex, frames, customTitles]);
 
   // Top 10 Shots for the Netflix poster row
   const top10Shots = useMemo(() => {
@@ -431,6 +446,23 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const handleToggleTitles = useCallback(() => {
     setTitlesLayerActive(prev => !prev);
   }, []);
+
+  const handleOpenTitleEditor = useCallback(() => {
+    setEditingTitleEn(activeShot.titleEn);
+    setEditingTitleBn(activeShot.titleBn);
+    setIsEditingTitle(prev => !prev);
+  }, [activeShot.titleEn, activeShot.titleBn]);
+
+  const handleSaveCustomTitle = useCallback(() => {
+    setCustomTitles(prev => ({
+      ...prev,
+      [activeShotIndex]: {
+        titleEn: editingTitleEn,
+        titleBn: editingTitleBn
+      }
+    }));
+    setIsEditingTitle(false);
+  }, [activeShotIndex, editingTitleEn, editingTitleBn]);
 
   const handleStudioToggle = handleStudioLaunch;
   const handleExport = handleExportClick;
@@ -820,16 +852,114 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
 
           {/* ======================================================= */}
-          {/* 3. RIGHT WING: VIEWPORT OPTICS & OPTICS */}
+          {/* 3. RIGHT WING: TITLES WITH EASY TITLE CHANGER, ZEN, OPTICS & TOOLS */}
           {/* ======================================================= */}
-          <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
             
+            {/* Easy Title Change & Titles ON/OFF Hub */}
+            <div className="relative flex items-center bg-black/80 border border-white/20 rounded-xl p-0.5 shadow-inner">
+              {/* Master Title Layer Toggle Pill ([ T ] TITLES ON/OFF with amber indicator dot) */}
+              <button
+                type="button"
+                onClick={handleToggleTitles}
+                className={`h-9 px-3 rounded-lg font-mono font-bold text-xs tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                  titlesLayerActive
+                    ? 'bg-amber-950/50 border border-amber-400 text-amber-200 shadow-[0_0_12px_rgba(245,166,35,0.4)]'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+                title="Toggle Creative Kinetic Typography Layer On/Off"
+              >
+                <span className={`w-2 h-2 rounded-full ${titlesLayerActive ? 'bg-[#ffaa00] shadow-[0_0_8px_#ffaa00]' : 'bg-zinc-600'}`} />
+                <span className="text-[10px] font-black">[ T ]</span>
+                <span className="hidden sm:inline">{titlesLayerActive ? 'TITLES ON' : 'TITLES OFF'}</span>
+              </button>
+
+              {/* Quick Title Edit Button with live Title preview */}
+              <button
+                type="button"
+                onClick={handleOpenTitleEditor}
+                className={`h-9 px-2.5 rounded-lg font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer max-w-[150px] truncate ${
+                  isEditingTitle
+                    ? 'bg-white/20 text-white font-bold'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                }`}
+                title="Quickly Change Active Shot Title and Bengali Subtitle"
+              >
+                <span className="text-amber-400">✏️</span>
+                <span className="truncate">{activeShot.titleBn || 'Change Title'}</span>
+              </button>
+
+              {/* Quick Title Edit Popover */}
+              {isEditingTitle && (
+                <div className="absolute right-0 bottom-full mb-2 w-72 bg-neutral-950/98 backdrop-blur-2xl border border-white/20 rounded-xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs font-mono space-y-2">
+                  <div className="flex items-center justify-between text-zinc-400 border-b border-white/10 pb-1.5 text-[10px] uppercase font-bold tracking-wider">
+                    <span>QUICK CHANGE SHOT TITLES</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTitle(false)}
+                      className="text-zinc-500 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-400 uppercase">Bangla Typography</label>
+                    <input
+                      type="text"
+                      value={editingTitleBn}
+                      onChange={(e) => setEditingTitleBn(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveCustomTitle();
+                        if (e.key === 'Escape') setIsEditingTitle(false);
+                      }}
+                      placeholder="বাংলা শিরোনাম..."
+                      className="w-full h-8 px-2.5 bg-black/80 border border-white/15 focus:border-cyan-400 rounded text-xs font-bangla text-white outline-none"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-400 uppercase">English Subtitle</label>
+                    <input
+                      type="text"
+                      value={editingTitleEn}
+                      onChange={(e) => setEditingTitleEn(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveCustomTitle();
+                        if (e.key === 'Escape') setIsEditingTitle(false);
+                      }}
+                      placeholder="English Title..."
+                      className="w-full h-8 px-2.5 bg-black/80 border border-white/15 focus:border-amber-400 rounded text-xs text-white outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTitle(false)}
+                      className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-[11px]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomTitle}
+                      className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px]"
+                    >
+                      Save Titles
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Aspect Ratio Selector Dropdown */}
             <div className="relative">
               <select
                 value={selectedAspectRatio}
                 onChange={(e) => handleAspectChange(e.target.value)}
-                className="h-10 px-3 rounded-xl bg-black/80 border border-white/15 text-white font-mono text-xs font-bold outline-none cursor-pointer hover:border-white/30 transition-colors"
+                className="h-9 px-3 rounded-lg bg-black/80 border border-white/15 text-white font-mono text-xs font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors"
                 title="Canvas Optical Aspect Ratio"
               >
                 <option value="2.39:1">2.39:1 Cinema 35</option>
@@ -844,7 +974,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             <button
               type="button"
               onClick={handleCycleZoom}
-              className="h-10 px-3 rounded-xl bg-black/60 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-9 px-3 rounded-lg bg-black/60 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Cycle Stage Viewport Magnification (1.0x / 1.5x / 2.0x)"
             >
               <span>ZOOM</span>
@@ -855,7 +985,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             <button
               type="button"
               onClick={() => setShowCompositionGrid(prev => !prev)}
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+              className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
                 showCompositionGrid
                   ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.4)]'
                   : 'bg-black/60 border-white/15 text-zinc-400 hover:text-white'
@@ -865,20 +995,19 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               <Grid className="w-4 h-4" />
             </button>
 
-            {/* Master Title Layer Toggle Pill ([ T ] TITLES ON/OFF with amber indicator dot) */}
+            {/* Zen Focus Mode Button in Bottom Toolbar */}
             <button
               type="button"
-              onClick={handleToggleTitles}
-              className={`h-10 px-3.5 rounded-xl border font-mono font-bold text-xs tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
-                titlesLayerActive
-                  ? 'bg-amber-950/40 border-amber-400/80 text-amber-200 shadow-[0_0_15px_rgba(245,166,35,0.35)]'
-                  : 'bg-black/60 border-white/15 text-zinc-500 hover:text-zinc-300'
+              onClick={handleZenToggle}
+              className={`h-9 px-3 rounded-lg border font-mono text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ${
+                isZenModeActive
+                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_14px_rgba(0,240,255,0.45)]'
+                  : 'bg-black/60 border-white/15 text-zinc-400 hover:text-cyan-300 hover:border-cyan-400/50'
               }`}
-              title="Toggle Creative Kinetic Typography Layer On/Off"
+              title="Zen Focus Mode: Distraction-free clean viewport (Z)"
             >
-              <span className={`w-2 h-2 rounded-full ${titlesLayerActive ? 'bg-[#ffaa00] shadow-[0_0_8px_#ffaa00]' : 'bg-zinc-600'}`} />
-              <span className="text-[11px] font-black">[ T ]</span>
-              <span className="hidden sm:inline">{titlesLayerActive ? 'TITLES ON' : 'TITLES OFF'}</span>
+              <span className="text-sm">⛶</span>
+              <span className="hidden sm:inline">ZEN</span>
             </button>
           </div>
 

@@ -2456,6 +2456,8 @@ export default function App() {
         onOpenLiquify={() => setIsLiquifyOpen(true)}
         onToggleGuides={() => setShowGuides(g => !g)}
         onCaptureStill={handleCaptureStill}
+        onToggleZen={() => setIsZenMode(z => !z)}
+        isZenMode={isZenMode}
         playbackMode={playbackMode}
         onSelectPlaybackMode={setPlaybackMode}
         onStepFrame={handleStepFrame}

@@ -494,20 +494,20 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       )}
 
       {/* 100-Frame Strip Navigation with High-Throughput Virtualization & Per-Slide Duration Handles */}
-      <div className="w-full max-w-5xl mb-1.5 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
+      <div className="w-full max-w-[min(98vw,1840px)] mb-1 pointer-events-auto flex items-center gap-1 sm:gap-1.5">
         <button
           onClick={onPrev}
           aria-label="Previous Shot (J)"
           title="Previous Shot (J / Left Arrow)"
-          className="p-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95"
+          className="p-1 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95"
         >
-          <ChevronLeft className="w-3.5 h-3.5" />
+          <ChevronLeft className="w-3 h-3" />
         </button>
 
         <div
           ref={stripRef}
           onMouseLeave={() => setHoveredMarker(null)}
-          className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1.5 px-2 bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg no-scrollbar shadow-[0_8px_32px_rgba(0,0,0,0.9)] scroll-smooth h-11"
+          className="flex-1 flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-1 px-1.5 bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.85)] scroll-smooth h-9.5"
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -569,7 +569,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
-                className={`group relative shrink-0 w-13 sm:w-14 h-7.5 sm:h-8.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-300 ease-out will-change-transform border ${
+                className={`group relative shrink-0 w-12 sm:w-13 h-7 sm:h-7.5 rounded-[3px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 ease-out will-change-transform border ${
                   isActive
                     ? 'border-[#FFE066] ring-2 ring-[#D4AF37] shadow-[0_0_16px_rgba(212,175,55,0.75)] scale-105 z-20'
                     : hasMedia

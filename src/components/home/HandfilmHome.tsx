@@ -86,7 +86,18 @@ export interface HandfilmHomeProps {
   onAspectChange?: (aspect: string) => void;
 }
 
-// 6-Shot Master Showcase Presets with authentic Bangla typography & 4K plates
+// Dynamic Title Personalities for Shot-Specific Typography & Aesthetics
+export type TitlePersonality = 'AUTO' | 'DOPAMINE' | 'MINIMAL' | 'B2B' | 'KINETIC';
+
+export function getShotTitlePersonality(shotIndex: number, override?: TitlePersonality): 'DOPAMINE' | 'MINIMAL' | 'B2B' | 'KINETIC' {
+  if (override && override !== 'AUTO') {
+    return override;
+  }
+  const cycle: ('DOPAMINE' | 'MINIMAL' | 'B2B' | 'KINETIC')[] = ['DOPAMINE', 'MINIMAL', 'B2B', 'KINETIC'];
+  return cycle[shotIndex % 4];
+}
+
+// 12-Shot Master Showcase Configuration - Clean Production Slate (No Mockup Media)
 export interface ShowcaseShot {
   id: number;
   shotNumber: string;
@@ -100,6 +111,7 @@ export interface ShowcaseShot {
   videoSrc?: string;
   blobUrl?: string;
   isVideo?: boolean;
+  isPlaceholder?: boolean;
   fallbackGradient: string;
   lutFilter: string;
   aspectRatio: string;
@@ -112,11 +124,15 @@ export const SHOWCASE_PRESETS: ShowcaseShot[] = [
     titleEn: 'THE SINGULARITY // 24 FPS',
     titleBn: 'সূচনা',
     tagline: 'MACRO EYES // PUPILS DILATING INTO THE VOID',
-    directorNotes: 'Neon street cyberpunk bokeh loop. Extreme close-up macro on iris contraction under tungsten key light.',
+    directorNotes: 'Extreme close-up macro on iris contraction under tungsten key light.',
     lensSpec: '35mm Anamorphic T1.4',
     durationSec: 12.0,
-    imageUrl: '/assets/aistudio/image_3a1afa90.png',
-    fallbackGradient: 'radial-gradient(ellipse at center, #2a1205 0%, #0d0602 60%, #000000 100%)',
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
     lutFilter: 'RAWx Cinema 35',
     aspectRatio: '2.39:1'
   },
@@ -129,65 +145,193 @@ export const SHOWCASE_PRESETS: ShowcaseShot[] = [
     directorNotes: 'Anamorphic portrait under dramatic key light. Boundary definition between observer and subject.',
     lensSpec: '50mm Prime f/1.2',
     durationSec: 12.0,
-    imageUrl: '/assets/aistudio/image_630b2490.png',
-    fallbackGradient: 'radial-gradient(ellipse at center, #1a1e2e 0%, #0a0b12 60%, #000000 100%)',
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
     lutFilter: 'Golden Hour 2800K',
     aspectRatio: '2.39:1'
   },
   {
     id: 3,
     shotNumber: '03',
-    titleEn: 'SYSTEM ARCHITECTURE // CAM 01 LOCKED',
+    titleEn: 'ENTERPRISE TELEMETRY // CORE NODE',
     titleBn: 'শিল্প ও প্রযুক্তি',
     tagline: 'COLD TELEMETRY // MACRO ARCHITECTURAL PLATE',
     directorNotes: 'Cold telemetry macro architectural plate with precision corneal reflection.',
     lensSpec: '100mm Macro Probe T2.8',
     durationSec: 12.0,
-    imageUrl: '/assets/aistudio/image_3a1afa90.png',
-    fallbackGradient: 'radial-gradient(ellipse at center, #2e1c05 0%, #120b02 60%, #000000 100%)',
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
     lutFilter: 'Neo-Noir Chiaroscuro',
     aspectRatio: '2.39:1'
   },
   {
     id: 4,
     shotNumber: '04',
-    titleEn: 'SHOCK CORE',
+    titleEn: 'KINETIC TRANSIENT // FLUID PULSE',
     titleBn: 'সংঘাত',
     tagline: 'SPECULAR TRANSIENT BURST // VISCOUS SURFACE TENSION',
     directorNotes: 'High-contrast specular flash highlighting surface fluid viscosity at 120fps.',
     lensSpec: '28mm Anamorphic Master',
     durationSec: 12.0,
-    imageUrl: '/assets/aistudio/image_630b2490.png',
-    fallbackGradient: 'radial-gradient(ellipse at center, #240a12 0%, #0d0306 60%, #000000 100%)',
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
     lutFilter: 'Cyberpunk Neon',
     aspectRatio: '2.39:1'
   },
   {
     id: 5,
     shotNumber: '05',
-    titleEn: 'PHOTON SPHERE',
+    titleEn: 'PHOTON SPHERE // 4K EXPANSION',
     titleBn: 'আলো',
     tagline: 'GRAZING LIGHT ANGLE // SUB-SURFACE SCATTERING',
     directorNotes: 'Micro-fiber epidermal texture under continuous ring light at 440Hz resonance.',
     lensSpec: '85mm Cine Portrait T1.5',
     durationSec: 12.0,
-    imageUrl: '/assets/aistudio/image_3a1afa90.png',
-    fallbackGradient: 'radial-gradient(ellipse at center, #1b2612 0%, #0a0f07 60%, #000000 100%)',
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
     lutFilter: 'Tungsten 3200K',
     aspectRatio: '2.39:1'
   },
   {
     id: 6,
     shotNumber: '06',
-    titleEn: 'THE APERTURE',
+    titleEn: 'THE APERTURE // ARCHIVAL SPEC',
     titleBn: 'উন্মোচন',
     tagline: 'RADIAL EXPANSION // SCATTERED STARLIGHT BLOOM',
     directorNotes: 'Soft center bloom expanding into shadows. Controlled mechanical aperture pull.',
     lensSpec: '18mm Ultra-Wide Cine',
     durationSec: 12.0,
-    imageUrl: '/assets/aistudio/image_630b2490.png',
-    fallbackGradient: 'radial-gradient(ellipse at center, #1d1226 0%, #0b070f 60%, #000000 100%)',
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
     lutFilter: 'RAW Flat Log',
+    aspectRatio: '2.39:1'
+  },
+  {
+    id: 7,
+    shotNumber: '07',
+    titleEn: 'SYSTEM ARCHITECTURE // OPTICAL FEED',
+    titleBn: 'গতিশীলতা',
+    tagline: 'AXIAL CALIBRATION // PRECISION TRACKING MATRIX',
+    directorNotes: 'High-speed automated camera tracking along longitudinal axis.',
+    lensSpec: '40mm High-Speed T1.3',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'Matrix Emerald',
+    aspectRatio: '2.39:1'
+  },
+  {
+    id: 8,
+    shotNumber: '08',
+    titleEn: 'REVERBERATION // SPECTRAL DRIFT',
+    titleBn: 'প্রতিধ্বনি',
+    tagline: 'FREQUENCY MODULATION // DISSOLVING HARMONICS',
+    directorNotes: 'Harmonic resonance audio synchronization with subtle color phasing.',
+    lensSpec: '65mm Cine Anamorphic',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'Vintage 1970s',
+    aspectRatio: '2.39:1'
+  },
+  {
+    id: 9,
+    shotNumber: '09',
+    titleEn: 'HYPER DRIVE // HIGH HOOK PULSE',
+    titleBn: 'স্পন্দন',
+    tagline: 'VELOCITY SURGE // ANAMORPHIC HORIZON STREAK',
+    directorNotes: 'Dynamic acceleration plate with anamorphic horizontal blue streak flaring.',
+    lensSpec: '24mm Ultra Prime T1.9',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'Teal & Orange',
+    aspectRatio: '2.39:1'
+  },
+  {
+    id: 10,
+    shotNumber: '10',
+    titleEn: 'EQUILIBRIUM // SWISS GEOMETRY',
+    titleBn: 'স্থিরতা',
+    tagline: 'MINIMAL BALANCE // PURIFIED ARCHITECTURAL LINE',
+    directorNotes: 'Precision geometric framing with stark architectural chiaroscuro.',
+    lensSpec: '50mm Planar T1.4',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'Monochrome High-Contrast',
+    aspectRatio: '2.39:1'
+  },
+  {
+    id: 11,
+    shotNumber: '11',
+    titleEn: 'CYBERNETIC TELEMETRY // SEC 11',
+    titleBn: 'ম্যাট্রিক্স',
+    tagline: 'DATA STREAM CONVERGENCE // LOGIC INTERFACE',
+    directorNotes: 'High-density telemetry HUD overlay on low-light micro-electronics.',
+    lensSpec: '100mm Macro Cine T2.8',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'Neo-Noir Chiaroscuro',
+    aspectRatio: '2.39:1'
+  },
+  {
+    id: 12,
+    shotNumber: '12',
+    titleEn: 'COSMIC VOID // MASTER FINALE',
+    titleBn: 'মহাজাগতিক',
+    tagline: 'EXPANDING INFINITY // STELLAR DUST ABSORPTION',
+    directorNotes: 'Deep space aesthetic with subtle starlight chromatic aberration.',
+    lensSpec: '14mm Ultra-Wide Fisheye T2.8',
+    durationSec: 12.0,
+    imageUrl: '',
+    videoSrc: '',
+    blobUrl: '',
+    isVideo: false,
+    isPlaceholder: false,
+    fallbackGradient: 'linear-gradient(135deg, #0a0a0a 0%, #121212 50%, #070709 100%)',
+    lutFilter: 'Bleach Bypass 50%',
     aspectRatio: '2.39:1'
   }
 ];
@@ -290,12 +434,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const activeShotDurationRef = useRef<number>(12.0);
   const playbackTickerRef = useRef<number | null>(null);
   
-  // Custom title overrides for easy title changing
+  // Custom title overrides and dynamic multi-style personality engine
   const [customTitles, setCustomTitles] = useState<Record<number, { titleEn: string; titleBn: string }>>({});
+  const [customTitleStyles, setCustomTitleStyles] = useState<Record<number, TitlePersonality>>({});
   const [customLuts, setCustomLuts] = useState<Record<number, string>>({});
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const [editingTitleEn, setEditingTitleEn] = useState<string>('');
   const [editingTitleBn, setEditingTitleBn] = useState<string>('');
+  const [editingTitleStyle, setEditingTitleStyle] = useState<TitlePersonality>('AUTO');
 
   // Media Vault & Zero-Wait Ingestion State
   const [vaultAssets, setVaultAssets] = useState<Array<{
@@ -391,6 +537,48 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   useEffect(() => {
     activeShotDurationRef.current = activeShot.durationSec;
   }, [activeShot.durationSec]);
+
+  // Title Personality Engine: Automatic 4-style cycle with manual override support
+  const activeShotPersonality = useMemo<'DOPAMINE' | 'MINIMAL' | 'B2B' | 'KINETIC'>(() => {
+    return getShotTitlePersonality(activeShotIndex, customTitleStyles[activeShotIndex]);
+  }, [activeShotIndex, customTitleStyles]);
+
+  // Persistent Video Resolver & Safe URL Resolver
+  const activeVideoSrc = useMemo(() => {
+    return (
+      activeShot.videoSrc ||
+      activeShot.blobUrl ||
+      (/\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(activeShot.imageUrl) ? activeShot.imageUrl : '')
+    );
+  }, [activeShot.videoSrc, activeShot.blobUrl, activeShot.imageUrl]);
+
+  const hasVideo = Boolean(activeVideoSrc);
+  const hasImage = Boolean(activeShot.imageUrl && !hasVideo);
+  const hasMedia = hasVideo || hasImage;
+
+  const currentVideoSrcRef = useRef<string>('');
+
+  // Surgical Playback Trigger with WebView2 Autoplay Policy Auto-Recovery
+  const triggerPlayback = useCallback(async () => {
+    const video = stageVideoRef.current;
+    if (!video) return;
+    try {
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+      }
+    } catch {
+      // WebView2 / Chromium auto-recovery: enforce muted and retry immediately
+      if (video) {
+        video.muted = true;
+        try {
+          await video.play();
+        } catch {
+          // Playback safely deferred or aborted during user scrub
+        }
+      }
+    }
+  }, []);
 
   // Top 10 Shots for the Netflix poster row
   const top10Shots = useMemo(() => {
@@ -651,8 +839,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const handleOpenTitleEditor = useCallback(() => {
     setEditingTitleEn(activeShot.titleEn);
     setEditingTitleBn(activeShot.titleBn);
+    setEditingTitleStyle(customTitleStyles[activeShotIndex] || 'AUTO');
     setIsEditingTitle(prev => !prev);
-  }, [activeShot.titleEn, activeShot.titleBn]);
+  }, [activeShot.titleEn, activeShot.titleBn, activeShotIndex, customTitleStyles]);
 
   const handleSaveCustomTitle = useCallback(() => {
     setCustomTitles(prev => ({
@@ -662,8 +851,12 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         titleBn: editingTitleBn
       }
     }));
+    setCustomTitleStyles(prev => ({
+      ...prev,
+      [activeShotIndex]: editingTitleStyle
+    }));
     setIsEditingTitle(false);
-  }, [activeShotIndex, editingTitleEn, editingTitleBn]);
+  }, [activeShotIndex, editingTitleEn, editingTitleBn, editingTitleStyle]);
 
   const handleStudioToggle = handleStudioLaunch;
   const handleExport = handleExportClick;
@@ -854,17 +1047,35 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     }
   }, [handleIngestFiles, activeShotIndex]);
 
-  // Keep 4K stage video playback synced with transport isPlaying & playbackSpeed
+  // Surgical Mandate 3: Persistent Video Synchronization & Playback Stall Elimination
   useEffect(() => {
-    if (stageVideoRef.current) {
-      stageVideoRef.current.playbackRate = playbackSpeed;
-      if (isPlaying) {
-        stageVideoRef.current.play().catch(() => {});
+    const video = stageVideoRef.current;
+    if (!video) return;
+
+    video.playbackRate = playbackSpeed;
+
+    if (activeVideoSrc) {
+      if (currentVideoSrcRef.current !== activeVideoSrc) {
+        currentVideoSrcRef.current = activeVideoSrc;
+        video.src = activeVideoSrc;
+        video.load();
+        if (isPlaying) {
+          triggerPlayback();
+        }
       } else {
-        stageVideoRef.current.pause();
+        if (isPlaying && video.paused) {
+          triggerPlayback();
+        } else if (!isPlaying && !video.paused) {
+          video.pause();
+        }
+      }
+    } else {
+      currentVideoSrcRef.current = '';
+      if (!video.paused) {
+        video.pause();
       }
     }
-  }, [isPlaying, playbackSpeed, activeShotIndex]);
+  }, [activeVideoSrc, isPlaying, playbackSpeed, triggerPlayback]);
 
   // ─────────────────────────────────────────────────────────────
   // 8. Mandate 4: Ultra-Fast Keyboard Workflow & Desktop Window Navigation
@@ -1010,19 +1221,33 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       }
 
       const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = activeShot.imageUrl;
-      await new Promise((r) => { img.onload = r; img.onerror = r; });
+      if (hasImage && activeShot.imageUrl) {
+        img.crossOrigin = 'anonymous';
+        img.src = activeShot.imageUrl;
+        await new Promise((r) => { img.onload = r; img.onerror = r; });
+      }
 
       // Frame-by-frame asynchronous generation (yields to UI via rAF)
       for (let f = 0; f < totalFrames; f++) {
         await new Promise(r => requestAnimationFrame(r));
 
-        if (img.complete && img.naturalWidth > 0) {
+        if (stageVideoRef.current && hasVideo && stageVideoRef.current.readyState >= 2) {
+          ctx.drawImage(stageVideoRef.current, 0, 0, canvas.width, canvas.height);
+        } else if (hasImage && img.complete && img.naturalWidth > 0) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         } else {
-          ctx.fillStyle = '#070709';
+          ctx.fillStyle = '#0a0a0a';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
+          // Draw subtle crosshair reticle on blank slate export
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(canvas.width / 2, canvas.height / 2, 40, 0, Math.PI * 2);
+          ctx.moveTo(canvas.width / 2 - 60, canvas.height / 2);
+          ctx.lineTo(canvas.width / 2 + 60, canvas.height / 2);
+          ctx.moveTo(canvas.width / 2, canvas.height / 2 - 60);
+          ctx.lineTo(canvas.width / 2, canvas.height / 2 + 60);
+          ctx.stroke();
         }
 
         // Draw creative kinetic typography layer if active
@@ -1155,7 +1380,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         <div className="flex items-center justify-between py-2 px-1 text-xs font-mono text-zinc-400 border-b border-white/10 mb-3">
           <div className="flex items-center gap-3">
             <span className="px-2 py-0.5 rounded bg-[#e50914]/20 border border-[#e50914]/50 text-[#e50914] font-black text-[10px] tracking-wider uppercase">
-              SHOT {activeShot.shotNumber} / 06
+              SHOT {activeShot.shotNumber} / {String(SHOWCASE_PRESETS.length).padStart(2, '0')}
             </span>
             <span className="text-white font-bold tracking-wider">
               {activeShot.titleEn}
@@ -1252,27 +1477,36 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               willChange: 'transform'
             }}
           >
-            {/* Raw Video Plate: Hardware-Accelerated 4K Video Element or Crisp Stills Plate */}
-            {activeShot.isVideo || activeShot.videoSrc || activeShot.blobUrl || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(activeShot.imageUrl) ? (
-              <video
-                key={activeShot.videoSrc || activeShot.blobUrl || activeShot.imageUrl}
-                ref={stageVideoRef}
-                src={activeShot.videoSrc || activeShot.blobUrl || activeShot.imageUrl}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-                style={{
-                  filter: getLutFilterCss(activeShot.lutFilter),
-                  backgroundColor: '#050508',
-                  willChange: 'transform',
-                  transform: 'translateZ(0)'
-                }}
-                autoPlay
-                playsInline
-                muted
-                loop
-              />
-            ) : (
+            {/* Single Persistent Native 4K Video Element (Never unmounted to avoid playback stalls) */}
+            <video
+              ref={stageVideoRef}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                hasVideo ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none -z-10'
+              }`}
+              style={{
+                filter: getLutFilterCss(activeShot.lutFilter),
+                backgroundColor: '#050508',
+                willChange: 'transform',
+                transform: 'translateZ(0)'
+              }}
+              playsInline
+              muted
+              loop
+              autoPlay
+              preload="auto"
+              disablePictureInPicture
+              crossOrigin="anonymous"
+              onLoadedMetadata={() => {
+                if (isPlaying && hasVideo) {
+                  triggerPlayback();
+                }
+              }}
+            />
+
+            {/* Crisp Stills Plate (when active shot has custom image but not video) */}
+            {hasImage && (
               <div 
-                className="absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-500"
+                className="absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-500 z-10"
                 style={{
                   backgroundImage: `url(${activeShot.imageUrl})`,
                   backgroundColor: '#050508',
@@ -1280,96 +1514,173 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                   willChange: 'transform',
                   transform: 'translateZ(0)'
                 }}
-              >
-                {/* Fallback procedural canvas gradient underneath ensures zero blank frames */}
-                <div 
-                  className="w-full h-full"
-                  style={{ background: activeShot.fallbackGradient, opacity: 0.85 }}
-                />
+              />
+            )}
+
+            {/* Clean Minimalist Dark Studio Fallback Canvas (When no media is assigned) */}
+            {!hasMedia && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center select-none bg-gradient-to-br from-[#0a0a0a] via-[#101014] to-[#121212] overflow-hidden">
+                {/* 4K Optical Reticle Corner Markers */}
+                <div className="absolute top-5 left-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
+                  <span className="text-[#F5A623] font-black text-sm">┌</span>
+                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">DCI 4K RAW // 2.39:1 SCOPE</span>
+                </div>
+                <div className="absolute top-5 right-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
+                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">CAM 01 // LOCKED</span>
+                  <span className="text-[#00F0FF] font-black text-sm">┐</span>
+                </div>
+                <div className="absolute bottom-5 left-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
+                  <span className="text-[#F5A623] font-black text-sm">└</span>
+                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">24.000 FPS // 180° SHUTTER</span>
+                </div>
+                <div className="absolute bottom-5 right-5 text-zinc-600 font-mono text-xs select-none pointer-events-none flex items-center gap-1.5">
+                  <span className="text-[10px] tracking-widest text-zinc-500 uppercase">PRORES 4444 XQ READY</span>
+                  <span className="text-[#00F0FF] font-black text-sm">┘</span>
+                </div>
+
+                {/* Center 4K Watermark Reticle */}
+                <div className="relative flex flex-col items-center justify-center p-6 text-center max-w-md">
+                  <div className="relative w-24 h-24 flex items-center justify-center mb-3">
+                    <div className="absolute inset-0 rounded-full border border-dashed border-white/10 animate-[spin_60s_linear_infinite]" />
+                    <div className="absolute inset-2.5 rounded-full border border-white/10" />
+                    <div className="absolute inset-x-0 h-[1px] bg-white/15" />
+                    <div className="absolute inset-y-0 w-[1px] bg-white/15" />
+                    <div className="relative z-10 w-11 h-11 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center backdrop-blur-sm shadow-xl">
+                      <Film className="w-5 h-5 text-[#F5A623]" />
+                    </div>
+                  </div>
+
+                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/10 text-[#F5A623] text-[10px] font-mono font-bold tracking-widest uppercase mb-1.5">
+                    <span>SHOT {activeShot.shotNumber}</span>
+                    <span className="text-zinc-600">•</span>
+                    <span className="text-zinc-400">CLEAN PRODUCTION SLATE</span>
+                  </div>
+
+                  <h2 className="text-sm sm:text-base font-bold font-mono text-zinc-200 tracking-wider uppercase mb-1">
+                    DROP 4K MEDIA HERE
+                  </h2>
+                  <p className="text-[11px] font-mono text-zinc-500 max-w-xs">
+                    Drop .MP4, .MOV, .PNG, or .JPG to assign directly to Shot {activeShot.shotNumber}.
+                  </p>
+                </div>
               </div>
             )}
 
             {/* Subtle Vignette & Anamorphic Horizon Flare (Creative Layer) */}
-            <div className="absolute inset-0 bg-radial from-transparent via-black/20 to-black/80 pointer-events-none" />
+            <div className="absolute inset-0 z-15 bg-radial from-transparent via-black/20 to-black/80 pointer-events-none" />
 
             {/* Optional Rule-of-Thirds Composition Grid Overlay */}
             {showCompositionGrid && (
-              <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 border border-cyan-500/20 z-10">
+              <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 border border-cyan-500/20 z-20">
                 <div className="border-r border-b border-cyan-500/20" />
                 <div className="border-r border-b border-cyan-500/20" />
                 <div className="border-b border-cyan-500/20" />
                 <div className="border-r border-b border-cyan-500/20" />
                 <div className="border-r border-b border-cyan-500/20" />
                 <div className="border-b border-cyan-500/20" />
-                <div className="border-r border-cyan-500/20" />
-                <div className="border-r border-cyan-500/20" />
+                <div className="border-r border-b border-cyan-500/20" />
+                <div className="border-r border-b border-cyan-500/20" />
                 <div />
               </div>
             )}
 
             {/* CREATIVE KINETIC BILINGUAL TYPOGRAPHY LAYER ONLY */}
             {titlesLayerActive && (
-              <div className="absolute inset-x-8 bottom-8 md:bottom-12 z-20 pointer-events-none select-none text-center sm:text-left animate-in fade-in duration-300">
-                {/* Dynamic Per-Shot Distinctive Bangla Typography Styling */}
-                {activeShot.id === 1 ? (
-                  /* Shot 01: Electric yellow/cyan neon glow, rapid letter expansion */
-                  <h1 
-                    className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla tracking-wider leading-none mb-2 animate-pulse"
-                    style={{
-                      background: 'linear-gradient(180deg, #FFFFFF 0%, #FACC15 40%, #00F0FF 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      filter: 'drop-shadow(0 0 30px rgba(0, 240, 255, 0.75)) drop-shadow(0 0 45px rgba(250, 204, 21, 0.6))',
-                      letterSpacing: '0.04em'
-                    }}
-                  >
-                    {activeShot.titleBn}
-                  </h1>
-                ) : activeShot.id === 2 ? (
-                  /* Shot 02: Crisp white with soft amber drop-shadow, rhythmic slide-up */
-                  <h1 
-                    className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla tracking-tight leading-none mb-2"
-                    style={{
-                      background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF5EB 50%, #FFD6A5 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      filter: 'drop-shadow(0 8px 30px rgba(255, 170, 0, 0.65)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9))'
-                    }}
-                  >
-                    {activeShot.titleBn}
-                  </h1>
-                ) : activeShot.id === 3 ? (
-                  /* Shot 03: Monospace grid styling, typewriter scanline pass */
-                  <h1 
-                    className="text-4xl sm:text-6xl md:text-7xl font-black font-mono font-bangla tracking-normal leading-none mb-2"
-                    style={{
-                      background: 'linear-gradient(180deg, #FFFFFF 0%, #99F6E4 50%, #14B8A6 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      filter: 'drop-shadow(0 0 25px rgba(20, 184, 166, 0.6)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.5))'
-                    }}
-                  >
-                    {activeShot.titleBn}
-                  </h1>
-                ) : (
-                  /* Default 04-06: Gold Metallic Bloom */
-                  <h1 
-                    className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla tracking-tight leading-none mb-2"
-                    style={{
-                      background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF2B2 25%, #F5A623 60%, #B45309 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      filter: 'drop-shadow(0 0 35px rgba(245, 166, 35, 0.45))'
-                    }}
-                  >
-                    {activeShot.titleBn}
-                  </h1>
+              <div className="absolute inset-x-8 bottom-8 md:bottom-12 z-25 pointer-events-none select-none text-center sm:text-left animate-in fade-in duration-300">
+                {activeShotPersonality === 'DOPAMINE' && (
+                  /* Shot 01, 05, 09 — DOPAMINE ULTRA (High-Energy Hooks) */
+                  <div className="animate-in zoom-in-90 duration-300">
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-400/60 text-[#00F0FF] text-[9px] font-mono font-black tracking-widest uppercase mb-1.5 shadow-[0_0_15px_rgba(0,240,255,0.5)]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#00F0FF] animate-ping" />
+                      <span>[ DPM ULTRA // HIGH-ENERGY HOOK ]</span>
+                    </div>
+                    <h1 
+                      className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla leading-none mb-2 tracking-wider drop-shadow-[0_0_35px_rgba(0,240,255,0.9)] animate-pulse"
+                      style={{
+                        background: 'linear-gradient(180deg, #FFFFFF 0%, #FACC15 35%, #00F0FF 80%, #FF0055 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        filter: 'drop-shadow(0 0 30px rgba(0, 240, 255, 0.8)) drop-shadow(0 0 50px rgba(255, 0, 85, 0.6))',
+                        letterSpacing: '0.05em'
+                      }}
+                    >
+                      {activeShot.titleBn}
+                    </h1>
+                    <p className="text-sm sm:text-lg md:text-xl font-bold font-cinzel tracking-[0.25em] text-[#00F0FF] drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)] uppercase">
+                      {activeShot.titleEn}
+                    </p>
+                  </div>
                 )}
 
-                {/* English Subtext Title */}
-                <p className="text-sm sm:text-lg md:text-xl font-bold font-cinzel tracking-widest text-zinc-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                  {activeShot.titleEn}
-                </p>
+                {activeShotPersonality === 'MINIMAL' && (
+                  /* Shot 02, 06, 10 — MINIMAL BASIC (Editorial Clean) */
+                  <div className="animate-in fade-in duration-500 border-l border-white/60 pl-4 py-0.5">
+                    <div className="text-[9px] font-mono text-zinc-400 tracking-[0.3em] uppercase mb-1">
+                      SWISS EDITORIAL // SHOT {activeShot.shotNumber}
+                    </div>
+                    <h1 
+                      className="text-4xl sm:text-6xl md:text-7xl font-bold font-bangla text-white leading-none mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
+                      style={{
+                        letterSpacing: '0.08em'
+                      }}
+                    >
+                      {activeShot.titleBn}
+                    </h1>
+                    <p className="text-xs sm:text-sm md:text-base font-mono text-zinc-300 tracking-[0.35em] uppercase">
+                      {activeShot.titleEn}
+                    </p>
+                  </div>
+                )}
+
+                {activeShotPersonality === 'B2B' && (
+                  /* Shot 03, 07, 11 — B2B ENTERPRISE (Industrial / Executive) */
+                  <div className="animate-in zoom-in-95 duration-200 inline-block bg-black/75 backdrop-blur-md border-l-2 border-t-2 border-[#F5A623] p-4 rounded-br-xl shadow-[0_8px_30px_rgba(0,0,0,0.8)]">
+                    <div className="flex items-center gap-2 text-[9px] font-mono font-bold text-[#F5A623] tracking-widest uppercase mb-1.5">
+                      <span className="w-2 h-2 border border-[#F5A623] flex items-center justify-center">
+                        <span className="w-1 h-1 bg-[#F5A623]" />
+                      </span>
+                      <span>[ SEC: {activeShot.shotNumber} // LATENCY: 0.12ms // BUFFER: LOCKED ]</span>
+                    </div>
+                    <h1 
+                      className="text-3xl sm:text-5xl md:text-6xl font-black font-mono font-bangla leading-none mb-1.5"
+                      style={{
+                        background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.9))'
+                      }}
+                    >
+                      {activeShot.titleBn}
+                    </h1>
+                    <p className="text-xs sm:text-sm font-mono font-bold text-[#F5A623] tracking-[0.2em] uppercase flex items-center gap-1.5">
+                      <span>▶</span> {activeShot.titleEn}
+                    </p>
+                  </div>
+                )}
+
+                {activeShotPersonality === 'KINETIC' && (
+                  /* Shot 04, 08, 12 — KINETIC CANVAS (Fluid Motion) */
+                  <div className="animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="text-[10px] font-serif italic text-amber-200/80 tracking-widest uppercase mb-1">
+                      Fluid Motion Canvas • Staggered Flow
+                    </div>
+                    <h1 
+                      className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla leading-none mb-2"
+                      style={{
+                        background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF2B2 30%, #F5A623 70%, #B45309 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        filter: 'drop-shadow(0 0 35px rgba(245, 166, 35, 0.5)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9))'
+                      }}
+                    >
+                      {activeShot.titleBn}
+                    </h1>
+                    <p className="text-sm sm:text-lg md:text-xl font-light italic font-cinzel tracking-widest text-zinc-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                      <span className="font-extrabold not-italic text-white mr-2">//</span>
+                      {activeShot.titleEn}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1400,7 +1711,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         <div className="mb-2">
           <div className="flex items-center justify-between mb-1.5 px-0.5">
             <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-widest text-zinc-400 uppercase">
-              6-SHOT MASTER TIMELINE PRESETS
+              12-SHOT MASTER TIMELINE PRESETS
             </span>
             <button
               type="button"
@@ -1412,13 +1723,16 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 sm:gap-2">
             {SHOWCASE_PRESETS.map((shot, idx) => {
               const isActive = idx === activeShotIndex;
               const isTargetDrag = dragTargetShotIdx === idx;
               const shotMedia = customMedia[idx];
               const displayImg = shotMedia?.thumbnailUrl || shotMedia?.url || shot.imageUrl;
               const isShotVid = shotMedia?.isVideo || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(displayImg);
+              const hasCardMedia = Boolean(displayImg);
+              const cardPersonality = getShotTitlePersonality(idx, customTitleStyles[idx]);
+
               return (
                 <div
                   key={shot.id}
@@ -1444,45 +1758,56 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                       ? 'border-[#00F0FF] ring-4 ring-[#00F0FF]/60 shadow-[0_0_25px_rgba(0,240,255,0.7)] scale-105 z-20'
                       : isActive
                       ? 'border-[#ffaa00] ring-2 ring-[#ffaa00]/50 shadow-[0_0_20px_rgba(255,170,0,0.4)] scale-102 z-10'
-                      : 'border-white/10 hover:border-white/30 bg-[#0d0d14] opacity-75 hover:opacity-100'
+                      : 'border-white/10 hover:border-white/30 bg-[#0d0d14] opacity-80 hover:opacity-100'
                   }`}
                 >
-                  {/* Thumbnail Background Image */}
-                  <div 
-                    className="w-full h-full bg-cover bg-center"
-                    style={{
-                      backgroundImage: `url(${displayImg})`,
-                      backgroundColor: '#070709'
-                    }}
-                  >
-                    <div className="w-full h-full" style={{ background: shot.fallbackGradient, opacity: shotMedia ? 0 : 0.8 }} />
-                  </div>
+                  {/* Thumbnail Background Image OR Clean Dark Studio Slate */}
+                  {hasCardMedia ? (
+                    <div 
+                      className="w-full h-full bg-cover bg-center"
+                      style={{
+                        backgroundImage: `url(${displayImg})`,
+                        backgroundColor: '#070709'
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-[#0c0d12] via-[#090a0e] to-[#070709] flex items-center justify-center p-1 relative overflow-hidden">
+                      <div className="absolute inset-0 flex items-center justify-center opacity-15 pointer-events-none">
+                        <div className="w-5 h-5 border border-white/20 rounded-full flex items-center justify-center">
+                          <span className="text-[9px] text-zinc-500 font-mono">+</span>
+                        </div>
+                      </div>
+                      <div className="text-[7.5px] font-mono font-bold text-zinc-500 uppercase tracking-wider text-center">
+                        + DROP MEDIA
+                      </div>
+                    </div>
+                  )}
 
                   {/* Scrim overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
 
-                  {/* Top Shot Tag */}
-                  <div className="absolute top-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-mono">
-                    <span className={`px-1.5 py-0.5 rounded font-black ${isActive ? 'bg-[#ffaa00] text-black' : 'bg-black/80 text-white'}`}>
+                  {/* Top Shot Tag & Personality Tag */}
+                  <div className="absolute top-1 left-1 right-1 flex items-center justify-between text-[8px] font-mono pointer-events-none">
+                    <span className={`px-1 py-0.2 rounded font-black ${isActive ? 'bg-[#ffaa00] text-black' : 'bg-black/80 text-white'}`}>
                       SH {shot.shotNumber}
                     </span>
                     {isShotVid ? (
-                      <span className="text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1 py-0.5 rounded text-[8px] font-bold">
+                      <span className="text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1 py-0.2 rounded text-[7.5px] font-bold">
                         4K RAW
                       </span>
                     ) : (
-                      <span className="text-zinc-300 bg-black/60 px-1 py-0.5 rounded">
-                        {shot.durationSec.toFixed(1)}s
+                      <span className="text-zinc-400 bg-black/60 px-1 py-0.2 rounded text-[7px] font-bold">
+                        {cardPersonality === 'DOPAMINE' ? 'DPM' : cardPersonality === 'MINIMAL' ? 'MIN' : cardPersonality === 'B2B' ? 'B2B' : 'KIN'}
                       </span>
                     )}
                   </div>
 
                   {/* Bottom Title Slate */}
-                  <div className="absolute bottom-1 left-1.5 right-1.5 font-mono">
-                    <div className="text-xs font-bold text-white font-bangla truncate">
+                  <div className="absolute bottom-1 left-1.5 right-1.5 font-mono pointer-events-none">
+                    <div className="text-[10px] font-bold text-white font-bangla truncate leading-tight">
                       {customTitles[idx]?.titleBn || shot.titleBn}
                     </div>
-                    <div className="text-[9px] text-zinc-400 truncate">
+                    <div className="text-[7.5px] text-zinc-400 truncate leading-tight">
                       {customTitles[idx]?.titleEn || shot.titleEn}
                     </div>
                   </div>
@@ -1699,9 +2024,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
               {/* Quick Title Edit Popover */}
               {isEditingTitle && (
-                <div className="absolute right-0 bottom-full mb-2 w-72 bg-neutral-950/98 backdrop-blur-2xl border border-white/20 rounded-xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs font-mono space-y-2">
+                <div className="absolute right-0 bottom-full mb-2 w-80 bg-neutral-950/98 backdrop-blur-2xl border border-white/20 rounded-xl p-3.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs font-mono space-y-2.5">
                   <div className="flex items-center justify-between text-zinc-400 border-b border-white/10 pb-1.5 text-[10px] uppercase font-bold tracking-wider">
-                    <span>QUICK CHANGE SHOT TITLES</span>
+                    <span>SHOT {activeShot.shotNumber} // TITLE & STYLE ENGINE</span>
                     <button
                       type="button"
                       onClick={() => setIsEditingTitle(false)}
@@ -1709,6 +2034,32 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     >
                       ✕
                     </button>
+                  </div>
+
+                  {/* Personality / Style Selector */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9.5px] text-zinc-400 uppercase font-bold">Style Personality</label>
+                      <span className="text-[9px] text-amber-400 font-bold uppercase">
+                        {editingTitleStyle === 'AUTO' ? `AUTO (${activeShotPersonality})` : editingTitleStyle}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1">
+                      {(['AUTO', 'DOPAMINE', 'MINIMAL', 'B2B', 'KINETIC'] as const).map((styleOpt) => (
+                        <button
+                          key={styleOpt}
+                          type="button"
+                          onClick={() => setEditingTitleStyle(styleOpt)}
+                          className={`py-1 px-1 rounded text-[8.5px] font-bold font-mono text-center transition-all cursor-pointer ${
+                            editingTitleStyle === styleOpt
+                              ? 'bg-amber-500 text-black shadow-md'
+                              : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          {styleOpt === 'AUTO' ? 'Auto' : styleOpt === 'DOPAMINE' ? 'Dopamine' : styleOpt === 'MINIMAL' ? 'Minimal' : styleOpt === 'B2B' ? 'B2B' : 'Kinetic'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-1">
@@ -1924,12 +2275,23 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                         </span>
                       </div>
                     ) : (
-                      <div 
-                        className="absolute inset-0 bg-cover bg-center opacity-40"
-                        style={{
-                          backgroundImage: `url(${SHOWCASE_PRESETS[idx % SHOWCASE_PRESETS.length].imageUrl})`
-                        }}
-                      />
+                      customMedia[idx]?.thumbnailUrl || customMedia[idx]?.url ? (
+                        <div 
+                          className="absolute inset-0 bg-cover bg-center opacity-60"
+                          style={{
+                            backgroundImage: `url(${customMedia[idx]?.thumbnailUrl || customMedia[idx]?.url})`
+                          }}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#0e0f15] via-[#090a0e] to-[#070709] flex flex-col items-center justify-center p-3 select-none opacity-80">
+                          <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center mb-1 text-zinc-500">
+                            <span className="text-xs font-mono font-bold text-zinc-400">+{cam.label}</span>
+                          </div>
+                          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+                            CLEAN 4K SLATE
+                          </span>
+                        </div>
+                      )
                     )}
 
                     {/* Top Tally Header */}

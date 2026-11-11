@@ -49,6 +49,8 @@ export interface VaultMediaItem {
   shotIndex?: number;
   isUserUploaded?: boolean;
   isTemporary?: boolean;
+  url?: string;
+  status?: string;
 }
 
 export type MediaItem = VaultMediaItem;

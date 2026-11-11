@@ -62,8 +62,12 @@ import {
   Camera,
   Compass,
   Eye,
-  EyeOff
+  EyeOff,
+  FolderPlus
 } from 'lucide-react';
+import { useStudioStore } from '../../core/store';
+import { db } from '../../services/db';
+import { MediaBinDrawer } from '../MediaBinDrawer';
 
 export interface HandfilmHomeProps {
   frames?: AnthologyFrame[];
@@ -92,6 +96,9 @@ export interface ShowcaseShot {
   lensSpec: string;
   durationSec: number;
   imageUrl: string;
+  videoSrc?: string;
+  blobUrl?: string;
+  isVideo?: boolean;
   fallbackGradient: string;
   lutFilter: string;
   aspectRatio: string;
@@ -281,6 +288,31 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [editingTitleEn, setEditingTitleEn] = useState<string>('');
   const [editingTitleBn, setEditingTitleBn] = useState<string>('');
 
+  // Media Vault & Zero-Wait Ingestion State
+  const [vaultAssets, setVaultAssets] = useState<Array<{
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+    status: string;
+    isVideo: boolean;
+  }>>([]);
+  const [customMedia, setCustomMedia] = useState<Record<number, {
+    url: string;
+    videoSrc?: string;
+    blobUrl?: string;
+    isVideo: boolean;
+    name: string;
+  }>>({});
+  const [isVaultDrawerOpen, setIsVaultDrawerOpen] = useState<boolean>(false);
+  const [ingestStatus, setIngestStatus] = useState<string | null>(null);
+  const [isDraggingOverStage, setIsDraggingOverStage] = useState<boolean>(false);
+  const [dragTargetShotIdx, setDragTargetShotIdx] = useState<number | null>(null);
+
+  const vaultFileInputRef = useRef<HTMLInputElement>(null);
+  const stageVideoRef = useRef<HTMLVideoElement | null>(null);
+
   // Header Interactive States
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isZenModeActive, setIsZenModeActive] = useState<boolean>(false);
@@ -298,6 +330,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     const preset = SHOWCASE_PRESETS[activeShotIndex % SHOWCASE_PRESETS.length];
     const custom = customTitles[activeShotIndex];
     const lutOverride = customLuts[activeShotIndex];
+    const mediaOverride = customMedia[activeShotIndex];
     let base = preset;
     if (frames && frames.length > 0 && frames[activeShotIndex]) {
       const userFrame = frames[activeShotIndex];
@@ -317,6 +350,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         lutFilter: lutOverride
       };
     }
+    if (mediaOverride) {
+      base = {
+        ...base,
+        imageUrl: mediaOverride.url,
+        videoSrc: mediaOverride.videoSrc || mediaOverride.url,
+        blobUrl: mediaOverride.blobUrl || mediaOverride.url,
+        isVideo: mediaOverride.isVideo
+      };
+    }
     if (custom) {
       return {
         ...base,
@@ -325,7 +367,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       };
     }
     return base;
-  }, [activeShotIndex, frames, customTitles, customLuts]);
+  }, [activeShotIndex, frames, customTitles, customLuts, customMedia]);
 
   // Top 10 Shots for the Netflix poster row
   const top10Shots = useMemo(() => {
@@ -534,6 +576,135 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   }, []);
 
   // ─────────────────────────────────────────────────────────────
+  // ZERO-WAIT INGESTION PIPELINE (Instant Memory-First + Background Decouple)
+  // ─────────────────────────────────────────────────────────────
+  const handleIngestFiles = useCallback((files: FileList | File[], targetShotIndex?: number) => {
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
+    const assignedShot = typeof targetShotIndex === 'number' ? targetShotIndex : activeShotIndex;
+
+    const newAssets: Array<{
+      id: string;
+      name: string;
+      size: number;
+      type: string;
+      url: string;
+      status: string;
+      isVideo: boolean;
+    }> = [];
+
+    const filesToPersist: { file: File; id: string; url: string; isVideo: boolean }[] = [];
+
+    for (let idx = 0; idx < fileList.length; idx++) {
+      const file = fileList[idx];
+      // 1. Instant Memory-First Media Registration
+      const mediaUrl = URL.createObjectURL(file);
+      const isVid = file.type.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name);
+      const instantId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const newAsset = {
+        id: instantId,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: mediaUrl,
+        status: 'READY',
+        isVideo: isVid
+      };
+
+      newAssets.push(newAsset);
+      filesToPersist.push({ file, id: instantId, url: mediaUrl, isVideo: isVid });
+    }
+
+    // Push new asset directly to the vaultAssets state array synchronously
+    setVaultAssets(prev => [...newAssets, ...prev]);
+
+    // Update UI status to [ READY // X ASSETS ] instantly without waiting for disk or database operations
+    setIngestStatus(`[ READY // ${newAssets.length} ASSETS ]`);
+    setTimeout(() => {
+      setIngestStatus(null);
+    }, 4500);
+
+    // 3. Auto-Assign to Active Shot Target
+    if (newAssets.length > 0) {
+      const primary = newAssets[0];
+      setCustomMedia(prev => ({
+        ...prev,
+        [assignedShot]: {
+          url: primary.url,
+          videoSrc: primary.url,
+          blobUrl: primary.url,
+          isVideo: primary.isVideo,
+          name: primary.name
+        }
+      }));
+
+      // Update global studio store so all other views update immediately
+      try {
+        useStudioStore.getState().updateShot(assignedShot, {
+          imageUrl: primary.url,
+          videoSrc: primary.url,
+          blobUrl: primary.url,
+          isVideo: primary.isVideo,
+          title: primary.name.replace(/\.[^/.]+$/, "")
+        });
+      } catch (err) {
+        console.warn('[HandfilmHome] updateShot error:', err);
+      }
+
+      // Play camera shutter sound
+      try { audioEngine.playShutterClick(); } catch {}
+    }
+
+    // 2. Decouple IndexedDB / Storage to Background non-blocking queue
+    const backgroundPersist = async () => {
+      for (const item of filesToPersist) {
+        try {
+          await db.saveMediaToVault(item.file);
+        } catch (err) {
+          console.warn('[HandfilmHome] Background IDB save non-fatal error:', err);
+          // Never fail the file import - asset remains fully playable via its mediaUrl!
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(backgroundPersist, { timeout: 3000 });
+    } else {
+      setTimeout(backgroundPersist, 80);
+    }
+  }, [activeShotIndex]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleIngestFiles(e.target.files, activeShotIndex);
+      e.target.value = '';
+    }
+  }, [handleIngestFiles, activeShotIndex]);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetShot?: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOverStage(false);
+    setDragTargetShotIdx(null);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleIngestFiles(e.dataTransfer.files, targetShot !== undefined ? targetShot : activeShotIndex);
+    }
+  }, [handleIngestFiles, activeShotIndex]);
+
+  // Keep 4K stage video playback synced with transport isPlaying & playbackSpeed
+  useEffect(() => {
+    if (stageVideoRef.current) {
+      stageVideoRef.current.playbackRate = playbackSpeed;
+      if (isPlaying) {
+        stageVideoRef.current.play().catch(() => {});
+      } else {
+        stageVideoRef.current.pause();
+      }
+    }
+  }, [isPlaying, playbackSpeed, activeShotIndex]);
+
+  // ─────────────────────────────────────────────────────────────
   // 5. Scroll smoothly to Specs / Matrix section
   // ─────────────────────────────────────────────────────────────
   const handleScrollToSpecs = () => {
@@ -627,6 +798,22 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
         </div>
 
+        {/* Instant Zero-Wait Ingest Status HUD Banner */}
+        {ingestStatus && (
+          <div className="w-full bg-[#0a120e] border border-emerald-500/60 rounded-xl px-4 py-2 mb-3 flex items-center justify-between font-mono text-xs shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-emerald-400 font-black tracking-wider text-sm">{ingestStatus}</span>
+              <span className="text-zinc-400 text-[11px] hidden sm:inline">// ZERO-WAIT INGESTION ACTIVE</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-bold">
+                AUTO-ASSIGNED TO SHOT {activeShot.shotNumber}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* 2.39:1 / Aspect-Responsive Clean Render Viewport Canvas */}
         <div 
           className="relative w-full rounded-2xl overflow-hidden bg-black border border-[#232330] shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex items-center justify-center transition-all duration-300"
@@ -634,7 +821,29 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             aspectRatio: selectedAspectRatio === '2.39:1' ? '2.39 / 1' : selectedAspectRatio === '16:9' ? '16 / 9' : selectedAspectRatio === '9:16' ? '9 / 16' : selectedAspectRatio === '4:3' ? '4 / 3' : '1 / 1',
             maxHeight: '62vh'
           }}
+          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverStage(true); }}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isDraggingOverStage) setIsDraggingOverStage(true); }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            setIsDraggingOverStage(false);
+          }}
+          onDrop={(e) => handleDrop(e, activeShotIndex)}
         >
+          {/* Viewport Drag & Drop Overlay */}
+          {isDraggingOverStage && (
+            <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-md border-2 border-dashed border-[#F5A623] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-150">
+              <HardDrive className="w-12 h-12 text-[#F5A623] animate-bounce mb-2" />
+              <span className="text-base font-mono font-black text-[#F5A623] tracking-widest uppercase">
+                [ DROP 4K MEDIA HERE // AUTO-ASSIGN TO SHOT {activeShot.shotNumber} ]
+              </span>
+              <span className="text-xs font-mono text-zinc-400 mt-1">
+                ZERO-WAIT BLOB PIPELINE • .MP4, .MOV, .PNG, .JPG
+              </span>
+            </div>
+          )}
+
           {/* Zoom Transform Wrapper */}
           <div 
             className="w-full h-full relative flex items-center justify-center transition-transform duration-300 ease-out"
@@ -642,21 +851,38 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               transform: stageZoomLevel === '2.0x' ? 'scale(2.0)' : stageZoomLevel === '1.5x' ? 'scale(1.5)' : 'scale(1.0)'
             }}
           >
-            {/* Raw Video Plate: Crisp 4K Containment with Zero Blank Frames */}
-            <div 
-              className="absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-500"
-              style={{
-                backgroundImage: `url(${activeShot.imageUrl})`,
-                backgroundColor: '#050508',
-                filter: getLutFilterCss(activeShot.lutFilter)
-              }}
-            >
-              {/* Fallback procedural canvas gradient underneath ensures zero blank frames */}
-              <div 
-                className="w-full h-full"
-                style={{ background: activeShot.fallbackGradient, opacity: 0.85 }}
+            {/* Raw Video Plate: Hardware-Accelerated 4K Video Element or Crisp Stills Plate */}
+            {activeShot.isVideo || activeShot.videoSrc || activeShot.blobUrl || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(activeShot.imageUrl) ? (
+              <video
+                key={activeShot.videoSrc || activeShot.blobUrl || activeShot.imageUrl}
+                ref={stageVideoRef}
+                src={activeShot.videoSrc || activeShot.blobUrl || activeShot.imageUrl}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+                style={{
+                  filter: getLutFilterCss(activeShot.lutFilter),
+                  backgroundColor: '#050508'
+                }}
+                autoPlay
+                playsInline
+                muted
+                loop
               />
-            </div>
+            ) : (
+              <div 
+                className="absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-500"
+                style={{
+                  backgroundImage: `url(${activeShot.imageUrl})`,
+                  backgroundColor: '#050508',
+                  filter: getLutFilterCss(activeShot.lutFilter)
+                }}
+              >
+                {/* Fallback procedural canvas gradient underneath ensures zero blank frames */}
+                <div 
+                  className="w-full h-full"
+                  style={{ background: activeShot.fallbackGradient, opacity: 0.85 }}
+                />
+              </div>
+            )}
 
             {/* Subtle Vignette & Anamorphic Horizon Flare (Creative Layer) */}
             <div className="absolute inset-0 bg-radial from-transparent via-black/20 to-black/80 pointer-events-none" />
@@ -784,6 +1010,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
             {SHOWCASE_PRESETS.map((shot, idx) => {
               const isActive = idx === activeShotIndex;
+              const isTargetDrag = dragTargetShotIdx === idx;
+              const shotMedia = customMedia[idx];
+              const displayImg = shotMedia?.url || shot.imageUrl;
+              const isShotVid = shotMedia?.isVideo || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(displayImg);
               return (
                 <div
                   key={shot.id}
@@ -792,8 +1022,22 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     setCurrentFrameNum(0);
                     try { audioEngine.playShutterClick(); } catch {}
                   }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (dragTargetShotIdx !== idx) setDragTargetShotIdx(idx);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    setDragTargetShotIdx(null);
+                  }}
+                  onDrop={(e) => handleDrop(e, idx)}
                   className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group border flex flex-col aspect-[16/9] ${
-                    isActive
+                    isTargetDrag
+                      ? 'border-[#00F0FF] ring-4 ring-[#00F0FF]/60 shadow-[0_0_25px_rgba(0,240,255,0.7)] scale-105 z-20'
+                      : isActive
                       ? 'border-[#ffaa00] ring-2 ring-[#ffaa00]/50 shadow-[0_0_20px_rgba(255,170,0,0.4)] scale-102 z-10'
                       : 'border-white/10 hover:border-white/30 bg-[#0d0d14] opacity-75 hover:opacity-100'
                   }`}
@@ -802,11 +1046,11 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                   <div 
                     className="w-full h-full bg-cover bg-center"
                     style={{
-                      backgroundImage: `url(${shot.imageUrl})`,
+                      backgroundImage: `url(${displayImg})`,
                       backgroundColor: '#070709'
                     }}
                   >
-                    <div className="w-full h-full" style={{ background: shot.fallbackGradient, opacity: 0.8 }} />
+                    <div className="w-full h-full" style={{ background: shot.fallbackGradient, opacity: shotMedia ? 0 : 0.8 }} />
                   </div>
 
                   {/* Scrim overlay */}
@@ -817,9 +1061,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     <span className={`px-1.5 py-0.5 rounded font-black ${isActive ? 'bg-[#ffaa00] text-black' : 'bg-black/80 text-white'}`}>
                       SH {shot.shotNumber}
                     </span>
-                    <span className="text-zinc-300 bg-black/60 px-1 py-0.5 rounded">
-                      {shot.durationSec.toFixed(1)}s
-                    </span>
+                    {isShotVid ? (
+                      <span className="text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1 py-0.5 rounded text-[8px] font-bold">
+                        4K RAW
+                      </span>
+                    ) : (
+                      <span className="text-zinc-300 bg-black/60 px-1 py-0.5 rounded">
+                        {shot.durationSec.toFixed(1)}s
+                      </span>
+                    )}
                   </div>
 
                   {/* Bottom Title Slate */}
@@ -1137,6 +1387,33 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               title="Toggle Rule-of-Thirds Cinematic Composition Grid"
             >
               <Grid className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Ingest 4K Media File Input Trigger */}
+            <button
+              type="button"
+              onClick={() => vaultFileInputRef.current?.click()}
+              className="h-8 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 active:scale-95 border border-amber-500/40 text-[#F5A623] hover:text-[#FFE066] font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0"
+              title="Ingest .mp4, .mov, .png, .jpg directly to active shot target"
+            >
+              <HardDrive className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span className="hidden md:inline">INGEST</span>
+            </button>
+
+            {/* Media Asset Vault Drawer Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsVaultDrawerOpen(prev => !prev)}
+              className="h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 border border-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0"
+              title="Open Media Asset Vault"
+            >
+              <FolderPlus className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span className="hidden md:inline">VAULT</span>
+              {vaultAssets.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-[#F5A623] text-black text-[8.5px] font-black rounded-full">
+                  {vaultAssets.length}
+                </span>
+              )}
             </button>
 
             {/* Minimal Zen Focus Mode Icon Button */}
@@ -1550,6 +1827,60 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* Hidden File Input for Direct Media Ingest */}
+      <input
+        type="file"
+        ref={vaultFileInputRef}
+        multiple
+        accept="video/*,image/*,.mp4,.mov,.png,.jpg,.jpeg,.webm,.mkv"
+        onChange={handleFileInput}
+        className="hidden"
+        aria-hidden="true"
+      />
+
+      {/* Slide-Over High-Speed Media Asset Vault Drawer */}
+      {isVaultDrawerOpen && (
+        <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-[#0c0d12]/98 backdrop-blur-2xl border-l border-white/15 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="flex items-center justify-between p-3 border-b border-white/10 bg-[#0d0e15]">
+            <div className="flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-[#fbbf24]" />
+              <span className="text-xs font-mono font-bold text-white tracking-wider">MEDIA ASSET VAULT</span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24] font-bold rounded">
+                ACTIVE TARGET: SHOT 0{activeShotIndex + 1}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsVaultDrawerOpen(false)}
+              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-mono cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <MediaBinDrawer
+              activeShotIndex={activeShotIndex}
+              onAssignToShot={(_assetId, shotIndex, filename) => {
+                const targetIdx = typeof shotIndex === 'number' ? shotIndex : activeShotIndex;
+                const match = vaultAssets.find(v => v.name === filename);
+                if (match) {
+                  setCustomMedia(prev => ({
+                    ...prev,
+                    [targetIdx]: {
+                      url: match.url,
+                      videoSrc: match.url,
+                      blobUrl: match.url,
+                      isVideo: match.isVideo,
+                      name: filename
+                    }
+                  }));
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

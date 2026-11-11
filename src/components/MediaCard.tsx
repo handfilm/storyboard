@@ -183,12 +183,16 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   // Mount video blob URL when item is available
   useEffect(() => {
     let url: string | null = null;
-    if (isVid && item.blob) {
-      try {
-        url = URL.createObjectURL(item.blob);
-        setVideoBlobUrl(url);
-      } catch {
-        // ignore
+    if (isVid) {
+      if (item.url) {
+        setVideoBlobUrl(item.url);
+      } else if (item.blob) {
+        try {
+          url = URL.createObjectURL(item.blob);
+          setVideoBlobUrl(url);
+        } catch {
+          // ignore
+        }
       }
     }
     return () => {
@@ -196,7 +200,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         URL.revokeObjectURL(url);
       }
     };
-  }, [isVid, item.blob]);
+  }, [isVid, item.blob, item.url]);
 
   // Mouse Enter: calculate boundary clamping
   const handleMouseEnter = () => {

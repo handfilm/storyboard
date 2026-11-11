@@ -72,6 +72,8 @@ export const ShotSchema = z.object({
   cameraSpec: CameraSpecSchema.default(() => CameraSpecSchema.parse({})),
   imageUrl: z.string().optional(),
   thumbnailUrl: z.string().optional(),
+  videoSrc: z.string().optional(),
+  blobUrl: z.string().optional(),
   isVideo: z.boolean().default(false),
   panY: z.number().min(0).max(100).default(50),
   colorAccent: z.string().default('#d4af37'),

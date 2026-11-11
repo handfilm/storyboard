@@ -40,7 +40,7 @@ import {
   Download,
   AlertTriangle
 } from 'lucide-react';
-import { db, VaultMediaItem } from '../services/db';
+import { db, VaultMediaItem, createFallbackSvgThumbnail } from '../services/db';
 import { useStudioStore } from '../core/store';
 import { eventBus } from '../core/eventBus';
 import { MediaCard } from './MediaCard';
@@ -82,6 +82,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
   const [isIngesting, setIsIngesting] = useState(false);
   const [ingestTotal, setIngestTotal] = useState(0);
   const [ingestDone, setIngestDone] = useState(0);
+  const [readyStatus, setReadyStatus] = useState<string | null>(null);
   const [currentIngestFilename, setCurrentIngestFilename] = useState('');
   const [previewItem, setPreviewItem] = useState<{ id: string; url: string; isVideo: boolean; title: string } | null>(null);
 
@@ -199,49 +200,114 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
   }, [loadStoredMedia]);
 
   // =========================================================================
-  // CONCURRENT INGESTION QUEUE (Batches of 3, Real-time local state append)
+  // ZERO-WAIT INGESTION PIPELINE (Instant Memory-First + Decoupled Storage Queue)
   // =========================================================================
 
   const runBatchIngestion = async (files: File[]) => {
     if (!files || files.length === 0) return;
 
+    // 1. Instant Memory-First Media Registration
+    const newAssets: VaultMediaItem[] = [];
+    const filesToPersist: { file: File; id: string; url: string; isVideo: boolean }[] = [];
+
+    for (let idx = 0; idx < files.length; idx++) {
+      const file = files[idx];
+      const mediaUrl = URL.createObjectURL(file);
+      const isVideo = file.type.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(file.name);
+      const isAudio = file.type.startsWith('audio') || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(file.name);
+      const instantId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const fallbackThumb = isVideo ? createFallbackSvgThumbnail(file.name, true, file.size) : mediaUrl;
+
+      const newAsset: VaultMediaItem = {
+        id: instantId,
+        name: file.name,
+        mimeType: file.type || (isVideo ? 'video/mp4' : isAudio ? 'audio/mpeg' : 'image/jpeg'),
+        size: file.size,
+        blob: file,
+        url: mediaUrl,
+        thumbnailUrl: fallbackThumb,
+        thumbnails: [fallbackThumb],
+        duration: isVideo ? 12.0 : undefined,
+        resolution: isVideo ? '4K' : isAudio ? 'AUDIO' : 'STILL',
+        createdAt: Date.now(),
+        isUserUploaded: true,
+        isTemporary: false,
+        status: 'READY'
+      };
+
+      newAssets.push(newAsset);
+      filesToPersist.push({ file, id: instantId, url: mediaUrl, isVideo });
+    }
+
+    // Push new assets directly to state array synchronously
+    setVaultItems(prev => {
+      const existingIds = new Set(newAssets.map(a => a.id));
+      return [...newAssets, ...prev.filter(p => !existingIds.has(p.id))];
+    });
+
+    // Update UI status to [ READY // X ASSETS ] instantly without waiting for disk/DB
+    setReadyStatus(`[ READY // ${newAssets.length} ASSETS ]`);
     setIsIngesting(true);
     setIngestTotal(files.length);
-    setIngestDone(0);
+    setIngestDone(files.length);
+    if (files.length > 0) {
+      setCurrentIngestFilename(files[0].name);
+    }
 
-    const BATCH_SIZE = 3;
-    try {
-      for (let i = 0; i < files.length && !isCancelledRef.current; i += BATCH_SIZE) {
-        const chunk = files.slice(i, i + BATCH_SIZE);
-        await Promise.all(
-          chunk.map(async (file) => {
-            setCurrentIngestFilename(file.name);
-            try {
-              const savedItem = await db.saveMediaToVault(file);
-              // Immediately append newly saved item into local React state in real time
-              setVaultItems(prev => {
-                const filtered = prev.filter(p => p.id !== savedItem.id);
-                return [savedItem, ...filtered];
-              });
-            } catch (err) {
-              console.warn('[RECOVERY FALLBACK] Ingest Queue failed to save file:', file.name, err);
-            }
-          })
-        );
-        setIngestDone(Math.min(files.length, i + chunk.length));
-      }
-    } catch (err) {
-      console.warn('[RECOVERY FALLBACK] runBatchIngestion error:', err);
-    } finally {
-      setIsIngesting(false);
-      setCurrentIngestFilename('');
+    // 3. Auto-Assign to Active Shot Target
+    if (newAssets.length > 0) {
+      const targetShot = activeShotIndex;
+      const firstItem = newAssets[0];
+      const isVid = firstItem.mimeType?.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(firstItem.name);
+
       try {
-        // Final synchronization pass with IndexedDB
-        const finalVault = await db.getMasterVaultMedia();
-        setVaultItems(finalVault);
+        useStudioStore.getState().updateShot(targetShot, {
+          imageUrl: firstItem.url,
+          videoSrc: firstItem.url,
+          blobUrl: firstItem.url,
+          isVideo: isVid,
+          title: firstItem.name.replace(/\.[^/.]+$/, "")
+        });
       } catch (err) {
-        console.warn('[RECOVERY FALLBACK] Final vault sync error:', err);
+        console.warn('[MediaBin] auto-assign updateShot error:', err);
       }
+
+      if (onAssignToShot) {
+        onAssignToShot(firstItem.id, targetShot, firstItem.name);
+      }
+      eventBus.emit('asset_assigned_to_shot', {
+        id: firstItem.id,
+        shotIndex: targetShot,
+        mediaUrl: firstItem.url,
+        filename: firstItem.name
+      });
+    }
+
+    // 2. Decouple IndexedDB / Storage to Background (Non-blocking queue via requestIdleCallback)
+    const backgroundQueue = async () => {
+      for (let i = 0; i < filesToPersist.length && !isCancelledRef.current; i++) {
+        const item = filesToPersist[i];
+        setCurrentIngestFilename(item.file.name);
+        try {
+          const savedItem = await db.saveMediaToVault(item.file);
+          // Preserve in-memory blob and instant url
+          setVaultItems(prev => prev.map(p => p.id === item.id ? { ...savedItem, url: item.url, blob: item.file } : p));
+        } catch (err) {
+          console.warn('[MediaBin] Background IDB save non-fatal error:', err);
+          // Never fail the file import: asset remains fully playable via its mediaUrl!
+        }
+      }
+      setTimeout(() => {
+        setIsIngesting(false);
+        setReadyStatus(null);
+        setCurrentIngestFilename('');
+      }, 3500);
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => backgroundQueue(), { timeout: 2500 });
+    } else {
+      setTimeout(backgroundQueue, 60);
     }
   };
 
@@ -609,12 +675,14 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
       {/* ===================================================================== */}
       {/* 2. LIVE GOLD BATCH INGESTION HUD                                      */}
       {/* ===================================================================== */}
-      {isIngesting && (
+      {(isIngesting || readyStatus) && (
         <div className="bg-[#0f0c08] border-b border-[#F5A623] px-3 py-2 shrink-0 animate-in fade-in duration-150">
           <div className="flex items-center justify-between text-[10px] text-[#F5A623] font-bold tracking-wider mb-1">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-ping" />
-              <span>[ INGESTING {ingestDone}/{ingestTotal} ASSETS // {percentComplete}% ]</span>
+              <span className={`w-2 h-2 rounded-full ${readyStatus ? 'bg-emerald-400' : 'bg-[#F5A623]'} animate-ping`} />
+              <span className={readyStatus ? 'text-emerald-400 font-black tracking-wider' : 'text-[#F5A623]'}>
+                {readyStatus || `[ INGESTING ${ingestDone}/${ingestTotal} ASSETS // ${percentComplete}% ]`}
+              </span>
             </div>
             <span className="text-zinc-400 text-[9px] truncate max-w-[160px]">
               {currentIngestFilename}
@@ -623,7 +691,7 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
           {/* Slim Gold Progress Bar (#F5A623) */}
           <div className="w-full h-1 bg-black/60 rounded-full overflow-hidden border border-[#F5A623]/40">
             <div 
-              className="h-full bg-[#F5A623] transition-all duration-150 shadow-[0_0_8px_#F5A623]"
+              className={`h-full ${readyStatus ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-[#F5A623] shadow-[0_0_8px_#F5A623]'} transition-all duration-150`}
               style={{ width: `${percentComplete}%` }}
             />
           </div>

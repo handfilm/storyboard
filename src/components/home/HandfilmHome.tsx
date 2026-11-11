@@ -397,6 +397,252 @@ export const getLutFilterCss = (lut: string): string => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// Offscreen Canvas Buffer Dynamic Title Typography Engine
+// Pre-renders typography to an offscreen buffer to prevent DOM layout recalculations
+// ─────────────────────────────────────────────────────────────
+export const renderTitleTypographyToCanvas = (
+  targetCanvas: HTMLCanvasElement,
+  shot: ShowcaseShot,
+  personality: 'DOPAMINE' | 'MINIMAL' | 'B2B' | 'KINETIC'
+) => {
+  const rect = targetCanvas.getBoundingClientRect();
+  const width = Math.max(rect.width, targetCanvas.clientWidth || 1280);
+  const height = Math.max(rect.height, targetCanvas.clientHeight || 536);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  const targetPixelWidth = Math.round(width * dpr);
+  const targetPixelHeight = Math.round(height * dpr);
+
+  if (targetCanvas.width !== targetPixelWidth || targetCanvas.height !== targetPixelHeight) {
+    targetCanvas.width = targetPixelWidth;
+    targetCanvas.height = targetPixelHeight;
+  }
+
+  // Decoupled Offscreen Canvas Buffer
+  let offscreen: HTMLCanvasElement | OffscreenCanvas;
+  let offCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
+
+  if (typeof OffscreenCanvas !== 'undefined') {
+    offscreen = new OffscreenCanvas(targetPixelWidth, targetPixelHeight);
+    offCtx = offscreen.getContext('2d');
+  } else {
+    offscreen = document.createElement('canvas');
+    offscreen.width = targetPixelWidth;
+    offscreen.height = targetPixelHeight;
+    offCtx = offscreen.getContext('2d');
+  }
+
+  if (!offCtx) return;
+
+  offCtx.scale(dpr, dpr);
+  offCtx.clearRect(0, 0, width, height);
+
+  const paddingX = Math.max(28, width * 0.05);
+  const paddingBottom = Math.max(28, height * 0.08);
+  const baseY = height - paddingBottom;
+
+  const titleBn = shot.titleBn || 'শিরোনাম';
+  const titleEn = shot.titleEn || 'SHOT TITLE';
+
+  if (personality === 'DOPAMINE') {
+    // 1. Cyber Tally Tag
+    const badgeText = '[ DPM ULTRA // HIGH-ENERGY HOOK ]';
+    offCtx.save();
+    offCtx.font = '900 10.5px "JetBrains Mono", ui-monospace, monospace';
+    const badgeMetrics = offCtx.measureText(badgeText);
+    const badgeW = badgeMetrics.width + 24;
+    const badgeH = 20;
+    const badgeY = baseY - 84;
+
+    offCtx.fillStyle = 'rgba(6, 22, 34, 0.88)';
+    offCtx.strokeStyle = 'rgba(0, 240, 255, 0.75)';
+    offCtx.lineWidth = 1;
+    offCtx.shadowColor = 'rgba(0, 240, 255, 0.5)';
+    offCtx.shadowBlur = 12;
+
+    offCtx.beginPath();
+    if (typeof (offCtx as any).roundRect === 'function') {
+      (offCtx as any).roundRect(paddingX, badgeY - 14, badgeW, badgeH, 4);
+    } else {
+      offCtx.rect(paddingX, badgeY - 14, badgeW, badgeH);
+    }
+    offCtx.fill();
+    offCtx.stroke();
+
+    // Pulse dot
+    offCtx.shadowBlur = 0;
+    offCtx.fillStyle = '#00F0FF';
+    offCtx.beginPath();
+    offCtx.arc(paddingX + 9, badgeY - 4, 3, 0, Math.PI * 2);
+    offCtx.fill();
+
+    offCtx.fillStyle = '#00F0FF';
+    offCtx.fillText(badgeText, paddingX + 17, badgeY);
+    offCtx.restore();
+
+    // 2. High-Impact Bengali Headline with Dual Neon Glow & Gradient
+    offCtx.save();
+    const fontSizeBn = Math.min(64, Math.max(34, width * 0.046));
+    offCtx.font = `800 ${fontSizeBn}px "Anek Bangla", "Noto Serif Bengali", sans-serif`;
+
+    // Glow 1: Cyan bloom
+    offCtx.shadowColor = 'rgba(0, 240, 255, 0.9)';
+    offCtx.shadowBlur = 28;
+
+    const grad = offCtx.createLinearGradient(paddingX, baseY - 50, paddingX, baseY - 10);
+    grad.addColorStop(0, '#FFFFFF');
+    grad.addColorStop(0.35, '#FACC15');
+    grad.addColorStop(0.8, '#00F0FF');
+    grad.addColorStop(1, '#FF0055');
+    offCtx.fillStyle = grad;
+
+    offCtx.fillText(titleBn, paddingX, baseY - 20);
+
+    // Glow 2: Magenta secondary strike
+    offCtx.shadowColor = 'rgba(255, 0, 85, 0.55)';
+    offCtx.shadowBlur = 40;
+    offCtx.fillText(titleBn, paddingX, baseY - 20);
+    offCtx.restore();
+
+    // 3. Cinzel English Subtitle
+    offCtx.save();
+    const fontSizeEn = Math.min(18, Math.max(12, width * 0.015));
+    offCtx.font = `700 ${fontSizeEn}px "Cinzel", Georgia, serif`;
+    offCtx.fillStyle = '#00F0FF';
+    offCtx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    offCtx.shadowBlur = 10;
+    if ('letterSpacing' in offCtx) {
+      (offCtx as any).letterSpacing = '3px';
+    }
+    offCtx.fillText(titleEn.toUpperCase(), paddingX, baseY + 6);
+    offCtx.restore();
+
+  } else if (personality === 'MINIMAL') {
+    // 1. Swiss Editorial Subtitle & Razor Bar
+    offCtx.save();
+    const subText = `SWISS EDITORIAL // SHOT ${shot.shotNumber}`;
+    offCtx.font = '600 10px "JetBrains Mono", ui-monospace, monospace';
+    if ('letterSpacing' in offCtx) {
+      (offCtx as any).letterSpacing = '2px';
+    }
+    offCtx.fillStyle = '#A1A1AA';
+    offCtx.fillText(subText, paddingX + 14, baseY - 62);
+
+    // Razor-thin vertical bar
+    offCtx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    offCtx.fillRect(paddingX, baseY - 70, 2.5, 78);
+
+    // White Bauhaus Bangla Headline
+    const fontSizeBn = Math.min(60, Math.max(32, width * 0.042));
+    offCtx.font = `700 ${fontSizeBn}px "Anek Bangla", "Noto Serif Bengali", sans-serif`;
+    offCtx.fillStyle = '#FFFFFF';
+    offCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    offCtx.shadowBlur = 6;
+    offCtx.fillText(titleBn, paddingX + 14, baseY - 16);
+
+    // Monospaced Secondary Subtitle
+    const fontSizeEn = Math.min(13.5, Math.max(11, width * 0.012));
+    offCtx.font = `500 ${fontSizeEn}px "JetBrains Mono", monospace`;
+    if ('letterSpacing' in offCtx) {
+      (offCtx as any).letterSpacing = '4px';
+    }
+    offCtx.fillStyle = '#D4D4D8';
+    offCtx.fillText(titleEn.toUpperCase(), paddingX + 14, baseY + 8);
+    offCtx.restore();
+
+  } else if (personality === 'B2B') {
+    // 1. Monospace Tactical Card
+    offCtx.save();
+    const fontSizeBn = Math.min(50, Math.max(26, width * 0.036));
+    offCtx.font = `800 ${fontSizeBn}px "JetBrains Mono", "Anek Bangla", monospace`;
+    const textWidth = Math.max(offCtx.measureText(titleBn).width, 320);
+
+    const boxWidth = textWidth + 36;
+    const boxHeight = 100;
+    const boxY = baseY - boxHeight + 10;
+
+    // Tactical Card Fill
+    offCtx.fillStyle = 'rgba(7, 9, 14, 0.84)';
+    offCtx.strokeStyle = '#F5A623';
+    offCtx.lineWidth = 1.5;
+
+    offCtx.beginPath();
+    if (typeof (offCtx as any).roundRect === 'function') {
+      (offCtx as any).roundRect(paddingX, boxY, boxWidth, boxHeight, [0, 8, 8, 0]);
+    } else {
+      offCtx.rect(paddingX, boxY, boxWidth, boxHeight);
+    }
+    offCtx.fill();
+
+    // Corner bracket marks
+    offCtx.fillStyle = '#F5A623';
+    offCtx.fillRect(paddingX, boxY, 22, 2.5); // Top-left horizontal
+    offCtx.fillRect(paddingX, boxY, 2.5, 22); // Top-left vertical
+
+    // Telemetry indicator HUD line
+    const telemText = `[ SEC: ${shot.shotNumber} // LATENCY: 0.12ms // BUFFER: LOCKED ]`;
+    offCtx.font = '700 9.5px "JetBrains Mono", monospace';
+    offCtx.fillStyle = '#F5A623';
+    offCtx.fillText(telemText, paddingX + 16, boxY + 20);
+
+    // Headline with Steel/Silver Gradient
+    offCtx.font = `800 ${fontSizeBn}px "JetBrains Mono", "Anek Bangla", monospace`;
+    const grad = offCtx.createLinearGradient(paddingX + 16, boxY + 28, paddingX + 16, boxY + 66);
+    grad.addColorStop(0, '#FFFFFF');
+    grad.addColorStop(0.5, '#E2E8F0');
+    grad.addColorStop(1, '#94A3B8');
+    offCtx.fillStyle = grad;
+    offCtx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    offCtx.shadowBlur = 6;
+    offCtx.fillText(titleBn, paddingX + 16, boxY + 64);
+
+    // English Telemetry Prompt
+    offCtx.font = '700 11.5px "JetBrains Mono", monospace';
+    offCtx.fillStyle = '#F5A623';
+    if ('letterSpacing' in offCtx) {
+      (offCtx as any).letterSpacing = '2px';
+    }
+    offCtx.fillText(`▶  ${titleEn.toUpperCase()}`, paddingX + 16, boxY + 88);
+    offCtx.restore();
+
+  } else {
+    // 1. KINETIC CANVAS: Dual-Weight Metallic Gold Script
+    offCtx.save();
+    offCtx.font = 'italic 500 12px "Noto Serif Bengali", serif';
+    offCtx.fillStyle = 'rgba(254, 240, 138, 0.85)';
+    offCtx.fillText('Fluid Motion Canvas • Staggered Flow', paddingX, baseY - 62);
+
+    // Gold Metallic Headline
+    const fontSizeBn = Math.min(62, Math.max(32, width * 0.044));
+    offCtx.font = `800 ${fontSizeBn}px "Anek Bangla", "Noto Serif Bengali", sans-serif`;
+    const grad = offCtx.createLinearGradient(paddingX, baseY - 52, paddingX, baseY - 12);
+    grad.addColorStop(0, '#FFFFFF');
+    grad.addColorStop(0.3, '#FFF2B2');
+    grad.addColorStop(0.7, '#F5A623');
+    grad.addColorStop(1, '#B45309');
+    offCtx.fillStyle = grad;
+    offCtx.shadowColor = 'rgba(245, 166, 35, 0.55)';
+    offCtx.shadowBlur = 28;
+    offCtx.fillText(titleBn, paddingX, baseY - 18);
+
+    // Secondary italic English text
+    offCtx.font = 'italic 600 16px "Cinzel", Georgia, serif';
+    offCtx.fillStyle = '#E4E4E7';
+    offCtx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    offCtx.shadowBlur = 10;
+    offCtx.fillText(`//  ${titleEn}`, paddingX, baseY + 8);
+    offCtx.restore();
+  }
+
+  // Blit the rasterized buffer onto the visible canvas in a single GPU operation
+  const mainCtx = targetCanvas.getContext('2d', { alpha: true, desynchronized: true });
+  if (mainCtx) {
+    mainCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+    mainCtx.drawImage(offscreen as any, 0, 0);
+  }
+};
+
 export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   frames = [],
   onEnterStudio,
@@ -433,6 +679,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const isScrubbingRef = useRef<boolean>(false);
   const activeShotDurationRef = useRef<number>(12.0);
   const playbackTickerRef = useRef<number | null>(null);
+  const rvfcIdRef = useRef<number | null>(null);
+  const titleCanvasRef = useRef<HTMLCanvasElement | null>(null);
   
   // Custom title overrides and dynamic multi-style personality engine
   const [customTitles, setCustomTitles] = useState<Record<number, { titleEn: string; titleBn: string }>>({});
@@ -692,27 +940,49 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   }, [seekToFrame]);
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Decoupled Hardware Playback Engine Loop (24 FPS locked via rAF)
+  // 4. Hardware-Synchronized Playback Engine Loop
+  // Prioritizes HTMLVideoElement.requestVideoFrameCallback() for zero-stutter 4K sync,
+  // falling back smoothly to 24 FPS rAF for stills, clean slates, or legacy engines
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isPlaying) {
-      if (playbackTickerRef.current) cancelAnimationFrame(playbackTickerRef.current);
+      if (playbackTickerRef.current) {
+        cancelAnimationFrame(playbackTickerRef.current);
+        playbackTickerRef.current = null;
+      }
+      const video = stageVideoRef.current;
+      if (video && rvfcIdRef.current !== null && typeof (video as any).cancelVideoFrameCallback === 'function') {
+        (video as any).cancelVideoFrameCallback(rvfcIdRef.current);
+        rvfcIdRef.current = null;
+      }
       return;
     }
 
-    let lastTickTime = performance.now();
-    const frameIntervalMs = 1000 / (24 * playbackSpeed);
+    const video = stageVideoRef.current;
+    const canUseRVFC = Boolean(
+      hasVideo &&
+      video &&
+      typeof (video as any).requestVideoFrameCallback === 'function'
+    );
 
-    const tick = (now: number) => {
-      const delta = now - lastTickTime;
-      if (delta >= frameIntervalMs) {
-        lastTickTime = now - (delta % frameIntervalMs);
+    if (canUseRVFC && video) {
+      let isCancelled = false;
+
+      const onVideoFrame = (_now: DOMHighResTimeStamp, metadata: any) => {
+        if (isCancelled || !stageVideoRef.current) return;
+
         const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
-        currentFrameRef.current += 1;
+        const mediaTime = typeof metadata?.mediaTime === 'number'
+          ? metadata.mediaTime
+          : stageVideoRef.current.currentTime;
+        const currentFrame = Math.min(maxFrames - 1, Math.max(0, Math.round(mediaTime * 24)));
 
-        if (currentFrameRef.current >= maxFrames) {
+        currentFrameRef.current = currentFrame;
+        updatePlayheadDOM(currentFrame);
+
+        // Sequence Progression Handling at shot boundary or video end
+        if (mediaTime >= activeShotDurationRef.current || stageVideoRef.current.ended) {
           if (soloMasterMode === 'MASTER') {
-            // Advance to next shot seamlessly via discrete React state update
             currentFrameRef.current = 0;
             updatePlayheadDOM(0);
             setActiveShotIndex(curr => (curr + 1) % SHOWCASE_PRESETS.length);
@@ -720,21 +990,63 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             // Loop in SOLO mode
             currentFrameRef.current = 0;
             updatePlayheadDOM(0);
+            try {
+              stageVideoRef.current.currentTime = 0;
+            } catch {}
           }
-        } else {
-          // Direct DOM mutation - ZERO React re-renders!
-          updatePlayheadDOM(currentFrameRef.current);
         }
-      }
+
+        if (!isCancelled && stageVideoRef.current && typeof (stageVideoRef.current as any).requestVideoFrameCallback === 'function') {
+          rvfcIdRef.current = (stageVideoRef.current as any).requestVideoFrameCallback(onVideoFrame);
+        }
+      };
+
+      rvfcIdRef.current = (video as any).requestVideoFrameCallback(onVideoFrame);
+
+      return () => {
+        isCancelled = true;
+        if (stageVideoRef.current && rvfcIdRef.current !== null && typeof (stageVideoRef.current as any).cancelVideoFrameCallback === 'function') {
+          (stageVideoRef.current as any).cancelVideoFrameCallback(rvfcIdRef.current);
+          rvfcIdRef.current = null;
+        }
+      };
+    } else {
+      let lastTickTime = performance.now();
+      const frameIntervalMs = 1000 / (24 * playbackSpeed);
+
+      const tick = (now: number) => {
+        const delta = now - lastTickTime;
+        if (delta >= frameIntervalMs) {
+          lastTickTime = now - (delta % frameIntervalMs);
+          const maxFrames = Math.max(1, Math.floor(activeShotDurationRef.current * 24));
+          currentFrameRef.current += 1;
+
+          if (currentFrameRef.current >= maxFrames) {
+            if (soloMasterMode === 'MASTER') {
+              currentFrameRef.current = 0;
+              updatePlayheadDOM(0);
+              setActiveShotIndex(curr => (curr + 1) % SHOWCASE_PRESETS.length);
+            } else {
+              currentFrameRef.current = 0;
+              updatePlayheadDOM(0);
+            }
+          } else {
+            updatePlayheadDOM(currentFrameRef.current);
+          }
+        }
+        playbackTickerRef.current = requestAnimationFrame(tick);
+      };
+
       playbackTickerRef.current = requestAnimationFrame(tick);
-    };
 
-    playbackTickerRef.current = requestAnimationFrame(tick);
-
-    return () => {
-      if (playbackTickerRef.current) cancelAnimationFrame(playbackTickerRef.current);
-    };
-  }, [isPlaying, playbackSpeed, soloMasterMode, updatePlayheadDOM]);
+      return () => {
+        if (playbackTickerRef.current) {
+          cancelAnimationFrame(playbackTickerRef.current);
+          playbackTickerRef.current = null;
+        }
+      };
+    }
+  }, [isPlaying, playbackSpeed, soloMasterMode, updatePlayheadDOM, hasVideo, activeShotIndex]);
 
   // ─────────────────────────────────────────────────────────────
   // 5. Action Handlers (Wired to Props + Internal Engine)
@@ -857,6 +1169,53 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     }));
     setIsEditingTitle(false);
   }, [activeShotIndex, editingTitleEn, editingTitleBn, editingTitleStyle]);
+
+  // ─────────────────────────────────────────────────────────────
+  // 5b. Offscreen-Buffered Title Canvas Synchronization
+  // Eliminates DOM layout recalculations during sequence playback
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = titleCanvasRef.current;
+    if (!canvas) return;
+
+    if (!titlesLayerActive) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    renderTitleTypographyToCanvas(canvas, activeShot, activeShotPersonality);
+
+    // Refresh if web fonts load asynchronously
+    if (typeof document !== 'undefined' && (document as any).fonts?.ready) {
+      (document as any).fonts.ready.then(() => {
+        if (titleCanvasRef.current && titlesLayerActive) {
+          renderTitleTypographyToCanvas(titleCanvasRef.current, activeShot, activeShotPersonality);
+        }
+      });
+    }
+  }, [
+    titlesLayerActive,
+    activeShot,
+    activeShotPersonality,
+    selectedAspectRatio,
+    stageZoomLevel
+  ]);
+
+  // Stage Viewport ResizeObserver for perfect crispness on container resize
+  useEffect(() => {
+    const canvas = titleCanvasRef.current;
+    if (!canvas || !canvas.parentElement) return;
+
+    const observer = new ResizeObserver(() => {
+      if (titlesLayerActive && titleCanvasRef.current) {
+        renderTitleTypographyToCanvas(titleCanvasRef.current, activeShot, activeShotPersonality);
+      }
+    });
+
+    observer.observe(canvas.parentElement);
+    return () => observer.disconnect();
+  }, [titlesLayerActive, activeShot, activeShotPersonality]);
 
   const handleStudioToggle = handleStudioLaunch;
   const handleExport = handleExportClick;
@@ -1584,105 +1943,13 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               </div>
             )}
 
-            {/* CREATIVE KINETIC BILINGUAL TYPOGRAPHY LAYER ONLY */}
-            {titlesLayerActive && (
-              <div className="absolute inset-x-8 bottom-8 md:bottom-12 z-25 pointer-events-none select-none text-center sm:text-left animate-in fade-in duration-300">
-                {activeShotPersonality === 'DOPAMINE' && (
-                  /* Shot 01, 05, 09 — DOPAMINE ULTRA (High-Energy Hooks) */
-                  <div className="animate-in zoom-in-90 duration-300">
-                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-400/60 text-[#00F0FF] text-[9px] font-mono font-black tracking-widest uppercase mb-1.5 shadow-[0_0_15px_rgba(0,240,255,0.5)]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00F0FF] animate-ping" />
-                      <span>[ DPM ULTRA // HIGH-ENERGY HOOK ]</span>
-                    </div>
-                    <h1 
-                      className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla leading-none mb-2 tracking-wider drop-shadow-[0_0_35px_rgba(0,240,255,0.9)] animate-pulse"
-                      style={{
-                        background: 'linear-gradient(180deg, #FFFFFF 0%, #FACC15 35%, #00F0FF 80%, #FF0055 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        filter: 'drop-shadow(0 0 30px rgba(0, 240, 255, 0.8)) drop-shadow(0 0 50px rgba(255, 0, 85, 0.6))',
-                        letterSpacing: '0.05em'
-                      }}
-                    >
-                      {activeShot.titleBn}
-                    </h1>
-                    <p className="text-sm sm:text-lg md:text-xl font-bold font-cinzel tracking-[0.25em] text-[#00F0FF] drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)] uppercase">
-                      {activeShot.titleEn}
-                    </p>
-                  </div>
-                )}
-
-                {activeShotPersonality === 'MINIMAL' && (
-                  /* Shot 02, 06, 10 — MINIMAL BASIC (Editorial Clean) */
-                  <div className="animate-in fade-in duration-500 border-l border-white/60 pl-4 py-0.5">
-                    <div className="text-[9px] font-mono text-zinc-400 tracking-[0.3em] uppercase mb-1">
-                      SWISS EDITORIAL // SHOT {activeShot.shotNumber}
-                    </div>
-                    <h1 
-                      className="text-4xl sm:text-6xl md:text-7xl font-bold font-bangla text-white leading-none mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
-                      style={{
-                        letterSpacing: '0.08em'
-                      }}
-                    >
-                      {activeShot.titleBn}
-                    </h1>
-                    <p className="text-xs sm:text-sm md:text-base font-mono text-zinc-300 tracking-[0.35em] uppercase">
-                      {activeShot.titleEn}
-                    </p>
-                  </div>
-                )}
-
-                {activeShotPersonality === 'B2B' && (
-                  /* Shot 03, 07, 11 — B2B ENTERPRISE (Industrial / Executive) */
-                  <div className="animate-in zoom-in-95 duration-200 inline-block bg-black/75 backdrop-blur-md border-l-2 border-t-2 border-[#F5A623] p-4 rounded-br-xl shadow-[0_8px_30px_rgba(0,0,0,0.8)]">
-                    <div className="flex items-center gap-2 text-[9px] font-mono font-bold text-[#F5A623] tracking-widest uppercase mb-1.5">
-                      <span className="w-2 h-2 border border-[#F5A623] flex items-center justify-center">
-                        <span className="w-1 h-1 bg-[#F5A623]" />
-                      </span>
-                      <span>[ SEC: {activeShot.shotNumber} // LATENCY: 0.12ms // BUFFER: LOCKED ]</span>
-                    </div>
-                    <h1 
-                      className="text-3xl sm:text-5xl md:text-6xl font-black font-mono font-bangla leading-none mb-1.5"
-                      style={{
-                        background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.9))'
-                      }}
-                    >
-                      {activeShot.titleBn}
-                    </h1>
-                    <p className="text-xs sm:text-sm font-mono font-bold text-[#F5A623] tracking-[0.2em] uppercase flex items-center gap-1.5">
-                      <span>▶</span> {activeShot.titleEn}
-                    </p>
-                  </div>
-                )}
-
-                {activeShotPersonality === 'KINETIC' && (
-                  /* Shot 04, 08, 12 — KINETIC CANVAS (Fluid Motion) */
-                  <div className="animate-in slide-in-from-bottom-4 duration-500">
-                    <div className="text-[10px] font-serif italic text-amber-200/80 tracking-widest uppercase mb-1">
-                      Fluid Motion Canvas • Staggered Flow
-                    </div>
-                    <h1 
-                      className="text-4xl sm:text-6xl md:text-7xl font-black font-bangla leading-none mb-2"
-                      style={{
-                        background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF2B2 30%, #F5A623 70%, #B45309 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        filter: 'drop-shadow(0 0 35px rgba(245, 166, 35, 0.5)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9))'
-                      }}
-                    >
-                      {activeShot.titleBn}
-                    </h1>
-                    <p className="text-sm sm:text-lg md:text-xl font-light italic font-cinzel tracking-widest text-zinc-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                      <span className="font-extrabold not-italic text-white mr-2">//</span>
-                      {activeShot.titleEn}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Hardware-Accelerated Offscreen-Buffered Title Typography Canvas (Zero DOM Layout Recalculations) */}
+            <canvas
+              ref={titleCanvasRef}
+              className={`absolute inset-0 w-full h-full pointer-events-none z-25 transition-opacity duration-300 ${
+                titlesLayerActive ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
           </div>
         </div>
 

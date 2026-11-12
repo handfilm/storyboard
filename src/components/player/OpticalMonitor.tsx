@@ -248,6 +248,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
   const isVertigo = useStudioStore((s) => s.isVertigoLinked);
+  const stageScale = useStudioStore((s) => s.stageScale);
   const zoomTransforms = calculateMultiLayerZoom(bgZoom, fgZoom, isVertigo);
 
   // Elastic frame calculation per active slide
@@ -553,21 +554,17 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     }
   }, [onUploadMedia]);
 
-  const getAspectStyle = (): React.CSSProperties => {
-    const ratioNum =
-      aspectRatio === '9:16'
-        ? 9 / 16
-        : aspectRatio === '1:1'
-          ? 1
-          : aspectRatio === '4:3'
-            ? 4 / 3
-            : aspectRatio === '16:9'
-              ? 16 / 9
-              : 2.39;
+  const getStageBoxStyle = (): React.CSSProperties => {
+    if (stageScale === 0.7) {
+      return {
+        width: '70%',
+        height: '70%',
+        margin: '0 auto'
+      };
+    }
     return {
-      width: `min(100cqw, calc(100cqh * ${ratioNum}))`,
-      height: `min(100cqh, calc(100cqw / ${ratioNum}))`,
-      margin: '0 auto'
+      width: '100%',
+      height: '100%'
     };
   };
 
@@ -629,13 +626,10 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       />
 
       {/* Primary Pure Zero-Overlay Cinema Playback Canvas */}
-      <div
-        className="flex-1 w-full max-w-[min(99vw,1880px)] mx-auto flex items-center justify-center min-h-0 relative overflow-hidden py-1"
-        style={{ containerType: 'size' }}
-      >
+      <div className="flex-1 w-full flex items-center justify-center min-h-0 relative overflow-hidden p-0">
         <div
-          style={getAspectStyle()}
-          className="relative bg-[#0E0E12] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center transition-colors duration-150 ease-out"
+          style={getStageBoxStyle()}
+          className="relative bg-[#0E0E12] border-y border-[#1C1C24] overflow-hidden flex items-center justify-center transition-[width,height,background-color] duration-200 ease-out"
         >
           
           {/* Active Media Display - Ultra Clean Display with Multi-Layer Zoom & Cross-Dissolve */}

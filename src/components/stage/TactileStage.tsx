@@ -213,6 +213,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const digitalZoom = useStudioStore((s) => s.digitalZoom);
   const setDigitalZoom = useStudioStore((s) => s.setDigitalZoom);
   const resetDigitalZoom = useStudioStore((s) => s.resetDigitalZoom);
+  const stageScale = useStudioStore((s) => s.stageScale);
 
   const [distortionMapUrl, setDistortionMapUrl] = useState<string>('');
   useEffect(() => {
@@ -1035,22 +1036,19 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   // Dynamic Aspect Ratio Auto-Fitting:
   // - Clean, responsive framing flush to top with no blank gap
   // - Leaves dedicated clearance at bottom for bezel ribbon and control dock
-  // Container-query exact aspect ratio fitting: zero clipping, zero overlap with external bars
-  const getAspectStyle = (ar: string): React.CSSProperties => {
-    const ratioNum =
-      ar === '9:16'
-        ? 9 / 16
-        : ar === '1:1'
-          ? 1
-          : ar === '4:3'
-            ? 4 / 3
-            : ar === '16:9'
-              ? 16 / 9
-              : 2.39;
+  // Tight Edge-to-Edge Stage Sizing: fills 100% of available stage width & height at 100% scale,
+  // or scales cleanly to 70% when toggled in the Stage Metadata Bar.
+  const getStageBoxStyle = (): React.CSSProperties => {
+    if (stageScale === 0.7) {
+      return {
+        width: '70%',
+        height: '70%',
+        margin: '0 auto'
+      };
+    }
     return {
-      width: `min(100cqw, calc(100cqh * ${ratioNum}))`,
-      height: `min(100cqh, calc(100cqw / ${ratioNum}))`,
-      margin: '0 auto'
+      width: '100%',
+      height: '100%'
     };
   };
 
@@ -1131,11 +1129,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         onToggleFullscreen={toggleFullscreen}
       />
 
-      {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (CENTERED IN REMAINING CONTAINER SPACE) */}
-      <div
-        className="flex-1 min-h-0 w-full max-w-[min(99vw,1880px)] mx-auto flex items-center justify-center overflow-hidden py-1"
-        style={{ containerType: 'size' }}
-      >
+      {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (TIGHT EDGE-TO-EDGE FIT) */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden p-0">
         <div
           id="stage-media-container"
           ref={stageMediaContainerRef}
@@ -1143,8 +1138,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onPointerMove={handleStagePointerMove}
           onPointerUp={handleStagePointerUp}
           onPointerCancel={handleStagePointerCancel}
-          style={getAspectStyle(aspectRatio)}
-          className="relative bg-[#000000] border border-white/10 rounded-none shadow-[0_16px_80px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair"
+          style={getStageBoxStyle()}
+          className="relative bg-[#000000] border-y border-white/10 rounded-none overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair transition-[width,height] duration-200 ease-out"
         >
         {/* DYNAMIC CANVAS SVG BARREL DISTORTION FILTER */}
         <svg
@@ -1337,7 +1332,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       />
 
       {/* 2. SLEEK CINEMA MONITOR BEZEL RIBBON (Ultra-compact 20px bar directly under the monitor) */}
-      <div className="w-full max-w-[min(99vw,1880px)] mx-auto mt-0.5 px-2 py-0.5 bg-[#090a0f]/95 border border-white/10 rounded flex items-center justify-between gap-1.5 shrink-0 select-none shadow-md h-5 text-[8.5px]">
+      <div className="w-full px-2.5 py-0.5 bg-[#090a0f]/95 border-t border-white/10 flex items-center justify-between gap-1.5 shrink-0 select-none h-5 text-[8.5px]">
         {/* Left: Scene & Shot Metadata */}
         <div className="flex items-center gap-1.5 truncate text-[8.5px] font-mono tracking-wider uppercase text-white/40">
           <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>

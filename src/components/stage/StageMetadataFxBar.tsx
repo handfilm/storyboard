@@ -85,6 +85,8 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   const isVertigo = useStudioStore((s) => s.isVertigoLinked);
   const digitalZoom = useStudioStore((s) => s.digitalZoom);
   const resetDigitalZoom = useStudioStore((s) => s.resetDigitalZoom);
+  const stageScale = useStudioStore((s) => s.stageScale);
+  const setStageScale = useStudioStore((s) => s.setStageScale);
 
   const storeTitleConfig = useStudioStore((s) => s.titleConfig);
   const setTitlePreset = useStudioStore((s) => s.setTitlePreset);
@@ -145,7 +147,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   return (
     <div
       data-testid="stage-metadata-fx-bar"
-      className={`animate-hud-fade-in w-full max-w-[min(99vw,1880px)] mx-auto h-7 min-h-[28px] px-2.5 bg-[#07080d]/95 border-b border-white/10 flex items-center justify-between gap-2 text-[10px] font-mono select-none shrink-0 z-30 ${className}`}
+      className={`animate-hud-fade-in w-full h-7 min-h-[28px] px-2.5 bg-[#07080d]/95 border-b border-white/10 flex items-center justify-between gap-2 text-[10px] font-mono select-none shrink-0 z-30 ${className}`}
     >
       {/* LEFT: SCENE // SHOT • F001/144 • FPS • STREAM QUALITY */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto no-scrollbar">
@@ -287,6 +289,42 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           </span>
           {isVertigo && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
         </button>
+
+        {/* Stage Scale 70% / 100% Toggle Pills */}
+        <div
+          className="flex items-center gap-0.5 p-0.5 rounded bg-black/80 border border-white/15 text-[9px] font-bold shrink-0"
+          role="group"
+          aria-label="Stage Scale"
+        >
+          <button
+            type="button"
+            data-testid="stage-scale-70"
+            onClick={() => setStageScale(0.7)}
+            aria-pressed={stageScale === 0.7}
+            className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+              stageScale === 0.7
+                ? 'bg-[#F5A623] text-black font-black shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+            title="Set Stage Video Scale to 70%"
+          >
+            70%
+          </button>
+          <button
+            type="button"
+            data-testid="stage-scale-100"
+            onClick={() => setStageScale(1.0)}
+            aria-pressed={stageScale === 1.0}
+            className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+              stageScale === 1.0
+                ? 'bg-[#F5A623] text-black font-black shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+            title="Set Stage Video Scale to 100% Edge-to-Edge"
+          >
+            100%
+          </button>
+        </div>
 
         {/* Aspect + Inspector/Master Mode */}
         <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/70 border border-white/10 text-[9px] font-bold">

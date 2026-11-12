@@ -137,6 +137,8 @@ export interface StudioState {
   foregroundZoom: number;
   backgroundZoom: number;
   isVertigoLinked: boolean;
+  stageScale: 0.7 | 1.0;
+  setStageScale: (scale: 0.7 | 1.0) => void;
   digitalZoom: DigitalZoomState;
   setDigitalZoom: (zoom: Partial<DigitalZoomState>) => void;
   resetDigitalZoom: () => void;
@@ -338,6 +340,12 @@ export const useStudioStore = create<StudioState>()(
     foregroundZoom: 1.0,
     backgroundZoom: 1.0,
     isVertigoLinked: false,
+    stageScale: 1.0,
+    setStageScale: (scale: 0.7 | 1.0) => {
+      set((state) => {
+        state.stageScale = scale;
+      });
+    },
     digitalZoom: {
       scale: 1.0,
       translateX: 0,

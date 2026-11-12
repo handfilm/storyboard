@@ -730,6 +730,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   );
   const [activeNavTab, setActiveNavTab] = useState<'HOME' | 'REELS' | 'MANIFESTO' | 'FEATURES' | 'FAQ'>('HOME');
   const credits = useStudioStore((state) => (typeof state.credits === 'number' ? state.credits : 12500));
+  const stageScale = useStudioStore((state) => state.stageScale);
+  const setStageScale = useStudioStore((state) => state.setStageScale);
 
   useEffect(() => {
     setCurrentMode(playbackMode === 'solo' ? 'SOLO' : 'MASTER');
@@ -1220,6 +1222,40 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           >
             <span>⚡ COCKPIT</span>
           </button>
+
+          {/* Compact Stage Scale [ 70% ] / [ 100% ] Toggle Pills */}
+          <div
+            className="hidden xl:flex items-center gap-0.5 p-0.5 rounded bg-black/80 border border-white/15 text-[10px] font-mono font-bold shrink-0"
+            role="group"
+            aria-label="Header Stage Scale"
+          >
+            <button
+              type="button"
+              onClick={() => setStageScale(0.7)}
+              aria-pressed={stageScale === 0.7}
+              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                stageScale === 0.7
+                  ? 'bg-amber-500 text-black font-black shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Set Stage Video Scale to 70%"
+            >
+              70%
+            </button>
+            <button
+              type="button"
+              onClick={() => setStageScale(1.0)}
+              aria-pressed={stageScale === 1.0}
+              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                stageScale === 1.0
+                  ? 'bg-amber-500 text-black font-black shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Set Stage Video Scale to 100% Edge-to-Edge"
+            >
+              100%
+            </button>
+          </div>
 
           {isCockpitHudOpen && typeof document !== 'undefined' && createPortal(
             <div

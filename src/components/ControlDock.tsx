@@ -698,8 +698,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
       )}
 
-      {/* 100-Frame Strip Navigation with Generous 112x64 Cards & Smooth Wheel Scroll */}
-      <div className="w-full max-w-[min(99vw,1880px)] mb-1 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
+      {/* 100-Frame Strip Navigation with Compact 96x54 Cards & Smooth Wheel Scroll */}
+      <div className="w-full mb-1 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
         <ToolTooltip
           title="PREVIOUS SHOT"
           why="Jumps playhead backward to the preceding sequence shot"
@@ -1011,7 +1011,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       )}
 
       {/* Main Single-Row Iconic Transport & Optics Toolbar */}
-      <div className="relative w-full max-w-[min(99vw,1880px)] h-[46px] min-h-[46px] pointer-events-auto bg-black/92 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-2.5 sm:px-3 flex flex-row items-center justify-between flex-nowrap gap-2 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono-tech select-none">
+      <div className="relative w-full h-[46px] min-h-[46px] pointer-events-auto bg-black/92 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-2 sm:px-2.5 flex flex-row items-center justify-between flex-nowrap gap-1.5 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono-tech select-none">
         {/* Subtle Ambient Gold Audio Reactivity Edge */}
         <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
 
@@ -1267,9 +1267,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         {/* ======================================================= */}
         {/* 3. RIGHT WING: TITLES, ZEN, OPTICS & TOOLS */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Titles ON/OFF & Quick Edit Icon Pair */}
-          <div className="relative flex items-center gap-2 shrink-0">
+          <div className="relative flex items-center gap-1.5 shrink-0">
             {onToggleTitles && (
               <ToolTooltip
                 title="KINETIC TITLES"
@@ -1450,50 +1450,50 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </button>
           </ToolTooltip>
 
-          {/* [ 🎛️ SIGNAL RACK ] Drawer Toggle Button */}
+          {/* [ 🎛️ ] Icon-Only Signal Rack Square Toggle Button (w-8 h-8) */}
           <ToolTooltip
-            title="MODULAR SIGNAL RACK"
+            title="SIGNAL RACK"
             why="Opens the 3-Panel Signal Rack (Audio Beat Sync, Voiceover & Subtitles, 3D LUT Grade) cleanly above the timeline."
             how="Click to dock or hide the 3-panel signal processing rack."
           >
             <button
               type="button"
               data-testid="control-dock-signal-rack"
+              aria-label="Signal Rack"
               aria-pressed={isTelemetryRackOpen}
               onClick={() => {
                 if (onToggleTelemetryRack) onToggleTelemetryRack();
                 else eventBus.emit('cockpit:toggle_telemetry');
               }}
-              className={`px-2 py-1.5 rounded border font-mono text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shrink-0 whitespace-nowrap ${
+              className={`w-8 h-8 rounded border flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 ${
                 isTelemetryRackOpen
                   ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_12px_rgba(245,166,35,0.5)]'
                   : 'bg-neutral-900 border-amber-500/40 text-amber-300 hover:bg-amber-500/15 hover:border-amber-400'
               }`}
             >
-              <span>🎛️</span>
-              <span className="hidden md:inline">SIGNAL RACK</span>
+              <SlidersHorizontal className="w-4 h-4" />
             </button>
           </ToolTooltip>
 
-          {/* [ ⊞ ALL TOOLS ] Master Command Popover Button */}
+          {/* [ ⊞ ] Icon-Only All Tools Master Menu Square Button (w-8 h-8) */}
           <ToolTooltip
-            title="ALL STUDIO TOOLS"
+            title="ALL TOOLS MASTER MENU"
             why="1-click 4-column Master Command Menu for every engine, preset, scope, vault, and export tool."
             how="Click to browse all modules and launch any tool immediately."
           >
             <button
               type="button"
               data-testid="control-dock-all-tools"
+              aria-label="All Tools Master Menu"
               aria-expanded={isAllToolsOpen}
               onClick={() => setIsAllToolsOpen((prev) => !prev)}
-              className={`px-2.5 py-1.5 rounded border font-mono text-[10px] font-black flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 whitespace-nowrap ${
+              className={`w-8 h-8 rounded border flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 ${
                 isAllToolsOpen
                   ? 'bg-[#e50914] border-red-400 text-white shadow-[0_0_14px_rgba(229,9,20,0.6)]'
                   : 'bg-gradient-to-r from-amber-500/20 to-red-600/20 border-amber-400/70 text-[#FFE066] hover:border-amber-300 hover:bg-amber-500/25'
               }`}
             >
-              <span>⊞</span>
-              <span>ALL TOOLS</span>
+              <LayoutGrid className="w-4 h-4" />
             </button>
           </ToolTooltip>
 
@@ -1583,10 +1583,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </ToolTooltip>
           )}
 
-          {/* Track VU Meter & Master Audio Engine (spaced cleanly with shrink-0 gap-2) */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Track VU Meter & Master Audio Engine (compact mute icon + w-16 L/R meter so all icons fit cleanly) */}
+          <div className="flex items-center shrink-0">
             <TrackVuMeter
               variant="dock"
+              showLabels={false}
+              showWaveEditor={false}
+              showDbReadout={false}
               onToggleMute={onToggleAudio}
               isMuted={isAudioMuted}
             />

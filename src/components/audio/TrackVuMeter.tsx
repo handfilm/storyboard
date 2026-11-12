@@ -240,20 +240,20 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
     );
   }
 
-  // Standard Dock & Compact variant: High-contrast VU ladder + Visual Audio Wave Gain Editor
+  // Standard Dock & Compact variant: High-contrast VU ladder + Optional Visual Audio Wave Gain Editor
   return (
     <div 
-      className={`flex items-center gap-2 bg-[#06070B]/95 border border-white/15 px-2.5 py-1 rounded-lg select-none text-[9px] font-mono shrink-0 shadow-inner group ${className}`}
+      className={`flex items-center gap-1.5 bg-[#06070B]/95 border border-white/15 px-1.5 py-1 rounded-lg select-none text-[9px] font-mono shrink-0 shadow-inner group ${className}`}
       title={`Stereo Master Output: L ${levels.leftDb}dBFS | R ${levels.rightDb}dBFS | Gain: ${gainPercent}% (${gainDb}dB)`}
     >
-      {/* Mute Toggle & Channel Indicator */}
+      {/* Compact Mute Speaker Toggle */}
       <button
         type="button"
         onClick={onToggleMute}
         disabled={!onToggleMute}
         aria-label={isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)'}
         aria-pressed={isMuted}
-        className={`flex items-center gap-2 shrink-0 px-2 py-1 rounded bg-neutral-900/90 border transition-colors cursor-pointer ${
+        className={`flex items-center justify-center gap-1 shrink-0 ${showLabels ? 'px-1.5 py-1' : 'w-6 h-6'} rounded bg-neutral-900/90 border transition-colors cursor-pointer ${
           isMuted
             ? 'border-neutral-700/70 text-zinc-400 hover:text-white hover:border-neutral-600'
             : 'border-amber-500/40 text-[#F5A623] hover:text-[#FFE066] hover:border-amber-400/70'
@@ -267,13 +267,13 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
         )}
         {showLabels && (
           <span className="text-[8px] font-bold tracking-widest text-zinc-300 uppercase hidden sm:inline shrink-0">
-            {isMuted ? 'MUTED' : 'VU'}
+            {isMuted ? 'MUTE' : 'VU'}
           </span>
         )}
       </button>
 
-      {/* Dual Channel Stereo Ladders (L & R) */}
-      <div className="flex flex-col gap-1 w-12 sm:w-14 shrink-0">
+      {/* Compact Dual Channel Stereo Ladders (L & R, w-16 max) */}
+      <div className="flex flex-col gap-1 w-16 shrink-0">
         {/* Left Channel */}
         <div className="flex items-center gap-1">
           <span className="text-[7px] text-zinc-500 font-bold w-2 shrink-0">L</span>

@@ -107,6 +107,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const reelsTitleContainerRef = useRef<HTMLDivElement | null>(null);
 
   const storeTitleOpacity = useStudioStore((s) => s.titleConfig?.titleOpacity ?? 1.0);
+  const stageScale = useStudioStore((s) => s.stageScale);
   const titleOpacity = Math.max(
     0,
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
@@ -282,21 +283,17 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     }
   };
 
-  const getAspectStyle = (): React.CSSProperties => {
-    const ratioNum =
-      aspectRatio === '16:9'
-        ? 16 / 9
-        : aspectRatio === '1:1'
-          ? 1
-          : aspectRatio === '9:16'
-            ? 9 / 16
-            : aspectRatio === '4:3'
-              ? 4 / 3
-              : 2.39;
+  const getStageBoxStyle = (): React.CSSProperties => {
+    if (stageScale === 0.7) {
+      return {
+        width: '70%',
+        height: '70%',
+        margin: '0 auto'
+      };
+    }
     return {
-      width: `min(100cqw, calc(100cqh * ${ratioNum}))`,
-      height: `min(100cqh, calc(100cqw / ${ratioNum}))`,
-      margin: '0 auto'
+      width: '100%',
+      height: '100%'
     };
   };
 
@@ -328,13 +325,10 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
       />
 
       {/* Viewport Pure Zero-Overlay Playback Container */}
-      <div
-        className="flex-1 w-full max-w-[min(99vw,1880px)] mx-auto flex items-center justify-center min-h-0 relative overflow-hidden py-1"
-        style={{ containerType: 'size' }}
-      >
+      <div className="flex-1 w-full flex items-center justify-center min-h-0 relative overflow-hidden p-0">
         <div
-          style={getAspectStyle()}
-          className="relative bg-[#0B0B0F] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center"
+          style={getStageBoxStyle()}
+          className="relative bg-[#0B0B0F] border-y border-[#1C1C24] overflow-hidden flex items-center justify-center transition-[width,height] duration-200 ease-out"
         >
           
           {/* Outgoing Visual Plate for Cinematic Cross-Dissolve */}

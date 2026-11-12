@@ -81,7 +81,7 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
   return (
     <div
       data-testid="stage-caption-strip"
-      className={`relative w-full max-w-[min(99vw,1880px)] mx-auto px-3 py-1 bg-[#06070c]/95 border-t border-b border-white/10 flex items-center justify-between gap-3 shrink-0 select-none min-h-[34px] overflow-hidden ${className}`}
+      className={`relative w-full px-3 py-1 bg-[#06070c]/95 border-t border-b border-white/10 flex items-center justify-between gap-3 shrink-0 select-none min-h-[34px] overflow-hidden ${className}`}
     >
       {/* Progress Baseline */}
       <div className="absolute bottom-0 inset-x-0 h-[2px] bg-white/5 pointer-events-none">

@@ -75,6 +75,7 @@ import {
 } from '../utils/interchangeExport';
 import { resolveEffectiveTitleAlign } from '../core/store';
 import { getLightingPresetById } from '../data/lightingPresets';
+import { getShotProceduralSpec } from '../data/proceduralCinemaEngine';
 
 export interface ControlDockProps {
   frames: AnthologyFrame[];
@@ -245,6 +246,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
   const digitalZoom = useStudioStore((s) => s.digitalZoom);
   const resetDigitalZoomStore = useStudioStore((s) => s.resetDigitalZoom);
+  const titleAlign = useStudioStore((s) => s.titleAlign);
 
   const isAnyZoomActive = Boolean(
     (digitalZoom && digitalZoom.isZoomed && digitalZoom.scale > 1.01) ||
@@ -674,14 +676,47 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 style={{ filter: hoveredPreviewData.lutFilterCss }}
                 className="w-full h-full object-cover"
               />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-b from-[#161722] via-[#0E0F16] to-[#07080C] flex flex-col items-center justify-center gap-1">
-                <Camera className="w-4 h-4 text-white/25" />
-                <span className="text-[8px] font-mono text-zinc-500 tracking-wider">
-                  EMPTY FRAME
-                </span>
-              </div>
-            )}
+            ) : (() => {
+              const proc = getShotProceduralSpec(hoveredPreviewData.idx);
+              const effAlign = resolveEffectiveTitleAlign(
+                titleAlign,
+                hoveredPreviewData.idx,
+                hoveredPreviewData.frame.shotType
+              );
+              const previewAlignCls =
+                effAlign === 'LEFT'
+                  ? 'items-start text-left pl-2 pr-4'
+                  : effAlign === 'RIGHT'
+                    ? 'items-end text-right pl-4 pr-2'
+                    : 'items-center text-center px-2';
+              return (
+                <div
+                  className="relative w-full h-full flex flex-col justify-center overflow-hidden"
+                  style={{
+                    background: proc.palette.thumbCssBackdrop,
+                    filter: hoveredPreviewData.lutFilterCss
+                  }}
+                >
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: proc.palette.lightLeakCss }}
+                  />
+                  <div className="absolute inset-0 procedural-film-grain opacity-45 pointer-events-none" />
+                  <div className={`relative z-10 w-full flex flex-col gap-0.5 ${previewAlignCls}`}>
+                    <span className="font-bangla text-[9px] font-bold text-amber-200 leading-tight truncate max-w-full drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
+                      {hoveredPreviewData.frame.bengaliTitle || 'প্রসিডিউরাল সিন'}
+                    </span>
+                    <span className="font-mono text-[6.5px] font-semibold tracking-[0.16em] text-zinc-200 uppercase truncate max-w-full">
+                      {hoveredPreviewData.frame.title || `SHOT ${hoveredPreviewData.shotNumber}`}
+                    </span>
+                    <span
+                      className="h-[1px] w-8 rounded-full opacity-90"
+                      style={{ backgroundColor: proc.palette.accentHex }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Scrim + Unboxed Index & Start Timecode */}
             <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/90 via-black/45 to-transparent flex items-end justify-between px-1.5 pb-0.5 font-mono text-[8px] tabular-nums">
@@ -849,11 +884,47 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   <div className="absolute inset-0 bg-[#12121a] flex items-center justify-center">
                     <div className="w-2 h-2 rounded-full bg-[#D4AF37]/40 pointer-events-none" />
                   </div>
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#161722] via-[#0e0f16] to-[#08080e] flex items-center justify-center">
-                    <Camera className="w-4 h-4 text-white/20 group-hover:text-amber-400/50 transition-colors pointer-events-none" />
-                  </div>
-                )}
+                ) : (() => {
+                  const proc = getShotProceduralSpec(idx);
+                  const effAlign = resolveEffectiveTitleAlign(titleAlign, idx, frame?.shotType);
+                  const miniAlignCls =
+                    effAlign === 'LEFT'
+                      ? 'items-start text-left pl-1.5 pr-3'
+                      : effAlign === 'RIGHT'
+                        ? 'items-end text-right pl-3 pr-1.5'
+                        : 'items-center text-center px-1.5';
+                  return (
+                    <div
+                      data-testid={`procedural-thumb-${idx}`}
+                      data-palette-id={proc.palette.id}
+                      data-effective-align={effAlign}
+                      className="absolute inset-0 flex flex-col justify-end pb-1 overflow-hidden pointer-events-none"
+                      style={{ background: proc.palette.thumbCssBackdrop }}
+                    >
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ background: proc.palette.lightLeakCss }}
+                      />
+                      <div className="absolute inset-0 procedural-film-grain opacity-35 pointer-events-none" />
+                      <div className={`relative z-10 w-full flex flex-col gap-[1px] ${miniAlignCls}`}>
+                        <span
+                          className={`font-bangla text-[7.5px] leading-none text-amber-100/95 truncate max-w-full drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] ${
+                            proc.architecture.italicStyle ? 'italic' : ''
+                          } ${proc.architecture.index === 0 || proc.architecture.index === 8 ? 'font-black' : 'font-bold'}`}
+                        >
+                          {bn || title}
+                        </span>
+                        <span
+                          className="h-[1px] rounded-full opacity-90"
+                          style={{
+                            width: proc.architecture.dividerKind === 'anamorphic-wide' ? '72%' : '36%',
+                            backgroundColor: proc.palette.accentHex
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Contrast scrim overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/55 pointer-events-none" />

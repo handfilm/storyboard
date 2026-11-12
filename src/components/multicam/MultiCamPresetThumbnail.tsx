@@ -7,7 +7,7 @@
 import React from 'react';
 import { MultiCamGridConfig } from './MultiCamViewportGrid';
 import { MultiCamAngle } from '../../types/multicam';
-import { samplePacks } from '../../data/frames';
+import { getShotProceduralSpec } from '../../data/proceduralCinemaEngine';
 
 export interface MultiCamPresetThumbnailProps {
   config: MultiCamGridConfig;
@@ -18,14 +18,14 @@ export interface MultiCamPresetThumbnailProps {
   activeAngleIdx?: number;
 }
 
-// Default fallback camera angles with rich cinematic frames
+// Default fallback camera angles (procedural cinema palettes, zero external URLs)
 const DEFAULT_PREVIEW_ANGLES: MultiCamAngle[] = [
   {
     id: 'thumb-ang-1',
     mediaId: 'm1',
     label: 'CAM 01',
     name: 'Wide Master 35mm',
-    blobUrl: samplePacks.cyberNoir?.[0] || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
+    blobUrl: '',
     aspectRatio: 9 / 16,
     syncOffsetMs: 0
   },
@@ -34,7 +34,7 @@ const DEFAULT_PREVIEW_ANGLES: MultiCamAngle[] = [
     mediaId: 'm2',
     label: 'CAM 02',
     name: 'Medium Punch 50mm',
-    blobUrl: samplePacks.cosmicMacro?.[1] || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
+    blobUrl: '',
     aspectRatio: 9 / 16,
     syncOffsetMs: 0
   },
@@ -43,7 +43,7 @@ const DEFAULT_PREVIEW_ANGLES: MultiCamAngle[] = [
     mediaId: 'm3',
     label: 'CAM 03',
     name: 'Close-Up 85mm',
-    blobUrl: samplePacks.liquidGold?.[2] || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
+    blobUrl: '',
     aspectRatio: 9 / 16,
     syncOffsetMs: 0
   },
@@ -52,7 +52,7 @@ const DEFAULT_PREVIEW_ANGLES: MultiCamAngle[] = [
     mediaId: 'm4',
     label: 'CAM 04',
     name: 'Low-Angle 24mm',
-    blobUrl: samplePacks.cyberNoir?.[3] || 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80',
+    blobUrl: '',
     aspectRatio: 9 / 16,
     syncOffsetMs: 0
   }
@@ -73,8 +73,13 @@ export const MultiCamPresetThumbnail: React.FC<MultiCamPresetThumbnailProps> = (
 
   // Helper to render miniature angle image frame
   const renderAngleFrame = (angle: MultiCamAngle, labelText: string, isFocusAngle: boolean, isCompact: boolean = false) => {
+    const camNum = Number(angle.label?.replace(/\D/g, '') || '1');
+    const proc = getShotProceduralSpec((Math.max(1, camNum) - 1) * 10);
     return (
-      <div className="relative w-full h-full bg-[#0a0a0f] overflow-hidden flex items-center justify-center">
+      <div
+        className="relative w-full h-full bg-[#0a0a0f] overflow-hidden flex items-center justify-center"
+        style={{ background: angle.blobUrl ? undefined : proc.palette.thumbCssBackdrop }}
+      >
         {angle.blobUrl ? (
           <img
             src={angle.blobUrl}

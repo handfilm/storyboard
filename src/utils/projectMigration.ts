@@ -8,6 +8,7 @@ import { AnthologyFrame, AnthologyProject } from './../types/anthology';
 import { ProjectV1, ShotV1, CURRENT_PROJECT_SCHEMA_VERSION, isValidProjectV1 } from '../types/projectSchema';
 import { DEFAULT_COMPONENT_VISIBILITY } from '../components/ComponentsMatrixPopover';
 import { generateInitialFrames } from '../data/frames';
+import { isLegacyMockupPhotoUrl } from '../data/proceduralCinemaEngine';
 import { clampShotDuration } from '../types/storyboard';
 
 /**
@@ -74,6 +75,11 @@ export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, scene
       ? clampShotDuration(frame.slideHoldSec)
       : 12.0;
 
+    const resolvedImageUrl =
+      frame?.imageUrl && !isLegacyMockupPhotoUrl(frame.imageUrl)
+        ? frame.imageUrl
+        : base.imageUrl;
+
   return {
     id: `shot-${epNumber}`,
     number: epNumber,
@@ -90,12 +96,12 @@ export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, scene
     lens: cameraSpec.focalLength || '50mm f/1.4',
     filter: frame?.lutFilter || base.lutFilter || 'cinematic',
     panY: typeof frame?.panY === 'number' ? frame.panY : 50,
-    mediaId: (frame?.imageUrl || base.imageUrl) ? `media-${epNumber}` : null,
-    imageUrl: frame?.imageUrl || base.imageUrl,
+    mediaId: resolvedImageUrl ? `media-${epNumber}` : null,
+    imageUrl: resolvedImageUrl,
     isVideo: typeof frame?.isVideo === 'boolean' ? frame.isVideo : (
-      frame?.imageUrl ? (
-        frame.imageUrl.startsWith('data:video') ||
-        /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(frame.imageUrl)
+      resolvedImageUrl ? (
+        resolvedImageUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(resolvedImageUrl)
       ) : false
     ),
     colorAccent: frame?.colorAccent || base.colorAccent || '#D4AF37',
@@ -144,15 +150,19 @@ export function convertShotV1ToFrame(shot: Partial<ShotV1> | any, index: number)
     soundCue,
     cameraSpec,
     imageUrl: (
-      shot?.imageUrl && 
-      !shot.imageUrl.includes('photo-1507499739999-097706ad8914')
+      shot?.imageUrl &&
+      !isLegacyMockupPhotoUrl(shot.imageUrl)
     ) ? shot.imageUrl : base.imageUrl,
     isVideo: typeof shot?.isVideo === 'boolean' ? shot.isVideo : (
-      shot?.imageUrl ? (
+      shot?.imageUrl && !isLegacyMockupPhotoUrl(shot.imageUrl) ? (
         shot.imageUrl.startsWith('data:video') ||
         /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(shot.imageUrl)
       ) : false
     ),
+    shotType: shot?.shotType || base.shotType,
+    proceduralPaletteId: base.proceduralPaletteId,
+    typographyArchitecture: base.typographyArchitecture,
+    opticalFxId: base.opticalFxId,
     colorAccent: shot?.colorAccent || base.colorAccent || '#D4AF37',
     hoverStyle: typeof shot?.hoverStyle === 'number' ? shot.hoverStyle : (base.hoverStyle || 0),
     titleAnimation: shot?.titleAnimation || 'flare',

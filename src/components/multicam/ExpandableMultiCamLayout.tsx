@@ -30,7 +30,7 @@ import {
   Video
 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
-import { samplePacks } from '../../data/frames';
+import { getShotProceduralSpec } from '../../data/proceduralCinemaEngine';
 import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
 
 export type MultiCamLayoutPreset = '2x2' | '1x3' | '1x1' | '3x3';
@@ -164,8 +164,6 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
         angle.blobUrl.startsWith('data:video')
       ))
     );
-    const fallbackImage = samplePacks.cyberNoir[index % samplePacks.cyberNoir.length] || samplePacks.cosmicMacro[0];
-
     if (isVideo) {
       return (
         <video
@@ -181,9 +179,23 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
       );
     }
 
+    if (!angle.blobUrl) {
+      const proc = getShotProceduralSpec(index * 10);
+      return (
+        <div
+          className="w-full h-full flex flex-col items-center justify-center pointer-events-none select-none"
+          style={{ background: proc.palette.cssBackdrop }}
+        >
+          <span className="font-mono text-[10px] font-bold tracking-widest text-white/60 uppercase">
+            {angle.label || `CAM ${index + 1}`} // {proc.palette.name}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <img
-        src={angle.blobUrl || fallbackImage}
+        src={angle.blobUrl}
         alt={angle.label || `CAM ${index + 1}`}
         className={`w-full h-full ${isFill ? 'object-cover' : 'object-contain'} pointer-events-none select-none`}
       />

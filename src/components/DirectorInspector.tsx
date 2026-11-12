@@ -20,7 +20,7 @@
 
 import React, { useState } from 'react';
 import { AnthologyFrame, LutPreset, AspectRatio } from '../types/anthology';
-import { samplePacks } from '../data/frames';
+import { PROCEDURAL_PALETTES } from '../data/proceduralCinemaEngine';
 import { 
   X, 
   Sliders, 
@@ -582,17 +582,42 @@ export const DirectorInspector: React.FC<DirectorInspectorProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] text-zinc-400 uppercase tracking-wider mb-2">
-                Sample Cinema Library
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[...samplePacks.cosmicMacro, ...samplePacks.cyberNoir].slice(0, 9).map((img, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => onUpdateFrame({ ...frame, imageUrl: img })}
-                    className="aspect-[16/10] bg-cover bg-center rounded-[2px] border border-white/10 hover:border-[#fbbf24] cursor-pointer transition-transform hover:scale-105"
-                    style={{ backgroundImage: `url(${img})` }}
-                  />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[10px] text-zinc-400 uppercase tracking-wider">
+                  Procedural Cinema Palettes (Zero Photos)
+                </label>
+                {frame.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdateFrame({ ...frame, imageUrl: undefined, thumbnailUrl: undefined, isVideo: false })}
+                    className="px-2 py-0.5 text-[9px] font-mono uppercase rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 hover:bg-amber-500/30 cursor-pointer"
+                  >
+                    Reset Procedural
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PROCEDURAL_PALETTES.map((pal) => (
+                  <button
+                    type="button"
+                    key={pal.id}
+                    onClick={() =>
+                      onUpdateFrame({
+                        ...frame,
+                        imageUrl: undefined,
+                        thumbnailUrl: undefined,
+                        isVideo: false,
+                        proceduralPaletteId: pal.id,
+                        colorAccent: pal.accentHex
+                      })
+                    }
+                    className="relative aspect-[16/9] rounded-[2px] border border-white/10 hover:border-[#fbbf24] cursor-pointer transition-transform hover:scale-[1.03] overflow-hidden text-left p-1.5 flex items-end"
+                    style={{ background: pal.thumbCssBackdrop }}
+                  >
+                    <span className="font-mono text-[8px] font-bold tracking-wider text-white/90 drop-shadow">
+                      {pal.name}
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>

@@ -125,55 +125,31 @@ export const lutPresetsList: Array<{ id: LutPreset; label: string; desc: string 
   { id: 'raw', label: 'Flat Film Raw Log', desc: 'Maximum latitude flat profile for neutral grading' }
 ];
 
-// Curated high quality cinematic sample packs using bundled 4K master plates
-export const localCinematicPlates = [
-  "/assets/aistudio/image_3a1afa90.png",
-  "/assets/aistudio/image_630b2490.png",
-  "/assets/aistudio/image_9f20ab3c.png",
-  "/assets/aistudio/image_1a583b2c.png",
-  "/assets/aistudio/image_1019804d.png",
-  "/assets/aistudio/image_0d1ae916.png"
-];
+import { getShotProceduralSpec } from './proceduralCinemaEngine';
+
+// Pure procedural engine: zero external or bundled mockup photo seeding
+export const localCinematicPlates: string[] = [];
 
 export const samplePacks = {
-  cosmicMacro: [
-    "/assets/aistudio/image_332d00ec.png",
-    "/assets/aistudio/image_5ea6c84c.png",
-    "/assets/aistudio/image_7e972830.png",
-    "/assets/aistudio/image_a4619b66.png",
-    "/assets/aistudio/image_b3398899.png",
-    "/assets/aistudio/image_b98e020f.png",
-    "/assets/aistudio/image_bdefbc06.png",
-    "/assets/aistudio/image_c26145a7.png",
-    "/assets/aistudio/image_5cf780a3.png"
-  ],
-  cyberNoir: [
-    "/assets/aistudio/image_a4619b66.png",
-    "/assets/aistudio/image_7e972830.png",
-    "/assets/aistudio/image_b3398899.png",
-    "/assets/aistudio/image_332d00ec.png"
-  ],
-  liquidGold: [
-    "/assets/aistudio/image_5ea6c84c.png",
-    "/assets/aistudio/image_bdefbc06.png",
-    "/assets/aistudio/image_c26145a7.png"
-  ]
+  cosmicMacro: [] as string[],
+  cyberNoir: [] as string[],
+  liquidGold: [] as string[]
 };
 
 const focalOptions = ["18mm Cinema Ultra-Wide", "28mm Anamorphic Prime", "35mm High-Speed Master", "50mm f/1.2 Noctilux", "85mm f/1.4 Portrait", "100mm f/2.8 Macro Probe", "135mm f/2.0 Telephoto"];
 const shutterOptions = ["f/1.2 ISO 200", "f/1.4 ISO 400", "f/1.8 ISO 320", "f/2.8 ISO 800", "f/4.0 ISO 1600", "f/2.0 ISO 250"];
+const shotTypeCycle = ['HERO', 'CU', 'MS', 'MCU', 'OTS', 'WS', 'MACRO', 'ECU', 'WIDE', 'CLOSE'];
 
 export function generateInitialFrames(): AnthologyFrame[] {
   return Array.from({ length: 100 }, (_, i) => {
     const base = baseThemesData[i % baseThemesData.length];
     const epNumber = String(i + 1).padStart(3, '0');
-    const colorAccent = colorPalette[i % colorPalette.length];
+    const procedural = getShotProceduralSpec(i);
+    const colorAccent = procedural.palette.accentHex || colorPalette[i % colorPalette.length];
     const hoverStyle = i % 3;
     const focalLength = focalOptions[i % focalOptions.length];
     const shutter = shutterOptions[i % shutterOptions.length];
-
-    // Seed every slide with a 4K cinema master plate from the bundled assets
-    const defaultImage = localCinematicPlates[i % localCinematicPlates.length];
+    const lutFilter = lutPresetsList[procedural.paletteIndex % lutPresetsList.length]?.id || 'cinematic';
 
     return {
       id: i,
@@ -191,11 +167,17 @@ export function generateInitialFrames(): AnthologyFrame[] {
         sensor: "Full-Frame 36x24 Cine Sensor",
         format: "RAW 14-BIT ARRI"
       },
-      imageUrl: defaultImage,
+      imageUrl: undefined,
+      thumbnailUrl: undefined,
+      isVideo: false,
       colorAccent,
       hoverStyle,
-      lutFilter: 'cinematic',
+      lutFilter,
       aspectRatio: '2.39:1',
+      shotType: shotTypeCycle[i % shotTypeCycle.length],
+      proceduralPaletteId: procedural.palette.id,
+      typographyArchitecture: procedural.architecture.id,
+      opticalFxId: procedural.opticalFx.id,
       adjustments: {
         brightness: 100,
         contrast: 115,
@@ -205,7 +187,7 @@ export function generateInitialFrames(): AnthologyFrame[] {
         motionBlur: 70,
         vignette: 40
       },
-      tags: base.tags
+      tags: Array.from(new Set([...base.tags, procedural.palette.id, procedural.architecture.id]))
     };
   });
 }

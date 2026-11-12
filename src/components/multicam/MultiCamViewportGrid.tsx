@@ -44,7 +44,6 @@ import {
   Upload
 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
-import { samplePacks } from '../../data/frames';
 import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
 import { MultiCamGridSelectionMenu } from './MultiCamGridSelectionMenu';
 import { ANGLE_CONFIGS, proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';

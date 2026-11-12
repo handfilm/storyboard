@@ -7,7 +7,8 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { useStudioStore, BoardSubView } from '../../core/store';
-import { baseThemesData, localCinematicPlates } from '../../data/frames';
+import { baseThemesData } from '../../data/frames';
+import { getShotProceduralSpec } from '../../data/proceduralCinemaEngine';
 import { toBengaliNumerals } from '../../utils/engine';
 import { 
   LayoutGrid, 
@@ -59,7 +60,7 @@ export const BoardStudio: React.FC = () => {
     return Array.from({ length: totalShots }).map((_, idx) => {
       const stored = project.shots[idx] || {};
       const theme = baseThemesData[idx % baseThemesData.length];
-      const imgUrl = stored.imageUrl || localCinematicPlates[idx % localCinematicPlates.length];
+      const imgUrl = stored.imageUrl || '';
       const isVid = Boolean(
         stored.isVideo !== undefined
           ? stored.isVideo
@@ -97,6 +98,28 @@ export const BoardStudio: React.FC = () => {
   };
 
   const renderShotMedia = (shot: any, className: string = "w-full h-full object-cover", style?: React.CSSProperties) => {
+    if (!shot.imageUrl) {
+      const proc = getShotProceduralSpec(shot.id ?? 0);
+      return (
+        <div
+          className={`relative overflow-hidden flex flex-col items-center justify-center p-2 ${className}`}
+          style={{ ...style, background: proc.palette.thumbCssBackdrop }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: proc.palette.lightLeakCss }}
+          />
+          <div className="relative z-10 text-center flex flex-col items-center gap-0.5 pointer-events-none">
+            <span className="font-bangla text-xs font-bold text-amber-200/95 drop-shadow truncate max-w-full">
+              {shot.titleBn}
+            </span>
+            <span className="font-mono text-[8px] tracking-widest text-zinc-200/80 uppercase truncate max-w-full">
+              {shot.titleEn}
+            </span>
+          </div>
+        </div>
+      );
+    }
     if (shot.isVideo) {
       return (
         <video

@@ -123,6 +123,9 @@ export interface AnthologyFrame {
   subclipOutSec?: number;
   lightId?: string | null;
   shotType?: string;
+  proceduralPaletteId?: string;
+  typographyArchitecture?: string;
+  opticalFxId?: string;
 }
 
 export interface AnthologyProject {

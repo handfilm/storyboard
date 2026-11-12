@@ -74,6 +74,7 @@ import { transientPunchEngine } from '../../services/transientPunchEngine';
 import { StageMetadataFxBar } from './StageMetadataFxBar';
 import { StageCaptionStrip } from './StageCaptionStrip';
 import { getLightingPresetById } from '../../data/lightingPresets';
+import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
 import { formatFullSMPTETimecode } from '../../types/storyboard';
 
 export interface TactileStageProps {
@@ -168,6 +169,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const wasAudioMutedBeforeScrubRef = useRef<boolean>(true);
   const slideTimeSecRef = useRef<number>(slideTimeSec);
   slideTimeSecRef.current = slideTimeSec;
+  const currentIndexRef = useRef<number>(currentIndex);
+  currentIndexRef.current = currentIndex;
 
   const frameBitmapCacheRef = useRef<Map<number, ImageBitmap>>(new Map());
   const cachedPosterImgRef = useRef<HTMLImageElement | null>(null);
@@ -864,28 +867,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 drawCover(ctx, activeSource, targetW, targetH);
                 ctx.filter = 'none';
               } else if (!activeMediaUrl && !cachedPosterUrl) {
-                // Minimalist Dark Studio Fallback Slate ONLY when shot has NO media
-                const grad = ctx.createLinearGradient(0, 0, 0, targetH);
-                grad.addColorStop(0, '#0a0a0f');
-                grad.addColorStop(1, '#121218');
-                ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, targetW, targetH);
-
-                // 4K Target Crosshair & Grid
-                ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
-                ctx.lineWidth = 1;
-                const cx = targetW / 2;
-                const cy = targetH / 2;
-                ctx.beginPath();
-                ctx.moveTo(cx - 30, cy);
-                ctx.lineTo(cx + 30, cy);
-                ctx.moveTo(cx, cy - 30);
-                ctx.lineTo(cx, cy + 30);
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-                ctx.stroke();
+                // Pure Procedural Cinema Color & Light Backdrop (Zero Mockup Photos)
+                renderProceduralBackdropToCanvas(
+                  ctx,
+                  targetW,
+                  targetH,
+                  currentIndexRef.current,
+                  slideTimeSecRef.current
+                );
               }
               ctx.filter = 'none';
               applyCinematicPostProcess(
@@ -896,7 +885,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 curFrame?.adjustments,
                 slideTimeSecRef.current
               );
-              if (activeLight && activeSource) {
+              if (activeLight && (activeSource || (!activeMediaUrl && !cachedPosterUrl))) {
                 ctx.save();
                 ctx.globalCompositeOperation = activeLight.blendMode;
                 activeLight.renderOverlay(ctx, targetW, targetH, slideTimeSecRef.current);
@@ -1056,6 +1045,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const fitModeClass = fitMode === 'contain' ? 'object-contain' : 'object-cover';
   const activeLightPreset = frame?.lightId ? getLightingPresetById(frame.lightId) : undefined;
   const activeSmpte = formatFullSMPTETimecode(slideTimeSec, activeShotFps);
+  const proceduralSpec = getShotProceduralSpec(currentIndex);
 
   return (
     <div
@@ -1238,6 +1228,58 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             />
           )}
 
+          {/* PURE PROCEDURAL CINEMA BACKDROP LAYER (Active whenever no local video/photo has been dropped) */}
+          {!activeMediaUrl && !cachedPosterUrl && (
+            <div
+              data-testid="procedural-stage-backdrop"
+              data-palette-id={proceduralSpec.palette.id}
+              data-optical-fx={proceduralSpec.opticalFx.id}
+              className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-hidden transition-all duration-500"
+              style={{
+                background: proceduralSpec.palette.cssBackdrop,
+                filter: combinedMediaFilter
+              }}
+            >
+              {/* Anamorphic Light Leak Accent */}
+              <div
+                className="absolute inset-0 pointer-events-none mix-blend-screen transition-opacity duration-500"
+                style={{ background: proceduralSpec.palette.lightLeakCss }}
+              />
+              {/* Fine Film-Grain Texture */}
+              <div className="procedural-film-grain absolute inset-0 pointer-events-none" />
+              {/* Per-Shot Optical FX Layer ((shotIndex * 3) % 10) */}
+              {proceduralSpec.opticalFx.hasFlareStreak && (
+                <div
+                  className="absolute top-1/2 inset-x-0 h-[2px] -translate-y-1/2 pointer-events-none opacity-65"
+                  style={{
+                    background: `linear-gradient(90deg, transparent 0%, ${proceduralSpec.palette.accentHex} 50%, transparent 100%)`,
+                    boxShadow: `0 0 28px ${proceduralSpec.palette.accentHex}`
+                  }}
+                />
+              )}
+              {proceduralSpec.opticalFx.hasCoronaRing && (
+                <div
+                  className="absolute left-1/2 top-1/2 w-[48%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none opacity-45"
+                  style={{
+                    border: `1.5px solid ${proceduralSpec.palette.accentHex}`,
+                    boxShadow: `0 0 40px ${proceduralSpec.palette.leakHex}, inset 0 0 36px ${proceduralSpec.palette.leakHex}`
+                  }}
+                />
+              )}
+              {proceduralSpec.opticalFx.hasScanlines && (
+                <div className="procedural-scanlines absolute inset-0 pointer-events-none opacity-35" />
+              )}
+              {proceduralSpec.opticalFx.hasBrutalistFrame && (
+                <div className="absolute inset-4 pointer-events-none opacity-55">
+                  <span className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2" style={{ borderColor: proceduralSpec.palette.accentHex }} />
+                  <span className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2" style={{ borderColor: proceduralSpec.palette.accentHex }} />
+                  <span className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2" style={{ borderColor: proceduralSpec.palette.accentHex }} />
+                  <span className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2" style={{ borderColor: proceduralSpec.palette.accentHex }} />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* PRIMARY RENDERER: Hardware / 2D Canvas Synchronous Media Pass-Through */}
           <canvas
             id="stage-canvas"
@@ -1321,30 +1363,6 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               <span className="text-white/60">•</span>
               <span className="tabular-nums">{selectionBox.scale.toFixed(1)}x</span>
             </div>
-          </div>
-        )}
-
-        {/* Drag & Drop Ready Standby when no media exists */}
-        {!activeMediaUrl && !cachedPosterUrl && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center z-20 pointer-events-auto">
-            <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
-              <Film className="w-7 h-7 opacity-60" />
-            </div>
-            <div>
-              <p className="font-cinzel text-xs sm:text-sm text-zinc-300 font-bold tracking-wider">
-                SHOT {frame?.epNumber || String(currentIndex + 1).padStart(3, '0')} // READY FOR INGEST
-              </p>
-              <p className="text-[9.5px] text-zinc-500 mt-1 font-mono-tech">
-                Drag &amp; Drop 4K video or photo directly into this monitor
-              </p>
-            </div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-1 px-3 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Select Media Asset</span>
-            </button>
           </div>
         )}
 

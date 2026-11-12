@@ -8,7 +8,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnthologyFrame, AnthologyProject, AspectRatio, LutPreset, ViewMode } from './types/anthology';
-import { generateInitialFrames, samplePacks, localCinematicPlates } from './data/frames';
+import { generateInitialFrames, samplePacks } from './data/frames';
+import { isLegacyMockupPhotoUrl } from './data/proceduralCinemaEngine';
 import { WorkspaceMode, themeManager } from './core/theme';
 import { featureFlags } from './core/featureFlags';
 import { LeftRail, StudioModuleId } from './components/LeftRail';
@@ -252,7 +253,9 @@ export default function App() {
               prev.frames[i] ||
               baseDefaults[i % baseDefaults.length];
             const nonExpiredUrl =
-              saved.imageUrl && !saved.imageUrl.startsWith('blob:')
+              saved.imageUrl &&
+              !saved.imageUrl.startsWith('blob:') &&
+              !isLegacyMockupPhotoUrl(saved.imageUrl)
                 ? saved.imageUrl
                 : existing.imageUrl;
             return {
@@ -667,7 +670,9 @@ export default function App() {
             sensor: 'Full Frame ARRI LF',
             format: '2.39:1 Scope'
           },
-          imageUrl: shot?.thumbnail || shot?.imageUrl || localCinematicPlates[0],
+          imageUrl:
+            (shot?.thumbnail && !isLegacyMockupPhotoUrl(shot.thumbnail) ? shot.thumbnail : undefined) ||
+            (shot?.imageUrl && !isLegacyMockupPhotoUrl(shot.imageUrl) ? shot.imageUrl : undefined),
           isVideo: shot?.isVideo ?? true,
           colorAccent: shot?.colorAccent || '#A855F7',
           hoverStyle: 1,
@@ -2025,7 +2030,7 @@ export default function App() {
 
   const handleQuickSampleImage = () => {
     const allPresets = [...samplePacks.cosmicMacro, ...samplePacks.cyberNoir, ...samplePacks.liquidGold];
-    const picked = allPresets[currentIndex % allPresets.length];
+    const picked = allPresets.length > 0 ? allPresets[currentIndex % allPresets.length] : undefined;
     const current = project.frames[currentIndex];
     handleUpdateFrame({
       ...current,
@@ -2039,7 +2044,7 @@ export default function App() {
       ...prev,
       frames: prev.frames.map((frame, i) => ({
         ...frame,
-        imageUrl: frame.imageUrl || allPresets[i % allPresets.length]
+        imageUrl: frame.imageUrl || (allPresets.length > 0 ? allPresets[i % allPresets.length] : undefined)
       }))
     }));
   };

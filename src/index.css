@@ -627,3 +627,106 @@
   visibility: visible !important;
 }
 
+/* =========================================================================
+   100-SHOT PROCEDURAL CINEMA & KINETIC TITLE FX UTILITIES
+   ========================================================================= */
+
+.procedural-film-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  opacity: 0.14;
+}
+
+.procedural-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.34) 0px,
+    rgba(0, 0, 0, 0.34) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@keyframes procScaleDrift {
+  0% { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1.03); }
+}
+.animate-proc-scale-drift {
+  animation: procScaleDrift 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procKineticSlide {
+  0% { opacity: 0; transform: translate3d(-28px, 0, 0) skewX(-4deg); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) skewX(0deg); }
+}
+.animate-proc-kinetic-slide {
+  animation: procKineticSlide 460ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procRgbSplit {
+  0% { opacity: 0; transform: translate3d(10px, 0, 0) scale(1.04); filter: blur(2px); }
+  45% { opacity: 1; transform: translate3d(-4px, 0, 0) scale(1); filter: blur(0px); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0px); }
+}
+.animate-proc-rgb-split {
+  animation: procRgbSplit 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procFlareStreak {
+  0% { opacity: 0; transform: scaleX(1.18) scaleY(0.94); }
+  100% { opacity: 1; transform: scaleX(1) scaleY(1); }
+}
+.animate-proc-flare-streak {
+  animation: procFlareStreak 580ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procStrobePulse {
+  0% { opacity: 0.15; transform: scale(1.06); }
+  25% { opacity: 1; transform: scale(0.98); }
+  50% { opacity: 0.65; transform: scale(1.01); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-proc-strobe-pulse {
+  animation: procStrobePulse 420ms ease-out forwards;
+}
+
+@keyframes procBlurSnap {
+  0% { opacity: 0; filter: blur(10px); transform: scale(1.08); }
+  100% { opacity: 1; filter: blur(0px); transform: scale(1); }
+}
+.animate-proc-blur-snap {
+  animation: procBlurSnap 540ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procBrutalistSnap {
+  0% { opacity: 0; transform: translateY(14px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-proc-brutalist-snap {
+  animation: procBrutalistSnap 360ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procVertigoDrift {
+  0% { opacity: 0; transform: perspective(900px) translateZ(-40px) scale(1.08); }
+  100% { opacity: 1; transform: perspective(900px) translateZ(0px) scale(1); }
+}
+.animate-proc-vertigo-drift {
+  animation: procVertigoDrift 760ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procScanlineLock {
+  0% { opacity: 0; transform: translateY(-10px); }
+  60% { opacity: 0.9; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-proc-scanline-lock {
+  animation: procScanlineLock 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes procCoronaBloom {
+  0% { opacity: 0; transform: scale(0.9); filter: brightness(1.6); }
+  100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+}
+.animate-proc-corona-bloom {
+  animation: procCoronaBloom 680ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

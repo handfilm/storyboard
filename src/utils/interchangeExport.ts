@@ -21,6 +21,7 @@ import {
   NLEExportOptions
 } from '../types/cockpit';
 import { getLightingPresetById } from '../data/lightingPresets';
+import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
 
 export interface ExternalAppDispatchParams {
   appName: CockpitDispatchTarget;
@@ -372,6 +373,11 @@ export function captureCompositeCanvasPng(canvas: HTMLCanvasElement | null): str
           if (mediaImg.style.filter) ctx.filter = mediaImg.style.filter;
           drawMediaCoverToCanvas(ctx, mediaImg, targetW, targetH);
           ctx.restore();
+        } else {
+          const stageOverlayEl = document.querySelector('[data-testid="stage-text-overlay"]');
+          const parsedShotIdx = Number(stageOverlayEl?.getAttribute('data-shot-index') ?? '0');
+          const safeShotIdx = Number.isFinite(parsedShotIdx) ? parsedShotIdx : 0;
+          renderProceduralBackdropToCanvas(ctx, targetW, targetH, safeShotIdx, 0);
         }
 
         // Draw post-process & 34-preset lighting canvas overlay

@@ -22,6 +22,7 @@ import {
 } from '../core/store';
 import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
+import { getShotProceduralSpec } from '../data/proceduralCinemaEngine';
 import { Sliders } from 'lucide-react';
 
 export type StageTitleVariant =
@@ -189,6 +190,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   const activeTitleAlign: TitleAlign = propTitleAlign || storeTitleAlign || 'MID';
   const effectiveAlign = resolveEffectiveTitleAlign(activeTitleAlign, shotIndex, shotType);
+  const procedural = getShotProceduralSpec(shotIndex);
+  const { palette: procPalette, architecture: procArch, opticalFx: procFx } = procedural;
 
   const clusterAlignClasses =
     effectiveAlign === 'LEFT'
@@ -219,6 +222,83 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         : '-50%';
 
   const presetStyle = getPresetStyles();
+  const effectiveFontSizePx = Math.round(titleSizePx * scale * procArch.scaleMultiplier);
+  const effectiveTrackingEm = Math.max(0.02, tracking + procArch.trackingBoostEm);
+
+  const renderArchitectureDivider = () => {
+    switch (procArch.dividerKind) {
+      case 'slash':
+        return (
+          <div
+            key={`anamorphic-streak-${shotIndex}`}
+            className={`h-[3px] mt-2 -skew-x-12 ${presetStyle.flareGradient} animate-streak-expand`}
+          />
+        );
+      case 'double':
+        return (
+          <div key={`anamorphic-streak-${shotIndex}`} className="mt-2 flex flex-col gap-1">
+            <div className={`h-[2px] rounded-full ${presetStyle.flareGradient} animate-streak-expand`} />
+            <div className="h-[1px] w-20 opacity-65 rounded-full bg-white/50 self-center" />
+          </div>
+        );
+      case 'prism':
+        return (
+          <div
+            key={`anamorphic-streak-${shotIndex}`}
+            className="h-[2.5px] mt-2 rounded-full bg-gradient-to-r from-cyan-400 via-white to-rose-500 shadow-[0_0_18px_rgba(34,211,238,0.75)] animate-streak-expand"
+          />
+        );
+      case 'strobe':
+        return (
+          <div key={`anamorphic-streak-${shotIndex}`} className="mt-2 flex items-center gap-1.5">
+            <span className="h-[3px] w-10 rounded-full animate-pulse" style={{ backgroundColor: procPalette.accentHex }} />
+            <span className="h-[3px] w-3 rounded-full bg-white/80" />
+            <span className="h-[3px] w-10 rounded-full animate-pulse" style={{ backgroundColor: procPalette.accentHex }} />
+          </div>
+        );
+      case 'brutalist-rule':
+        return (
+          <div
+            key={`anamorphic-streak-${shotIndex}`}
+            className="h-[3px] mt-2.5 w-36 bg-white/85 shadow-[0_0_12px_rgba(255,255,255,0.45)] animate-streak-expand"
+          />
+        );
+      case 'neon-bar':
+        return (
+          <div
+            key={`anamorphic-streak-${shotIndex}`}
+            className="h-[2px] mt-2.5 rounded-full animate-streak-expand"
+            style={{
+              backgroundColor: procPalette.accentHex,
+              boxShadow: `0 0 18px ${procPalette.accentHex}`
+            }}
+          />
+        );
+      case 'anamorphic-wide':
+        return (
+          <div
+            key={`anamorphic-streak-${shotIndex}`}
+            className={`h-[1.5px] mt-2.5 min-w-[11rem] rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
+          />
+        );
+      case 'zero-line':
+        return (
+          <div
+            key={`anamorphic-streak-${shotIndex}`}
+            className="h-[1px] mt-2.5 w-24 bg-gradient-to-r from-transparent via-white/70 to-transparent animate-streak-expand"
+          />
+        );
+      case 'pulse':
+      case 'streak':
+      default:
+        return (
+          <div
+            key={`anamorphic-streak-${shotIndex}`}
+            className={`h-[2px] mt-2 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
+          />
+        );
+    }
+  };
 
   return (
     <div
@@ -230,6 +310,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       data-preset={activePreset}
       data-title-align={activeTitleAlign}
       data-effective-align={effectiveAlign}
+      data-procedural-palette={procPalette.id}
+      data-typography-arch={procArch.id}
+      data-optical-fx={procFx.id}
       data-variant={variant}
       aria-hidden={!isEnabled}
     >
@@ -259,46 +342,73 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                 transform: `translate3d(${horizontalTranslateX}, calc(-50% + ${verticalOffset}px), 0)`
               }}
             >
-              <div className={`flex flex-col max-w-5xl animate-kinetic-entrance transition-all duration-300 ${blockAlignClasses}`}>
+              <div className={`flex flex-col max-w-5xl ${procFx.entranceClass} transition-all duration-300 ${blockAlignClasses}`}>
                 
-                {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
+                {/* Primary Title (Bangla Dynamic Hero Font + 100-Shot Procedural Architecture + Optical Split) */}
                 {showBangla && (
-                  <h1
-                    key={`bangla-title-${shotIndex}`}
-                    className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-4xl sm:text-6xl md:text-7xl drop-shadow-2xl animate-kinetic-entrance`}
-                    style={{
-                      fontSize: `${Math.round(titleSizePx * scale)}px`,
-                      letterSpacing: `${tracking}em`,
-                      filter: presetStyle.filter,
-                      transformOrigin:
-                        effectiveAlign === 'LEFT'
-                          ? 'left center'
-                          : effectiveAlign === 'RIGHT'
-                            ? 'right center'
-                            : 'center center'
-                    }}
-                  >
-                    {displayBangla}
-                  </h1>
+                  <div className="relative inline-block">
+                    {procFx.hasRgbSplit && (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className={`font-bangla ${procArch.banglaClass} text-cyan-400/55 leading-tight select-none text-4xl sm:text-6xl md:text-7xl absolute inset-0 pointer-events-none`}
+                          style={{
+                            fontSize: `${effectiveFontSizePx}px`,
+                            letterSpacing: `${effectiveTrackingEm}em`,
+                            transform: 'translate3d(-3px, 1px, 0)'
+                          }}
+                        >
+                          {displayBangla}
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          className={`font-bangla ${procArch.banglaClass} text-rose-500/55 leading-tight select-none text-4xl sm:text-6xl md:text-7xl absolute inset-0 pointer-events-none`}
+                          style={{
+                            fontSize: `${effectiveFontSizePx}px`,
+                            letterSpacing: `${effectiveTrackingEm}em`,
+                            transform: 'translate3d(3px, -1px, 0)'
+                          }}
+                        >
+                          {displayBangla}
+                        </span>
+                      </>
+                    )}
+                    <h1
+                      key={`bangla-title-${shotIndex}`}
+                      className={`relative font-bangla ${procArch.banglaClass} bg-gradient-to-r ${presetStyle.titleGradient} leading-tight select-none text-4xl sm:text-6xl md:text-7xl drop-shadow-2xl ${
+                        procFx.hasStrobePulse ? 'animate-pulse' : ''
+                      }`}
+                      style={{
+                        fontSize: `${effectiveFontSizePx}px`,
+                        letterSpacing: `${effectiveTrackingEm}em`,
+                        filter: presetStyle.filter,
+                        transformOrigin:
+                          effectiveAlign === 'LEFT'
+                            ? 'left center'
+                            : effectiveAlign === 'RIGHT'
+                              ? 'right center'
+                              : 'center center'
+                      }}
+                    >
+                      {displayBangla}
+                    </h1>
+                  </div>
                 )}
 
-                {/* Subtitle (Tracked Monospace English) */}
+                {/* Subtitle (Tracked Monospace English + Architecture Divider) */}
                 {showEnglish && (
                   <div className={`mt-3 sm:mt-4 flex flex-col transition-all duration-300 ${blockAlignClasses}`}>
                     <p
-                      className={`font-mono text-xs sm:text-sm md:text-base font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
+                      className={`font-mono text-xs sm:text-sm md:text-base ${procArch.englishClass} ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
                       style={{
-                        letterSpacing: `${Math.max(0.2, tracking + 0.2)}em`
+                        letterSpacing: `${Math.max(0.16, tracking + 0.18 + procArch.trackingBoostEm)}em`
                       }}
                     >
                       {displayEnglish}
                     </p>
 
-                    {/* Accent: Optical Anamorphic Streak Divider expanding horizontally */}
-                    <div 
-                      key={`anamorphic-streak-${shotIndex}`}
-                      className={`h-[2px] mt-2 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
-                    />
+                    {/* Per-Architecture Optical Divider */}
+                    {renderArchitectureDivider()}
 
                     {/* Camera Optical Spec / Focal Length Badge (Subtle) */}
                     {cameraInfo && (

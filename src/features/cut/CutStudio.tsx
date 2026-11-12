@@ -10,7 +10,8 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useStudioStore } from '../../core/store';
 import { AnthologyFrame, AnthologyProject, AspectRatio, LutPreset } from '../../types/anthology';
 import { TimelineClip, TrackLane, TrackLaneId } from '../../types/cut';
-import { baseThemesData, generateInitialFrames, samplePacks } from '../../data/frames';
+import { baseThemesData, generateInitialFrames } from '../../data/frames';
+import { getShotProceduralSpec, PROCEDURAL_PALETTES } from '../../data/proceduralCinemaEngine';
 import { toBengaliNumerals } from '../../utils/engine';
 import { convertShotV1ToFrame } from '../../utils/projectMigration';
 import { exportToOTIO, exportToCMX3600EDL, exportToSRT, triggerFileDownload } from '../../data/hollywoodExporters';
@@ -114,7 +115,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
     baseShots.slice(0, 16).forEach((shot: any, index: number) => {
       const duration = getShotDurationSec(shot, 3.0);
       const theme = baseThemesData[index % baseThemesData.length];
-      const imageUrl = shot.imageUrl || samplePacks.cosmicMacro[index % samplePacks.cosmicMacro.length];
+      const imageUrl = shot.imageUrl || '';
       const isVid = Boolean(shot.isVideo);
 
       initialClips.push({
@@ -383,7 +384,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
     project.shots.forEach((shot, idx) => {
       const duration = getShotDurationSec(shot, 3.0);
       const theme = baseThemesData[idx % baseThemesData.length];
-      const imageUrl = shot.imageUrl || samplePacks.cosmicMacro[idx % samplePacks.cosmicMacro.length];
+      const imageUrl = shot.imageUrl || '';
       const isVid = Boolean(shot.isVideo);
 
       newClips.push({
@@ -694,20 +695,21 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                {samplePacks.cosmicMacro.slice(0, 8).map((imgUrl, i) => (
+                {PROCEDURAL_PALETTES.slice(0, 8).map((pal, i) => (
                   <div
-                    key={i}
+                    key={pal.id}
                     onClick={() => {
                       const newClip: TimelineClip = {
-                        id: `clip-sample-${Date.now()}-${i}`,
+                        id: `clip-proc-${Date.now()}-${i}`,
                         trackId: 'V1',
-                        name: `Cine Clip ${i + 1}`,
+                        name: `${pal.name}`,
                         type: 'image',
                         start: playheadTime,
                         duration: 3.0,
                         inPoint: 0,
                         outPoint: 3.0,
-                        url: imgUrl,
+                        url: '',
+                        shotIndex: i * 10,
                         posX: 0, posY: 0, scale: 100, rotation: 0, opacity: 100, blendMode: 'normal', mask: 'none',
                         crop: { top: 0, bottom: 0, left: 0, right: 0 },
                         animation: { inType: 'fade-in', outType: 'none', duration: 0.5 },
@@ -719,10 +721,13 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
                       setClips(prev => [...prev, newClip]);
                       setSelectedClipId(newClip.id);
                     }}
-                    className="group relative aspect-video bg-black rounded border border-white/10 hover:border-[#D4AF37] overflow-hidden cursor-pointer"
+                    className="group relative aspect-video bg-black rounded border border-white/10 hover:border-[#D4AF37] overflow-hidden cursor-pointer flex items-end p-1.5"
+                    style={{ background: pal.thumbCssBackdrop }}
                   >
-                    <img src={imgUrl} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <span className="font-mono text-[8px] text-white/90 font-bold tracking-wider truncate drop-shadow">
+                      {pal.name}
+                    </span>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                       <Plus className="w-4 h-4 text-[#FFE066]" />
                     </div>
                   </div>
@@ -973,12 +978,22 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onSyncToBoard, onOpenMulti
                       filter: `contrast(${activeMonitorV1Clip.adjustments.contrast}%) brightness(${activeMonitorV1Clip.adjustments.brightness}%) saturate(${activeMonitorV1Clip.adjustments.saturation}%)`
                     }}
                   />
-                ) : (
+                ) : activeMonitorV1Clip.url ? (
                   <img
                     src={activeMonitorV1Clip.url}
                     alt=""
                     className="absolute inset-0 w-full h-full object-cover transition-transform"
                     style={{
+                      transform: `translate(${activeMonitorV1Clip.posX}%, ${activeMonitorV1Clip.posY}%) scale(${activeMonitorV1Clip.scale / 100}) rotate(${activeMonitorV1Clip.rotation}deg)`,
+                      opacity: activeMonitorV1Clip.opacity / 100,
+                      filter: `contrast(${activeMonitorV1Clip.adjustments.contrast}%) brightness(${activeMonitorV1Clip.adjustments.brightness}%) saturate(${activeMonitorV1Clip.adjustments.saturation}%)`
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0 w-full h-full flex items-center justify-center transition-transform"
+                    style={{
+                      background: getShotProceduralSpec(activeMonitorV1Clip.shotIndex ?? 0).palette.cssBackdrop,
                       transform: `translate(${activeMonitorV1Clip.posX}%, ${activeMonitorV1Clip.posY}%) scale(${activeMonitorV1Clip.scale / 100}) rotate(${activeMonitorV1Clip.rotation}deg)`,
                       opacity: activeMonitorV1Clip.opacity / 100,
                       filter: `contrast(${activeMonitorV1Clip.adjustments.contrast}%) brightness(${activeMonitorV1Clip.adjustments.brightness}%) saturate(${activeMonitorV1Clip.adjustments.saturation}%)`

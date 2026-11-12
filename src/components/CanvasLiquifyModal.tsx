@@ -12,6 +12,9 @@ interface CanvasLiquifyModalProps {
   frame: AnthologyFrame;
   onClose: () => void;
   onApplyWarp: (warpedDataUrl: string) => void;
+  activeLightId?: string | null;
+  onApplyLightToShot?: (lightId: string | null) => void;
+  onApplyLightToAll?: (lightId: string | null) => void;
 }
 
 export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = (props) => {

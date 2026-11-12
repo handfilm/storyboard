@@ -121,6 +121,7 @@ export interface AnthologyFrame {
   beatSnapEnabled?: boolean;
   subclipInSec?: number;
   subclipOutSec?: number;
+  lightId?: string | null;
 }
 
 export interface AnthologyProject {

@@ -2522,6 +2522,22 @@ export default function App() {
         isOpen={isLiquifyOpen}
         frame={currentFrame}
         onClose={() => setIsLiquifyOpen(false)}
+        activeLightId={currentFrame.lightId}
+        onApplyLightToShot={(lightId) => {
+          handleUpdateFrame({
+            ...currentFrame,
+            lightId: lightId ?? undefined
+          });
+        }}
+        onApplyLightToAll={(lightId) => {
+          setProject((prev) => ({
+            ...prev,
+            frames: prev.frames.map((f) => ({
+              ...f,
+              lightId: lightId ?? undefined
+            }))
+          }));
+        }}
         onApplyWarp={(warpedUrl) => {
           handleUpdateFrame({
             ...currentFrame,

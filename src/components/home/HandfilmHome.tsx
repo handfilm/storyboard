@@ -71,6 +71,7 @@ import { db } from '../../services/db';
 import { MediaBinDrawer } from '../MediaBinDrawer';
 import { serviceWorkerManager } from '../../services/serviceWorkerManager';
 import { DirectorCockpitModal } from '../cockpit/DirectorCockpitModal';
+import { CanvasLiquifyModal } from '../CanvasLiquifyModal';
 import { CockpitShotBridge, CockpitDispatchTarget } from '../../types/cockpit';
 import { 
   LIGHTING_PRESETS, 
@@ -793,6 +794,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [isLightDrawerOpen, setIsLightDrawerOpen] = useState<boolean>(false);
   const [lightFilterTab, setLightFilterTab] = useState<'ALL' | 'ATMO' | 'GOBO' | 'TONE' | 'STUDIO'>('ALL');
   const [showLightToast, setShowLightToast] = useState<boolean>(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState<boolean>(false);
 
   // Header Interactive States & Non-Blocking Export
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -926,7 +928,11 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     return LIGHTING_PRESETS;
   }, [lightFilterTab]);
 
-  const handleSelectLightPreset = useCallback((presetId: string) => {
+  const handleSelectLightPreset = useCallback((presetId: string | null) => {
+    if (!presetId) {
+      setCustomLights(prev => ({ ...prev, [activeShotIndex]: null }));
+      return;
+    }
     setCustomLights(prev => {
       const nextVal = prev[activeShotIndex] === presetId ? null : presetId;
       return { ...prev, [activeShotIndex]: nextVal };
@@ -939,8 +945,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     try { audioEngine.playShutterClick(); } catch {}
   }, [activeShotIndex]);
 
-  const handleApplyLightToAllShots = useCallback(() => {
-    const currentVal = activeShotLightId;
+  const handleApplyLightToAllShots = useCallback((overrideLightId?: string | null | React.MouseEvent) => {
+    const currentVal = (typeof overrideLightId === 'string' || overrideLightId === null)
+      ? overrideLightId
+      : activeShotLightId;
     const newLights: Record<number, string | null> = {};
     SHOWCASE_PRESETS.forEach((_, idx) => {
       newLights[idx] = currentVal;
@@ -2213,11 +2221,20 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         return;
       }
 
+      // W: Toggle 09 Photo Edit & Bulk Resizer Suite Modal
+      if ((e.key === 'w' || e.key === 'W') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setIsPhotoModalOpen(prev => !prev);
+        try { audioEngine.playShutterClick(); } catch {}
+        return;
+      }
+
       // Escape: Instantly close open modals & overlays
       if (e.key === 'Escape') {
         e.preventDefault();
         setIsCockpitOpen(false);
         setIsLightDrawerOpen(false);
+        setIsPhotoModalOpen(false);
         setActiveDispatchFlyoutIdx(null);
         setIsVaultDrawerOpen(false);
         setIsEditingTitle(false);
@@ -2433,6 +2450,21 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]" />
           )}
         </button>
+
+        {/* [ 🎨 PHOTO ] Suite Trigger Button (09 PHOTO EDIT & BULK RESIZER SUITE) */}
+        <button
+          type="button"
+          onClick={() => setIsPhotoModalOpen(true)}
+          className={`w-10 h-12 rounded-lg flex flex-col items-center justify-center font-mono transition-all cursor-pointer border group relative ${
+            isPhotoModalOpen
+              ? 'bg-neutral-900 border-[#fbbf24] text-[#fbbf24] shadow-[0_0_14px_rgba(251,191,36,0.45)]'
+              : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700'
+          }`}
+          title="09 Photo Edit & Bulk Resizer Suite (Hotkey: W)"
+        >
+          <span className="text-base leading-none">🎨</span>
+          <span className="text-[8.5px] font-bold tracking-tight mt-0.5">PHOTO</span>
+        </button>
       </aside>
 
       {/* ========================================================= */}
@@ -2523,7 +2555,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           <div className="p-2.5 bg-neutral-950 border-t border-neutral-800 shrink-0">
             <button
               type="button"
-              onClick={handleApplyLightToAllShots}
+              onClick={() => handleApplyLightToAllShots()}
               className="w-full py-2.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-mono text-[11px] font-black tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(245,166,35,0.35)] transition-all"
               title="Apply current shot's lighting rig to all shots in timeline"
             >
@@ -2958,21 +2990,21 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {/* 34-Preset Cinematic Lighting Rig Trigger */}
+                {/* 34-Preset Cinematic Lighting Rig Trigger [ 💡 LIGHTS ] Pill Button */}
                 <button
                   type="button"
                   onClick={() => setIsLightDrawerOpen(prev => !prev)}
-                  className={`border text-[11px] font-mono tracking-wider px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors shadow-sm ${
+                  className={`border text-[11px] font-mono tracking-wider px-3 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-all shadow-sm ${
                     isLightDrawerOpen || activeShotLightId
-                      ? 'bg-neutral-900 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.3)]'
-                      : 'bg-neutral-900 border-neutral-700 hover:border-amber-400 text-neutral-300 hover:text-white'
+                      ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.5)] font-bold'
+                      : 'bg-neutral-900 border-amber-400/50 text-amber-300 hover:bg-neutral-800 hover:border-amber-400'
                   }`}
                   title="34-Preset Cinematic Lighting Rig (Hotkey: L)"
                 >
-                  <span className="text-amber-400">💡</span>
-                  <span>LIGHT [34]</span>
+                  <span className="text-sm leading-none">💡</span>
+                  <span className="font-extrabold tracking-wide">LIGHTS</span>
                   {activeShotLightId && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span className={`w-1.5 h-1.5 rounded-full ${isLightDrawerOpen ? 'bg-black' : 'bg-amber-400'} animate-pulse`} />
                   )}
                 </button>
 
@@ -3727,6 +3759,24 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               ))}
             </select>
 
+            {/* [ 💡 LIGHTS ] Pill Button on Main Stage Bottom Bar */}
+            <button
+              type="button"
+              onClick={() => setIsLightDrawerOpen(prev => !prev)}
+              className={`h-8 px-2.5 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                isLightDrawerOpen || activeShotLightId
+                  ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)] font-extrabold'
+                  : 'bg-black/80 border-amber-400/50 text-amber-300 hover:bg-amber-400/20 hover:border-amber-400'
+              }`}
+              title="Toggle 34-Preset Cinematic Lighting Rig (Hotkey: L)"
+            >
+              <span>💡</span>
+              <span>LIGHTS</span>
+              {activeShotLightId && (
+                <span className={`w-1.5 h-1.5 rounded-full ${isLightDrawerOpen ? 'bg-black' : 'bg-amber-400'} animate-pulse`} />
+              )}
+            </button>
+
             {/* Zoom Magnification Button */}
             <button
               type="button"
@@ -4284,6 +4334,61 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         stageCanvasRef={stageCanvasRef}
         onHotReloadShot={handleHotReloadShot}
         fps={24}
+      />
+
+      {/* 09 PHOTO EDIT & BULK RESIZER SUITE MODAL (WITH 💡 LIGHT RIG (34) TAB) */}
+      <CanvasLiquifyModal
+        isOpen={isPhotoModalOpen}
+        frame={{
+          id: activeShotIndex + 1,
+          epNumber: String(activeShotIndex + 1).padStart(2, '0'),
+          title: activeShot.titleEn || `Shot ${activeShotIndex + 1}`,
+          bengaliTitle: activeShot.titleBn || 'সূচনা',
+          tagline: activeShot.tagline || '',
+          directorNotes: activeShot.directorNotes || '',
+          cameraSpec: {
+            focalLength: activeShot.lensSpec || '35mm',
+            aperture: 'T1.5',
+            shutter: '1/48s',
+            iso: '800',
+            sensor: 'Large Format 4K',
+            format: 'RAW'
+          },
+          colorAccent: '#F5A623',
+          hoverStyle: 1,
+          soundCue: 'cinematic_sub_impact',
+          lutFilter: 'cinematic',
+          aspectRatio: (selectedAspectRatio as AspectRatio) || '2.39:1',
+          adjustments: {
+            brightness: 100,
+            contrast: 100,
+            saturation: 100,
+            bloom: 0,
+            grain: 0,
+            motionBlur: 0,
+            vignette: 0
+          },
+          imageUrl: customMedia[activeShotIndex]?.url || activeShot.imageUrl || activeShot.videoSrc || 'https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1280&q=80',
+          durationSec: activeShot.durationSec || 3,
+          tags: ['handfilm', 'shot', activeShot.lensSpec || 'lens'],
+          lightId: activeShotLightId,
+        }}
+        onClose={() => setIsPhotoModalOpen(false)}
+        activeLightId={activeShotLightId}
+        onApplyLightToShot={handleSelectLightPreset}
+        onApplyLightToAll={handleApplyLightToAllShots}
+        onApplyWarp={(warpedUrl) => {
+          setCustomMedia(prev => ({
+            ...prev,
+            [activeShotIndex]: {
+              url: warpedUrl,
+              videoSrc: warpedUrl,
+              blobUrl: warpedUrl,
+              isVideo: false,
+              name: `PhotoEdit_Shot_${activeShotIndex + 1}.jpg`
+            }
+          }));
+        }}
       />
     </div>
   );

@@ -1,54 +1,49 @@
 /**
  * @file /src/components/StudioNavRail.tsx
- * @description 3D Brutalist-Neomorphic Master Navigation Rail for HANDFILM Creative Suite.
- * Features chiseled obsidian tiles with soft inset bevels, prominent semantic iconography,
- * minimalist low-text default appearance, and rich floating hover cards detailing every module.
- * 
- * 15-Module Core Sequence:
- * 01 PLAYER: Animatic transport engine, sub-frame scrubbing, J-K-L deck
- * 02 STORY: Screenplay writer, 3-Act Beat Matrix, AI Copilot, Shot Loglines
- * 03 MEDIA: Asset Vault, resilient IndexedDB persistence, bulk ingestion
- * 04 BOARD: Grid Storyboard View with 100-shot timeline overview
- * 05 CUT EDITOR: Multi-track CapCut-style NLE timeline (video, audio, subtitle lanes)
- * 06 TEXT: Bilingual Typography & Real-Time Glowing Subtitle Engine
- * 07 EDIT & CAM: Optical framing, transforms, crops, camera rig, LUT grading
- * 08 SOUND: DSP audio engine, waveforms, beat detection, master mix
- * 09 PHOTO EDIT: Advanced Photo Editor, Liquify Warp Suite, and Multi-Format Bulk Resizer
- * 10 PRODUCTION: Interactive Call Sheets, Day-Blocks, Shot Lists, Talent & Gear Allocator
- * 11 REVIEW: Timestamped frame markup, annotation pins, and review client export
- * 12 AI DIRECTOR: Gemini Cine Prompt Engine, Veo/Flow shot prompt generator, style consistency matrix
- * 13 CLOUD & R2: Cloudflare R2 backup, S3 byte-range streaming, instant archive sync
- * 14 LIBRARY: Cinematic LUT collections, typography presets, sound libraries
- * 15 SETTINGS: IndexedDB quota manager, hardware acceleration flags, keyboard shortcuts
+ * @description 10-Button Tactical Left Rail ("10 BUTTONS, 100 SHOTS") for HANDFILM Creative Suite.
+ * Structures all studio capabilities into 10 cleanly spaced dedicated vertical buttons
+ * (`STORY`, `CUT`, `CROP`, `TEXT`, `LIGHT`, `FX`, `AUDIO`, `CLOUD`, `BRIDGE`, `SYSTEM`)
+ * with crisp icons + 8px uppercase micro-labels and portaled z-[9999] floating sub-tool flyouts.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  PlaySquare,
   BookOpen,
-  Image as ImageIcon,
-  LayoutGrid,
   Scissors,
-  Type,
   Crop,
-  Volume2,
+  Type,
+  Lightbulb,
   Wand2,
-  Clapperboard,
-  MessageSquare,
-  Sparkles,
+  Volume2,
   Cloud,
-  Library,
+  Zap,
   Settings,
   Camera,
-  ChevronDown,
   Check,
   Activity,
   FolderOpen,
   SlidersHorizontal,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LayoutGrid,
+  PlaySquare,
+  Sparkles,
+  MessageSquare,
+  Library,
+  Clapperboard,
+  Crosshair,
+  ZoomIn,
+  Eye,
+  Lock,
+  Unlock,
+  Keyboard,
+  Film,
+  FileCode2,
+  Download,
+  BarChart3
 } from 'lucide-react';
-import { ToolTooltip } from './ui/ToolTooltip';
+import { eventBus } from '../core/eventBus';
 
 export type StudioModuleId =
   | 'PLAYER'
@@ -95,11 +90,46 @@ export interface StudioNavRailProps {
   onOpenSelfTest?: () => void;
   onOpenSettingsModal?: () => void;
   onOpenMultiCam?: () => void;
+  onOpenVideoScopes?: () => void;
+  onOpenShortcuts?: () => void;
   activeProfile?: CameraLensProfile;
   onSelectProfile?: (profile: CameraLensProfile) => void;
   totalShots?: number;
   currentShotIndex?: number;
   saveState?: string;
+}
+
+type RailButtonKey =
+  | 'STORY'
+  | 'CUT'
+  | 'CROP'
+  | 'TEXT'
+  | 'LIGHT'
+  | 'FX'
+  | 'AUDIO'
+  | 'CLOUD'
+  | 'BRIDGE'
+  | 'SYSTEM';
+
+interface FlyoutSubTool {
+  id: string;
+  label: string;
+  sub: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+  isActive?: boolean;
+  onSelect: () => void;
+}
+
+interface RailButtonConfig {
+  key: RailButtonKey;
+  label: string;
+  title: string;
+  why: string;
+  icon: React.ComponentType<{ className?: string }>;
+  activeModules: StudioModuleId[];
+  onPrimaryClick: () => void;
+  subTools: FlyoutSubTool[];
 }
 
 export const StudioNavRail: React.FC<StudioNavRailProps> = ({
@@ -111,589 +141,679 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   onToggleProMode,
   onOpenVaultMode,
   onOpenSelfTest,
+  onOpenSettingsModal,
   onOpenMultiCam,
+  onOpenVideoScopes,
+  onOpenShortcuts,
   activeProfile = CINE_PROFILES[0],
   onSelectProfile,
   totalShots = 100,
   currentShotIndex = 0,
   saveState = 'SAVED'
 }) => {
-  const [isProfilesOpen, setIsProfilesOpen] = useState(false);
   const [currentProfile, setCurrentProfile] = useState<CameraLensProfile>(activeProfile);
+  const [isRailLocked, setIsRailLocked] = useState(false);
+  const [openFlyout, setOpenFlyout] = useState<{
+    key: RailButtonKey;
+    top: number;
+    left: number;
+  } | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const flyoutRef = useRef<HTMLDivElement | null>(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleFlyoutClose = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpenFlyout(null);
+    }, 150);
+  }, [clearCloseTimer]);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (flyoutRef.current && !flyoutRef.current.contains(target)) {
+        setOpenFlyout(null);
+      }
+    };
+    window.addEventListener('mousedown', handleOutside);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      clearCloseTimer();
+    };
+  }, [clearCloseTimer]);
 
   const handleSelectCineProfile = (prof: CameraLensProfile) => {
     setCurrentProfile(prof);
     if (onSelectProfile) onSelectProfile(prof);
-    setIsProfilesOpen(false);
   };
 
-  // Format current shot timecode at 24fps assuming 12.0s per shot
-  const shotTotalSeconds = currentShotIndex * 12;
-  const hours = Math.floor(shotTotalSeconds / 3600).toString().padStart(2, '0');
-  const minutes = Math.floor((shotTotalSeconds % 3600) / 60).toString().padStart(2, '0');
-  const seconds = (shotTotalSeconds % 60).toString().padStart(2, '0');
-  const timecodeStr = `${hours}:${minutes}:${seconds}:00`;
+  const openButtonFlyout = (key: RailButtonKey, targetEl: HTMLElement) => {
+    clearCloseTimer();
+    const rect = targetEl.getBoundingClientRect();
+    const maxTop = typeof window !== 'undefined' ? window.innerHeight - 310 : rect.top;
+    setOpenFlyout({
+      key,
+      top: Math.max(52, Math.min(maxTop, rect.top)),
+      left: rect.right + 8
+    });
+  };
 
-  const totalRuntimeSec = totalShots * 12;
-  const totalMin = Math.floor(totalRuntimeSec / 60);
-  const totalSec = totalRuntimeSec % 60;
-  const totalRuntimeStr = `${totalMin}m ${totalSec}s`;
-
-  const navItems = [
+  const railButtons: RailButtonConfig[] = [
     {
-      num: '01',
-      id: 'PLAYER' as StudioModuleId,
-      name: 'PLAYER',
-      title: 'ANIMATIC TRANSPORT ENGINE',
-      tag: 'CORE TRANSPORT',
-      icon: PlaySquare,
-      desc: 'Sub-frame precision scrubbing, J-K-L playback deck, real-time audio sync.',
-      statusText: 'TRANSPORT READY',
-      stats: [
-        { label: 'PLAYHEAD', value: `Shot #${currentShotIndex + 1} of ${totalShots}` },
-        { label: 'TIMECODE', value: `${timecodeStr} (24 FPS)` },
-        { label: 'RUNTIME', value: totalRuntimeStr },
-        { label: 'DISC SHUTTER', value: currentProfile.shutter }
-      ]
-    },
-    {
-      num: '02',
-      id: 'STORY' as StudioModuleId,
-      name: 'STORY',
-      title: 'SCREENPLAY & BEAT MATRIX',
-      tag: 'NARRATIVE',
+      key: 'STORY',
+      label: 'STORY',
+      title: 'STORY NOTEBOOK & SCRIPT',
+      why: 'Fountain screenplay editor, 3-Act beat matrix, and shot loglines',
       icon: BookOpen,
-      desc: 'Fountain screenplay editor, 3-Act narrative beat board, shot loglines.',
-      statusText: 'NARRATIVE SYNCED',
-      stats: [
-        { label: 'BEAT MATRIX', value: '3 Acts // 12 Beats' },
-        { label: 'SHOT SLUGS', value: `${totalShots} Synced Loglines` },
-        { label: 'FORMAT', value: 'Hollywood Fountain' },
-        { label: 'COPILOT', value: 'Story Doctor Active' }
+      activeModules: ['STORY', 'PRODUCTION'],
+      onPrimaryClick: () => onSelectModule('STORY'),
+      subTools: [
+        {
+          id: 'story-panel',
+          label: 'Story Notebook',
+          sub: 'Screenplay, scene loglines & Story Doctor',
+          icon: BookOpen,
+          badge: `${totalShots} SHOTS`,
+          isActive: activeModule === 'STORY',
+          onSelect: () => onSelectModule('STORY')
+        },
+        {
+          id: 'prod-planner',
+          label: 'Production Call Sheet',
+          sub: 'Day-blocks, talent & gear allocator',
+          icon: Clapperboard,
+          isActive: activeModule === 'PRODUCTION',
+          onSelect: () => onSelectModule('PRODUCTION')
+        }
       ]
     },
     {
-      num: '03',
-      id: 'MEDIA' as StudioModuleId,
-      name: 'MEDIA',
-      title: 'ASSET VAULT & INGESTION',
-      tag: 'STORAGE & VAULT',
-      icon: ImageIcon,
-      desc: 'Resilient IndexedDB local storage, bulk drop-zone, EXIF metadata inspector.',
-      statusText: 'VAULT SECURE',
-      stats: [
-        { label: 'IDB STORAGE', value: 'Persistent Local Vault' },
-        { label: 'CACHED FRAMES', value: `${totalShots} Media Artifacts` },
-        { label: 'INTEGRITY', value: 'Zero-Data-Loss IDB' },
-        { label: 'SAVE STATUS', value: saveState.toUpperCase() }
-      ]
-    },
-    {
-      num: '04',
-      id: 'BOARD' as StudioModuleId,
-      name: 'BOARD',
-      title: 'GRID STORYBOARD MATRIX',
-      tag: 'TIMELINE MATRIX',
-      icon: LayoutGrid,
-      desc: 'Visual 100-shot sequence overview, scene reordering, aspect ratio grid.',
-      statusText: '100 SHOTS LOADED',
-      stats: [
-        { label: 'LAYOUT', value: `10x10 Grid (${totalShots} Cells)` },
-        { label: 'ACTIVE CELL', value: `Shot #${currentShotIndex + 1} Selected` },
-        { label: 'ASPECTS', value: '16:9 // 2.39:1 Cine' },
-        { label: 'REORDER', value: 'Drag-and-Drop Sequence' }
-      ]
-    },
-    {
-      num: '05',
-      id: 'EDIT/CUT' as StudioModuleId,
-      name: 'CUT EDITOR',
-      title: 'MULTI-TRACK NLE TIMELINE',
-      tag: 'NLE SUITE',
+      key: 'CUT',
+      label: 'CUT',
+      title: 'TIMELINE CUT & MULTI-CAM',
+      why: 'Multi-track NLE razor cuts, storyboard grid, and multi-cam desk',
       icon: Scissors,
-      desc: 'CapCut-style magnetic video cuts, audio wave lanes, frame-accurate trimming.',
-      statusText: '3 LANES ACTIVE',
-      stats: [
-        { label: 'TRACKS', value: 'Video, Audio DSP, Subtitles' },
-        { label: 'PRECISION', value: 'Sub-frame 1/24s Razor' },
-        { label: 'EDL / OTIO', value: 'CMX 3600 & OTIO Ready' },
-        { label: 'RIPPLE', value: 'Magnetic Ripple Enabled' }
+      activeModules: ['EDIT/CUT', 'BOARD', 'PLAYER'],
+      onPrimaryClick: () => onSelectModule('EDIT/CUT'),
+      subTools: [
+        {
+          id: 'cut-nle',
+          label: 'Multi-Track Cut NLE',
+          sub: 'Sub-frame trimming & magnetic ripple lanes',
+          icon: Scissors,
+          badge: '24 FPS',
+          isActive: activeModule === 'EDIT/CUT',
+          onSelect: () => onSelectModule('EDIT/CUT')
+        },
+        {
+          id: 'board-grid',
+          label: 'Storyboard Grid Matrix',
+          sub: `100-shot contact layout (Shot #${currentShotIndex + 1})`,
+          icon: LayoutGrid,
+          isActive: activeModule === 'BOARD',
+          onSelect: () => onSelectModule('BOARD')
+        },
+        {
+          id: 'stage-player',
+          label: 'Animatic Stage Deck',
+          sub: 'Return to primary tactile stage monitor',
+          icon: PlaySquare,
+          isActive: activeModule === 'PLAYER',
+          onSelect: () => onSelectModule('PLAYER')
+        },
+        ...(onOpenMultiCam
+          ? [
+              {
+                id: 'multicam-grid',
+                label: 'Multi-Cam Switcher',
+                sub: 'Synchronized multi-angle cutting desk',
+                icon: Film,
+                badge: 'SHIFT+M',
+                onSelect: () => onOpenMultiCam()
+              }
+            ]
+          : [])
       ]
     },
     {
-      num: '06',
-      id: 'TEXT' as StudioModuleId,
-      name: 'TEXT',
-      title: 'KINETIC HERO TYPOGRAPHY',
-      tag: 'GRAPHICS',
-      icon: Type,
-      desc: 'Molten gold titles, bilingual Bangla-English engine, burn-in subtitle exporter.',
-      statusText: 'BILINGUAL ACTIVE',
-      stats: [
-        { label: 'SCRIPTS', value: 'English + Bangla' },
-        { label: 'SHADERS', value: 'Molten Gold Bloom' },
-        { label: 'SUBTITLES', value: `${totalShots} Synced Title Cards` },
-        { label: 'EXPORT', value: 'Burned-In & SRT / VTT' }
-      ]
-    },
-    {
-      num: '07',
-      id: 'OPTICS' as StudioModuleId,
-      name: 'EDIT & CAM',
-      title: 'CINE FRAMING & OPTICS',
-      tag: 'OPTICS & COLOR',
+      key: 'CROP',
+      label: 'CROP',
+      title: 'FRAMING, OPTICS & CAMERA RIG',
+      why: 'Aspect ratios, safe composition guides, lens crop & cine body rig',
       icon: Crop,
-      desc: 'Lens crop ratios, 3D pan & tilt alignment, 3D LUT grading emulation.',
-      statusText: 'RIG CALIBRATED',
-      stats: [
-        { label: 'CAMERA BODY', value: currentProfile.body },
-        { label: 'GLASS PROFILE', value: currentProfile.lens },
-        { label: 'SENSOR GATE', value: currentProfile.sensor },
-        { label: 'LUT SUITE', value: '15 Hollywood Emulations' }
+      activeModules: ['OPTICS'],
+      onPrimaryClick: () => onSelectModule('OPTICS'),
+      subTools: [
+        {
+          id: 'optics-drawer',
+          label: 'Optics & Crop Inspector',
+          sub: `${currentProfile.body} // ${currentProfile.lens}`,
+          icon: Crop,
+          isActive: activeModule === 'OPTICS',
+          onSelect: () => onSelectModule('OPTICS')
+        },
+        {
+          id: 'toggle-guides',
+          label: 'Safe Composition Guides',
+          sub: 'Toggle rule-of-thirds & center crosshair',
+          icon: Crosshair,
+          badge: 'C',
+          onSelect: () => eventBus.emit('studio:toggle_guides')
+        },
+        {
+          id: 'parallax-zoom',
+          label: 'Multi-Layer Parallax Zoom',
+          sub: 'Scale foreground subject vs. background plate',
+          icon: ZoomIn,
+          onSelect: () => eventBus.emit('cockpit:toggle_zoom')
+        }
       ]
     },
     {
-      num: '08',
-      id: 'SOUND' as StudioModuleId,
-      name: 'SOUND',
-      title: 'DSP AUDIO & SOUNDTRACK',
-      tag: 'AUDIO DSP',
-      icon: Volume2,
-      desc: 'Multi-stem volume mixing, beat detection, waveform analysis, sonic cues.',
-      statusText: 'DSP ONLINE',
-      stats: [
-        { label: 'SAMPLE RATE', value: '48.0 kHz 32-Bit DSP' },
-        { label: 'STEMS', value: 'Dialogue, Score, SFX' },
-        { label: 'DETECTION', value: 'Live Transient Beat Grid' },
-        { label: 'LATENCY', value: '<2.1ms WebAudio Buffer' }
+      key: 'TEXT',
+      label: 'TEXT',
+      title: 'BILINGUAL TYPOGRAPHY',
+      why: 'Kinetic Bangla & English titles, molten gold shaders, SRT burn-in',
+      icon: Type,
+      activeModules: ['TEXT'],
+      onPrimaryClick: () => onSelectModule('TEXT'),
+      subTools: [
+        {
+          id: 'text-drawer',
+          label: 'Text & Title Drawer',
+          sub: 'Bangla + English kinetic title cards',
+          icon: Type,
+          isActive: activeModule === 'TEXT',
+          onSelect: () => onSelectModule('TEXT')
+        },
+        {
+          id: 'toggle-titles',
+          label: 'Toggle Stage Titles Layer',
+          sub: 'Show or hide live kinetic title overlays',
+          icon: Eye,
+          onSelect: () => eventBus.emit('studio:toggle_titles')
+        }
       ]
     },
     {
-      num: '09',
-      id: 'LIQUIFY' as StudioModuleId,
-      name: 'PHOTO EDIT',
-      title: 'PHOTO LIQUIFY & WARP',
-      tag: 'WARP SUITE',
+      key: 'LIGHT',
+      label: 'LIGHT',
+      title: '34-PRESET LIGHTING RIG & LUTS',
+      why: 'Volumetric 34-preset cinema lighting rig, Hollywood LUTs, and bloom',
+      icon: Lightbulb,
+      activeModules: ['LIBRARY', 'BLOOM'],
+      onPrimaryClick: () => onSelectModule('LIQUIFY'),
+      subTools: [
+        {
+          id: 'light-rig-34',
+          label: '34-Preset Lighting Rig',
+          sub: 'Anamorphic flares, rim lights & volumetric haze',
+          icon: Lightbulb,
+          badge: '34 RIGS',
+          onSelect: () => onSelectModule('LIQUIFY')
+        },
+        {
+          id: 'lut-library',
+          label: 'Cinema LUT Registry',
+          sub: '15 Hollywood color film emulations',
+          icon: Library,
+          isActive: activeModule === 'LIBRARY',
+          onSelect: () => onSelectModule('LIBRARY')
+        },
+        {
+          id: 'bloom-stage',
+          label: 'Bloom Interactive Stage',
+          sub: 'Live optical halation & lens bloom canvas',
+          icon: Sparkles,
+          isActive: activeModule === 'BLOOM',
+          onSelect: () => onSelectModule('BLOOM')
+        }
+      ]
+    },
+    {
+      key: 'FX',
+      label: 'FX',
+      title: 'OPTICAL FX, WARP & AI STUDIO',
+      why: 'Mesh liquify warp, AI cine prompts, and timestamped frame markup',
       icon: Wand2,
-      desc: 'Interactive mesh deformation, push/pull canvas liquify, aspect resizer.',
-      statusText: 'MESH READY',
-      stats: [
-        { label: 'MESH GRID', value: 'Elastic Spring-Mass' },
-        { label: 'WARP TOOLS', value: 'Push, Twirl, Reconstruct' },
-        { label: 'RESIZER', value: '16:9, 9:16, 1:1, 4:5' },
-        { label: 'CANVAS DPI', value: 'Hardware WebGL 2.0' }
+      activeModules: ['LIQUIFY', 'AI', 'REVIEW'],
+      onPrimaryClick: () => onSelectModule('LIQUIFY'),
+      subTools: [
+        {
+          id: 'liquify-warp',
+          label: 'Liquify & Mesh Warp',
+          sub: 'Push, twirl & optical speed FX sculptor',
+          icon: Wand2,
+          badge: 'W',
+          isActive: activeModule === 'LIQUIFY',
+          onSelect: () => onSelectModule('LIQUIFY')
+        },
+        {
+          id: 'ai-director',
+          label: 'AI Director Prompts',
+          sub: 'Veo / Flow cinematography formulation matrix',
+          icon: Sparkles,
+          isActive: activeModule === 'AI',
+          onSelect: () => onSelectModule('AI')
+        },
+        {
+          id: 'review-pins',
+          label: 'Frame Markup & Review',
+          sub: 'Vector pins & timestamped director notes',
+          icon: MessageSquare,
+          isActive: activeModule === 'REVIEW',
+          onSelect: () => onSelectModule('REVIEW')
+        }
       ]
     },
     {
-      num: '10',
-      id: 'PRODUCTION' as StudioModuleId,
-      name: 'PRODUCTION',
-      title: 'CALL SHEETS & SCHEDULES',
-      tag: 'LOGISTICS',
-      icon: Clapperboard,
-      desc: 'Shooting day-blocks, call sheets, gear check, cast and crew dispatcher.',
-      statusText: 'CALL SHEET v1.4',
-      stats: [
-        { label: 'SCHEDULE', value: `4 Day-Blocks // ${totalShots} Setups` },
-        { label: 'DEPARTMENTS', value: 'Camera, Sound, G&E, Art' },
-        { label: 'CALL TIME', value: '06:00 AM // 12h Turnaround' },
-        { label: 'DISPATCH', value: 'Hollywood Standard PDF' }
+      key: 'AUDIO',
+      label: 'AUDIO',
+      title: 'MASTER AUDIO, VU & SCOPES',
+      why: '48kHz DSP mixer, waveform beat detection, scopes & telemetry',
+      icon: Volume2,
+      activeModules: ['SOUND'],
+      onPrimaryClick: () => onSelectModule('SOUND'),
+      subTools: [
+        {
+          id: 'sound-studio',
+          label: 'Sound DSP Studio',
+          sub: 'Master stems, beat sync & audio track cueing',
+          icon: Volume2,
+          isActive: activeModule === 'SOUND',
+          onSelect: () => onSelectModule('SOUND')
+        },
+        ...(onOpenVideoScopes
+          ? [
+              {
+                id: 'video-scopes',
+                label: 'IRE & RGB Scopes',
+                sub: 'Waveform, RGB parade & vectorscope monitor',
+                icon: BarChart3,
+                onSelect: () => onOpenVideoScopes()
+              }
+            ]
+          : []),
+        {
+          id: 'spectral-analyzer',
+          label: 'Spectral Energy Visualizer',
+          sub: 'Toggle live multi-band frequency HUD',
+          icon: Activity,
+          onSelect: () => eventBus.emit('cockpit:toggle_spectrum')
+        },
+        {
+          id: 'modular-telemetry',
+          label: 'Modular Telemetry Rack',
+          sub: 'Audio sync, voice cue & 3D LUT rack',
+          icon: SlidersHorizontal,
+          onSelect: () => eventBus.emit('cockpit:toggle_telemetry')
+        }
       ]
     },
     {
-      num: '11',
-      id: 'REVIEW' as StudioModuleId,
-      name: 'REVIEW',
-      title: 'FRAME MARKUP & CLIENT REVIEW',
-      tag: 'COLLABORATION',
-      icon: MessageSquare,
-      desc: 'Interactive drawing pins, director notes, timestamped review export.',
-      statusText: 'PIN ENGINE READY',
-      stats: [
-        { label: 'MARKUP', value: 'Vector Pins & Pen Overlays' },
-        { label: 'TIMECODE', value: 'Frame-Accurate Comments' },
-        { label: 'GATES', value: 'Director & Client Sign-Off' },
-        { label: 'EXPORT', value: 'Timestamped Review Link' }
-      ]
-    },
-    {
-      num: '12',
-      id: 'AI' as StudioModuleId,
-      name: 'AI DIRECTOR',
-      title: 'GEMINI CINE PROMPT STUDIO',
-      tag: 'AI INTELLIGENCE',
-      icon: Sparkles,
-      desc: 'Veo and Flow cinematography prompt builder, lighting style consistency.',
-      statusText: 'GEMINI 2.5 READY',
-      stats: [
-        { label: 'CINE MODEL', value: 'Veo 2 & Flow Formulations' },
-        { label: 'LIGHTING LOCK', value: 'Consistent Style Matrix' },
-        { label: 'OPTICAL CUES', value: 'Camera Angles & Lenses' },
-        { label: 'SEED MATRIX', value: 'Deterministic Seed 42' }
-      ]
-    },
-    {
-      num: '13',
-      id: 'R2_STORAGE' as StudioModuleId,
-      name: 'CLOUD & R2',
-      title: 'CLOUDFLARE R2 ARCHIVE',
-      tag: 'CLOUD ARCHIVE',
+      key: 'CLOUD',
+      label: 'CLOUD',
+      title: 'MEDIA VAULT & R2 CLOUD ARCHIVE',
+      why: 'Resilient IndexedDB vault, Cloudflare R2 edge sync, project snapshots',
       icon: Cloud,
-      desc: 'S3 byte-range cloud replication, project backup snapshots, fast sync.',
-      statusText: 'EDGE SYNC ACTIVE',
-      stats: [
-        { label: 'PROTOCOL', value: 'S3 Byte-Range Streaming' },
-        { label: 'EDGE BACKBONE', value: 'Cloudflare Global Edge' },
-        { label: 'MULTIPART', value: '5 MB Chunked Streaming' },
-        { label: 'LATENCY', value: '<18ms Global Edge' }
+      activeModules: ['MEDIA', 'R2_STORAGE'],
+      onPrimaryClick: () => onSelectModule('MEDIA'),
+      subTools: [
+        {
+          id: 'media-vault',
+          label: 'Media Asset Vault',
+          sub: `Ingest & manage frames (${saveState.toUpperCase()})`,
+          icon: FolderOpen,
+          isActive: activeModule === 'MEDIA',
+          onSelect: () => onSelectModule('MEDIA')
+        },
+        {
+          id: 'r2-cloud',
+          label: 'Cloudflare R2 Edge Sync',
+          sub: 'S3 byte-range cloud archive & snapshots',
+          icon: Cloud,
+          isActive: activeModule === 'R2_STORAGE',
+          onSelect: () => onSelectModule('R2_STORAGE')
+        },
+        ...(onOpenVaultMode
+          ? [
+              {
+                id: 'idb-projects',
+                label: 'Project Vault Manager',
+                sub: 'Switch or clone local IDB anthology vaults',
+                icon: FolderOpen,
+                badge: 'IDB',
+                onSelect: () => onOpenVaultMode()
+              }
+            ]
+          : [])
       ]
     },
     {
-      num: '14',
-      id: 'LIBRARY' as StudioModuleId,
-      name: 'LIBRARY',
-      title: 'CINEMATIC PRESETS & LUTS',
-      tag: 'PRESET REGISTRY',
-      icon: Library,
-      desc: 'Anamorphic flare profiles, typography styling presets, SFX library.',
-      statusText: 'REGISTRY LOADED',
-      stats: [
-        { label: 'COLOR LUTS', value: '15 Master Film Emulations' },
-        { label: 'TYPOGRAPHY', value: '8 Golden Title Templates' },
-        { label: 'SFX STEMS', value: '24 Cinematic Audio Cuts' },
-        { label: 'CINE RIGS', value: '5 Hollywood Camera Bodies' }
+      key: 'BRIDGE',
+      label: 'BRIDGE',
+      title: 'ECOSYSTEM INTERCHANGE HUB',
+      why: 'Dispatch frames & sequences to Photoshop, Premiere Pro, Resolve & CapCut',
+      icon: Zap,
+      activeModules: ['EXPORT'],
+      onPrimaryClick: () => eventBus.emit('cockpit:action', { type: 'open_modal' }),
+      subTools: [
+        {
+          id: 'cockpit-hub',
+          label: "Director's Cockpit Hub",
+          sub: 'PS paint-over, PR/Resolve XML & CapCut pack',
+          icon: Zap,
+          badge: 'HUB',
+          onSelect: () => eventBus.emit('cockpit:action', { type: 'open_modal' })
+        },
+        {
+          id: 'nle-xml',
+          label: 'Export FCPXML Sequence',
+          sub: 'Premiere Pro / DaVinci Resolve v1.9 XML',
+          icon: FileCode2,
+          onSelect: () => eventBus.emit('cockpit:action', { type: 'nle_xml' })
+        },
+        {
+          id: 'capcut-pack',
+          label: 'Build CapCut Quick-Pack',
+          sub: 'Draft timeline JSON + director cue sheet ZIP',
+          icon: Download,
+          onSelect: () => eventBus.emit('cockpit:action', { type: 'capcut_pack' })
+        },
+        {
+          id: 'publish-export',
+          label: 'Master Export Studio',
+          sub: 'MP4 burn-in, PDF lookbook & RAWX archive',
+          icon: Film,
+          isActive: activeModule === 'EXPORT',
+          onSelect: () => onSelectModule('EXPORT')
+        }
       ]
     },
     {
-      num: '15',
-      id: 'SETTINGS' as StudioModuleId,
-      name: 'SETTINGS',
-      title: 'SYSTEM PREFERENCES & QUOTA',
-      tag: 'SYSTEM CONFIG',
+      key: 'SYSTEM',
+      label: 'SYSTEM',
+      title: 'SETTINGS, SHORTCUTS & RAIL LOCK',
+      why: 'Studio preferences, keyboard shortcuts, telemetry mode & rail lock',
       icon: Settings,
-      desc: 'Hardware WebGL flags, IndexedDB storage gauges, keyboard shortcuts.',
-      statusText: 'SYSTEM OPTIMAL',
-      stats: [
-        { label: 'GRAPHICS', value: 'WebGL 2.0 Accelerated' },
-        { label: 'BUFFER', value: '120 FPS Pacing Engine' },
-        { label: 'QUOTA', value: 'IndexedDB > 10 GB Safe' },
-        { label: 'HOTKEYS', value: 'Full J-K-L + Cinema Map' }
+      activeModules: ['SETTINGS'],
+      onPrimaryClick: () => {
+        if (onOpenSettingsModal) onOpenSettingsModal();
+        else onSelectModule('SETTINGS');
+      },
+      subTools: [
+        ...(onOpenSettingsModal
+          ? [
+              {
+                id: 'studio-settings',
+                label: 'Studio Settings',
+                sub: 'Audio/video codecs, workspace & quota gauges',
+                icon: Settings,
+                onSelect: () => onOpenSettingsModal()
+              }
+            ]
+          : []),
+        {
+          id: 'settings-drawer',
+          label: 'System Config Drawer',
+          sub: 'Hardware WebGL flags & storage inspection',
+          icon: SlidersHorizontal,
+          isActive: activeModule === 'SETTINGS',
+          onSelect: () => onSelectModule('SETTINGS')
+        },
+        ...(onToggleProMode
+          ? [
+              {
+                id: 'pro-mode',
+                label: 'Pro Telemetry Mode',
+                sub: isProMode ? 'Disable focus peaking & HUD scopes' : 'Enable Pro exposure & telemetry',
+                icon: Activity,
+                badge: isProMode ? 'ON' : 'OFF',
+                isActive: isProMode,
+                onSelect: () => onToggleProMode()
+              }
+            ]
+          : []),
+        {
+          id: 'toggle-collapse',
+          label: isCollapsed ? 'Expand Left Rail' : 'Collapse Left Rail',
+          sub: isRailLocked ? 'Unlock rail first to resize' : 'Switch compact / wide rail labels',
+          icon: isCollapsed ? ChevronRight : ChevronLeft,
+          onSelect: () => {
+            if (!isRailLocked) onToggleCollapse();
+          }
+        },
+        {
+          id: 'lock-rail',
+          label: isRailLocked ? 'Unlock Rail Position' : 'Lock Rail Position',
+          sub: isRailLocked ? 'Rail layout is locked' : 'Prevent accidental rail resize',
+          icon: isRailLocked ? Unlock : Lock,
+          badge: isRailLocked ? 'LOCKED' : 'OPEN',
+          isActive: isRailLocked,
+          onSelect: () => setIsRailLocked((prev) => !prev)
+        },
+        ...(onOpenShortcuts
+          ? [
+              {
+                id: 'keyboard-shortcuts',
+                label: 'Keyboard Shortcuts',
+                sub: 'J-K-L playback, razor & director hotkeys',
+                icon: Keyboard,
+                badge: '?',
+                onSelect: () => onOpenShortcuts()
+              }
+            ]
+          : []),
+        ...(onOpenSelfTest
+          ? [
+              {
+                id: 'self-test',
+                label: 'Hardware Self-Test',
+                sub: 'Benchmark WebGL, IndexedDB I/O & decoders',
+                icon: Activity,
+                onSelect: () => onOpenSelfTest()
+              }
+            ]
+          : [])
       ]
     }
   ];
 
+  const activeFlyoutConfig = openFlyout
+    ? railButtons.find((b) => b.key === openFlyout.key) ?? null
+    : null;
+
   return (
     <aside
-      className={`h-full pb-[132px] select-none z-30 shrink-0 bg-black/90 backdrop-blur-2xl border-r border-white/5 flex flex-col font-mono-tech transition-all duration-200 relative ${
-        isCollapsed ? 'w-[58px]' : 'w-60 sm:w-64'
+      aria-label="Director Left Tool Rail"
+      className={`h-full pb-[128px] select-none z-30 shrink-0 bg-black/92 backdrop-blur-2xl border-r border-white/10 flex flex-col font-mono-tech transition-all duration-200 relative ${
+        isCollapsed ? 'w-[60px]' : 'w-56'
       }`}
     >
-      {/* Top Section: Cine Profile Selector & Rail Toggle */}
-      <div className="shrink-0 border-b border-[#1c1c28] bg-[#0a0a10] p-2 flex flex-col items-center gap-1.5">
-        {/* Rail Top Bar */}
-        <div className="w-full flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center gap-1.5 min-w-0 pl-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shadow-[0_0_8px_#fbbf24]" />
-              <span className="text-[10px] font-black text-zinc-200 uppercase tracking-widest truncate">
-                HANDFILM
-              </span>
-            </div>
-          )}
-          <ToolTooltip
-            placement="right"
-            title={isCollapsed ? 'EXPAND STUDIO RAIL' : 'COLLAPSE STUDIO RAIL'}
-            why="Toggles between compact icon rail and full module labels"
-            how="Click to expand or collapse the left navigation sidebar"
-            className={isCollapsed ? 'mx-auto' : ''}
-          >
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              className="w-9 h-9 rounded-[4px] bg-[#14141e] hover:bg-[#1e1e2d] border border-white/10 hover:border-[#fbbf24] text-zinc-400 hover:text-[#fbbf24] flex items-center justify-center cursor-pointer transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),_0_2px_4px_rgba(0,0,0,0.5)] active:scale-95"
-              aria-label={isCollapsed ? 'Expand Navigation Rail' : 'Collapse Navigation Rail'}
-            >
-              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
-          </ToolTooltip>
-        </div>
-
-        {/* 3D Neomorphic Camera & Lens Profile Tile */}
-        <div className={`relative ${isCollapsed ? 'flex justify-center' : 'w-full'}`}>
-          <ToolTooltip
-            placement="right"
-            title={`CINE RIG // ${currentProfile.body}`}
-            why={`${currentProfile.lens} paired with ${currentProfile.sensor} sensor gate`}
-            how="Click to switch active camera body and optical lens profile"
-            className={isCollapsed ? '' : 'w-full'}
-          >
-            <button
-              type="button"
-              onClick={() => setIsProfilesOpen((prev) => !prev)}
-              className={`group rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-                isCollapsed
-                  ? 'w-9 h-9 flex items-center justify-center bg-gradient-to-b from-[#221c10] via-[#161208] to-[#0c0a05] border border-[#d4af37]/60 hover:border-[#fbbf24] shadow-[inset_0_1px_1px_rgba(251,191,36,0.25),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_6px_rgba(0,0,0,0.7)]'
-                  : 'w-full p-2 flex items-center justify-between bg-gradient-to-b from-[#1c1810] via-[#121008] to-[#0a0805] border border-[#d4af37]/50 hover:border-[#fbbf24] shadow-[inset_0_1px_1px_rgba(251,191,36,0.2),_0_2px_5px_rgba(0,0,0,0.6)]'
-              }`}
-              aria-label="Camera & Lens Cine Profiles"
-            >
-              <div className={`flex items-center min-w-0 ${isCollapsed ? 'justify-center' : 'gap-2'}`}>
-                <Camera className="w-4 h-4 text-[#fbbf24] shrink-0 drop-shadow-[0_0_6px_rgba(245,166,35,0.7)] group-hover:scale-105 transition-transform" />
-                {!isCollapsed && (
-                  <div className="min-w-0 text-left">
-                    <div className="text-[9.5px] font-black text-[#fbbf24] tracking-wider truncate uppercase">
-                      {currentProfile.body}
-                    </div>
-                    <div className="text-[8px] text-zinc-400 truncate">
-                      {currentProfile.lens}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {!isCollapsed && (
-                <ChevronDown className="w-3.5 h-3.5 text-[#fbbf24] shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
-              )}
-            </button>
-          </ToolTooltip>
-
-          {/* Camera Profiles Popover Menu */}
-          {isProfilesOpen && (
-            <div
-              className="absolute left-[calc(100%+12px)] top-0 w-64 bg-[#0a0a14]/98 border border-[#d4af37]/60 rounded-[4px] shadow-[0_16px_40px_rgba(0,0,0,0.95),0_0_20px_rgba(245,166,35,0.2)] p-1.5 z-50 text-[10px] space-y-1 backdrop-blur-2xl animate-in fade-in duration-150"
-              onMouseLeave={() => setIsProfilesOpen(false)}
-            >
-              <div className="px-2 py-1 text-[8.5px] text-[#fbbf24] font-bold border-b border-[#272732] uppercase tracking-wider flex items-center justify-between">
-                <span>SELECT CINE PROFILE</span>
-                <span className="text-zinc-500">24 FPS CINE</span>
-              </div>
-              {CINE_PROFILES.map((prof, idx) => {
-                const isSelected = prof.body === currentProfile.body;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSelectCineProfile(prof)}
-                    className={`w-full px-2 py-1.5 rounded-[3px] text-left flex items-center justify-between cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-[#d4af37]/25 text-[#fbbf24] font-bold border border-[#d4af37]/50 shadow-inner'
-                        : 'text-zinc-300 hover:text-white hover:bg-white/5 border border-transparent'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold truncate">{prof.body}</div>
-                      <div className="text-[8.5px] text-zinc-400 truncate">{prof.lens} • {prof.sensor}</div>
-                    </div>
-                    {isSelected && <Check className="w-3 h-3 text-[#fbbf24] shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-
-
-      {/* Scrollable Vertical Icon List: Clean 36x36 centered tiles with gap-1.5 */}
-      <div
-        className="flex-1 min-h-0 overflow-y-auto no-scrollbar max-h-[calc(100vh-140px)] py-2 px-2 flex flex-col items-center gap-1.5"
+      {/* Clean 10-Button Vertical Spine — fits cleanly above timeline at 100% zoom */}
+      <nav
+        aria-label="10 Studio Tools"
+        className="flex-1 min-h-0 overflow-y-auto no-scrollbar max-h-[calc(100vh-140px)] py-2 px-1.5 flex flex-col items-center gap-1.5"
       >
-        {navItems.map((item) => {
-          const Icon = item.icon;
+        {railButtons.map((btn) => {
+          const Icon = btn.icon;
           const isActive =
-            activeModule === item.id || (item.id === 'EDIT/CUT' && activeModule === 'EDIT/CUT');
+            btn.activeModules.includes(activeModule) ||
+            (btn.key === 'SYSTEM' && isRailLocked) ||
+            openFlyout?.key === btn.key;
 
           return (
-            <ToolTooltip
-              key={item.id}
-              placement="right"
-              title={`${item.name} — ${item.title}`}
-              why={item.desc}
-              how={`Click to open ${item.name} (${item.statusText})`}
-              className={isCollapsed ? '' : 'w-full'}
+            <button
+              key={btn.key}
+              type="button"
+              data-testid={`rail-btn-${btn.key.toLowerCase()}`}
+              aria-label={btn.title}
+              onMouseEnter={(e) => openButtonFlyout(btn.key, e.currentTarget)}
+              onMouseLeave={scheduleFlyoutClose}
+              onClick={(e) => {
+                openButtonFlyout(btn.key, e.currentTarget);
+                btn.onPrimaryClick();
+              }}
+              className={`group relative rounded-[5px] cursor-pointer transition-all duration-150 select-none active:scale-95 shrink-0 ${
+                isCollapsed
+                  ? 'w-11 py-1.5 px-1 flex flex-col items-center justify-center gap-1'
+                  : 'w-full px-2.5 py-2 flex items-center gap-2.5'
+              } ${
+                isActive
+                  ? 'bg-gradient-to-b from-[#2a2214] via-[#1a150b] to-[#0f0c05] border border-amber-400/90 shadow-[inset_0_1px_1.5px_rgba(251,191,36,0.35),_0_0_10px_rgba(245,166,35,0.22)]'
+                  : 'bg-gradient-to-b from-[#181822] via-[#12121b] to-[#0b0b12] border border-white/10 hover:border-amber-400/70 hover:from-[#222232] hover:to-[#13131f]'
+              }`}
             >
-              <button
-                type="button"
-                onClick={() => onSelectModule(item.id)}
-                aria-label={`Module ${item.num}: ${item.name}`}
-                className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 select-none active:translate-y-0.5 shrink-0 ${
-                  isCollapsed
-                    ? 'w-9 h-9 flex items-center justify-center'
-                    : 'w-full px-3 py-2 flex items-center gap-3'
-                } ${
-                  isActive
-                    ? 'bg-gradient-to-b from-[#2a2214] via-[#1a150b] to-[#0f0c05] border border-[#d4af37] shadow-[inset_0_1.5px_2px_rgba(251,191,36,0.35),_inset_0_-1px_3px_rgba(0,0,0,0.95),_0_0_12px_rgba(245,166,35,0.3)]'
-                    : 'bg-gradient-to-b from-[#1c1c28] via-[#13131d] to-[#0b0b12] border border-white/10 hover:border-[#d4af37]/70 hover:from-[#252538] hover:to-[#12121e] shadow-[inset_0_1px_1px_rgba(255,255,255,0.14),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_5px_rgba(0,0,0,0.65)]'
-                }`}
-              >
-                {/* Active Golden Edge Accent */}
-                {isActive && (
-                  <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#fbbf24] rounded-r shadow-[0_0_8px_#fbbf24]" />
-                )}
-
-                {/* Centered Module Icon (no overlapping corner badges) */}
-                <Icon
-                  className={`w-4 h-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
-                    isActive
-                      ? 'text-[#fbbf24] drop-shadow-[0_0_8px_rgba(245,166,35,0.85)]'
-                      : 'text-zinc-400 group-hover:text-amber-300'
-                  }`}
-                />
-
-                {/* Expanded Mode Details */}
-                {!isCollapsed && (
-                  <div className="min-w-0 text-left flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`text-[10px] font-black tracking-wider truncate uppercase ${
-                          isActive ? 'text-[#fbbf24]' : 'text-zinc-200'
-                        }`}
-                      >
-                        {item.name}
-                      </span>
-                      {(item.num === '05' || item.num === '07') && (
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenMultiCam?.();
-                          }}
-                          className="ml-auto px-1.5 py-0.5 rounded bg-[#F5A623]/20 hover:bg-[#F5A623]/40 border border-[#F5A623]/50 text-[#F5A623] hover:text-white text-[7.5px] font-mono font-bold flex items-center gap-0.5 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
-                          title="Open Multi-Cam Angle Grid (Shift+M)"
-                        >
-                          <span>⊞</span>
-                          <span>Multi-Cam</span>
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[8px] text-zinc-500 truncate leading-tight group-hover:text-zinc-400 mt-0.5">
-                      {item.desc}
-                    </div>
-                  </div>
-                )}
-              </button>
-            </ToolTooltip>
-          );
-        })}
-      </div>
-
-      {/* Bottom Utility Cluster: Cleared above ControlDock timeline strip */}
-      <div className="shrink-0 border-t border-[#1c1c28] bg-[#0a0a10] p-2 flex flex-col items-center gap-1.5">
-        {/* 1. VAULT MODE Button */}
-        <ToolTooltip
-          placement="right"
-          title="PROJECT VAULT"
-          why="Persistent IndexedDB multi-project vault and local archive snapshots"
-          how="Click to open the multi-project vault manager"
-          className={isCollapsed ? '' : 'w-full'}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenVaultMode) onOpenVaultMode();
-              else onSelectModule('MEDIA');
-            }}
-            className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-              isCollapsed
-                ? 'w-9 h-9 flex items-center justify-center'
-                : 'w-full px-3 py-2 flex items-center justify-between'
-            } bg-gradient-to-b from-[#1b1b26] via-[#12121b] to-[#0a0a10] border border-white/10 hover:border-[#d4af37] text-zinc-300 hover:text-[#fbbf24] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_inset_0_-1px_2px_rgba(0,0,0,0.85),_0_2px_5px_rgba(0,0,0,0.6)]`}
-            aria-label="Vault Mode"
-          >
-            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
-              <FolderOpen className="w-4 h-4 text-[#fbbf24] group-hover:scale-110 transition-transform" />
-              {!isCollapsed && (
-                <span className="text-[10px] font-black tracking-wider uppercase text-zinc-200 group-hover:text-[#fbbf24]">
-                  VAULT MODE
-                </span>
+              {isActive && (
+                <span className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r shadow-[0_0_8px_#fbbf24]" />
               )}
-            </div>
-            {!isCollapsed && (
-              <span className="text-[7.5px] bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fbbf24] px-1 py-0.2 rounded font-bold">
-                IDB
-              </span>
-            )}
-          </button>
-        </ToolTooltip>
 
-        {/* 2. PRO MODE Switch */}
-        <ToolTooltip
-          placement="right"
-          title="DIRECTOR TELEMETRY (PRO)"
-          why="Toggles video waveform scopes, false-color exposure, and focus peaking"
-          how={isProMode ? 'Currently ACTIVE — click to disable telemetry' : 'Click to activate Pro scopes'}
-          className={isCollapsed ? '' : 'w-full'}
-        >
-          <button
-            type="button"
-            onClick={onToggleProMode}
-            className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-              isCollapsed
-                ? 'w-9 h-9 flex items-center justify-center'
-                : 'w-full px-3 py-2 flex items-center justify-between'
-            } bg-gradient-to-b from-[#1b1b26] via-[#12121b] to-[#0a0a10] border ${
-              isProMode ? 'border-[#fbbf24] shadow-[0_0_12px_rgba(251,191,36,0.25)]' : 'border-white/10'
-            } hover:border-[#fbbf24] text-zinc-300 hover:text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_inset_0_-1px_2px_rgba(0,0,0,0.85),_0_2px_5px_rgba(0,0,0,0.6)]`}
-            aria-label="Toggle Pro Mode"
-          >
-            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
-              <SlidersHorizontal
-                className={`w-4 h-4 transition-colors group-hover:scale-110 ${
-                  isProMode ? 'text-[#fbbf24] drop-shadow-[0_0_6px_rgba(245,166,35,0.8)]' : 'text-zinc-400 group-hover:text-white'
+              <Icon
+                className={`w-4 h-4 shrink-0 transition-transform duration-150 group-hover:scale-105 ${
+                  isActive ? 'text-amber-300' : 'text-zinc-300 group-hover:text-amber-300'
                 }`}
               />
-              {!isCollapsed && (
-                <span className="text-[10px] font-black tracking-wider uppercase text-zinc-200 group-hover:text-[#fbbf24]">
-                  PRO MODE
-                </span>
-              )}
-            </div>
 
-            {!isCollapsed && (
-              <div
-                className={`w-7 h-3.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out relative ${
-                  isProMode ? 'bg-[#d4af37]' : 'bg-zinc-700'
-                }`}
-              >
-                <div
-                  className={`w-2.5 h-2.5 rounded-full bg-black transition-transform duration-200 ease-in-out ${
-                    isProMode ? 'translate-x-3.5' : 'translate-x-0'
+              {isCollapsed ? (
+                <span
+                  className={`text-[8px] leading-none font-bold uppercase tracking-tight whitespace-nowrap ${
+                    isActive ? 'text-amber-300' : 'text-zinc-400 group-hover:text-zinc-200'
                   }`}
-                />
-              </div>
-            )}
-          </button>
-        </ToolTooltip>
+                >
+                  {btn.label}
+                </span>
+              ) : (
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={`text-[10px] font-black tracking-wider uppercase truncate ${
+                        isActive ? 'text-amber-300' : 'text-zinc-200'
+                      }`}
+                    >
+                      {btn.label}
+                    </span>
+                    <ChevronRight className="w-3 h-3 text-zinc-500 group-hover:text-amber-300 shrink-0" />
+                  </div>
+                  <div className="text-[8px] text-zinc-500 truncate leading-tight mt-0.5">
+                    {btn.why}
+                  </div>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </nav>
 
-        {/* 3. SELF-TEST Diagnostics Button */}
-        <ToolTooltip
-          placement="right"
-          title="STUDIO DIAGNOSTICS"
-          why="Benchmarks WebGL throughput, frame jitter, IndexedDB I/O, and decoders"
-          how="Click to run hardware self-test suite"
-          className={isCollapsed ? '' : 'w-full'}
+      {/* Portaled z-[9999] Floating Flyout Menu */}
+      {openFlyout && activeFlyoutConfig && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={flyoutRef}
+          onMouseEnter={clearCloseTimer}
+          onMouseLeave={scheduleFlyoutClose}
+          style={{
+            position: 'fixed',
+            top: `${openFlyout.top}px`,
+            left: `${openFlyout.left}px`,
+            zIndex: 9999
+          }}
+          className="z-[9999] w-64 bg-[#08090f]/98 border border-amber-500/60 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.95)] backdrop-blur-xl p-2 font-mono text-xs text-zinc-200 space-y-1.5"
         >
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenSelfTest) onOpenSelfTest();
-              else onSelectModule('SETTINGS');
-            }}
-            className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-              isCollapsed
-                ? 'w-9 h-9 flex items-center justify-center'
-                : 'w-full px-3 py-2 flex items-center justify-center gap-2'
-            } bg-gradient-to-b from-[#241318] via-[#170a0e] to-[#0d0508] border border-rose-500/40 hover:border-rose-400 text-rose-300 shadow-[inset_0_1px_1px_rgba(244,63,94,0.25),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_5px_rgba(0,0,0,0.7)]`}
-            aria-label="Diagnostics Self-Test"
-          >
-            <Activity className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
-            {!isCollapsed && (
-              <span className="text-[10px] font-black tracking-wider uppercase text-rose-300">
-                SELF-TEST
-              </span>
-            )}
-          </button>
-        </ToolTooltip>
-      </div>
+          {/* Flyout Header */}
+          <div className="px-2 py-1 border-b border-white/10 flex items-center justify-between gap-2">
+            <span className="text-[9px] font-black tracking-widest uppercase text-amber-300 truncate">
+              {activeFlyoutConfig.title}
+            </span>
+            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 shrink-0">
+              {activeFlyoutConfig.label}
+            </span>
+          </div>
+
+          <p className="px-2 text-[9px] text-zinc-400 leading-snug">
+            {activeFlyoutConfig.why}
+          </p>
+
+          {/* Sub-tool Buttons */}
+          <div className="space-y-1 pt-0.5">
+            {activeFlyoutConfig.subTools.map((sub) => {
+              const SubIcon = sub.icon;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => {
+                    sub.onSelect();
+                    setOpenFlyout(null);
+                  }}
+                  className={`w-full px-2 py-1.5 rounded flex items-center gap-2 text-left transition-colors cursor-pointer border ${
+                    sub.isActive
+                      ? 'bg-amber-500/15 border-amber-400/60 text-amber-200'
+                      : 'bg-neutral-900/90 hover:bg-neutral-800 border-white/10 hover:border-amber-400/50 text-zinc-200'
+                  }`}
+                >
+                  <SubIcon
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      sub.isActive ? 'text-amber-300' : 'text-zinc-400'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-bold truncate">{sub.label}</div>
+                    <div className="text-[8.5px] text-zinc-400 truncate">{sub.sub}</div>
+                  </div>
+                  {sub.badge && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-black/70 border border-white/15 text-amber-300 shrink-0">
+                      {sub.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Inline Cine Rig Switcher inside CROP flyout */}
+          {activeFlyoutConfig.key === 'CROP' && (
+            <div className="pt-1.5 border-t border-white/10 space-y-1">
+              <div className="px-2 flex items-center justify-between text-[8.5px] text-amber-300 font-bold uppercase tracking-wider">
+                <span className="flex items-center gap-1">
+                  <Camera className="w-3 h-3" />
+                  CINE BODY & LENS
+                </span>
+                <span className="text-zinc-500">{currentProfile.shutter}</span>
+              </div>
+              <div className="space-y-0.5 max-h-36 overflow-y-auto no-scrollbar">
+                {CINE_PROFILES.map((prof) => {
+                  const selected = prof.body === currentProfile.body;
+                  return (
+                    <button
+                      key={prof.body}
+                      type="button"
+                      onClick={() => handleSelectCineProfile(prof)}
+                      className={`w-full px-2 py-1 rounded text-left flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                        selected
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-400/50'
+                          : 'hover:bg-white/5 text-zinc-300 border border-transparent'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="text-[9.5px] font-bold truncate">{prof.body}</div>
+                        <div className="text-[8px] text-zinc-400 truncate">{prof.lens}</div>
+                      </div>
+                      {selected && <Check className="w-3 h-3 text-amber-300 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
     </aside>
   );
 };

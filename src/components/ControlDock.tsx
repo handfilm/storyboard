@@ -33,17 +33,12 @@ import {
   Grid,
   Maximize2,
   Minimize2,
-  Volume2,
-  VolumeX,
   Camera,
   Crosshair,
   Eye,
   Type,
-  Activity,
-  ZoomIn,
   Repeat,
   Music,
-  Layers,
   RotateCcw,
   Pencil,
   Focus,
@@ -166,9 +161,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   isZenMode = false,
   playbackMode = 'sequence',
   onSelectPlaybackMode,
-  onStepFrame,
-  isTelemetryRackOpen = false,
-  onToggleTelemetryRack
+  onStepFrame
 }) => {
   const stripRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
@@ -177,6 +170,27 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const [effectiveSnapToBeat, setEffectiveSnapToBeat] = useState<boolean>(
     () => isSnapToBeat ?? audioEngine.getIsSnapToBeatEnabled()
   );
+
+  useEffect(() => {
+    const unsubSpectrum = eventBus.on('cockpit:toggle_spectrum', () => {
+      setIsFreqVisualizerOpen((prev) => !prev);
+    });
+    const unsubZoom = eventBus.on('cockpit:toggle_zoom', () => {
+      setIsZoomControlsOpen((prev) => !prev);
+    });
+    return () => {
+      unsubSpectrum();
+      unsubZoom();
+    };
+  }, []);
+
+  useEffect(() => {
+    eventBus.emit('cockpit:spectrum_state', isFreqVisualizerOpen);
+  }, [isFreqVisualizerOpen]);
+
+  useEffect(() => {
+    eventBus.emit('cockpit:zoom_state', isZoomControlsOpen);
+  }, [isZoomControlsOpen]);
 
   useEffect(() => {
     if (typeof isSnapToBeat === 'boolean') {
@@ -955,25 +969,26 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </form>
       </div>
 
-      {/* Real-time Audio Frequency Visualizer Floating Overlay */}
-      {isFreqVisualizerOpen && (
-        <div className="animate-hud-fade-in w-full max-w-5xl mb-2 pointer-events-auto">
+      {/* Spectral & Parallax Overlays (Hidden by default; portaled cleanly only when toggled from ⚡ COCKPIT) */}
+      {isFreqVisualizerOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[min(94vw,1024px)] z-[85] animate-hud-fade-in pointer-events-auto">
           <AudioFrequencyVisualizer
             isOpen={isFreqVisualizerOpen}
             onClose={() => setIsFreqVisualizerOpen(false)}
             isAudioMuted={isAudioMuted}
             onToggleAudio={onToggleAudio}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Multi-Layer Zoom HUD Floating Overlay */}
-      {isZoomControlsOpen && (
-        <div className="animate-hud-fade-in w-full max-w-md mb-2 pointer-events-auto">
+      {isZoomControlsOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[min(92vw,448px)] z-[85] animate-hud-fade-in pointer-events-auto">
           <MultiLayerZoomControls
             onClose={() => setIsZoomControlsOpen(false)}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Main Single-Row Iconic Transport & Optics Toolbar */}
@@ -1502,97 +1517,32 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </ToolTooltip>
           )}
 
-          {/* Track VU Meter & Master Audio Engine */}
-          <TrackVuMeter
-            variant="dock"
-            onToggleMute={onToggleAudio}
-            isMuted={isAudioMuted}
-          />
+          {/* Track VU Meter & Master Audio Engine (spaced cleanly with shrink-0 gap-2) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <TrackVuMeter
+              variant="dock"
+              onToggleMute={onToggleAudio}
+              isMuted={isAudioMuted}
+            />
+          </div>
 
-          {/* Real-Time Audio Frequency Visualizer Toggle Button */}
-          <ToolTooltip
-            title="AUDIO SPECTRUM"
-            why="Opens live multi-band frequency visualizer above the dock"
-            how="Click to monitor bass peaks and beat transients in real time"
-          >
-            <button
-              type="button"
-              onClick={() => setIsFreqVisualizerOpen((prev) => !prev)}
-              aria-label="Toggle Audio Frequency Visualizer"
-              className={`relative p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
-                isFreqVisualizerOpen
-                  ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.45)]'
-                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-[#FFE066]'
-              }`}
-            >
-              <Activity className="w-4 h-4 text-[#FFE066]" />
-            </button>
-          </ToolTooltip>
-
-          {/* Multi-Layer Zoom HUD Button */}
-          <ToolTooltip
-            title="MULTI-LAYER ZOOM"
-            why="Scales foreground subject and background plate independently"
-            how="Click to open parallax zoom sliders for depth emphasis"
-          >
-            <button
-              type="button"
-              onClick={() => setIsZoomControlsOpen((prev) => !prev)}
-              aria-label="Toggle Multi-Layer Zoom Controls"
-              className={`p-2 rounded border flex items-center gap-1 font-mono text-[10px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 ${
-                isZoomControlsOpen
-                  ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.45)]'
-                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-[#FFE066]'
-              }`}
-            >
-              <ZoomIn className="w-4 h-4 text-[#D4AF37]" />
-              <span className="text-[#FFE066] tabular-nums">{fgZoom.toFixed(1)}x</span>
-            </button>
-          </ToolTooltip>
-
-          {/* Reset Zoom Button */}
-          <ToolTooltip
-            title="RESET OPTICS ZOOM"
-            why="Restores digital zoom and parallax layers to 1.0x fit"
-            how="Click whenever zoomed in to snap back to full framing"
-          >
-            <button
-              type="button"
-              onClick={handleResetAllZoom}
-              aria-label="Reset Zoom"
-              className={`p-2 rounded border flex items-center gap-1 font-mono text-[10px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 ${
-                isAnyZoomActive
-                  ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.35)]'
-                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
-              }`}
-            >
-              <RotateCcw className="w-4 h-4" />
-              {isAnyZoomActive && (
-                <span className="tabular-nums text-[9.5px]">
-                  {digitalZoom?.isZoomed ? `${digitalZoom.scale.toFixed(1)}x` : `${fgZoom.toFixed(1)}x`}
-                </span>
-              )}
-            </button>
-          </ToolTooltip>
-
-          {/* Modular Telemetry Rack */}
-          {onToggleTelemetryRack && (
+          {/* Reset Zoom Button (only surfaced when optics/parallax zoom is active) */}
+          {isAnyZoomActive && (
             <ToolTooltip
-              title="MODULAR SIGNAL RACK"
-              why="Toggles audio-reactive sync, subtitles, and 3D LUT rack"
-              how="Click to expand or collapse the 3-panel signal processor"
+              title="RESET OPTICS ZOOM"
+              why="Restores digital zoom and parallax layers to 1.0x fit"
+              how="Click whenever zoomed in to snap back to full framing"
             >
               <button
                 type="button"
-                onClick={onToggleTelemetryRack}
-                aria-label="Toggle Modular Telemetry Rack"
-                className={`p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
-                  isTelemetryRackOpen
-                    ? 'bg-[#2dd4bf]/25 border-[#2dd4bf] text-[#2dd4bf] shadow-[0_0_8px_rgba(45,212,191,0.45)]'
-                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-[#2dd4bf]'
-                }`}
+                onClick={handleResetAllZoom}
+                aria-label="Reset Zoom"
+                className="p-2 rounded border flex items-center gap-1 font-mono text-[10px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 bg-amber-500/25 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.35)]"
               >
-                <Layers className="w-4 h-4 text-[#2dd4bf]" />
+                <RotateCcw className="w-4 h-4" />
+                <span className="tabular-nums text-[9.5px]">
+                  {digitalZoom?.isZoomed ? `${digitalZoom.scale.toFixed(1)}x` : `${fgZoom.toFixed(1)}x`}
+                </span>
               </button>
             </ToolTooltip>
           )}

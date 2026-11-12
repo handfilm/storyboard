@@ -155,6 +155,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecording, setIsRecording] = useState(false);
   const [isCockpitHudOpen, setIsCockpitHudOpen] = useState(false);
+  const [isTelemetryLayerOn, setIsTelemetryLayerOn] = useState(false);
+  const [isSpectrumLayerOn, setIsSpectrumLayerOn] = useState(false);
+  const [isZoomHudLayerOn, setIsZoomHudLayerOn] = useState(false);
   const [cockpitFeedback, setCockpitFeedback] = useState<string | null>(null);
   const [liveCockpitStats, setLiveCockpitStats] = useState<CockpitManifestStats | null>(null);
   const [cockpitDrawerPos, setCockpitDrawerPos] = useState<{ top: number; left: number } | null>(null);
@@ -208,7 +211,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     return () => window.removeEventListener('mousedown', handleGlobalClick);
   }, []);
 
-  // Sync live Cockpit manifest telemetry from HandfilmHome when mounted
+  // Sync live Cockpit manifest telemetry & collapsible HUD states
   useEffect(() => {
     const unsubStats = eventBus.on<CockpitManifestStats>('cockpit:stats', (stats) => {
       if (stats) setLiveCockpitStats(stats);
@@ -219,9 +222,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         setTimeout(() => setCockpitFeedback(null), 4000);
       }
     });
+    const unsubTelemetryState = eventBus.on<boolean>('cockpit:telemetry_state', (val) => {
+      setIsTelemetryLayerOn(Boolean(val));
+    });
+    const unsubSpectrumState = eventBus.on<boolean>('cockpit:spectrum_state', (val) => {
+      setIsSpectrumLayerOn(Boolean(val));
+    });
+    const unsubZoomState = eventBus.on<boolean>('cockpit:zoom_state', (val) => {
+      setIsZoomHudLayerOn(Boolean(val));
+    });
     return () => {
       unsubStats();
       unsubFeedback();
+      unsubTelemetryState();
+      unsubSpectrumState();
+      unsubZoomState();
     };
   }, []);
 
@@ -1381,6 +1396,57 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 >
                   OPEN FULL INTERCHANGE HUB
                 </button>
+              </div>
+
+              {/* Telemetry & Spectral Overlay Toggles (collapsed off dock by default) */}
+              <div className="pt-2 border-t border-white/10 space-y-1.5">
+                <div className="text-[9px] font-bold tracking-wider uppercase text-zinc-400">
+                  TELEMETRY & SPECTRAL HUD LAYERS
+                </div>
+                <div className="grid grid-cols-1 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => eventBus.emit('cockpit:toggle_telemetry')}
+                    className={`w-full px-2.5 py-1.5 rounded border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
+                      isTelemetryLayerOn
+                        ? 'bg-teal-500/20 border-teal-400/70 text-teal-200'
+                        : 'bg-neutral-900/90 border-white/10 hover:border-teal-400/50 text-zinc-300'
+                    }`}
+                  >
+                    <span>MODULAR TELEMETRY RACK</span>
+                    <span className={isTelemetryLayerOn ? 'text-teal-300' : 'text-zinc-500'}>
+                      {isTelemetryLayerOn ? 'ACTIVE' : 'HIDDEN'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => eventBus.emit('cockpit:toggle_spectrum')}
+                    className={`w-full px-2.5 py-1.5 rounded border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
+                      isSpectrumLayerOn
+                        ? 'bg-amber-500/20 border-amber-400/70 text-amber-200'
+                        : 'bg-neutral-900/90 border-white/10 hover:border-amber-400/50 text-zinc-300'
+                    }`}
+                  >
+                    <span>SPECTRAL ENERGY ANALYZER</span>
+                    <span className={isSpectrumLayerOn ? 'text-amber-300' : 'text-zinc-500'}>
+                      {isSpectrumLayerOn ? 'ACTIVE' : 'HIDDEN'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => eventBus.emit('cockpit:toggle_zoom')}
+                    className={`w-full px-2.5 py-1.5 rounded border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
+                      isZoomHudLayerOn
+                        ? 'bg-cyan-500/20 border-cyan-400/70 text-cyan-200'
+                        : 'bg-neutral-900/90 border-white/10 hover:border-cyan-400/50 text-zinc-300'
+                    }`}
+                  >
+                    <span>MULTI-LAYER PARALLAX ZOOM</span>
+                    <span className={isZoomHudLayerOn ? 'text-cyan-300' : 'text-zinc-500'}>
+                      {isZoomHudLayerOn ? 'ACTIVE' : 'HIDDEN'}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>,
             document.body

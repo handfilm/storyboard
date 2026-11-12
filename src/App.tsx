@@ -84,7 +84,12 @@ import { serviceWorkerManager } from './services/serviceWorkerManager';
 import { DirectorCockpitModal } from './components/cockpit/DirectorCockpitModal';
 import { CockpitShotBridge } from './types/cockpit';
 import { getLightingPresetById } from './data/lightingPresets';
-import { isTauriRuntime } from './utils/interchangeExport';
+import {
+  isTauriRuntime,
+  generateNLETimelineXML,
+  buildCapCutQuickPackZip,
+  triggerBrowserDownload
+} from './utils/interchangeExport';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -1430,6 +1435,23 @@ export default function App() {
   }, [currentView, project.frames, isAudioMuted]);
 
   useEffect(() => {
+    const unsubTelemetry = eventBus.on('cockpit:toggle_telemetry', () => {
+      setIsTelemetryRackOpen((prev) => !prev);
+    });
+    const unsubGuides = eventBus.on('studio:toggle_guides', () => {
+      setShowGuides((prev) => !prev);
+    });
+    return () => {
+      unsubTelemetry();
+      unsubGuides();
+    };
+  }, []);
+
+  useEffect(() => {
+    eventBus.emit('cockpit:telemetry_state', isTelemetryRackOpen);
+  }, [isTelemetryRackOpen]);
+
+  useEffect(() => {
     const unsubCockpit = eventBus.on<{ type?: string }>('cockpit:action', (payload) => {
       if (currentView !== 'STUDIO' || !payload?.type) return;
       if (payload.type === 'open_modal') {
@@ -1439,10 +1461,46 @@ export default function App() {
             (document.querySelector('main canvas') as HTMLCanvasElement | null);
         }
         setIsStudioCockpitOpen(true);
+        return;
+      }
+
+      const bridgeShots: CockpitShotBridge[] = project.frames.map((f, idx) => ({
+        shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+        shotNumber: idx + 1,
+        titleEn: f.title || `Shot ${idx + 1}`,
+        titleBn: f.bengaliTitle || '',
+        titleText: [f.bengaliTitle, f.title].filter(Boolean).join(' // ') || `Shot ${idx + 1}`,
+        personality: 'KINETIC',
+        inPoint: 0,
+        outPoint: getShotDurationSec(f, 12.0),
+        durationSec: getShotDurationSec(f, 12.0),
+        mediaUrl: f.videoSrc || f.imageUrl,
+        lutFilter: f.lutFilter,
+        lensSpec: f.cameraSpec?.focalLength,
+        directorNotes: f.directorNotes,
+        lightId: f.lightId,
+        lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+      }));
+
+      if (payload.type === 'nle_xml') {
+        const xml = generateNLETimelineXML(bridgeShots, null, {
+          fps: 24,
+          projectName: project.title || 'HANDFILM_SEQUENCE'
+        });
+        triggerBrowserDownload(xml, `HANDFILM_SEQUENCE_${Date.now()}.fcpxml`, 'application/xml');
+        eventBus.emit('cockpit:feedback', '[SANDBOX MODE] FCPXML exported — Tauri IPC ready for Windows .exe');
+      } else if (payload.type === 'capcut_pack') {
+        void buildCapCutQuickPackZip(bridgeShots, null, null, {
+          fps: 24,
+          projectName: project.title || 'HANDFILM_REEL'
+        }).then((zipBlob) => {
+          triggerBrowserDownload(zipBlob, `HANDFILM_CapCut_Pack_${Date.now()}.zip`, 'application/zip');
+          eventBus.emit('cockpit:feedback', '[SANDBOX MODE] CapCut Pack exported — Tauri IPC ready for Windows .exe');
+        });
       }
     });
     return () => unsubCockpit();
-  }, [currentView]);
+  }, [currentView, project.frames, project.title]);
 
   // Title Toggle Handler
   const handleToggleTitles = useCallback(() => {
@@ -1470,6 +1528,13 @@ export default function App() {
       return next;
     });
   }, [syncVisibilityToStore]);
+
+  useEffect(() => {
+    const unsubTitles = eventBus.on('studio:toggle_titles', () => {
+      handleToggleTitles();
+    });
+    return () => unsubTitles();
+  }, [handleToggleTitles]);
 
   const handleUndo = useCallback(() => {
     if (historyStack.length === 0) return;
@@ -2279,6 +2344,8 @@ export default function App() {
             onOpenSelfTest={() => setIsSelfTestOpen(true)}
             onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
             onOpenMultiCam={handleToggleMultiCam}
+            onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
+            onOpenShortcuts={() => setIsShortcutsOpen(true)}
             totalShots={project.frames?.length || 100}
             currentShotIndex={currentIndex}
             saveState={saveState}
@@ -2482,16 +2549,18 @@ export default function App() {
         )}
       </div>
 
-      {/* Brutalist Modular Telemetry Rack (Audio Sync, Voice/Sub, 3D LUT Color Engine) */}
+      {/* Brutalist Modular Telemetry Rack (Hidden by default; floating above dock when toggled via ⚡ COCKPIT) */}
       {isTelemetryRackOpen && (
-        <ModularTelemetryRack
-          currentFrame={currentFrame}
-          slideTimeSec={slideTimeSec}
-          durationSec={currentFrame ? getShotDurationSec(currentFrame, 12.0) : 12.0}
-          onUpdateFrame={handleUpdateFrame}
-          isOpen={isTelemetryRackOpen}
-          onToggleOpen={() => setIsTelemetryRackOpen(false)}
-        />
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[min(95vw,1080px)] z-[85] rounded-xl overflow-hidden shadow-2xl">
+          <ModularTelemetryRack
+            currentFrame={currentFrame}
+            slideTimeSec={slideTimeSec}
+            durationSec={currentFrame ? getShotDurationSec(currentFrame, 12.0) : 12.0}
+            onUpdateFrame={handleUpdateFrame}
+            isOpen={isTelemetryRackOpen}
+            onToggleOpen={() => setIsTelemetryRackOpen(false)}
+          />
+        </div>
       )}
 
       {/* Resizable Bottom Control Dock */}

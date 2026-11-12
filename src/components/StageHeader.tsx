@@ -1212,10 +1212,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               onMouseDown={(e) => e.stopPropagation()}
               style={
                 cockpitDrawerPos
-                  ? { top: `${cockpitDrawerPos.top}px`, left: `${cockpitDrawerPos.left}px` }
-                  : undefined
+                  ? { top: `${cockpitDrawerPos.top}px`, left: `${cockpitDrawerPos.left}px`, zIndex: 9999 }
+                  : { zIndex: 9999 }
               }
-              className="fixed top-12 left-72 w-80 bg-neutral-950/95 border border-amber-500/50 shadow-2xl backdrop-blur-md p-4 rounded-lg z-[999] font-mono text-xs text-zinc-200 space-y-3"
+              className="fixed top-12 left-72 w-80 bg-neutral-950/95 border border-amber-500/50 shadow-2xl backdrop-blur-md p-4 rounded-lg z-[9999] font-mono text-xs text-zinc-200 space-y-3"
             >
               {/* Bridge Environment Status */}
               <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -1371,18 +1371,16 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   <span className="text-[9px] text-zinc-400">LOSSLESS PNG</span>
                 </button>
 
-                {currentView === 'HOME' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCockpitHudOpen(false);
-                      eventBus.emit('cockpit:action', { type: 'open_modal' });
-                    }}
-                    className="w-full px-3 py-1.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-200 font-bold text-[10px] text-center cursor-pointer transition-colors"
-                  >
-                    OPEN FULL INTERCHANGE HUB
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCockpitHudOpen(false);
+                    eventBus.emit('cockpit:action', { type: 'open_modal' });
+                  }}
+                  className="w-full px-3 py-1.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-200 font-bold text-[10px] text-center cursor-pointer transition-colors"
+                >
+                  OPEN FULL INTERCHANGE HUB
+                </button>
               </div>
             </div>,
             document.body

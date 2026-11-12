@@ -81,6 +81,10 @@ import { MultiCamGridConfig } from './components/multicam/MultiCamViewportGrid';
 import { DEFAULT_SAMPLE_MULTICAM_GROUP } from './components/multicam/MultiCamGridMonitor';
 import { projectStorageEngine, SovereignProjectState } from './services/projectStorageEngine';
 import { serviceWorkerManager } from './services/serviceWorkerManager';
+import { DirectorCockpitModal } from './components/cockpit/DirectorCockpitModal';
+import { CockpitShotBridge } from './types/cockpit';
+import { getLightingPresetById } from './data/lightingPresets';
+import { isTauriRuntime } from './utils/interchangeExport';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -143,6 +147,8 @@ export default function App() {
   const [exportStudioTab, setExportStudioTab] = useState<ExportModalTab>('mp4');
   const [isCompilationWizardOpen, setIsCompilationWizardOpen] = useState(false);
   const [isProjectStatsOpen, setIsProjectStatsOpen] = useState(false);
+  const [isStudioCockpitOpen, setIsStudioCockpitOpen] = useState(false);
+  const studioStageCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const handleOpenExportStudio = useCallback((tab: ExportModalTab = 'mp4') => {
     setExportStudioTab(tab);
@@ -1407,6 +1413,36 @@ export default function App() {
       });
     });
   }, []);
+
+  // Studio view Cockpit modal trigger & telemetry stats sync
+  useEffect(() => {
+    if (currentView !== 'STUDIO') return;
+    const totalDur = project.frames.reduce((acc, f) => acc + getShotDurationSec(f, 12.0), 0);
+    const activeLightsCount = project.frames.filter((f) => Boolean(f.lightId)).length;
+    eventBus.emit('cockpit:stats', {
+      totalShots: project.frames.length,
+      activeLightsCount,
+      audioSynced: !isAudioMuted,
+      audioTrackName: isAudioMuted ? null : 'MASTER STREAM',
+      totalDurationSec: totalDur,
+      isTauriActive: isTauriRuntime()
+    });
+  }, [currentView, project.frames, isAudioMuted]);
+
+  useEffect(() => {
+    const unsubCockpit = eventBus.on<{ type?: string }>('cockpit:action', (payload) => {
+      if (currentView !== 'STUDIO' || !payload?.type) return;
+      if (payload.type === 'open_modal') {
+        if (typeof document !== 'undefined') {
+          studioStageCanvasRef.current =
+            (document.getElementById('stage-canvas') as HTMLCanvasElement | null) ||
+            (document.querySelector('main canvas') as HTMLCanvasElement | null);
+        }
+        setIsStudioCockpitOpen(true);
+      }
+    });
+    return () => unsubCockpit();
+  }, [currentView]);
 
   // Title Toggle Handler
   const handleToggleTitles = useCallback(() => {
@@ -2794,6 +2830,62 @@ export default function App() {
         projectTitle={project.title}
         directorName={project.director}
       />
+
+      {/* Director's Cockpit Interchange Modal (STUDIO view) */}
+      {currentView === 'STUDIO' && (
+        <DirectorCockpitModal
+          isOpen={isStudioCockpitOpen}
+          onClose={() => setIsStudioCockpitOpen(false)}
+          activeShot={{
+            shotId: `shot_${String(currentIndex + 1).padStart(2, '0')}`,
+            shotNumber: currentIndex + 1,
+            titleEn: currentFrame?.title || `Shot ${currentIndex + 1}`,
+            titleBn: currentFrame?.bengaliTitle || '',
+            titleText: [currentFrame?.bengaliTitle, currentFrame?.title].filter(Boolean).join(' // ') || `Shot ${currentIndex + 1}`,
+            personality: 'KINETIC',
+            inPoint: 0,
+            outPoint: getShotDurationSec(currentFrame, 12.0),
+            durationSec: getShotDurationSec(currentFrame, 12.0),
+            mediaUrl: currentFrame?.videoSrc || currentFrame?.imageUrl,
+            lutFilter: currentFrame?.lutFilter,
+            lensSpec: currentFrame?.cameraSpec?.focalLength,
+            directorNotes: currentFrame?.directorNotes,
+            lightId: currentFrame?.lightId,
+            lightName: currentFrame?.lightId ? getLightingPresetById(currentFrame.lightId)?.name : undefined
+          }}
+          allShots={project.frames.map<CockpitShotBridge>((f, idx) => ({
+            shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+            shotNumber: idx + 1,
+            titleEn: f.title || `Shot ${idx + 1}`,
+            titleBn: f.bengaliTitle || '',
+            titleText: [f.bengaliTitle, f.title].filter(Boolean).join(' // ') || `Shot ${idx + 1}`,
+            personality: 'KINETIC',
+            inPoint: 0,
+            outPoint: getShotDurationSec(f, 12.0),
+            durationSec: getShotDurationSec(f, 12.0),
+            mediaUrl: f.videoSrc || f.imageUrl,
+            lutFilter: f.lutFilter,
+            lensSpec: f.cameraSpec?.focalLength,
+            directorNotes: f.directorNotes,
+            lightId: f.lightId,
+            lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+          }))}
+          audioTrack={null}
+          stageCanvasRef={studioStageCanvasRef}
+          onHotReloadShot={(shotIdx, newMediaUrl) => {
+            const target = project.frames[shotIdx];
+            if (target) {
+              handleUpdateFrameAtIndex(shotIdx, {
+                ...target,
+                imageUrl: newMediaUrl,
+                thumbnailUrl: newMediaUrl
+              });
+            }
+          }}
+          fps={getShotTargetFps(currentFrame, 24) === 30 ? 30 : 24}
+          initialTab="interchange"
+        />
+      )}
     </div>
   );
 }

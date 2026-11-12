@@ -5,7 +5,8 @@
  * LUT selector, and futuristic tactile HUD controls.
  */
 
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AnthologyFrame, LutPreset } from '../types/anthology';
 import { calculateSlideshowInterval, getLutFilterCSS } from '../utils/engine';
 import {
@@ -45,13 +46,19 @@ import {
   Layers,
   RotateCcw,
   Pencil,
-  Focus
+  Focus,
+  Film,
+  Zap
 } from 'lucide-react';
 import { ToolTooltip } from './ui/ToolTooltip';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 import { AudioFrequencyVisualizer } from './audio/AudioFrequencyVisualizer';
 import { MultiLayerZoomControls } from './optics/MultiLayerZoomControls';
 import { useStudioStore } from '../core/store';
+import { eventBus } from '../core/eventBus';
+import { CockpitDispatchTarget, CockpitShotBridge } from '../types/cockpit';
+import { dispatchToExternalApp, captureCompositeCanvasPng } from '../utils/interchangeExport';
+import { getLightingPresetById } from '../data/lightingPresets';
 
 export interface ControlDockProps {
   frames: AnthologyFrame[];
@@ -247,6 +254,152 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const currentShotStartSec = shotOffsets[currentIndex]?.startSec ?? 0;
   const tcString = formatFullSMPTETimecode(currentShotStartSec + slideTimeSec, currentFps);
 
+  // Director's Cockpit — Bridge Shots Manifest & Floating Dispatch HUD State
+  const [dispatchHudAnchor, setDispatchHudAnchor] = useState<{
+    idx: number;
+    left: number;
+    top: number;
+  } | null>(null);
+  const [cockpitToast, setCockpitToast] = useState<string | null>(null);
+
+  const allCockpitShots = useMemo<CockpitShotBridge[]>(() => {
+    return safeFrames.map((f, idx) => {
+      const dur = getShotDurationSec(f, 12.0);
+      const startSec = shotOffsets[idx]?.startSec ?? idx * 12.0;
+      const lightName = f?.lightId ? getLightingPresetById(f.lightId)?.name : undefined;
+      return {
+        shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+        shotNumber: idx + 1,
+        titleEn: f?.title || `Shot ${idx + 1}`,
+        titleBn: f?.bengaliTitle || '',
+        titleText: [f?.bengaliTitle, f?.title].filter(Boolean).join(' // ') || `Shot ${idx + 1}`,
+        personality: 'KINETIC',
+        inPoint: startSec,
+        outPoint: startSec + dur,
+        durationSec: dur,
+        mediaUrl: f?.videoSrc || f?.imageUrl,
+        lutFilter: f?.lutFilter,
+        lensSpec: f?.cameraSpec?.focalLength,
+        directorNotes: f?.directorNotes,
+        lightId: f?.lightId,
+        lightName
+      };
+    });
+  }, [safeFrames, shotOffsets]);
+
+  const showCockpitFeedback = useCallback((msg: string) => {
+    setCockpitToast(msg);
+    eventBus.emit('cockpit:feedback', msg);
+    setTimeout(() => setCockpitToast(null), 4000);
+  }, []);
+
+  const captureShotFrameForDispatch = useCallback(
+    async (shotIdx: number): Promise<string | undefined> => {
+      if (shotIdx === currentIndex && typeof document !== 'undefined') {
+        const liveCanvas =
+          (document.getElementById('stage-canvas') as HTMLCanvasElement | null) ||
+          (document.querySelector('main canvas') as HTMLCanvasElement | null);
+        const livePng = captureCompositeCanvasPng(liveCanvas);
+        if (livePng) return livePng;
+      }
+
+      const target = safeFrames[shotIdx];
+      if (!target || typeof document === 'undefined') return undefined;
+
+      const offscreen = document.createElement('canvas');
+      offscreen.width = 1920;
+      offscreen.height = 1080;
+      const ctx = offscreen.getContext('2d');
+      if (!ctx) return undefined;
+
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, 1920, 1080);
+
+      const srcUrl = target.thumbnailUrl || target.thumbnail || target.imageUrl;
+      if (srcUrl && !/\.(mp4|webm|mov|m4v)(\?|$)/i.test(srcUrl)) {
+        await new Promise<void>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            try {
+              ctx.drawImage(img, 0, 0, 1920, 1080);
+            } catch {}
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = srcUrl;
+        });
+      }
+
+      ctx.strokeStyle = '#D4AF37';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(24, 24, 1872, 1032);
+      ctx.fillStyle = '#FFE066';
+      ctx.font = 'bold 28px JetBrains Mono, monospace';
+      ctx.fillText(
+        `HANDFILM // #${String(shotIdx + 1).padStart(2, '0')} ${target.title || ''}`,
+        48,
+        72
+      );
+
+      return captureCompositeCanvasPng(offscreen) ?? undefined;
+    },
+    [currentIndex, safeFrames]
+  );
+
+  const handleDispatchToTool = useCallback(
+    async (target: CockpitDispatchTarget, shotIdx: number) => {
+      const targetShot = allCockpitShots[shotIdx] || allCockpitShots[0];
+      if (!targetShot) return;
+
+      const stageCanvas =
+        typeof document !== 'undefined'
+          ? ((document.getElementById('stage-canvas') as HTMLCanvasElement | null) ||
+            (document.querySelector('main canvas') as HTMLCanvasElement | null))
+          : null;
+
+      const base64Frame =
+        target === 'photoshop' || target === 'illustrator'
+          ? await captureShotFrameForDispatch(shotIdx)
+          : undefined;
+
+      const result = await dispatchToExternalApp({
+        appName: target,
+        shot: targetShot,
+        base64Frame,
+        allShots: allCockpitShots,
+        audioTrack: null,
+        canvas: stageCanvas,
+        fps: currentFps === 30 ? 30 : 24,
+        projectName: 'HANDFILM_SEQUENCE'
+      });
+
+      showCockpitFeedback(result.message);
+      setDispatchHudAnchor(null);
+      try {
+        audioEngine.playShutterClick();
+      } catch {}
+    },
+    [allCockpitShots, captureShotFrameForDispatch, currentFps, showCockpitFeedback]
+  );
+
+  // Close Directorial Dispatch HUD on outside click, scroll, or Escape
+  useEffect(() => {
+    if (!dispatchHudAnchor) return;
+    const handleDismiss = () => setDispatchHudAnchor(null);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDispatchHudAnchor(null);
+    };
+    window.addEventListener('mousedown', handleDismiss);
+    window.addEventListener('scroll', handleDismiss, true);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('mousedown', handleDismiss);
+      window.removeEventListener('scroll', handleDismiss, true);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [dispatchHudAnchor]);
+
   // Scroll-based Virtualization State for bottom 100-shot sequence bar
   const [stripScroll, setStripScroll] = useState<{ scrollLeft: number; clientWidth: number }>({
     scrollLeft: 0,
@@ -299,7 +452,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   };
 
   const handleMarkerHoverEnter = (idx: number, targetEl: HTMLElement) => {
-    if (dragShotState) return;
+    if (dragShotState || dispatchHudAnchor) return;
     const rect = targetEl.getBoundingClientRect();
     setHoveredMarker({
       index: idx,
@@ -578,8 +731,17 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 key={`shot-strip-${idx}-${frame?.id ?? 'none'}`}
                 data-testid={`scrubber-index-marker-${idx}`}
                 onClick={() => onSelectFrame(idx)}
-                onMouseEnter={(e) => handleMarkerHoverEnter(idx, e.currentTarget)}
+                onMouseEnter={(e) => {
+                  const target = e.target as HTMLElement | null;
+                  if (target?.closest?.('[data-dispatch-trigger="true"]')) return;
+                  handleMarkerHoverEnter(idx, e.currentTarget);
+                }}
                 onMouseMove={(e) => {
+                  const target = e.target as HTMLElement | null;
+                  if (target?.closest?.('[data-dispatch-trigger="true"]')) {
+                    if (hoveredMarker) setHoveredMarker(null);
+                    return;
+                  }
                   if (hoveredMarker?.index !== idx) {
                     handleMarkerHoverEnter(idx, e.currentTarget);
                   }
@@ -639,8 +801,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 {/* Contrast scrim overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/55 pointer-events-none" />
 
-                {/* Top Metadata Bar: #01 + Duration / Relative TC */}
-                <div className="relative z-10 px-1.5 pt-1 flex items-center justify-between gap-1 font-mono pointer-events-none">
+                {/* Top Metadata Bar: #01 + Duration / Relative TC (leaves room for top-right dispatch button) */}
+                <div className="relative z-10 pl-1.5 pr-7 pt-1 flex items-center justify-between gap-1 font-mono pointer-events-none">
                   <span
                     className={`px-1 py-0.5 rounded text-[9px] font-black leading-none tabular-nums ${
                       isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'
@@ -658,6 +820,34 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     {isActive && isPlaying ? relativeTc : formatDurationPillValue(holdSec)}
                   </span>
                 </div>
+
+                {/* Top-Right Always-Visible Directorial Dispatch Trigger (⚡) */}
+                <button
+                  type="button"
+                  data-dispatch-trigger="true"
+                  data-testid={`shot-dispatch-trigger-${idx}`}
+                  onMouseEnter={(e) => {
+                    e.stopPropagation();
+                    setHoveredMarker(null);
+                  }}
+                  onMouseMove={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHoveredMarker(null);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setDispatchHudAnchor((prev) =>
+                      prev?.idx === idx
+                        ? null
+                        : { idx, left: rect.left + rect.width / 2, top: rect.top }
+                    );
+                  }}
+                  title={`Dispatch Shot ${shotBadge} to Photoshop / Premiere / CapCut`}
+                  aria-label={`Dispatch Shot ${shotNumber} to External Studio`}
+                  className="absolute top-1 right-2 z-30 bg-amber-500 text-black font-bold w-5 h-5 rounded-sm flex items-center justify-center text-[11px] shadow hover:bg-amber-400 active:scale-95 transition-all cursor-pointer"
+                >
+                  ⚡
+                </button>
 
                 {/* Bottom Metadata Bar: Title/Bangla Label + Active Light Badge */}
                 <div className="relative z-10 px-1.5 pb-1 flex items-center justify-between gap-1 font-mono pointer-events-none">
@@ -1192,6 +1382,40 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </select>
           </ToolTooltip>
 
+          {/* Module 3: Freeze Master Frame ([ 📸 ]) surfaced in visible right-center cluster */}
+          <ToolTooltip
+            title="FREEZE MASTER FRAME"
+            why="Exports current composite frame as lossless PNG for Photoshop paint-over or thumbnailing."
+            how="Click icon to capture & dispatch active frame to Photoshop."
+          >
+            <button
+              type="button"
+              data-testid="control-dock-freeze-frame"
+              onClick={() => handleDispatchToTool('photoshop', currentIndex)}
+              aria-label="Freeze Master Frame"
+              className="text-amber-300 border border-amber-500/40 bg-neutral-900 hover:bg-amber-500/15 hover:border-amber-400 p-1.5 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
+            >
+              <span>📸</span>
+            </button>
+          </ToolTooltip>
+
+          {/* Module 3: Ecosystem Bridge ([ 🚀 ]) surfaced in visible right-center cluster */}
+          <ToolTooltip
+            title="ECOSYSTEM BRIDGE"
+            why="Hand off timeline cuts, audio sync & Bangla/English scripts to Premiere, Resolve, or CapCut."
+            how="Click to open the Director's Cockpit Interchange Hub."
+          >
+            <button
+              type="button"
+              data-testid="control-dock-ecosystem-bridge"
+              onClick={() => eventBus.emit('cockpit:action', { type: 'open_modal' })}
+              aria-label="Open Ecosystem Bridge"
+              className="text-amber-300 border border-amber-500/40 bg-neutral-900 hover:bg-amber-500/15 hover:border-amber-400 p-1.5 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
+            >
+              <span>🚀</span>
+            </button>
+          </ToolTooltip>
+
           {/* Zen Focus Mode Icon Button */}
           {onToggleZen && (
             <ToolTooltip
@@ -1426,6 +1650,66 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           </ToolTooltip>
         </div>
       </div>
+
+      {/* Transient Cockpit Dispatch Toast */}
+      {cockpitToast && typeof document !== 'undefined' && createPortal(
+        <div
+          style={{ zIndex: 9999 }}
+          className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[9999] px-3.5 py-2 rounded-lg bg-neutral-950/95 border border-amber-400/70 text-amber-300 font-mono text-[11px] font-bold shadow-2xl backdrop-blur-md pointer-events-none"
+        >
+          {cockpitToast}
+        </div>,
+        document.body
+      )}
+
+      {/* Module 2: Floating Portal Directorial Dispatch HUD anchored cleanly above shot card */}
+      {dispatchHudAnchor && typeof document !== 'undefined' && createPortal(
+        <div
+          data-testid="directorial-dispatch-hud"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            left: `${Math.min(window.innerWidth - 196, Math.max(12, dispatchHudAnchor.left - 88))}px`,
+            top: `${Math.max(16, dispatchHudAnchor.top - 8)}px`,
+            transform: 'translateY(-100%)',
+            zIndex: 9999
+          }}
+          className="z-[9999] w-48 bg-[#08090f]/98 backdrop-blur-xl border border-amber-400/90 rounded-lg p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.95)] font-mono text-[10px] flex flex-col gap-1 animate-in fade-in zoom-in-95"
+        >
+          <div className="text-[8px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-1 flex items-center justify-between">
+            <span>DISPATCH #{String(dispatchHudAnchor.idx + 1).padStart(2, '0')}</span>
+            <span className="text-amber-300">
+              {(allCockpitShots[dispatchHudAnchor.idx]?.durationSec ?? 12.0).toFixed(1)}s
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleDispatchToTool('photoshop', dispatchHudAnchor.idx)}
+            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-blue-600 hover:text-white text-blue-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <span>[ PS // PAINT-OVER ]</span>
+            <Camera className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDispatchToTool('premiere', dispatchHudAnchor.idx)}
+            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-purple-600 hover:text-white text-purple-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <span>[ PR // SEND SEQUENCE ]</span>
+            <Film className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDispatchToTool('capcut', dispatchHudAnchor.idx)}
+            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-amber-500 hover:text-black text-amber-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <span>[ CC // REEL BUNDLE ]</span>
+            <Zap className="w-3 h-3" />
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

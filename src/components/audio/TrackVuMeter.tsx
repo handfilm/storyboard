@@ -243,7 +243,7 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
   // Standard Dock & Compact variant: High-contrast VU ladder + Optional Visual Audio Wave Gain Editor
   return (
     <div 
-      className={`flex items-center gap-1.5 bg-[#06070B]/95 border border-white/15 px-1.5 py-1 rounded-lg select-none text-[9px] font-mono shrink-0 shadow-inner group ${className}`}
+      className={`flex items-center gap-1.5 bg-[#06070B]/95 border border-white/15 px-1.5 py-0.5 rounded-md select-none text-[9px] font-mono shrink-0 shadow-inner group ${className}`}
       title={`Stereo Master Output: L ${levels.leftDb}dBFS | R ${levels.rightDb}dBFS | Gain: ${gainPercent}% (${gainDb}dB)`}
     >
       {/* Compact Mute Speaker Toggle */}
@@ -253,7 +253,7 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
         disabled={!onToggleMute}
         aria-label={isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)'}
         aria-pressed={isMuted}
-        className={`flex items-center justify-center gap-1 shrink-0 ${showLabels ? 'px-1.5 py-1' : 'w-6 h-6'} rounded bg-neutral-900/90 border transition-colors cursor-pointer ${
+        className={`flex items-center justify-center gap-1 shrink-0 ${showLabels ? 'px-1.5 py-0.5' : 'w-5 h-5'} rounded bg-neutral-900/90 border transition-colors cursor-pointer ${
           isMuted
             ? 'border-neutral-700/70 text-zinc-400 hover:text-white hover:border-neutral-600'
             : 'border-amber-500/40 text-[#F5A623] hover:text-[#FFE066] hover:border-amber-400/70'
@@ -261,9 +261,9 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
         title={onToggleMute ? (isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)') : undefined}
       >
         {isMuted ? (
-          <VolumeX className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+          <VolumeX className="w-3 h-3 text-zinc-400 shrink-0" />
         ) : (
-          <Volume2 className={`w-3.5 h-3.5 shrink-0 ${levels.isActive ? 'text-[#F5A623]' : 'text-amber-500/80'}`} />
+          <Volume2 className={`w-3 h-3 shrink-0 ${levels.isActive ? 'text-[#F5A623]' : 'text-amber-500/80'}`} />
         )}
         {showLabels && (
           <span className="text-[8px] font-bold tracking-widest text-zinc-300 uppercase hidden sm:inline shrink-0">
@@ -273,11 +273,11 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
       </button>
 
       {/* Compact Dual Channel Stereo Ladders (L & R, w-16 max) */}
-      <div className="flex flex-col gap-1 w-16 shrink-0">
+      <div className="flex flex-col gap-0.5 w-16 shrink-0">
         {/* Left Channel */}
-        <div className="flex items-center gap-1">
-          <span className="text-[7px] text-zinc-500 font-bold w-2 shrink-0">L</span>
-          <div className="flex-1 h-1.5 bg-[#12131C] rounded-[1px] relative overflow-hidden border border-black">
+        <div className="flex items-center gap-1 leading-none">
+          <span className="text-[7px] text-zinc-500 font-bold w-2 shrink-0 leading-none">L</span>
+          <div className="flex-1 h-1 bg-[#12131C] rounded-[1px] relative overflow-hidden border border-black">
             <div 
               className="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-[width] duration-75"
               style={{ width: `${isMuted ? 0 : Math.round(levels.leftRms * 100)}%` }}
@@ -294,9 +294,9 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
         </div>
 
         {/* Right Channel */}
-        <div className="flex items-center gap-1">
-          <span className="text-[7px] text-zinc-500 font-bold w-2 shrink-0">R</span>
-          <div className="flex-1 h-1.5 bg-[#12131C] rounded-[1px] relative overflow-hidden border border-black">
+        <div className="flex items-center gap-1 leading-none">
+          <span className="text-[7px] text-zinc-500 font-bold w-2 shrink-0 leading-none">R</span>
+          <div className="flex-1 h-1 bg-[#12131C] rounded-[1px] relative overflow-hidden border border-black">
             <div 
               className="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-[width] duration-75"
               style={{ width: `${isMuted ? 0 : Math.round(levels.rightRms * 100)}%` }}

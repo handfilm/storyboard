@@ -14,10 +14,15 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useStudioStore, HeroTitlePreset } from '../core/store';
+import {
+  useStudioStore,
+  HeroTitlePreset,
+  TitleAlign,
+  resolveEffectiveTitleAlign
+} from '../core/store';
 import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
-import { Sparkles, Sliders, Eye, EyeOff, Zap, Flame, Snowflake } from 'lucide-react';
+import { Sliders } from 'lucide-react';
 
 export type StageTitleVariant =
   | 'center'
@@ -46,6 +51,8 @@ export interface StageTextOverlayProps {
   verticalOffset?: number;
   preset?: HeroTitlePreset;
   variant?: StageTitleVariant | string;
+  titleAlign?: TitleAlign;
+  shotType?: string;
   className?: string;
   allowQuickControls?: boolean;
   onChangeVariant?: (variant: any) => void;
@@ -66,6 +73,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   verticalOffset: propOffset,
   preset: propPreset,
   variant = 'center',
+  titleAlign: propTitleAlign,
+  shotType,
   className = '',
   allowQuickControls = false,
   onChangeVariant,
@@ -75,6 +84,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   const storeTitleConfig = useStudioStore(s => s.titleConfig);
   const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
+  const storeTitleAlign = useStudioStore(s => s.titleAlign);
   const setTitlePreset = useStudioStore(s => s.setTitlePreset);
   const setTitleSize = useStudioStore(s => s.setTitleSize);
   const setTitleGlowIntensity = useStudioStore(s => s.setTitleGlowIntensity);
@@ -177,15 +187,43 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     }
   };
 
+  const activeTitleAlign: TitleAlign = propTitleAlign || storeTitleAlign || 'MID';
+  const effectiveAlign = resolveEffectiveTitleAlign(activeTitleAlign, shotIndex, shotType);
+
+  const clusterAlignClasses =
+    effectiveAlign === 'LEFT'
+      ? 'items-start text-left pl-12 pr-6 justify-center'
+      : effectiveAlign === 'RIGHT'
+        ? 'items-end text-right pr-12 pl-6 justify-center'
+        : 'items-center text-center px-6 sm:px-8 justify-center';
+
+  const blockAlignClasses =
+    effectiveAlign === 'LEFT'
+      ? 'items-start text-left'
+      : effectiveAlign === 'RIGHT'
+        ? 'items-end text-right'
+        : 'items-center text-center';
+
+  const dialogueAlignClasses =
+    effectiveAlign === 'LEFT'
+      ? 'left-12 text-left'
+      : effectiveAlign === 'RIGHT'
+        ? 'right-12 text-right'
+        : 'left-1/2 -translate-x-1/2 text-center';
+
   const presetStyle = getPresetStyles();
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden ${
+      data-testid="stage-text-overlay"
+      className={`absolute inset-0 pointer-events-none z-20 select-none overflow-hidden ${
         isEnabled ? 'flex flex-col' : 'hidden opacity-0'
       } ${className}`}
       data-shot-index={shotIndex}
       data-preset={activePreset}
+      data-title-align={activeTitleAlign}
+      data-effective-align={effectiveAlign}
+      data-variant={variant}
       aria-hidden={!isEnabled}
     >
       {/* .title-block container controlled by Components Matrix Title Block Opacity slider */}
@@ -193,33 +231,43 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         ref={titleContainerRef}
         data-title-container="stage-text-overlay"
         data-repaint-rev={repaintRevision}
+        data-bangla-title={showBangla ? displayBangla : ''}
+        data-english-title={showEnglish ? displayEnglish : ''}
+        data-dialogue={showDialogue && displayDialogue ? displayDialogue : ''}
+        data-effective-align={effectiveAlign}
+        data-preset={activePreset}
         className={`title-block relative w-full h-full ${
           isEnabled ? 'flex flex-col' : 'hidden opacity-0'
         }`}
       >
         {isEnabled && (
           <>
-            {/* Centered Dead-Middle Dynamic Hero Title Cluster */}
+            {/* Dynamic Hero Title Cluster (Default: MID dead-center; supports LEFT / RIGHT / AUTO) */}
             <div 
               key={`hero-title-cluster-${shotIndex}-${activePreset}-${repaintRevision}`}
               data-title-cluster="true"
-              className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 animate-kinetic-entrance transition-transform duration-200"
+              className={`w-full h-full flex flex-col py-6 sm:py-8 animate-kinetic-entrance transition-all duration-300 ${clusterAlignClasses}`}
               style={{
                 transform: `translateY(${verticalOffset}px)`
               }}
             >
-              <div className="flex flex-col items-center justify-center text-center max-w-5xl px-4">
+              <div className={`flex flex-col max-w-5xl transition-all duration-300 ${blockAlignClasses}`}>
                 
                 {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
                 {showBangla && (
                   <h1
                     key={`bangla-title-${shotIndex}`}
-                    className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-5xl sm:text-7xl md:text-8xl drop-shadow-2xl animate-kinetic-entrance`}
+                    className={`font-bangla font-black bg-gradient-to-r ${presetStyle.titleGradient} tracking-wide leading-tight select-none text-4xl sm:text-6xl md:text-7xl drop-shadow-2xl animate-kinetic-entrance`}
                     style={{
                       fontSize: `${Math.round(titleSizePx * scale)}px`,
                       letterSpacing: `${tracking}em`,
                       filter: presetStyle.filter,
-                      transformOrigin: 'center center'
+                      transformOrigin:
+                        effectiveAlign === 'LEFT'
+                          ? 'left center'
+                          : effectiveAlign === 'RIGHT'
+                            ? 'right center'
+                            : 'center center'
                     }}
                   >
                     {displayBangla}
@@ -228,9 +276,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
                 {/* Subtitle (Tracked Monospace English) */}
                 {showEnglish && (
-                  <div className="mt-4 sm:mt-5 flex flex-col items-center">
+                  <div className={`mt-3 sm:mt-4 flex flex-col transition-all duration-300 ${blockAlignClasses}`}>
                     <p
-                      className={`font-mono text-sm sm:text-base md:text-lg font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
+                      className={`font-mono text-xs sm:text-sm md:text-base font-bold ${presetStyle.subtitleColor} uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]`}
                       style={{
                         letterSpacing: `${Math.max(0.2, tracking + 0.2)}em`
                       }}
@@ -238,15 +286,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                       {displayEnglish}
                     </p>
 
-                    {/* Accent: Optical Anamorphic Streak Divider expanding horizontally (w-0 to w-32 over 600ms) */}
+                    {/* Accent: Optical Anamorphic Streak Divider expanding horizontally */}
                     <div 
                       key={`anamorphic-streak-${shotIndex}`}
-                      className={`h-[2px] mt-2.5 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
+                      className={`h-[2px] mt-2 rounded-full ${presetStyle.flareGradient} animate-streak-expand`}
                     />
 
                     {/* Camera Optical Spec / Focal Length Badge (Subtle) */}
                     {cameraInfo && (
-                      <span className="font-mono text-[9px] text-white/50 tracking-[0.25em] uppercase mt-2">
+                      <span className="font-mono text-[9px] text-white/60 tracking-[0.25em] uppercase mt-2">
                         {cameraInfo}
                       </span>
                     )}
@@ -255,10 +303,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
               </div>
             </div>
 
-            {/* Narrative Line / Dialogue Card: Pinned bottom-center in a floating obsidian capsule */}
+            {/* Narrative Line / Dialogue Card */}
             {showDialogue && displayDialogue && (
-              <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none max-w-xl px-4 text-center w-full">
-                <div className={`mx-auto inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border ${presetStyle.capsuleBorder} px-6 py-2 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+              <div className={`absolute bottom-5 sm:bottom-8 z-20 pointer-events-none max-w-xl px-2 transition-all duration-300 ${dialogueAlignClasses}`}>
+                <div className={`inline-flex items-center gap-2 bg-black/65 backdrop-blur-md border ${presetStyle.capsuleBorder} px-5 py-1.5 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                   <span>"{displayDialogue}"</span>
                 </div>
               </div>

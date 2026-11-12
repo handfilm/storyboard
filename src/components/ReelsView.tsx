@@ -30,6 +30,7 @@ import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { useStudioStore } from '../core/store';
 import { StageMetadataFxBar } from './stage/StageMetadataFxBar';
 import { StageCaptionStrip } from './stage/StageCaptionStrip';
+import { StageTextOverlay } from './StageTextOverlay';
 import {
   Film,
   Upload,
@@ -424,16 +425,29 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             </div>
           )}
 
+          {/* Stage Cinema Title & Subtitle Overlay Inside Reels Frame */}
+          {isReelsTitleVisible && (
+            <StageTextOverlay
+              shotIndex={currentIndex}
+              banglaTitle={displayBangla}
+              englishTitle={displayEnglish}
+              subtitle={displaySubtitle}
+              directorNotes={currentSlide?.directorNotes}
+              shotType={currentSlide?.shotType}
+              isVisible={isReelsTitleVisible}
+              componentsVisibility={componentsVisibility}
+              className="z-20 pointer-events-none select-none"
+            />
+          )}
+
         </div>
       </div>
 
-      {/* External Scene / Dopamine FX Caption Strip (Strictly BELOW the video box) */}
+      {/* External Technical Telemetry Strip (Strictly BELOW the video box) */}
       <StageCaptionStrip
         shotIndex={currentIndex}
-        banglaTitle={displayBangla}
-        englishTitle={displayEnglish}
-        subtitle={displaySubtitle}
-        directorNotes={currentSlide?.directorNotes}
+        aspectRatio="9:16"
+        shotType={currentSlide?.shotType}
         dopamineConfig={currentSlide?.dopamineConfig}
         slideTimeSec={slideTimeSec}
         durationSec={activeDurationSec}

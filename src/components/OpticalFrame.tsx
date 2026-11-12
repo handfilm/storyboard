@@ -12,6 +12,7 @@ import { getLutFilterCSS, calculateMultiLayerZoom } from '../utils/engine';
 import { useStudioStore } from '../core/store';
 import { Upload, Film, Sliders } from 'lucide-react';
 import { StageCaptionStrip } from './stage/StageCaptionStrip';
+import { StageTextOverlay } from './StageTextOverlay';
 
 export interface OpticalFrameProps {
   frame: AnthologyFrame;
@@ -190,15 +191,32 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
             </button>
           </div>
         )}
+        {/* Stage Cinema Title & Subtitle Overlay Inside Frame */}
+        <StageTextOverlay
+          shotIndex={frame?.id ?? 0}
+          banglaTitle={frame?.bengaliTitle}
+          englishTitle={frame?.title}
+          subtitle={frame?.tagline}
+          directorNotes={frame?.directorNotes}
+          shotType={frame?.shotType}
+          isVisible={componentsVisibility?.titlesAll !== false}
+          componentsVisibility={componentsVisibility}
+          className="z-20 pointer-events-none select-none"
+        />
       </div>
 
-      {/* External Scene Caption Strip (Strictly BELOW the video frame) */}
+      {/* External Technical Telemetry Strip (Strictly BELOW the video frame) */}
       <StageCaptionStrip
         shotIndex={frame?.id ?? 0}
-        banglaTitle={frame?.bengaliTitle}
-        englishTitle={frame?.title}
-        subtitle={frame?.tagline}
-        directorNotes={frame?.directorNotes}
+        sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
+        aspectRatio={String(aspectRatio || '2.39:1')}
+        shotType={frame?.shotType}
+        cameraSpec={
+          frame?.cameraSpec
+            ? `${frame.cameraSpec.focalLength || '35mm'} ${frame.cameraSpec.aperture || 'f/1.4'}`
+            : undefined
+        }
+        lutFilter={frame?.lutFilter}
         dopamineConfig={frame?.dopamineConfig}
         isTitlesActive={componentsVisibility?.titlesAll !== false}
         onToggleTitles={onToggleTitles}

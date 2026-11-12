@@ -73,7 +73,60 @@ export interface DigitalZoomState {
 }
 
 export type HeroTitlePreset = 'molten-gold' | 'titanium-silver' | 'neon-crimson';
+export type TitleAlign = 'LEFT' | 'MID' | 'RIGHT' | 'AUTO';
 export type TitlePosition = 'left-bottom' | 'mid-bottom' | 'right-bottom' | 'auto';
+
+export function titleAlignToPosition(align: TitleAlign): TitlePosition {
+  switch (align) {
+    case 'LEFT':
+      return 'left-bottom';
+    case 'RIGHT':
+      return 'right-bottom';
+    case 'AUTO':
+      return 'auto';
+    case 'MID':
+    default:
+      return 'mid-bottom';
+  }
+}
+
+export function positionToTitleAlign(position: TitlePosition): TitleAlign {
+  switch (position) {
+    case 'left-bottom':
+      return 'LEFT';
+    case 'right-bottom':
+      return 'RIGHT';
+    case 'auto':
+      return 'AUTO';
+    case 'mid-bottom':
+    default:
+      return 'MID';
+  }
+}
+
+/**
+ * Resolves live stage title alignment for LEFT | MID | RIGHT | AUTO.
+ * - AUTO places hero establishing shots (index 0 or WS/EWS/EST/HERO shot types) in MID,
+ *   then alternates LEFT on odd shot indices and RIGHT on even shot indices.
+ */
+export function resolveEffectiveTitleAlign(
+  titleAlign: TitleAlign,
+  shotIndex: number,
+  shotType?: string
+): 'LEFT' | 'MID' | 'RIGHT' {
+  if (titleAlign !== 'AUTO') return titleAlign;
+  const normalizedType = (shotType || '').toUpperCase();
+  if (
+    shotIndex === 0 ||
+    normalizedType === 'WS' ||
+    normalizedType === 'EWS' ||
+    normalizedType === 'EST' ||
+    normalizedType === 'HERO'
+  ) {
+    return 'MID';
+  }
+  return Math.abs(shotIndex) % 2 === 1 ? 'LEFT' : 'RIGHT';
+}
 
 export interface HeroTitleConfig {
   preset: HeroTitlePreset;
@@ -92,6 +145,8 @@ export interface StudioState {
   
   // Kinetic Hero Title Typography Engine
   titleConfig: HeroTitleConfig;
+  titleAlign: TitleAlign;
+  setTitleAlign: (align: TitleAlign) => void;
   titlePosition: TitlePosition;
   setTitlePosition: (position: TitlePosition) => void;
   setTitlePreset: (preset: HeroTitlePreset) => void;
@@ -379,10 +434,18 @@ export const useStudioStore = create<StudioState>()(
       titleOpacity: defaultVisibility.titleOpacity,
       showTitles: defaultVisibility.titlesAll
     },
-    titlePosition: 'left-bottom',
+    titleAlign: 'MID',
+    setTitleAlign: (align: TitleAlign) => {
+      set((state) => {
+        state.titleAlign = align;
+        state.titlePosition = titleAlignToPosition(align);
+      });
+    },
+    titlePosition: 'mid-bottom',
     setTitlePosition: (position: TitlePosition) => {
       set((state) => {
         state.titlePosition = position;
+        state.titleAlign = positionToTitleAlign(position);
       });
     },
     setTitlePreset: (preset: HeroTitlePreset) => {

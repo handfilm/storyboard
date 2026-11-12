@@ -131,13 +131,275 @@ export function triggerBrowserDownload(
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+export interface StageTitleCompositeMeta {
+  banglaTitle?: string;
+  englishTitle?: string;
+  dialogue?: string;
+  effectiveAlign?: 'LEFT' | 'MID' | 'RIGHT';
+  preset?: 'molten-gold' | 'titanium-silver' | 'neon-crimson' | string;
+  verticalOffset?: number;
+  titleSize?: number;
+  opacity?: number;
+}
+
+function drawMediaCoverToCanvas(
+  ctx: CanvasRenderingContext2D,
+  source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+  targetW: number,
+  targetH: number
+): void {
+  let sw = targetW;
+  let sh = targetH;
+  if (source instanceof HTMLVideoElement) {
+    sw = source.videoWidth || targetW;
+    sh = source.videoHeight || targetH;
+  } else if (source instanceof HTMLImageElement) {
+    sw = source.naturalWidth || targetW;
+    sh = source.naturalHeight || targetH;
+  } else if (source instanceof HTMLCanvasElement) {
+    sw = source.width || targetW;
+    sh = source.height || targetH;
+  }
+  if (sw <= 0 || sh <= 0) return;
+
+  const mediaAspect = sw / sh;
+  const targetAspect = targetW / targetH;
+  let dw = targetW;
+  let dh = targetH;
+  let dx = 0;
+  let dy = 0;
+
+  if (mediaAspect > targetAspect) {
+    dw = targetH * mediaAspect;
+    dx = (targetW - dw) / 2;
+  } else {
+    dh = targetW / mediaAspect;
+    dy = (targetH - dh) / 2;
+  }
+
+  ctx.drawImage(source, dx, dy, dw, dh);
+}
+
 /**
- * Captures the live 3-tier composite stage canvas buffer as a lossless PNG data URL
+ * Renders the Stage Cinema Title + Subtitle + Anamorphic Divider + Dialogue Capsule
+ * onto a 2D canvas context respecting LEFT | MID | RIGHT alignment and active preset.
+ */
+export function renderAlignedCinemaTitleOverlay(
+  ctx: CanvasRenderingContext2D,
+  targetW: number,
+  targetH: number,
+  meta: StageTitleCompositeMeta
+): void {
+  const {
+    banglaTitle = '',
+    englishTitle = '',
+    dialogue = '',
+    effectiveAlign = 'MID',
+    preset = 'molten-gold',
+    verticalOffset = 0,
+    titleSize = 72,
+    opacity = 1
+  } = meta;
+
+  if (!banglaTitle && !englishTitle && !dialogue) return;
+
+  const scaleFactor = Math.max(0.6, targetH / 720);
+  const anchorX =
+    effectiveAlign === 'LEFT'
+      ? Math.round(targetW * 0.05)
+      : effectiveAlign === 'RIGHT'
+        ? Math.round(targetW * 0.95)
+        : Math.round(targetW * 0.5);
+  const textAlign: CanvasTextAlign =
+    effectiveAlign === 'LEFT' ? 'left' : effectiveAlign === 'RIGHT' ? 'right' : 'center';
+
+  const palette =
+    preset === 'titanium-silver'
+      ? {
+          stops: ['#f1f5f9', '#cbd5e1', '#a5f3fc'],
+          glow: 'rgba(56, 189, 248, 0.85)',
+          flare: '#38BDF8',
+          sub: '#f1f5f9',
+          capsuleBorder: 'rgba(56, 189, 248, 0.45)',
+          capsuleText: '#bae6fd'
+        }
+      : preset === 'neon-crimson'
+        ? {
+            stops: ['#fecdd3', '#ef4444', '#be123c'],
+            glow: 'rgba(239, 68, 68, 0.9)',
+            flare: '#EF4444',
+            sub: '#ffe4e6',
+            capsuleBorder: 'rgba(244, 63, 94, 0.45)',
+            capsuleText: '#fda4af'
+          }
+        : {
+            stops: ['#fde68a', '#fbbf24', '#d97706'],
+            glow: 'rgba(245, 166, 35, 0.85)',
+            flare: '#F5A623',
+            sub: '#e2e8f0',
+            capsuleBorder: 'rgba(245, 166, 35, 0.4)',
+            capsuleText: '#F5A623'
+          };
+
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+  ctx.textAlign = textAlign;
+  ctx.textBaseline = 'middle';
+
+  const centerY = targetH * 0.48 + verticalOffset * scaleFactor;
+  const banglaFontPx = Math.round(titleSize * scaleFactor);
+  const englishFontPx = Math.round(18 * scaleFactor);
+
+  if (banglaTitle) {
+    ctx.save();
+    ctx.font = `900 ${banglaFontPx}px "Noto Sans Bengali", "Hind Siliguri", sans-serif`;
+    ctx.shadowColor = palette.glow;
+    ctx.shadowBlur = Math.round(28 * scaleFactor);
+    const grad = ctx.createLinearGradient(
+      anchorX - 240 * scaleFactor,
+      centerY,
+      anchorX + 240 * scaleFactor,
+      centerY
+    );
+    grad.addColorStop(0, palette.stops[0]);
+    grad.addColorStop(0.5, palette.stops[1]);
+    grad.addColorStop(1, palette.stops[2]);
+    ctx.fillStyle = grad;
+    ctx.fillText(banglaTitle, anchorX, centerY - englishFontPx * 0.8);
+    ctx.restore();
+  }
+
+  if (englishTitle) {
+    ctx.save();
+    const upper = englishTitle.toUpperCase();
+    ctx.font = `700 ${englishFontPx}px "JetBrains Mono", ui-monospace, monospace`;
+    ctx.fillStyle = palette.sub;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+    ctx.shadowBlur = Math.round(12 * scaleFactor);
+    const subY = centerY + banglaFontPx * 0.55;
+    ctx.fillText(upper, anchorX, subY);
+
+    // Anamorphic optical flare divider
+    const streakW = Math.round(180 * scaleFactor);
+    const streakStart =
+      effectiveAlign === 'LEFT'
+        ? anchorX
+        : effectiveAlign === 'RIGHT'
+          ? anchorX - streakW
+          : anchorX - streakW / 2;
+    const streakY = subY + Math.round(18 * scaleFactor);
+    const streakGrad = ctx.createLinearGradient(streakStart, streakY, streakStart + streakW, streakY);
+    streakGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    streakGrad.addColorStop(0.5, palette.flare);
+    streakGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = streakGrad;
+    ctx.shadowColor = palette.flare;
+    ctx.shadowBlur = Math.round(16 * scaleFactor);
+    ctx.fillRect(streakStart, streakY, streakW, Math.max(2, Math.round(2.5 * scaleFactor)));
+    ctx.restore();
+  }
+
+  if (dialogue) {
+    ctx.save();
+    const quoted = `"${dialogue}"`;
+    const quotePx = Math.round(15 * scaleFactor);
+    ctx.font = `italic 500 ${quotePx}px ui-sans-serif, system-ui, sans-serif`;
+    const textW = ctx.measureText(quoted).width;
+    const padX = Math.round(24 * scaleFactor);
+    const pillW = Math.min(targetW * 0.82, textW + padX * 2);
+    const pillH = Math.round(34 * scaleFactor);
+    const pillX =
+      effectiveAlign === 'LEFT'
+        ? anchorX
+        : effectiveAlign === 'RIGHT'
+          ? anchorX - pillW
+          : anchorX - pillW / 2;
+    const pillY = targetH - Math.round(52 * scaleFactor) - pillH / 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.strokeStyle = palette.capsuleBorder;
+    ctx.lineWidth = Math.max(1, Math.round(1.5 * scaleFactor));
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2);
+    } else {
+      ctx.rect(pillX, pillY, pillW, pillH);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = palette.capsuleText;
+    ctx.fillText(quoted, pillX + pillW / 2, pillY + pillH / 2, pillW - padX);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Captures the live composite stage buffer (including underlying video/image plate,
+ * canvas lighting/grade overlays, and active aligned Cinema Title overlay) as a lossless PNG data URL
  * without interrupting the 60 FPS video playback loop.
  */
 export function captureCompositeCanvasPng(canvas: HTMLCanvasElement | null): string | null {
   if (!canvas) return null;
   try {
+    if (typeof document !== 'undefined' && canvas.id === 'stage-canvas') {
+      const targetW = Math.max(canvas.width || 1920, 1280);
+      const targetH = Math.max(canvas.height || 720, 720);
+      const composite = document.createElement('canvas');
+      composite.width = targetW;
+      composite.height = targetH;
+      const ctx = composite.getContext('2d');
+
+      if (ctx) {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, targetW, targetH);
+
+        const mediaVideo = document.getElementById('stage-fallback-video') as HTMLVideoElement | null;
+        const mediaImg =
+          (document.getElementById('stage-fallback-img') as HTMLImageElement | null) ||
+          (document.getElementById('stage-fallback-poster') as HTMLImageElement | null);
+
+        if (mediaVideo && mediaVideo.readyState >= 2 && mediaVideo.videoWidth > 0) {
+          ctx.save();
+          if (mediaVideo.style.filter) ctx.filter = mediaVideo.style.filter;
+          drawMediaCoverToCanvas(ctx, mediaVideo, targetW, targetH);
+          ctx.restore();
+        } else if (mediaImg && mediaImg.complete && mediaImg.naturalWidth > 0) {
+          ctx.save();
+          if (mediaImg.style.filter) ctx.filter = mediaImg.style.filter;
+          drawMediaCoverToCanvas(ctx, mediaImg, targetW, targetH);
+          ctx.restore();
+        }
+
+        // Draw post-process & 34-preset lighting canvas overlay
+        if (canvas.width > 0 && canvas.height > 0) {
+          ctx.drawImage(canvas, 0, 0, targetW, targetH);
+        }
+
+        // Burn active DOM Cinema Title overlay respecting LEFT | MID | RIGHT | AUTO
+        const titleEl = document.querySelector('[data-title-container="stage-text-overlay"]') as HTMLElement | null;
+        if (titleEl && !titleEl.classList.contains('hidden')) {
+          const banglaTitle = titleEl.dataset.banglaTitle || '';
+          const englishTitle = titleEl.dataset.englishTitle || '';
+          const dialogue = titleEl.dataset.dialogue || '';
+          const effectiveAlign = (titleEl.dataset.effectiveAlign as 'LEFT' | 'MID' | 'RIGHT') || 'MID';
+          const preset = titleEl.dataset.preset || 'molten-gold';
+          renderAlignedCinemaTitleOverlay(ctx, targetW, targetH, {
+            banglaTitle,
+            englishTitle,
+            dialogue,
+            effectiveAlign,
+            preset
+          });
+        }
+
+        return composite.toDataURL('image/png', 1.0);
+      }
+    }
+
     return canvas.toDataURL('image/png', 1.0);
   } catch (err) {
     console.warn('[InterchangeExport] Canvas capture warning:', err);

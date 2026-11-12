@@ -21,7 +21,7 @@ import {
   Sparkles,
   Lightbulb
 } from 'lucide-react';
-import { useStudioStore, HeroTitlePreset, TitlePosition } from '../../core/store';
+import { useStudioStore, HeroTitlePreset, TitleAlign } from '../../core/store';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { eventBus } from '../../core/eventBus';
 
@@ -78,8 +78,8 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   onToggleFullscreen,
   className = ''
 }) => {
-  const titlePosition = useStudioStore((s) => s.titlePosition);
-  const setTitlePosition = useStudioStore((s) => s.setTitlePosition);
+  const titleAlign = useStudioStore((s) => s.titleAlign);
+  const setTitleAlign = useStudioStore((s) => s.setTitleAlign);
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
   const isVertigo = useStudioStore((s) => s.isVertigoLinked);
@@ -147,38 +147,38 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   return (
     <div
       data-testid="stage-metadata-fx-bar"
-      className={`animate-hud-fade-in w-full h-7 min-h-[28px] px-2.5 bg-[#07080d]/95 border-b border-white/10 flex items-center justify-between gap-2 text-[10px] font-mono select-none shrink-0 z-30 ${className}`}
+      className={`group animate-hud-fade-in w-full h-7 min-h-[28px] px-2.5 bg-black/90 border-b border-neutral-900 text-neutral-500 group-hover:text-neutral-200 transition-colors duration-200 flex items-center justify-between gap-2 text-[10px] font-mono select-none shrink-0 z-30 ${className}`}
     >
       {/* LEFT: SCENE // SHOT • F001/144 • FPS • STREAM QUALITY */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto no-scrollbar">
-        <span className="text-[#F5A623] font-bold tracking-wider whitespace-nowrap shrink-0">
+        <span className="text-neutral-400 group-hover:text-amber-400 font-bold tracking-wider whitespace-nowrap shrink-0 transition-colors duration-200">
           SCENE {sceneCode} // SH{shotCode}
         </span>
 
         {showHud && (
           <>
-            <span className="text-white/25 shrink-0">•</span>
-            <span className="text-white font-bold tabular-nums whitespace-nowrap shrink-0">
+            <span className="text-neutral-700 group-hover:text-white/25 shrink-0 transition-colors duration-200">•</span>
+            <span className="text-neutral-400 group-hover:text-white font-bold tabular-nums whitespace-nowrap shrink-0 transition-colors duration-200">
               {frameTag}
             </span>
             {smpte && (
               <>
-                <span className="text-white/25 hidden sm:inline shrink-0">•</span>
-                <span className="text-zinc-300 tabular-nums hidden sm:inline whitespace-nowrap shrink-0">
+                <span className="text-neutral-700 group-hover:text-white/25 hidden sm:inline shrink-0 transition-colors duration-200">•</span>
+                <span className="text-neutral-500 group-hover:text-neutral-200 tabular-nums hidden sm:inline whitespace-nowrap shrink-0 transition-colors duration-200">
                   {smpte}
                 </span>
               </>
             )}
-            <span className="text-white/25 hidden md:inline shrink-0">•</span>
-            <span className="text-emerald-400 font-bold tabular-nums hidden md:inline whitespace-nowrap shrink-0">
+            <span className="text-neutral-700 group-hover:text-white/25 hidden md:inline shrink-0 transition-colors duration-200">•</span>
+            <span className="text-neutral-500 group-hover:text-emerald-400 font-bold tabular-nums hidden md:inline whitespace-nowrap shrink-0 transition-colors duration-200">
               {fps}.0 fps
             </span>
-            <span className="text-white/25 hidden lg:inline shrink-0">•</span>
+            <span className="text-neutral-700 group-hover:text-white/25 hidden lg:inline shrink-0 transition-colors duration-200">•</span>
             <span
-              className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold whitespace-nowrap hidden lg:inline shrink-0 border ${
+              className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold whitespace-nowrap hidden lg:inline shrink-0 border transition-colors duration-200 ${
                 streamLabel.includes('PROXY')
-                  ? 'bg-cyan-950/70 border-cyan-500/40 text-cyan-300'
-                  : 'bg-amber-950/70 border-amber-500/40 text-amber-300'
+                  ? 'bg-neutral-900/60 border-neutral-800 text-neutral-500 group-hover:bg-cyan-950/70 group-hover:border-cyan-500/40 group-hover:text-cyan-300'
+                  : 'bg-neutral-900/60 border-neutral-800 text-neutral-500 group-hover:bg-amber-950/70 group-hover:border-amber-500/40 group-hover:text-amber-300'
               }`}
             >
               {streamLabel}
@@ -187,31 +187,31 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         )}
 
         {velocityBadge && (
-          <span className={`px-1.5 py-0.5 rounded border text-[8.5px] font-bold whitespace-nowrap hidden xl:inline shrink-0 ${velocityBadge.color}`}>
+          <span className="px-1.5 py-0.5 rounded border text-[8.5px] font-bold whitespace-nowrap hidden xl:inline shrink-0 bg-neutral-900/60 border-neutral-800 text-neutral-500 group-hover:text-amber-300 group-hover:border-amber-500/40 transition-colors duration-200">
             {velocityBadge.label}
           </span>
         )}
 
         {inOutBadge && (
-          <span className="px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 text-[8.5px] font-bold whitespace-nowrap hidden xl:inline shrink-0">
+          <span className="px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:bg-cyan-950/70 group-hover:border-cyan-500/40 group-hover:text-cyan-300 text-[8.5px] font-bold whitespace-nowrap hidden xl:inline shrink-0 transition-colors duration-200">
             {inOutBadge}
           </span>
         )}
 
         {lightName && (
-          <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-amber-300 text-[8.5px] font-bold whitespace-nowrap hidden xl:inline-flex items-center gap-1 shrink-0">
+          <span className="px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:bg-amber-500/15 group-hover:border-amber-500/35 group-hover:text-amber-300 text-[8.5px] font-bold whitespace-nowrap hidden xl:inline-flex items-center gap-1 shrink-0 transition-colors duration-200">
             <Lightbulb className="w-2.5 h-2.5" />
             <span>{lightName}</span>
           </span>
         )}
 
         {digitalZoom.isZoomed && (
-          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[8.5px] font-bold shrink-0">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-400 group-hover:bg-amber-500/20 group-hover:border-amber-400/60 group-hover:text-amber-300 text-[8.5px] font-bold shrink-0 transition-colors duration-200">
             <span>DIGITAL {digitalZoom.scale.toFixed(1)}x</span>
             <button
               type="button"
               onClick={resetDigitalZoom}
-              className="px-1 rounded bg-amber-400/20 hover:bg-amber-400/40 text-white cursor-pointer flex items-center gap-0.5"
+              className="px-1 rounded bg-neutral-800 group-hover:bg-amber-400/20 text-neutral-300 group-hover:text-white cursor-pointer flex items-center gap-0.5"
               title="Reset Digital Frame Zoom"
             >
               <RotateCcw className="w-2.5 h-2.5" />
@@ -224,17 +224,17 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
       {/* RIGHT: TITLE: LEFT|MID|RIGHT|AUTO • ZOOM • ASPECT • MODE • [ TITLE FX ] */}
       <div className="flex items-center gap-1.5 shrink-0">
         {safeZone && onChangeSafeZone && (
-          <div className="hidden md:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/70 border border-white/15 text-[8.5px]">
-            <Compass className="w-2.5 h-2.5 text-[#F5A623] mr-0.5" />
+          <div className="hidden md:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-[8.5px] transition-colors duration-200">
+            <Compass className="w-2.5 h-2.5 text-neutral-500 group-hover:text-amber-400 mr-0.5 transition-colors duration-200" />
             {(['top', 'center', 'bottom'] as const).map((zone) => (
               <button
                 key={zone}
                 type="button"
                 onClick={() => onChangeSafeZone(zone)}
-                className={`px-1 rounded cursor-pointer transition-colors ${
+                className={`px-1 rounded cursor-pointer transition-colors duration-200 ${
                   safeZone === zone
-                    ? 'bg-[#F5A623] text-black font-bold'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-neutral-800 text-neutral-200 font-bold group-hover:bg-amber-400 group-hover:text-black'
+                    : 'text-neutral-500 group-hover:text-neutral-400 hover:!text-white'
                 }`}
               >
                 {zone === 'top' ? 'TOP' : zone === 'center' ? 'CTR' : 'BOT'}
@@ -243,29 +243,28 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           </div>
         )}
 
-        {/* TITLE Position Selector */}
-        <div className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/70 border border-white/10 text-[8.5px]">
-          <span className="text-zinc-500 font-bold mr-0.5">TITLE:</span>
-          {(
-            [
-              { id: 'left-bottom', label: 'LEFT' },
-              { id: 'mid-bottom', label: 'MID' },
-              { id: 'right-bottom', label: 'RIGHT' },
-              { id: 'auto', label: 'AUTO' }
-            ] as { id: TitlePosition; label: string }[]
-          ).map((pos) => (
+        {/* TITLE Alignment Selector (LEFT | MID | RIGHT | AUTO) */}
+        <div
+          className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-[8.5px] transition-colors duration-200"
+          role="group"
+          aria-label="Title Alignment"
+        >
+          <span className="text-neutral-600 group-hover:text-neutral-400 font-bold mr-0.5 transition-colors duration-200">TITLE:</span>
+          {(['LEFT', 'MID', 'RIGHT', 'AUTO'] as TitleAlign[]).map((align) => (
             <button
-              key={pos.id}
+              key={align}
               type="button"
-              onClick={() => setTitlePosition(pos.id)}
-              className={`px-1.5 py-0.2 rounded cursor-pointer transition-colors ${
-                titlePosition === pos.id
-                  ? 'bg-[#F5A623] text-black font-bold'
-                  : 'text-zinc-400 hover:text-white'
+              data-testid={`title-align-${align}`}
+              aria-pressed={titleAlign === align}
+              onClick={() => setTitleAlign(align)}
+              className={`px-1.5 py-0.2 rounded cursor-pointer transition-colors duration-200 ${
+                titleAlign === align
+                  ? 'bg-neutral-800 text-neutral-200 font-bold group-hover:bg-amber-400 group-hover:text-black'
+                  : 'text-neutral-500 group-hover:text-neutral-400 hover:!text-white'
               }`}
-              title={`Set Stage Caption Alignment: ${pos.label}`}
+              title={`Align Stage Cinema Title: ${align}`}
             >
-              {pos.label}
+              {align}
             </button>
           ))}
         </div>
@@ -275,24 +274,24 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           ref={zoomBtnRef}
           type="button"
           onClick={openZoomPopover}
-          className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+          className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-200 ${
             isZoomOpen || fgZoom !== 1.0 || bgZoom !== 1.0
-              ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#ffe066]'
-              : 'bg-black/70 border-white/15 text-zinc-300 hover:text-white hover:border-amber-400/50'
+              ? 'bg-neutral-800 border-neutral-700 text-neutral-200 group-hover:bg-[#d4af37]/25 group-hover:border-[#d4af37] group-hover:text-[#ffe066]'
+              : 'bg-neutral-900/60 border-neutral-800 text-neutral-500 group-hover:text-neutral-200 group-hover:border-amber-400/50'
           }`}
           title="Multi-Layer Parallax Zoom Controls"
         >
-          <ZoomIn className="w-2.5 h-2.5 text-[#FFE066]" />
+          <ZoomIn className="w-2.5 h-2.5 text-neutral-500 group-hover:text-amber-400 transition-colors duration-200" />
           <span>ZOOM</span>
-          <span className="hidden md:inline tabular-nums text-[#FFE066]">
+          <span className="hidden md:inline tabular-nums text-neutral-500 group-hover:text-amber-300 transition-colors duration-200">
             {fgZoom.toFixed(1)}x/{bgZoom.toFixed(1)}x
           </span>
-          {isVertigo && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
+          {isVertigo && <span className="w-1.5 h-1.5 rounded-full bg-neutral-500 group-hover:bg-amber-400 animate-pulse" />}
         </button>
 
         {/* Stage Scale 70% / 100% Toggle Pills */}
         <div
-          className="flex items-center gap-0.5 p-0.5 rounded bg-black/80 border border-white/15 text-[9px] font-bold shrink-0"
+          className="flex items-center gap-0.5 p-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-[9px] font-bold shrink-0 transition-colors duration-200"
           role="group"
           aria-label="Stage Scale"
         >
@@ -301,10 +300,10 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
             data-testid="stage-scale-70"
             onClick={() => setStageScale(0.7)}
             aria-pressed={stageScale === 0.7}
-            className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+            className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors duration-200 ${
               stageScale === 0.7
-                ? 'bg-[#F5A623] text-black font-black shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                : 'text-zinc-400 hover:text-white'
+                ? 'bg-neutral-800 text-neutral-200 font-bold group-hover:bg-amber-400 group-hover:text-black'
+                : 'text-neutral-500 group-hover:text-neutral-400 hover:!text-white'
             }`}
             title="Set Stage Video Scale to 70%"
           >
@@ -315,10 +314,10 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
             data-testid="stage-scale-100"
             onClick={() => setStageScale(1.0)}
             aria-pressed={stageScale === 1.0}
-            className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+            className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors duration-200 ${
               stageScale === 1.0
-                ? 'bg-[#F5A623] text-black font-black shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                : 'text-zinc-400 hover:text-white'
+                ? 'bg-neutral-800 text-neutral-200 font-bold group-hover:bg-amber-400 group-hover:text-black'
+                : 'text-neutral-500 group-hover:text-neutral-400 hover:!text-white'
             }`}
             title="Set Stage Video Scale to 100% Edge-to-Edge"
           >
@@ -327,10 +326,10 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         </div>
 
         {/* Aspect + Inspector/Master Mode */}
-        <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/70 border border-white/10 text-[9px] font-bold">
-          <span className="text-[#F5A623]">{aspectRatio}</span>
-          <span className="text-white/20">|</span>
-          <span className={playbackMode === 'sequence' ? 'text-emerald-400' : 'text-cyan-300'}>
+        <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-[9px] font-bold transition-colors duration-200">
+          <span className="text-neutral-500 group-hover:text-amber-400 transition-colors duration-200">{aspectRatio}</span>
+          <span className="text-neutral-700 group-hover:text-white/20">|</span>
+          <span className={`transition-colors duration-200 ${playbackMode === 'sequence' ? 'text-neutral-500 group-hover:text-emerald-400' : 'text-neutral-500 group-hover:text-cyan-300'}`}>
             {playbackMode === 'sequence' ? 'HERO GLOBAL' : 'SOLO INSPECTOR'}
           </span>
         </div>
@@ -341,10 +340,10 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           type="button"
           data-testid="stage-title-fx-button"
           onClick={openTitleFxPopover}
-          className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+          className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-200 ${
             isTitleFxOpen
-              ? 'bg-[#F5A623] border-[#F5A623] text-black'
-              : 'bg-black/80 border-[#F5A623]/45 text-[#FFE066] hover:bg-[#F5A623]/20'
+              ? 'bg-amber-400 border-amber-400 text-black'
+              : 'bg-neutral-900/60 border-neutral-800 text-neutral-500 group-hover:border-amber-400/50 group-hover:text-amber-300 group-hover:bg-amber-500/15'
           }`}
           title="Hero Title FX & Dopamine Presets"
         >
@@ -357,17 +356,17 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <button
             type="button"
             onClick={onToggleMute}
-            className="p-1 rounded bg-black/70 border border-white/10 text-zinc-300 hover:text-white cursor-pointer"
+            className="p-1 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:text-neutral-200 hover:!text-white cursor-pointer transition-colors duration-200"
             title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
-            {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3 text-emerald-400" />}
+            {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3 text-neutral-400 group-hover:text-emerald-400" />}
           </button>
         )}
         {onUploadMedia && (
           <button
             type="button"
             onClick={onUploadMedia}
-            className="p-1 rounded bg-black/70 border border-white/10 text-zinc-300 hover:text-amber-300 cursor-pointer"
+            className="p-1 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:text-neutral-200 hover:!text-amber-300 cursor-pointer transition-colors duration-200"
             title="Upload / Replace Shot Media"
           >
             <Upload className="w-3 h-3" />
@@ -377,7 +376,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <button
             type="button"
             onClick={onOpenInspector}
-            className="p-1 rounded bg-black/70 border border-white/10 text-zinc-300 hover:text-[#FFE066] cursor-pointer"
+            className="p-1 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:text-neutral-200 hover:!text-amber-300 cursor-pointer transition-colors duration-200"
             title="Open Optical Inspector"
           >
             <Sparkles className="w-3 h-3" />
@@ -387,7 +386,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <button
             type="button"
             onClick={onOpenCinemaPlayer || onToggleFullscreen}
-            className="p-1 rounded bg-black/70 border border-white/10 text-zinc-300 hover:text-white cursor-pointer"
+            className="p-1 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:text-neutral-200 hover:!text-white cursor-pointer transition-colors duration-200"
             title="Fullscreen Cinema View"
           >
             <Maximize2 className="w-3 h-3" />

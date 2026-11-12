@@ -122,6 +122,7 @@ export interface AnthologyFrame {
   subclipInSec?: number;
   subclipOutSec?: number;
   lightId?: string | null;
+  shotType?: string;
 }
 
 export interface AnthologyProject {

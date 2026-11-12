@@ -260,16 +260,8 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   // Active slide frame state
   const [currentFrame, setCurrentFrame] = useState<number>(() => Math.floor(slideTimeSec * activeFps));
 
-  // Dynamic multi-position animated title placement per shot with interactive override
-  const [titlePosition, setTitlePosition] = useState<'left-bottom' | 'mid-bottom' | 'right-bottom' | 'auto'>('auto');
-
-  const effectiveTitleVariant = useMemo<'left-bottom' | 'mid-bottom' | 'right-bottom'>(() => {
-    if (titlePosition !== 'auto') return titlePosition;
-    const mod = Math.abs(currentIndex) % 3;
-    if (mod === 0) return 'left-bottom';
-    if (mod === 1) return 'mid-bottom';
-    return 'right-bottom';
-  }, [titlePosition, currentIndex]);
+  // Store-synced animated title alignment (LEFT | MID | RIGHT | AUTO)
+  const storeTitleAlign = useStudioStore((s) => s.titleAlign);
 
   // Sync frame with slide time changes
   useEffect(() => {
@@ -744,16 +736,30 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
             </div>
           )}
 
+          {/* Stage Cinema Title & Subtitle Overlay Inside Monitor */}
+          {showTitles && (
+            <StageTextOverlay
+              shotIndex={currentIndex}
+              banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
+              englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
+              subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
+              directorNotes={currentSlide?.directorNotes}
+              shotType={currentSlide?.shotType}
+              titleAlign={storeTitleAlign}
+              isVisible={showTitles}
+              componentsVisibility={componentsVisibility}
+              className="z-20 pointer-events-none select-none"
+            />
+          )}
+
         </div>
       </div>
 
-      {/* External Scene / Dopamine FX Caption Strip (Strictly BELOW the video frame) */}
+      {/* External Technical Telemetry Strip (Strictly BELOW the video frame) */}
       <StageCaptionStrip
         shotIndex={currentIndex}
-        banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
-        englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
-        subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
-        directorNotes={currentSlide?.directorNotes}
+        aspectRatio={aspectRatio || '2.39:1'}
+        shotType={currentSlide?.shotType}
         dopamineConfig={currentSlide?.dopamineConfig}
         slideTimeSec={slideTimeSec}
         durationSec={SLIDE_MAX_TIME}

@@ -49,6 +49,7 @@ export interface SlideDraft {
   lutFilter?: string;
   isVideo?: boolean;
   panY?: number;
+  shotType?: string;
   cameraSpec?: {
     focalLength?: string;
     aperture?: string;

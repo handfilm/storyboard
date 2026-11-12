@@ -1246,6 +1246,45 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           />
         </div>
 
+        {/* STAGE CINEMA TITLE & SUBTITLE OVERLAY LAYER (Inside Stage Canvas Overlay, Default: MID Center) */}
+        {isTitlesActive && (
+          frame?.dopamineConfig ? (
+            <div
+              data-testid="stage-dopamine-overlay"
+              className="absolute inset-0 pointer-events-none select-none z-20 overflow-hidden"
+            >
+              <DopamineCompilationSequence
+                hookText={frame.dopamineConfig.hookText || frame.title || 'PURE RHYTHM'}
+                subText={frame.dopamineConfig.subText || frame.tagline || ''}
+                glitchIntensity={frame.dopamineConfig.glitchIntensity ?? 80}
+                strobeRate={frame.dopamineConfig.strobeRate ?? 60}
+                motionSpeed={frame.dopamineConfig.motionSpeed ?? 1.5}
+                audioBeatSync={frame.dopamineConfig.audioBeatSync ?? true}
+                currentTime={slideTimeSec}
+                isPlaying={isAutoplay}
+                accentColor={frame.dopamineConfig.accentColor || '#FF2B2B'}
+              />
+            </div>
+          ) : (
+            <StageTextOverlay
+              shotIndex={currentIndex}
+              banglaTitle={frame?.bengaliTitle}
+              englishTitle={frame?.title}
+              subtitle={frame?.tagline}
+              directorNotes={frame?.directorNotes}
+              shotType={frame?.shotType}
+              cameraInfo={
+                frame?.cameraSpec
+                  ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}`
+                  : undefined
+              }
+              isVisible={isTitlesActive}
+              componentsVisibility={componentsVisibility}
+              className="z-20 pointer-events-none select-none"
+            />
+          )
+        )}
+
         {/* 16:9 DIGITAL ZOOM SELECTION MARQUEE */}
         {selectionBox && selectionBox.isSelecting && (
           <div
@@ -1316,87 +1355,31 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       </div>
 
-      {/* 3. SCENE / DOPAMINE FX CAPTION STRIP (STRICTLY BELOW THE VIDEO BOX) */}
+      {/* 3. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR (STRICTLY BELOW THE VIDEO BOX) */}
       <StageCaptionStrip
         shotIndex={currentIndex}
-        banglaTitle={frame?.bengaliTitle}
-        englishTitle={frame?.title}
-        subtitle={frame?.tagline}
-        directorNotes={frame?.directorNotes}
+        sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
+        aspectRatio={aspectRatio || '2.39:1'}
+        shotType={frame?.shotType}
+        cameraSpec={
+          frame?.cameraSpec
+            ? `${frame.cameraSpec.focalLength || '35mm'} ${frame.cameraSpec.aperture || 'f/1.4'}`
+            : undefined
+        }
+        lutFilter={frame?.lutFilter}
         dopamineConfig={frame?.dopamineConfig}
         slideTimeSec={slideTimeSec}
         durationSec={activeShotDurationSec}
         isTitlesActive={isTitlesActive}
         onToggleTitles={onToggleTitles}
         componentsVisibility={componentsVisibility}
+        isWebCodecsEngineActive={isWebCodecsEngineActive}
+        onToggleWebCodecs={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
+        totalRuntimeTimecode={totalRuntimeTimecode}
+        totalShotsCount={frames.length}
+        onUploadMedia={() => fileInputRef.current?.click()}
+        onToggleFullscreen={toggleFullscreen}
       />
-
-      {/* 2. SLEEK CINEMA MONITOR BEZEL RIBBON (Ultra-compact 20px bar directly under the monitor) */}
-      <div className="w-full px-2.5 py-0.5 bg-[#090a0f]/95 border-t border-white/10 flex items-center justify-between gap-1.5 shrink-0 select-none h-5 text-[8.5px]">
-        {/* Left: Scene & Shot Metadata */}
-        <div className="flex items-center gap-1.5 truncate text-[8.5px] font-mono tracking-wider uppercase text-white/40">
-          <span className="text-[#F5A623] font-bold">SCENE {frame?.epNumber ? frame.epNumber.slice(0, 2) : '01'}</span>
-          <span className="text-white/20">//</span>
-          <span className="text-white/80 font-semibold">SHOT {String(currentIndex + 1).padStart(2, '0')}</span>
-          <span className="text-white/20">•</span>
-          <span className="text-zinc-300 truncate max-w-[120px] sm:max-w-[200px]">"{frame?.title || 'UNTITLED SHOT'}"</span>
-          <span className="text-white/20 hidden sm:inline">•</span>
-          <span className="text-[#FFE066]/70 hidden sm:inline">{aspectRatio || '2.39:1'} SCOPE</span>
-        </div>
-
-        {/* Right: Telemetry Indicators & Quick Bezel Triggers */}
-        <div className="flex items-center gap-1.5 sm:gap-2 text-[8px] text-white/40 shrink-0 font-mono">
-          <button
-            type="button"
-            onClick={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
-            className={`px-1 py-0.2 rounded border text-[8px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-              isWebCodecsEngineActive
-                ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                : 'bg-black/50 border-white/20 text-amber-400 hover:bg-white/10'
-            }`}
-            title="Toggle WebCodecs 24fps WebGL2 Ping-Pong Engine"
-          >
-            <Zap className="w-2.5 h-2.5 text-current" />
-            <span>{isWebCodecsEngineActive ? 'WEBCODECS' : 'NATIVE'}</span>
-          </button>
-
-          <span className="hidden md:inline text-white/20">|</span>
-          <span className="hidden md:flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-zinc-400">CALIBRATED</span>
-          </span>
-
-          <span className="hidden md:inline text-white/20">|</span>
-          <span className="hidden md:inline text-emerald-400">14-BIT ARRI</span>
-
-          <span className="hidden lg:inline text-white/20">|</span>
-          <div className="hidden lg:flex items-center gap-1 text-emerald-400">
-            <span>RUNTIME: {totalRuntimeTimecode}</span>
-            <span className="text-white/30">/</span>
-            <span className="text-white/60">{frames.length}S</span>
-          </div>
-
-          <div className="flex items-center gap-1 pl-1 border-l border-white/10">
-            {/* Quick Replace Media */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="p-1 rounded bg-black/60 hover:bg-white/15 text-white/80 hover:text-white border border-white/15 transition-all cursor-pointer"
-              title="Upload / Replace Media Plate"
-            >
-              <Upload className="w-2.5 h-2.5" />
-            </button>
-
-            {/* Quick Fullscreen */}
-            <button
-              onClick={toggleFullscreen}
-              className="p-1 rounded bg-black/60 hover:bg-white/15 text-white/80 hover:text-white border border-white/15 transition-all cursor-pointer"
-              title="Toggle Stage Fullscreen"
-            >
-              <Maximize2 className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Floating 35mm Film Stock & Color Grading Tray */}
       <FilterGradingTray

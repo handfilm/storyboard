@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 static WATCHER_STARTED: AtomicBool = AtomicBool::new(false);
 
@@ -42,7 +42,7 @@ fn ensure_frames_watcher(app_handle: tauri::AppHandle, frames_dir: PathBuf) {
                                         .map(|d| d.as_millis())
                                         .unwrap_or(0)
                                 });
-                                let _ = app_handle.emit_all("cockpit:frame_modified", payload);
+                                let _ = app_handle.emit("cockpit:frame_modified", payload);
                             }
                         }
                     }

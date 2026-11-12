@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = 5173;
 const HOST = '0.0.0.0';
 
 app.use(express.json({ limit: '50mb' }));
@@ -359,7 +359,7 @@ app.post('/api/ai/video/animate', async (req, res) => {
         aspect_ratio: validAspect,
         duration: '10s'
       }
-    }, { timeout: 300000 });
+    }, { timeout: 517300 });
 
     const videoPart = interaction.output_video;
     if (!videoPart || (!videoPart.data && !(videoPart as any).uri)) {

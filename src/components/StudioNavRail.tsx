@@ -48,6 +48,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import { ToolTooltip } from './ui/ToolTooltip';
 
 export type StudioModuleId =
   | 'PLAYER'
@@ -101,19 +102,6 @@ export interface StudioNavRailProps {
   saveState?: string;
 }
 
-interface HoverCardData {
-  num?: string;
-  name: string;
-  title: string;
-  tag: string;
-  desc: string;
-  statusText: string;
-  stats: { label: string; value: string }[];
-  isActive?: boolean;
-  actionText?: string;
-  isDiagnostics?: boolean;
-}
-
 export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   activeModule,
   onSelectModule,
@@ -132,35 +120,11 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 }) => {
   const [isProfilesOpen, setIsProfilesOpen] = useState(false);
   const [currentProfile, setCurrentProfile] = useState<CameraLensProfile>(activeProfile);
-  const [hoveredData, setHoveredData] = useState<{
-    data: HoverCardData;
-    top: number;
-    left: number;
-  } | null>(null);
 
   const handleSelectCineProfile = (prof: CameraLensProfile) => {
     setCurrentProfile(prof);
     if (onSelectProfile) onSelectProfile(prof);
     setIsProfilesOpen(false);
-  };
-
-  const handleMouseEnterButton = (e: React.MouseEvent<HTMLElement>, data: HoverCardData) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const cardEstimatedHeight = 250;
-    const targetCenter = rect.top + rect.height / 2;
-    const clampedTop = Math.max(
-      cardEstimatedHeight / 2 + 12,
-      Math.min(window.innerHeight - cardEstimatedHeight / 2 - 12, targetCenter)
-    );
-    setHoveredData({
-      data,
-      top: clampedTop,
-      left: rect.right + 12
-    });
-  };
-
-  const handleMouseLeaveButton = () => {
-    setHoveredData(null);
   };
 
   // Format current shot timecode at 24fps assuming 12.0s per shot
@@ -420,14 +384,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 
   return (
     <aside
-      className={`h-full select-none z-30 shrink-0 bg-black/90 backdrop-blur-2xl border-r border-white/5 flex flex-col justify-between font-mono-tech transition-all duration-200 relative ${
-        isCollapsed ? 'w-[72px]' : 'w-60 sm:w-64'
+      className={`h-full pb-[132px] select-none z-30 shrink-0 bg-black/90 backdrop-blur-2xl border-r border-white/5 flex flex-col font-mono-tech transition-all duration-200 relative ${
+        isCollapsed ? 'w-[58px]' : 'w-60 sm:w-64'
       }`}
     >
       {/* Top Section: Cine Profile Selector & Rail Toggle */}
-      <div className="shrink-0 border-b border-[#1c1c28] bg-[#0a0a10] p-2 flex flex-col gap-2">
+      <div className="shrink-0 border-b border-[#1c1c28] bg-[#0a0a10] p-2 flex flex-col items-center gap-1.5">
         {/* Rail Top Bar */}
-        <div className="flex items-center justify-between">
+        <div className="w-full flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center gap-1.5 min-w-0 pl-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shadow-[0_0_8px_#fbbf24]" />
@@ -436,69 +400,61 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
               </span>
             </div>
           )}
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className={`w-7 h-7 rounded-[4px] bg-[#14141e] hover:bg-[#1e1e2d] border border-white/10 hover:border-[#fbbf24] text-zinc-400 hover:text-[#fbbf24] flex items-center justify-center cursor-pointer transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),_0_2px_4px_rgba(0,0,0,0.5)] active:scale-95 ${
-              isCollapsed ? 'mx-auto' : ''
-            }`}
-            title={isCollapsed ? 'Expand Navigation Rail' : 'Collapse to Slim Minimalist Rail'}
-            aria-label={isCollapsed ? 'Expand Navigation Rail' : 'Collapse Navigation Rail'}
+          <ToolTooltip
+            placement="right"
+            title={isCollapsed ? 'EXPAND STUDIO RAIL' : 'COLLAPSE STUDIO RAIL'}
+            why="Toggles between compact icon rail and full module labels"
+            how="Click to expand or collapse the left navigation sidebar"
+            className={isCollapsed ? 'mx-auto' : ''}
           >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="w-9 h-9 rounded-[4px] bg-[#14141e] hover:bg-[#1e1e2d] border border-white/10 hover:border-[#fbbf24] text-zinc-400 hover:text-[#fbbf24] flex items-center justify-center cursor-pointer transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),_0_2px_4px_rgba(0,0,0,0.5)] active:scale-95"
+              aria-label={isCollapsed ? 'Expand Navigation Rail' : 'Collapse Navigation Rail'}
+            >
+              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+          </ToolTooltip>
         </div>
 
         {/* 3D Neomorphic Camera & Lens Profile Tile */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setIsProfilesOpen((prev) => !prev)}
-            onMouseEnter={(e) =>
-              handleMouseEnterButton(e, {
-                num: 'OPT',
-                name: 'CINE PROFILE',
-                title: currentProfile.body,
-                tag: 'OPTICS RIG',
-                desc: `${currentProfile.lens} paired with ${currentProfile.sensor} sensor gate. Shutter calibrated to ${currentProfile.shutter}.`,
-                statusText: '24 FPS CINE',
-                stats: [
-                  { label: 'BODY', value: currentProfile.body },
-                  { label: 'OPTICS', value: currentProfile.lens },
-                  { label: 'SENSOR', value: currentProfile.sensor },
-                  { label: 'DISC', value: currentProfile.shutter }
-                ],
-                actionText: 'CLICK TO SWITCH OPTICS'
-              })
-            }
-            onMouseLeave={handleMouseLeaveButton}
-            className={`w-full group rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-              isCollapsed
-                ? 'w-12 h-12 mx-auto flex items-center justify-center bg-gradient-to-b from-[#221c10] via-[#161208] to-[#0c0a05] border border-[#d4af37]/60 hover:border-[#fbbf24] shadow-[inset_0_1px_1px_rgba(251,191,36,0.25),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_6px_rgba(0,0,0,0.7)]'
-                : 'p-2 flex items-center justify-between bg-gradient-to-b from-[#1c1810] via-[#121008] to-[#0a0805] border border-[#d4af37]/50 hover:border-[#fbbf24] shadow-[inset_0_1px_1px_rgba(251,191,36,0.2),_0_2px_5px_rgba(0,0,0,0.6)]'
-            }`}
-            title={`CINE PROFILE: ${currentProfile.body} // ${currentProfile.lens}`}
-            aria-label="Camera & Lens Cine Profiles"
+        <div className={`relative ${isCollapsed ? 'flex justify-center' : 'w-full'}`}>
+          <ToolTooltip
+            placement="right"
+            title={`CINE RIG // ${currentProfile.body}`}
+            why={`${currentProfile.lens} paired with ${currentProfile.sensor} sensor gate`}
+            how="Click to switch active camera body and optical lens profile"
+            className={isCollapsed ? '' : 'w-full'}
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-[3px] bg-[#fbbf24]/15 border border-[#fbbf24]/40 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-                <Camera className="w-4 h-4 text-[#fbbf24] drop-shadow-[0_0_6px_rgba(245,166,35,0.7)]" />
+            <button
+              type="button"
+              onClick={() => setIsProfilesOpen((prev) => !prev)}
+              className={`group rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
+                isCollapsed
+                  ? 'w-9 h-9 flex items-center justify-center bg-gradient-to-b from-[#221c10] via-[#161208] to-[#0c0a05] border border-[#d4af37]/60 hover:border-[#fbbf24] shadow-[inset_0_1px_1px_rgba(251,191,36,0.25),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_6px_rgba(0,0,0,0.7)]'
+                  : 'w-full p-2 flex items-center justify-between bg-gradient-to-b from-[#1c1810] via-[#121008] to-[#0a0805] border border-[#d4af37]/50 hover:border-[#fbbf24] shadow-[inset_0_1px_1px_rgba(251,191,36,0.2),_0_2px_5px_rgba(0,0,0,0.6)]'
+              }`}
+              aria-label="Camera & Lens Cine Profiles"
+            >
+              <div className={`flex items-center min-w-0 ${isCollapsed ? 'justify-center' : 'gap-2'}`}>
+                <Camera className="w-4 h-4 text-[#fbbf24] shrink-0 drop-shadow-[0_0_6px_rgba(245,166,35,0.7)] group-hover:scale-105 transition-transform" />
+                {!isCollapsed && (
+                  <div className="min-w-0 text-left">
+                    <div className="text-[9.5px] font-black text-[#fbbf24] tracking-wider truncate uppercase">
+                      {currentProfile.body}
+                    </div>
+                    <div className="text-[8px] text-zinc-400 truncate">
+                      {currentProfile.lens}
+                    </div>
+                  </div>
+                )}
               </div>
               {!isCollapsed && (
-                <div className="min-w-0 text-left">
-                  <div className="text-[9.5px] font-black text-[#fbbf24] tracking-wider truncate uppercase">
-                    {currentProfile.body}
-                  </div>
-                  <div className="text-[8px] text-zinc-400 truncate">
-                    {currentProfile.lens}
-                  </div>
-                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-[#fbbf24] shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
               )}
-            </div>
-            {!isCollapsed && (
-              <ChevronDown className="w-3.5 h-3.5 text-[#fbbf24] shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
-            )}
-          </button>
+            </button>
+          </ToolTooltip>
 
           {/* Camera Profiles Popover Menu */}
           {isProfilesOpen && (
@@ -538,10 +494,9 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 
 
 
-      {/* 15 Core Modules: 3D Brutalist-Neomorphic Obsidian Buttons */}
-      <div 
-        onScroll={() => setHoveredData(null)}
-        className="flex-1 overflow-y-auto no-scrollbar py-2.5 px-2 flex flex-col items-center gap-2"
+      {/* Scrollable Vertical Icon List: Clean 36x36 centered tiles with gap-1.5 */}
+      <div
+        className="flex-1 min-h-0 overflow-y-auto no-scrollbar max-h-[calc(100vh-140px)] py-2 px-2 flex flex-col items-center gap-1.5"
       >
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -549,395 +504,196 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
             activeModule === item.id || (item.id === 'EDIT/CUT' && activeModule === 'EDIT/CUT');
 
           return (
-            <button
+            <ToolTooltip
               key={item.id}
-              type="button"
-              onClick={() => onSelectModule(item.id)}
-              onMouseEnter={(e) =>
-                handleMouseEnterButton(e, {
-                  num: item.num,
-                  name: item.name,
-                  title: item.title,
-                  tag: item.tag,
-                  desc: item.desc,
-                  statusText: item.statusText,
-                  stats: item.stats,
-                  isActive,
-                  actionText: isActive ? 'CURRENTLY ACTIVE MODULE' : 'CLICK TO ACTIVATE'
-                })
-              }
-              onMouseLeave={handleMouseLeaveButton}
-              aria-label={`Module ${item.num}: ${item.name}`}
-              className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 select-none active:translate-y-0.5 ${
-                isCollapsed
-                  ? 'w-12 h-12 flex items-center justify-center'
-                  : 'w-full px-3 py-2 flex items-center gap-3'
-              } ${
-                isActive
-                  ? 'bg-gradient-to-b from-[#2a2214] via-[#1a150b] to-[#0f0c05] border border-[#d4af37] shadow-[inset_0_1.5px_2px_rgba(251,191,36,0.35),_inset_0_-1px_3px_rgba(0,0,0,0.95),_0_0_14px_rgba(245,166,35,0.35)]'
-                  : 'bg-gradient-to-b from-[#1c1c28] via-[#13131d] to-[#0b0b12] border border-white/10 hover:border-[#d4af37]/70 hover:from-[#252538] hover:to-[#12121e] shadow-[inset_0_1px_1px_rgba(255,255,255,0.16),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_5px_rgba(0,0,0,0.65)]'
-              }`}
+              placement="right"
+              title={`${item.name} — ${item.title}`}
+              why={item.desc}
+              how={`Click to open ${item.name} (${item.statusText})`}
+              className={isCollapsed ? '' : 'w-full'}
             >
-              {/* Active Golden Edge Accent */}
-              {isActive && (
-                <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#fbbf24] rounded-r shadow-[0_0_8px_#fbbf24]" />
-              )}
-
-              {/* Module Icon - Prominent, exact symbol */}
-              <Icon
-                className={`w-5 h-5 sm:w-5.5 sm:h-5.5 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
+              <button
+                type="button"
+                onClick={() => onSelectModule(item.id)}
+                aria-label={`Module ${item.num}: ${item.name}`}
+                className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 select-none active:translate-y-0.5 shrink-0 ${
+                  isCollapsed
+                    ? 'w-9 h-9 flex items-center justify-center'
+                    : 'w-full px-3 py-2 flex items-center gap-3'
+                } ${
                   isActive
-                    ? 'text-[#fbbf24] drop-shadow-[0_0_8px_rgba(245,166,35,0.85)]'
-                    : 'text-zinc-400 group-hover:text-amber-300'
+                    ? 'bg-gradient-to-b from-[#2a2214] via-[#1a150b] to-[#0f0c05] border border-[#d4af37] shadow-[inset_0_1.5px_2px_rgba(251,191,36,0.35),_inset_0_-1px_3px_rgba(0,0,0,0.95),_0_0_12px_rgba(245,166,35,0.3)]'
+                    : 'bg-gradient-to-b from-[#1c1c28] via-[#13131d] to-[#0b0b12] border border-white/10 hover:border-[#d4af37]/70 hover:from-[#252538] hover:to-[#12121e] shadow-[inset_0_1px_1px_rgba(255,255,255,0.14),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_5px_rgba(0,0,0,0.65)]'
                 }`}
-              />
+              >
+                {/* Active Golden Edge Accent */}
+                {isActive && (
+                  <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#fbbf24] rounded-r shadow-[0_0_8px_#fbbf24]" />
+                )}
 
-              {/* Subtle Corner Number in Slim Mode */}
-              {isCollapsed && (
-                <span
-                  className={`absolute bottom-0.5 right-1 text-[7.5px] font-mono tracking-tighter select-none transition-colors ${
+                {/* Centered Module Icon (no overlapping corner badges) */}
+                <Icon
+                  className={`w-4 h-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
                     isActive
-                      ? 'text-[#fbbf24] font-black'
-                      : 'text-zinc-500/70 group-hover:text-amber-400/90'
+                      ? 'text-[#fbbf24] drop-shadow-[0_0_8px_rgba(245,166,35,0.85)]'
+                      : 'text-zinc-400 group-hover:text-amber-300'
                   }`}
-                >
-                  {item.num}
-                </span>
-              )}
+                />
 
-              {/* Expanded Mode Details */}
-              {!isCollapsed && (
-                <div className="min-w-0 text-left flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`text-[8px] font-mono px-1 py-0.2 rounded font-bold ${
-                        isActive
-                          ? 'bg-[#d4af37] text-black'
-                          : 'bg-white/5 text-zinc-400 group-hover:text-zinc-200'
-                      }`}
-                    >
-                      {item.num}
-                    </span>
-                    <span
-                      className={`text-[10px] font-black tracking-wider truncate uppercase ${
-                        isActive ? 'text-[#fbbf24]' : 'text-zinc-200'
-                      }`}
-                    >
-                      {item.name}
-                    </span>
-                    {(item.num === '05' || item.num === '07') && (
+                {/* Expanded Mode Details */}
+                {!isCollapsed && (
+                  <div className="min-w-0 text-left flex-1">
+                    <div className="flex items-center gap-1.5">
                       <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenMultiCam?.();
-                        }}
-                        className="ml-auto px-1.5 py-0.5 rounded bg-[#F5A623]/20 hover:bg-[#F5A623]/40 border border-[#F5A623]/50 text-[#F5A623] hover:text-white text-[7.5px] font-mono font-bold flex items-center gap-0.5 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
-                        title="Open Multi-Cam Angle Grid (CapCut Mode) (Shift+M)"
+                        className={`text-[10px] font-black tracking-wider truncate uppercase ${
+                          isActive ? 'text-[#fbbf24]' : 'text-zinc-200'
+                        }`}
                       >
-                        <span>⊞</span>
-                        <span>Multi-Cam</span>
+                        {item.name}
                       </span>
-                    )}
+                      {(item.num === '05' || item.num === '07') && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenMultiCam?.();
+                          }}
+                          className="ml-auto px-1.5 py-0.5 rounded bg-[#F5A623]/20 hover:bg-[#F5A623]/40 border border-[#F5A623]/50 text-[#F5A623] hover:text-white text-[7.5px] font-mono font-bold flex items-center gap-0.5 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                          title="Open Multi-Cam Angle Grid (Shift+M)"
+                        >
+                          <span>⊞</span>
+                          <span>Multi-Cam</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[8px] text-zinc-500 truncate leading-tight group-hover:text-zinc-400 mt-0.5">
+                      {item.desc}
+                    </div>
                   </div>
-                  <div className="text-[8px] text-zinc-500 truncate leading-tight group-hover:text-zinc-400 mt-0.5">
-                    {item.desc}
-                  </div>
-                </div>
-              )}
-            </button>
+                )}
+              </button>
+            </ToolTooltip>
           );
         })}
       </div>
 
-      {/* Bottom Section: 3D Chiseled Buttons for VAULT, PRO MODE, and SELF-TEST */}
-      <div className="shrink-0 border-t border-[#1c1c28] bg-[#0a0a10] p-2 flex flex-col items-center gap-2">
+      {/* Bottom Utility Cluster: Cleared above ControlDock timeline strip */}
+      <div className="shrink-0 border-t border-[#1c1c28] bg-[#0a0a10] p-2 flex flex-col items-center gap-1.5">
         {/* 1. VAULT MODE Button */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onOpenVaultMode) onOpenVaultMode();
-            else onSelectModule('MEDIA');
-          }}
-          onMouseEnter={(e) =>
-            handleMouseEnterButton(e, {
-              num: 'VLT',
-              name: 'PROJECT VAULT',
-              title: 'INDEXEDDB LOCAL STORAGE VAULT',
-              tag: 'BROWSER VAULT',
-              desc: 'Persistent client-side database, snapshot checkpoints, and multi-project catalog.',
-              statusText: 'IDB SECURE',
-              stats: [
-                { label: 'DATABASE', value: 'handfilm_db / rawx_storage' },
-                { label: 'ACTIVE SHOTS', value: `${totalShots} Frames Cached` },
-                { label: 'PERSISTENCE', value: saveState.toUpperCase() },
-                { label: 'FORMAT', value: 'JSON / OTIO / ZIP' }
-              ],
-              actionText: 'CLICK TO OPEN PROJECT VAULT'
-            })
-          }
-          onMouseLeave={handleMouseLeaveButton}
-          className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-            isCollapsed
-              ? 'w-12 h-11 flex items-center justify-center'
-              : 'w-full px-3 py-2 flex items-center justify-between'
-          } bg-gradient-to-b from-[#1b1b26] via-[#12121b] to-[#0a0a10] border border-white/10 hover:border-[#d4af37] text-zinc-300 hover:text-[#fbbf24] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_inset_0_-1px_2px_rgba(0,0,0,0.85),_0_2px_5px_rgba(0,0,0,0.6)]`}
-          title="VAULT MODE — Multi-Project Vault Manager & Local Storage Archive"
-          aria-label="Vault Mode"
+        <ToolTooltip
+          placement="right"
+          title="PROJECT VAULT"
+          why="Persistent IndexedDB multi-project vault and local archive snapshots"
+          how="Click to open the multi-project vault manager"
+          className={isCollapsed ? '' : 'w-full'}
         >
-          <div className="flex items-center gap-2.5">
-            <FolderOpen className="w-5 h-5 text-[#fbbf24] group-hover:scale-110 transition-transform" />
-            {!isCollapsed && (
-              <span className="text-[10px] font-black tracking-wider uppercase text-zinc-200 group-hover:text-[#fbbf24]">
-                VAULT MODE
-              </span>
-            )}
-          </div>
-          {!isCollapsed && (
-            <span className="text-[7.5px] bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fbbf24] px-1 py-0.2 rounded font-bold">
-              IDB
-            </span>
-          )}
-        </button>
-
-        {/* 2. PRO MODE Switch */}
-        <button
-          type="button"
-          onClick={onToggleProMode}
-          onMouseEnter={(e) =>
-            handleMouseEnterButton(e, {
-              num: 'PRO',
-              name: 'DIRECTOR TELEMETRY',
-              title: 'PRO MONITORING & SCOPES',
-              tag: 'STUDIO OVERLAY',
-              desc: 'Live video waveform, vectorscope, 14-zone false-color exposure, and optical focus peaking.',
-              statusText: isProMode ? 'PRO: ACTIVE' : 'PRO: STANDBY',
-              stats: [
-                { label: 'STATE', value: isProMode ? 'ACTIVE (HOTKEY P)' : 'STANDBY' },
-                { label: 'VIDEO SCOPES', value: 'Luma Waveform + RGB' },
-                { label: 'GUIDES', value: 'Rule of Thirds + 2.39:1' },
-                { label: 'PEAKING', value: 'Edge Sharpness Assist' }
-              ],
-              actionText: isProMode ? 'CLICK TO DISABLE PRO MODE' : 'CLICK TO ENABLE PRO MODE'
-            })
-          }
-          onMouseLeave={handleMouseLeaveButton}
-          className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-            isCollapsed
-              ? 'w-12 h-11 flex items-center justify-center'
-              : 'w-full px-3 py-2 flex items-center justify-between'
-          } bg-gradient-to-b from-[#1b1b26] via-[#12121b] to-[#0a0a10] border ${
-            isProMode ? 'border-[#fbbf24] shadow-[0_0_12px_rgba(251,191,36,0.25)]' : 'border-white/10'
-          } hover:border-[#fbbf24] text-zinc-300 hover:text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_inset_0_-1px_2px_rgba(0,0,0,0.85),_0_2px_5px_rgba(0,0,0,0.6)]`}
-          title={`PRO MODE: ${isProMode ? 'ENABLED' : 'DISABLED'} — Toggle Director Telemetry`}
-          aria-label="Toggle Pro Mode"
-        >
-          <div className="flex items-center gap-2.5">
-            <SlidersHorizontal
-              className={`w-5 h-5 transition-colors group-hover:scale-110 ${
-                isProMode ? 'text-[#fbbf24] drop-shadow-[0_0_6px_rgba(245,166,35,0.8)]' : 'text-zinc-400 group-hover:text-white'
-              }`}
-            />
-            {!isCollapsed && (
-              <span className="text-[10px] font-black tracking-wider uppercase text-zinc-200 group-hover:text-[#fbbf24]">
-                PRO MODE
-              </span>
-            )}
-          </div>
-
-          {/* Status Indicator LED */}
-          {isCollapsed ? (
-            <span
-              className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full transition-all ${
-                isProMode ? 'bg-[#fbbf24] shadow-[0_0_8px_#fbbf24]' : 'bg-zinc-700'
-              }`}
-            />
-          ) : (
-            <div
-              className={`w-7 h-3.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out relative ${
-                isProMode ? 'bg-[#d4af37]' : 'bg-zinc-700'
-              }`}
-            >
-              <div
-                className={`w-2.5 h-2.5 rounded-full bg-black transition-transform duration-200 ease-in-out ${
-                  isProMode ? 'translate-x-3.5' : 'translate-x-0'
-                }`}
-              />
-            </div>
-          )}
-        </button>
-
-        {/* 3. SELF-TEST Diagnostics Button */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onOpenSelfTest) onOpenSelfTest();
-            else onSelectModule('SETTINGS');
-          }}
-          onMouseEnter={(e) =>
-            handleMouseEnterButton(e, {
-              num: 'TEST',
-              name: 'HARDWARE BENCHMARK',
-              title: 'STUDIO DIAGNOSTICS & SELF-TEST',
-              tag: 'GPU / WEBGL',
-              desc: 'Benchmark WebGL canvas throughput, frame pacing jitter, IndexedDB I/O latency, and audio decoders.',
-              statusText: 'BENCHMARK READY',
-              isDiagnostics: true,
-              stats: [
-                { label: 'TEST SUITE', value: '8 Sub-System Diagnostics' },
-                { label: 'FRAME JITTER', value: '<0.4ms Target Precision' },
-                { label: 'GPU BACKEND', value: 'Hardware Canvas 2D' },
-                { label: 'MEMORY GAUGE', value: 'IndexedDB Quota Active' }
-              ],
-              actionText: 'CLICK TO RUN DIAGNOSTICS'
-            })
-          }
-          onMouseLeave={handleMouseLeaveButton}
-          className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
-            isCollapsed
-              ? 'w-12 h-11 flex items-center justify-center'
-              : 'w-full px-3 py-2 flex items-center justify-center gap-2'
-          } bg-gradient-to-b from-[#241318] via-[#170a0e] to-[#0d0508] border border-rose-500/40 hover:border-rose-400 text-rose-300 shadow-[inset_0_1px_1px_rgba(244,63,94,0.25),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_5px_rgba(0,0,0,0.7)]`}
-          title="SELF-TEST — Run Studio Diagnostics Benchmark"
-          aria-label="Diagnostics Self-Test"
-        >
-          <Activity className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform" />
-          {!isCollapsed && (
-            <span className="text-[10px] font-black tracking-wider uppercase text-rose-300">
-              SELF-TEST
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Dynamic Floating Hover Card - Rendered unclipped at viewport root */}
-      {hoveredData && (
-        <div
-          style={{
-            top: `${hoveredData.top}px`,
-            left: `${hoveredData.left}px`,
-            transform: 'translateY(-50%)'
-          }}
-          className={`fixed w-80 p-3.5 bg-[#0a0a14]/98 border ${
-            hoveredData.data.isDiagnostics ? 'border-rose-500/70' : 'border-[#d4af37]/70'
-          } rounded-[5px] shadow-[0_20px_50px_rgba(0,0,0,0.98),0_0_24px_${
-            hoveredData.data.isDiagnostics ? 'rgba(244,63,94,0.22)' : 'rgba(245,166,35,0.22)'
-          }] backdrop-blur-2xl pointer-events-none z-[9999] text-left font-mono select-none animate-in fade-in zoom-in-95 duration-100`}
-        >
-          {/* Connector Arrow */}
-          <div
-            className={`absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#0a0a14] border-l border-b ${
-              hoveredData.data.isDiagnostics ? 'border-rose-500/70' : 'border-[#d4af37]/70'
-            } rotate-45`}
-          />
-
-          {/* Header */}
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-[9.5px] font-bold uppercase">
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  hoveredData.data.isDiagnostics
-                    ? 'bg-rose-400 shadow-[0_0_8px_#f43f5e]'
-                    : 'bg-[#fbbf24] shadow-[0_0_8px_#fbbf24]'
-                }`}
-              />
-              <span className={hoveredData.data.isDiagnostics ? 'text-rose-400' : 'text-[#fbbf24]'}>
-                {hoveredData.data.num ? `${hoveredData.data.num} // ` : ''}
-                {hoveredData.data.name}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[7.5px] px-1.5 py-0.5 bg-white/5 border border-white/10 text-zinc-400 rounded tracking-wider">
-                {hoveredData.data.tag}
-              </span>
-              {hoveredData.data.isActive ? (
-                <span className="text-[7.5px] px-1.5 py-0.5 bg-[#fbbf24]/20 border border-[#fbbf24]/60 text-[#fbbf24] rounded font-black tracking-wider">
-                  ACTIVE
-                </span>
-              ) : (
-                <span
-                  className={`text-[7.5px] px-1.5 py-0.5 rounded font-semibold tracking-wider ${
-                    hoveredData.data.isDiagnostics
-                      ? 'bg-rose-500/15 border border-rose-500/30 text-rose-300'
-                      : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
-                  }`}
-                >
-                  {hoveredData.data.statusText}
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenVaultMode) onOpenVaultMode();
+              else onSelectModule('MEDIA');
+            }}
+            className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
+              isCollapsed
+                ? 'w-9 h-9 flex items-center justify-center'
+                : 'w-full px-3 py-2 flex items-center justify-between'
+            } bg-gradient-to-b from-[#1b1b26] via-[#12121b] to-[#0a0a10] border border-white/10 hover:border-[#d4af37] text-zinc-300 hover:text-[#fbbf24] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_inset_0_-1px_2px_rgba(0,0,0,0.85),_0_2px_5px_rgba(0,0,0,0.6)]`}
+            aria-label="Vault Mode"
+          >
+            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
+              <FolderOpen className="w-4 h-4 text-[#fbbf24] group-hover:scale-110 transition-transform" />
+              {!isCollapsed && (
+                <span className="text-[10px] font-black tracking-wider uppercase text-zinc-200 group-hover:text-[#fbbf24]">
+                  VAULT MODE
                 </span>
               )}
             </div>
-          </div>
-
-          {/* Module Title */}
-          <div className="text-[11.5px] font-black text-white uppercase tracking-wider mb-1 drop-shadow-sm">
-            {hoveredData.data.title}
-          </div>
-
-          {/* Description */}
-          <p className="text-[9.5px] text-zinc-300 font-sans leading-relaxed mb-2.5">
-            {hoveredData.data.desc}
-          </p>
-
-          {/* Dynamic Usage Statistics Box */}
-          <div className="p-2 rounded-[3px] bg-black/60 border border-white/10 shadow-inner mb-2.5">
-            <div className="flex items-center justify-between text-[7.5px] font-mono text-zinc-400 font-bold uppercase tracking-widest pb-1 mb-1.5 border-b border-white/5">
-              <span className="flex items-center gap-1">
-                <span
-                  className={
-                    hoveredData.data.isDiagnostics
-                      ? 'text-rose-400 font-black'
-                      : 'text-[#fbbf24] font-black'
-                  }
-                >
-                  //
-                </span>{' '}
-                USAGE & ENGINE TELEMETRY
+            {!isCollapsed && (
+              <span className="text-[7.5px] bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fbbf24] px-1 py-0.2 rounded font-bold">
+                IDB
               </span>
-              <span
-                className={
-                  hoveredData.data.isDiagnostics ? 'text-rose-400' : 'text-[#fbbf24]'
-                }
-              >
-                {hoveredData.data.statusText}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[8.5px]">
-              {hoveredData.data.stats.map((stat, i) => (
-                <div key={i} className="flex flex-col min-w-0">
-                  <span className="text-[7px] text-zinc-500 uppercase tracking-wider font-semibold truncate">
-                    {stat.label}
-                  </span>
-                  <span className="text-zinc-200 font-mono font-bold truncate">
-                    {stat.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+            )}
+          </button>
+        </ToolTooltip>
 
-          {/* Footer Bar */}
-          <div className="pt-1.5 border-t border-white/10 flex items-center justify-between text-[8px] text-zinc-400 font-mono">
-            <span className="flex items-center gap-1 text-zinc-500">
-              <span
-                className={
-                  hoveredData.data.isDiagnostics ? 'text-rose-400' : 'text-[#fbbf24]'
-                }
+        {/* 2. PRO MODE Switch */}
+        <ToolTooltip
+          placement="right"
+          title="DIRECTOR TELEMETRY (PRO)"
+          why="Toggles video waveform scopes, false-color exposure, and focus peaking"
+          how={isProMode ? 'Currently ACTIVE — click to disable telemetry' : 'Click to activate Pro scopes'}
+          className={isCollapsed ? '' : 'w-full'}
+        >
+          <button
+            type="button"
+            onClick={onToggleProMode}
+            className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
+              isCollapsed
+                ? 'w-9 h-9 flex items-center justify-center'
+                : 'w-full px-3 py-2 flex items-center justify-between'
+            } bg-gradient-to-b from-[#1b1b26] via-[#12121b] to-[#0a0a10] border ${
+              isProMode ? 'border-[#fbbf24] shadow-[0_0_12px_rgba(251,191,36,0.25)]' : 'border-white/10'
+            } hover:border-[#fbbf24] text-zinc-300 hover:text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_inset_0_-1px_2px_rgba(0,0,0,0.85),_0_2px_5px_rgba(0,0,0,0.6)]`}
+            aria-label="Toggle Pro Mode"
+          >
+            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
+              <SlidersHorizontal
+                className={`w-4 h-4 transition-colors group-hover:scale-110 ${
+                  isProMode ? 'text-[#fbbf24] drop-shadow-[0_0_6px_rgba(245,166,35,0.8)]' : 'text-zinc-400 group-hover:text-white'
+                }`}
+              />
+              {!isCollapsed && (
+                <span className="text-[10px] font-black tracking-wider uppercase text-zinc-200 group-hover:text-[#fbbf24]">
+                  PRO MODE
+                </span>
+              )}
+            </div>
+
+            {!isCollapsed && (
+              <div
+                className={`w-7 h-3.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out relative ${
+                  isProMode ? 'bg-[#d4af37]' : 'bg-zinc-700'
+                }`}
               >
-                ▶
-              </span>{' '}
-              {hoveredData.data.actionText || 'CLICK TO ACTIVATE'}
-            </span>
-            <span
-              className={
-                hoveredData.data.isDiagnostics
-                  ? 'text-rose-400 font-bold tracking-wider'
-                  : 'text-[#fbbf24] font-bold tracking-wider'
-              }
-            >
-              HANDFILM SUITE
-            </span>
-          </div>
-        </div>
-      )}
+                <div
+                  className={`w-2.5 h-2.5 rounded-full bg-black transition-transform duration-200 ease-in-out ${
+                    isProMode ? 'translate-x-3.5' : 'translate-x-0'
+                  }`}
+                />
+              </div>
+            )}
+          </button>
+        </ToolTooltip>
+
+        {/* 3. SELF-TEST Diagnostics Button */}
+        <ToolTooltip
+          placement="right"
+          title="STUDIO DIAGNOSTICS"
+          why="Benchmarks WebGL throughput, frame jitter, IndexedDB I/O, and decoders"
+          how="Click to run hardware self-test suite"
+          className={isCollapsed ? '' : 'w-full'}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenSelfTest) onOpenSelfTest();
+              else onSelectModule('SETTINGS');
+            }}
+            className={`group relative rounded-[4px] cursor-pointer transition-all duration-150 active:translate-y-0.5 ${
+              isCollapsed
+                ? 'w-9 h-9 flex items-center justify-center'
+                : 'w-full px-3 py-2 flex items-center justify-center gap-2'
+            } bg-gradient-to-b from-[#241318] via-[#170a0e] to-[#0d0508] border border-rose-500/40 hover:border-rose-400 text-rose-300 shadow-[inset_0_1px_1px_rgba(244,63,94,0.25),_inset_0_-1px_2px_rgba(0,0,0,0.9),_0_2px_5px_rgba(0,0,0,0.7)]`}
+            aria-label="Diagnostics Self-Test"
+          >
+            <Activity className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+            {!isCollapsed && (
+              <span className="text-[10px] font-black tracking-wider uppercase text-rose-300">
+                SELF-TEST
+              </span>
+            )}
+          </button>
+        </ToolTooltip>
+      </div>
     </aside>
   );
 };

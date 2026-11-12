@@ -1233,9 +1233,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         {/* ======================================================= */}
         {/* 3. RIGHT WING: TITLES, ZEN, OPTICS & TOOLS */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Titles ON/OFF & Quick Edit Icon Pair */}
-          <div className="relative flex items-center gap-1 shrink-0">
+          <div className="relative flex items-center gap-2 shrink-0">
             {onToggleTitles && (
               <ToolTooltip
                 title="KINETIC TITLES"

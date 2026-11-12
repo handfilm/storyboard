@@ -61,6 +61,7 @@ interface MainWorkspaceProps {
   onNextFrame: () => void;
   onSelectFrame: (index: number) => void;
   onUploadImage: (file: File) => void;
+  onUploadMediaForIndex?: (index: number, file: File) => void;
   onOpenInspector: () => void;
   onQuickSampleImage: () => void;
   onPopulateAllFrames: () => void;
@@ -135,6 +136,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onNextFrame,
   onSelectFrame,
   onUploadImage,
+  onUploadMediaForIndex,
   onOpenInspector,
   onQuickSampleImage,
   onPopulateAllFrames,
@@ -543,7 +545,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 onLoadAudioFile={onLoadAudioFile}
                 onUploadMedia={(idx, file) => {
                   onSelectFrame(idx);
-                  onUploadImage(file);
+                  if (onUploadMediaForIndex) {
+                    onUploadMediaForIndex(idx, file);
+                  } else {
+                    onUploadImage(file);
+                  }
                 }}
               />
             </div>

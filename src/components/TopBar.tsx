@@ -730,9 +730,12 @@ export const TopBar: React.FC<TopBarProps> = ({
               type="button"
               onClick={onOpenShortcuts}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#12131d] hover:bg-[#1c1d2c] border-2 border-[#2f3246] hover:border-[#F5A623] text-[#F5A623] font-mono text-sm sm:text-base flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-95"
-              title="Keyboard Shortcuts Cheat Sheet (⌘ / ⌨)"
+              title="Keyboard Shortcuts Cheat Sheet (Press '?' to toggle)"
             >
-              <span className="font-bold text-sm sm:text-base leading-none select-none">⌘</span>
+              <span className="font-bold text-xs sm:text-sm leading-none select-none flex items-center gap-0.5">
+                <span>⌘</span>
+                <span className="text-[10px] text-zinc-400 font-mono hidden sm:inline">?</span>
+              </span>
             </button>
 
             {/* Floating Hotkey Cheat Sheet Popover on Hover */}

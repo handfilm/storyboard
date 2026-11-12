@@ -134,8 +134,9 @@ class KeyScopeManager {
       if (this.isInputElement(e.target)) return;
 
       // 2. Global Shortcut Cheat Sheet: '?' or Shift+/
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      if (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'))) {
         e.preventDefault();
+        e.stopPropagation();
         this.onToggleCheatSheet?.();
         return;
       }

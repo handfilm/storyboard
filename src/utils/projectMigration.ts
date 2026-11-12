@@ -11,6 +11,45 @@ import { generateInitialFrames } from '../data/frames';
 import { clampShotDuration } from '../types/storyboard';
 
 /**
+ * Ensures every frame/shot in a sequence has a unique finite numeric `id`.
+ * Preserves existing unique IDs and reassigns only missing or colliding IDs
+ * above the current maximum ID so valid frames do not shift unexpectedly.
+ */
+export function ensureUniqueFrameIds<T extends { id?: number }>(frames: T[]): T[] {
+  if (!Array.isArray(frames) || frames.length === 0) return frames;
+  let maxId = -1;
+  for (const frame of frames) {
+    if (typeof frame?.id === 'number' && Number.isFinite(frame.id) && frame.id > maxId) {
+      maxId = frame.id;
+    }
+  }
+  const seenIds = new Set<number>();
+  return frames.map((frame) => {
+    const rawId = frame?.id;
+    if (typeof rawId === 'number' && Number.isFinite(rawId) && !seenIds.has(rawId)) {
+      seenIds.add(rawId);
+      return frame;
+    }
+    maxId += 1;
+    seenIds.add(maxId);
+    return { ...frame, id: maxId };
+  });
+}
+
+/**
+ * Returns a fresh numeric frame ID guaranteed not to collide with any existing frame ID.
+ */
+export function getNextUniqueFrameId(frames: Array<{ id?: number }>): number {
+  let maxId = -1;
+  for (const frame of frames) {
+    if (typeof frame?.id === 'number' && Number.isFinite(frame.id) && frame.id > maxId) {
+      maxId = frame.id;
+    }
+  }
+  return maxId + 1;
+}
+
+/**
  * Converts an AnthologyFrame or partial legacy frame to a versioned ShotV1
  */
 export function convertFrameToShotV1(frame: Partial<AnthologyFrame> | any, sceneId = 'scene-01', index = 0): ShotV1 {

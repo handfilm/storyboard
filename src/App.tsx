@@ -48,7 +48,7 @@ import { calculateSlideshowInterval } from './utils/engine';
 import { exportFullIdbBackup } from './utils/backup';
 import { storageManager, SaveState } from './core/storage';
 import { ProjectV1 } from './types/projectSchema';
-import { migrateToProjectV1, convertShotV1ToFrame } from './utils/projectMigration';
+import { migrateToProjectV1, convertShotV1ToFrame, ensureUniqueFrameIds, getNextUniqueFrameId } from './utils/projectMigration';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
@@ -262,7 +262,7 @@ export default function App() {
           return {
             ...prev,
             title: session.projectTitle || prev.title,
-            frames: mergedFrames
+            frames: ensureUniqueFrameIds(mergedFrames)
           };
         });
         setCurrentIndex(cur =>
@@ -377,7 +377,7 @@ export default function App() {
           return {
             ...prev,
             title: imported.projectTitle || prev.title,
-            frames: merged
+            frames: ensureUniqueFrameIds(merged)
           };
         });
       }
@@ -455,9 +455,11 @@ export default function App() {
     const baseFrames = generateInitialFrames();
 
     // Preserve exact saved frame count so permanently deleted frames are never resurrected
-    const frames = safeShots.length > 0
-      ? safeShots.map((shot, idx) => convertShotV1ToFrame(shot, idx))
-      : baseFrames;
+    const frames = ensureUniqueFrameIds(
+      safeShots.length > 0
+        ? safeShots.map((shot, idx) => convertShotV1ToFrame(shot, idx))
+        : baseFrames
+    );
 
     setActiveProjectId(p.id || 'default-project');
     setProject({
@@ -632,8 +634,12 @@ export default function App() {
       setProject(prev => {
         const nextFrames = [...prev.frames];
         const newDur = shot?.durationSeconds || shot?.durationSec || 5.0;
+        const usedIds = new Set(nextFrames.map(f => f.id));
+        const candidateId = typeof shot?.id === 'number' && Number.isFinite(shot.id) && !usedIds.has(shot.id)
+          ? shot.id
+          : getNextUniqueFrameId(nextFrames);
         const newFrame: AnthologyFrame = {
-          id: shot?.id || nextFrames.length + 1,
+          id: candidateId,
           epNumber: shot?.epNumber || String(nextFrames.length + 1).padStart(3, '0'),
           title: shot?.title || `Shot ${nextFrames.length + 1}`,
           bengaliTitle: shot?.bengaliTitle || '',
@@ -907,7 +913,7 @@ export default function App() {
         setProject(prev => ({
           ...prev,
           title: loadedDraft.projectId,
-          frames: loadedDraft.slides.map((s, idx) => {
+          frames: ensureUniqueFrameIds(loadedDraft.slides.map((s, idx) => {
             const restoredDur = getShotDurationSec(s, 12.0);
             return {
               id: idx + 1,
@@ -949,7 +955,7 @@ export default function App() {
               },
               tags: ['Scene', `${restoredDur}s`]
             };
-          })
+          }))
         }));
       }
     } else {
@@ -1577,7 +1583,7 @@ export default function App() {
   const handleBatchInjectCompilation = useCallback(async (newFrames: AnthologyFrame[]) => {
     setProject(prev => ({
       ...prev,
-      frames: newFrames
+      frames: ensureUniqueFrameIds(newFrames)
     }));
     setCurrentIndex(0);
     setSlideTimeSec(0);
@@ -1593,14 +1599,14 @@ export default function App() {
     }
   }, []);
 
-  // Rapid Ingestion Pipeline: Direct Synchronous Preview + Background Persistence
-  const handleUploadImage = useCallback(async (file: File) => {
+  // Universal Ingestion Pipeline: Direct Synchronous Preview + Background Persistence for any shot index
+  const handleUploadMediaForIndex = useCallback(async (targetIndex: number, file: File) => {
     try {
       await handleFileUpload(file, {
-        shotIndex: currentIndex,
+        shotIndex: targetIndex,
         onImmediatePreview: (item) => {
-          const current = project.frames[currentIndex] || { id: currentIndex + 1 };
-          const shotNum = String(currentIndex + 1).padStart(3, '0');
+          const current = project.frames[targetIndex] || { id: targetIndex + 1 };
+          const shotNum = String(targetIndex + 1).padStart(3, '0');
           const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
             ? `SH${shotNum} // KINETIC FLOW`
             : current.title;
@@ -1619,7 +1625,7 @@ export default function App() {
             soundCue: soundCue
           });
 
-          useStudioStore.getState().updateShot(currentIndex, {
+          useStudioStore.getState().updateShot(targetIndex, {
             imageUrl: item.objectUrl,
             thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
             isVideo: item.isVideo,
@@ -1629,24 +1635,29 @@ export default function App() {
           });
         },
         onMetadataReady: (item) => {
-          const current = project.frames[currentIndex];
+          const current = project.frames[targetIndex];
           if (item.thumbnailUrl && current) {
-            thumbnailMemoryCache.set(String(current.id ?? currentIndex + 1), item.thumbnailUrl);
-            thumbnailMemoryCache.set(`shot_${currentIndex}`, item.thumbnailUrl);
+            thumbnailMemoryCache.set(String(current.id ?? targetIndex + 1), item.thumbnailUrl);
+            thumbnailMemoryCache.set(`shot_${targetIndex}`, item.thumbnailUrl);
             handleUpdateFrame({
               ...current,
               thumbnailUrl: item.thumbnailUrl
             });
-            useStudioStore.getState().updateShot(currentIndex, {
+            useStudioStore.getState().updateShot(targetIndex, {
               thumbnailUrl: item.thumbnailUrl
             });
           }
         }
       });
     } catch (err) {
-      console.warn('[RECOVERY FALLBACK] handleUploadImage error:', err);
+      console.warn('[RECOVERY FALLBACK] handleUploadMediaForIndex error:', err);
     }
-  }, [currentIndex, project.frames, handleUpdateFrame]);
+  }, [project.frames, handleUpdateFrame]);
+
+  // Rapid Ingestion Pipeline: Direct Synchronous Preview + Background Persistence
+  const handleUploadImage = useCallback(async (file: File) => {
+    await handleUploadMediaForIndex(currentIndex, file);
+  }, [currentIndex, handleUploadMediaForIndex]);
 
   // Instant Decision Purge (Shift + Delete): zero-loss RAM cleanup
   const handlePurgeMedia = useCallback(() => {
@@ -1703,6 +1714,13 @@ export default function App() {
         setWorkspaceMode('STAGE');
         setIsDrawerOpen(false);
         setActiveDualPanel('MULTICAM');
+        return;
+      }
+
+      // Global Shortcut Cheat Sheet: '?' or Shift+/
+      if (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'))) {
+        e.preventDefault();
+        setIsShortcutsOpen(prev => !prev);
         return;
       }
 
@@ -1921,18 +1939,19 @@ export default function App() {
   );
 
   const handleReorderFrames = useCallback((newFrames: AnthologyFrame[]) => {
-    const safeNextIndex = Math.max(0, Math.min(newFrames.length - 1, currentIndex));
+    const safeFrames = ensureUniqueFrameIds(newFrames);
+    const safeNextIndex = Math.max(0, Math.min(safeFrames.length - 1, currentIndex));
     setHistoryStack(h => [...h.slice(-19), project]);
     setRedoStack([]);
     setProject(prev => ({
       ...prev,
-      frames: newFrames
+      frames: safeFrames
     }));
     if (safeNextIndex !== currentIndex) {
       setCurrentIndex(safeNextIndex);
       setSlideTimeSec(0);
     }
-    syncFramesToStoreAndSession(newFrames, safeNextIndex);
+    syncFramesToStoreAndSession(safeFrames, safeNextIndex);
   }, [currentIndex, project, syncFramesToStoreAndSession]);
 
   const handlePermanentDeleteFrames = useCallback((remainingFrames: AnthologyFrame[], deletedIds: number[]) => {
@@ -2149,6 +2168,8 @@ export default function App() {
           onOpenExportXml={() => handleOpenExportStudio('premiere')}
           onOpenExportRange={() => handleOpenExportStudio('mp4')}
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
+          onIngestMediaForFrame={handleUploadMediaForIndex}
+          onUpdateFrame={handleUpdateFrame}
           showTitles={componentsVisibility.titlesAll}
           componentsVisibility={componentsVisibility}
           onSoloMasterToggle={(mode) => setPlaybackMode(mode === 'SOLO' ? 'solo' : 'sequence')}
@@ -2181,7 +2202,11 @@ export default function App() {
                   setIsDrawerOpen(true);
                 }
               } else if (mod === 'PLAYER' || (mod as string) === 'STAGE') {
-                handleGoHome();
+                setCurrentView('STUDIO');
+                setWorkspaceMode('STAGE');
+                setActiveDualPanel('TACTILE_STAGE');
+                setActiveModule('PLAYER');
+                setIsDrawerOpen(false);
               } else if (mod === 'BLOOM') {
                 setWorkspaceMode('BLOOM');
                 setIsDrawerOpen(false);
@@ -2255,7 +2280,10 @@ export default function App() {
         <MainWorkspace
           activeMode={workspaceMode}
           activeModule={activeModule}
-          onReturnToStage={handleGoHome}
+          onReturnToStage={() => {
+            setWorkspaceMode('STAGE');
+            setActiveDualPanel('TACTILE_STAGE');
+          }}
           currentFrame={currentFrame}
           frames={project.frames}
           currentIndex={currentIndex}
@@ -2276,6 +2304,7 @@ export default function App() {
             setWorkspaceMode('STAGE');
           }}
           onUploadImage={handleUploadImage}
+          onUploadMediaForIndex={handleUploadMediaForIndex}
           onOpenInspector={() => setIsInspectorOpen(true)}
           onQuickSampleImage={handleQuickSampleImage}
           onPopulateAllFrames={handlePopulateAllFrames}
@@ -2319,59 +2348,64 @@ export default function App() {
           onPurgeMedia={handlePurgeMedia}
           onChangeAspectRatio={(r) => setAspectRatio(r)}
           onAddSlide={() => {
-            const newId = project.frames.length + 1;
-            const newFrame: AnthologyFrame = {
-              id: newId,
-              epNumber: String(newId).padStart(3, '0'),
-              title: `New Scene Frame ${newId}`,
-              bengaliTitle: `দৃশ্য ${newId} // নতুন ফ্রেম`,
-              tagline: '12.0s Storyboard Slide at 24fps',
-              directorNotes: 'Director shot notes',
-              soundCue: 'Audio cue',
-              cameraSpec: {
-                focalLength: '35mm High-Speed Master',
-                aperture: 'f/1.4',
-                shutter: '1/48s 180°',
-                iso: 'ISO 400',
-                sensor: 'Full-Frame Cine',
-                format: 'RAW 14-BIT ARRI'
-              },
-              imageUrl: '',
-              isVideo: false,
-              panY: 50,
-              colorAccent: '#D4AF37',
-              hoverStyle: 0,
-              lutFilter: 'cinematic',
-              aspectRatio: aspectRatio,
-              adjustments: {
-                brightness: 100,
-                contrast: 100,
-                saturation: 100,
-                bloom: 30,
-                grain: 15,
-                motionBlur: 50,
-                vignette: 40
-              },
-              tags: ['Scene', '12s']
-            };
-            setProject(p => ({
-              ...p,
-              frames: [...p.frames, newFrame]
-            }));
+            setProject(p => {
+              const newId = getNextUniqueFrameId(p.frames);
+              const displayNum = p.frames.length + 1;
+              const newFrame: AnthologyFrame = {
+                id: newId,
+                epNumber: String(displayNum).padStart(3, '0'),
+                title: `New Scene Frame ${displayNum}`,
+                bengaliTitle: `দৃশ্য ${displayNum} // নতুন ফ্রেম`,
+                tagline: '12.0s Storyboard Slide at 24fps',
+                directorNotes: 'Director shot notes',
+                soundCue: 'Audio cue',
+                cameraSpec: {
+                  focalLength: '35mm High-Speed Master',
+                  aperture: 'f/1.4',
+                  shutter: '1/48s 180°',
+                  iso: 'ISO 400',
+                  sensor: 'Full-Frame Cine',
+                  format: 'RAW 14-BIT ARRI'
+                },
+                imageUrl: '',
+                isVideo: false,
+                panY: 50,
+                colorAccent: '#D4AF37',
+                hoverStyle: 0,
+                lutFilter: 'cinematic',
+                aspectRatio: aspectRatio,
+                adjustments: {
+                  brightness: 100,
+                  contrast: 100,
+                  saturation: 100,
+                  bloom: 30,
+                  grain: 15,
+                  motionBlur: 50,
+                  vignette: 40
+                },
+                tags: ['Scene', '12s']
+              };
+              return {
+                ...p,
+                frames: [...p.frames, newFrame]
+              };
+            });
             setCurrentIndex(project.frames.length);
           }}
           onDuplicateSlide={(idx) => {
-            const target = project.frames[idx];
-            if (!target) return;
-            const dup: AnthologyFrame = {
-              ...target,
-              id: project.frames.length + 1,
-              epNumber: String(project.frames.length + 1).padStart(3, '0'),
-              title: `${target.title} (Copy)`
-            };
-            const nextFrames = [...project.frames];
-            nextFrames.splice(idx + 1, 0, dup);
-            setProject(p => ({ ...p, frames: nextFrames }));
+            setProject(p => {
+              const target = p.frames[idx];
+              if (!target) return p;
+              const dup: AnthologyFrame = {
+                ...target,
+                id: getNextUniqueFrameId(p.frames),
+                epNumber: String(p.frames.length + 1).padStart(3, '0'),
+                title: `${target.title} (Copy)`
+              };
+              const nextFrames = [...p.frames];
+              nextFrames.splice(idx + 1, 0, dup);
+              return { ...p, frames: nextFrames };
+            });
             setCurrentIndex(idx + 1);
           }}
           onDeleteSlide={(idx) => {
@@ -2571,7 +2605,10 @@ export default function App() {
           project={project}
           onClose={() => setIsPublishModalOpen(false)}
           onImportProject={(imported) => {
-            setProject(imported);
+            setProject({
+              ...imported,
+              frames: ensureUniqueFrameIds(imported.frames || [])
+            });
             setCurrentIndex(0);
           }}
         />

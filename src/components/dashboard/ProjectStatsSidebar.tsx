@@ -381,7 +381,7 @@ export const ProjectStatsSidebar: React.FC<ProjectStatsSidebarProps> = ({
 
                 return (
                   <button
-                    key={frame.id || idx}
+                    key={`stats-shot-${idx}-${frame?.id ?? 'none'}`}
                     type="button"
                     onClick={() => {
                       onSelectFrame(idx);

@@ -64,8 +64,12 @@ import {
   Eye,
   EyeOff,
   FolderPlus,
-  Lightbulb
+  Lightbulb,
+  Pencil,
+  ZoomIn,
+  Upload
 } from 'lucide-react';
+import { ToolTooltip } from '../ui/ToolTooltip';
 import { useStudioStore } from '../../core/store';
 import { db } from '../../services/db';
 import { MediaBinDrawer } from '../MediaBinDrawer';
@@ -102,6 +106,8 @@ export interface HandfilmHomeProps {
   onRecordToggle?: () => void;
   onZenToggle?: () => void;
   onAspectChange?: (aspect: string) => void;
+  onIngestMediaForFrame?: (index: number, file: File) => void;
+  onUpdateFrame?: (frame: AnthologyFrame) => void;
   initialViewMode?: 'desktop' | 'mobile';
 }
 
@@ -2751,8 +2757,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 </button>
               </div>
 
-              {/* SUB-BAR 2: Snap-Scroll 14-Shot Card Strip (Height: 96px) */}
-              <div className="h-24 px-2 py-1.5 flex items-center gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory">
+              {/* SUB-BAR 2: Snap-Scroll 14-Shot Card Strip */}
+              <div
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollLeft += e.deltaY;
+                  }
+                }}
+                className="px-3 py-1.5 flex items-center gap-2.5 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar"
+              >
                 {SHOWCASE_PRESETS.map((shot, idx) => {
                   const isActive = idx === activeShotIndex;
                   const shotMedia = customMedia[idx];
@@ -2768,10 +2781,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                         selectShot(idx);
                         try { audioEngine.playShutterClick(); } catch {}
                       }}
-                      className={`w-20 h-20 shrink-0 relative rounded-lg overflow-hidden border cursor-pointer snap-start transition-all ${
+                      className={`min-w-[112px] w-[112px] h-[64px] flex-shrink-0 relative rounded-lg overflow-hidden cursor-pointer snap-start transition-all duration-150 ${
                         isActive
-                          ? 'border-amber-400 ring-2 ring-amber-400/50 shadow-[0_0_14px_rgba(251,191,36,0.5)] scale-102 z-10'
-                          : 'border-neutral-800 hover:border-neutral-600 bg-neutral-950 opacity-80 hover:opacity-100'
+                          ? 'border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-[1.02] z-10'
+                          : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-neutral-950'
                       }`}
                     >
                       {displayImg ? (
@@ -3206,15 +3219,28 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 lg:grid-cols-14 gap-1.5 sm:gap-2">
+          <div
+            onWheel={(e) => {
+              if (e.deltaY !== 0) {
+                e.currentTarget.scrollLeft += e.deltaY;
+              }
+            }}
+            className="flex flex-nowrap items-center overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-2.5 px-3 py-1.5"
+          >
             {SHOWCASE_PRESETS.map((shot, idx) => {
               const isActive = idx === activeShotIndex;
               const isTargetDrag = dragTargetShotIdx === idx;
               const shotMedia = customMedia[idx];
               const displayImg = shotMedia?.thumbnailUrl || shotMedia?.url || shot.imageUrl;
-              const isShotVid = shotMedia?.isVideo || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(displayImg);
+              const isShotVid = shotMedia?.isVideo || /\.(mp4|webm|mov|m4v|mkv|ogg)$/i.test(displayImg);
               const hasCardMedia = Boolean(displayImg);
               const cardPersonality = getShotTitlePersonality(idx, customTitleStyles[idx]);
+              const trim = trimPoints[idx] || {
+                in: 0,
+                out: isReelTemplateActive ? REEL_TEMPLATE_DURATIONS[idx % REEL_TEMPLATE_DURATIONS.length] : 12.0
+              };
+              const dur = Math.max(0.1, trim.out - trim.in);
+              const activeLight = customLights[idx] ? getLightingPresetById(customLights[idx]) : null;
 
               return (
                 <div
@@ -3235,144 +3261,123 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     setDragTargetShotIdx(null);
                   }}
                   onDrop={(e) => handleDrop(e, idx)}
-                  className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group border flex flex-col aspect-[16/9] ${
+                  className={`min-w-[112px] w-[112px] h-[64px] flex-shrink-0 snap-start relative rounded-lg cursor-pointer transition-all duration-150 group flex flex-col ${
                     isTargetDrag
-                      ? 'border-[#00F0FF] ring-4 ring-[#00F0FF]/60 shadow-[0_0_25px_rgba(0,240,255,0.7)] scale-105 z-20'
+                      ? 'border-2 border-[#00F0FF] ring-2 ring-[#00F0FF]/50 shadow-[0_0_20px_rgba(0,240,255,0.5)] scale-[1.03] z-20'
                       : isActive
-                      ? 'border-[#ffaa00] ring-2 ring-[#ffaa00]/50 shadow-[0_0_20px_rgba(255,170,0,0.4)] scale-102 z-10'
-                      : 'border-white/10 hover:border-white/30 bg-[#0d0d14] opacity-80 hover:opacity-100'
+                      ? 'border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-[1.02] z-10'
+                      : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-[#0d0d14]'
                   }`}
                 >
-                  {/* Thumbnail Background Image OR Clean Dark Studio Slate */}
-                  {hasCardMedia ? (
-                    <div 
-                      className="w-full h-full bg-cover bg-center"
-                      style={{
-                        backgroundImage: `url(${displayImg})`,
-                        backgroundColor: '#070709'
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#0c0d12] via-[#090a0e] to-[#070709] flex items-center justify-center p-1 relative overflow-hidden">
-                      <div className="absolute inset-0 flex items-center justify-center opacity-15 pointer-events-none">
-                        <div className="w-5 h-5 border border-white/20 rounded-full flex items-center justify-center">
-                          <span className="text-[9px] text-zinc-500 font-mono">+</span>
-                        </div>
+                  {/* Clipped frame preview surface so dispatch flyout is never clipped */}
+                  <div className="absolute inset-0 rounded-[6px] overflow-hidden">
+                    {hasCardMedia ? (
+                      <div
+                        className="w-full h-full bg-cover bg-center transition-transform duration-200 group-hover:scale-105"
+                        style={{
+                          backgroundImage: `url(${displayImg})`,
+                          backgroundColor: '#070709'
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-[#0e1017] via-[#090a0f] to-[#050507] flex items-center justify-center p-1 relative">
+                        <span className="text-[8px] font-mono font-bold text-zinc-500 uppercase tracking-wider text-center">
+                          + MEDIA
+                        </span>
                       </div>
-                      <div className="text-[7.5px] font-mono font-bold text-zinc-500 uppercase tracking-wider text-center">
-                        + DROP MEDIA
+                    )}
+
+                    {/* Scrim overlay for crisp contrast */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/55 pointer-events-none" />
+                  </div>
+
+                  {/* Top Shot Metadata: #01 + Active Light / Format Badge */}
+                  <div className="relative z-10 px-1.5 pt-1 flex items-center justify-between text-[9px] font-mono pointer-events-none">
+                    <span className={`px-1 py-0.5 rounded leading-none font-black tabular-nums ${isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'}`}>
+                      #{shot.shotNumber}
+                    </span>
+                    <div className="flex items-center gap-0.5">
+                      {activeLight && (
+                        <span
+                          className="px-1 py-0.5 rounded leading-none bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[8px] font-bold"
+                          title={activeLight.name}
+                        >
+                          💡
+                        </span>
+                      )}
+                      {isShotVid ? (
+                        <span className="px-1 py-0.5 rounded leading-none bg-cyan-950/85 border border-cyan-500/40 text-cyan-300 text-[8px] font-bold">
+                          4K
+                        </span>
+                      ) : (
+                        <span className="px-1 py-0.5 rounded leading-none bg-black/75 text-zinc-300 text-[8px] font-bold">
+                          {cardPersonality === 'DOPAMINE' ? 'DPM' : cardPersonality === 'MINIMAL' ? 'MIN' : cardPersonality === 'B2B' ? 'B2B' : 'KIN'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Shot Metadata: Title Badge + Duration + Hover Dispatch Trigger */}
+                  <div className="relative z-10 mt-auto px-1.5 pb-1 flex items-end justify-between gap-1 font-mono">
+                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDispatchFlyoutIdx(prev => prev === idx ? null : idx);
+                        }}
+                        className="p-0.5 rounded bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-amber-300 transition-colors cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
+                        title="Directorial Dispatch: Bridge to PS, PR, CC"
+                        aria-label={`Dispatch Shot ${shot.shotNumber}`}
+                      >
+                        <Zap className="w-2.5 h-2.5" />
+                      </button>
+                      <span className="text-[9.5px] font-bold text-white font-bangla truncate leading-none pointer-events-none drop-shadow">
+                        {customTitles[idx]?.titleBn || shot.titleBn}
+                      </span>
+                    </div>
+
+                    <span className="px-1 py-0.5 rounded bg-black/85 border border-white/15 text-[8.5px] font-mono text-amber-300 font-bold leading-none tabular-nums pointer-events-none shrink-0">
+                      {dur.toFixed(1)}s
+                    </span>
+                  </div>
+
+                  {/* High-Contrast Tactical HUD Flyout */}
+                  {activeDispatchFlyoutIdx === idx && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute bottom-full mb-1.5 left-0 w-36 bg-[#0a0a0f] border border-amber-400/90 rounded-lg p-1.5 shadow-2xl z-50 font-mono text-[9px] flex flex-col gap-1 animate-in fade-in zoom-in-95"
+                    >
+                      <div className="text-[7.5px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-0.5 flex items-center justify-between">
+                        <span>DISPATCH #{shot.shotNumber}</span>
+                        <span className="text-amber-300">{dur.toFixed(1)}s</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDispatchToTool('photoshop', idx)}
+                        className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-blue-600 hover:text-white text-blue-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <span>PS // PAINT-OVER</span>
+                        <Camera className="w-2.5 h-2.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDispatchToTool('premiere', idx)}
+                        className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-purple-600 hover:text-white text-purple-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <span>PR // TIMELINE</span>
+                        <Film className="w-2.5 h-2.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDispatchToTool('capcut', idx)}
+                        className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-amber-500 hover:text-black text-amber-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <span>CC // REEL PACK</span>
+                        <Zap className="w-2.5 h-2.5" />
+                      </button>
                     </div>
                   )}
-
-                  {/* Scrim overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
-
-                  {/* Top Shot Tag & Personality Tag */}
-                  <div className="absolute top-1 left-1 right-1 flex items-center justify-between text-[8px] font-mono pointer-events-none">
-                    <span className={`px-1 py-0.2 rounded font-black ${isActive ? 'bg-[#ffaa00] text-black' : 'bg-black/80 text-white'}`}>
-                      SH {shot.shotNumber}
-                    </span>
-                    {isShotVid ? (
-                      <span className="text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1 py-0.2 rounded text-[7.5px] font-bold">
-                        4K RAW
-                      </span>
-                    ) : (
-                      <span className="text-zinc-400 bg-black/60 px-1 py-0.2 rounded text-[7px] font-bold">
-                        {cardPersonality === 'DOPAMINE' ? 'DPM' : cardPersonality === 'MINIMAL' ? 'MIN' : cardPersonality === 'B2B' ? 'B2B' : 'KIN'}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Contextual Directorial Dispatch Trigger & Flyout */}
-                  <div 
-                    className="absolute top-5 right-1 z-20" 
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveDispatchFlyoutIdx(prev => prev === idx ? null : idx);
-                      }}
-                      className="px-1.5 py-0.5 rounded bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-[7px] font-mono font-bold text-amber-300 flex items-center gap-0.5 transition-colors cursor-pointer opacity-80 group-hover:opacity-100 shadow"
-                      title="Directorial Dispatch: Bridge to PS, PR, CC"
-                    >
-                      <Zap className="w-2 h-2 text-amber-400 group-hover:text-black" />
-                      <span>DISPATCH</span>
-                    </button>
-
-                    {/* High-Contrast Tactical HUD Flyout */}
-                    {activeDispatchFlyoutIdx === idx && (
-                      <div className="absolute top-5 right-0 w-36 bg-[#0a0a0f] border border-amber-400/90 rounded-lg p-1.5 shadow-2xl z-50 font-mono text-[9px] flex flex-col gap-1 animate-in fade-in zoom-in-95">
-                        <div className="text-[7.5px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-0.5">
-                          DISPATCH SHOT {shot.shotNumber}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDispatchToTool('photoshop', idx)}
-                          className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-blue-600 hover:text-white text-blue-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
-                        >
-                          <span>PS // PAINT-OVER</span>
-                          <Camera className="w-2.5 h-2.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDispatchToTool('premiere', idx)}
-                          className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-purple-600 hover:text-white text-purple-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
-                        >
-                          <span>PR // TIMELINE</span>
-                          <Film className="w-2.5 h-2.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDispatchToTool('capcut', idx)}
-                          className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-amber-500 hover:text-black text-amber-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
-                        >
-                          <span>CC // REEL PACK</span>
-                          <Zap className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Inline IN / OUT Trim Inputs */}
-                  <div 
-                    className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-black/90 border border-white/20 rounded px-1 py-0.5 text-[7px] font-mono text-zinc-300 z-10 shadow-sm"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="text-zinc-500 font-bold">IN</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={Number((trimPoints[idx]?.in ?? 0).toFixed(1))}
-                      onChange={(e) => handleUpdateInPoint(idx, parseFloat(e.target.value) || 0)}
-                      className="w-5 bg-transparent border-b border-white/20 text-amber-300 font-mono text-[7px] text-center focus:border-amber-400 outline-none p-0"
-                    />
-                    <span className="text-zinc-500 font-bold ml-0.5">OUT</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      value={Number((trimPoints[idx]?.out ?? (isReelTemplateActive ? REEL_TEMPLATE_DURATIONS[idx % REEL_TEMPLATE_DURATIONS.length] : 12.0)).toFixed(1))}
-                      onChange={(e) => handleUpdateOutPoint(idx, parseFloat(e.target.value) || 12.0)}
-                      className="w-5 bg-transparent border-b border-white/20 text-amber-300 font-mono text-[7px] text-center focus:border-amber-400 outline-none p-0"
-                    />
-                  </div>
-
-                  {/* Bottom Title Slate */}
-                  <div className="absolute bottom-1 left-1.5 max-w-[55%] font-mono pointer-events-none">
-                    <div className="text-[9px] font-bold text-white font-bangla truncate leading-tight">
-                      {customTitles[idx]?.titleBn || shot.titleBn}
-                    </div>
-                    {customLights[idx] && (
-                      <div className="text-[7.5px] text-amber-300 font-mono truncate leading-none mt-0.5 flex items-center gap-0.5 font-bold">
-                        <span>💡</span>
-                        <span className="truncate">{getLightingPresetById(customLights[idx])?.name}</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
               );
             })}
@@ -3442,203 +3447,256 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           </div>
         </div>
 
-        {/* Tier 2: Single Ultra-Thin High-Efficiency Horizontal Bar (Fixed height: 40px to 42px) */}
-        <div className="w-full h-[40px] sm:h-[42px] max-h-[42px] min-h-[40px] bg-[#0d0e15]/95 backdrop-blur-2xl border border-white/15 rounded-xl px-2.5 sm:px-3 shadow-[0_8px_32px_rgba(0,0,0,0.9)] flex flex-row items-center justify-between flex-nowrap gap-2 overflow-x-auto overflow-y-hidden scrollbar-none text-xs font-mono">
+        {/* Tier 2: Single Ultra-Thin Iconic Horizontal Bottom Dock */}
+        <div className="w-full h-[46px] min-h-[46px] bg-[#0d0e15]/95 backdrop-blur-2xl border border-white/15 rounded-xl px-2.5 sm:px-3 shadow-[0_8px_32px_rgba(0,0,0,0.9)] flex flex-row items-center justify-between flex-nowrap gap-2 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono">
           
           {/* ======================================================= */}
-          {/* 1. LEFT WING: TRANSPORT & SMPTE TIME (32px-36px button, steps, TC) */}
+          {/* 1. LEFT WING: TRANSPORT, FRAME STEPS, CAPTURE & TIMECODE */}
           {/* ======================================================= */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Circular Play/Pause Button (32px–36px) */}
-            <button
-              type="button"
-              onClick={handleTogglePlay}
-              className={`w-8 h-8 sm:w-[34px] sm:h-[34px] rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-90 shadow-md shrink-0 ${
-                isPlaying 
-                  ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-2 ring-amber-500/30 shadow-[0_0_16px_rgba(245,166,35,0.7)]' 
-                  : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-2 ring-red-500/30 shadow-[0_0_16px_rgba(229,9,20,0.7)]'
-              }`}
-              title={isPlaying ? "Pause Playback (Space)" : "Play 24fps Sequence (Space)"}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Circular Play/Pause Button */}
+            <ToolTooltip
+              title="PLAYBACK TRANSPORT"
+              why="Plays or pauses real-time 24fps sequence preview"
+              how="Click or press Spacebar to toggle playback"
             >
-              {isPlaying ? (
-                <Pause className="w-4 h-4 fill-current" />
-              ) : (
-                <Play className="w-4 h-4 fill-current ml-0.5" />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={handleTogglePlay}
+                aria-label={isPlaying ? 'Pause Playback' : 'Play Sequence'}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-md shrink-0 ${
+                  isPlaying 
+                    ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-2 ring-amber-500/30 shadow-[0_0_16px_rgba(245,166,35,0.7)]' 
+                    : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-2 ring-red-500/30 shadow-[0_0_16px_rgba(229,9,20,0.7)]'
+                }`}
+              >
+                {isPlaying ? (
+                  <Pause className="w-4 h-4 fill-current" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                )}
+              </button>
+            </ToolTooltip>
 
-            {/* Frame-Step Buttons (-1F / +1F) */}
-            <div className="flex items-center gap-0.5 bg-black/60 p-0.5 rounded-lg border border-white/10 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleStepFrame(false)}
-                className="h-7 px-1.5 sm:px-2 rounded bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
-                title="Step -1 Frame (Left Arrow)"
+            {/* Frame-Step Icon Buttons (-1F / +1F) */}
+            <div className="flex items-center gap-1 shrink-0">
+              <ToolTooltip
+                title="STEP BACK 1 FRAME"
+                why="Nudges the playhead backward by one exact 24fps frame"
+                how="Click or press Left Arrow to inspect motion cuts"
               >
-                -1F
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStepFrame(true)}
-                className="h-7 px-1.5 sm:px-2 rounded bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
-                title="Step +1 Frame (Right Arrow)"
+                <button
+                  type="button"
+                  onClick={() => handleStepFrame(false)}
+                  aria-label="Step -1 Frame"
+                  className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+                >
+                  <SkipBack className="w-4 h-4" />
+                </button>
+              </ToolTooltip>
+
+              <ToolTooltip
+                title="STEP FORWARD 1 FRAME"
+                why="Advances the playhead forward by one exact 24fps frame"
+                how="Click or press Right Arrow to land on exact beats"
               >
-                +1F
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleStepFrame(true)}
+                  aria-label="Step +1 Frame"
+                  className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+                >
+                  <SkipForward className="w-4 h-4" />
+                </button>
+              </ToolTooltip>
             </div>
 
             {/* Direct Instant Canvas Frame Freeze */}
-            <button
-              type="button"
-              onClick={handleCaptureCurrentFrame}
-              className="h-7 px-2 rounded bg-black/60 hover:bg-amber-500/20 text-neutral-300 hover:text-amber-300 border border-white/10 hover:border-amber-400 font-mono text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-              title="Capture active frame to disk (Ctrl+Shift+P for Photoshop Paint-over)"
+            <ToolTooltip
+              title="FRAME CAPTURE"
+              why="Freezes and downloads the current 4K canvas frame as PNG"
+              how="Click or press Ctrl+Shift+P for Photoshop paint-over"
             >
-              <Camera className="w-3 h-3 text-amber-400" />
-              <span className="hidden sm:inline">CAPTURE</span>
-            </button>
-
-            {/* High-Contrast Monospace SMPTE Timecode Readout + Total Duration */}
-            <div className="flex items-center gap-1.5 h-7 sm:h-8 bg-black/80 px-2 sm:px-2.5 rounded-lg border border-white/10 font-mono tabular-nums shrink-0">
-              <Clock className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span 
-                ref={timecodeDisplayRef}
-                className="text-[11px] font-black tracking-wider text-[#F5A623]"
+              <button
+                type="button"
+                onClick={handleCaptureCurrentFrame}
+                aria-label="Capture Frame"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-400 hover:text-amber-300 transition-all active:scale-95 cursor-pointer shrink-0"
               >
-                {formatSmpteTimecode(currentFrameRef.current)}
-              </span>
-              <span className="text-zinc-600 text-[10px]">/</span>
-              <span className="px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 font-bold text-[10px]">
-                {activeShot.durationSec.toFixed(1)}s
-              </span>
-            </div>
+                <Camera className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
+
+            {/* Compact Monospace SMPTE Timecode Readout + Duration */}
+            <ToolTooltip
+              title="SMPTE TIMECODE"
+              why="Shows frame-accurate sequence clock and active shot duration"
+              how="Drag the scrub bar above to seek anywhere at 24fps"
+            >
+              <div className="flex items-center gap-1.5 h-8 bg-black/80 px-2.5 rounded border border-neutral-800 font-mono tabular-nums shrink-0">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span 
+                  ref={timecodeDisplayRef}
+                  className="text-[11px] font-black tracking-wider text-[#F5A623]"
+                >
+                  {formatSmpteTimecode(currentFrameRef.current)}
+                </span>
+                <span className="text-zinc-600 text-[10px]">/</span>
+                <span className="text-zinc-300 font-bold text-[10px]">
+                  {activeShot.durationSec.toFixed(1)}s
+                </span>
+              </div>
+            </ToolTooltip>
           </div>
 
           {/* ======================================================= */}
-          {/* 2. CENTER WING: COMMAND HUB & SYNC (SOLO/MASTER 32px, BEAT SNAP, SPEED) */}
+          {/* 2. CENTER WING: [ SOLO | MASTER ], BEAT SNAP & SPEED */}
           {/* ======================================================= */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 justify-center">
-            {/* Prominent Dual-State Segmented [ SOLO | MASTER ] Hub (Height: 32px) */}
-            <div className="flex items-center h-8 p-0.5 bg-black/85 rounded-lg border border-white/20 shadow-inner shrink-0">
-              {/* SOLO STATE */}
-              <button
-                type="button"
-                onClick={() => handleSoloMasterToggle('SOLO')}
-                style={
-                  soloMasterMode === 'SOLO'
-                    ? {
-                        border: '1.5px solid #00f0ff',
-                        background: 'rgba(0, 240, 255, 0.18)',
-                        color: '#00f0ff',
-                        fontWeight: 800,
-                        letterSpacing: '0.08em',
-                        boxShadow: '0 0 14px rgba(0, 240, 255, 0.5)'
-                      }
-                    : undefined
-                }
-                className={`h-7 px-2.5 rounded font-mono text-[10px] uppercase font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  soloMasterMode === 'SOLO' ? '' : 'text-zinc-400 hover:text-white'
-                }`}
-                title="SOLO MODE: Lock playback strictly into isolated active shot"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${soloMasterMode === 'SOLO' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
-                <span>SOLO</span>
-              </button>
-
-              {/* MASTER STATE */}
-              <button
-                type="button"
-                onClick={() => handleSoloMasterToggle('MASTER')}
-                style={
-                  soloMasterMode === 'MASTER'
-                    ? {
-                        border: '1.5px solid #ffaa00',
-                        background: 'rgba(255, 170, 0, 0.22)',
-                        color: '#ffaa00',
-                        fontWeight: 800,
-                        letterSpacing: '0.08em',
-                        boxShadow: '0 0 14px rgba(255, 170, 0, 0.5)'
-                      }
-                    : undefined
-                }
-                className={`h-7 px-2.5 rounded font-mono text-[10px] uppercase font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  soloMasterMode === 'MASTER' ? '' : 'text-zinc-400 hover:text-white'
-                }`}
-                title="MASTER MODE: Continuous narrative playback across full sequence"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${soloMasterMode === 'MASTER' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
-                <span>MASTER</span>
-              </button>
-            </div>
-
-            {/* Beat Snap Toggle Button (♫ BEAT SNAP) */}
-            <button
-              type="button"
-              onClick={() => setIsSnapToBeat(prev => !prev)}
-              className={`h-8 px-2.5 rounded-lg border font-mono font-bold text-[10px] tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                isSnapToBeat
-                  ? 'bg-cyan-950/60 border-cyan-400 text-cyan-200 shadow-[0_0_12px_rgba(0,240,255,0.3)]'
-                  : 'bg-black/60 border-white/10 text-zinc-500 hover:text-zinc-300'
-              }`}
-              title="Snap cuts & transitions to detected audio transients"
+          <div className="flex items-center gap-1.5 shrink-0 justify-center">
+            {/* Prominent Dual-State Segmented [ SOLO | MASTER ] Hub */}
+            <ToolTooltip
+              title="SOLO / MASTER MODE"
+              why="Switches between looping the active shot or playing the full cut"
+              how="Select SOLO to grade one clip, or MASTER for full sequence"
             >
-              <Music className="w-3 h-3 text-cyan-400" />
-              <span>♫ BEAT SNAP</span>
-            </button>
+              <div className="flex items-center h-8 p-0.5 bg-black/85 rounded border border-neutral-800 shadow-inner shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSoloMasterToggle('SOLO')}
+                  style={
+                    soloMasterMode === 'SOLO'
+                      ? {
+                          border: '1.5px solid #00f0ff',
+                          background: 'rgba(0, 240, 255, 0.18)',
+                          color: '#00f0ff',
+                          fontWeight: 800,
+                          letterSpacing: '0.06em',
+                          boxShadow: '0 0 12px rgba(0, 240, 255, 0.4)'
+                        }
+                      : undefined
+                  }
+                  className={`h-6.5 px-2 rounded font-mono text-[10px] uppercase font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    soloMasterMode === 'SOLO' ? '' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${soloMasterMode === 'SOLO' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
+                  <span>SOLO</span>
+                </button>
 
-            {/* Compact Horizontal Speed Slider with active numerical multiplier readout */}
-            <div className="hidden lg:flex items-center gap-1.5 h-8 bg-black/60 px-2 rounded-lg border border-white/10 font-mono text-[10px] text-zinc-400 shrink-0">
-              <span className="text-[9px] text-zinc-500 uppercase">SPEED</span>
-              <input
-                type="range"
-                min="0.5"
-                max="2.0"
-                step="0.25"
-                value={playbackSpeed}
-                onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-                className="w-12 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
-              />
-              <span className="text-[#F5A623] font-bold tabular-nums text-[10px] w-6">
-                {playbackSpeed.toFixed(2)}x
-              </span>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => handleSoloMasterToggle('MASTER')}
+                  style={
+                    soloMasterMode === 'MASTER'
+                      ? {
+                          border: '1.5px solid #ffaa00',
+                          background: 'rgba(255, 170, 0, 0.22)',
+                          color: '#ffaa00',
+                          fontWeight: 800,
+                          letterSpacing: '0.06em',
+                          boxShadow: '0 0 12px rgba(255, 170, 0, 0.4)'
+                        }
+                      : undefined
+                  }
+                  className={`h-6.5 px-2 rounded font-mono text-[10px] uppercase font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    soloMasterMode === 'MASTER' ? '' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${soloMasterMode === 'MASTER' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
+                  <span>MASTER</span>
+                </button>
+              </div>
+            </ToolTooltip>
+
+            {/* Icon-First Beat Snap Toggle */}
+            <ToolTooltip
+              title="AUDIO BEAT SNAP"
+              why="Locks cuts and trim transitions to detected music transients"
+              how="Toggle on before scrubbing or editing shot timing"
+            >
+              <button
+                type="button"
+                onClick={() => setIsSnapToBeat(prev => !prev)}
+                aria-label="Toggle Audio Beat Snap"
+                aria-pressed={isSnapToBeat}
+                className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                  isSnapToBeat
+                    ? 'bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.3)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-cyan-300'
+                }`}
+              >
+                <Music className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
+
+            {/* Compact Speed Slider with Numeric Readout */}
+            <ToolTooltip
+              title="PLAYBACK TEMPO"
+              why="Scales real-time stage playback speed from 0.5x to 2.0x"
+              how="Drag slider to slow down motion review or speed up passes"
+            >
+              <div className="hidden lg:flex items-center gap-1.5 h-8 bg-neutral-900/90 px-2 rounded border border-neutral-800 hover:border-amber-400/60 font-mono text-[10px] text-zinc-400 shrink-0 transition-colors">
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.25"
+                  value={playbackSpeed}
+                  onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+                  aria-label="Playback Speed"
+                  className="w-12 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
+                />
+                <span className="text-[#F5A623] font-bold tabular-nums text-[10px] w-8 text-right">
+                  {playbackSpeed.toFixed(2)}x
+                </span>
+              </div>
+            </ToolTooltip>
           </div>
 
           {/* ======================================================= */}
-          {/* 3. RIGHT WING: RELOCATED CONTROLS (TITLES, EDIT, ASPECT, LUT, ZEN) */}
+          {/* 3. RIGHT WING: ICON-FIRST OPTICS, TITLES, LIGHTS & TOOLS */}
           {/* ======================================================= */}
           <div className="flex items-center gap-1.5 shrink-0 justify-end">
-            {/* Consolidated Master Title Toggle Pill with glowing amber indicator dot */}
-            <div className="relative flex items-center bg-black/80 border border-white/20 rounded-lg p-0.5 shadow-inner shrink-0">
-              <button
-                type="button"
-                onClick={handleToggleTitles}
-                className={`h-7 px-2 rounded font-mono font-bold text-[10px] tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                  titlesLayerActive
-                    ? 'bg-amber-950/60 border border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(245,166,35,0.4)]'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Toggle Creative Kinetic Typography Layer On/Off"
+            {/* Titles Toggle + Quick Title Edit Icon Buttons */}
+            <div className="relative flex items-center gap-1 shrink-0">
+              <ToolTooltip
+                title="KINETIC TITLES"
+                why="Shows or hides Bangla & English kinetic typography on stage"
+                how="Click to toggle clean plates vs. subtitled preview"
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${titlesLayerActive ? 'bg-[#ffaa00] shadow-[0_0_8px_#ffaa00]' : 'bg-zinc-600'}`} />
-                <span className="font-black">[ T ]</span>
-                <span className="hidden sm:inline">{titlesLayerActive ? 'TITLES ON' : 'TITLES OFF'}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleToggleTitles}
+                  aria-label="Toggle Kinetic Titles"
+                  aria-pressed={titlesLayerActive}
+                  className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                    titlesLayerActive
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.3)]'
+                      : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <Type className="w-4 h-4" />
+                </button>
+              </ToolTooltip>
 
-              {/* Inline Title Edit Trigger */}
-              <button
-                type="button"
-                onClick={handleOpenTitleEditor}
-                className={`h-7 px-1.5 sm:px-2 rounded font-mono text-[10px] flex items-center gap-1 transition-all cursor-pointer max-w-[100px] sm:max-w-[130px] truncate ${
-                  isEditingTitle
-                    ? 'bg-white/20 text-white font-bold'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                }`}
-                title="Quickly Change Active Shot Title and Bengali Subtitle"
+              <ToolTooltip
+                title="EDIT SHOT TITLE"
+                why="Customizes active shot typography, style personality, and Bangla text"
+                how="Click to open inline title editor and press Enter to save"
               >
-                <span className="text-amber-400 text-[10px]">✏️</span>
-                <span className="truncate">{activeShot.titleBn || 'Title'}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleOpenTitleEditor}
+                  aria-label="Edit Shot Title"
+                  className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                    isEditingTitle
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                      : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300'
+                  }`}
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </ToolTooltip>
 
               {/* Quick Title Edit Popover */}
               {isEditingTitle && (
@@ -3731,134 +3789,186 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               )}
             </div>
 
-            {/* Aspect Ratio Dropdown (2.39:1 Cinema 35 / 16:9 / 9:16) */}
-            <select
-              value={selectedAspectRatio}
-              onChange={(e) => handleAspectChange(e.target.value)}
-              className="h-8 px-2 rounded-lg bg-black/80 border border-white/15 text-white font-mono text-[10px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0"
-              title="Canvas Optical Aspect Ratio"
+            {/* Aspect Ratio Dropdown */}
+            <ToolTooltip
+              title="OPTICAL ASPECT RATIO"
+              why="Reframes the stage between cinema scope, 16:9, and vertical reel"
+              how="Select a matte preset to inspect crop framing live"
             >
-              <option value="2.39:1">2.39:1 Cinema 35</option>
-              <option value="16:9">16:9 Broadcast</option>
-              <option value="9:16">9:16 Vertical Reel</option>
-              <option value="4:3">4:3 Academy</option>
-              <option value="1:1">1:1 Square</option>
-            </select>
+              <select
+                value={selectedAspectRatio}
+                onChange={(e) => handleAspectChange(e.target.value)}
+                aria-label="Aspect Ratio"
+                className="h-8 px-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 focus:border-amber-400 text-white font-mono text-[10px] font-bold outline-none cursor-pointer transition-colors shrink-0"
+              >
+                <option value="2.39:1">2.39:1</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="4:3">4:3</option>
+                <option value="1:1">1:1</option>
+              </select>
+            </ToolTooltip>
 
             {/* LUT Preset Dropdown */}
-            <select
-              value={activeShot.lutFilter || 'RAWx Cinema 35'}
-              onChange={(e) => handleLutChange(e.target.value)}
-              className="h-8 px-2 rounded-lg bg-black/80 border border-white/15 text-amber-300 font-mono text-[10px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0 max-w-[110px] sm:max-w-[130px] truncate"
-              title="Cinematic Color Grading LUT Preset"
+            <ToolTooltip
+              title="COLOR GRADE LUT"
+              why="Applies real-time cinematic film stock emulation to the active shot"
+              how="Pick a LUT preset from the dropdown to preview instantly"
             >
-              {HOME_LUT_PRESETS.map((p) => (
-                <option key={p.id} value={p.id} className="bg-[#101014] text-white">
-                  {p.label}
-                </option>
-              ))}
-            </select>
+              <select
+                value={activeShot.lutFilter || 'RAWx Cinema 35'}
+                onChange={(e) => handleLutChange(e.target.value)}
+                aria-label="LUT Preset"
+                className="h-8 px-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 focus:border-amber-400 text-amber-300 font-mono text-[10px] font-bold outline-none cursor-pointer transition-colors shrink-0 max-w-[104px] truncate"
+              >
+                {HOME_LUT_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-[#101014] text-white">
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </ToolTooltip>
 
-            {/* [ 💡 LIGHTS ] Pill Button on Main Stage Bottom Bar */}
-            <button
-              type="button"
-              onClick={() => setIsLightDrawerOpen(prev => !prev)}
-              className={`h-8 px-2.5 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                isLightDrawerOpen || activeShotLightId
-                  ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)] font-extrabold'
-                  : 'bg-black/80 border-amber-400/50 text-amber-300 hover:bg-amber-400/20 hover:border-amber-400'
-              }`}
-              title="Toggle 34-Preset Cinematic Lighting Rig (Hotkey: L)"
+            {/* Lighting Rig Icon Button */}
+            <ToolTooltip
+              title="CINEMATIC LIGHTING RIG"
+              why="Opens 34 studio key, rim, and practical color gel presets"
+              how="Click or press L to light the active shot non-destructively"
             >
-              <span>💡</span>
-              <span>LIGHTS</span>
-              {activeShotLightId && (
-                <span className={`w-1.5 h-1.5 rounded-full ${isLightDrawerOpen ? 'bg-black' : 'bg-amber-400'} animate-pulse`} />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => setIsLightDrawerOpen(prev => !prev)}
+                aria-label="Toggle Lighting Rig"
+                className={`relative p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                  isLightDrawerOpen || activeShotLightId
+                    ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.5)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-amber-300 hover:text-amber-200'
+                }`}
+              >
+                <Lightbulb className="w-4 h-4" />
+                {activeShotLightId && (
+                  <span className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${isLightDrawerOpen ? 'bg-black' : 'bg-amber-400'} animate-pulse`} />
+                )}
+              </button>
+            </ToolTooltip>
 
-            {/* Zoom Magnification Button */}
-            <button
-              type="button"
-              onClick={handleCycleZoom}
-              className="hidden xl:flex h-8 px-2 rounded-lg bg-black/60 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer shrink-0"
-              title="Cycle Stage Viewport Magnification (1.0x / 1.5x / 2.0x)"
+            {/* Zoom Magnification Icon + Numeric Readout */}
+            <ToolTooltip
+              title="STAGE MAGNIFICATION"
+              why="Cycles clean optical zoom between 1.0x, 1.5x, and 2.0x"
+              how="Click to inspect fine grain, focus, and framing detail"
             >
-              <span>ZOOM</span>
-              <span className="text-[#F5A623]">{stageZoomLevel}</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleCycleZoom}
+                aria-label="Cycle Viewport Zoom"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white font-mono text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <ZoomIn className="w-4 h-4 text-amber-400" />
+                <span className="text-[#F5A623] tabular-nums">{stageZoomLevel}</span>
+              </button>
+            </ToolTooltip>
 
-            {/* Rule of Thirds Grid Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setShowCompositionGrid(prev => !prev)}
-              className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                showCompositionGrid
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(0,240,255,0.4)]'
-                  : 'bg-black/60 border-white/15 text-zinc-400 hover:text-white'
-              }`}
-              title="Toggle Rule-of-Thirds Cinematic Composition Grid"
+            {/* Rule of Thirds Grid Icon Button */}
+            <ToolTooltip
+              title="COMPOSITION GRID"
+              why="Toggles rule-of-thirds and optical horizon guides over canvas"
+              how="Click to check framing symmetry without baking into exports"
             >
-              <Grid className="w-3.5 h-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowCompositionGrid(prev => !prev)}
+                aria-label="Toggle Composition Grid"
+                aria-pressed={showCompositionGrid}
+                className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                  showCompositionGrid
+                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(0,240,255,0.4)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Grid className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
 
-            {/* Mandate 5: Quick Non-Blocking 4K Canvas Export Trigger */}
-            <button
-              type="button"
-              onClick={handleQuickExportCurrentShot}
-              disabled={exportState.isExporting}
-              className={`h-8 px-2 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
-                exportState.isExporting
-                  ? 'bg-amber-500/30 border-amber-400 text-amber-300 animate-pulse'
-                  : 'bg-amber-500/15 hover:bg-amber-500/30 active:scale-95 border-amber-500/40 text-[#F5A623] hover:text-[#FFE066]'
-              }`}
-              title="Quick Non-Blocking 4K WebCodecs/Canvas Export"
+            {/* Non-Blocking 4K Render Trigger */}
+            <ToolTooltip
+              title="RENDER 4K MASTER"
+              why="Encodes the active sequence via non-blocking WebCodecs muxing"
+              how="Click to render and download a clean 4K video file"
             >
-              <Download className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span className="hidden lg:inline">{exportState.isExporting ? `${exportState.progress}%` : 'RENDER 4K'}</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleQuickExportCurrentShot}
+                disabled={exportState.isExporting}
+                aria-label="Render 4K Video"
+                className={`p-2 rounded border font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shrink-0 ${
+                  exportState.isExporting
+                    ? 'bg-amber-500/30 border-amber-400 text-amber-300 animate-pulse'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-[#F5A623] hover:text-[#FFE066]'
+                }`}
+              >
+                <Download className="w-4 h-4" />
+                {exportState.isExporting && <span className="tabular-nums">{exportState.progress}%</span>}
+              </button>
+            </ToolTooltip>
 
-            {/* Ingest 4K Media File Input Trigger */}
-            <button
-              type="button"
-              onClick={() => vaultFileInputRef.current?.click()}
-              className="h-8 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 active:scale-95 border border-amber-500/40 text-[#F5A623] hover:text-[#FFE066] font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0"
-              title="Ingest .mp4, .mov, .png, .jpg directly to active shot target"
+            {/* Ingest 4K Media Icon Button */}
+            <ToolTooltip
+              title="INGEST MEDIA"
+              why="Imports .mp4, .mov, .png, or .jpg directly into the active slot"
+              how="Click to choose a file or drag-and-drop onto any shot card"
             >
-              <HardDrive className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span className="hidden md:inline">INGEST</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => vaultFileInputRef.current?.click()}
+                aria-label="Ingest Media"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-400 hover:text-amber-300 transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
 
-            {/* Media Asset Vault Drawer Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsVaultDrawerOpen(prev => !prev)}
-              className="h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 border border-white/15 text-zinc-300 hover:text-white font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0"
-              title="Open Media Asset Vault"
+            {/* Media Asset Vault Drawer Icon Button */}
+            <ToolTooltip
+              title="MEDIA VAULT"
+              why="Opens your ingested clip library and saved 4K studio plates"
+              how="Click to browse, preview, or assign assets to timeline slots"
             >
-              <FolderPlus className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span className="hidden md:inline">VAULT</span>
-              {vaultAssets.length > 0 && (
-                <span className="px-1.5 py-0.2 bg-[#F5A623] text-black text-[8.5px] font-black rounded-full">
-                  {vaultAssets.length}
-                </span>
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => setIsVaultDrawerOpen(prev => !prev)}
+                aria-label="Open Media Asset Vault"
+                className="relative p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300 transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <FolderPlus className="w-4 h-4 text-[#F5A623]" />
+                {vaultAssets.length > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-[14px] flex items-center justify-center bg-[#F5A623] text-black text-[8px] font-black rounded-full leading-none">
+                    {vaultAssets.length}
+                  </span>
+                )}
+              </button>
+            </ToolTooltip>
 
-            {/* Minimal Zen Focus Mode Icon Button */}
-            <button
-              type="button"
-              onClick={handleZenToggle}
-              className={`h-8 px-2.5 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
-                isZenModeActive
-                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.45)]'
-                  : 'bg-black/60 border-white/15 text-zinc-400 hover:text-cyan-300 hover:border-cyan-400/50'
-              }`}
-              title="Zen Focus Mode: Distraction-free clean viewport (Z)"
+            {/* Zen Focus Mode Icon Button */}
+            <ToolTooltip
+              title="ZEN FOCUS MODE"
+              why="Hides surrounding UI chrome for distraction-free screening"
+              how="Click or press Z to toggle clean cinema viewport"
             >
-              <span className="text-xs">⛶</span>
-              <span className="hidden sm:inline">ZEN</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleZenToggle}
+                aria-label="Toggle Zen Focus Mode"
+                aria-pressed={isZenModeActive}
+                className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                  isZenModeActive
+                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.45)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-cyan-300'
+                }`}
+              >
+                {isZenModeActive ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            </ToolTooltip>
           </div>
 
         </div>
@@ -3992,7 +4102,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               const rank = index + 1;
               return (
                 <div
-                  key={frame.id ?? index}
+                  key={`top-shot-${index}-${frame?.id ?? 'none'}`}
                   onClick={() => onEnterStudio(index)}
                   className="group relative bg-[#101016] border border-[#232330] hover:border-[#E50914] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_12px_30px_rgba(229,9,20,0.3)] flex flex-col aspect-[2/3]"
                 >

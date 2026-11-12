@@ -738,10 +738,18 @@ export const useStudioStore = create<StudioState>()(
         if (!state.project.shots || state.project.shots.length === 0) {
           state.project.shots = createDefaultStoreShots();
         }
+        const defaults = createDefaultStoreShots();
+        let nextShotId = state.project.shots.reduce(
+          (max, s) => (typeof s?.id === 'number' && Number.isFinite(s.id) && s.id > max ? s.id : max),
+          -1
+        );
         while (state.project.shots.length <= index) {
           const i = state.project.shots.length;
-          const defaults = createDefaultStoreShots();
-          state.project.shots.push(defaults[i % defaults.length]);
+          nextShotId += 1;
+          state.project.shots.push({
+            ...defaults[i % defaults.length],
+            id: nextShotId
+          });
         }
         const shot = state.project.shots[index];
         if (shot) {
@@ -761,10 +769,19 @@ export const useStudioStore = create<StudioState>()(
         newIndex = state.project.shots.length;
         const defaults = createDefaultStoreShots();
         const base = defaults[newIndex % defaults.length] || defaults[0];
+        const usedIds = new Set(state.project.shots.map((s) => s.id));
+        const maxId = state.project.shots.reduce(
+          (max, s) => (typeof s?.id === 'number' && Number.isFinite(s.id) && s.id > max ? s.id : max),
+          -1
+        );
+        const resolvedId =
+          typeof partial.id === 'number' && Number.isFinite(partial.id) && !usedIds.has(partial.id)
+            ? partial.id
+            : maxId + 1;
         const newShot: Shot = {
           ...base,
           ...partial,
-          id: typeof partial.id === 'number' ? partial.id : newIndex + 1,
+          id: resolvedId,
           epNumber: String(newIndex + 1).padStart(3, '0'),
           durationSeconds: partial.durationSeconds || (partial as any).durationSec || 5.0,
           updatedAt: Date.now()

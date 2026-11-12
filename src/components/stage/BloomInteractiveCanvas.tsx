@@ -266,7 +266,7 @@ export const BloomInteractiveCanvas: React.FC<BloomInteractiveCanvasProps> = ({
 
               return (
                 <div
-                  key={frame.id}
+                  key={`bloom-card-${idx}-${frame?.id ?? 'none'}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
@@ -390,7 +390,7 @@ export const BloomInteractiveCanvas: React.FC<BloomInteractiveCanvasProps> = ({
 
               return (
                 <div
-                  key={frame.id}
+                  key={`bloom-strip-${idx}-${frame?.id ?? 'none'}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}

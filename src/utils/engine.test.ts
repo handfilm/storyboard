@@ -563,4 +563,25 @@ test('Multi-Page Storyboard PDF Exporter: timecodes, layouts, themes, and PDF Bl
   assert.ok(contactBlob.size > 1000);
 });
 
+test('ensureUniqueFrameIds & getNextUniqueFrameId deduplicate colliding id: 0 and preserve valid unique IDs', async () => {
+  const { ensureUniqueFrameIds, getNextUniqueFrameId } = await import('./projectMigration.ts');
+
+  const duplicated = [
+    { id: 0, title: 'Shot 1' },
+    { id: 1, title: 'Shot 2' },
+    { id: 0, title: 'Colliding Shot 3' },
+    { id: 2, title: 'Shot 4' },
+    { title: 'Missing ID Shot 5' }
+  ];
+
+  const unique = ensureUniqueFrameIds(duplicated);
+  const ids = unique.map((f) => f.id);
+  assert.equal(new Set(ids).size, unique.length, 'Every frame must have a strictly unique ID');
+  assert.equal(ids[0], 0);
+  assert.equal(ids[1], 1);
+  assert.equal(ids[3], 2);
+  assert.equal(getNextUniqueFrameId(unique), Math.max(...(ids as number[])) + 1);
+});
+
+
 

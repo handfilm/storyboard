@@ -43,8 +43,11 @@ import {
   Repeat,
   Music,
   Layers,
-  RotateCcw
+  RotateCcw,
+  Pencil,
+  Focus
 } from 'lucide-react';
+import { ToolTooltip } from './ui/ToolTooltip';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 import { AudioFrequencyVisualizer } from './audio/AudioFrequencyVisualizer';
 import { MultiLayerZoomControls } from './optics/MultiLayerZoomControls';
@@ -269,7 +272,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   }, []);
 
   // Compute visible shot range + 5-shot buffer window
-  const shotWidthApprox = 56;
+  const shotWidthApprox = 122;
   const visibleStartShot = Math.max(0, Math.floor(stripScroll.scrollLeft / shotWidthApprox) - 5);
   const visibleEndShot = Math.min(
     safeFrames.length - 1,
@@ -509,21 +512,32 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
       )}
 
-      {/* 100-Frame Strip Navigation with High-Throughput Virtualization & Per-Slide Duration Handles */}
-      <div className="w-full max-w-[min(99vw,1880px)] mb-0.5 pointer-events-auto flex items-center gap-1 sm:gap-1.5">
-        <button
-          onClick={onPrev}
-          aria-label="Previous Shot (J)"
-          title="Previous Shot (J / Left Arrow)"
-          className="h-5.5 w-5 sm:w-5.5 p-0.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95 flex items-center justify-center"
+      {/* 100-Frame Strip Navigation with Generous 112x64 Cards & Smooth Wheel Scroll */}
+      <div className="w-full max-w-[min(99vw,1880px)] mb-1 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
+        <ToolTooltip
+          title="PREVIOUS SHOT"
+          why="Jumps playhead backward to the preceding sequence shot"
+          how="Click or press J / Left Arrow to step backward"
         >
-          <ChevronLeft className="w-2.5 h-2.5" />
-        </button>
+          <button
+            type="button"
+            onClick={onPrev}
+            aria-label="Previous Shot (J)"
+            className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300 backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        </ToolTooltip>
 
         <div
           ref={stripRef}
           onMouseLeave={() => setHoveredMarker(null)}
-          className="flex-1 flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5 px-1 bg-black/85 backdrop-blur-2xl border border-white/10 rounded-md no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.85)] scroll-smooth h-5 sm:h-5.5"
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+          className="flex-1 flex items-center gap-2.5 px-3 py-1.5 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.85)]"
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -542,6 +556,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             const hasMedia = Boolean(primaryImgSrc || frame?.imageUrl || frame?.isVideo);
             const isThumbnailVisible = idx >= visibleStartShot && idx <= visibleEndShot;
             const shotNumber = idx + 1;
+            const shotBadge = `#${String(shotNumber).padStart(2, '0')}`;
             const title = frame?.title || `Shot ${shotNumber}`;
             const bn = frame?.bengaliTitle || '';
             const holdSec =
@@ -560,7 +575,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
             return (
               <div
-                key={frame?.id ?? idx}
+                key={`shot-strip-${idx}-${frame?.id ?? 'none'}`}
                 data-testid={`scrubber-index-marker-${idx}`}
                 onClick={() => onSelectFrame(idx)}
                 onMouseEnter={(e) => handleMarkerHoverEnter(idx, e.currentTarget)}
@@ -585,12 +600,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
-                className={`group relative shrink-0 w-8.5 sm:w-9.5 h-4.5 sm:h-5 rounded-[2px] overflow-hidden flex items-center justify-center cursor-pointer select-none transition-all duration-200 ease-out will-change-transform border ${
+                className={`group relative min-w-[112px] w-[112px] h-[64px] flex-shrink-0 snap-start rounded-lg overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-150 ease-out will-change-transform ${
                   isActive
-                    ? 'border-[#FFE066] ring-1 ring-[#D4AF37] shadow-[0_0_10px_rgba(212,175,55,0.75)] scale-105 z-20'
-                    : hasMedia
-                    ? 'border-white/20 hover:border-[#FFE066]/90 hover:scale-105 bg-[#121218] opacity-85 hover:opacity-100'
-                    : 'border-white/10 hover:border-white/30 hover:scale-105 bg-[#0e0e14] opacity-75 hover:opacity-100'
+                    ? 'border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-[1.02] z-20 bg-[#121218]'
+                    : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-[#0e0e14]'
                 }`}
               >
                 {/* Virtualized Persistent Media Thumbnail Preview */}
@@ -603,7 +616,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     onError={() =>
                       setFailedThumbMap((prev) => ({ ...prev, [thumbKey]: true }))
                     }
-                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.75] group-hover:brightness-100 transition-all duration-200 group-hover:scale-110"
+                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 transition-all duration-200 group-hover:scale-105"
                   />
                 ) : hasMedia && isThumbnailVisible && isVideoMedia && frame?.imageUrl ? (
                   <video
@@ -611,38 +624,56 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     muted
                     playsInline
                     preload="metadata"
-                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.75] group-hover:brightness-100 pointer-events-none"
+                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 pointer-events-none"
                   />
                 ) : hasMedia ? (
                   <div className="absolute inset-0 bg-[#12121a] flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/40 pointer-events-none" />
+                    <div className="w-2 h-2 rounded-full bg-[#D4AF37]/40 pointer-events-none" />
                   </div>
                 ) : (
-                  <div className="absolute inset-0 bg-gradient-to-b from-[#181824] via-[#101018] to-[#08080e] flex items-center justify-center">
-                    <div className="w-full h-full opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:4px_4px]" />
-                    <Camera className="w-2.5 h-2.5 text-white/20 group-hover:text-amber-400/50 transition-colors pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#161722] via-[#0e0f16] to-[#08080e] flex items-center justify-center">
+                    <Camera className="w-4 h-4 text-white/20 group-hover:text-amber-400/50 transition-colors pointer-events-none" />
                   </div>
                 )}
 
-                {/* Contrast shade overlay */}
-                <div className="absolute inset-0 bg-black/45 group-hover:bg-black/20 transition-colors pointer-events-none" />
+                {/* Contrast scrim overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/55 pointer-events-none" />
 
-                {/* Floating Real-Time Relative Timecode / Duration Overlay Badge */}
-                <div
-                  className={`absolute top-0.5 inset-x-0.5 z-20 flex items-center justify-between px-0.5 py-0 rounded-[1px] backdrop-blur-md transition-all duration-150 pointer-events-none ${
-                    isActive
-                      ? 'bg-black/90 border border-[#FFE066] text-[#FFE066] shadow-[0_0_6px_rgba(245,166,35,0.7)]'
-                      : 'bg-black/75 border border-white/10 text-white/60 opacity-85 group-hover:opacity-100'
-                  }`}
-                >
-                  <span className="text-[5.5px] sm:text-[6px] font-mono font-bold tracking-tight leading-none tabular-nums">
+                {/* Top Metadata Bar: #01 + Duration / Relative TC */}
+                <div className="relative z-10 px-1.5 pt-1 flex items-center justify-between gap-1 font-mono pointer-events-none">
+                  <span
+                    className={`px-1 py-0.5 rounded text-[9px] font-black leading-none tabular-nums ${
+                      isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'
+                    }`}
+                  >
+                    {shotBadge}
+                  </span>
+                  <span
+                    className={`px-1 py-0.5 rounded text-[8.5px] font-bold leading-none tabular-nums ${
+                      isActive
+                        ? 'bg-black/90 border border-amber-400/70 text-amber-300'
+                        : 'bg-black/75 text-zinc-300'
+                    }`}
+                  >
                     {isActive && isPlaying ? relativeTc : formatDurationPillValue(holdSec)}
                   </span>
                 </div>
 
+                {/* Bottom Metadata Bar: Title/Bangla Label + Active Light Badge */}
+                <div className="relative z-10 px-1.5 pb-1 flex items-center justify-between gap-1 font-mono pointer-events-none">
+                  <span className="text-[9px] font-semibold text-white truncate leading-none drop-shadow">
+                    {bn || title}
+                  </span>
+                  {frame?.lutFilter && (
+                    <span className="px-1 py-0.5 rounded bg-black/75 text-[7.5px] text-amber-300 font-bold uppercase leading-none shrink-0">
+                      {frame.lutFilter.slice(0, 3)}
+                    </span>
+                  )}
+                </div>
+
                 {/* Real-Time Slide Progress Baseline */}
                 {isActive && (
-                  <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-black/80 overflow-hidden pointer-events-none z-20">
+                  <div className="absolute bottom-0 inset-x-0 h-[2px] bg-black/80 overflow-hidden pointer-events-none z-20">
                     <div
                       className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFE066] shadow-[0_0_6px_rgba(255,224,102,0.9)]"
                       style={{
@@ -652,29 +683,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   </div>
                 )}
 
-                {/* Bottom media indicator accent for inactive shots */}
-                {hasMedia && !isActive && (
-                  <span className="absolute bottom-0 inset-x-0 h-[1.5px] bg-[#D4AF37]/80 pointer-events-none" />
-                )}
-
-                {/* Number overlay */}
-                <span
-                  className={`relative z-10 font-mono transition-all duration-200 pointer-events-none select-none mt-1 tabular-nums ${
-                    isActive
-                      ? 'text-[#FFE066] font-black text-[9.5px] scale-110 drop-shadow-[0_0_6px_rgba(245,166,35,0.95)]'
-                      : 'text-white/80 text-[8.5px] font-bold tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] group-hover:scale-115 group-hover:text-[#FFE066] group-hover:font-black'
-                  }`}
-                >
-                  {shotNumber}
-                </span>
-
                 {/* Right-Border Duration Drag Handle */}
                 {onUpdateFrameAtIndex && (
                   <div
                     onMouseDown={(e) => handleStartShotResize(idx, e)}
                     onClick={(e) => e.stopPropagation()}
                     title={`Drag right edge to resize SH${String(shotNumber).padStart(3, '0')} (${holdSec.toFixed(2)}s // ${shotFrames}F)`}
-                    className={`absolute top-0 bottom-0 right-0 w-1 z-30 cursor-ew-resize transition-colors ${
+                    className={`absolute top-0 bottom-0 right-0 w-1.5 z-30 cursor-ew-resize transition-colors ${
                       dragShotState?.index === idx
                         ? 'bg-[#FFE066]'
                         : 'bg-transparent group-hover:bg-[#F5A623]/80 hover:!bg-[#FFE066]'
@@ -686,38 +701,54 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           })}
         </div>
 
-        <button
-          onClick={onNext}
-          aria-label="Next Shot (L)"
-          title="Next Shot (L / Right Arrow)"
-          className="h-5 w-5 sm:w-5.5 p-0.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/70 hover:text-[#FFE066] backdrop-blur-md cursor-pointer transition-all shadow-[0_2px_8px_rgba(0,0,0,0.6)] shrink-0 active:scale-95 flex items-center justify-center"
+        <ToolTooltip
+          title="NEXT SHOT"
+          why="Advances playhead forward to the next sequence shot"
+          how="Click or press L / Right Arrow to step forward"
         >
-          <ChevronRight className="w-2.5 h-2.5" />
-        </button>
-
-        {/* Sequence Bar Quick Actions: Ripple Duration & Beat Match */}
-        {onApplyDurationToAll && (
           <button
             type="button"
-            onClick={() => onApplyDurationToAll(currentDurationSec)}
-            title={`Ripple Apply ${formatDurationPillValue(currentDurationSec)} to All Shots`}
-            className="hidden md:flex items-center gap-1 h-5 px-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-[#D4AF37] text-white/75 hover:text-[#FFE066] text-[7.5px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
+            onClick={onNext}
+            aria-label="Next Shot (L)"
+            className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300 backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
           >
-            <Repeat className="w-2 h-2 text-[#D4AF37]" />
-            <span>Ripple All</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
+        </ToolTooltip>
+
+        {/* Sequence Bar Quick Actions: Ripple Duration & Beat Match (Icon-First + Tooltips) */}
+        {onApplyDurationToAll && (
+          <ToolTooltip
+            title="RIPPLE SYNC"
+            why="Applies current shot timing across the entire sequence"
+            how={`Click to set all ${safeFrames.length} shots to ${formatDurationPillValue(currentDurationSec)}`}
+          >
+            <button
+              type="button"
+              onClick={() => onApplyDurationToAll(currentDurationSec)}
+              aria-label="Ripple Apply Duration to All Shots"
+              className="hidden md:flex p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 cursor-pointer transition-all active:scale-95 shrink-0"
+            >
+              <Repeat className="w-4 h-4" />
+            </button>
+          </ToolTooltip>
         )}
 
         {onMatchAudioBeats && (
-          <button
-            type="button"
-            onClick={onMatchAudioBeats}
-            title="Match Audio Waveform Beats across all shots"
-            className="hidden lg:flex items-center gap-1 h-5 px-1.5 rounded-[2px] bg-black/90 hover:bg-black border border-white/15 hover:border-cyan-400 text-white/75 hover:text-cyan-200 text-[7.5px] font-mono-tech cursor-pointer transition-colors shrink-0 whitespace-nowrap"
+          <ToolTooltip
+            title="MATCH AUDIO BEATS"
+            why="Quantizes shot durations to detected audio waveform beats"
+            how="Click to automatically align cuts across your soundtrack"
           >
-            <Music className="w-2 h-2 text-cyan-400" />
-            <span>Match Beats</span>
-          </button>
+            <button
+              type="button"
+              onClick={onMatchAudioBeats}
+              aria-label="Match Audio Beats"
+              className="hidden lg:flex p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-cyan-300 hover:text-cyan-200 cursor-pointer transition-all active:scale-95 shrink-0"
+            >
+              <Music className="w-4 h-4" />
+            </button>
+          </ToolTooltip>
         )}
 
         <form onSubmit={handleJumpSubmit} className="hidden sm:flex items-center shrink-0">
@@ -726,8 +757,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             value={jumpInput}
             onChange={(e) => setJumpInput(e.target.value)}
             onBlur={() => handleJumpSubmit()}
-            placeholder={`# ${currentIndex + 1}`}
-            className="w-9 sm:w-10 h-5 bg-black/85 border border-white/20 focus:border-[#D4AF37] text-white text-[7.5px] font-mono-tech px-1 rounded-[2px] text-center outline-none transition-colors tabular-nums"
+            placeholder={`#${currentIndex + 1}`}
+            aria-label="Jump to Shot Number"
+            className="w-11 h-8 bg-neutral-900/90 border border-neutral-800 focus:border-amber-400 text-white text-[10px] font-mono px-1.5 rounded text-center outline-none transition-colors tabular-nums"
             title="Type shot number and press Enter to jump"
           />
         </form>
@@ -754,70 +786,91 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
       )}
 
-      {/* Main Transport & Optics Toolbar */}
-      <div className="relative w-full max-w-[min(99vw,1880px)] h-[28px] sm:h-[30px] min-h-[28px] max-h-[30px] pointer-events-auto bg-black/92 backdrop-blur-2xl border border-white/10 rounded-md shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-1 sm:px-1.5 flex flex-row items-center justify-between flex-nowrap gap-1 sm:gap-1.5 overflow-x-auto overflow-y-hidden no-scrollbar text-[8px] font-mono-tech select-none">
+      {/* Main Single-Row Iconic Transport & Optics Toolbar */}
+      <div className="relative w-full max-w-[min(99vw,1880px)] h-[46px] min-h-[46px] pointer-events-auto bg-black/92 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-2.5 sm:px-3 flex flex-row items-center justify-between flex-nowrap gap-2 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono-tech select-none">
         {/* Subtle Ambient Gold Audio Reactivity Edge */}
         <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
 
         {/* ======================================================= */}
         {/* 1. LEFT WING: PLAY/PAUSE, STEP BUTTONS & SMPTE CLOCK */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Circular Play/Pause Button */}
-          <button
-            type="button"
-            onClick={onTogglePlay}
-            aria-label={isPlaying ? 'Pause Loop' : 'Play Loop'}
-            className={`w-5.5 h-5.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
-              isPlaying
-                ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-1 ring-amber-500/30 shadow-[0_0_8px_rgba(245,166,35,0.6)]'
-                : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-1 ring-red-500/30 shadow-[0_0_8px_rgba(229,9,20,0.6)]'
-            }`}
+          <ToolTooltip
+            title="PLAYBACK TRANSPORT"
+            why="Plays or pauses real-time sequence preview"
+            how="Click or press Spacebar to start/stop playback"
           >
-            {isPlaying ? (
-              <Pause className="w-2.5 h-2.5 fill-current" />
-            ) : (
-              <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={onTogglePlay}
+              aria-label={isPlaying ? 'Pause Loop' : 'Play Loop'}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
+                isPlaying
+                  ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-2 ring-amber-500/30 shadow-[0_0_12px_rgba(245,166,35,0.6)]'
+                  : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-2 ring-red-500/30 shadow-[0_0_12px_rgba(229,9,20,0.6)]'
+              }`}
+            >
+              {isPlaying ? (
+                <Pause className="w-4 h-4 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 fill-current ml-0.5" />
+              )}
+            </button>
+          </ToolTooltip>
 
           {/* Frame Step Controls (-1F / +1F) */}
-          <div className="flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                if (onStepFrame) onStepFrame(false);
-                else onPrev();
-              }}
-              className="h-5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[7px] font-bold transition-all cursor-pointer"
-              title="Step Backward 1 Frame (Left Arrow)"
+          <div className="flex items-center gap-1 shrink-0">
+            <ToolTooltip
+              title="STEP BACK 1 FRAME"
+              why="Moves playhead backward one exact frame or shot"
+              how="Click or press Left Arrow for frame precision"
             >
-              -1F
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (onStepFrame) onStepFrame(true);
-                else onNext();
-              }}
-              className="h-5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white font-mono text-[7px] font-bold transition-all cursor-pointer"
-              title="Step Forward 1 Frame (Right Arrow)"
+              <button
+                type="button"
+                onClick={() => {
+                  if (onStepFrame) onStepFrame(false);
+                  else onPrev();
+                }}
+                aria-label="Step Backward 1 Frame"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
+
+            <ToolTooltip
+              title="STEP FORWARD 1 FRAME"
+              why="Advances playhead forward one exact frame or shot"
+              how="Click or press Right Arrow for frame precision"
             >
-              +1F
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onStepFrame) onStepFrame(true);
+                  else onNext();
+                }}
+                aria-label="Step Forward 1 Frame"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
           </div>
 
           {/* Monospace SMPTE Timecode Badge */}
-          <div
-            className="flex items-center gap-1 h-5 px-1.5 rounded bg-black/90 border border-white/15 text-[7.5px] font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums"
-            title={`Sequence SMPTE Timecode (HH:MM:SS:FF) at ${currentFps} FPS`}
+          <ToolTooltip
+            title="SMPTE TIMECODE"
+            why="Displays cumulative timeline clock and shot duration"
+            how={`Running at ${currentFps} FPS; drag card edges to adjust`}
           >
-            <Clock className="w-2.5 h-2.5 text-amber-400" />
-            <span className="text-white/40 text-[7px] font-bold">TC</span>
-            <span className="text-amber-400 font-bold tracking-wider text-[8.5px]">{tcString}</span>
-            <span className="text-zinc-500 text-[7px]">/</span>
-            <span className="text-zinc-300 font-bold text-[7.5px]">{currentDurationSec.toFixed(1)}s</span>
-          </div>
+            <div className="flex items-center gap-1.5 h-8 px-2.5 rounded bg-neutral-900/90 border border-neutral-800 text-[10px] font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-amber-400 font-bold tracking-wider text-[11px]">{tcString}</span>
+              <span className="text-zinc-600 text-[10px]">/</span>
+              <span className="text-zinc-300 font-bold text-[10px]">{currentDurationSec.toFixed(1)}s</span>
+            </div>
+          </ToolTooltip>
 
           {/* In-Player Quick Cadence Selector Pill */}
           {onUpdateFrameAtIndex && currentFrame && (
@@ -846,178 +899,193 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
 
         {/* ======================================================= */}
-        {/* 2. CENTER WING: [ SOLO | MASTER ] POD, BEAT-SNAP & SPEED */}
+        {/* 2. CENTER WING: [ SOLO | MASTER ], BEAT SNAP, SPEED, PAN, WARP */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* SOLO / MASTER Segmented Command Hub */}
-          <div className="flex items-center h-5 p-0.5 bg-black/90 rounded border border-white/20 shadow-inner">
-            {/* SOLO Button */}
-            <button
-              type="button"
-              onClick={() => onSelectPlaybackMode?.('solo')}
-              style={
-                playbackMode === 'solo'
-                  ? {
-                      border: '1px solid #00f0ff',
-                      background: 'rgba(0, 240, 255, 0.18)',
-                      color: '#00f0ff',
-                      fontWeight: 800,
-                      boxShadow: '0 0 8px rgba(0, 240, 255, 0.5)'
-                    }
-                  : undefined
-              }
-              className={`h-4 px-1 rounded font-mono text-[7px] uppercase flex items-center gap-0.5 transition-all cursor-pointer ${
-                playbackMode === 'solo' ? '' : 'text-zinc-400 hover:text-white'
-              }`}
-              title="SOLO MODE: Lock playback strictly into isolated active shot"
-            >
-              <span className={`w-1 h-1 rounded-full ${playbackMode === 'solo' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
-              <span>SOLO</span>
-            </button>
-
-            {/* MASTER Button */}
-            <button
-              type="button"
-              onClick={() => onSelectPlaybackMode?.('sequence')}
-              style={
-                playbackMode !== 'solo'
-                  ? {
-                      border: '1px solid #ffaa00',
-                      background: 'rgba(255, 170, 0, 0.22)',
-                      color: '#ffaa00',
-                      fontWeight: 800,
-                      boxShadow: '0 0 8px rgba(255, 170, 0, 0.5)'
-                    }
-                  : undefined
-              }
-              className={`h-4 px-1 rounded font-mono text-[7px] uppercase flex items-center gap-0.5 transition-all cursor-pointer ${
-                playbackMode !== 'solo' ? '' : 'text-zinc-400 hover:text-white'
-              }`}
-              title="MASTER MODE: Continuous narrative playback across full sequence"
-            >
-              <span className={`w-1 h-1 rounded-full ${playbackMode !== 'solo' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
-              <span>MASTER</span>
-            </button>
-          </div>
-
-          {/* Dedicated Beat-Snap Waveform Toggle Button */}
-          <button
-            type="button"
-            data-testid="control-dock-snap-to-beat"
-            aria-pressed={effectiveSnapToBeat}
-            aria-label="Toggle Snap to Beat"
-            onClick={handleSnapToBeatToggle}
-            title={
-              effectiveSnapToBeat
-                ? 'Snap to Beat: ON — Cuts quantize to audio transients'
-                : 'Snap to Beat: OFF — Click to quantize cuts to audio transients'
-            }
-            className={`h-5 px-1 sm:px-1.5 rounded border text-[7px] sm:text-[7.5px] font-mono flex items-center gap-0.5 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-              effectiveSnapToBeat
-                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_6px_rgba(245,166,35,0.4)]'
-                : 'bg-white/5 border-white/10 text-white/60 hover:text-amber-300 hover:border-amber-400/50'
-            }`}
+          <ToolTooltip
+            title="SOLO / MASTER MODE"
+            why="Locks playback to active clip or plays continuous sequence"
+            how="Pick SOLO for single-shot review, MASTER for full cut"
           >
-            <Music
-              className={`w-2 h-2 shrink-0 transition-colors ${
-                effectiveSnapToBeat ? 'text-amber-300' : 'text-amber-400'
-              }`}
-            />
-            <span className="hidden sm:inline">♫ BEAT</span>
-            <span
-              className={`px-0.5 rounded text-[6.5px] font-mono tabular-nums transition-colors ${
-                effectiveSnapToBeat
-                  ? 'bg-amber-400 text-black font-black'
-                  : 'bg-white/10 text-white/45'
-              }`}
-            >
-              {effectiveSnapToBeat ? 'ON' : 'OFF'}
-            </span>
-          </button>
+            <div className="flex items-center h-8 p-0.5 bg-black/90 rounded border border-neutral-800 shadow-inner">
+              <button
+                type="button"
+                onClick={() => onSelectPlaybackMode?.('solo')}
+                style={
+                  playbackMode === 'solo'
+                    ? {
+                        border: '1px solid #00f0ff',
+                        background: 'rgba(0, 240, 255, 0.18)',
+                        color: '#00f0ff',
+                        fontWeight: 800,
+                        boxShadow: '0 0 8px rgba(0, 240, 255, 0.4)'
+                      }
+                    : undefined
+                }
+                className={`h-6.5 px-2 rounded font-mono text-[10px] uppercase flex items-center gap-1 transition-all cursor-pointer ${
+                  playbackMode === 'solo' ? '' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${playbackMode === 'solo' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
+                <span>SOLO</span>
+              </button>
 
-          {/* Pace & Speed Slider */}
-          <div className="hidden xl:flex items-center gap-1 h-5 bg-black/60 px-1 rounded border border-white/10 font-mono text-[7px] text-zinc-400 shrink-0">
-            <span className="text-[6.5px] text-white/50 uppercase tracking-wider">SPEED</span>
-            <input
-              type="range"
-              min="1"
-              max="100"
-              value={speed}
-              onChange={(e) => onSpeedChange(Number(e.target.value))}
-              className="w-6 sm:w-8 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
-              title={`Playback tempo scalar (${intervalSeconds}s ref)`}
-            />
-            <span className="text-amber-400 font-bold tabular-nums text-[7px]">{intervalSeconds}s</span>
-          </div>
+              <button
+                type="button"
+                onClick={() => onSelectPlaybackMode?.('sequence')}
+                style={
+                  playbackMode !== 'solo'
+                    ? {
+                        border: '1px solid #ffaa00',
+                        background: 'rgba(255, 170, 0, 0.22)',
+                        color: '#ffaa00',
+                        fontWeight: 800,
+                        boxShadow: '0 0 8px rgba(255, 170, 0, 0.4)'
+                      }
+                    : undefined
+                }
+                className={`h-6.5 px-2 rounded font-mono text-[10px] uppercase flex items-center gap-1 transition-all cursor-pointer ${
+                  playbackMode !== 'solo' ? '' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${playbackMode !== 'solo' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
+                <span>MASTER</span>
+              </button>
+            </div>
+          </ToolTooltip>
 
-          {/* Pan Tool */}
-          {onTogglePan && (
+          {/* Dedicated Beat-Snap Waveform Toggle Icon Button */}
+          <ToolTooltip
+            title="AUDIO BEAT SNAP"
+            why="Locks shot cuts and edge trims to music transients"
+            how="Toggle on before dragging right edges of timeline cards"
+          >
             <button
-              onClick={onTogglePan}
-              className={`h-5 px-1 rounded border text-[7px] sm:text-[7.5px] font-mono flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
-                isPanActive
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-[0_0_6px_rgba(245,166,35,0.3)]'
-                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+              type="button"
+              data-testid="control-dock-snap-to-beat"
+              aria-pressed={effectiveSnapToBeat}
+              aria-label="Toggle Snap to Beat"
+              onClick={handleSnapToBeatToggle}
+              className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                effectiveSnapToBeat
+                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-amber-300'
               }`}
-              title="Interactive Vertical Alignment Pan Tool (P / Y)"
             >
-              <Move className="w-2 h-2 text-amber-400" />
-              <span className="hidden sm:inline">PAN</span>
-              <span className="text-[6.5px] opacity-75">{panOffsetPercent}%</span>
+              <Music className="w-4 h-4" />
             </button>
+          </ToolTooltip>
+
+          {/* Pace & Speed Slider with Compact Readout */}
+          <ToolTooltip
+            title="PLAYBACK PACING"
+            why="Controls slideshow interval and transition tempo"
+            how="Drag slider to tune shot hold cadence in seconds"
+          >
+            <div className="hidden xl:flex items-center gap-1.5 h-8 bg-neutral-900/90 px-2 rounded border border-neutral-800 hover:border-amber-400/60 font-mono text-[10px] text-zinc-400 shrink-0 transition-colors">
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={speed}
+                onChange={(e) => onSpeedChange(Number(e.target.value))}
+                aria-label="Playback Tempo"
+                className="w-10 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
+              />
+              <span className="text-amber-400 font-bold tabular-nums text-[10px]">{intervalSeconds}s</span>
+            </div>
+          </ToolTooltip>
+
+          {/* Pan Tool Icon + Compact Percentage */}
+          {onTogglePan && (
+            <ToolTooltip
+              title="VERTICAL FRAME PAN"
+              why="Shifts vertical framing offset inside cropped aspect ratios"
+              how="Click or press P / Y then drag vertically on stage"
+            >
+              <button
+                type="button"
+                onClick={onTogglePan}
+                aria-label="Toggle Frame Pan Tool"
+                aria-pressed={isPanActive}
+                className={`p-2 rounded border flex items-center gap-1 font-mono text-[10px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 ${
+                  isPanActive
+                    ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.3)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white'
+                }`}
+              >
+                <Move className="w-4 h-4 text-amber-400" />
+                <span className="tabular-nums text-[9.5px]">{panOffsetPercent}%</span>
+              </button>
+            </ToolTooltip>
           )}
 
-          {/* Canvas Warp / Liquify */}
+          {/* Canvas Warp / Liquify Icon */}
           {onOpenLiquify && (
-            <button
-              onClick={onOpenLiquify}
-              className="h-5 px-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-amber-300 text-[7px] sm:text-[7.5px] font-mono flex items-center gap-0.5 cursor-pointer transition-all shrink-0"
-              title="HTML5 Canvas Liquify & Mesh Warp Studio (W)"
+            <ToolTooltip
+              title="MESH WARP & LIQUIFY"
+              why="Opens optical canvas mesh distortion and retouch sculpting"
+              how="Click or press W to launch the canvas liquify studio"
             >
-              <Wand2 className="w-2 h-2 text-amber-400" />
-              <span className="hidden sm:inline">WARP</span>
-            </button>
+              <button
+                type="button"
+                onClick={onOpenLiquify}
+                aria-label="Open Liquify Warp Studio"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300 cursor-pointer transition-all active:scale-95 shrink-0"
+              >
+                <Wand2 className="w-4 h-4 text-amber-400" />
+              </button>
+            </ToolTooltip>
           )}
         </div>
 
         {/* ======================================================= */}
         {/* 3. RIGHT WING: TITLES, ZEN, OPTICS & TOOLS */}
         {/* ======================================================= */}
-        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-          {/* Easy Change Title & Titles ON/OFF Hub */}
-          <div className="relative flex items-center bg-black/90 border border-white/20 rounded p-0.5 shadow-inner shrink-0">
-            {/* Master Titles ON/OFF Toggle Button */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Titles ON/OFF & Quick Edit Icon Pair */}
+          <div className="relative flex items-center gap-1 shrink-0">
             {onToggleTitles && (
-              <button
-                type="button"
-                onClick={onToggleTitles}
-                className={`h-4 px-1 rounded font-mono text-[7px] font-bold flex items-center gap-0.5 transition-all cursor-pointer shrink-0 ${
-                  showTitles
-                    ? 'bg-amber-500/25 border border-amber-400 text-amber-300 shadow-[0_0_6px_rgba(245,166,35,0.4)]'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Toggle Creative Kinetic Titles Layer On/Off"
+              <ToolTooltip
+                title="KINETIC TITLES"
+                why="Toggles dynamic title typography and Bangla overlays"
+                how="Click to preview clean plates vs. subtitled frames"
               >
-                <span className={`w-1 h-1 rounded-full ${showTitles ? 'bg-amber-400 shadow-[0_0_4px_#f5a623]' : 'bg-zinc-600'}`} />
-                <Type className="w-2 h-2" />
-                <span>TITLES {showTitles ? 'ON' : 'OFF'}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={onToggleTitles}
+                  aria-label="Toggle Titles Layer"
+                  aria-pressed={showTitles}
+                  className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                    showTitles
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.4)]'
+                      : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <Type className="w-4 h-4" />
+                </button>
+              </ToolTooltip>
             )}
 
-            {/* Quick Title Edit Trigger */}
-            <button
-              type="button"
-              onClick={() => setIsEditingTitle(prev => !prev)}
-              className={`h-4 px-1 rounded font-mono text-[7px] transition-all cursor-pointer flex items-center gap-0.5 max-w-[60px] sm:max-w-[75px] truncate ${
-                isEditingTitle
-                  ? 'bg-white/20 text-white font-bold'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
-              }`}
-              title="Click to quickly rename Shot Title and Bengali Subtitle"
+            <ToolTooltip
+              title="RENAME SHOT TITLES"
+              why="Edits active shot English title and Bangla subtitle inline"
+              how="Click to open title editor and press Enter to save"
             >
-              <span className="text-amber-400 text-[7px]">✏️</span>
-              <span className="truncate">{currentFrame?.title || 'Edit'}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingTitle(prev => !prev)}
+                aria-label="Edit Shot Title"
+                className={`p-2 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                  isEditingTitle
+                    ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300'
+                }`}
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
 
             {/* Inline Title Quick Edit Popover */}
             {isEditingTitle && (
@@ -1085,90 +1153,129 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           </div>
 
           {/* Aspect Ratio Selector Dropdown */}
-          <select
-            value={aspectRatio}
-            onChange={(e) => onChangeAspectRatio(e.target.value)}
-            className="h-5 px-1 rounded bg-black/85 border border-white/15 text-white font-mono text-[7px] sm:text-[7.5px] font-bold outline-none cursor-pointer hover:border-amber-400/50 focus:border-amber-400 transition-colors shrink-0"
-            title="Aspect Ratio"
+          <ToolTooltip
+            title="OPTICAL ASPECT RATIO"
+            why="Changes canvas matte between scope, 16:9, and vertical reel"
+            how="Select a framing preset to inspect live crop boundaries"
           >
-            <option value="2.39:1">2.39:1</option>
-            <option value="16:9">16:9</option>
-            <option value="9:16">9:16</option>
-            <option value="4:3">4:3</option>
-            <option value="1:1">1:1</option>
-          </select>
+            <select
+              value={aspectRatio}
+              onChange={(e) => onChangeAspectRatio(e.target.value)}
+              aria-label="Aspect Ratio"
+              className="h-8 px-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 focus:border-amber-400 text-white font-mono text-[10px] font-bold outline-none cursor-pointer transition-colors shrink-0"
+            >
+              <option value="2.39:1">2.39:1</option>
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+              <option value="4:3">4:3</option>
+              <option value="1:1">1:1</option>
+            </select>
+          </ToolTooltip>
 
           {/* LUT Preset Selector */}
-          <select
-            value={currentFrame?.lutFilter || 'cinematic'}
-            onChange={(e) => onChangeLut(e.target.value as LutPreset)}
-            className="hidden sm:block h-5 px-1 bg-black/85 border border-white/15 rounded text-[7px] sm:text-[7.5px] text-amber-300 font-mono outline-none cursor-pointer focus:border-amber-400 shrink-0 max-w-[68px] truncate"
+          <ToolTooltip
+            title="COLOR GRADE LUT"
+            why="Applies film-stock color look and contrast curve to shot"
+            how="Pick any LUT preset to grade the active sequence frame"
           >
-            {LUT_PRESETS.map((p) => (
-              <option key={p.id} value={p.id} className="bg-[#101014] text-white">
-                {p.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Zen Focus Mode Button */}
-          {onToggleZen && (
-            <button
-              type="button"
-              onClick={onToggleZen}
-              className={`h-5 px-1 rounded border font-mono text-[7px] font-bold flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
-                isZenMode
-                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_6px_rgba(0,240,255,0.45)]'
-                  : 'bg-black/60 border-white/15 text-zinc-400 hover:text-cyan-300 hover:border-cyan-400/50'
-              }`}
-              title="Zen Focus Mode: Distraction-free clean viewport (Z)"
+            <select
+              value={currentFrame?.lutFilter || 'cinematic'}
+              onChange={(e) => onChangeLut(e.target.value as LutPreset)}
+              aria-label="LUT Preset"
+              className="hidden sm:block h-8 px-2 bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 focus:border-amber-400 rounded text-[10px] text-amber-300 font-mono font-bold outline-none cursor-pointer shrink-0 max-w-[92px] truncate"
             >
-              <span className="text-[7.5px]">⛶</span>
-              <span className="hidden sm:inline">ZEN</span>
-            </button>
+              {LUT_PRESETS.map((p) => (
+                <option key={p.id} value={p.id} className="bg-[#101014] text-white">
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </ToolTooltip>
+
+          {/* Zen Focus Mode Icon Button */}
+          {onToggleZen && (
+            <ToolTooltip
+              title="ZEN FOCUS MODE"
+              why="Fades out peripheral chrome for distraction-free screening"
+              how="Click or press Z to toggle clean cinema stage view"
+            >
+              <button
+                type="button"
+                onClick={onToggleZen}
+                aria-label="Toggle Zen Focus Mode"
+                aria-pressed={isZenMode}
+                className={`p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
+                  isZenMode
+                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.45)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-cyan-300'
+                }`}
+              >
+                <Focus className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
           )}
 
           {/* Stage HUD Overlay Toggle */}
-          <button
-            type="button"
-            data-testid="control-dock-hud-toggle"
-            aria-pressed={showHud}
-            aria-label="Toggle Stage HUD (H)"
-            onClick={onToggleHud}
-            className={`h-5 w-5 p-0.5 rounded-[2px] border cursor-pointer transition-all shrink-0 flex items-center justify-center ${
-              showHud
-                ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_6px_rgba(212,175,55,0.3)]'
-                : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
-            }`}
-            title={`Toggle Stage HUD Overlay (H) — ${showHud ? 'ON' : 'OFF'}`}
+          <ToolTooltip
+            title="STAGE HUD OVERLAY"
+            why="Shows or hides lens telemetry and slate metadata on stage"
+            how="Click or press H to inspect clean frame vs. HUD readout"
           >
-            <Eye className="w-2.5 h-2.5" />
-          </button>
+            <button
+              type="button"
+              data-testid="control-dock-hud-toggle"
+              aria-pressed={showHud}
+              aria-label="Toggle Stage HUD (H)"
+              onClick={onToggleHud}
+              className={`p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
+                showHud
+                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
+                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          </ToolTooltip>
 
           {/* Thirds Guides */}
           {onToggleGuides && (
-            <button
-              onClick={onToggleGuides}
-              className={`h-5 w-5 p-0.5 rounded-[2px] border cursor-pointer transition-all shrink-0 flex items-center justify-center ${
-                showGuides
-                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_6px_rgba(212,175,55,0.3)]'
-                  : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
-              }`}
-              title="Toggle Rule of Thirds & Crosshair Guides (C)"
+            <ToolTooltip
+              title="COMPOSITION GUIDES"
+              why="Overlays rule-of-thirds grid and optical center crosshairs"
+              how="Click or press C to verify shot symmetry and headroom"
             >
-              <Crosshair className="w-2.5 h-2.5" />
-            </button>
+              <button
+                type="button"
+                onClick={onToggleGuides}
+                aria-label="Toggle Composition Guides"
+                aria-pressed={showGuides}
+                className={`p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
+                  showGuides
+                    ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Crosshair className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
           )}
 
           {/* Capture Still */}
           {onCaptureStill && (
-            <button
-              onClick={onCaptureStill}
-              className="h-5 w-5 p-0.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
-              title="Capture High-Res Cinema Still PNG (S)"
+            <ToolTooltip
+              title="CAPTURE STILL PNG"
+              why="Exports a lossless full-resolution frame still from stage"
+              how="Click or press S to save current graded frame"
             >
-              <Camera className="w-2.5 h-2.5" />
-            </button>
+              <button
+                type="button"
+                onClick={onCaptureStill}
+                aria-label="Capture High-Res Still"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            </ToolTooltip>
           )}
 
           {/* Track VU Meter & Master Audio Engine */}
@@ -1179,113 +1286,144 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           />
 
           {/* Real-Time Audio Frequency Visualizer Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setIsFreqVisualizerOpen((prev) => !prev)}
-            className={`h-5 px-1 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
-              isFreqVisualizerOpen
-                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_6px_rgba(212,175,55,0.45)]'
-                : 'bg-white/5 border-white/10 text-white/60 hover:text-[#FFE066] hover:border-[#D4AF37]/50'
-            }`}
-            title="Toggle Real-Time Audio Frequency Visualizer Overlay"
-            aria-label="Toggle Audio Frequency Visualizer"
+          <ToolTooltip
+            title="AUDIO SPECTRUM"
+            why="Opens live multi-band frequency visualizer above the dock"
+            how="Click to monitor bass peaks and beat transients in real time"
           >
-            <Activity className="w-2 h-2 text-[#FFE066]" />
-            <span className="hidden sm:inline">FREQ</span>
-            <span className="w-1 h-1 rounded-full bg-[#FFE066] animate-pulse" />
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsFreqVisualizerOpen((prev) => !prev)}
+              aria-label="Toggle Audio Frequency Visualizer"
+              className={`relative p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
+                isFreqVisualizerOpen
+                  ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.45)]'
+                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-[#FFE066]'
+              }`}
+            >
+              <Activity className="w-4 h-4 text-[#FFE066]" />
+            </button>
+          </ToolTooltip>
 
           {/* Multi-Layer Zoom HUD Button */}
-          <button
-            type="button"
-            onClick={() => setIsZoomControlsOpen((prev) => !prev)}
-            className={`h-5 px-1 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
-              isZoomControlsOpen
-                ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] font-bold shadow-[0_0_6px_rgba(212,175,55,0.45)]'
-                : 'bg-white/5 border-white/10 text-white/60 hover:text-[#FFE066] hover:border-[#D4AF37]/50'
-            }`}
-            title="Multi-Layer Zoom: Scale Foreground & Background independently"
-            aria-label="Toggle Multi-Layer Zoom Controls"
+          <ToolTooltip
+            title="MULTI-LAYER ZOOM"
+            why="Scales foreground subject and background plate independently"
+            how="Click to open parallax zoom sliders for depth emphasis"
           >
-            <ZoomIn className="w-2 h-2 text-[#D4AF37]" />
-            <span className="hidden sm:inline">ZOOM</span>
-            <span className="text-[6.5px] text-[#FFE066] font-bold tabular-nums">
-              {fgZoom.toFixed(1)}x
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsZoomControlsOpen((prev) => !prev)}
+              aria-label="Toggle Multi-Layer Zoom Controls"
+              className={`p-2 rounded border flex items-center gap-1 font-mono text-[10px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 ${
+                isZoomControlsOpen
+                  ? 'bg-[#D4AF37]/30 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.45)]'
+                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-[#FFE066]'
+              }`}
+            >
+              <ZoomIn className="w-4 h-4 text-[#D4AF37]" />
+              <span className="text-[#FFE066] tabular-nums">{fgZoom.toFixed(1)}x</span>
+            </button>
+          </ToolTooltip>
 
           {/* Reset Zoom Button */}
-          <button
-            type="button"
-            onClick={handleResetAllZoom}
-            className={`h-5 px-1 sm:px-1.5 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
-              isAnyZoomActive
-                ? 'bg-amber-500/25 border-amber-400 text-amber-300 font-bold shadow-[0_0_6px_rgba(245,166,35,0.35)]'
-                : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/25'
-            }`}
-            title="Reset Digital Frame Zoom & Multi-Layer Scale to Default (100% Fit)"
-            aria-label="Reset Zoom"
+          <ToolTooltip
+            title="RESET OPTICS ZOOM"
+            why="Restores digital zoom and parallax layers to 1.0x fit"
+            how="Click whenever zoomed in to snap back to full framing"
           >
-            <RotateCcw className="w-2 h-2 text-current" />
-            <span className="hidden sm:inline">RESET ZOOM</span>
-            <span className="sm:hidden">RESET</span>
-            {isAnyZoomActive && (
-              <span className="text-[6.5px] px-0.5 rounded bg-amber-400/25 text-amber-300 font-bold">
-                {digitalZoom?.isZoomed ? `${digitalZoom.scale.toFixed(1)}x` : `${fgZoom.toFixed(1)}x`}
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={handleResetAllZoom}
+              aria-label="Reset Zoom"
+              className={`p-2 rounded border flex items-center gap-1 font-mono text-[10px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 ${
+                isAnyZoomActive
+                  ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.35)]'
+                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <RotateCcw className="w-4 h-4" />
+              {isAnyZoomActive && (
+                <span className="tabular-nums text-[9.5px]">
+                  {digitalZoom?.isZoomed ? `${digitalZoom.scale.toFixed(1)}x` : `${fgZoom.toFixed(1)}x`}
+                </span>
+              )}
+            </button>
+          </ToolTooltip>
 
           {/* Modular Telemetry Rack */}
           {onToggleTelemetryRack && (
-            <button
-              type="button"
-              onClick={onToggleTelemetryRack}
-              className={`h-5 px-1 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
-                isTelemetryRackOpen
-                  ? 'bg-[#2dd4bf]/25 border-[#2dd4bf] text-[#2dd4bf] font-bold shadow-[0_0_6px_rgba(45,212,191,0.45)]'
-                  : 'bg-white/5 border-white/10 text-white/60 hover:text-[#2dd4bf] hover:border-[#2dd4bf]/50'
-              }`}
-              title="Toggle Modular Telemetry Rack: Audio-Reactive Sync, Voiceover/Subtitles & 3D LUT Engine"
-              aria-label="Toggle Modular Telemetry Rack"
+            <ToolTooltip
+              title="MODULAR SIGNAL RACK"
+              why="Toggles audio-reactive sync, subtitles, and 3D LUT rack"
+              how="Click to expand or collapse the 3-panel signal processor"
             >
-              <Layers className="w-2 h-2 text-[#2dd4bf]" />
-              <span className="hidden sm:inline">RACK</span>
-              <span className="text-[6.5px] px-0.5 rounded bg-[#2dd4bf]/20 text-[#2dd4bf] font-bold">3P</span>
-            </button>
+              <button
+                type="button"
+                onClick={onToggleTelemetryRack}
+                aria-label="Toggle Modular Telemetry Rack"
+                className={`p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
+                  isTelemetryRackOpen
+                    ? 'bg-[#2dd4bf]/25 border-[#2dd4bf] text-[#2dd4bf] shadow-[0_0_8px_rgba(45,212,191,0.45)]'
+                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-[#2dd4bf]'
+                }`}
+              >
+                <Layers className="w-4 h-4 text-[#2dd4bf]" />
+              </button>
+            </ToolTooltip>
           )}
 
           {/* Grid / Contact Sheet */}
-          <button
-            onClick={onToggleViewMode}
-            className={`h-5 px-1 rounded-[2px] border flex items-center gap-0.5 cursor-pointer transition-all text-[7px] sm:text-[7.5px] shrink-0 ${
-              viewMode === 'grid'
-                ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
-                : 'bg-white/5 border-white/10 text-white/70 hover:text-white'
-            }`}
-            title="100-Frame Contact Sheet (G)"
+          <ToolTooltip
+            title="CONTACT SHEET GRID"
+            why="Switches between single stage monitor and 100-shot contact grid"
+            how="Click or press G to overview and reorder sequence frames"
           >
-            <Grid className="w-2 h-2" />
-            <span className="hidden sm:inline">GRID</span>
-          </button>
+            <button
+              type="button"
+              onClick={onToggleViewMode}
+              aria-label="Toggle Contact Sheet Grid (G)"
+              className={`p-2 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
+                viewMode === 'grid'
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white'
+              }`}
+            >
+              <Grid className="w-4 h-4" />
+            </button>
+          </ToolTooltip>
 
           {/* Optical Inspector */}
-          <button
-            onClick={onOpenInspector}
-            className="h-5 w-5 p-0.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all shrink-0 flex items-center justify-center"
-            title="Director Optical Inspector (E)"
+          <ToolTooltip
+            title="OPTICAL INSPECTOR"
+            why="Opens lens specs, exposure, color sliders, and shot notes"
+            how="Click or press E to fine-tune the selected shot"
           >
-            <Sliders className="w-2.5 h-2.5" />
-          </button>
+            <button
+              type="button"
+              onClick={onOpenInspector}
+              aria-label="Open Director Optical Inspector (E)"
+              className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+          </ToolTooltip>
 
           {/* Fullscreen Monitor */}
-          <button
-            onClick={onToggleFullscreen}
-            className="h-5 w-5 p-0.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/10 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
-            title="Toggle Cinema Fullscreen (F)"
+          <ToolTooltip
+            title="CINEMA FULLSCREEN"
+            why="Expands the stage monitor across your entire display"
+            how="Click or press F to toggle fullscreen screening"
           >
-            {isFullscreen ? <Minimize2 className="w-2.5 h-2.5" /> : <Maximize2 className="w-2.5 h-2.5" />}
-          </button>
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              aria-label="Toggle Cinema Fullscreen (F)"
+              className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </ToolTooltip>
         </div>
       </div>
     </div>

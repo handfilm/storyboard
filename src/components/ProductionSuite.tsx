@@ -327,7 +327,7 @@ export const ProductionSuite: React.FC = () => {
                 const isDone = completedShots[idx] || false;
                 return (
                   <div
-                    key={frame.id}
+                    key={`prod-shot-${idx}-${frame?.id ?? 'none'}`}
                     onClick={() => toggleShotComplete(idx)}
                     className={`p-2.5 rounded-[2px] border flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                       isDone

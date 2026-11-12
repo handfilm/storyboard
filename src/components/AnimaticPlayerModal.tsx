@@ -317,7 +317,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
                 const isAct = idx === activeFrameIndex;
                 return (
                   <button
-                    key={f.id ?? idx}
+                    key={`animatic-marker-${idx}-${f?.id ?? 'none'}`}
                     type="button"
                     onClick={() => {
                       const jumpSec = (idx / totalFrames) * timelineCeiling;

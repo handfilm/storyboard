@@ -216,7 +216,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         const currentF = frames[activeIdx];
         if (currentF) {
           featured.push({
-            id: `shot-${currentF.id}`,
+            id: `shot-${activeIdx}-${currentF.id ?? activeIdx}`,
             type: 'shot',
             title: `Shot ${currentF.epNumber || `#${activeIdx + 1}`}: ${currentF.title || 'Current Active Frame'}`,
             sub: `${currentF.bengaliTitle ? `${currentF.bengaliTitle} • ` : ''}${currentF.tagline || 'Current Timeline Frame'}`,
@@ -232,7 +232,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         if (frames.length > activeIdx + 1) {
           const nextF = frames[activeIdx + 1];
           featured.push({
-            id: `shot-${nextF.id}`,
+            id: `shot-${activeIdx + 1}-${nextF.id ?? activeIdx + 1}`,
             type: 'shot',
             title: `Shot ${nextF.epNumber || `#${activeIdx + 2}`}: ${nextF.title || 'Next Shot'}`,
             sub: `${nextF.bengaliTitle ? `${nextF.bengaliTitle} • ` : ''}${nextF.tagline || 'Next Sequence Frame'}`,
@@ -381,7 +381,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
         if (score > 0) {
           matches.push({
-            id: `shot-${f.id}`,
+            id: `shot-${idx}-${f.id ?? idx}`,
             type: 'shot',
             title: `Shot ${f.epNumber || `#${idx + 1}`}: ${f.title || 'Frame ' + (idx + 1)}`,
             sub: `${f.bengaliTitle ? `${f.bengaliTitle} • ` : ''}${f.tagline || f.cameraMove || 'Active Sequence Frame'}`,
@@ -1097,92 +1097,34 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
         <div className="hidden md:block w-px h-5 bg-white/20 mx-2 mx-2! shrink-0"></div>
 
-        <div className="hidden md:flex items-center gap-3 lg:gap-4 text-[10px] font-bold text-white/50 tracking-widest shrink-0">
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => handleWorkspacePanelSelect('TACTILE_STAGE')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('TACTILE_STAGE');
-            }}
-            className={`${
-              currentPanel === 'TACTILE_STAGE'
-                ? 'text-amber-500'
-                : 'hover:text-amber-500'
-            } cursor-pointer transition-colors whitespace-nowrap`}
-            title="Primary Tactile Cinema Stage"
-          >
-            STAGE
-          </div>
-
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => handleWorkspacePanelSelect('SPLIT')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('SPLIT');
-            }}
-            className={`${
-              currentPanel === 'SPLIT'
-                ? 'text-amber-400'
-                : 'hover:text-white'
-            } cursor-pointer transition-colors whitespace-nowrap`}
-            title="9:16 Reels & Dual Split Sequencer"
-          >
-            REELS
-          </div>
-
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => handleWorkspacePanelSelect('SEQUENCER')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('SEQUENCER');
-            }}
-            className={`${
-              currentPanel === 'SEQUENCER'
-                ? 'text-amber-400'
-                : 'hover:text-white'
-            } cursor-pointer transition-colors whitespace-nowrap`}
-            title="Sub-Frame Precision Scrub Timeline"
-          >
-            SCRUB
-          </div>
-
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => handleWorkspacePanelSelect('MULTICAM')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('MULTICAM');
-            }}
-            className={`${
-              currentPanel === 'MULTICAM'
-                ? 'text-amber-400'
-                : 'hover:text-white'
-            } cursor-pointer transition-colors whitespace-nowrap`}
-            title="Multi-Camera Live Cutting Grid"
-          >
-            MULTI-CAM
-          </div>
-
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => handleWorkspacePanelSelect('OPTICAL')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') handleWorkspacePanelSelect('OPTICAL');
-            }}
-            className={`${
-              currentPanel === 'OPTICAL'
-                ? 'text-amber-400'
-                : 'hover:text-white'
-            } cursor-pointer transition-colors whitespace-nowrap`}
-            title="2.39:1 Optical Cinema Monitor"
-          >
-            MONITOR
-          </div>
-        </div>
+        <nav aria-label="Workspace Views" className="hidden md:flex items-center gap-3 shrink-0">
+          {(
+            [
+              { panel: 'TACTILE_STAGE', label: 'STAGE', title: 'Primary Tactile Cinema Stage' },
+              { panel: 'SPLIT', label: 'REELS', title: '9:16 Reels & Dual Split Sequencer' },
+              { panel: 'SEQUENCER', label: 'SCRUB', title: 'Sub-Frame Precision Scrub Timeline' },
+              { panel: 'MULTICAM', label: 'MULTI-CAM', title: 'Multi-Camera Live Cutting Grid' },
+              { panel: 'OPTICAL', label: 'MONITOR', title: '2.39:1 Optical Cinema Monitor' }
+            ] as const
+          ).map((tab) => {
+            const isActive = currentView === 'STUDIO' && currentPanel === tab.panel;
+            return (
+              <button
+                key={tab.panel}
+                type="button"
+                onClick={() => handleWorkspacePanelSelect(tab.panel)}
+                title={tab.title}
+                className={`px-3.5 py-1.5 font-mono text-xs tracking-wider whitespace-nowrap shrink-0 cursor-pointer border-b-2 active:scale-95 transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400 ${
+                  isActive
+                    ? 'border-amber-400 text-amber-300 bg-amber-500/10 rounded-t font-bold shadow-[0_4px_14px_rgba(251,191,36,0.12)]'
+                    : 'border-transparent text-neutral-400 hover:text-white hover:bg-white/[0.04] rounded-t font-medium'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* 2. RIGHT COLUMN: Master/Export Action Pod & Studio Tools */}
@@ -1408,12 +1350,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
 
         {/* Global Minimalist Icon Dock across ALL tabs */}
-        <div className="flex items-center gap-2 pr-3 shrink-0">
-          {/* Priority 1: STUDIO Hero (No icon in studio Button, only Studio) */}
+        <div className="flex items-center gap-3 pr-2 shrink-0">
+          {/* Priority 1: STUDIO Hero */}
           <button
             type="button"
             onClick={handleStudioLaunch}
-            className="h-9 px-4 rounded-full bg-[#e50914] hover:bg-[#ff1e2b] text-white font-mono font-bold flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.6)] hover:shadow-[0_0_20px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95 shrink-0"
+            className="h-9 px-4 rounded-full bg-[#e50914] hover:bg-[#ff1e2b] text-white font-mono font-bold flex items-center justify-center shadow-[0_0_14px_rgba(229,9,20,0.55)] hover:shadow-[0_0_20px_rgba(229,9,20,0.85)] transition-all duration-100 cursor-pointer active:scale-95 shrink-0"
             title="Launch Master Cinema Studio"
           >
             <span className="text-xs tracking-wider font-black">STUDIO</span>
@@ -1426,7 +1368,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               if (onOpenExport) onOpenExport();
               else setIsExportStudioOpen(true);
             }}
-            className="h-9 w-9 rounded-full bg-neutral-900 border border-[#ffaa00]/70 text-[#ffaa00] hover:bg-[#ffaa00]/15 flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0 shadow-[0_0_10px_rgba(255,170,0,0.25)]"
+            className="h-9 w-9 rounded-full bg-neutral-900 border border-[#ffaa00]/70 text-[#ffaa00] hover:bg-[#ffaa00]/15 hover:border-amber-400 flex items-center justify-center text-sm transition-all duration-100 cursor-pointer active:scale-95 shrink-0 shadow-[0_0_10px_rgba(255,170,0,0.25)]"
             title="Export 4K Video & NLE Timelines"
           >
             ⭳
@@ -1439,7 +1381,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               if (onOpenRecorder) onOpenRecorder();
               else setIsRecording(r => !r);
             }}
-            className={`h-9 w-9 rounded-full bg-neutral-900 border flex items-center justify-center text-sm transition-all cursor-pointer active:scale-95 shrink-0 ${
+            className={`h-9 w-9 rounded-full bg-neutral-900 border flex items-center justify-center text-sm transition-all duration-100 cursor-pointer active:scale-95 shrink-0 ${
               isRecording
                 ? 'border-red-500 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.7)] animate-pulse'
                 : 'border-white/10 hover:border-red-500 text-red-500'

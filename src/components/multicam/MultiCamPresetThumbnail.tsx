@@ -248,7 +248,7 @@ export const MultiCamPresetThumbnail: React.FC<MultiCamPresetThumbnailProps> = (
           </div>
           <div className="w-[35%] h-full flex flex-col gap-0.5">
             {companionList.map((comp, idx) => (
-              <div key={comp.id || idx} className="w-full flex-1 rounded border border-white/15 overflow-hidden">
+              <div key={`${comp.id ?? 'comp'}-${idx}`} className="w-full flex-1 rounded border border-white/15 overflow-hidden">
                 {renderAngleFrame(comp, `C0${idx + 2}`, false, true)}
               </div>
             ))}
@@ -281,7 +281,7 @@ export const MultiCamPresetThumbnail: React.FC<MultiCamPresetThumbnailProps> = (
         <div className="w-[34%] h-full flex flex-col justify-between gap-1">
           {companionList.map((comp, idx) => (
             <div
-              key={comp.id || idx}
+              key={`${comp.id ?? 'comp'}-${idx}`}
               className="w-full flex-1 rounded-md border border-white/20 hover:border-amber-400/40 overflow-hidden relative"
             >
               {renderAngleFrame(comp, comp.label ? comp.label.slice(0, 6) : `CAM 0${idx + 2}`, false, false)}
@@ -375,7 +375,7 @@ export const MultiCamPresetThumbnail: React.FC<MultiCamPresetThumbnailProps> = (
           const isSelected = idx === safeActiveIdx;
           return (
             <div
-              key={ang.id || idx}
+              key={`${ang.id ?? 'ang'}-${idx}`}
               className={`w-full h-full rounded overflow-hidden border ${
                 isSelected ? 'border-[#FFE066]' : 'border-white/10'
               }`}
@@ -402,7 +402,7 @@ export const MultiCamPresetThumbnail: React.FC<MultiCamPresetThumbnailProps> = (
         const isSelected = idx === safeActiveIdx;
         return (
           <div
-            key={ang.id || idx}
+            key={`${ang.id ?? 'ang'}-${idx}`}
             className={`w-full h-full rounded-lg overflow-hidden border-2 relative transition-all ${
               isSelected
                 ? 'border-[#FFE066] shadow-[0_0_14px_rgba(255,224,102,0.7)] ring-1 ring-[#FFE066] z-10 scale-[1.02]'

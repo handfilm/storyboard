@@ -22,12 +22,14 @@ import {
   Square,
   Trash2,
   Palette,
-  ArrowLeftRight,
   Grid,
-  AlertTriangle
+  AlertTriangle,
+  Upload
 } from 'lucide-react';
 import { filterFrames, getLutFilterCSS } from '../utils/engine';
 import { downloadStoryboardPdf, StoryboardPdfOptions } from '../utils/pdfExport';
+import { handleFileUpload } from '../services/mediaIngestService';
+import { thumbnailMemoryCache } from '../services/thumbnailEngine';
 
 const ALL_LUT_OPTIONS: { id: LutPreset; label: string; desc: string; color: string }[] = [
   { id: 'cinematic', label: 'RAWx Cinema 35', desc: 'Warm shadows, golden skin tones', color: '#D4AF37' },
@@ -51,6 +53,7 @@ interface GridViewProps {
   onSelectFrame: (index: number) => void;
   onPopulateSamplePack: () => void;
   onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
+  onUpdateFrame?: (frame: AnthologyFrame) => void;
   projectTitle?: string;
   directorName?: string;
   aspectRatio?: string;
@@ -62,6 +65,7 @@ export const GridView: React.FC<GridViewProps> = ({
   onSelectFrame,
   onPopulateSamplePack,
   onReorderFrames,
+  onUpdateFrame,
   projectTitle = 'Master Storyboard',
   directorName = 'Directorial Team',
   aspectRatio = '2.39:1'
@@ -72,6 +76,7 @@ export const GridView: React.FC<GridViewProps> = ({
   // Drag-and-drop state
   const [draggedFrameId, setDraggedFrameId] = useState<number | null>(null);
   const [dragOverFrameId, setDragOverFrameId] = useState<number | null>(null);
+  const [fileDropTargetId, setFileDropTargetId] = useState<number | null>(null);
   const [dropPosition, setDropPosition] = useState<'before' | 'after'>('before');
   const [reorderFeedback, setReorderFeedback] = useState<string | null>(null);
 
@@ -129,6 +134,19 @@ export const GridView: React.FC<GridViewProps> = ({
 
   const handleDragOver = (e: React.DragEvent, targetFrameId: number) => {
     if (isMultiSelectMode || isCompareMode) return;
+
+    // Detect desktop file drag
+    const isFileDrag = Boolean(e.dataTransfer.types && (e.dataTransfer.types.includes('Files') || Array.from(e.dataTransfer.types).includes('Files')));
+    if (isFileDrag) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      if (fileDropTargetId !== targetFrameId) {
+        setFileDropTargetId(targetFrameId);
+      }
+      return;
+    }
+
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
@@ -151,13 +169,61 @@ export const GridView: React.FC<GridViewProps> = ({
     const y = e.clientY;
     if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
       setDragOverFrameId(null);
+      setFileDropTargetId(null);
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetFrameId: number) => {
+  const handleDrop = async (e: React.DragEvent, targetFrameId: number) => {
     if (isMultiSelectMode || isCompareMode) return;
     e.preventDefault();
     e.stopPropagation();
+
+    // 1. Process Desktop File Drag and Drop onto Grid Card
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setFileDropTargetId(null);
+      setDraggedFrameId(null);
+      setDragOverFrameId(null);
+
+      const targetIdx = frames.findIndex(f => f.id === targetFrameId);
+      if (targetIdx !== -1) {
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        setReorderFeedback(`Importing ${droppedFiles[0].name} to SH${String(targetIdx + 1).padStart(3, '0')}...`);
+        try {
+          await handleFileUpload(droppedFiles, {
+            shotIndex: targetIdx,
+            onImmediatePreview: (item) => {
+              const current = frames[targetIdx];
+              if (current && onUpdateFrame) {
+                onUpdateFrame({
+                  ...current,
+                  imageUrl: item.objectUrl,
+                  thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
+                  isVideo: item.isVideo
+                });
+              }
+            },
+            onMetadataReady: (item) => {
+              const current = frames[targetIdx];
+              if (current && item.thumbnailUrl && onUpdateFrame) {
+                thumbnailMemoryCache.set(String(current.id ?? targetIdx + 1), item.thumbnailUrl);
+                thumbnailMemoryCache.set(`shot_${targetIdx}`, item.thumbnailUrl);
+                onUpdateFrame({
+                  ...current,
+                  thumbnailUrl: item.thumbnailUrl
+                });
+              }
+            }
+          });
+          setReorderFeedback(`✓ Media assigned to SH${String(targetIdx + 1).padStart(3, '0')}`);
+          setTimeout(() => setReorderFeedback(null), 3500);
+        } catch (err) {
+          console.warn('[GridView] Media drag-and-drop error:', err);
+          setReorderFeedback('Failed to ingest dropped file');
+          setTimeout(() => setReorderFeedback(null), 3000);
+        }
+      }
+      return;
+    }
 
     if (draggedFrameId === null || draggedFrameId === targetFrameId) {
       setDraggedFrameId(null);
@@ -203,6 +269,7 @@ export const GridView: React.FC<GridViewProps> = ({
   const handleDragEnd = () => {
     setDraggedFrameId(null);
     setDragOverFrameId(null);
+    setFileDropTargetId(null);
   };
 
   const handleNudge = (frameId: number, direction: 'left' | 'right', e: React.MouseEvent) => {
@@ -877,7 +944,7 @@ export const GridView: React.FC<GridViewProps> = ({
 
           return (
             <div
-              key={frame.id}
+              key={`grid-frame-${index}-${frame?.id ?? 'none'}`}
               draggable={!isMultiSelectMode && !isCompareMode}
               onDragStart={(e) => handleDragStart(e, frame.id)}
               onDragOver={(e) => handleDragOver(e, frame.id)}
@@ -904,7 +971,9 @@ export const GridView: React.FC<GridViewProps> = ({
                 onSelectFrame(targetIdx !== -1 ? targetIdx : index);
               }}
               className={`group relative aspect-[16/10] bg-[#101014] border rounded-xs overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] ${
-                isBeingDragged
+                fileDropTargetId === frame.id
+                  ? 'border-amber-400 ring-4 ring-amber-400/50 shadow-[0_0_25px_rgba(245,166,35,0.7)] scale-[1.03] z-40'
+                  : isBeingDragged
                   ? 'opacity-30 scale-95 border-dashed border-amber-400'
                   : isDropTarget
                   ? dropPosition === 'before'
@@ -921,6 +990,18 @@ export const GridView: React.FC<GridViewProps> = ({
                   : 'border-white/10 hover:border-amber-400/50'
               }`}
             >
+              {/* Desktop File Drop Visual Target Overlay */}
+              {fileDropTargetId === frame.id && (
+                <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-sm border-2 border-dashed border-amber-400 flex flex-col items-center justify-center p-2 text-center pointer-events-none animate-in fade-in duration-100">
+                  <Upload className="w-6 h-6 text-amber-400 animate-bounce mb-1" />
+                  <span className="text-[10px] font-mono font-bold text-amber-300 tracking-wider">
+                    DROP TO IMPORT MEDIA
+                  </span>
+                  <span className="text-[8px] font-mono text-zinc-300 mt-0.5 uppercase">
+                    Assigns to {frame.epNumber || `SH${String(index + 1).padStart(3, '0')}`}
+                  </span>
+                </div>
+              )}
               {/* Image thumbnail with active LUT */}
               {hasImage ? (
                 <div

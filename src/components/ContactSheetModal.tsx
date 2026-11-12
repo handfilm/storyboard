@@ -42,11 +42,14 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   Grid,
-  Film
+  Film,
+  Upload
 } from 'lucide-react';
 import { filterFrames, getLutFilterCSS } from '../utils/engine';
 import { eventBus } from '../core/eventBus';
 import { downloadStoryboardPdf, StoryboardPdfOptions, exportFrameAsJpeg, exportFramesAsJpegZip } from '../utils/pdfExport';
+import { handleFileUpload } from '../services/mediaIngestService';
+import { thumbnailMemoryCache } from '../services/thumbnailEngine';
 
 function formatCompactShotRange(oneBasedNumbers: number[]): string {
   if (oneBasedNumbers.length === 0) return '';
@@ -120,6 +123,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   // Drag and Drop State
   const [draggedFrameId, setDraggedFrameId] = useState<number | null>(null);
   const [dragOverFrameId, setDragOverFrameId] = useState<number | null>(null);
+  const [fileDropTargetId, setFileDropTargetId] = useState<number | null>(null);
   const [dropPosition, setDropPosition] = useState<'before' | 'after'>('before');
   const [lastReorderMsg, setLastReorderMsg] = useState<string | null>(null);
 
@@ -288,6 +292,19 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
 
   const handleDragOver = (e: React.DragEvent, targetFrameId: number) => {
     if (isMultiSelectMode || isCompareMode) return;
+
+    // Detect desktop file drag
+    const isFileDrag = Boolean(e.dataTransfer.types && (e.dataTransfer.types.includes('Files') || Array.from(e.dataTransfer.types).includes('Files')));
+    if (isFileDrag) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      if (fileDropTargetId !== targetFrameId) {
+        setFileDropTargetId(targetFrameId);
+      }
+      return;
+    }
+
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
@@ -310,13 +327,61 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
     const y = e.clientY;
     if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
       setDragOverFrameId(null);
+      setFileDropTargetId(null);
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetFrameId: number) => {
+  const handleDrop = async (e: React.DragEvent, targetFrameId: number) => {
     if (isMultiSelectMode || isCompareMode) return;
     e.preventDefault();
     e.stopPropagation();
+
+    // 1. Process Desktop File Drag and Drop onto Gallery Frame
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setFileDropTargetId(null);
+      setDraggedFrameId(null);
+      setDragOverFrameId(null);
+
+      const targetIdx = frames.findIndex(f => f.id === targetFrameId);
+      if (targetIdx !== -1) {
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        setLastReorderMsg(`Importing ${droppedFiles[0].name} to SH${String(targetIdx + 1).padStart(3, '0')}...`);
+        try {
+          await handleFileUpload(droppedFiles, {
+            shotIndex: targetIdx,
+            onImmediatePreview: (item) => {
+              const current = frames[targetIdx];
+              if (current && onUpdateFrame) {
+                onUpdateFrame({
+                  ...current,
+                  imageUrl: item.objectUrl,
+                  thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
+                  isVideo: item.isVideo
+                });
+              }
+            },
+            onMetadataReady: (item) => {
+              const current = frames[targetIdx];
+              if (current && item.thumbnailUrl && onUpdateFrame) {
+                thumbnailMemoryCache.set(String(current.id ?? targetIdx + 1), item.thumbnailUrl);
+                thumbnailMemoryCache.set(`shot_${targetIdx}`, item.thumbnailUrl);
+                onUpdateFrame({
+                  ...current,
+                  thumbnailUrl: item.thumbnailUrl
+                });
+              }
+            }
+          });
+          setLastReorderMsg(`✓ Media assigned to SH${String(targetIdx + 1).padStart(3, '0')}`);
+          setTimeout(() => setLastReorderMsg(null), 3500);
+        } catch (err) {
+          console.warn('[ContactSheetModal] Media drag-and-drop ingestion error:', err);
+          setLastReorderMsg('Failed to ingest dropped file');
+          setTimeout(() => setLastReorderMsg(null), 3000);
+        }
+      }
+      return;
+    }
 
     if (draggedFrameId === null || draggedFrameId === targetFrameId) {
       setDraggedFrameId(null);
@@ -359,6 +424,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   const handleDragEnd = () => {
     setDraggedFrameId(null);
     setDragOverFrameId(null);
+    setFileDropTargetId(null);
   };
 
   const handleNudge = (frameId: number, direction: 'left' | 'right', e: React.MouseEvent) => {
@@ -1019,7 +1085,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                             className="w-full bg-[#07080d] border border-white/15 focus:border-cyan-400 rounded-[2px] px-2 py-1.5 text-[9.5px] text-zinc-200 outline-none cursor-pointer"
                           >
                             {frames.map((f, idx) => (
-                              <option key={f.id ?? idx} value={idx}>
+                              <option key={`cs-opt-${idx}-${f?.id ?? 'none'}`} value={idx}>
                                 {f.epNumber || `#${String(idx + 1).padStart(3, '0')}`} — {f.title || `Frame ${idx + 1}`}
                               </option>
                             ))}
@@ -1681,7 +1747,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
 
                 return (
                   <div
-                    key={frame.id}
+                    key={`cs-frame-${index}-${frame?.id ?? 'none'}`}
                     data-contact-frame-id={frame.id}
                     draggable={!isMultiSelectMode && !isCompareMode && selectedFrameIds.size <= 1}
                     onMouseDown={(e) => {
@@ -1740,7 +1806,9 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                       onClose();
                     }}
                   className={`group relative aspect-[16/10] bg-[#0E0F15] border rounded-[2px] overflow-hidden cursor-pointer transition-all duration-200 ${
-                    isBeingDragged
+                    fileDropTargetId === frame.id
+                      ? 'border-amber-400 ring-4 ring-amber-400/50 shadow-[0_0_25px_rgba(245,166,35,0.7)] scale-[1.03] z-40'
+                      : isBeingDragged
                       ? 'opacity-30 scale-95 border-dashed border-amber-400 shadow-none'
                       : isDropTarget
                       ? dropPosition === 'before'
@@ -1757,6 +1825,19 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                       : 'border-white/10 hover:border-amber-400/50 hover:scale-[1.02]'
                   }`}
                 >
+                  {/* Desktop File Drop Visual Target Overlay */}
+                  {fileDropTargetId === frame.id && (
+                    <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-sm border-2 border-dashed border-amber-400 flex flex-col items-center justify-center p-2 text-center pointer-events-none animate-in fade-in duration-100">
+                      <Upload className="w-6 h-6 text-amber-400 animate-bounce mb-1" />
+                      <span className="text-[10px] font-mono font-bold text-amber-300 tracking-wider">
+                        DROP TO IMPORT MEDIA
+                      </span>
+                      <span className="text-[8px] font-mono text-zinc-300 mt-0.5 uppercase">
+                        Assigns to {frame.epNumber || `SH${String(index + 1).padStart(3, '0')}`}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Drop Guide Marker */}
                   {isDropTarget && (
                     <div 
@@ -2138,7 +2219,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 const thumbSrc = pFrame.thumbnailUrl || pFrame.thumbnail || pFrame.imageUrl || '';
                 return (
                   <div
-                    key={pFrame.id}
+                    key={`cs-preview-${shotNumber}-${pFrame?.id ?? 'none'}`}
                     className="relative aspect-[16/10] rounded-[2px] overflow-hidden border border-white/15 bg-[#08090E]"
                   >
                     {thumbSrc ? (

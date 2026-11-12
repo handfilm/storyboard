@@ -109,7 +109,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
       if (isInput) return;
 
       // Toggle close modal when '?' or Shift + / is pressed again
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      if (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'))) {
         e.preventDefault();
         onClose();
         return;
@@ -224,11 +224,14 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Keyboard Shortcuts Cheat Sheet"
+      className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150 shortcuts-dialog"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-4xl bg-[#09090C] border border-[#2A2A38] rounded-xl shadow-[0_25px_90px_rgba(0,0,0,0.95)] flex flex-col max-h-[92vh] overflow-hidden text-zinc-200"
+        className="w-full max-w-4xl bg-[#09090C] border border-[#2A2A38] rounded-xl shadow-[0_25px_90px_rgba(0,0,0,0.95)] flex flex-col max-h-[92vh] overflow-hidden text-zinc-200 shortcuts-dialog"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Bar */}

@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { 
   Zap, 
@@ -156,7 +157,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [isCockpitHudOpen, setIsCockpitHudOpen] = useState(false);
   const [cockpitFeedback, setCockpitFeedback] = useState<string | null>(null);
   const [liveCockpitStats, setLiveCockpitStats] = useState<CockpitManifestStats | null>(null);
+  const [cockpitDrawerPos, setCockpitDrawerPos] = useState<{ top: number; left: number } | null>(null);
   const cockpitContainerRef = useRef<HTMLDivElement>(null);
+  const cockpitBtnRef = useRef<HTMLButtonElement>(null);
+  const cockpitDrawerRef = useRef<HTMLDivElement>(null);
 
   // Cumulative shot offsets for timing
   const shotOffsets = useMemo(() => getCumulativeShotOffsets(frames), [frames]);
@@ -190,10 +194,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   // Close search dropdown & cockpit HUD on outside click
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+      const targetNode = e.target as Node;
+      if (searchContainerRef.current && !searchContainerRef.current.contains(targetNode)) {
         setIsGlobalSearchOpen(false);
       }
-      if (cockpitContainerRef.current && !cockpitContainerRef.current.contains(e.target as Node)) {
+      const inCockpitTrigger = cockpitContainerRef.current?.contains(targetNode);
+      const inCockpitDrawer = cockpitDrawerRef.current?.contains(targetNode);
+      if (!inCockpitTrigger && !inCockpitDrawer) {
         setIsCockpitHudOpen(false);
       }
     };
@@ -1177,19 +1184,39 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           })}
         </nav>
 
-        {/* MODULE 1: Tactical Cockpit Command Pill & Telemetry Drawer */}
+        {/* MODULE 1: High-Contrast Tactical Cockpit Command Pill & Top-Layer Portal Telemetry Drawer */}
         <div ref={cockpitContainerRef} className="relative shrink-0">
           <button
+            ref={cockpitBtnRef}
             type="button"
-            onClick={() => setIsCockpitHudOpen((prev) => !prev)}
+            onClick={() => {
+              setIsCockpitHudOpen((prev) => {
+                const next = !prev;
+                if (next && cockpitBtnRef.current && typeof window !== 'undefined') {
+                  const rect = cockpitBtnRef.current.getBoundingClientRect();
+                  const clampedLeft = Math.min(window.innerWidth - 336, Math.max(16, rect.left));
+                  setCockpitDrawerPos({ top: Math.max(48, rect.bottom + 4), left: clampedLeft });
+                }
+                return next;
+              });
+            }}
             title="Director's Cockpit Telemetry & Ecosystem Interchange Hub"
-            className="bg-neutral-900/90 border border-amber-500/40 hover:border-amber-400 text-amber-300 font-mono text-xs px-3 py-1.5 rounded flex items-center gap-2 active:scale-95 transition-transform whitespace-nowrap shrink-0 cursor-pointer"
+            className="bg-amber-500/15 border border-amber-400/70 text-amber-300 hover:bg-amber-500/25 font-mono text-xs font-bold px-3 py-1 rounded shadow-[0_0_10px_rgba(251,191,36,0.2)] flex items-center gap-2 active:scale-95 transition-all whitespace-nowrap shrink-0 cursor-pointer"
           >
             <span>⚡ COCKPIT</span>
           </button>
 
-          {isCockpitHudOpen && (
-            <div className="absolute left-0 top-full mt-2 w-80 sm:w-96 bg-[#08090E]/98 backdrop-blur-2xl border border-amber-500/50 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.95)] p-3.5 z-[99999] font-mono text-xs text-zinc-200 space-y-3">
+          {isCockpitHudOpen && typeof document !== 'undefined' && createPortal(
+            <div
+              ref={cockpitDrawerRef}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={
+                cockpitDrawerPos
+                  ? { top: `${cockpitDrawerPos.top}px`, left: `${cockpitDrawerPos.left}px` }
+                  : undefined
+              }
+              className="fixed top-12 left-72 w-80 bg-neutral-950/95 border border-amber-500/50 shadow-2xl backdrop-blur-md p-4 rounded-lg z-[999] font-mono text-xs text-zinc-200 space-y-3"
+            >
               {/* Bridge Environment Status */}
               <div className="flex items-center justify-between pb-2 border-b border-white/10">
                 <span className="text-[10px] font-bold tracking-wider uppercase text-zinc-400">
@@ -1357,7 +1384,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   </button>
                 )}
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>

@@ -75,7 +75,7 @@ export const ToolTooltip: React.FC<ToolTooltipProps> = ({
               top: `${coords.top}px`,
               transform: 'translate(-50%, -100%)'
             }}
-            className="z-50 pointer-events-none bg-neutral-950/95 border border-amber-500/50 shadow-2xl px-3.5 py-2.5 rounded-md max-w-[260px] w-max backdrop-blur-md text-left animate-in fade-in zoom-in-95 duration-100"
+            className="z-[999] pointer-events-none bg-neutral-950/95 border border-amber-500/50 shadow-2xl px-3.5 py-2.5 rounded-md max-w-[260px] w-max backdrop-blur-md text-left animate-in fade-in zoom-in-95 duration-100"
           >
             <div className="text-sm font-bold text-amber-300 tracking-wide uppercase leading-tight">
               {title}

@@ -2996,19 +2996,20 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
 
-                      {/* Shot Tag & Style */}
-                      <div className="absolute top-1 left-1 right-1 flex items-center justify-between text-[7.5px] font-mono pointer-events-none">
+                      {/* Shot Tag & Style (spaced left of top-right ⚡ trigger) */}
+                      <div className="absolute top-1 left-1 right-7 flex items-center justify-between text-[7.5px] font-mono pointer-events-none">
                         <span className={`px-1 rounded font-bold ${isActive ? 'bg-amber-400 text-black' : 'bg-black/70 text-white'}`}>
                           {shot.shotNumber}
                         </span>
-                        <span className="px-1 rounded bg-black/60 text-zinc-400 font-bold group-hover:opacity-0 transition-opacity">
+                        <span className="px-1 rounded bg-black/60 text-zinc-400 font-bold">
                           {personality === 'DOPAMINE' ? 'DPM' : personality === 'MINIMAL' ? 'MIN' : personality === 'B2B' ? 'B2B' : 'KIN'}
                         </span>
                       </div>
 
-                      {/* Top-Right Hover Corner Micro-Trigger (20px x 20px) */}
+                      {/* Top-Right Always-Subtle Corner Micro-Trigger (20px x 20px) */}
                       <button
                         type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           const cardEl = e.currentTarget.closest('[data-shot-card="true"]') as HTMLElement | null;
@@ -3017,9 +3018,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                             prev?.idx === idx ? null : { idx, left: rect.left + rect.width / 2, top: rect.top }
                           );
                         }}
-                        className="absolute top-1 right-1 z-20 w-5 h-5 bg-black/80 border border-amber-400/70 hover:bg-amber-400 hover:text-black text-amber-300 rounded-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center text-[10px] leading-none cursor-pointer shadow"
-                        title="Directorial Dispatch: Bridge to PS, PR, CC (or Right-Click)"
-                        aria-label={`Dispatch Shot ${shot.shotNumber}`}
+                        className="opacity-85 hover:opacity-100 absolute top-1 right-1 z-30 bg-black/90 border border-amber-400/80 hover:bg-amber-400 hover:text-black text-amber-300 w-5 h-5 flex items-center justify-center rounded-sm text-[10px] leading-none cursor-pointer shadow transition-all"
+                        aria-label={`Dispatch Shot ${shot.shotNumber} to External Pipeline`}
                       >
                         ⚡
                       </button>
@@ -3469,12 +3469,12 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/55 pointer-events-none" />
                   </div>
 
-                  {/* Top Shot Metadata: #01 + Active Light / Format Badge */}
-                  <div className="relative z-10 px-1.5 pt-1 flex items-center justify-between text-[9px] font-mono pointer-events-none">
+                  {/* Top Shot Metadata: #01 + Active Light / Format Badge (spaced left of top-right ⚡ trigger) */}
+                  <div className="relative z-10 pl-1.5 pr-7 pt-1 flex items-center justify-between text-[9px] font-mono pointer-events-none">
                     <span className={`px-1 py-0.5 rounded leading-none font-black tabular-nums ${isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'}`}>
                       #{shot.shotNumber}
                     </span>
-                    <div className="flex items-center gap-0.5 group-hover:opacity-0 transition-opacity">
+                    <div className="flex items-center gap-0.5">
                       {activeLight && (
                         <span
                           className="px-1 py-0.5 rounded leading-none bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[8px] font-bold"
@@ -3495,9 +3495,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     </div>
                   </div>
 
-                  {/* Top-Right Hover Corner Micro-Trigger (20px x 20px) */}
+                  {/* Top-Right Always-Subtle Corner Micro-Trigger (20px x 20px) */}
                   <button
                     type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       const cardEl = e.currentTarget.closest('[data-shot-card="true"]') as HTMLElement | null;
@@ -3506,9 +3507,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                         prev?.idx === idx ? null : { idx, left: rect.left + rect.width / 2, top: rect.top }
                       );
                     }}
-                    className="absolute top-1 right-1 z-20 w-5 h-5 bg-black/80 border border-amber-400/70 hover:bg-amber-400 hover:text-black text-amber-300 rounded-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center text-[10px] leading-none cursor-pointer shadow"
-                    title="Directorial Dispatch: Bridge to Photoshop, Premiere, or CapCut (or Right-Click)"
-                    aria-label={`Dispatch Shot ${shot.shotNumber}`}
+                    className="opacity-85 hover:opacity-100 absolute top-1 right-1 z-30 bg-black/90 border border-amber-400/80 hover:bg-amber-400 hover:text-black text-amber-300 w-5 h-5 flex items-center justify-center rounded-sm text-[10px] leading-none cursor-pointer shadow transition-all"
+                    aria-label={`Dispatch Shot ${shot.shotNumber} to External Pipeline`}
                   >
                     ⚡
                   </button>
@@ -3974,6 +3974,41 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               </select>
             </ToolTooltip>
 
+            {/* Module 3: Freeze Master Frame ([ 📸 ]) placed in visible right-center cluster */}
+            <ToolTooltip
+              title="FREEZE MASTER FRAME"
+              why="Exports current 3-tier composite frame as lossless PNG for Photoshop paint-over or thumbnailing."
+              how="Click icon or press [Shift + S] to save & dispatch."
+            >
+              <button
+                type="button"
+                onClick={handleCaptureCurrentFrame}
+                aria-label="Freeze Master Frame"
+                className="text-amber-300 border border-amber-500/40 bg-neutral-900 hover:bg-amber-500/15 hover:border-amber-400 p-1.5 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
+              >
+                <span>📸</span>
+              </button>
+            </ToolTooltip>
+
+            {/* Module 3: Ecosystem Bridge ([ 🚀 ]) placed in visible right-center cluster */}
+            <ToolTooltip
+              title="ECOSYSTEM BRIDGE"
+              why="Hand off timeline cuts, audio sync & Bangla/English scripts to Premiere, Resolve, or CapCut."
+              how="Click or press [Ctrl + Shift + X] for instant NLE XML."
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setCockpitModalTab('interchange');
+                  setIsCockpitOpen(true);
+                }}
+                aria-label="Open Ecosystem Bridge"
+                className="text-amber-300 border border-amber-500/40 bg-neutral-900 hover:bg-amber-500/15 hover:border-amber-400 p-1.5 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
+              >
+                <span>🚀</span>
+              </button>
+            </ToolTooltip>
+
             {/* Lighting Rig Icon Button */}
             <ToolTooltip
               title="CINEMATIC LIGHTING RIG"
@@ -4091,41 +4126,6 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     {vaultAssets.length}
                   </span>
                 )}
-              </button>
-            </ToolTooltip>
-
-            {/* Module 3: Freeze Master Frame ([ 📸 ]) */}
-            <ToolTooltip
-              title="FREEZE MASTER FRAME"
-              why="Exports current 3-tier composite frame as lossless PNG for Photoshop paint-over or thumbnailing."
-              how="Click icon or press [Shift + S] to save & dispatch."
-            >
-              <button
-                type="button"
-                onClick={handleCaptureCurrentFrame}
-                aria-label="Freeze Master Frame"
-                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
-              >
-                <span>📸</span>
-              </button>
-            </ToolTooltip>
-
-            {/* Module 3: Ecosystem Bridge ([ 🚀 ]) */}
-            <ToolTooltip
-              title="ECOSYSTEM BRIDGE"
-              why="Hand off timeline cuts, audio sync & Bangla/English scripts to Premiere, Resolve, or CapCut."
-              how="Click or press [Ctrl + Shift + X] for instant NLE XML."
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setCockpitModalTab('interchange');
-                  setIsCockpitOpen(true);
-                }}
-                aria-label="Open Ecosystem Bridge"
-                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
-              >
-                <span>🚀</span>
               </button>
             </ToolTooltip>
 
@@ -4624,9 +4624,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             left: `${Math.min(window.innerWidth - 196, Math.max(12, dispatchHudAnchor.left - 88))}px`,
             top: `${Math.max(16, dispatchHudAnchor.top - 8)}px`,
             transform: 'translateY(-100%)',
-            zIndex: 99999
+            zIndex: 999
           }}
-          className="w-44 bg-[#08090f]/98 backdrop-blur-xl border border-amber-400/90 rounded-lg p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.95)] font-mono text-[10px] flex flex-col gap-1 animate-in fade-in zoom-in-95"
+          className="z-[999] w-44 bg-[#08090f]/98 backdrop-blur-xl border border-amber-400/90 rounded-lg p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.95)] font-mono text-[10px] flex flex-col gap-1 animate-in fade-in zoom-in-95"
         >
           <div className="text-[8px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-1 flex items-center justify-between">
             <span>DISPATCH #{String(dispatchHudAnchor.idx + 1).padStart(2, '0')}</span>

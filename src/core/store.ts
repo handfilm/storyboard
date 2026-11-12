@@ -62,6 +62,14 @@ export interface ComponentVisibility {
   motionBlur: boolean;
   frameStepButtons?: boolean;
   titleOpacity: number;
+  barrelDistortion?: number;
+}
+
+export interface DigitalZoomState {
+  scale: number;
+  translateX: number;
+  translateY: number;
+  isZoomed: boolean;
 }
 
 export type HeroTitlePreset = 'molten-gold' | 'titanium-silver' | 'neon-crimson';
@@ -126,6 +134,9 @@ export interface StudioState {
   foregroundZoom: number;
   backgroundZoom: number;
   isVertigoLinked: boolean;
+  digitalZoom: DigitalZoomState;
+  setDigitalZoom: (zoom: Partial<DigitalZoomState>) => void;
+  resetDigitalZoom: () => void;
   
   // Component Visibility (12/13 items)
   visibility: ComponentVisibility;
@@ -210,7 +221,8 @@ const baseDefaultVisibility: ComponentVisibility = {
   lensBlur: true,
   motionBlur: true,
   frameStepButtons: false,
-  titleOpacity: 1.0
+  titleOpacity: 1.0,
+  barrelDistortion: 0
 };
 
 function syncRootTitleBlockOpacityVar(opacity: number): void {
@@ -227,11 +239,14 @@ function hydrateInitialStoreVisibility(): ComponentVisibility {
       const parsed = JSON.parse(raw);
       const parsedOpacity = typeof parsed.titleOpacity === 'number' ? parsed.titleOpacity : 1.0;
       const clampedOpacity = Math.max(0, Math.min(1, Math.round(parsedOpacity * 100) / 100));
+      const parsedDistortion = typeof parsed.barrelDistortion === 'number' ? parsed.barrelDistortion : 0;
+      const clampedDistortion = Math.max(0, Math.min(1, Math.round(parsedDistortion * 100) / 100));
       syncRootTitleBlockOpacityVar(clampedOpacity);
       return {
         ...baseDefaultVisibility,
         ...parsed,
-        titleOpacity: clampedOpacity
+        titleOpacity: clampedOpacity,
+        barrelDistortion: clampedDistortion
       };
     }
   } catch {
@@ -320,6 +335,12 @@ export const useStudioStore = create<StudioState>()(
     foregroundZoom: 1.0,
     backgroundZoom: 1.0,
     isVertigoLinked: false,
+    digitalZoom: {
+      scale: 1.0,
+      translateX: 0,
+      translateY: 0,
+      isZoomed: false
+    },
     
     visibility: { ...defaultVisibility },
     
@@ -620,6 +641,29 @@ export const useStudioStore = create<StudioState>()(
 
     resetMultiLayerZoom: () => {
       set((state) => {
+        state.foregroundZoom = 1.0;
+        state.backgroundZoom = 1.0;
+        state.isVertigoLinked = false;
+      });
+    },
+
+    setDigitalZoom: (zoom: Partial<DigitalZoomState>) => {
+      set((state) => {
+        Object.assign(state.digitalZoom, zoom);
+        if (zoom.scale !== undefined) {
+          state.digitalZoom.isZoomed = zoom.scale > 1.01;
+        }
+      });
+    },
+
+    resetDigitalZoom: () => {
+      set((state) => {
+        state.digitalZoom = {
+          scale: 1.0,
+          translateX: 0,
+          translateY: 0,
+          isZoomed: false
+        };
         state.foregroundZoom = 1.0;
         state.backgroundZoom = 1.0;
         state.isVertigoLinked = false;

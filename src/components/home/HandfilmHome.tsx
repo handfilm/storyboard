@@ -63,7 +63,8 @@ import {
   Compass,
   Eye,
   EyeOff,
-  FolderPlus
+  FolderPlus,
+  Lightbulb
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
 import { db } from '../../services/db';
@@ -71,6 +72,12 @@ import { MediaBinDrawer } from '../MediaBinDrawer';
 import { serviceWorkerManager } from '../../services/serviceWorkerManager';
 import { DirectorCockpitModal } from '../cockpit/DirectorCockpitModal';
 import { CockpitShotBridge, CockpitDispatchTarget } from '../../types/cockpit';
+import { 
+  LIGHTING_PRESETS, 
+  getLightingPresetById, 
+  LightingPreset, 
+  LightingCategory 
+} from '../../data/lightingPresets';
 import { 
   dispatchToExternalTool, 
   captureCurrentCanvasFrame, 
@@ -126,6 +133,7 @@ export interface ShowcaseShot {
   fallbackGradient: string;
   lutFilter: string;
   aspectRatio: string;
+  lightId?: string | null;
 }
 
 export const SHOWCASE_PRESETS: ShowcaseShot[] = [
@@ -780,6 +788,12 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [isDraggingOverStage, setIsDraggingOverStage] = useState<boolean>(false);
   const [dragTargetShotIdx, setDragTargetShotIdx] = useState<number | null>(null);
 
+  // 34-Preset Cinematic Lighting Engine State
+  const [customLights, setCustomLights] = useState<Record<number, string | null>>({});
+  const [isLightDrawerOpen, setIsLightDrawerOpen] = useState<boolean>(false);
+  const [lightFilterTab, setLightFilterTab] = useState<'ALL' | 'ATMO' | 'GOBO' | 'TONE' | 'STUDIO'>('ALL');
+  const [showLightToast, setShowLightToast] = useState<boolean>(false);
+
   // Header Interactive States & Non-Blocking Export
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isZenModeActive, setIsZenModeActive] = useState<boolean>(false);
@@ -830,6 +844,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const showCompositionGridRef = useRef<boolean>(false);
   const playbackSpeedRef = useRef<number>(1.0);
   const currentLutsRef = useRef<Record<number, string>>({});
+  const currentLightsRef = useRef<Record<number, string | null>>({});
   const customTitleStylesRef = useRef<Record<number, TitlePersonality>>({});
   const customTitlesRef = useRef<Record<number, { titleEn: string; titleBn: string }>>({});
   const trimPointsRef = useRef<Record<number, { in: number; out: number }>>(trimPoints);
@@ -841,6 +856,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   useEffect(() => { showCompositionGridRef.current = showCompositionGrid; }, [showCompositionGrid]);
   useEffect(() => { playbackSpeedRef.current = playbackSpeed; }, [playbackSpeed]);
   useEffect(() => { currentLutsRef.current = customLuts; }, [customLuts]);
+  useEffect(() => { currentLightsRef.current = customLights; }, [customLights]);
   useEffect(() => { customTitleStylesRef.current = customTitleStyles; }, [customTitleStyles]);
   useEffect(() => { customTitlesRef.current = customTitles; }, [customTitles]);
   useEffect(() => { trimPointsRef.current = trimPoints; }, [trimPoints]);
@@ -850,6 +866,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     const preset = SHOWCASE_PRESETS[activeShotIndex % SHOWCASE_PRESETS.length];
     const custom = customTitles[activeShotIndex];
     const lutOverride = customLuts[activeShotIndex];
+    const lightOverride = customLights[activeShotIndex];
     const mediaOverride = customMedia[activeShotIndex];
     let base = preset;
     if (frames && frames.length > 0 && frames[activeShotIndex]) {
@@ -866,6 +883,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     }
     if (lutOverride) {
       base = { ...base, lutFilter: lutOverride };
+    }
+    if (lightOverride !== undefined) {
+      base = { ...base, lightId: lightOverride };
     }
     if (mediaOverride) {
       base = {
@@ -884,11 +904,53 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       };
     }
     return base;
-  }, [activeShotIndex, frames, customTitles, customLuts, customMedia]);
+  }, [activeShotIndex, frames, customTitles, customLuts, customLights, customMedia]);
 
   useEffect(() => {
     activeShotDurationRef.current = activeShot.durationSec;
   }, [activeShot.durationSec]);
+
+  const activeShotLightId = useMemo(() => {
+    if (customLights[activeShotIndex] !== undefined) {
+      return customLights[activeShotIndex];
+    }
+    return activeShot.lightId ?? null;
+  }, [customLights, activeShotIndex, activeShot.lightId]);
+
+  const filteredLightingPresets = useMemo(() => {
+    if (lightFilterTab === 'ALL') return LIGHTING_PRESETS;
+    if (lightFilterTab === 'ATMO') return LIGHTING_PRESETS.filter(p => p.category === 'ATMOSPHERE');
+    if (lightFilterTab === 'GOBO') return LIGHTING_PRESETS.filter(p => p.category === 'OPTICAL');
+    if (lightFilterTab === 'TONE') return LIGHTING_PRESETS.filter(p => p.category === 'EXPOSURE');
+    if (lightFilterTab === 'STUDIO') return LIGHTING_PRESETS.filter(p => p.category === 'STUDIO');
+    return LIGHTING_PRESETS;
+  }, [lightFilterTab]);
+
+  const handleSelectLightPreset = useCallback((presetId: string) => {
+    setCustomLights(prev => {
+      const nextVal = prev[activeShotIndex] === presetId ? null : presetId;
+      return { ...prev, [activeShotIndex]: nextVal };
+    });
+    try { audioEngine.playShutterClick(); } catch {}
+  }, [activeShotIndex]);
+
+  const handleClearLight = useCallback(() => {
+    setCustomLights(prev => ({ ...prev, [activeShotIndex]: null }));
+    try { audioEngine.playShutterClick(); } catch {}
+  }, [activeShotIndex]);
+
+  const handleApplyLightToAllShots = useCallback(() => {
+    const currentVal = activeShotLightId;
+    const newLights: Record<number, string | null> = {};
+    SHOWCASE_PRESETS.forEach((_, idx) => {
+      newLights[idx] = currentVal;
+    });
+    setCustomLights(newLights);
+    currentLightsRef.current = newLights;
+    setShowLightToast(true);
+    try { audioEngine.playShutterClick(); } catch {}
+    setTimeout(() => setShowLightToast(false), 2500);
+  }, [activeShotLightId]);
 
   const activeShotPersonality = useMemo<'DOPAMINE' | 'MINIMAL' | 'B2B' | 'KINETIC'>(() => {
     return getShotTitlePersonality(activeShotIndex, customTitleStyles[activeShotIndex]);
@@ -927,6 +989,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     const preset = SHOWCASE_PRESETS[idx % SHOWCASE_PRESETS.length];
     const custom = customTitles[idx];
     const lutOverride = customLuts[idx];
+    const lightOverride = customLights[idx];
     const media = getMediaForShot(idx);
     let s = preset;
     if (frames && frames[idx]) {
@@ -942,6 +1005,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       };
     }
     if (lutOverride) s = { ...s, lutFilter: lutOverride };
+    if (lightOverride !== undefined) s = { ...s, lightId: lightOverride };
     if (media) {
       s = { ...s, imageUrl: media.url, videoSrc: media.videoSrc, blobUrl: media.blobUrl, isVideo: media.isVideo };
     }
@@ -949,7 +1013,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       s = { ...s, titleEn: custom.titleEn || s.titleEn, titleBn: custom.titleBn || s.titleBn };
     }
     return s;
-  }, [customTitles, customLuts, getMediaForShot, frames]);
+  }, [customTitles, customLuts, customLights, getMediaForShot, frames]);
 
   const allCockpitShots = useMemo<CockpitShotBridge[]>(() => {
     return SHOWCASE_PRESETS.map((p, idx) => {
@@ -1315,25 +1379,48 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     const video = masterVideoRef.current;
     const shot = getShotData(shotIdx);
     const lut = currentLutsRef.current[shotIdx] || shot.lutFilter;
+    const activeLightId = currentLightsRef.current[shotIdx] !== undefined 
+      ? currentLightsRef.current[shotIdx] 
+      : (shot.lightId ?? null);
+    const lightPreset = getLightingPresetById(activeLightId);
+    const baseLutFilter = getLutFilterCss(lut);
+    const activeFilter = lightPreset 
+      ? (baseLutFilter && baseLutFilter !== 'none' ? `${baseLutFilter} ${lightPreset.filter}` : lightPreset.filter)
+      : baseLutFilter;
 
     // 1. TIER 1: Master Video / Media Plate
     if (video && video.src && video.readyState >= 2) {
       ctx.save();
-      ctx.filter = getLutFilterCss(lut);
+      ctx.filter = activeFilter;
       drawCover(ctx, video, width, height);
       ctx.restore();
     } else if (customMediaImagesRef.current.has(shotIdx)) {
       const img = customMediaImagesRef.current.get(shotIdx)!;
       ctx.save();
-      ctx.filter = getLutFilterCss(lut);
+      ctx.filter = activeFilter;
       drawCover(ctx, img, width, height);
       ctx.restore();
     } else {
       drawCleanSlateToCanvas(ctx, width, height, shot);
     }
 
-    // 2. TIER 2: Active Filter / Grading Layer
+    // 2. TIER 2: Active Filter / Grading Layer + Lighting Rig Overlay
     drawGradeAndGrain(ctx, width, height, lut);
+
+    if (lightPreset) {
+      ctx.save();
+      ctx.globalCompositeOperation = lightPreset.blendMode;
+      try {
+        lightPreset.renderOverlay(ctx, width, height, performance.now());
+      } catch (err) {
+        // Safe fallback
+      }
+      ctx.restore();
+    }
+
+    // Reset filter and blend mode before painting Tier-3 Dynamic Titles so titles remain sharp and uncorrupted
+    ctx.filter = 'none';
+    ctx.globalCompositeOperation = 'source-over';
 
     // 3. TIER 3: Creative Kinetic Typography Overlay
     if (titlesLayerActiveRef.current && offscreenTitleCanvasRef.current) {
@@ -2118,10 +2205,19 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         return;
       }
 
+      // L: Toggle Lighting Rig Drawer
+      if ((e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setIsLightDrawerOpen(prev => !prev);
+        try { audioEngine.playShutterClick(); } catch {}
+        return;
+      }
+
       // Escape: Instantly close open modals & overlays
       if (e.key === 'Escape') {
         e.preventDefault();
         setIsCockpitOpen(false);
+        setIsLightDrawerOpen(false);
         setActiveDispatchFlyoutIdx(null);
         setIsVaultDrawerOpen(false);
         setIsEditingTitle(false);
@@ -2137,8 +2233,6 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleTogglePlay, handleStepFrame, selectShot, handleDispatchToTool, handleExportNleSequence, handleExportCapCutBundle]);
 
-  // ─────────────────────────────────────────────────────────────
-  // 9. Mandate 5: Non-Blocking Canvas Export & Recording Pipeline
   // ─────────────────────────────────────────────────────────────
   // 9. Mandate 5: Non-Blocking Canvas Export & Recording Pipeline
   // ─────────────────────────────────────────────────────────────
@@ -2184,10 +2278,17 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       const video = masterVideoRef.current;
       const activeMedia = getMediaForShot(activeShotIndex);
       const isVideoMedia = Boolean(activeMedia?.isVideo && video?.src);
+      const activeLightId = currentLightsRef.current[activeShotIndex] ?? activeShot.lightId;
+      const lightPreset = getLightingPresetById(activeLightId);
 
       // Frame-by-frame asynchronous generation (yields to UI via rAF)
       for (let f = 0; f < totalFrames; f++) {
         await new Promise(r => requestAnimationFrame(r));
+
+        if (lightPreset) {
+          ctx.save();
+          ctx.filter = lightPreset.filter;
+        }
 
         if (isVideoMedia && video && video.readyState >= 2) {
           drawCover(ctx, video, canvas.width, canvas.height);
@@ -2197,6 +2298,19 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         } else {
           drawCleanSlateToCanvas(ctx, canvas.width, canvas.height, activeShot);
         }
+
+        if (lightPreset) {
+          ctx.restore();
+          ctx.save();
+          ctx.globalCompositeOperation = lightPreset.blendMode;
+          try {
+            lightPreset.renderOverlay(ctx, canvas.width, canvas.height, (f / 24) * 1000);
+          } catch {}
+          ctx.restore();
+        }
+
+        ctx.filter = 'none';
+        ctx.globalCompositeOperation = 'source-over';
 
         // Draw creative kinetic typography layer if active
         if (titlesLayerActive && offscreenTitleCanvasRef.current) {
@@ -2295,6 +2409,139 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
       />
 
+      {/* ========================================================= */}
+      {/* LEFT TOOL RAIL (PINNED DOCK FOR STUDIO INSTRUMENTS)       */}
+      {/* ========================================================= */}
+      <aside 
+        aria-label="Studio Instruments Rail"
+        className="fixed left-0 top-20 bottom-0 w-12 z-40 bg-neutral-950/95 border-r border-neutral-800/80 flex flex-col items-center py-4 gap-3 backdrop-blur-md select-none hidden sm:flex"
+      >
+        {/* [ 💡 LIGHT ] Trigger Button on Left Tool Rail */}
+        <button
+          type="button"
+          onClick={() => setIsLightDrawerOpen(prev => !prev)}
+          className={`w-10 h-12 rounded-lg flex flex-col items-center justify-center font-mono transition-all cursor-pointer border group relative ${
+            isLightDrawerOpen || activeShotLightId
+              ? 'bg-neutral-900 border-amber-400 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.45)]'
+              : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700'
+          }`}
+          title="Lighting Rig [34 Presets] (Hotkey: L)"
+        >
+          <span className="text-base leading-none">💡</span>
+          <span className="text-[8.5px] font-bold tracking-tight mt-0.5">LIGHT</span>
+          {activeShotLightId && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]" />
+          )}
+        </button>
+      </aside>
+
+      {/* ========================================================= */}
+      {/* 34-PRESET CINEMATIC LIGHTING ENGINE DRAWER                */}
+      {/* ========================================================= */}
+      {isLightDrawerOpen && (
+        <aside 
+          aria-label="Lighting Rig Drawer"
+          className="fixed inset-y-0 left-0 sm:left-12 top-20 bottom-0 z-50 w-64 bg-neutral-950 border-r border-neutral-800 flex flex-col shadow-2xl animate-in slide-in-from-left duration-200 select-none"
+        >
+          {/* Top Bar: Title LIGHT RIG [34] + [ CLEAR ] button */}
+          <div className="h-12 px-3 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between shrink-0 font-mono">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-amber-400 text-sm">💡</span>
+              <span className="text-[11px] font-bold tracking-wider text-white truncate">
+                LIGHT RIG [34]
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleClearLight}
+                className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-900 border border-neutral-800 hover:border-red-400 text-neutral-400 hover:text-red-300 transition-colors cursor-pointer"
+                title="Clear active shot lighting (sets lightId = null)"
+              >
+                [ CLEAR ]
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLightDrawerOpen(false)}
+                className="w-6 h-6 rounded flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-900 text-xs cursor-pointer"
+                title="Close Drawer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Tabs: ALL, ATMO, GOBO, TONE, STUDIO */}
+          <div className="p-2 border-b border-neutral-800/80 bg-neutral-950/80 flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none font-mono">
+            {(['ALL', 'ATMO', 'GOBO', 'TONE', 'STUDIO'] as const).map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setLightFilterTab(tab)}
+                className={`px-2 py-1 rounded text-[10px] font-bold tracking-wider transition-colors cursor-pointer shrink-0 ${
+                  lightFilterTab === tab
+                    ? 'bg-amber-400 text-black shadow-sm'
+                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Preset List: Scrollable 2-column grid of compact mono buttons */}
+          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-neutral-800">
+            <div className="grid grid-cols-2 gap-1.5">
+              {filteredLightingPresets.map(preset => {
+                const isActive = activeShotLightId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectLightPreset(preset.id)}
+                    className={`p-1.5 rounded-lg border text-[11px] font-mono font-semibold text-left transition-all cursor-pointer flex flex-col justify-between min-h-[50px] ${
+                      isActive
+                        ? 'border-amber-400 text-amber-300 bg-neutral-900 shadow-[0_0_10px_rgba(251,191,36,0.25)]'
+                        : 'border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700 bg-neutral-950'
+                    }`}
+                    title={`${preset.name} (${preset.category})`}
+                  >
+                    <div className="flex items-center justify-between gap-1 w-full">
+                      <span className="truncate leading-tight text-[11px] font-mono">{preset.name}</span>
+                      {isActive && <span className="text-[10px] text-amber-400 shrink-0">●</span>}
+                    </div>
+                    <span className="text-[8px] uppercase tracking-wider text-neutral-500 font-normal">
+                      {preset.category === 'ATMOSPHERE' ? 'ATMO' : preset.category === 'OPTICAL' ? 'GOBO' : preset.category === 'EXPOSURE' ? 'TONE' : 'STUDIO'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sticky Bottom Footer: Prominent full-width button */}
+          <div className="p-2.5 bg-neutral-950 border-t border-neutral-800 shrink-0">
+            <button
+              type="button"
+              onClick={handleApplyLightToAllShots}
+              className="w-full py-2.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-mono text-[11px] font-black tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(245,166,35,0.35)] transition-all"
+              title="Apply current shot's lighting rig to all shots in timeline"
+            >
+              <Zap className="w-3.5 h-3.5 fill-black" />
+              <span>[ ⚡ APPLY TO ALL SHOTS ]</span>
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Floating Visual Confirmation Toast */}
+      {showLightToast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-black px-4 py-2 rounded-lg font-mono text-xs font-black tracking-wider shadow-[0_0_25px_rgba(251,191,36,0.7)] flex items-center gap-2 animate-in fade-in zoom-in-95 duration-150">
+          <Zap className="w-4 h-4 fill-black" />
+          <span>APPLIED TO ALL SHOTS</span>
+        </div>
+      )}
+
       {viewMode === 'mobile' ? (
         /* ========================================================= */
         /* DEDICATED MOBILE REEL 9:16 STUDIO CONTAINER               */
@@ -2319,6 +2566,19 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsLightDrawerOpen(prev => !prev)}
+                  className={`text-[9.5px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer flex items-center gap-1 ${
+                    activeShotLightId
+                      ? 'bg-amber-500/20 border-amber-500/60 text-amber-300'
+                      : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'
+                  }`}
+                  title="Lighting Rig [34 Presets] (Hotkey: L)"
+                >
+                  <span>💡</span>
+                  <span>LIGHT</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsCockpitOpen(true)}
@@ -2698,6 +2958,24 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
+                {/* 34-Preset Cinematic Lighting Rig Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsLightDrawerOpen(prev => !prev)}
+                  className={`border text-[11px] font-mono tracking-wider px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors shadow-sm ${
+                    isLightDrawerOpen || activeShotLightId
+                      ? 'bg-neutral-900 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.3)]'
+                      : 'bg-neutral-900 border-neutral-700 hover:border-amber-400 text-neutral-300 hover:text-white'
+                  }`}
+                  title="34-Preset Cinematic Lighting Rig (Hotkey: L)"
+                >
+                  <span className="text-amber-400">💡</span>
+                  <span>LIGHT [34]</span>
+                  {activeShotLightId && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                </button>
+
                 {/* Director's Cockpit Pipeline Hub Cluster */}
                 <button
                   type="button"
@@ -2760,6 +3038,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 <span className="text-[#F5A623] font-bold text-[9px] tracking-widest uppercase hidden md:inline">
                   {activeShot.lutFilter}
                 </span>
+                {activeShotLightId && (
+                  <>
+                    <span className="text-zinc-600 hidden md:inline">|</span>
+                    <span className="text-amber-400 font-bold text-[9px] tracking-widest uppercase hidden md:inline">
+                      💡 {getLightingPresetById(activeShotLightId)?.name}
+                    </span>
+                  </>
+                )}
                 <span className="text-zinc-600 hidden md:inline">|</span>
                 <span className="text-emerald-400 font-bold text-[9px] hidden sm:inline">
                   24.000 FPS RAW LOCKED
@@ -3048,6 +3334,12 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     <div className="text-[9px] font-bold text-white font-bangla truncate leading-tight">
                       {customTitles[idx]?.titleBn || shot.titleBn}
                     </div>
+                    {customLights[idx] && (
+                      <div className="text-[7.5px] text-amber-300 font-mono truncate leading-none mt-0.5 flex items-center gap-0.5 font-bold">
+                        <span>💡</span>
+                        <span className="truncate">{getLightingPresetById(customLights[idx])?.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

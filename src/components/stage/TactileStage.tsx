@@ -32,8 +32,10 @@ import {
   ZoomIn,
   Repeat,
   Music,
-  Zap
+  Zap,
+  RotateCcw
 } from 'lucide-react';
+import { getBarrelDistortionMapUrl, clampBarrelDistortion } from '../../utils/barrelDistortionFilter';
 import { WebCodecsStageCompositor } from './WebCodecsStageCompositor';
 import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
 import { StudioModuleId } from '../StudioNavRail';
@@ -201,6 +203,174 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
   const isVertigo = useStudioStore((s) => s.isVertigoLinked);
   const zoomTransforms = calculateMultiLayerZoom(bgZoom, fgZoom, isVertigo);
+
+  // Digital Zoom & Barrel Distortion Simulation
+  const stageMediaContainerRef = useRef<HTMLDivElement | null>(null);
+  const digitalZoom = useStudioStore((s) => s.digitalZoom);
+  const setDigitalZoom = useStudioStore((s) => s.setDigitalZoom);
+  const resetDigitalZoom = useStudioStore((s) => s.resetDigitalZoom);
+
+  const [distortionMapUrl, setDistortionMapUrl] = useState<string>('');
+  useEffect(() => {
+    setDistortionMapUrl(getBarrelDistortionMapUrl());
+  }, []);
+
+  const storeBarrelDistortion = useStudioStore((s) => s.visibility.barrelDistortion);
+  const barrelDistortion = clampBarrelDistortion(
+    componentsVisibility?.barrelDistortion ?? storeBarrelDistortion ?? 0
+  );
+
+  // 16:9 Marquee Selection Drag State
+  const [selectionBox, setSelectionBox] = useState<{
+    isSelecting: boolean;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    scale: number;
+  } | null>(null);
+
+  const selectionDragRef = useRef<{
+    isDown: boolean;
+    startX: number;
+    startY: number;
+    rectWidth: number;
+    rectHeight: number;
+    hasDragged: boolean;
+  }>({
+    isDown: false,
+    startX: 0,
+    startY: 0,
+    rectWidth: 0,
+    rectHeight: 0,
+    hasDragged: false
+  });
+
+  const handleStagePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || isScrubbingRef.current) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, select, a, [data-interactive="true"]')) return;
+
+    const rect = stageMediaContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+
+    const startX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const startY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+
+    selectionDragRef.current = {
+      isDown: true,
+      startX,
+      startY,
+      rectWidth: rect.width,
+      rectHeight: rect.height,
+      hasDragged: false
+    };
+  };
+
+  const handleStagePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!selectionDragRef.current.isDown) return;
+    const { startX, startY, rectWidth, rectHeight } = selectionDragRef.current;
+    const rect = stageMediaContainerRef.current?.getBoundingClientRect();
+    const currentW = rect?.width || rectWidth;
+    const currentH = rect?.height || rectHeight;
+    const currentClientLeft = rect?.left || 0;
+    const currentClientTop = rect?.top || 0;
+
+    const currentX = Math.max(0, Math.min(currentW, e.clientX - currentClientLeft));
+    const currentY = Math.max(0, Math.min(currentH, e.clientY - currentClientTop));
+
+    const dx = currentX - startX;
+    const dy = currentY - startY;
+
+    if (!selectionDragRef.current.hasDragged) {
+      if (Math.hypot(dx, dy) < 6) return;
+      selectionDragRef.current.hasDragged = true;
+    }
+
+    // Strict 16:9 Aspect Ratio Lock
+    const targetRatio = 16 / 9;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    let boxWidth = absDx;
+    let boxHeight = absDx / targetRatio;
+
+    if (absDx / targetRatio < absDy) {
+      boxHeight = absDy;
+      boxWidth = absDy * targetRatio;
+    }
+
+    const dirX = dx >= 0 ? 1 : -1;
+    const dirY = dy >= 0 ? 1 : -1;
+
+    const maxW = dirX > 0 ? (currentW - startX) : startX;
+    const maxH = dirY > 0 ? (currentH - startY) : startY;
+
+    if (boxWidth > maxW) {
+      boxWidth = maxW;
+      boxHeight = boxWidth / targetRatio;
+    }
+    if (boxHeight > maxH) {
+      boxHeight = maxH;
+      boxWidth = boxHeight * targetRatio;
+    }
+
+    const left = dirX > 0 ? startX : (startX - boxWidth);
+    const top = dirY > 0 ? startY : (startY - boxHeight);
+    const scale = boxWidth > 0 ? Math.min(10.0, currentW / boxWidth) : 1.0;
+
+    setSelectionBox({
+      isSelecting: true,
+      left,
+      top,
+      width: boxWidth,
+      height: boxHeight,
+      scale
+    });
+  };
+
+  const handleStagePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (selectionDragRef.current.isDown) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+
+      if (selectionBox?.isSelecting && selectionBox.width >= 24 && selectionBox.height >= 14) {
+        const rect = stageMediaContainerRef.current?.getBoundingClientRect();
+        const currentW = rect?.width || selectionDragRef.current.rectWidth || 1;
+        const currentH = rect?.height || selectionDragRef.current.rectHeight || 1;
+
+        const cx = selectionBox.left + selectionBox.width / 2;
+        const cy = selectionBox.top + selectionBox.height / 2;
+        const ncx = cx / currentW;
+        const ncy = cy / currentH;
+        const scale = Math.min(10.0, Math.max(1.05, currentW / selectionBox.width));
+        const translateX = (0.5 - ncx) * 100;
+        const translateY = (0.5 - ncy) * 100;
+
+        setDigitalZoom({
+          scale: Math.round(scale * 100) / 100,
+          translateX: Math.round(translateX * 10) / 10,
+          translateY: Math.round(translateY * 10) / 10,
+          isZoomed: true
+        });
+      }
+
+      selectionDragRef.current.isDown = false;
+      selectionDragRef.current.hasDragged = false;
+      setSelectionBox(null);
+    }
+  };
+
+  const handleStagePointerCancel = () => {
+    selectionDragRef.current.isDown = false;
+    selectionDragRef.current.hasDragged = false;
+    setSelectionBox(null);
+  };
 
   const storeTitleConfig = useStudioStore(s => s.titleConfig);
   const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
@@ -430,9 +600,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   );
 
   const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
-  const combinedMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
+  let baseMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
     ? `${lutFilterStyle} ${zoomTransforms.bgDepthBlur}`
     : lutFilterStyle;
+
+  if (barrelDistortion > 0) {
+    baseMediaFilter = `${baseMediaFilter} url(#stage-barrel-distortion-filter)`.trim();
+  }
+  const combinedMediaFilter = baseMediaFilter;
 
   // Synchronous Media Pass-Through: Smooth native video playback without micro-stuttering seek loops
   useEffect(() => {
@@ -977,65 +1152,175 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       {/* 1. MASTER STAGE MEDIA CONTAINER (Flush to top, zero black gap, edge-to-edge cinema presence) */}
       <div
         id="stage-media-container"
+        ref={stageMediaContainerRef}
+        onPointerDown={handleStagePointerDown}
+        onPointerMove={handleStagePointerMove}
+        onPointerUp={handleStagePointerUp}
+        onPointerCancel={handleStagePointerCancel}
         style={getAspectStyle(aspectRatio)}
-        className="relative w-full mx-auto bg-[#000000] border-0 rounded-none shadow-[0_16px_80px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center select-none shrink-0 mt-0 pt-0"
+        className="relative w-full mx-auto bg-[#000000] border-0 rounded-none shadow-[0_16px_80px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center select-none shrink-0 mt-0 pt-0 cursor-crosshair"
       >
-        {/* SAFE INSTANT FALLBACK LAYER: Synchronous media pass-through mirroring active media so stage NEVER renders blank */}
-        {activeMediaUrl && (
-          isVideoMedia ? (
-            <video
-              id="stage-fallback-video"
-              ref={videoRef}
-              src={activeMediaUrl}
-              crossOrigin="anonymous"
-              poster={cachedPosterUrl || undefined}
-              autoPlay={isAutoplay}
-              loop
-              muted={isAudioMuted ?? true}
-              playsInline
-              preload="auto"
-              onCanPlay={(e) => {
-                if (isAutoplay && e.currentTarget.paused) {
-                  e.currentTarget.play().catch(() => {});
-                }
-              }}
-              onLoadedData={(e) => {
-                if (isAutoplay && e.currentTarget.paused) {
-                  e.currentTarget.play().catch(() => {});
-                }
-              }}
-              className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
-              style={{ filter: combinedMediaFilter }}
-            />
-          ) : (
+        {/* DYNAMIC CANVAS SVG BARREL DISTORTION FILTER */}
+        <svg
+          id="stage-svg-filters"
+          aria-hidden="true"
+          className="absolute w-0 h-0 pointer-events-none opacity-0 overflow-hidden"
+          style={{ position: 'absolute', width: 0, height: 0, top: -9999, left: -9999 }}
+        >
+          <defs>
+            <filter
+              id="stage-barrel-distortion-filter"
+              x="-20%"
+              y="-20%"
+              width="140%"
+              height="140%"
+              colorInterpolationFilters="sRGB"
+            >
+              {distortionMapUrl && (
+                <feImage
+                  href={distortionMapUrl}
+                  result="displacementMap"
+                  preserveAspectRatio="none"
+                />
+              )}
+              <feDisplacementMap
+                in="SourceGraphic"
+                in2="displacementMap"
+                scale={barrelDistortion * 75}
+                xChannelSelector="R"
+                yChannelSelector="G"
+              />
+            </filter>
+          </defs>
+        </svg>
+
+        {/* DIGITAL ZOOM TRANSFORM LAYER (Smooth GPU-accelerated 16:9 view) */}
+        <div
+          id="stage-media-viewport"
+          className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none select-none"
+          style={{
+            transform: digitalZoom.isZoomed
+              ? `scale(${digitalZoom.scale}) translate(${digitalZoom.translateX}%, ${digitalZoom.translateY}%)`
+              : 'none',
+            transformOrigin: '50% 50%',
+            transition: selectionBox?.isSelecting ? 'none' : 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+            willChange: 'transform'
+          }}
+        >
+          {/* SAFE INSTANT FALLBACK LAYER: Synchronous media pass-through mirroring active media so stage NEVER renders blank */}
+          {activeMediaUrl && (
+            isVideoMedia ? (
+              <video
+                id="stage-fallback-video"
+                ref={videoRef}
+                src={activeMediaUrl}
+                crossOrigin="anonymous"
+                poster={cachedPosterUrl || undefined}
+                autoPlay={isAutoplay}
+                loop
+                muted={isAudioMuted ?? true}
+                playsInline
+                preload="auto"
+                onCanPlay={(e) => {
+                  if (isAutoplay && e.currentTarget.paused) {
+                    e.currentTarget.play().catch(() => {});
+                  }
+                }}
+                onLoadedData={(e) => {
+                  if (isAutoplay && e.currentTarget.paused) {
+                    e.currentTarget.play().catch(() => {});
+                  }
+                }}
+                className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
+                style={{ filter: combinedMediaFilter }}
+              />
+            ) : (
+              <img
+                id="stage-fallback-img"
+                src={activeMediaUrl}
+                crossOrigin="anonymous"
+                alt="Active Shot Plate"
+                className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
+                style={{ filter: combinedMediaFilter }}
+              />
+            )
+          )}
+          {!activeMediaUrl && cachedPosterUrl && (
             <img
-              id="stage-fallback-img"
-              src={activeMediaUrl}
+              id="stage-fallback-poster"
+              src={cachedPosterUrl}
               crossOrigin="anonymous"
-              alt="Active Shot Plate"
+              alt="Cached Shot Poster"
               className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
               style={{ filter: combinedMediaFilter }}
             />
-          )
-        )}
-        {!activeMediaUrl && cachedPosterUrl && (
-          <img
-            id="stage-fallback-poster"
-            src={cachedPosterUrl}
-            crossOrigin="anonymous"
-            alt="Cached Shot Poster"
-            className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
+          )}
+
+          {/* PRIMARY RENDERER: Hardware / 2D Canvas Synchronous Media Pass-Through */}
+          <canvas
+            id="stage-canvas"
+            ref={canvasRef}
+            className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-1`}
             style={{ filter: combinedMediaFilter }}
           />
+        </div>
+
+        {/* 16:9 DIGITAL ZOOM SELECTION MARQUEE */}
+        {selectionBox && selectionBox.isSelecting && (
+          <div
+            className="absolute pointer-events-none z-40 border border-dashed border-amber-400 bg-amber-400/10 shadow-[0_0_15px_rgba(245,166,35,0.35)]"
+            style={{
+              left: selectionBox.left,
+              top: selectionBox.top,
+              width: selectionBox.width,
+              height: selectionBox.height
+            }}
+          >
+            {/* Corner Reticles */}
+            <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-amber-300" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-amber-300" />
+            <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-amber-300" />
+            <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-amber-300" />
+
+            {/* Center Crosshair */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative w-4 h-4">
+                <span className="absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 bg-amber-400/60" />
+                <span className="absolute top-1/2 left-0 right-0 h-px -translate-y-1/2 bg-amber-400/60" />
+              </div>
+            </div>
+
+            {/* Floating 16:9 Magnification Badge */}
+            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 bg-black/90 border border-amber-400/60 rounded text-[9px] font-mono text-amber-300 shadow font-bold flex items-center gap-1">
+              <span>16:9 ZOOM</span>
+              <span className="text-white/60">•</span>
+              <span className="tabular-nums">{selectionBox.scale.toFixed(1)}x</span>
+            </div>
+          </div>
         )}
 
-        {/* PRIMARY RENDERER: Hardware / 2D Canvas Synchronous Media Pass-Through */}
-        <canvas
-          id="stage-canvas"
-          ref={canvasRef}
-          className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-1`}
-          style={{ filter: combinedMediaFilter }}
-        />
+        {/* ON-STAGE DIGITAL ZOOM ACTIVE INDICATOR BADGE */}
+        {digitalZoom.isZoomed && (
+          <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-black/85 backdrop-blur-md border border-amber-400/60 rounded px-2 py-1 shadow-lg text-[10px] font-mono select-none animate-in fade-in duration-150">
+            <ZoomIn className="w-3 h-3 text-amber-400 animate-pulse" />
+            <span className="text-white/70">DIGITAL ZOOM</span>
+            <span className="text-amber-300 font-bold tabular-nums">
+              {digitalZoom.scale.toFixed(1)}x
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                resetDigitalZoom();
+              }}
+              className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/40 border border-amber-400/50 text-amber-300 hover:text-white text-[9px] font-bold cursor-pointer transition-all flex items-center gap-0.5"
+              title="Reset Digital Frame Zoom (100% Fit)"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>RESET</span>
+            </button>
+          </div>
+        )}
 
         {/* TYPOGRAPHY STAGE RESTORATION LAYER: Mounted directly above the stage canvas */}
         <div

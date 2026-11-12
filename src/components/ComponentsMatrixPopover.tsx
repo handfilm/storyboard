@@ -24,6 +24,9 @@ import {
   Sliders
 } from 'lucide-react';
 
+import { clampBarrelDistortion } from '../utils/barrelDistortionFilter';
+export { clampBarrelDistortion } from '../utils/barrelDistortionFilter';
+
 export interface ComponentVisibility {
   titlesAll: boolean;
   titleBn: boolean;
@@ -41,9 +44,10 @@ export interface ComponentVisibility {
   motionBlur: boolean;
   frameStepButtons?: boolean;
   titleOpacity?: number;
+  barrelDistortion?: number;
 }
 
-export type BooleanVisibilityKey = Exclude<keyof ComponentVisibility, 'titleOpacity'>;
+export type BooleanVisibilityKey = Exclude<keyof ComponentVisibility, 'titleOpacity' | 'barrelDistortion'>;
 
 export const DEFAULT_COMPONENT_VISIBILITY: ComponentVisibility = {
   titlesAll: true,
@@ -61,7 +65,8 @@ export const DEFAULT_COMPONENT_VISIBILITY: ComponentVisibility = {
   lensBlur: true,
   motionBlur: true,
   frameStepButtons: false, // default OFF per Director specification
-  titleOpacity: 1.0
+  titleOpacity: 1.0,
+  barrelDistortion: 0
 };
 
 export const BOOLEAN_COMPONENT_KEYS: BooleanVisibilityKey[] = [
@@ -129,10 +134,12 @@ export function loadSavedComponentVisibility(): ComponentVisibility {
     if (saved) {
       const parsed = JSON.parse(saved);
       const titleOpacity = clampTitleOpacity(parsed.titleOpacity);
+      const barrelDistortion = clampBarrelDistortion(parsed.barrelDistortion);
       const hydrated: ComponentVisibility = {
         ...DEFAULT_COMPONENT_VISIBILITY,
         ...parsed,
-        titleOpacity
+        titleOpacity,
+        barrelDistortion
       };
       applyTitleBlockOpacityCssVar(titleOpacity);
       return hydrated;
@@ -149,7 +156,8 @@ export function saveComponentVisibility(state: ComponentVisibility): void {
   try {
     const normalized: ComponentVisibility = {
       ...state,
-      titleOpacity: clampTitleOpacity(state.titleOpacity)
+      titleOpacity: clampTitleOpacity(state.titleOpacity),
+      barrelDistortion: clampBarrelDistortion(state.barrelDistortion)
     };
     applyTitleBlockOpacityCssVar(normalized.titleOpacity ?? 1.0);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
@@ -394,6 +402,20 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     saveComponentVisibility(next);
   };
 
+  const barrelDistortion = clampBarrelDistortion(visibility.barrelDistortion ?? 0);
+  const barrelDistortionPercent = Math.round(barrelDistortion * 100);
+
+  const handleBarrelDistortionChange = (rawVal: number) => {
+    isInternalToggleRef.current = true;
+    const clamped = clampBarrelDistortion(rawVal);
+    const next: ComponentVisibility = {
+      ...visibility,
+      barrelDistortion: clamped
+    };
+    onChange(next);
+    saveComponentVisibility(next);
+  };
+
   const handleToggleCategoryCollapse = (category: MatrixCategory) => {
     setCollapsedCategories((prev) => ({
       ...prev,
@@ -476,7 +498,8 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       lensBlur: val,
       motionBlur: val,
       frameStepButtons: val,
-      titleOpacity: clampTitleOpacity(visibility.titleOpacity)
+      titleOpacity: clampTitleOpacity(visibility.titleOpacity),
+      barrelDistortion: clampBarrelDistortion(visibility.barrelDistortion)
     };
     setCollapsedCategories({
       'Titles & Narrative': !val,
@@ -494,7 +517,11 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       'Telemetry HUD': false,
       'Optical Post FX': false
     });
-    const resetState: ComponentVisibility = { ...DEFAULT_COMPONENT_VISIBILITY };
+    const resetState: ComponentVisibility = {
+      ...DEFAULT_COMPONENT_VISIBILITY,
+      titleOpacity: 1.0,
+      barrelDistortion: 0
+    };
     applyTitleBlockOpacityCssVar(resetState.titleOpacity ?? 1.0);
     onChange(resetState);
     saveComponentVisibility(resetState);
@@ -514,7 +541,8 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       reticles: false,
       guides: false,
       frameStepButtons: false,
-      titleOpacity: clampTitleOpacity(visibility.titleOpacity)
+      titleOpacity: clampTitleOpacity(visibility.titleOpacity),
+      barrelDistortion: clampBarrelDistortion(visibility.barrelDistortion)
     };
     setCollapsedCategories((prev) => ({
       ...prev,
@@ -535,6 +563,17 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       'contrast'.includes(normalizedQuery) ||
       'alpha'.includes(normalizedQuery));
 
+  const matchesDistortionSearch =
+    normalizedQuery.length > 0 &&
+    ('barrel distortion'.includes(normalizedQuery) ||
+      'distortion'.includes(normalizedQuery) ||
+      'barrel'.includes(normalizedQuery) ||
+      'curvature'.includes(normalizedQuery) ||
+      'spherical'.includes(normalizedQuery) ||
+      'warp'.includes(normalizedQuery) ||
+      'optical fx'.includes(normalizedQuery) ||
+      'lens'.includes(normalizedQuery));
+
   // Auto-expand categories when typing a search query so matched sub-options slide open
   useEffect(() => {
     if (normalizedQuery.length > 0) {
@@ -554,9 +593,10 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
         r.label.toLowerCase().includes(normalizedQuery) ||
         r.desc.toLowerCase().includes(normalizedQuery) ||
         r.category.toLowerCase().includes(normalizedQuery) ||
-        (matchesOpacitySearch && r.category === 'Titles & Narrative')
+        (matchesOpacitySearch && r.category === 'Titles & Narrative') ||
+        (matchesDistortionSearch && r.category === 'Optical Post FX')
     );
-  }, [normalizedQuery, matchesOpacitySearch]);
+  }, [normalizedQuery, matchesOpacitySearch, matchesDistortionSearch]);
 
   const categories: MatrixCategory[] = ['Titles & Narrative', 'Telemetry HUD', 'Optical Post FX'];
 
@@ -908,6 +948,61 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                               visibility.titlesAll ? 'opacity-100' : 'opacity-65'
                             }`}
                           >
+                            {subRows.map((row) => renderToggleRow(row))}
+                          </div>
+                        </>
+                      ) : cat === 'Optical Post FX' ? (
+                        <>
+                          {/* Barrel Distortion Simulation Slider */}
+                          <div className="matrix-sub-option mx-1 my-1 px-2.5 py-2 rounded bg-[#0C0D10]/90 border border-purple-500/25 space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <label
+                                htmlFor="matrix-barrel-distortion"
+                                className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-200 whitespace-nowrap cursor-pointer"
+                              >
+                                <Sliders className="w-3 h-3 text-purple-400 shrink-0" />
+                                <span>Barrel Distortion</span>
+                              </label>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {barrelDistortionPercent !== 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleBarrelDistortionChange(0)}
+                                    className="text-[8.5px] text-zinc-400 hover:text-purple-300 underline cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 rounded-sm"
+                                    title="Reset barrel distortion to 0%"
+                                  >
+                                    Reset
+                                  </button>
+                                )}
+                                <span className="text-[10px] font-bold text-purple-300 tabular-nums min-w-[34px] text-right">
+                                  {barrelDistortionPercent}%
+                                </span>
+                              </div>
+                            </div>
+
+                            <input
+                              id="matrix-barrel-distortion"
+                              name="barrelDistortion"
+                              type="range"
+                              min={0}
+                              max={1}
+                              step={0.01}
+                              value={barrelDistortion}
+                              onChange={(e) => handleBarrelDistortionChange(Number.parseFloat(e.target.value))}
+                              aria-label="Barrel Distortion Simulation"
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={barrelDistortionPercent}
+                              className="matrix-opacity-slider w-full accent-purple-400"
+                            />
+
+                            <div className="flex items-center justify-between text-[8px] text-white/40">
+                              <span>Simulates wide-angle anamorphic spherical lens curvature</span>
+                              <span className="tabular-nums">0% – 100%</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-0.5 divide-y divide-white/5">
                             {subRows.map((row) => renderToggleRow(row))}
                           </div>
                         </>

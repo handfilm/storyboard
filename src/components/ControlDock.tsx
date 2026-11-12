@@ -42,7 +42,8 @@ import {
   ZoomIn,
   Repeat,
   Music,
-  Layers
+  Layers,
+  RotateCcw
 } from 'lucide-react';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 import { AudioFrequencyVisualizer } from './audio/AudioFrequencyVisualizer';
@@ -64,6 +65,7 @@ export interface ControlDockProps {
   isPanActive?: boolean;
   panOffsetPercent?: number;
   showGuides?: boolean;
+  onResetZoom?: () => void;
   onToggleTitles?: () => void;
   showTitles?: boolean;
   onPrev: () => void;
@@ -124,6 +126,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   isPanActive = false,
   panOffsetPercent = 50,
   showGuides = false,
+  onResetZoom,
   onToggleTitles,
   showTitles = true,
   onPrev,
@@ -192,6 +195,21 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
+  const digitalZoom = useStudioStore((s) => s.digitalZoom);
+  const resetDigitalZoomStore = useStudioStore((s) => s.resetDigitalZoom);
+
+  const isAnyZoomActive = Boolean(
+    (digitalZoom && digitalZoom.isZoomed && digitalZoom.scale > 1.01) ||
+    fgZoom !== 1.0 ||
+    bgZoom !== 1.0
+  );
+
+  const handleResetAllZoom = () => {
+    if (onResetZoom) {
+      onResetZoom();
+    }
+    resetDigitalZoomStore();
+  };
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [quickTitleInput, setQuickTitleInput] = useState('');
@@ -1194,6 +1212,28 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <span className="text-[6.5px] text-[#FFE066] font-bold tabular-nums">
               {fgZoom.toFixed(1)}x
             </span>
+          </button>
+
+          {/* Reset Zoom Button */}
+          <button
+            type="button"
+            onClick={handleResetAllZoom}
+            className={`h-5 px-1 sm:px-1.5 rounded-[2px] border text-[7px] sm:text-[7.5px] font-mono-tech flex items-center gap-0.5 cursor-pointer transition-all shrink-0 ${
+              isAnyZoomActive
+                ? 'bg-amber-500/25 border-amber-400 text-amber-300 font-bold shadow-[0_0_6px_rgba(245,166,35,0.35)]'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/25'
+            }`}
+            title="Reset Digital Frame Zoom & Multi-Layer Scale to Default (100% Fit)"
+            aria-label="Reset Zoom"
+          >
+            <RotateCcw className="w-2 h-2 text-current" />
+            <span className="hidden sm:inline">RESET ZOOM</span>
+            <span className="sm:hidden">RESET</span>
+            {isAnyZoomActive && (
+              <span className="text-[6.5px] px-0.5 rounded bg-amber-400/25 text-amber-300 font-bold">
+                {digitalZoom?.isZoomed ? `${digitalZoom.scale.toFixed(1)}x` : `${fgZoom.toFixed(1)}x`}
+              </span>
+            )}
           </button>
 
           {/* Modular Telemetry Rack */}

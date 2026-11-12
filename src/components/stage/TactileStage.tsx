@@ -214,6 +214,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const setDigitalZoom = useStudioStore((s) => s.setDigitalZoom);
   const resetDigitalZoom = useStudioStore((s) => s.resetDigitalZoom);
   const stageScale = useStudioStore((s) => s.stageScale);
+  const titleAlign = useStudioStore((s) => s.titleAlign);
 
   const [distortionMapUrl, setDistortionMapUrl] = useState<string>('');
   useEffect(() => {
@@ -1263,6 +1264,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 currentTime={slideTimeSec}
                 isPlaying={isAutoplay}
                 accentColor={frame.dopamineConfig.accentColor || '#FF2B2B'}
+                titleAlign={titleAlign}
+                shotIndex={currentIndex}
+                shotType={frame?.shotType}
               />
             </div>
           ) : (
@@ -1273,6 +1277,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               subtitle={frame?.tagline}
               directorNotes={frame?.directorNotes}
               shotType={frame?.shotType}
+              titleAlign={titleAlign}
               cameraInfo={
                 frame?.cameraSpec
                   ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}`

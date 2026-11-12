@@ -245,11 +245,11 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
 
         {/* TITLE Alignment Selector (LEFT | MID | RIGHT | AUTO) */}
         <div
-          className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-[8.5px] transition-colors duration-200"
+          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-[8.5px] transition-colors duration-200 shrink-0"
           role="group"
           aria-label="Title Alignment"
         >
-          <span className="text-neutral-600 group-hover:text-neutral-400 font-bold mr-0.5 transition-colors duration-200">TITLE:</span>
+          <span className="hidden md:inline text-neutral-600 group-hover:text-neutral-400 font-bold mr-0.5 transition-colors duration-200">TITLE:</span>
           {(['LEFT', 'MID', 'RIGHT', 'AUTO'] as TitleAlign[]).map((align) => (
             <button
               key={align}

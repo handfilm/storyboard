@@ -54,7 +54,7 @@ test('Stage typography inside stage box, top bar wiring, duplicate 70%/100% clea
   assert.match(overlaySrc, /items-start text-left pl-12/);
   assert.match(overlaySrc, /items-end text-right pr-12/);
   assert.match(overlaySrc, /items-center text-center/);
-  assert.match(overlaySrc, /transition-all duration-300/);
+  assert.match(overlaySrc, /transition-\[left,transform\] duration-300 ease-out/);
 
   const topBarSrc = fs.readFileSync(
     path.resolve(process.cwd(), 'src/components/stage/StageMetadataFxBar.tsx'),
@@ -63,6 +63,7 @@ test('Stage typography inside stage box, top bar wiring, duplicate 70%/100% clea
   assert.match(topBarSrc, /text-neutral-500 border-neutral-900|border-neutral-900 text-neutral-500/);
   assert.match(topBarSrc, /group-hover:bg-amber-400 group-hover:text-black/);
   assert.match(topBarSrc, /data-testid=\{`title-align-\$\{align\}`\}/);
+  assert.match(topBarSrc, /aria-label="Title Alignment"/);
 
   const stageHeaderSrc = fs.readFileSync(
     path.resolve(process.cwd(), 'src/components/StageHeader.tsx'),

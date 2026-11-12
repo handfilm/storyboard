@@ -192,10 +192,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   const clusterAlignClasses =
     effectiveAlign === 'LEFT'
-      ? 'items-start text-left pl-12 pr-6 justify-center'
+      ? 'items-start text-left pl-12'
       : effectiveAlign === 'RIGHT'
-        ? 'items-end text-right pr-12 pl-6 justify-center'
-        : 'items-center text-center px-6 sm:px-8 justify-center';
+        ? 'items-end text-right pr-12'
+        : 'items-center text-center';
 
   const blockAlignClasses =
     effectiveAlign === 'LEFT'
@@ -204,12 +204,19 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         ? 'items-end text-right'
         : 'items-center text-center';
 
-  const dialogueAlignClasses =
+  const horizontalAnchorLeft =
     effectiveAlign === 'LEFT'
-      ? 'left-12 text-left'
+      ? '3rem'
       : effectiveAlign === 'RIGHT'
-        ? 'right-12 text-right'
-        : 'left-1/2 -translate-x-1/2 text-center';
+        ? 'calc(100% - 3rem)'
+        : '50%';
+
+  const horizontalTranslateX =
+    effectiveAlign === 'LEFT'
+      ? '0%'
+      : effectiveAlign === 'RIGHT'
+        ? '-100%'
+        : '-50%';
 
   const presetStyle = getPresetStyles();
 
@@ -242,16 +249,17 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       >
         {isEnabled && (
           <>
-            {/* Dynamic Hero Title Cluster (Default: MID dead-center; supports LEFT / RIGHT / AUTO) */}
-            <div 
+            {/* Dynamic Hero Title Cluster (Default: MID dead-center; smoothly transitions LEFT / MID / RIGHT / AUTO) */}
+            <div
               key={`hero-title-cluster-${shotIndex}-${activePreset}-${repaintRevision}`}
               data-title-cluster="true"
-              className={`w-full h-full flex flex-col py-6 sm:py-8 animate-kinetic-entrance transition-all duration-300 ${clusterAlignClasses}`}
+              className={`absolute top-1/2 w-max max-w-[calc(100%-3rem)] sm:max-w-[calc(100%-6rem)] flex flex-col py-4 sm:py-6 transition-[left,transform] duration-300 ease-out ${clusterAlignClasses} !pl-0 !pr-0`}
               style={{
-                transform: `translateY(${verticalOffset}px)`
+                left: horizontalAnchorLeft,
+                transform: `translate3d(${horizontalTranslateX}, calc(-50% + ${verticalOffset}px), 0)`
               }}
             >
-              <div className={`flex flex-col max-w-5xl transition-all duration-300 ${blockAlignClasses}`}>
+              <div className={`flex flex-col max-w-5xl animate-kinetic-entrance transition-all duration-300 ${blockAlignClasses}`}>
                 
                 {/* Primary Title (Bangla Dynamic Hero Font with 480ms cubic-bezier kinetic expansion) */}
                 {showBangla && (
@@ -303,9 +311,21 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
               </div>
             </div>
 
-            {/* Narrative Line / Dialogue Card */}
+            {/* Narrative Line / Dialogue Card (Smoothly glides horizontally in sync with Title Align) */}
             {showDialogue && displayDialogue && (
-              <div className={`absolute bottom-5 sm:bottom-8 z-20 pointer-events-none max-w-xl px-2 transition-all duration-300 ${dialogueAlignClasses}`}>
+              <div
+                className={`absolute bottom-5 sm:bottom-8 z-20 pointer-events-none w-max max-w-[calc(100%-3rem)] sm:max-w-xl px-2 transition-[left,transform] duration-300 ease-out ${
+                  effectiveAlign === 'LEFT'
+                    ? 'text-left'
+                    : effectiveAlign === 'RIGHT'
+                      ? 'text-right'
+                      : 'text-center'
+                }`}
+                style={{
+                  left: horizontalAnchorLeft,
+                  transform: `translate3d(${horizontalTranslateX}, 0, 0)`
+                }}
+              >
                 <div className={`inline-flex items-center gap-2 bg-black/65 backdrop-blur-md border ${presetStyle.capsuleBorder} px-5 py-1.5 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                   <span>"{displayDialogue}"</span>
                 </div>

@@ -16,6 +16,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Flame, Radio, Activity } from 'lucide-react';
 
+import { resolveEffectiveTitleAlign, TitleAlign } from '../../../core/store';
+
 export interface DopamineCompilationSequenceProps {
   hookText: string;
   subText: string;
@@ -30,6 +32,9 @@ export interface DopamineCompilationSequenceProps {
   accentColor?: string;
   className?: string;
   showTelemetry?: boolean;
+  titleAlign?: TitleAlign;
+  shotIndex?: number;
+  shotType?: string;
 }
 
 export type DopaminePhase = 1 | 2 | 3 | 'IDLE';
@@ -47,7 +52,10 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
   scale = 1.0,
   accentColor = '#FF2B2B',
   className = '',
-  showTelemetry = false
+  showTelemetry = false,
+  titleAlign = 'MID',
+  shotIndex = 0,
+  shotType
 }) => {
   // Internal autonomous clock if currentTime is not supplied externally
   const [internalTime, setInternalTime] = useState(0);
@@ -337,10 +345,26 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
     return null;
   };
 
+  const effectiveAlign = resolveEffectiveTitleAlign(titleAlign, shotIndex, shotType);
+  const horizontalAnchorLeft =
+    effectiveAlign === 'LEFT'
+      ? '3rem'
+      : effectiveAlign === 'RIGHT'
+        ? 'calc(100% - 3rem)'
+        : '50%';
+  const horizontalTranslateX =
+    effectiveAlign === 'LEFT'
+      ? '0%'
+      : effectiveAlign === 'RIGHT'
+        ? '-100%'
+        : '-50%';
+
   return (
     <div 
       className={`relative w-full h-full flex flex-col items-center justify-center select-none overflow-hidden ${className}`}
       style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
+      data-title-align={titleAlign}
+      data-effective-align={effectiveAlign}
     >
       {/* Dynamic Background Volumetric Atmospheric Flare */}
       <div 
@@ -366,8 +390,20 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
         </div>
       )}
 
-      {/* Strictly Time-Gated Phase Display */}
-      <div className="relative w-full max-w-4xl px-4 min-h-[300px] flex items-center justify-center text-center z-10">
+      {/* Strictly Time-Gated Phase Display with Horizontal Title Align CSS Transition */}
+      <div
+        className={`absolute top-1/2 w-max max-w-[calc(100%-3rem)] sm:max-w-4xl min-h-[300px] flex items-center justify-center z-10 transition-[left,transform] duration-300 ease-out ${
+          effectiveAlign === 'LEFT'
+            ? 'text-left'
+            : effectiveAlign === 'RIGHT'
+              ? 'text-right'
+              : 'text-center'
+        }`}
+        style={{
+          left: horizontalAnchorLeft,
+          transform: `translate3d(${horizontalTranslateX}, -50%, 0)`
+        }}
+      >
         <AnimatePresence mode="wait">
           {renderPhase()}
         </AnimatePresence>

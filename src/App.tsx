@@ -21,6 +21,7 @@ import { ShortcutsModal } from './components/ShortcutsModal';
 import { SelfTestModal } from './components/SelfTestModal';
 import { ContactSheetModal } from './components/ContactSheetModal';
 import { CanvasLiquifyModal } from './components/CanvasLiquifyModal';
+import { SuiteTab } from './components/PhotoLiquifySuite';
 import { VideoScopesModal } from './components/VideoScopesModal';
 import { AnimaticPlayerModal } from './components/AnimaticPlayerModal';
 import { OpticalMonitorModal } from './components/OpticalMonitorModal';
@@ -140,6 +141,7 @@ export default function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isSelfTestOpen, setIsSelfTestOpen] = useState(false);
   const [isLiquifyOpen, setIsLiquifyOpen] = useState(false);
+  const [liquifyInitialTab, setLiquifyInitialTab] = useState<SuiteTab>('liquify');
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -707,6 +709,60 @@ export default function App() {
       });
     });
 
+    const unsubLightingOpen = eventBus.on('lighting:open', () => {
+      setLiquifyInitialTab('lighting');
+      setIsLiquifyOpen(true);
+    });
+    const unsubOpenModule = eventBus.on('studio:open_module', ({ module }: { module: StudioModuleId }) => {
+      setCurrentView('STUDIO');
+      setWorkspaceMode('STAGE');
+      setActiveModule(module);
+      setIsDrawerOpen(true);
+    });
+    const unsubSelectPanel = eventBus.on('studio:select_panel', ({ panel }: { panel: StagePanelType }) => {
+      setCurrentView('STUDIO');
+      setWorkspaceMode('STAGE');
+      setActiveDualPanel(panel);
+    });
+    const unsubOpenMultiCam = eventBus.on('studio:open_multicam', () => {
+      setCurrentView('STUDIO');
+      setWorkspaceMode('STAGE');
+      setIsDrawerOpen(false);
+      setActiveDualPanel('MULTICAM');
+    });
+    const unsubOpenBloom = eventBus.on('studio:open_bloom', () => {
+      setCurrentView('STUDIO');
+      setWorkspaceMode('BLOOM');
+      setIsDrawerOpen(false);
+    });
+    const unsubOpenScopes = eventBus.on('studio:open_scopes', () => {
+      setIsVideoScopesOpen(true);
+    });
+    const unsubOpenProjectMgr = eventBus.on('studio:open_project_manager', () => {
+      setIsProjectManagerOpen(true);
+    });
+    const unsubOpenExportTab = eventBus.on('studio:open_export', (payload?: { tab?: ExportModalTab }) => {
+      handleOpenExportStudio(payload?.tab || 'mp4');
+    });
+    const unsubOpenAnimatic = eventBus.on('studio:open_animatic', () => {
+      setIsAnimaticOpen(true);
+    });
+    const unsubToggleRecorder = eventBus.on('studio:toggle_recorder', () => {
+      setIsScreenRecorderOpen(prev => !prev);
+    });
+    const unsubOpenCompile = eventBus.on('studio:open_compile', () => {
+      setIsCompilationWizardOpen(true);
+    });
+    const unsubSettingsOpen = eventBus.on('settings:open', () => {
+      setIsSettingsModalOpen(true);
+    });
+    const unsubExportXml = eventBus.on('export:xml', () => {
+      handleOpenExportStudio('premiere');
+    });
+    const unsubExportFcpxml = eventBus.on('export:fcpxml', () => {
+      handleOpenExportStudio('premiere');
+    });
+
     return () => {
       unsub();
       unsubAsset();
@@ -719,6 +775,20 @@ export default function App() {
       unsubDrawerClose();
       unsubAddShot();
       unsubShotsDeleted();
+      unsubLightingOpen();
+      unsubOpenModule();
+      unsubSelectPanel();
+      unsubOpenMultiCam();
+      unsubOpenBloom();
+      unsubOpenScopes();
+      unsubOpenProjectMgr();
+      unsubOpenExportTab();
+      unsubOpenAnimatic();
+      unsubToggleRecorder();
+      unsubOpenCompile();
+      unsubSettingsOpen();
+      unsubExportXml();
+      unsubExportFcpxml();
     };
   }, [handleOpenExportStudio, aspectRatio]);
 
@@ -2282,7 +2352,7 @@ export default function App() {
       ) : (
         <>
           {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
-          <div className="flex-1 w-full flex overflow-hidden relative">
+          <div className="flex-1 min-h-0 w-full flex overflow-hidden relative">
         <div className="zen-rail-container h-full flex shrink-0">
           <LeftRail
             activeModule={activeModule}
@@ -2320,6 +2390,7 @@ export default function App() {
               } else if (mod === 'EXPORT') {
                 setIsPublishModalOpen(true);
               } else if (mod === 'LIQUIFY') {
+                setLiquifyInitialTab('liquify');
                 setIsLiquifyOpen(true);
               } else if (mod === 'OPTICS') {
                 setActiveModule('OPTICS');
@@ -2361,7 +2432,10 @@ export default function App() {
             onUpdateFrame={handleUpdateFrame}
             onClose={() => setIsDrawerOpen(false)}
             onOpenAnimatic={() => setIsAnimaticOpen(true)}
-            onOpenLiquify={() => setIsLiquifyOpen(true)}
+            onOpenLiquify={() => {
+              setLiquifyInitialTab('liquify');
+              setIsLiquifyOpen(true);
+            }}
             onOpenMultiCam={handleToggleMultiCam}
             onSelectFrame={(idx) => goToFrame(idx)}
             onJumpToFrame={(shotIdx, timeSec) => {
@@ -2549,9 +2623,9 @@ export default function App() {
         )}
       </div>
 
-      {/* Brutalist Modular Telemetry Rack (Hidden by default; floating above dock when toggled via ⚡ COCKPIT) */}
+      {/* Brutalist Modular Signal Rack (Docked cleanly ABOVE the timeline strip, never behind shot cards) */}
       {isTelemetryRackOpen && (
-        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[min(95vw,1080px)] z-[85] rounded-xl overflow-hidden shadow-2xl">
+        <div className="relative w-full shrink-0 z-[999] bg-neutral-950/95 border-t border-amber-500/40 shadow-[0_-16px_40px_rgba(0,0,0,0.85)]">
           <ModularTelemetryRack
             currentFrame={currentFrame}
             slideTimeSec={slideTimeSec}
@@ -2603,7 +2677,10 @@ export default function App() {
           handleUpdateFrame({ ...currentFrame, lutFilter: lut });
         }}
         onTogglePan={() => setIsPanActive(p => !p)}
-        onOpenLiquify={() => setIsLiquifyOpen(true)}
+        onOpenLiquify={() => {
+          setLiquifyInitialTab('liquify');
+          setIsLiquifyOpen(true);
+        }}
         onToggleGuides={() => setShowGuides(g => !g)}
         onCaptureStill={handleCaptureStill}
         onToggleZen={() => setIsZenMode(z => !z)}
@@ -2660,6 +2737,7 @@ export default function App() {
       <CanvasLiquifyModal
         isOpen={isLiquifyOpen}
         frame={currentFrame}
+        initialTab={liquifyInitialTab}
         onClose={() => setIsLiquifyOpen(false)}
         activeLightId={currentFrame.lightId}
         onApplyLightToShot={(lightId) => {

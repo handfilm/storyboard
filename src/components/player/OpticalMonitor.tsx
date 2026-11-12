@@ -60,6 +60,8 @@ import { calculateMultiLayerZoom } from '../../utils/engine';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../../hooks/useTitleContainerRepaint';
+import { StageMetadataFxBar } from '../stage/StageMetadataFxBar';
+import { StageCaptionStrip } from '../stage/StageCaptionStrip';
 
 export type TitleLayoutVariant =
   | 'center-low'
@@ -551,15 +553,22 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     }
   }, [onUploadMedia]);
 
-  const getAspectClass = () => {
-    switch (aspectRatio) {
-      case '2.39:1': return 'aspect-[2.39/1] max-h-[76vh]';
-      case '16:9': return 'aspect-[16/9] max-h-[82vh]';
-      case '4:3': return 'aspect-[4/3] max-h-[84vh]';
-      case '1:1': return 'aspect-square max-h-[78vh]';
-      case '9:16': return 'aspect-[9/16] max-h-[88vh]';
-      default: return 'aspect-[2.39/1] max-h-[76vh]';
-    }
+  const getAspectStyle = (): React.CSSProperties => {
+    const ratioNum =
+      aspectRatio === '9:16'
+        ? 9 / 16
+        : aspectRatio === '1:1'
+          ? 1
+          : aspectRatio === '4:3'
+            ? 4 / 3
+            : aspectRatio === '16:9'
+              ? 16 / 9
+              : 2.39;
+    return {
+      width: `min(100cqw, calc(100cqh * ${ratioNum}))`,
+      height: `min(100cqh, calc(100cqw / ${ratioNum}))`,
+      margin: '0 auto'
+    };
   };
 
   // Telemetry velocity label
@@ -594,9 +603,40 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
         playsInline
       />
 
-      {/* Primary Cinema Playback Canvas */}
-      <div className="flex-1 w-full flex items-center justify-center min-h-0 relative">
-        <div className={`relative ${getAspectClass()} w-full bg-[#0E0E12] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center transition-colors duration-150 ease-out`}>
+      {/* External 28px Stage Metadata & FX Bar (Strictly ABOVE the video frame) */}
+      <StageMetadataFxBar
+        shotIndex={currentIndex}
+        frameNum={currentFrame + 1}
+        totalFrames={SLIDE_TOTAL_FRAMES}
+        smpte={formatSMPTE(slideTimeSec)}
+        fps={activeFps}
+        streamLabel={activeStreamType === 'proxy' ? '540p PROXY // 24FPS SCRUB' : 'RAW 4K // FULL-RES'}
+        aspectRatio={aspectRatio}
+        playbackMode={playbackMode}
+        showHud={showHud}
+        isTitlesActive={showTitles}
+        velocityBadge={velocityBadge}
+        inOutBadge={
+          engine.inOutRange.isActive && engine.inOutRange.inSec !== null && engine.inOutRange.outSec !== null
+            ? `IN ${engine.inOutRange.inSec.toFixed(2)}s - OUT ${engine.inOutRange.outSec.toFixed(2)}s`
+            : null
+        }
+        isMuted={isMuted}
+        onToggleMute={() => setIsMuted((m) => !m)}
+        onUploadMedia={() => fileInputRef.current?.click()}
+        onOpenCinemaPlayer={onOpenCinemaPlayer}
+        onToggleFullscreen={toggleFullscreen}
+      />
+
+      {/* Primary Pure Zero-Overlay Cinema Playback Canvas */}
+      <div
+        className="flex-1 w-full max-w-[min(99vw,1880px)] mx-auto flex items-center justify-center min-h-0 relative overflow-hidden py-1"
+        style={{ containerType: 'size' }}
+      >
+        <div
+          style={getAspectStyle()}
+          className="relative bg-[#0E0E12] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center transition-colors duration-150 ease-out"
+        >
           
           {/* Active Media Display - Ultra Clean Display with Multi-Layer Zoom & Cross-Dissolve */}
           {outgoingPlate && isCrossDissolving && (
@@ -710,184 +750,22 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
             </div>
           )}
 
-          {/* ========================================================================= */}
-          {/* BROADCAST TELEMETRY HUD OVERLAY (Clean Monospace, Single Non-Stacked Row) */}
-          {/* ========================================================================= */}
-          
-          {/* Top Left: Scene ID, Frame Telemetry, SMPTE Timecode */}
-          {showHud && (
-          <div
-            data-testid="optical-monitor-hud-left"
-            className="animate-hud-fade-in absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#1C1C24] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-40 tabular-nums"
-          >
-            <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
-            <span className="text-white/30">·</span>
-            <span className="text-white font-bold">
-              F{String(Math.min(SLIDE_TOTAL_FRAMES, Math.max(1, currentFrame + 1))).padStart(3, '0')} / {SLIDE_TOTAL_FRAMES}
-            </span>
-            <span className="text-white/30">·</span>
-            <span className="text-white/90 font-mono">
-              {formatSMPTE(slideTimeSec)}
-            </span>
-            <span className="text-white/30">·</span>
-            <span className="text-emerald-400 text-[9.5px]">{activeFps}.0 fps</span>
-          </div>
-          )}
-
-          {/* Top Right: Transport Velocity & NLE Status */}
-          {showHud && (
-          <div
-            data-testid="optical-monitor-hud-right"
-            className="animate-hud-fade-in absolute top-3 right-3 flex items-center gap-2 z-40"
-          >
-            {/* JKL Velocity Badge */}
-            <div className={`px-2.5 py-1 rounded-full border text-[9.5px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md ${velocityBadge.color}`}>
-              <Activity className="w-3 h-3" />
-              <span>{velocityBadge.label}</span>
-            </div>
-
-            {/* In/Out Marker Badge if set */}
-            {engine.inOutRange.isActive && engine.inOutRange.inSec !== null && engine.inOutRange.outSec !== null && (
-              <div className="px-2.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 text-[9px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md">
-                <Bookmark className="w-2.5 h-2.5 text-cyan-400" />
-                <span>IN {engine.inOutRange.inSec.toFixed(2)}s ─ OUT {engine.inOutRange.outSec.toFixed(2)}s</span>
-              </div>
-            )}
-
-            {/* Adaptive Dual-Stream Resolution Badge */}
-            <div className="flex items-center">
-              {activeStreamType === 'proxy' ? (
-                <span className="text-cyan-400 font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-400/40 text-[9px] shadow-sm">
-                  540p PROXY // 24FPS SCRUB
-                </span>
-              ) : (
-                <span className="text-[#fbbf24] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-400/40 text-[9px] shadow-sm">
-                  RAW 4K // FULL-RES
-                </span>
-              )}
-            </div>
-
-            {/* Title Position Switcher Capsule */}
-            <div className="bg-[#0E0E12]/95 border border-[#1C1C24] px-2 py-1 rounded-full text-[9px] font-mono text-[#EDEDED] flex items-center gap-1 shadow-lg backdrop-blur-md">
-              <span className="text-zinc-500 font-bold uppercase tracking-wider hidden sm:inline pl-1">TITLE:</span>
-              <button
-                type="button"
-                onClick={() => setTitlePosition('left-bottom')}
-                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer ${
-                  effectiveTitleVariant === 'left-bottom'
-                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Traditional Slate (Left-Bottom with Flare)"
-              >
-                LEFT
-              </button>
-              <button
-                type="button"
-                onClick={() => setTitlePosition('mid-bottom')}
-                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer ${
-                  effectiveTitleVariant === 'mid-bottom'
-                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Cinema Center (Mid-Bottom above Matte)"
-              >
-                MID
-              </button>
-              <button
-                type="button"
-                onClick={() => setTitlePosition('right-bottom')}
-                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer ${
-                  effectiveTitleVariant === 'right-bottom'
-                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Editorial Slate (Right-Bottom Anchor)"
-              >
-                RIGHT
-              </button>
-              <button
-                type="button"
-                onClick={() => setTitlePosition('auto')}
-                className={`px-1.5 py-0.5 rounded-full transition-colors cursor-pointer text-[8px] ${
-                  titlePosition === 'auto'
-                    ? 'bg-zinc-700 text-white font-bold'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Auto-Sequence Rhythm (Per-shot fallback)"
-              >
-                AUTO
-              </button>
-            </div>
-
-            {/* Multi-Layer Zoom Capsule */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsZoomControlsOpen(prev => !prev)}
-                className={`px-2.5 py-1.5 rounded-full text-[9.5px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md border cursor-pointer transition-all ${
-                  isZoomControlsOpen || fgZoom !== 1.0 || bgZoom !== 1.0
-                    ? 'bg-[#d4af37]/30 border-[#d4af37] text-[#ffe066] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
-                    : 'bg-[#0E0E12]/95 border-[#1C1C24] text-zinc-400 hover:text-white'
-                }`}
-                title="Multi-Layer Zoom: Scale Foreground vs. Background independently"
-              >
-                <ZoomIn className="w-3 h-3 text-[#FFE066]" />
-                <span>ZOOM</span>
-                <span className="text-[#FFE066] tabular-nums text-[8.5px]">
-                  {fgZoom.toFixed(1)}x/{bgZoom.toFixed(1)}x
-                </span>
-                {isVertigo && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
-              </button>
-
-              {isZoomControlsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-76 sm:w-80 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <MultiLayerZoomControls
-                    onClose={() => setIsZoomControlsOpen(false)}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Mode & Aspect Capsule */}
-            <div className="bg-[#0E0E12]/95 border border-[#1C1C24] px-3 py-1.5 rounded-full text-[10px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2 shadow-lg backdrop-blur-md">
-              <span className="text-[#F5A623]">{aspectRatio}</span>
-              <span className="text-white/20">|</span>
-              <span className={playbackMode === 'sequence' ? 'text-emerald-400' : 'text-[#F5A623]'}>
-                {playbackMode === 'sequence' ? 'HERO GLOBAL' : 'SOLO INSPECTOR'}
-              </span>
-            </div>
-          </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* REAL-TIME DUAL-LANGUAGE TYPOGRAPHY (FOREGROUND MULTI-LAYER ZOOM)          */}
-          {/* ========================================================================= */}
-          <div
-            ref={monitorTitleContainerRef}
-            data-title-container="optical-monitor"
-            className={`absolute inset-0 z-30 pointer-events-none transition-transform duration-200 ease-out origin-center ${
-              showTitles ? 'flex flex-col' : 'hidden opacity-0'
-            }`}
-            style={{ transform: zoomTransforms.fgTransform }}
-            aria-hidden={!showTitles}
-          >
-            <StageTextOverlay
-              shotIndex={currentIndex}
-              banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
-              englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
-              subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
-              directorNotes={currentSlide?.directorNotes}
-              isVisible={showTitles}
-              variant={effectiveTitleVariant}
-              allowQuickControls={true}
-              onChangeVariant={(v) => setTitlePosition(v)}
-              componentsVisibility={componentsVisibility}
-            />
-          </div>
-
         </div>
       </div>
+
+      {/* External Scene / Dopamine FX Caption Strip (Strictly BELOW the video frame) */}
+      <StageCaptionStrip
+        shotIndex={currentIndex}
+        banglaTitle={currentSlide?.titleBn || (currentIndex === 0 ? 'দৃষ্টি' : undefined)}
+        englishTitle={currentSlide?.titleEn || (currentIndex === 0 ? 'THE SINGULARITY' : undefined)}
+        subtitle={currentSlide?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION'}
+        directorNotes={currentSlide?.directorNotes}
+        dopamineConfig={currentSlide?.dopamineConfig}
+        slideTimeSec={slideTimeSec}
+        durationSec={SLIDE_MAX_TIME}
+        isTitlesActive={showTitles}
+        componentsVisibility={componentsVisibility}
+      />
 
       {/* Permanently Visible Tactical Pill Transport Dock ("Google Flow" Aesthetic) */}
       <TactileTransport

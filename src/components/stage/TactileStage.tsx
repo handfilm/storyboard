@@ -71,6 +71,10 @@ import { DopamineCompilationSequence } from './templates/DopamineCompilationSequ
 import { FrameAdjustments, LutPreset } from '../../types/anthology';
 import { depthOcclusionService } from '../../services/depthOcclusionService';
 import { transientPunchEngine } from '../../services/transientPunchEngine';
+import { StageMetadataFxBar } from './StageMetadataFxBar';
+import { StageCaptionStrip } from './StageCaptionStrip';
+import { getLightingPresetById } from '../../data/lightingPresets';
+import { formatFullSMPTETimecode } from '../../types/storyboard';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -821,9 +825,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               activeSource = cachedPosterImgRef.current;
             }
 
-            const useAutonomousCanvas = Boolean(
-              ko?.enabled && isTitlesActiveRef.current && !curFrame?.dopamineConfig
-            );
+            // Zero-overlay pure cinema frame: never burn text onto the stage canvas
+            const useAutonomousCanvas = false;
 
             if (useAutonomousCanvas) {
               ctx.filter = 'none';
@@ -836,42 +839,28 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 durationSec: getShotDurationSec(curFrame, 12.0),
                 fps: getShotTargetFps(curFrame, 24),
                 isLivePlaying: isAutoplayRef.current,
-                titleBn: curFrame?.bengaliTitle || 'দৃষ্টির সীমানা',
-                titleEn: curFrame?.title || 'THE SINGULARITY',
-                lyricText: curFrame?.caption?.text || curFrame?.tagline || curFrame?.title || '',
+                titleBn: '',
+                titleEn: '',
+                lyricText: '',
                 filmFilter,
                 zoomScale: 1.0,
                 titleSize: storeTitleConfigRef.current?.titleSize ?? 72,
-                verticalOffset: storeTitleConfigRef.current?.verticalOffset ?? 0,
-                postBaseHook: (baseCtx, w, h) => {
-                  if (activeSource) {
-                    applyCinematicPostProcess(
-                      baseCtx as CanvasRenderingContext2D,
-                      w,
-                      h,
-                      curFrame?.lutFilter || 'kodak_vision3',
-                      curFrame?.adjustments,
-                      slideTimeSecRef.current
-                    );
-                  }
-                }
+                verticalOffset: storeTitleConfigRef.current?.verticalOffset ?? 0
               });
             } else {
               ctx.clearRect(0, 0, targetW, targetH);
+              const activeLight = curFrame?.lightId ? getLightingPresetById(curFrame.lightId) : null;
+              const combinedCanvasFilter = [
+                filmFilter && filmFilter !== 'none' ? filmFilter : '',
+                activeLight?.filter || ''
+              ].filter(Boolean).join(' ');
+
               if (activeSource && (!isVideo || isScrubbingRef.current)) {
-                if (filmFilter && filmFilter !== 'none') {
-                  ctx.filter = filmFilter;
+                if (combinedCanvasFilter) {
+                  ctx.filter = combinedCanvasFilter;
                 }
                 drawCover(ctx, activeSource, targetW, targetH);
                 ctx.filter = 'none';
-                applyCinematicPostProcess(
-                  ctx,
-                  targetW,
-                  targetH,
-                  curFrame?.lutFilter || 'kodak_vision3',
-                  curFrame?.adjustments,
-                  slideTimeSecRef.current
-                );
               } else if (!activeMediaUrl && !cachedPosterUrl) {
                 // Minimalist Dark Studio Fallback Slate ONLY when shot has NO media
                 const grad = ctx.createLinearGradient(0, 0, 0, targetH);
@@ -892,16 +881,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 ctx.lineTo(cx, cy + 30);
                 ctx.stroke();
 
-                // Crosshair circle
                 ctx.beginPath();
                 ctx.arc(cx, cy, 14, 0, Math.PI * 2);
                 ctx.stroke();
-
-                // Telemetry watermark
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-                ctx.font = '10px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText(`SHOT ${curFrame?.epNumber || '001'} // CINEMA MONITOR STANDBY`, cx, cy + 42);
               }
               ctx.filter = 'none';
               applyCinematicPostProcess(
@@ -912,6 +894,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 curFrame?.adjustments,
                 slideTimeSecRef.current
               );
+              if (activeLight && activeSource) {
+                ctx.save();
+                ctx.globalCompositeOperation = activeLight.blendMode;
+                activeLight.renderOverlay(ctx, targetW, targetH, slideTimeSecRef.current);
+                ctx.restore();
+              }
             }
           }
         }
@@ -1047,62 +1035,35 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   // Dynamic Aspect Ratio Auto-Fitting:
   // - Clean, responsive framing flush to top with no blank gap
   // - Leaves dedicated clearance at bottom for bezel ribbon and control dock
+  // Container-query exact aspect ratio fitting: zero clipping, zero overlap with external bars
   const getAspectStyle = (ar: string): React.CSSProperties => {
-    switch (ar) {
-      case '9:16':
-        return {
-          aspectRatio: '9 / 16',
-          height: 'calc(100vh - 124px)',
-          maxHeight: 'calc(100vh - 124px)',
-          width: 'calc((100vh - 124px) * 9 / 16)',
-          maxWidth: '100%',
-          margin: '0 auto'
-        };
-      case '1:1':
-        return {
-          aspectRatio: '1 / 1',
-          height: 'calc(100vh - 124px)',
-          maxHeight: 'calc(100vh - 124px)',
-          width: 'calc(100vh - 124px)',
-          maxWidth: '100%',
-          margin: '0 auto'
-        };
-      case '4:3':
-        return {
-          aspectRatio: '4 / 3',
-          width: '100%',
-          maxWidth: 'min(98vw, 1500px)',
-          maxHeight: 'calc(100vh - 124px)',
-          margin: '0 auto'
-        };
-      case '16:9':
-        return {
-          aspectRatio: '16 / 9',
-          width: '100%',
-          maxWidth: 'min(99vw, 1880px)',
-          maxHeight: 'calc(100vh - 124px)',
-          margin: '0 auto'
-        };
-      case '2.39:1':
-      default:
-        return {
-          aspectRatio: '2.39 / 1',
-          width: '100%',
-          maxWidth: 'min(99vw, 1880px)',
-          maxHeight: 'calc(100vh - 124px)',
-          margin: '0 auto'
-        };
-    }
+    const ratioNum =
+      ar === '9:16'
+        ? 9 / 16
+        : ar === '1:1'
+          ? 1
+          : ar === '4:3'
+            ? 4 / 3
+            : ar === '16:9'
+              ? 16 / 9
+              : 2.39;
+    return {
+      width: `min(100cqw, calc(100cqh * ${ratioNum}))`,
+      height: `min(100cqh, calc(100cqw / ${ratioNum}))`,
+      margin: '0 auto'
+    };
   };
 
   const fitModeClass = fitMode === 'contain' ? 'object-contain' : 'object-cover';
+  const activeLightPreset = frame?.lightId ? getLightingPresetById(frame.lightId) : undefined;
+  const activeSmpte = formatFullSMPTETimecode(slideTimeSec, activeShotFps);
 
   return (
     <div
       ref={containerRef}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
-      className="relative w-full h-full flex flex-col items-center justify-start pt-0 mt-0 pb-0 bg-[#000000] overflow-hidden select-none px-0"
+      className="relative w-full h-full flex flex-col items-center justify-between pt-0 mt-0 pb-0 bg-[#000000] overflow-hidden select-none px-0"
     >
       {/* Hidden File Input */}
       <input
@@ -1149,17 +1110,42 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* 1. MASTER STAGE MEDIA CONTAINER (Flush to top, zero black gap, edge-to-edge cinema presence) */}
+      {/* 1. SLEEK 28px EXTERNAL STAGE METADATA & FX BAR (STRICTLY ABOVE THE VIDEO BOX) */}
+      <StageMetadataFxBar
+        className="animate-hud-fade-in"
+        sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '01'}
+        shotIndex={currentIndex}
+        frameNum={activeFrameNum}
+        totalFrames={activeTotalFrames}
+        smpte={activeSmpte}
+        fps={activeShotFps}
+        streamLabel={isScrubbing ? '540p PROXY' : 'RAW 4K'}
+        aspectRatio={aspectRatio || '2.39:1'}
+        playbackMode={playbackMode}
+        showHud={showHud}
+        isTitlesActive={isTitlesActive}
+        onToggleTitles={onToggleTitles}
+        lightName={activeLightPreset?.name}
+        onUploadMedia={() => fileInputRef.current?.click()}
+        onOpenInspector={onOpenInspector}
+        onToggleFullscreen={toggleFullscreen}
+      />
+
+      {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (CENTERED IN REMAINING CONTAINER SPACE) */}
       <div
-        id="stage-media-container"
-        ref={stageMediaContainerRef}
-        onPointerDown={handleStagePointerDown}
-        onPointerMove={handleStagePointerMove}
-        onPointerUp={handleStagePointerUp}
-        onPointerCancel={handleStagePointerCancel}
-        style={getAspectStyle(aspectRatio)}
-        className="relative w-full mx-auto bg-[#000000] border-0 rounded-none shadow-[0_16px_80px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center select-none shrink-0 mt-0 pt-0 cursor-crosshair"
+        className="flex-1 min-h-0 w-full max-w-[min(99vw,1880px)] mx-auto flex items-center justify-center overflow-hidden py-1"
+        style={{ containerType: 'size' }}
       >
+        <div
+          id="stage-media-container"
+          ref={stageMediaContainerRef}
+          onPointerDown={handleStagePointerDown}
+          onPointerMove={handleStagePointerMove}
+          onPointerUp={handleStagePointerUp}
+          onPointerCancel={handleStagePointerCancel}
+          style={getAspectStyle(aspectRatio)}
+          className="relative bg-[#000000] border border-white/10 rounded-none shadow-[0_16px_80px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair"
+        >
         {/* DYNAMIC CANVAS SVG BARREL DISTORTION FILTER */}
         <svg
           id="stage-svg-filters"
@@ -1299,73 +1285,6 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
-        {/* ON-STAGE DIGITAL ZOOM ACTIVE INDICATOR BADGE */}
-        {digitalZoom.isZoomed && (
-          <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-black/85 backdrop-blur-md border border-amber-400/60 rounded px-2 py-1 shadow-lg text-[10px] font-mono select-none animate-in fade-in duration-150">
-            <ZoomIn className="w-3 h-3 text-amber-400 animate-pulse" />
-            <span className="text-white/70">DIGITAL ZOOM</span>
-            <span className="text-amber-300 font-bold tabular-nums">
-              {digitalZoom.scale.toFixed(1)}x
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                resetDigitalZoom();
-              }}
-              className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/40 border border-amber-400/50 text-amber-300 hover:text-white text-[9px] font-bold cursor-pointer transition-all flex items-center gap-0.5"
-              title="Reset Digital Frame Zoom (100% Fit)"
-            >
-              <RotateCcw className="w-2.5 h-2.5" />
-              <span>RESET</span>
-            </button>
-          </div>
-        )}
-
-        {/* TYPOGRAPHY STAGE RESTORATION LAYER: Mounted directly above the stage canvas */}
-        <div
-          id="stage-typography-layer"
-          ref={stageTitleContainerRef}
-          data-title-container="tactile-stage"
-          style={{
-            zIndex: 10,
-            pointerEvents: 'none',
-            opacity: isTitlesActive ? 1 : 0,
-            transition: 'opacity 0.2s ease-in-out',
-            transform: zoomTransforms.fgTransform,
-            filter: zoomTransforms.fgShadow
-          }}
-          className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 pointer-events-none"
-        >
-          {frame?.dopamineConfig ? (
-            <DopamineCompilationSequence
-              hookText={frame.dopamineConfig.hookText}
-              subText={frame.dopamineConfig.subText}
-              glitchIntensity={frame.dopamineConfig.glitchIntensity}
-              strobeRate={frame.dopamineConfig.strobeRate}
-              motionSpeed={frame.dopamineConfig.motionSpeed}
-              accentColor={frame.dopamineConfig.accentColor}
-              audioBeatSync={frame.dopamineConfig.audioBeatSync ?? true}
-              currentTime={slideTimeSec}
-              durationSec={activeShotDurationSec}
-              isPlaying={isAutoplay}
-              showTelemetry={false}
-            />
-          ) : (
-            <StageTextOverlay
-              shotIndex={currentIndex}
-              banglaTitle={frame?.bengaliTitle || 'সীমানা'}
-              englishTitle={frame?.title || 'EVENT HORIZON'}
-              subtitle={frame?.tagline || '12.0S CINEMA PREVIS & NLE MONTAGE'}
-              directorNotes={frame?.directorNotes}
-              cameraInfo={frame?.cameraSpec?.focalLength}
-              isVisible={isTitlesActive}
-              allowQuickControls={false}
-              componentsVisibility={componentsVisibility}
-            />
-          )}
-        </div>
-
         {/* Drag & Drop Ready Standby when no media exists */}
         {!activeMediaUrl && !cachedPosterUrl && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center z-20 pointer-events-auto">
@@ -1399,7 +1318,23 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             </span>
           </div>
         )}
+        </div>
       </div>
+
+      {/* 3. SCENE / DOPAMINE FX CAPTION STRIP (STRICTLY BELOW THE VIDEO BOX) */}
+      <StageCaptionStrip
+        shotIndex={currentIndex}
+        banglaTitle={frame?.bengaliTitle}
+        englishTitle={frame?.title}
+        subtitle={frame?.tagline}
+        directorNotes={frame?.directorNotes}
+        dopamineConfig={frame?.dopamineConfig}
+        slideTimeSec={slideTimeSec}
+        durationSec={activeShotDurationSec}
+        isTitlesActive={isTitlesActive}
+        onToggleTitles={onToggleTitles}
+        componentsVisibility={componentsVisibility}
+      />
 
       {/* 2. SLEEK CINEMA MONITOR BEZEL RIBBON (Ultra-compact 20px bar directly under the monitor) */}
       <div className="w-full max-w-[min(99vw,1880px)] mx-auto mt-0.5 px-2 py-0.5 bg-[#090a0f]/95 border border-white/10 rounded flex items-center justify-between gap-1.5 shrink-0 select-none shadow-md h-5 text-[8.5px]">

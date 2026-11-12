@@ -146,71 +146,64 @@ export const StagePlayer: React.FC<StagePlayerProps> = ({
 
   return (
     <div className={`relative w-full h-full flex flex-col bg-black overflow-hidden select-none font-mono ${className}`}>
-      {/* Background Media Layer (if provided) */}
-      {backgroundMediaUrl && (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {isVideoBackground ? (
-            <video
-              ref={videoRef}
-              src={backgroundMediaUrl}
-              crossOrigin="anonymous"
-              muted={isMuted}
-              loop={autoLoop}
-              playsInline
-              className="w-full h-full object-cover opacity-60"
-            />
-          ) : (
-            <img
-              src={backgroundMediaUrl}
-              crossOrigin="anonymous"
-              alt="Cinema Background"
-              className="w-full h-full object-cover opacity-50 filter brightness-75 contrast-110"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/80" />
-        </div>
-      )}
+      {/* External 28px StagePlayer Control Header (Strictly ABOVE canvas) */}
+      <div className="relative z-20 w-full h-7 min-h-[28px] px-3 bg-[#07080d] border-b border-white/10 flex items-center justify-between text-[10px] font-mono shrink-0">
+        <span className="text-[#F5A623] font-bold tracking-wider uppercase">
+          {engineMode === 'dopamine' ? 'DOPAMINE FX PREVIEW' : 'KINETIC TRIBUTE ENGINE'}
+        </span>
+        <button
+          type="button"
+          onClick={() => setTitlesVisible(!titlesVisible)}
+          className="bg-black/70 border border-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded hover:border-[#F5A623] hover:text-[#F5A623] transition-all cursor-pointer"
+        >
+          {titlesVisible ? '[ T ] TITLE FX : ON' : '[ T ] TITLE FX : OFF'}
+        </button>
+      </div>
 
-      {/* Persistent Right-Edge Title FX Toggle */}
-      <button
-        type="button"
-        onClick={() => setTitlesVisible(!titlesVisible)}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs px-3 px-3! py-1 py-1! rounded hover:bg-white/20 transition-all cursor-pointer"
-      >
-        {titlesVisible ? '[ T ] TITLE FX : ON' : '[ T ] TITLE FX : OFF'}
-      </button>
-
-      {/* Modular Cinema Typography Canvas: strictly receives currentTime */}
-      <div className="relative z-10 flex-1 w-full h-full flex items-center justify-center">
-        {titlesVisible && (
-          engineMode === 'dopamine' ? (
-            <DopamineCompilationSequence
-              hookText={dopamineConfig?.hookText || 'PURE RHYTHM'}
-              subText={dopamineConfig?.subText || 'Visual Physics at Work.'}
-              glitchIntensity={dopamineConfig?.glitchIntensity ?? 80}
-              strobeRate={dopamineConfig?.strobeRate ?? 60}
-              motionSpeed={dopamineConfig?.motionSpeed ?? 1.5}
-              accentColor={dopamineConfig?.accentColor || '#FF2B2B'}
-              audioBeatSync={true}
-              currentTime={currentTime}
-              durationSec={durationSec}
-              isPlaying={isPlaying}
-              scale={scale}
-            />
-          ) : (
-            <KineticTributeSequence
-              profile={profile}
-              currentTime={currentTime}
-              durationSec={durationSec}
-              isPlaying={isPlaying}
-              scale={scale}
-              showControls={false}
-              onPhaseChange={onPhaseChange}
-              onApplyProfileToFrame={onApplyProfileToFrame}
-            />
-          )
+      {/* Pure Media StagePlayer Canvas (Zero Floating Controls Inside) */}
+      <div className="relative z-10 flex-1 w-full min-h-0 flex items-center justify-center overflow-hidden">
+        {backgroundMediaUrl && (
+          <div className="w-full h-full overflow-hidden pointer-events-none">
+            {isVideoBackground ? (
+              <video
+                ref={videoRef}
+                src={backgroundMediaUrl}
+                crossOrigin="anonymous"
+                muted={isMuted}
+                loop={autoLoop}
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={backgroundMediaUrl}
+                crossOrigin="anonymous"
+                alt="Cinema Background"
+                className="w-full h-full object-cover"
+              />
+            )}
+          </div>
         )}
       </div>
+
+      {/* External Kinetic Sequence / Dopamine FX Strip (Strictly BELOW canvas) */}
+      {titlesVisible && (
+        <div className="relative z-20 w-full px-3 py-1.5 bg-[#06070c] border-t border-white/10 flex items-center justify-between gap-2 text-[10px] font-mono shrink-0">
+          {engineMode === 'dopamine' ? (
+            <div className="flex items-center gap-2 min-w-0 truncate">
+              <span className="text-[#FF2B2B] font-bold uppercase shrink-0">HOOK:</span>
+              <span className="text-white font-bold truncate">{dopamineConfig?.hookText || 'PURE RHYTHM'}</span>
+              <span className="text-zinc-400 truncate hidden sm:inline">— {dopamineConfig?.subText || 'Visual Physics at Work.'}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0 truncate">
+              <span className="text-[#F5A623] font-bold uppercase shrink-0">TRIBUTE:</span>
+              <span className="text-white truncate">{typeof profile === 'string' ? profile : `${profile?.hook || ''} // ${profile?.performer || 'CINEMA SEQUENCE'}`}</span>
+            </div>
+          )}
+          <span className="text-zinc-400 tabular-nums shrink-0">{formatTimecode(currentTime)}</span>
+        </div>
+      )}
 
       {/* StagePlayer Precision Transport Dock */}
       {showControls && (

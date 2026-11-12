@@ -73,6 +73,7 @@ export interface DigitalZoomState {
 }
 
 export type HeroTitlePreset = 'molten-gold' | 'titanium-silver' | 'neon-crimson';
+export type TitlePosition = 'left-bottom' | 'mid-bottom' | 'right-bottom' | 'auto';
 
 export interface HeroTitleConfig {
   preset: HeroTitlePreset;
@@ -91,6 +92,8 @@ export interface StudioState {
   
   // Kinetic Hero Title Typography Engine
   titleConfig: HeroTitleConfig;
+  titlePosition: TitlePosition;
+  setTitlePosition: (position: TitlePosition) => void;
   setTitlePreset: (preset: HeroTitlePreset) => void;
   setTitleSize: (size: number) => void;
   setTitleGlowIntensity: (intensity: number) => void;
@@ -367,6 +370,12 @@ export const useStudioStore = create<StudioState>()(
       tracking: 0.15,
       titleOpacity: defaultVisibility.titleOpacity,
       showTitles: defaultVisibility.titlesAll
+    },
+    titlePosition: 'left-bottom',
+    setTitlePosition: (position: TitlePosition) => {
+      set((state) => {
+        state.titlePosition = position;
+      });
     },
     setTitlePreset: (preset: HeroTitlePreset) => {
       set((state) => {

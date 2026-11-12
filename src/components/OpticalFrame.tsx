@@ -9,9 +9,9 @@ import React, { useRef } from 'react';
 import { AnthologyFrame, AspectRatio } from '../types/anthology';
 import { ComponentVisibility } from './ComponentsMatrixPopover';
 import { getLutFilterCSS, calculateMultiLayerZoom } from '../utils/engine';
-import { StageTextOverlay } from './StageTextOverlay';
 import { useStudioStore } from '../core/store';
-import { Upload, Film, Sliders, Maximize2 } from 'lucide-react';
+import { Upload, Film, Sliders } from 'lucide-react';
+import { StageCaptionStrip } from './stage/StageCaptionStrip';
 
 export interface OpticalFrameProps {
   frame: AnthologyFrame;
@@ -84,131 +84,126 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
     <div
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      className={`relative w-full max-h-full max-w-6xl mx-auto ${getAspectClass(
-        aspectRatio
-      )} bg-[#050505] border border-[#272732] shadow-[0_20px_70px_rgba(0,0,0,0.95)] rounded-[2px] overflow-hidden flex items-center justify-center select-none group`}
+      className="w-full max-w-6xl max-h-full mx-auto flex flex-col select-none bg-[#050505] border border-[#272732] rounded-[2px] shadow-[0_20px_70px_rgba(0,0,0,0.95)] overflow-hidden"
     >
-      {/* Hidden File Input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept="image/*,video/*"
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files && e.target.files[0] && onUploadImage) {
-            onUploadImage(e.target.files[0]);
-          }
-        }}
-      />
+      {/* External 28px Directorial HUD Bar (Strictly ABOVE the video frame) */}
+      <div
+        data-testid="optical-frame-hud"
+        className="animate-hud-fade-in h-7 min-h-[28px] px-3 bg-[#07080d] border-b border-white/10 flex items-center justify-between text-[10px] font-mono-tech text-white/75 shrink-0"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[#d4af37] font-bold">EP {frame?.epNumber || '001'}</span>
+          <span className="text-white/30">|</span>
+          <span className="truncate max-w-[180px] text-white/90">{frame?.title}</span>
+        </div>
 
-      {/* Media Layer */}
-      {frame?.imageUrl ? (
-        <div
-          className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center"
-          style={{ transform: zoomTransforms.bgTransform }}
-        >
-          {frame.isVideo ? (
-            <video
-              src={frame.imageUrl}
-              crossOrigin="anonymous"
-              autoPlay={isAutoplay}
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
-              style={{ filter: combinedMediaFilter }}
-            />
-          ) : (
-            <img
-              src={frame.imageUrl}
-              crossOrigin="anonymous"
-              alt={frame.title}
-              className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
-              style={{ filter: combinedMediaFilter }}
-            />
+        <div className="flex items-center gap-2 shrink-0">
+          {showHud && (
+            <div className="hidden sm:flex items-center gap-2">
+              <span>{frame?.cameraSpec?.focalLength || '35mm High-Speed'}</span>
+              <span className="text-white/30">|</span>
+              <span className="text-[#ffe066]">{frame?.cameraSpec?.aperture || 'f/1.4'}</span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-1 rounded bg-black/60 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 transition-all cursor-pointer"
+            title="Upload or Change Shot Media"
+          >
+            <Upload className="w-3 h-3" />
+          </button>
+          {onOpenInspector && (
+            <button
+              type="button"
+              onClick={onOpenInspector}
+              className="p-1 rounded bg-black/60 hover:bg-white/10 text-white/80 hover:text-[#ffe066] border border-white/15 transition-all cursor-pointer"
+              title="Open Optics & Color Inspector"
+            >
+              <Sliders className="w-3 h-3" />
+            </button>
           )}
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
-            <Film className="w-8 h-8 opacity-70" />
-          </div>
-          <div>
-            <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
-              SHOT {frame?.epNumber || '001'} // EMPTY CANVASS
-            </p>
-            <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
-              Drag & Drop 4K video or photo, or click upload
-            </p>
-          </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
+      </div>
+
+      {/* Pure Zero-Overlay Video Box */}
+      <div
+        className={`relative w-full ${getAspectClass(aspectRatio)} bg-[#050505] overflow-hidden flex items-center justify-center`}
+      >
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*,video/*"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0] && onUploadImage) {
+              onUploadImage(e.target.files[0]);
+            }
+          }}
+        />
+
+        {frame?.imageUrl ? (
+          <div
+            className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out origin-center"
+            style={{ transform: zoomTransforms.bgTransform }}
           >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Select Media</span>
-          </button>
-        </div>
-      )}
-
-      {/* Reactive Bilingual Typography Overlay (Foreground Multi-Layer Zoom) */}
-      {componentsVisibility?.titlesAll !== false && (
-        <div
-          className="absolute inset-0 pointer-events-none transition-transform duration-200 ease-out origin-center"
-          style={{ transform: zoomTransforms.fgTransform, filter: zoomTransforms.fgShadow }}
-        >
-          <StageTextOverlay
-            shotIndex={frame?.id ?? 0}
-            banglaTitle={frame?.bengaliTitle}
-            englishTitle={frame?.title}
-            subtitle={frame?.tagline}
-            directorNotes={frame?.directorNotes}
-            cameraInfo={frame?.cameraSpec?.focalLength}
-            isVisible={true}
-            componentsVisibility={componentsVisibility}
-          />
-        </div>
-      )}
-
-      {/* Directorial HUD Overlay */}
-      {showHud && (
-        <div
-          data-testid="optical-frame-hud"
-          className="animate-hud-fade-in absolute top-3 inset-x-3 pointer-events-none flex items-center justify-between text-[10px] font-mono-tech text-white/70"
-        >
-          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-2.5 py-1 border border-white/10 rounded-[1px]">
-            <span className="text-[#d4af37] font-bold">EP {frame?.epNumber || '001'}</span>
-            <span className="text-white/40">|</span>
-            <span className="truncate max-w-[150px]">{frame?.title}</span>
+            {frame.isVideo ? (
+              <video
+                src={frame.imageUrl}
+                crossOrigin="anonymous"
+                autoPlay={isAutoplay}
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
+                style={{ filter: combinedMediaFilter }}
+              />
+            ) : (
+              <img
+                src={frame.imageUrl}
+                crossOrigin="anonymous"
+                alt={frame.title}
+                className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
+                style={{ filter: combinedMediaFilter }}
+              />
+            )}
           </div>
-
-          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-2.5 py-1 border border-white/10 rounded-[1px]">
-            <span>{frame?.cameraSpec?.focalLength || '35mm High-Speed'}</span>
-            <span className="text-white/40">|</span>
-            <span className="text-[#ffe066]">{frame?.cameraSpec?.aperture || 'f/1.4'}</span>
+        ) : (
+          <div className="flex flex-col items-center justify-center text-zinc-500 gap-3 p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#d4af37]">
+              <Film className="w-8 h-8 opacity-70" />
+            </div>
+            <div>
+              <p className="font-cinzel text-sm text-zinc-300 font-bold tracking-wider">
+                SHOT {frame?.epNumber || '001'} // EMPTY CANVAS
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-1 font-mono-tech">
+                Drag & Drop 4K video or photo, or click upload
+              </p>
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-2 px-3.5 py-1.5 rounded-[2px] bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#ffe066] text-xs font-mono-tech flex items-center gap-1.5 cursor-pointer transition-all"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Select Media</span>
+            </button>
           </div>
-        </div>
-      )}
-
-      {/* Quick Action Overlay Buttons on Hover */}
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 pointer-events-auto">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="p-1.5 rounded-[2px] bg-black/80 hover:bg-black text-white/80 hover:text-white border border-white/20 transition-all cursor-pointer"
-          title="Upload or Change Shot Media"
-        >
-          <Upload className="w-3.5 h-3.5" />
-        </button>
-        {onOpenInspector && (
-          <button
-            onClick={onOpenInspector}
-            className="p-1.5 rounded-[2px] bg-black/80 hover:bg-black text-white/80 hover:text-[#ffe066] border border-white/20 transition-all cursor-pointer"
-            title="Open Optics & Color Inspector"
-          >
-            <Sliders className="w-3.5 h-3.5" />
-          </button>
         )}
       </div>
+
+      {/* External Scene Caption Strip (Strictly BELOW the video frame) */}
+      <StageCaptionStrip
+        shotIndex={frame?.id ?? 0}
+        banglaTitle={frame?.bengaliTitle}
+        englishTitle={frame?.title}
+        subtitle={frame?.tagline}
+        directorNotes={frame?.directorNotes}
+        dopamineConfig={frame?.dopamineConfig}
+        isTitlesActive={componentsVisibility?.titlesAll !== false}
+        onToggleTitles={onToggleTitles}
+        componentsVisibility={componentsVisibility}
+      />
     </div>
   );
 };

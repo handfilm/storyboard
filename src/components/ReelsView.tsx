@@ -19,6 +19,7 @@ import { SlideDraft, AspectRatioType } from '../types/project';
 import { PlaybackMode } from '../types/editor';
 import {
   formatDurationPillValue,
+  formatFullSMPTETimecode,
   getShotDurationSec,
   getShotFrameCount,
   getShotTargetFps
@@ -27,6 +28,8 @@ import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { useStudioStore } from '../core/store';
+import { StageMetadataFxBar } from './stage/StageMetadataFxBar';
+import { StageCaptionStrip } from './stage/StageCaptionStrip';
 import {
   Film,
   Upload,
@@ -79,6 +82,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   currentIndex,
   totalSlides,
   aspectRatio,
+  playbackMode,
   isPlaying,
   isLooping,
   slideTimeSec,
@@ -278,15 +282,22 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     }
   };
 
-  // Aspect ratio helper
-  const getAspectClass = () => {
-    switch (aspectRatio) {
-      case '16:9': return 'aspect-[16/9] max-h-[72vh]';
-      case '1:1': return 'aspect-square max-h-[72vh]';
-      case '9:16': return 'aspect-[9/16] max-h-[82vh]';
-      case '2.39:1':
-      default: return 'aspect-[2.39/1] max-h-[72vh]';
-    }
+  const getAspectStyle = (): React.CSSProperties => {
+    const ratioNum =
+      aspectRatio === '16:9'
+        ? 16 / 9
+        : aspectRatio === '1:1'
+          ? 1
+          : aspectRatio === '9:16'
+            ? 9 / 16
+            : aspectRatio === '4:3'
+              ? 4 / 3
+              : 2.39;
+    return {
+      width: `min(100cqw, calc(100cqh * ${ratioNum}))`,
+      height: `min(100cqh, calc(100cqw / ${ratioNum}))`,
+      margin: '0 auto'
+    };
   };
 
   return (
@@ -297,9 +308,34 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Viewport Playback Container */}
-      <div className="flex-1 w-full flex items-center justify-center min-h-0 relative p-2 sm:p-4">
-        <div className={`relative ${getAspectClass()} w-full bg-[#0B0B0F] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center`}>
+      {/* External 28px Stage Metadata & FX Bar (Strictly ABOVE the video box) */}
+      <StageMetadataFxBar
+        shotIndex={currentIndex}
+        frameNum={currentFrame}
+        totalFrames={activeTotalFrames}
+        smpte={formatFullSMPTETimecode(slideTimeSec, activeFps)}
+        fps={activeFps}
+        streamLabel="REELS BUFFER"
+        aspectRatio={aspectRatio}
+        playbackMode={playbackMode}
+        isTitlesActive={isReelsTitleVisible}
+        safeZone={safeZone}
+        onChangeSafeZone={setSafeZone}
+        isMuted={isMuted}
+        onToggleMute={() => setIsMuted((m) => !m)}
+        onOpenCinemaPlayer={onOpenCinemaPlayer}
+        onUploadMedia={() => fileInputRef.current?.click()}
+      />
+
+      {/* Viewport Pure Zero-Overlay Playback Container */}
+      <div
+        className="flex-1 w-full max-w-[min(99vw,1880px)] mx-auto flex items-center justify-center min-h-0 relative overflow-hidden py-1"
+        style={{ containerType: 'size' }}
+      >
+        <div
+          style={getAspectStyle()}
+          className="relative bg-[#0B0B0F] border border-[#1C1C24] shadow-[0_24px_80px_rgba(0,0,0,0.95)] overflow-hidden flex items-center justify-center"
+        >
           
           {/* Outgoing Visual Plate for Cinematic Cross-Dissolve */}
           {outgoingPlate && isCrossDissolving && (
@@ -394,150 +430,22 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             </div>
           )}
 
-          {/* Top Left: Scene & Elastic Specs Monospace Badge */}
-          <div className="absolute top-3 left-3 bg-[#0E0E12]/95 border border-[#232332] px-3.5 py-1.5 rounded-full text-[10.5px] font-mono text-[#EDEDED] font-bold tracking-wider flex items-center gap-2.5 shadow-lg backdrop-blur-md z-30 tabular-nums">
-            <span className="text-[#F5A623]">SH{String(currentIndex + 1).padStart(3, '0')}</span>
-            <span className="text-white/30">·</span>
-            <span className="text-white font-mono">
-              {slideTimeSec.toFixed(2)}s / {activeDurationSec.toFixed(2)}s
-            </span>
-            <span className="text-white/30">·</span>
-            <span className="text-emerald-400 font-bold">{activeFps}FPS</span>
-          </div>
-
-          {/* Top Right: On-Screen 3-Position Safe-Zone Switcher Pill (User Clarification Answer) */}
-          <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
-            <div className="bg-[#0E0E12]/95 border border-[#F5A623]/40 px-2 py-1 rounded-full text-[9px] font-mono text-[#EDEDED] flex items-center gap-1 shadow-xl backdrop-blur-md">
-              <Compass className="w-3 h-3 text-[#F5A623] mr-0.5" />
-              <span className="text-zinc-500 font-bold uppercase tracking-wider hidden sm:inline">SAFE-ZONE:</span>
-              <button
-                type="button"
-                onClick={() => setSafeZone('top')}
-                className={`px-2 py-0.5 rounded-full transition-colors cursor-pointer ${
-                  safeZone === 'top'
-                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Top Header Pill Safe Zone"
-              >
-                TOP
-              </button>
-              <button
-                type="button"
-                onClick={() => setSafeZone('center')}
-                className={`px-2 py-0.5 rounded-full transition-colors cursor-pointer ${
-                  safeZone === 'center'
-                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Center Dialogue Card Safe Zone"
-              >
-                CTR
-              </button>
-              <button
-                type="button"
-                onClick={() => setSafeZone('bottom')}
-                className={`px-2 py-0.5 rounded-full transition-colors cursor-pointer ${
-                  safeZone === 'bottom'
-                    ? 'bg-[#F5A623] text-black font-bold shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Floating Bottom Dock Safe Zone (Default)"
-              >
-                BOT
-              </button>
-            </div>
-
-            {/* Audio Mute & Cinema Launchers */}
-            <button
-              type="button"
-              onClick={() => setIsMuted(m => !m)}
-              className="p-1.5 rounded-full bg-black/70 hover:bg-black/90 border border-white/15 text-zinc-300 hover:text-white text-xs transition-colors cursor-pointer backdrop-blur-md"
-              title={isMuted ? "Unmute Audio" : "Mute Audio"}
-            >
-              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
-            </button>
-
-            {onOpenCinemaPlayer && (
-              <button
-                type="button"
-                onClick={onOpenCinemaPlayer}
-                className="p-1.5 rounded-full bg-black/70 hover:bg-black/90 border border-white/15 text-zinc-300 hover:text-[#F5A623] text-xs transition-colors cursor-pointer backdrop-blur-md"
-                title="Launch Cinema Theater Player"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* ========================================================================= */}
-          {/* FROSTED OBSIDIAN CAPSULE EDITORIAL SUITE                                  */}
-          {/* ========================================================================= */}
-          <div 
-            ref={reelsTitleContainerRef}
-            data-title-container="reels-view"
-            data-title-cluster="true"
-            data-repaint-rev={repaintRevision}
-            className={`title-block absolute z-20 pointer-events-none transition-all duration-300 ease-out w-[92%] sm:w-[86%] max-w-2xl ${
-              isReelsTitleVisible ? 'flex flex-col' : 'hidden opacity-0'
-            } ${getSafeZoneClass()}`}
-            aria-hidden={!isReelsTitleVisible}
-          >
-            {isReelsTitleVisible && (
-              <div className="w-full backdrop-blur-md bg-black/60 border border-[#F5A623]/30 rounded-xl px-6 py-4 shadow-[0_12px_40px_rgba(0,0,0,0.85)] relative overflow-hidden animate-title-entrance">
-                
-                {/* Header Meta Row: Integrated Frame Counter Tag + Sequence Pill */}
-                <div className="flex items-center justify-between gap-3 mb-2.5">
-                  {/* Integrated Frame Counter Tag: [ F001/288 • 12.0s ] in Gold Monospace */}
-                  <div className="font-mono text-[#F5A623] font-bold text-xs tracking-wider flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded bg-[#F5A623]/15 border border-[#F5A623]/40">
-                      {frameCounterTag}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-zinc-400 tracking-wider hidden sm:inline tabular-nums">
-                      EDIT CUT {String(currentIndex + 1).padStart(2, '0')}/{totalSlides}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Glowing Bangla Title */}
-                {(componentsVisibility?.titleBn ?? true) && (
-                  <h2 className="font-bangla font-black text-2xl sm:text-3xl text-[#F5A623] tracking-wide leading-tight animate-golden-bloom">
-                    {displayBangla}
-                  </h2>
-                )}
-
-                {/* English Subtitle / Tagline */}
-                <div className="mt-1 space-y-1">
-                  {(componentsVisibility?.titleEn ?? true) && (
-                    <p className="font-cinzel font-bold text-xs sm:text-sm text-white/95 uppercase tracking-wider drop-shadow-md">
-                      {displayEnglish}
-                    </p>
-                  )}
-
-                  {(componentsVisibility?.tagline ?? true) && displaySubtitle && (
-                    <p className="font-mono text-[10px] text-zinc-300 tracking-wide line-clamp-2 leading-relaxed">
-                      {displaySubtitle}
-                    </p>
-                  )}
-                </div>
-
-                {/* Pulsing Amber Progress Line along bottom border syncing to 12.0s block */}
-                <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40 overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#F5A623] via-[#ffc048] to-[#E50914] animate-amber-progress-pulse transition-all duration-100 ease-linear shadow-[0_0_12px_#F5A623]"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-
-              </div>
-            )}
-          </div>
-
         </div>
       </div>
+
+      {/* External Scene / Dopamine FX Caption Strip (Strictly BELOW the video box) */}
+      <StageCaptionStrip
+        shotIndex={currentIndex}
+        banglaTitle={displayBangla}
+        englishTitle={displayEnglish}
+        subtitle={displaySubtitle}
+        directorNotes={currentSlide?.directorNotes}
+        dopamineConfig={currentSlide?.dopamineConfig}
+        slideTimeSec={slideTimeSec}
+        durationSec={activeDurationSec}
+        isTitlesActive={isReelsTitleVisible}
+        componentsVisibility={componentsVisibility}
+      />
 
       {/* Bottom Compact Transport Pill for Reels Workspace */}
       <div className="min-h-[48px] w-full px-4 sm:px-6 py-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#1C1C24] bg-[#0A0A0E] text-zinc-400 text-xs font-mono">

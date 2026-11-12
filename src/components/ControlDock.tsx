@@ -43,7 +43,23 @@ import {
   Pencil,
   Focus,
   Film,
-  Zap
+  Zap,
+  SlidersHorizontal,
+  LayoutGrid,
+  X,
+  Lightbulb,
+  Volume2,
+  BarChart3,
+  FolderOpen,
+  Cloud,
+  Sparkles,
+  Settings,
+  Keyboard,
+  Activity,
+  Download,
+  Scissors,
+  Layers,
+  Video
 } from 'lucide-react';
 import { ToolTooltip } from './ui/ToolTooltip';
 import { TrackVuMeter } from './audio/TrackVuMeter';
@@ -161,12 +177,15 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   isZenMode = false,
   playbackMode = 'sequence',
   onSelectPlaybackMode,
-  onStepFrame
+  onStepFrame,
+  isTelemetryRackOpen = false,
+  onToggleTelemetryRack
 }) => {
   const stripRef = useRef<HTMLDivElement>(null);
   const [jumpInput, setJumpInput] = useState('');
   const [isFreqVisualizerOpen, setIsFreqVisualizerOpen] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
+  const [isAllToolsOpen, setIsAllToolsOpen] = useState(false);
   const [effectiveSnapToBeat, setEffectiveSnapToBeat] = useState<boolean>(
     () => isSnapToBeat ?? audioEngine.getIsSnapToBeatEnabled()
   );
@@ -438,8 +457,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     };
   }, []);
 
-  // Compute visible shot range + 5-shot buffer window
-  const shotWidthApprox = 122;
+  // Compute visible shot range + 5-shot buffer window (96px card + 8px gap)
+  const shotWidthApprox = 106;
   const visibleStartShot = Math.max(0, Math.floor(stripScroll.scrollLeft / shotWidthApprox) - 5);
   const visibleEndShot = Math.min(
     safeFrames.length - 1,
@@ -575,8 +594,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
   return (
     <div
-      style={{ bottom: '4px', marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      className="fixed inset-x-0 z-40 flex flex-col items-center pointer-events-none px-1 sm:px-2 transition-all duration-200 ease-out opacity-100"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="relative w-full shrink-0 z-40 flex flex-col items-center pointer-events-auto px-1 sm:px-2 pb-1 pt-0.5 bg-black/95 border-t border-white/10 transition-all duration-200 ease-out opacity-100"
     >
       {/* Floating Real-Time Drag Handle Tooltip */}
       {dragShotState && (
@@ -776,7 +795,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
-                className={`group relative min-w-[112px] w-[112px] h-[64px] flex-shrink-0 snap-start rounded-lg overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-150 ease-out will-change-transform ${
+                className={`group relative min-w-[96px] w-[96px] h-[54px] flex-shrink-0 snap-start rounded-md overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-150 ease-out will-change-transform ${
                   isActive
                     ? 'border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-[1.02] z-20 bg-[#121218]'
                     : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-[#0e0e14]'
@@ -816,16 +835,16 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/55 pointer-events-none" />
 
                 {/* Top Metadata Bar: #01 + Duration / Relative TC (leaves room for top-right dispatch button) */}
-                <div className="relative z-10 pl-1.5 pr-7 pt-1 flex items-center justify-between gap-1 font-mono pointer-events-none">
+                <div className="relative z-10 pl-1 pr-6 pt-0.5 flex items-center justify-between gap-1 font-mono pointer-events-none">
                   <span
-                    className={`px-1 py-0.5 rounded text-[9px] font-black leading-none tabular-nums ${
+                    className={`px-1 py-0.5 rounded text-[8.5px] font-black leading-none tabular-nums ${
                       isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'
                     }`}
                   >
                     {shotBadge}
                   </span>
                   <span
-                    className={`px-1 py-0.5 rounded text-[8.5px] font-bold leading-none tabular-nums ${
+                    className={`px-1 py-0.5 rounded text-[8px] font-bold leading-none tabular-nums ${
                       isActive
                         ? 'bg-black/90 border border-amber-400/70 text-amber-300'
                         : 'bg-black/75 text-zinc-300'
@@ -858,7 +877,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }}
                   title={`Dispatch Shot ${shotBadge} to Photoshop / Premiere / CapCut`}
                   aria-label={`Dispatch Shot ${shotNumber} to External Studio`}
-                  className="absolute top-1 right-2 z-30 bg-amber-500 text-black font-bold w-5 h-5 rounded-sm flex items-center justify-center text-[11px] shadow hover:bg-amber-400 active:scale-95 transition-all cursor-pointer"
+                  className="absolute top-0.5 right-1 z-30 bg-amber-500 text-black font-bold w-4 h-4 rounded-sm flex items-center justify-center text-[10px] shadow hover:bg-amber-400 active:scale-95 transition-all cursor-pointer"
                 >
                   ⚡
                 </button>
@@ -1431,6 +1450,53 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </button>
           </ToolTooltip>
 
+          {/* [ 🎛️ SIGNAL RACK ] Drawer Toggle Button */}
+          <ToolTooltip
+            title="MODULAR SIGNAL RACK"
+            why="Opens the 3-Panel Signal Rack (Audio Beat Sync, Voiceover & Subtitles, 3D LUT Grade) cleanly above the timeline."
+            how="Click to dock or hide the 3-panel signal processing rack."
+          >
+            <button
+              type="button"
+              data-testid="control-dock-signal-rack"
+              aria-pressed={isTelemetryRackOpen}
+              onClick={() => {
+                if (onToggleTelemetryRack) onToggleTelemetryRack();
+                else eventBus.emit('cockpit:toggle_telemetry');
+              }}
+              className={`px-2 py-1.5 rounded border font-mono text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shrink-0 whitespace-nowrap ${
+                isTelemetryRackOpen
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_12px_rgba(245,166,35,0.5)]'
+                  : 'bg-neutral-900 border-amber-500/40 text-amber-300 hover:bg-amber-500/15 hover:border-amber-400'
+              }`}
+            >
+              <span>🎛️</span>
+              <span className="hidden md:inline">SIGNAL RACK</span>
+            </button>
+          </ToolTooltip>
+
+          {/* [ ⊞ ALL TOOLS ] Master Command Popover Button */}
+          <ToolTooltip
+            title="ALL STUDIO TOOLS"
+            why="1-click 4-column Master Command Menu for every engine, preset, scope, vault, and export tool."
+            how="Click to browse all modules and launch any tool immediately."
+          >
+            <button
+              type="button"
+              data-testid="control-dock-all-tools"
+              aria-expanded={isAllToolsOpen}
+              onClick={() => setIsAllToolsOpen((prev) => !prev)}
+              className={`px-2.5 py-1.5 rounded border font-mono text-[10px] font-black flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 whitespace-nowrap ${
+                isAllToolsOpen
+                  ? 'bg-[#e50914] border-red-400 text-white shadow-[0_0_14px_rgba(229,9,20,0.6)]'
+                  : 'bg-gradient-to-r from-amber-500/20 to-red-600/20 border-amber-400/70 text-[#FFE066] hover:border-amber-300 hover:bg-amber-500/25'
+              }`}
+            >
+              <span>⊞</span>
+              <span>ALL TOOLS</span>
+            </button>
+          </ToolTooltip>
+
           {/* Zen Focus Mode Icon Button */}
           {onToggleZen && (
             <ToolTooltip
@@ -1658,6 +1724,181 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             <Zap className="w-3 h-3" />
           </button>
         </div>,
+        document.body
+      )}
+
+      {/* 4-Column Master Command Popover ([ ⊞ ALL TOOLS ]) */}
+      {isAllToolsOpen && typeof document !== 'undefined' && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-[2px]"
+            onClick={() => setIsAllToolsOpen(false)}
+          />
+          <div
+            data-testid="all-tools-mega-popover"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed bottom-28 left-1/2 -translate-x-1/2 w-[min(96vw,1080px)] max-h-[72vh] overflow-y-auto z-[9999] bg-neutral-950/98 border border-amber-500/50 rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.98)] p-4 font-mono text-zinc-200 animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5 mb-3">
+              <div className="flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-black tracking-widest uppercase text-white">
+                  MASTER STUDIO COMMAND DIRECTORY
+                </span>
+                <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[9px] font-bold">
+                  1-CLICK ACCESS
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAllToolsOpen(false)}
+                className="p-1 rounded bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white cursor-pointer"
+                aria-label="Close All Tools Menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[10.5px]">
+              {/* Column 1: Stage & Camera */}
+              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-amber-400 border-b border-white/10 pb-1">
+                  STAGE &amp; CAMERA
+                </div>
+                {[
+                  { label: 'Tactile Cinema Stage', icon: Film, action: () => eventBus.emit('studio:select_panel', { panel: 'TACTILE_STAGE' }) },
+                  { label: 'Reels Split Sequencer', icon: Scissors, action: () => eventBus.emit('studio:select_panel', { panel: 'SPLIT' }) },
+                  { label: 'Optical Monitor', icon: Eye, action: () => eventBus.emit('studio:select_panel', { panel: 'OPTICAL' }) },
+                  { label: 'Scrub Precision Timeline', icon: Clock, action: () => eventBus.emit('studio:select_panel', { panel: 'SEQUENCER' }) },
+                  { label: 'Multi-Cam 2x2 Monitor', icon: LayoutGrid, action: () => eventBus.emit('studio:open_multicam') },
+                  { label: 'Bloom Interactive Stage', icon: Sparkles, action: () => eventBus.emit('studio:open_bloom') },
+                  { label: 'Optics & Crop Drawer', icon: Sliders, action: () => eventBus.emit('studio:open_module', { module: 'OPTICS' }) },
+                  { label: 'Director Inspector Sidebar', icon: SlidersHorizontal, action: () => onOpenInspector() },
+                  { label: 'Safe Composition Guides', icon: Crosshair, action: () => onToggleGuides?.() },
+                  { label: 'Multi-Layer Parallax Zoom', icon: Move, action: () => eventBus.emit('cockpit:toggle_zoom') }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setIsAllToolsOpen(false);
+                        item.action();
+                      }}
+                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-amber-500/15 border border-white/5 hover:border-amber-400/50 text-left text-zinc-200 hover:text-amber-300 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Column 2: 34-Preset Lights, FX & Typography */}
+              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-cyan-300 border-b border-white/10 pb-1">
+                  LIGHTS, LUTS &amp; TYPOGRAPHY
+                </div>
+                {[
+                  { label: '34-Preset Lighting Rig', icon: Lightbulb, action: () => eventBus.emit('lighting:open') },
+                  { label: '15 Hollywood Film LUTs', icon: Layers, action: () => eventBus.emit('studio:open_module', { module: 'LIBRARY' }) },
+                  { label: 'Liquify & Mesh Warp', icon: Wand2, action: () => onOpenLiquify?.() },
+                  { label: 'Typography & Subtitles', icon: Type, action: () => eventBus.emit('studio:open_module', { module: 'TEXT' }) },
+                  { label: 'Toggle Stage Captions', icon: Eye, action: () => onToggleTitles?.() },
+                  { label: 'Story & Script Notebook', icon: Pencil, action: () => eventBus.emit('studio:open_module', { module: 'STORY' }) },
+                  { label: 'AI Director Prompts', icon: Sparkles, action: () => eventBus.emit('studio:open_module', { module: 'AI' }) },
+                  { label: 'Frame Markup & Review', icon: Focus, action: () => eventBus.emit('studio:open_module', { module: 'REVIEW' }) }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setIsAllToolsOpen(false);
+                        item.action();
+                      }}
+                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-cyan-500/15 border border-white/5 hover:border-cyan-400/50 text-left text-zinc-200 hover:text-cyan-300 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Column 3: Signal Rack, Scopes & Media Vault */}
+              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-emerald-400 border-b border-white/10 pb-1">
+                  SIGNAL RACK, SCOPES &amp; VAULT
+                </div>
+                {[
+                  { label: 'Modular 3-Panel Signal Rack', icon: SlidersHorizontal, action: () => (onToggleTelemetryRack ? onToggleTelemetryRack() : eventBus.emit('cockpit:toggle_telemetry')) },
+                  { label: 'IRE & RGB Video Scopes', icon: BarChart3, action: () => eventBus.emit('studio:open_scopes') },
+                  { label: 'Spectral Frequency Analyzer', icon: Activity, action: () => eventBus.emit('cockpit:toggle_spectrum') },
+                  { label: 'Sound DSP Studio', icon: Volume2, action: () => eventBus.emit('studio:open_module', { module: 'SOUND' }) },
+                  { label: 'Toggle Audio Beat Snap', icon: Music, action: () => handleSnapToBeatToggle() },
+                  { label: '100-Shot Contact Sheet Grid', icon: Grid, action: () => onToggleViewMode() },
+                  { label: 'Media Asset Vault', icon: FolderOpen, action: () => eventBus.emit('studio:open_module', { module: 'MEDIA' }) },
+                  { label: 'Cloudflare R2 Cloud Sync', icon: Cloud, action: () => eventBus.emit('studio:open_module', { module: 'R2_STORAGE' }) },
+                  { label: 'Multi-Project IDB Manager', icon: Layers, action: () => eventBus.emit('studio:open_project_manager') }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setIsAllToolsOpen(false);
+                        item.action();
+                      }}
+                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-emerald-500/15 border border-white/5 hover:border-emerald-400/50 text-left text-zinc-200 hover:text-emerald-300 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Column 4: Cockpit Export, Recorder & System */}
+              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-rose-400 border-b border-white/10 pb-1">
+                  COCKPIT, EXPORT &amp; SYSTEM
+                </div>
+                {[
+                  { label: "Director's Cockpit Hub", icon: Zap, action: () => eventBus.emit('cockpit:action', { type: 'open_modal' }) },
+                  { label: 'Freeze PNG to Photoshop', icon: Camera, action: () => handleDispatchToTool('photoshop', currentIndex) },
+                  { label: 'Export FCPXML (Premiere/Resolve)', icon: Download, action: () => eventBus.emit('cockpit:action', { type: 'nle_xml' }) },
+                  { label: 'Build CapCut Quick-Pack ZIP', icon: Download, action: () => eventBus.emit('cockpit:action', { type: 'capcut_pack' }) },
+                  { label: 'Master MP4 / PDF Export Studio', icon: Film, action: () => eventBus.emit('studio:open_export', { tab: 'mp4' }) },
+                  { label: 'Animatic Cinema Player', icon: Play, action: () => eventBus.emit('studio:open_animatic') },
+                  { label: '4K Screen Recorder Dock', icon: Video, action: () => eventBus.emit('studio:toggle_recorder') },
+                  { label: 'Compilation Wizard', icon: Sparkles, action: () => eventBus.emit('studio:open_compile') },
+                  { label: 'Studio Settings & Codecs', icon: Settings, action: () => eventBus.emit('settings:open') },
+                  { label: 'Keyboard Shortcuts & Self-Test', icon: Keyboard, action: () => eventBus.emit('shortcuts:open') }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setIsAllToolsOpen(false);
+                        item.action();
+                      }}
+                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-rose-500/15 border border-white/5 hover:border-rose-400/50 text-left text-zinc-200 hover:text-rose-300 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>,
         document.body
       )}
     </div>

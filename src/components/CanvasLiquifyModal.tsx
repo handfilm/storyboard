@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { PhotoLiquifySuite } from './PhotoLiquifySuite';
+import { PhotoLiquifySuite, SuiteTab } from './PhotoLiquifySuite';
 import { AnthologyFrame } from '../types/anthology';
 
 interface CanvasLiquifyModalProps {
@@ -15,6 +15,7 @@ interface CanvasLiquifyModalProps {
   activeLightId?: string | null;
   onApplyLightToShot?: (lightId: string | null) => void;
   onApplyLightToAll?: (lightId: string | null) => void;
+  initialTab?: SuiteTab;
 }
 
 export const CanvasLiquifyModal: React.FC<CanvasLiquifyModalProps> = (props) => {

@@ -51,7 +51,7 @@ export interface ModularTelemetryRackProps {
   className?: string;
 }
 
-type ActiveRackTab = 'AUDIO' | 'VOICE' | 'GRADE';
+type ActiveRackTab = 'ALL' | 'AUDIO' | 'VOICE' | 'GRADE';
 
 const BUILTIN_LUTS: { id: BuiltinLutId; label: string; code: string; color: string }[] = [
   { id: 'kodak_2383', label: 'Kodak 2383 Print', code: 'KODAK 2383', color: '#f5a623' },
@@ -71,7 +71,7 @@ export const ModularTelemetryRack: React.FC<ModularTelemetryRackProps> = ({
   onToggleOpen,
   className = ''
 }) => {
-  const [activeTab, setActiveTab] = useState<ActiveRackTab>('AUDIO');
+  const [activeTab, setActiveTab] = useState<ActiveRackTab>('ALL');
   const [selectedCaptionStyle, setSelectedCaptionStyle] = useState<CaptionStyle>('rap_pop');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [lutDropActive, setLutDropActive] = useState(false);
@@ -168,26 +168,40 @@ export const ModularTelemetryRack: React.FC<ModularTelemetryRackProps> = ({
 
   return (
     <div
-      className={`bg-[#08080E]/95 border border-[#1f1f2e] text-zinc-300 font-mono shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-all duration-200 select-none ${className}`}
+      data-testid="modular-signal-rack"
+      className={`relative z-[999] bg-neutral-950/95 border-t border-amber-500/40 border-b border-white/10 text-zinc-300 font-mono shadow-[0_-14px_45px_rgba(0,0,0,0.92)] backdrop-blur-xl transition-all duration-200 select-none ${className}`}
     >
       {/* Brutalist Hardware Header / Tab Bar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#1f1f2e] bg-[#0c0c16]">
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-2 pr-3 border-r border-zinc-800">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-amber-500/20 bg-black/70">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 pr-3 border-r border-zinc-800 shrink-0">
             <Activity className="w-3.5 h-3.5 text-[#f5a623]" />
             <span className="text-[11px] font-bold tracking-widest text-zinc-100 uppercase">
-              MODULAR TELEMETRY RACK
+              MODULAR SIGNAL RACK
             </span>
-            <span className="text-[9px] text-[#2dd4bf] bg-[#2dd4bf]/10 px-1.5 py-0.5 rounded font-mono">
-              LOCAL SILICON
+            <span className="text-[9px] text-[#2dd4bf] bg-[#2dd4bf]/10 px-1.5 py-0.5 rounded font-mono hidden sm:inline">
+              3-PANEL DSP
             </span>
           </div>
 
           {/* Module Selector Tabs */}
-          <div className="flex items-center gap-1 pl-2">
+          <div className="flex items-center gap-1 pl-2 shrink-0">
             <button
+              type="button"
+              onClick={() => setActiveTab('ALL')}
+              className={`px-2 py-0.5 text-[9.5px] font-bold tracking-wider rounded transition-colors cursor-pointer flex items-center gap-1 ${
+                activeTab === 'ALL'
+                  ? 'bg-amber-500 text-black'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
+              }`}
+            >
+              <span>[ 3-PANEL ]</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('AUDIO')}
-              className={`px-2.5 py-1 text-[10px] font-bold tracking-wider rounded transition-colors flex items-center gap-1.5 ${
+              className={`px-2 py-0.5 text-[9.5px] font-bold tracking-wider rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'AUDIO'
                   ? 'bg-[#f5a623]/20 text-[#f5a623] border border-[#f5a623]/40'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
@@ -201,30 +215,32 @@ export const ModularTelemetryRack: React.FC<ModularTelemetryRackProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('VOICE')}
-              className={`px-2.5 py-1 text-[10px] font-bold tracking-wider rounded transition-colors flex items-center gap-1.5 ${
+              className={`px-2 py-0.5 text-[9.5px] font-bold tracking-wider rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'VOICE'
                   ? 'bg-[#fb7185]/20 text-[#fb7185] border border-[#fb7185]/40'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
               }`}
             >
               <Mic className="w-3 h-3" />
-              <span>[VOICE & SUB]</span>
+              <span>[VOICE &amp; SUB]</span>
               {voiceState.isRecording && (
                 <span className="w-1.5 h-1.5 rounded-full bg-[#fb7185] animate-pulse" />
               )}
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('GRADE')}
-              className={`px-2.5 py-1 text-[10px] font-bold tracking-wider rounded transition-colors flex items-center gap-1.5 ${
+              className={`px-2 py-0.5 text-[9.5px] font-bold tracking-wider rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'GRADE'
                   ? 'bg-[#2dd4bf]/20 text-[#2dd4bf] border border-[#2dd4bf]/40'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
               }`}
             >
               <Flame className="w-3 h-3" />
-              <span>[GRADE & LUT]</span>
+              <span>[GRADE &amp; LUT]</span>
               {!colorParams.bypass && (
                 <span className="text-[9px] text-[#2dd4bf]">3D</span>
               )}
@@ -233,18 +249,20 @@ export const ModularTelemetryRack: React.FC<ModularTelemetryRackProps> = ({
         </div>
 
         {/* Controls: Collapse & Close */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
+            type="button"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 rounded"
+            className="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 rounded cursor-pointer"
             title={isCollapsed ? 'Expand Rack' : 'Collapse Rack'}
           >
             {isCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
           {onToggleOpen && (
             <button
+              type="button"
               onClick={onToggleOpen}
-              className="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 rounded"
+              className="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 rounded cursor-pointer"
               title="Close Rack"
             >
               <X className="w-3.5 h-3.5" />
@@ -255,10 +273,10 @@ export const ModularTelemetryRack: React.FC<ModularTelemetryRackProps> = ({
 
       {/* Main Tab Content */}
       {!isCollapsed && (
-        <div className="p-3">
-          {/* TAB 1: AUDIO-REACTIVE KINETIC SYNC */}
-          {activeTab === 'AUDIO' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="p-2.5 max-h-[36vh] overflow-y-auto space-y-2.5">
+          {/* PANEL 1: AUDIO-REACTIVE KINETIC SYNC */}
+          {(activeTab === 'ALL' || activeTab === 'AUDIO') && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
               {/* Column 1: Multi-Band Audio Energy Scopes */}
               <div className="p-2.5 bg-black/40 border border-zinc-800/80 rounded space-y-2">
                 <div className="flex items-center justify-between text-[10px] text-zinc-400 uppercase tracking-wider">
@@ -414,9 +432,9 @@ export const ModularTelemetryRack: React.FC<ModularTelemetryRackProps> = ({
             </div>
           )}
 
-          {/* TAB 2: ZERO-CLOUD VOICEOVER & SUBTITLE ENGINE */}
-          {activeTab === 'VOICE' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* PANEL 2: ZERO-CLOUD VOICEOVER & SUBTITLE ENGINE */}
+          {(activeTab === 'ALL' || activeTab === 'VOICE') && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
               {/* Column 1: One-Tap Mic Recording Node */}
               <div className="p-2.5 bg-black/40 border border-zinc-800/80 rounded space-y-2.5">
                 <div className="flex items-center justify-between text-[10px] text-zinc-400 uppercase tracking-wider">
@@ -565,9 +583,9 @@ export const ModularTelemetryRack: React.FC<ModularTelemetryRackProps> = ({
             </div>
           )}
 
-          {/* TAB 3: HARDWARE-ACCELERATED LUT & COLOR ENGINE */}
-          {activeTab === 'GRADE' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* PANEL 3: HARDWARE-ACCELERATED LUT & COLOR ENGINE */}
+          {(activeTab === 'ALL' || activeTab === 'GRADE') && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
               {/* Column 1: Built-In Master LUT Switcher & Bypass */}
               <div className="p-2.5 bg-black/40 border border-zinc-800/80 rounded space-y-2">
                 <div className="flex items-center justify-between text-[10px] text-zinc-400 uppercase tracking-wider">

@@ -50,6 +50,7 @@ export interface PhotoLiquifySuiteProps {
   activeLightId?: string | null;
   onApplyLightToShot?: (lightId: string | null) => void;
   onApplyLightToAll?: (lightId: string | null) => void;
+  initialTab?: SuiteTab;
 }
 
 export type SuiteTab = 'liquify' | 'adjust' | 'bulk_resizer' | 'lighting';
@@ -71,10 +72,17 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
   onApplyWarp,
   activeLightId,
   onApplyLightToShot,
-  onApplyLightToAll
+  onApplyLightToAll,
+  initialTab = 'liquify'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [activeTab, setActiveTab] = useState<SuiteTab>('liquify');
+  const [activeTab, setActiveTab] = useState<SuiteTab>(initialTab);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // ==========================================
   // 1. LIQUIFY WARP STATE

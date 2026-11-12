@@ -349,7 +349,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       why: 'Volumetric 34-preset cinema lighting rig, Hollywood LUTs, and bloom',
       icon: Lightbulb,
       activeModules: ['LIBRARY', 'BLOOM'],
-      onPrimaryClick: () => onSelectModule('LIQUIFY'),
+      onPrimaryClick: () => eventBus.emit('lighting:open'),
       subTools: [
         {
           id: 'light-rig-34',
@@ -357,7 +357,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           sub: 'Anamorphic flares, rim lights & volumetric haze',
           icon: Lightbulb,
           badge: '34 RIGS',
-          onSelect: () => onSelectModule('LIQUIFY')
+          onSelect: () => eventBus.emit('lighting:open')
         },
         {
           id: 'lut-library',
@@ -633,14 +633,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   return (
     <aside
       aria-label="Director Left Tool Rail"
-      className={`h-full pb-[128px] select-none z-30 shrink-0 bg-black/92 backdrop-blur-2xl border-r border-white/10 flex flex-col font-mono-tech transition-all duration-200 relative ${
+      className={`h-full pb-1 select-none z-30 shrink-0 bg-black/92 backdrop-blur-2xl border-r border-white/10 flex flex-col font-mono-tech transition-all duration-200 relative ${
         isCollapsed ? 'w-[60px]' : 'w-56'
       }`}
     >
-      {/* Clean 10-Button Vertical Spine — fits cleanly above timeline at 100% zoom */}
+      {/* Clean 10-Button Vertical Spine — completely clear of bottom timeline */}
       <nav
         aria-label="10 Studio Tools"
-        className="flex-1 min-h-0 overflow-y-auto no-scrollbar max-h-[calc(100vh-140px)] py-2 px-1.5 flex flex-col items-center gap-1.5"
+        className="flex-1 min-h-0 overflow-y-auto no-scrollbar py-1.5 px-1.5 flex flex-col items-center gap-1"
       >
         {railButtons.map((btn) => {
           const Icon = btn.icon;

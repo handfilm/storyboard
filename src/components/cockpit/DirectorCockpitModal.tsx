@@ -23,13 +23,13 @@ import {
 import { CockpitShotBridge, CockpitDispatchTarget } from '../../types/cockpit';
 import { 
   isTauriEnvironment, 
-  dispatchToExternalTool, 
   captureCurrentCanvasFrame, 
   generateCockpitFcpxml, 
   generateCmx3600Edl, 
   generateCapCutQuickPack, 
   triggerFileDownload 
 } from '../../services/cockpitBridge';
+import { dispatchToExternalApp } from '../../utils/interchangeExport';
 
 interface DirectorCockpitModalProps {
   isOpen: boolean;
@@ -40,6 +40,7 @@ interface DirectorCockpitModalProps {
   stageCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   onHotReloadShot: (shotIndex: number, newMediaUrl: string) => void;
   fps?: number;
+  initialTab?: 'bridges' | 'watcher' | 'interchange';
 }
 
 export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
@@ -50,10 +51,17 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
   audioTrack,
   stageCanvasRef,
   onHotReloadShot,
-  fps = 24
+  fps = 24,
+  initialTab = 'bridges'
 }) => {
-  const [activeTab, setActiveTab] = useState<'bridges' | 'watcher' | 'interchange'>('bridges');
+  const [activeTab, setActiveTab] = useState<'bridges' | 'watcher' | 'interchange'>(initialTab);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [watchedFrames, setWatchedFrames] = useState<Record<string | number, { lastModified: number; path: string }>>({
     [activeShot.shotNumber]: {
@@ -72,27 +80,22 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
     setDispatchStatus(`[ DISPATCHING TO ${target.toUpperCase()}... ]`);
 
     try {
-      // 1. Freeze current canvas frame if available
-      let framePath: string | undefined;
-      if (stageCanvasRef.current) {
-        const capture = await captureCurrentCanvasFrame(
-          stageCanvasRef.current,
-          activeShot.shotNumber,
-          activeShot.titleEn
-        );
-        framePath = capture.filePath;
-      }
-
-      // 2. Dispatch via native Tauri IPC or browser pipeline
-      const res = await dispatchToExternalTool(target, activeShot, framePath);
+      const res = await dispatchToExternalApp({
+        appName: target,
+        shot: activeShot,
+        allShots,
+        audioTrack,
+        canvas: stageCanvasRef.current,
+        fps: fps === 30 ? 30 : 24,
+        projectName: 'HANDFILM_DIRECTOR_SEQUENCE'
+      });
       setDispatchStatus(res.message);
-      
-      // Update watched frames list
+
       setWatchedFrames(prev => ({
         ...prev,
         [activeShot.shotNumber]: {
           lastModified: Date.now(),
-          path: framePath || `./frames/shot_${String(activeShot.shotNumber).padStart(2, '0')}_master.png`
+          path: res.filePath || `./frames/shot_${String(activeShot.shotNumber).padStart(2, '0')}_master.png`
         }
       }));
     } catch (err: any) {
@@ -464,7 +467,7 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  Creates a high-velocity ZIP bundle containing: numerically pre-sorted assets, background music bed, and a formatted <code className="text-amber-300">captions_and_beats.txt</code> manifest with exact Bangla/English kinetic text and beat markers.
+                  Creates a high-velocity ZIP bundle containing: <code className="text-amber-300">manifest.json</code>, <code className="text-amber-300">CAPCUT_DIRECTOR_SHEET.txt</code> with exact lighting notes and Bangla/English kinetic typography cues, plus reference frames.
                 </p>
                 <button
                   type="button"
@@ -552,10 +555,11 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
           {/* Keyboard Accelerators Bar */}
           <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 font-mono">
             <span>SHORTCUTS:</span>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">P</kbd> Photoshop</span>
-              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">X</kbd> NLE XML</span>
-              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">C</kbd> CapCut Pack</span>
+              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">X</kbd> NLE XML</span>
+              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">C</kbd> CapCut Pack</span>
+              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">S</kbd> Freeze PNG</span>
             </div>
           </div>
         </div>

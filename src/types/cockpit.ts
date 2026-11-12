@@ -13,7 +13,9 @@ export interface CockpitShotBridge {
   shotNumber: number | string;
   titleEn: string;
   titleBn: string;
+  titleText?: string;
   personality: TitlePersonality;
+  titlePersonality?: TitlePersonality;
   inPoint: number;
   outPoint: number;
   durationSec: number;
@@ -22,6 +24,8 @@ export interface CockpitShotBridge {
   lutFilter?: string;
   lensSpec?: string;
   directorNotes?: string;
+  lightId?: string | null;
+  lightName?: string;
 }
 
 export interface CockpitDispatchResult {
@@ -46,6 +50,22 @@ export interface CockpitPipelineStatus {
   connectedTools: Record<CockpitDispatchTarget, boolean>;
 }
 
+export interface CockpitManifestStats {
+  totalShots: number;
+  activeLightsCount: number;
+  audioSynced: boolean;
+  audioTrackName: string | null;
+  totalDurationSec: number;
+  isTauriActive: boolean;
+}
+
+export interface NLEExportOptions {
+  fps?: 24 | 30;
+  projectName?: string;
+  width?: number;
+  height?: number;
+}
+
 export interface CapCutManifestData {
   projectName: string;
   exportedAt: string;
@@ -53,15 +73,22 @@ export interface CapCutManifestData {
   fps: number;
   shots: Array<{
     index: number;
-    shotNumber: number;
+    shotNumber: number | string;
     filename: string;
     inPoint: number;
     outPoint: number;
     duration: number;
     startSec: number;
+    endSec: number;
+    startTimecode: string;
+    endTimecode: string;
     personality: TitlePersonality;
     titleBn: string;
     titleEn: string;
+    lightId?: string | null;
+    lightName?: string;
+    lutFilter?: string;
+    lensSpec?: string;
     directorNotes?: string;
   }>;
   audioTrack?: {
@@ -69,4 +96,10 @@ export interface CapCutManifestData {
     duration: number;
     filename: string;
   };
+}
+
+export interface CapCutManifestResult {
+  manifestJson: string;
+  directorSheetTxt: string;
+  manifestData: CapCutManifestData;
 }

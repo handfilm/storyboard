@@ -24,9 +24,11 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AnthologyFrame, AspectRatio } from '../../types/anthology';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { audioEngine } from '../../utils/audioEngine';
+import { eventBus } from '../../core/eventBus';
 import { 
   Play, 
   Pause,
@@ -83,14 +85,16 @@ import {
   LightingPreset, 
   LightingCategory 
 } from '../../data/lightingPresets';
-import { 
-  dispatchToExternalTool, 
-  captureCurrentCanvasFrame, 
-  generateCockpitFcpxml, 
-  generateCmx3600Edl, 
-  generateCapCutQuickPack, 
-  triggerFileDownload 
-} from '../../services/cockpitBridge';
+import {
+  dispatchToExternalApp,
+  generateNLETimelineXML,
+  buildCapCutQuickPackZip,
+  captureCompositeCanvasPng,
+  triggerBrowserDownload,
+  freezeAllShotFrames,
+  isTauriRuntime,
+  registerTauriFrameWatcher
+} from '../../utils/interchangeExport';
 
 export interface HandfilmHomeProps {
   frames?: AnthologyFrame[];
@@ -742,7 +746,9 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [titlesLayerActive, setTitlesLayerActive] = useState<boolean>(showTitles);
   const [isReelTemplateActive, setIsReelTemplateActive] = useState<boolean>(false);
   const [isCockpitOpen, setIsCockpitOpen] = useState<boolean>(false);
+  const [cockpitModalTab, setCockpitModalTab] = useState<'bridges' | 'watcher' | 'interchange'>('bridges');
   const [activeDispatchFlyoutIdx, setActiveDispatchFlyoutIdx] = useState<number | null>(null);
+  const [dispatchHudAnchor, setDispatchHudAnchor] = useState<{ idx: number; left: number; top: number } | null>(null);
 
   // Dedicated Auto-Audio Routing State (The Music Floor)
   const [audioTrackInfo, setAudioTrackInfo] = useState<{
@@ -1034,12 +1040,16 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       const s = getShotData(idx);
       const personality = getShotTitlePersonality(idx, customTitleStyles[idx]);
       const trim = trimPoints[idx] || { in: 0, out: s.durationSec };
+      const activeLightId = customLights[idx] !== undefined ? customLights[idx] : (s.lightId ?? null);
+      const activeLightPreset = activeLightId ? getLightingPresetById(activeLightId) : undefined;
       return {
         shotId: `shot_${p.shotNumber}`,
         shotNumber: p.shotNumber,
         titleEn: s.titleEn,
         titleBn: s.titleBn,
+        titleText: s.titleBn ? `${s.titleBn} // ${s.titleEn}` : s.titleEn,
         personality,
+        titlePersonality: personality,
         inPoint: trim.in,
         outPoint: trim.out,
         durationSec: Math.max(0.1, trim.out - trim.in),
@@ -1047,14 +1057,30 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         thumbnailUrl: s.imageUrl,
         lutFilter: s.lutFilter,
         lensSpec: s.lensSpec,
-        directorNotes: s.directorNotes
+        directorNotes: s.directorNotes,
+        lightId: activeLightId,
+        lightName: activeLightPreset?.name
       };
     });
-  }, [getShotData, customTitleStyles, trimPoints]);
+  }, [getShotData, customTitleStyles, trimPoints, customLights]);
 
   const currentCockpitShot = useMemo<CockpitShotBridge>(() => {
     return allCockpitShots[activeShotIndex] || allCockpitShots[0];
   }, [allCockpitShots, activeShotIndex]);
+
+  // Broadcast live Cockpit manifest telemetry to StageHeader HUD
+  useEffect(() => {
+    const activeLightsCount = allCockpitShots.filter((s) => Boolean(s.lightId)).length;
+    const totalDurationSec = allCockpitShots.reduce((acc, s) => acc + (s.durationSec || 0), 0);
+    eventBus.emit('cockpit:stats', {
+      totalShots: allCockpitShots.length,
+      activeLightsCount,
+      audioSynced: Boolean(audioTrackInfo),
+      audioTrackName: audioTrackInfo?.name || null,
+      totalDurationSec,
+      isTauriActive: isTauriRuntime()
+    });
+  }, [allCockpitShots, audioTrackInfo]);
 
   // ─────────────────────────────────────────────────────────────
   // 3. Zero-Stall Shot Switching (Permanent Decoder Mutation)
@@ -2000,76 +2026,179 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   // ─────────────────────────────────────────────────────────────
   // 8.B. The Director's Cockpit: External Pipeline Bridges & Hub
   // ─────────────────────────────────────────────────────────────
+  const showCockpitStatus = useCallback((message: string) => {
+    setIngestStatus(message);
+    eventBus.emit('cockpit:feedback', message);
+    setTimeout(() => setIngestStatus(null), 5000);
+  }, []);
+
+  const renderShotCompositeToDataUrl = useCallback((shotIdx: number): string | null => {
+    if (shotIdx === activeShotIndexRef.current && stageCanvasRef.current) {
+      const livePng = captureCompositeCanvasPng(stageCanvasRef.current);
+      if (livePng) return livePng;
+    }
+
+    const baseWidth = stageCanvasRef.current?.width || (viewMode === 'mobile' ? 1080 : 1920);
+    const baseHeight = stageCanvasRef.current?.height || (viewMode === 'mobile' ? 1920 : 803);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = baseWidth;
+    offscreen.height = baseHeight;
+    const ctx = offscreen.getContext('2d', { alpha: false });
+    if (!ctx) return null;
+
+    const shot = getShotData(shotIdx);
+    const lut = currentLutsRef.current[shotIdx] || shot.lutFilter;
+    const activeLightId = currentLightsRef.current[shotIdx] !== undefined
+      ? currentLightsRef.current[shotIdx]
+      : (shot.lightId ?? null);
+    const lightPreset = getLightingPresetById(activeLightId);
+    const baseLutFilter = getLutFilterCss(lut);
+    const activeFilter = lightPreset
+      ? (baseLutFilter && baseLutFilter !== 'none' ? `${baseLutFilter} ${lightPreset.filter}` : lightPreset.filter)
+      : baseLutFilter;
+
+    if (customMediaImagesRef.current.has(shotIdx)) {
+      const img = customMediaImagesRef.current.get(shotIdx)!;
+      ctx.save();
+      ctx.filter = activeFilter;
+      drawCover(ctx, img, baseWidth, baseHeight);
+      ctx.restore();
+    } else if (shotIdx === activeShotIndexRef.current && masterVideoRef.current && masterVideoRef.current.readyState >= 2) {
+      ctx.save();
+      ctx.filter = activeFilter;
+      drawCover(ctx, masterVideoRef.current, baseWidth, baseHeight);
+      ctx.restore();
+    } else {
+      drawCleanSlateToCanvas(ctx, baseWidth, baseHeight, shot);
+    }
+
+    drawGradeAndGrain(ctx, baseWidth, baseHeight, lut);
+
+    if (lightPreset) {
+      ctx.save();
+      ctx.globalCompositeOperation = lightPreset.blendMode;
+      try {
+        lightPreset.renderOverlay(ctx, baseWidth, baseHeight, performance.now());
+      } catch {}
+      ctx.restore();
+    }
+
+    ctx.filter = 'none';
+    ctx.globalCompositeOperation = 'source-over';
+
+    if (titlesLayerActiveRef.current) {
+      const titleCanvas = document.createElement('canvas');
+      titleCanvas.width = baseWidth;
+      titleCanvas.height = baseHeight;
+      const personality = getShotTitlePersonality(shotIdx, customTitleStylesRef.current[shotIdx]);
+      renderTitleTypographyToCanvas(titleCanvas, shot, personality);
+      ctx.drawImage(titleCanvas, 0, 0, baseWidth, baseHeight);
+    }
+
+    return captureCompositeCanvasPng(offscreen);
+  }, [viewMode, getShotData, drawCover, drawCleanSlateToCanvas, drawGradeAndGrain]);
+
   const handleDispatchToTool = useCallback(async (target: CockpitDispatchTarget, shotIdx?: number) => {
     const targetIndex = shotIdx !== undefined ? shotIdx : activeShotIndexRef.current;
     const targetShot = allCockpitShots[targetIndex] || currentCockpitShot;
-    
-    let framePath: string | undefined;
-    if (stageCanvasRef.current) {
-      try {
-        const capture = await captureCurrentCanvasFrame(
-          stageCanvasRef.current,
-          targetShot.shotNumber,
-          targetShot.titleEn
-        );
-        framePath = capture.filePath;
-      } catch (err) {
-        console.warn('[Cockpit] Frame capture error:', err);
-      }
-    }
+    const base64Frame =
+      target === 'photoshop' || target === 'illustrator'
+        ? renderShotCompositeToDataUrl(targetIndex) ?? undefined
+        : undefined;
 
-    const result = await dispatchToExternalTool(target, targetShot, framePath);
-    setIngestStatus(result.message);
+    const result = await dispatchToExternalApp({
+      appName: target,
+      shot: targetShot,
+      base64Frame,
+      allShots: allCockpitShots,
+      audioTrack: audioTrackInfo,
+      canvas: stageCanvasRef.current,
+      fps: 24,
+      projectName: 'HANDFILM_SEQUENCE'
+    });
+
+    showCockpitStatus(result.message);
     setActiveDispatchFlyoutIdx(null);
+    setDispatchHudAnchor(null);
     try { audioEngine.playShutterClick(); } catch {}
-    setTimeout(() => setIngestStatus(null), 5000);
-  }, [allCockpitShots, currentCockpitShot]);
+  }, [allCockpitShots, currentCockpitShot, audioTrackInfo, renderShotCompositeToDataUrl, showCockpitStatus]);
 
   const handleCaptureCurrentFrame = useCallback(async () => {
-    if (!stageCanvasRef.current) return;
+    const targetIdx = activeShotIndexRef.current;
+    const targetShot = allCockpitShots[targetIdx] || currentCockpitShot;
+    const base64Frame = renderShotCompositeToDataUrl(targetIdx);
+    if (!base64Frame) {
+      showCockpitStatus('[ CAPTURE FAILED ]: Stage buffer unavailable');
+      return;
+    }
+
     try {
-      const capture = await captureCurrentCanvasFrame(
-        stageCanvasRef.current,
-        activeShot.shotNumber,
-        activeShot.titleEn
-      );
-      setIngestStatus(`[ 📸 FRAME CAPTURED // ${capture.filePath} ]`);
+      const result = await dispatchToExternalApp({
+        appName: 'photoshop',
+        shot: targetShot,
+        base64Frame,
+        allShots: allCockpitShots,
+        audioTrack: audioTrackInfo,
+        canvas: stageCanvasRef.current,
+        fps: 24,
+        projectName: 'HANDFILM_SEQUENCE'
+      });
+      showCockpitStatus(result.message);
       try { audioEngine.playShutterClick(); } catch {}
     } catch (err: any) {
-      setIngestStatus(`[ CAPTURE FAILED ]: ${err?.message || 'Error'}`);
+      showCockpitStatus(`[ CAPTURE FAILED ]: ${err?.message || 'Error'}`);
     }
-    setTimeout(() => setIngestStatus(null), 4000);
-  }, [activeShot]);
+  }, [allCockpitShots, currentCockpitShot, audioTrackInfo, renderShotCompositeToDataUrl, showCockpitStatus]);
+
+  const handleFreezeAllFrames = useCallback(async () => {
+    try {
+      const res = await freezeAllShotFrames(allCockpitShots, renderShotCompositeToDataUrl);
+      showCockpitStatus(res.message);
+      try { audioEngine.playShutterClick(); } catch {}
+    } catch (err: any) {
+      showCockpitStatus(`[ FREEZE ALL FAILED ]: ${err?.message || 'Error'}`);
+    }
+  }, [allCockpitShots, renderShotCompositeToDataUrl, showCockpitStatus]);
 
   const handleExportNleSequence = useCallback(() => {
     try {
-      const xml = generateCockpitFcpxml(allCockpitShots, audioTrackInfo, 24, 'HANDFILM_SEQUENCE');
-      triggerFileDownload(xml, `HANDFILM_TIMELINE_${Date.now()}.fcpxml`, 'application/xml');
-      setIngestStatus('[ NLE FCPXML SEQUENCE EXPORTED // READY FOR PREMIERE & DAVINCI ]');
+      const xml = generateNLETimelineXML(allCockpitShots, audioTrackInfo, {
+        fps: 24,
+        projectName: 'HANDFILM_SEQUENCE'
+      });
+      triggerBrowserDownload(xml, `HANDFILM_TIMELINE_${Date.now()}.fcpxml`, 'application/xml');
+      showCockpitStatus(
+        isTauriRuntime()
+          ? '[TAURI IPC] FCPXML v1.9 timeline exported with Light & Title markers'
+          : '[SANDBOX MODE] FCPXML v1.9 exported — Tauri IPC ready for Premiere / Resolve'
+      );
       try { audioEngine.playShutterClick(); } catch {}
     } catch (err: any) {
-      setIngestStatus(`[ XML ERROR ]: ${err?.message || 'Export failed'}`);
+      showCockpitStatus(`[ XML ERROR ]: ${err?.message || 'Export failed'}`);
     }
-    setTimeout(() => setIngestStatus(null), 4000);
-  }, [allCockpitShots, audioTrackInfo]);
+  }, [allCockpitShots, audioTrackInfo, showCockpitStatus]);
 
   const handleExportCapCutBundle = useCallback(async () => {
     setIngestStatus('[ COMPILING CAPCUT QUICK-PACK BUNDLE... ]');
     try {
-      const zipBlob = await generateCapCutQuickPack(
+      const zipBlob = await buildCapCutQuickPackZip(
         allCockpitShots,
         audioTrackInfo,
         stageCanvasRef.current,
-        'HANDFILM_REEL'
+        { fps: 24, projectName: 'HANDFILM_REEL' }
       );
-      triggerFileDownload(zipBlob, `HANDFILM_CapCut_Bundle_${Date.now()}.zip`, 'application/zip');
-      setIngestStatus('[ CAPCUT QUICK-PACK EXPORTED IN 3 SECONDS // INGEST READY ]');
+      triggerBrowserDownload(zipBlob, `HANDFILM_CapCut_Bundle_${Date.now()}.zip`, 'application/zip');
+      showCockpitStatus(
+        isTauriRuntime()
+          ? '[TAURI IPC] CapCut Quick-Pack ZIP exported with Director Sheet'
+          : '[SANDBOX MODE] CapCut Quick-Pack exported — Tauri IPC ready for Windows .exe'
+      );
       try { audioEngine.playShutterClick(); } catch {}
     } catch (err: any) {
-      setIngestStatus(`[ PACK ERROR ]: ${err?.message || 'Bundle creation failed'}`);
+      showCockpitStatus(`[ PACK ERROR ]: ${err?.message || 'Bundle creation failed'}`);
     }
-    setTimeout(() => setIngestStatus(null), 4000);
-  }, [allCockpitShots, audioTrackInfo]);
+  }, [allCockpitShots, audioTrackInfo, showCockpitStatus]);
 
   const handleHotReloadShot = useCallback((shotIdx: number, newMediaUrl: string) => {
     customMediaImagesRef.current.delete(shotIdx);
@@ -2094,9 +2223,58 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       switchShotMedia(newMediaUrl, trimPointsRef.current[shotIdx]?.in || 0);
     }
 
-    setIngestStatus(`[ HOT-RELOAD // SHOT 0${shotIdx + 1} REPAINTED WITHOUT RESET ]`);
-    setTimeout(() => setIngestStatus(null), 4000);
-  }, [switchShotMedia]);
+    showCockpitStatus(`[ HOT-RELOAD // SHOT ${String(shotIdx + 1).padStart(2, '0')} REPAINTED WITHOUT RESET ]`);
+  }, [switchShotMedia, showCockpitStatus]);
+
+  // Listen to StageHeader Cockpit HUD action triggers
+  useEffect(() => {
+    const unsubAction = eventBus.on<{ type?: string }>('cockpit:action', (payload) => {
+      if (!payload?.type) return;
+      if (payload.type === 'nle_xml') handleExportNleSequence();
+      else if (payload.type === 'capcut_pack') handleExportCapCutBundle();
+      else if (payload.type === 'freeze_all') handleFreezeAllFrames();
+      else if (payload.type === 'open_modal') {
+        setCockpitModalTab('interchange');
+        setIsCockpitOpen(true);
+      }
+    });
+    return () => unsubAction();
+  }, [handleExportNleSequence, handleExportCapCutBundle, handleFreezeAllFrames]);
+
+  // Register Tauri file-system hot-reload watcher for external Photoshop/Illustrator saves
+  useEffect(() => {
+    let unlistenFn: (() => void) | null = null;
+    registerTauriFrameWatcher((payload) => {
+      const match = payload.filePath.match(/shot_(\d+)/i);
+      const parsedNum = payload.shotNumber ?? (match ? parseInt(match[1], 10) : activeShotIndexRef.current + 1);
+      const targetIdx = Math.max(0, Math.min(SHOWCASE_PRESETS.length - 1, parsedNum - 1));
+      const convertFileSrc = (window as any).__TAURI__?.tauri?.convertFileSrc || (window as any).__TAURI__?.core?.convertFileSrc;
+      const assetUrl = typeof convertFileSrc === 'function'
+        ? `${convertFileSrc(payload.filePath)}?t=${Date.now()}`
+        : payload.filePath;
+      handleHotReloadShot(targetIdx, assetUrl);
+    }).then((fn) => {
+      unlistenFn = fn;
+    });
+    return () => {
+      if (unlistenFn) unlistenFn();
+    };
+  }, [handleHotReloadShot]);
+
+  // Close floating Dispatch HUD on outside click or window scroll
+  useEffect(() => {
+    if (!dispatchHudAnchor) return;
+    const closeHud = () => {
+      setDispatchHudAnchor(null);
+      setActiveDispatchFlyoutIdx(null);
+    };
+    window.addEventListener('mousedown', closeHud);
+    window.addEventListener('scroll', closeHud, true);
+    return () => {
+      window.removeEventListener('mousedown', closeHud);
+      window.removeEventListener('scroll', closeHud, true);
+    };
+  }, [dispatchHudAnchor]);
 
   // ─────────────────────────────────────────────────────────────
   // 9. Ultra-Fast Keyboard Workflow (with 'M' Mode Toggle & Cockpit Accelerators)
@@ -2114,7 +2292,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         return;
       }
 
-      // Keyboard Accelerators: Module 4.2
+      // Keyboard Accelerators: Module 5
       // Ctrl + Shift + P: Dispatches active shot to Photoshop
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
@@ -2133,6 +2311,13 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
         handleExportCapCutBundle();
+        return;
+      }
+
+      // Shift + S: Instant lossless PNG frame capture & dispatch
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleCaptureCurrentFrame();
         return;
       }
 
@@ -2242,6 +2427,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         setIsLightDrawerOpen(false);
         setIsPhotoModalOpen(false);
         setActiveDispatchFlyoutIdx(null);
+        setDispatchHudAnchor(null);
         setIsVaultDrawerOpen(false);
         setIsEditingTitle(false);
         setIsOptionsDrawerOpen(false);
@@ -2254,7 +2440,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleStepFrame, selectShot, handleDispatchToTool, handleExportNleSequence, handleExportCapCutBundle]);
+  }, [handleTogglePlay, handleStepFrame, selectShot, handleDispatchToTool, handleExportNleSequence, handleExportCapCutBundle, handleCaptureCurrentFrame]);
 
   // ─────────────────────────────────────────────────────────────
   // 9. Mandate 5: Non-Blocking Canvas Export & Recording Pipeline
@@ -2619,7 +2805,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsCockpitOpen(true)}
+                  onClick={() => {
+                    setCockpitModalTab('bridges');
+                    setIsCockpitOpen(true);
+                  }}
                   className="bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-[9.5px] text-amber-400 font-mono tracking-wider px-2 py-0.5 rounded cursor-pointer flex items-center gap-1 transition-colors"
                   title="Director's Cockpit Hub (Hotkeys: Ctrl+Shift+P / X / C)"
                 >
@@ -2777,11 +2966,18 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                   return (
                     <div
                       key={shot.id}
+                      data-shot-card="true"
                       onClick={() => {
                         selectShot(idx);
                         try { audioEngine.playShutterClick(); } catch {}
                       }}
-                      className={`min-w-[112px] w-[112px] h-[64px] flex-shrink-0 relative rounded-lg overflow-hidden cursor-pointer snap-start transition-all duration-150 ${
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setDispatchHudAnchor({ idx, left: rect.left + rect.width / 2, top: rect.top });
+                      }}
+                      className={`group min-w-[112px] w-[112px] h-[64px] flex-shrink-0 relative rounded-lg overflow-hidden cursor-pointer snap-start transition-all duration-150 ${
                         isActive
                           ? 'border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-[1.02] z-10'
                           : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-neutral-950'
@@ -2805,56 +3001,28 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                         <span className={`px-1 rounded font-bold ${isActive ? 'bg-amber-400 text-black' : 'bg-black/70 text-white'}`}>
                           {shot.shotNumber}
                         </span>
-                        <span className="px-1 rounded bg-black/60 text-zinc-400 font-bold">
+                        <span className="px-1 rounded bg-black/60 text-zinc-400 font-bold group-hover:opacity-0 transition-opacity">
                           {personality === 'DOPAMINE' ? 'DPM' : personality === 'MINIMAL' ? 'MIN' : personality === 'B2B' ? 'B2B' : 'KIN'}
                         </span>
                       </div>
 
-                      {/* Contextual Directorial Dispatch Trigger & Flyout */}
-                      <div className="absolute bottom-1 left-1 z-20" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveDispatchFlyoutIdx(prev => prev === idx ? null : idx);
-                          }}
-                          className="px-1 py-0.5 rounded bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-[7px] font-mono font-bold text-amber-300 flex items-center gap-0.5 transition-colors cursor-pointer shadow"
-                          title="Directorial Dispatch: Bridge to PS, PR, CC"
-                        >
-                          <Zap className="w-2 h-2 text-amber-400" />
-                          <span>⚡</span>
-                        </button>
-
-                        {/* Mobile Tactical Flyout */}
-                        {activeDispatchFlyoutIdx === idx && (
-                          <div className="absolute bottom-6 left-0 w-32 bg-[#0a0a0f] border border-amber-400 rounded-lg p-1 shadow-2xl z-50 font-mono text-[8px] flex flex-col gap-1 animate-in fade-in zoom-in-95">
-                            <button
-                              type="button"
-                              onClick={() => handleDispatchToTool('photoshop', idx)}
-                              className="px-1 py-0.5 rounded bg-neutral-900 hover:bg-blue-600 text-blue-300 hover:text-white text-left font-bold flex items-center justify-between cursor-pointer"
-                            >
-                              <span>PS // PAINT</span>
-                              <Camera className="w-2 h-2" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDispatchToTool('premiere', idx)}
-                              className="px-1 py-0.5 rounded bg-neutral-900 hover:bg-purple-600 text-purple-300 hover:text-white text-left font-bold flex items-center justify-between cursor-pointer"
-                            >
-                              <span>PR // NLE</span>
-                              <Film className="w-2 h-2" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDispatchToTool('capcut', idx)}
-                              className="px-1 py-0.5 rounded bg-neutral-900 hover:bg-amber-500 text-amber-300 hover:text-black text-left font-bold flex items-center justify-between cursor-pointer"
-                            >
-                              <span>CC // PACK</span>
-                              <Zap className="w-2 h-2" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      {/* Top-Right Hover Corner Micro-Trigger (20px x 20px) */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const cardEl = e.currentTarget.closest('[data-shot-card="true"]') as HTMLElement | null;
+                          const rect = (cardEl || e.currentTarget).getBoundingClientRect();
+                          setDispatchHudAnchor(prev =>
+                            prev?.idx === idx ? null : { idx, left: rect.left + rect.width / 2, top: rect.top }
+                          );
+                        }}
+                        className="absolute top-1 right-1 z-20 w-5 h-5 bg-black/80 border border-amber-400/70 hover:bg-amber-400 hover:text-black text-amber-300 rounded-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center text-[10px] leading-none cursor-pointer shadow"
+                        title="Directorial Dispatch: Bridge to PS, PR, CC (or Right-Click)"
+                        aria-label={`Dispatch Shot ${shot.shotNumber}`}
+                      >
+                        ⚡
+                      </button>
 
                       {/* Duration Badge */}
                       <div className="absolute bottom-1 right-1 px-1 rounded bg-black/80 text-[7.5px] font-mono text-amber-300 font-bold pointer-events-none">
@@ -3024,7 +3192,10 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 {/* Director's Cockpit Pipeline Hub Cluster */}
                 <button
                   type="button"
-                  onClick={() => setIsCockpitOpen(true)}
+                  onClick={() => {
+                    setCockpitModalTab('bridges');
+                    setIsCockpitOpen(true);
+                  }}
                   className="bg-neutral-900 border border-neutral-700 hover:border-amber-400 text-[11px] text-amber-300 hover:text-white font-mono tracking-wider px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors shadow-sm"
                   title="Open Director's Cockpit (Hotkeys: Ctrl+Shift+P / X / C)"
                 >
@@ -3245,9 +3416,16 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               return (
                 <div
                   key={shot.id}
+                  data-shot-card="true"
                   onClick={() => {
                     selectShot(idx);
                     try { audioEngine.playShutterClick(); } catch {}
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setDispatchHudAnchor({ idx, left: rect.left + rect.width / 2, top: rect.top });
                   }}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -3269,7 +3447,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                       : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-[#0d0d14]'
                   }`}
                 >
-                  {/* Clipped frame preview surface so dispatch flyout is never clipped */}
+                  {/* Clipped frame preview surface so dispatch HUD is never clipped */}
                   <div className="absolute inset-0 rounded-[6px] overflow-hidden">
                     {hasCardMedia ? (
                       <div
@@ -3296,7 +3474,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     <span className={`px-1 py-0.5 rounded leading-none font-black tabular-nums ${isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'}`}>
                       #{shot.shotNumber}
                     </span>
-                    <div className="flex items-center gap-0.5">
+                    <div className="flex items-center gap-0.5 group-hover:opacity-0 transition-opacity">
                       {activeLight && (
                         <span
                           className="px-1 py-0.5 rounded leading-none bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[8px] font-bold"
@@ -3317,67 +3495,34 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                     </div>
                   </div>
 
-                  {/* Bottom Shot Metadata: Title Badge + Duration + Hover Dispatch Trigger */}
+                  {/* Top-Right Hover Corner Micro-Trigger (20px x 20px) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const cardEl = e.currentTarget.closest('[data-shot-card="true"]') as HTMLElement | null;
+                      const rect = (cardEl || e.currentTarget).getBoundingClientRect();
+                      setDispatchHudAnchor(prev =>
+                        prev?.idx === idx ? null : { idx, left: rect.left + rect.width / 2, top: rect.top }
+                      );
+                    }}
+                    className="absolute top-1 right-1 z-20 w-5 h-5 bg-black/80 border border-amber-400/70 hover:bg-amber-400 hover:text-black text-amber-300 rounded-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center text-[10px] leading-none cursor-pointer shadow"
+                    title="Directorial Dispatch: Bridge to Photoshop, Premiere, or CapCut (or Right-Click)"
+                    aria-label={`Dispatch Shot ${shot.shotNumber}`}
+                  >
+                    ⚡
+                  </button>
+
+                  {/* Bottom Shot Metadata: Title Badge + Duration */}
                   <div className="relative z-10 mt-auto px-1.5 pb-1 flex items-end justify-between gap-1 font-mono">
-                    <div className="flex items-center gap-1 min-w-0 flex-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDispatchFlyoutIdx(prev => prev === idx ? null : idx);
-                        }}
-                        className="p-0.5 rounded bg-black/80 hover:bg-amber-400 hover:text-black border border-white/20 text-amber-300 transition-colors cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
-                        title="Directorial Dispatch: Bridge to PS, PR, CC"
-                        aria-label={`Dispatch Shot ${shot.shotNumber}`}
-                      >
-                        <Zap className="w-2.5 h-2.5" />
-                      </button>
-                      <span className="text-[9.5px] font-bold text-white font-bangla truncate leading-none pointer-events-none drop-shadow">
-                        {customTitles[idx]?.titleBn || shot.titleBn}
-                      </span>
-                    </div>
+                    <span className="text-[9.5px] font-bold text-white font-bangla truncate leading-none pointer-events-none drop-shadow min-w-0 flex-1">
+                      {customTitles[idx]?.titleBn || shot.titleBn}
+                    </span>
 
                     <span className="px-1 py-0.5 rounded bg-black/85 border border-white/15 text-[8.5px] font-mono text-amber-300 font-bold leading-none tabular-nums pointer-events-none shrink-0">
                       {dur.toFixed(1)}s
                     </span>
                   </div>
-
-                  {/* High-Contrast Tactical HUD Flyout */}
-                  {activeDispatchFlyoutIdx === idx && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute bottom-full mb-1.5 left-0 w-36 bg-[#0a0a0f] border border-amber-400/90 rounded-lg p-1.5 shadow-2xl z-50 font-mono text-[9px] flex flex-col gap-1 animate-in fade-in zoom-in-95"
-                    >
-                      <div className="text-[7.5px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-0.5 flex items-center justify-between">
-                        <span>DISPATCH #{shot.shotNumber}</span>
-                        <span className="text-amber-300">{dur.toFixed(1)}s</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDispatchToTool('photoshop', idx)}
-                        className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-blue-600 hover:text-white text-blue-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
-                      >
-                        <span>PS // PAINT-OVER</span>
-                        <Camera className="w-2.5 h-2.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDispatchToTool('premiere', idx)}
-                        className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-purple-600 hover:text-white text-purple-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
-                      >
-                        <span>PR // TIMELINE</span>
-                        <Film className="w-2.5 h-2.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDispatchToTool('capcut', idx)}
-                        className="px-1.5 py-1 rounded bg-neutral-900 hover:bg-amber-500 hover:text-black text-amber-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
-                      >
-                        <span>CC // REEL PACK</span>
-                        <Zap className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -3949,6 +4094,41 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               </button>
             </ToolTooltip>
 
+            {/* Module 3: Freeze Master Frame ([ 📸 ]) */}
+            <ToolTooltip
+              title="FREEZE MASTER FRAME"
+              why="Exports current 3-tier composite frame as lossless PNG for Photoshop paint-over or thumbnailing."
+              how="Click icon or press [Shift + S] to save & dispatch."
+            >
+              <button
+                type="button"
+                onClick={handleCaptureCurrentFrame}
+                aria-label="Freeze Master Frame"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
+              >
+                <span>📸</span>
+              </button>
+            </ToolTooltip>
+
+            {/* Module 3: Ecosystem Bridge ([ 🚀 ]) */}
+            <ToolTooltip
+              title="ECOSYSTEM BRIDGE"
+              why="Hand off timeline cuts, audio sync & Bangla/English scripts to Premiere, Resolve, or CapCut."
+              how="Click or press [Ctrl + Shift + X] for instant NLE XML."
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setCockpitModalTab('interchange');
+                  setIsCockpitOpen(true);
+                }}
+                aria-label="Open Ecosystem Bridge"
+                className="p-2 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-sm leading-none"
+              >
+                <span>🚀</span>
+              </button>
+            </ToolTooltip>
+
             {/* Zen Focus Mode Icon Button */}
             <ToolTooltip
               title="ZEN FOCUS MODE"
@@ -4434,6 +4614,54 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         </div>
       )}
 
+      {/* Module 2: Floating Portal Directorial Dispatch HUD anchored cleanly above shot card */}
+      {dispatchHudAnchor && typeof document !== 'undefined' && createPortal(
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            left: `${Math.min(window.innerWidth - 196, Math.max(12, dispatchHudAnchor.left - 88))}px`,
+            top: `${Math.max(16, dispatchHudAnchor.top - 8)}px`,
+            transform: 'translateY(-100%)',
+            zIndex: 99999
+          }}
+          className="w-44 bg-[#08090f]/98 backdrop-blur-xl border border-amber-400/90 rounded-lg p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.95)] font-mono text-[10px] flex flex-col gap-1 animate-in fade-in zoom-in-95"
+        >
+          <div className="text-[8px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-1 flex items-center justify-between">
+            <span>DISPATCH #{String(dispatchHudAnchor.idx + 1).padStart(2, '0')}</span>
+            <span className="text-amber-300">
+              {(allCockpitShots[dispatchHudAnchor.idx]?.durationSec ?? 12.0).toFixed(1)}s
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleDispatchToTool('photoshop', dispatchHudAnchor.idx)}
+            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-blue-600 hover:text-white text-blue-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <span>[ PS // PAINT-OVER ]</span>
+            <Camera className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDispatchToTool('premiere', dispatchHudAnchor.idx)}
+            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-purple-600 hover:text-white text-purple-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <span>[ PR // SEND SEQUENCE ]</span>
+            <Film className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDispatchToTool('capcut', dispatchHudAnchor.idx)}
+            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-amber-500 hover:text-black text-amber-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <span>[ CC // REEL BUNDLE ]</span>
+            <Zap className="w-3 h-3" />
+          </button>
+        </div>,
+        document.body
+      )}
+
       {/* The Director's Cockpit — External Pipeline Bridges & Ecosystem Hub Modal */}
       <DirectorCockpitModal
         isOpen={isCockpitOpen}
@@ -4444,6 +4672,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         stageCanvasRef={stageCanvasRef}
         onHotReloadShot={handleHotReloadShot}
         fps={24}
+        initialTab={cockpitModalTab}
       />
 
       {/* 09 PHOTO EDIT & BULK RESIZER SUITE MODAL (WITH 💡 LIGHT RIG (34) TAB) */}

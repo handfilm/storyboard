@@ -47,6 +47,15 @@ import { UnifiedExportStudio } from './modules/UnifiedExportStudio';
 import { EcosystemGridModal } from './menus/EcosystemGridModal';
 import { TextTypographyDrawer } from './drawers/TextTypographyDrawer';
 import { ecosystemSearchEngine } from '../services/ecosystemSearchIndex';
+import { CockpitManifestStats, CockpitShotBridge } from '../types/cockpit';
+import {
+  isTauriRuntime,
+  generateNLETimelineXML,
+  buildCapCutQuickPackZip,
+  triggerBrowserDownload,
+  freezeAllShotFrames
+} from '../utils/interchangeExport';
+import { getLightingPresetById } from '../data/lightingPresets';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
 
@@ -144,9 +153,31 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const dissolveTimeoutRef = useRef<number | null>(null);
   const prevPanelRef = useRef<StagePanelType>(currentPanel);
   const [isRecording, setIsRecording] = useState(false);
+  const [isCockpitHudOpen, setIsCockpitHudOpen] = useState(false);
+  const [cockpitFeedback, setCockpitFeedback] = useState<string | null>(null);
+  const [liveCockpitStats, setLiveCockpitStats] = useState<CockpitManifestStats | null>(null);
+  const cockpitContainerRef = useRef<HTMLDivElement>(null);
 
   // Cumulative shot offsets for timing
   const shotOffsets = useMemo(() => getCumulativeShotOffsets(frames), [frames]);
+
+  const fallbackCockpitStats = useMemo<CockpitManifestStats>(() => {
+    const activeCount = frames.length || totalShots || 14;
+    const lightsCount = frames.filter((f) => Boolean(f.lightId)).length;
+    const durSec = frames.length > 0
+      ? frames.reduce((acc, f) => acc + (f.durationSec || f.slideHoldSec || 12.0), 0)
+      : activeCount * slideDurationSec;
+    return {
+      totalShots: activeCount,
+      activeLightsCount: lightsCount,
+      audioSynced: false,
+      audioTrackName: null,
+      totalDurationSec: durSec,
+      isTauriActive: isTauriRuntime()
+    };
+  }, [frames, totalShots, slideDurationSec]);
+
+  const resolvedCockpitStats = liveCockpitStats || fallbackCockpitStats;
 
   // Global Search State: Unified Application State, Panels, Tools & Ecosystem Index
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -156,15 +187,35 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Close search dropdown on outside click
+  // Close search dropdown & cockpit HUD on outside click
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setIsGlobalSearchOpen(false);
       }
+      if (cockpitContainerRef.current && !cockpitContainerRef.current.contains(e.target as Node)) {
+        setIsCockpitHudOpen(false);
+      }
     };
     window.addEventListener('mousedown', handleGlobalClick);
     return () => window.removeEventListener('mousedown', handleGlobalClick);
+  }, []);
+
+  // Sync live Cockpit manifest telemetry from HandfilmHome when mounted
+  useEffect(() => {
+    const unsubStats = eventBus.on<CockpitManifestStats>('cockpit:stats', (stats) => {
+      if (stats) setLiveCockpitStats(stats);
+    });
+    const unsubFeedback = eventBus.on<string>('cockpit:feedback', (msg) => {
+      if (msg) {
+        setCockpitFeedback(msg);
+        setTimeout(() => setCockpitFeedback(null), 4000);
+      }
+    });
+    return () => {
+      unsubStats();
+      unsubFeedback();
+    };
   }, []);
 
   // Keyboard shortcut ⌘K / Ctrl+K listener for global search
@@ -1125,6 +1176,190 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             );
           })}
         </nav>
+
+        {/* MODULE 1: Tactical Cockpit Command Pill & Telemetry Drawer */}
+        <div ref={cockpitContainerRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsCockpitHudOpen((prev) => !prev)}
+            title="Director's Cockpit Telemetry & Ecosystem Interchange Hub"
+            className="bg-neutral-900/90 border border-amber-500/40 hover:border-amber-400 text-amber-300 font-mono text-xs px-3 py-1.5 rounded flex items-center gap-2 active:scale-95 transition-transform whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <span>⚡ COCKPIT</span>
+          </button>
+
+          {isCockpitHudOpen && (
+            <div className="absolute left-0 top-full mt-2 w-80 sm:w-96 bg-[#08090E]/98 backdrop-blur-2xl border border-amber-500/50 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.95)] p-3.5 z-[99999] font-mono text-xs text-zinc-200 space-y-3">
+              {/* Bridge Environment Status */}
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <span className="text-[10px] font-bold tracking-wider uppercase text-zinc-400">
+                  DIRECTOR&apos;S COCKPIT BRIDGE
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                    resolvedCockpitStats.isTauriActive
+                      ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-300'
+                      : 'bg-amber-950/80 border-amber-500/40 text-amber-300'
+                  }`}
+                >
+                  {resolvedCockpitStats.isTauriActive ? 'TAURI NATIVE IPC' : 'WEB SANDBOX FALLBACK'}
+                </span>
+              </div>
+
+              {/* Live Project Manifest Stats */}
+              <div className="grid grid-cols-2 gap-2 text-[11px] tabular-nums">
+                <div className="p-2 rounded bg-black/60 border border-white/10">
+                  <div className="text-[9px] text-zinc-500 uppercase">TOTAL SHOTS</div>
+                  <div className="text-sm font-bold text-white">{resolvedCockpitStats.totalShots}</div>
+                </div>
+                <div className="p-2 rounded bg-black/60 border border-white/10">
+                  <div className="text-[9px] text-zinc-500 uppercase">ACTIVE LIGHTS</div>
+                  <div className="text-sm font-bold text-amber-300">{resolvedCockpitStats.activeLightsCount} RIGS</div>
+                </div>
+                <div className="p-2 rounded bg-black/60 border border-white/10">
+                  <div className="text-[9px] text-zinc-500 uppercase">MASTER AUDIO</div>
+                  <div className="text-xs font-bold text-cyan-300 truncate">
+                    {resolvedCockpitStats.audioSynced
+                      ? `SYNCED · ${resolvedCockpitStats.audioTrackName || 'TRACK'}`
+                      : 'STANDBY / UNROUTED'}
+                  </div>
+                </div>
+                <div className="p-2 rounded bg-black/60 border border-white/10">
+                  <div className="text-[9px] text-zinc-500 uppercase">SEQUENCE RUNTIME</div>
+                  <div className="text-sm font-bold text-emerald-300">
+                    {resolvedCockpitStats.totalDurationSec.toFixed(1)}s
+                  </div>
+                </div>
+              </div>
+
+              {cockpitFeedback && (
+                <div className="px-2.5 py-1.5 rounded bg-amber-500/15 border border-amber-400/50 text-[10px] font-bold text-amber-300">
+                  {cockpitFeedback}
+                </div>
+              )}
+
+              {/* One-Click Global Pipeline Triggers */}
+              <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentView === 'HOME') {
+                      eventBus.emit('cockpit:action', { type: 'nle_xml' });
+                    } else {
+                      const bridgeShots: CockpitShotBridge[] = frames.map((f, idx) => ({
+                        shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+                        shotNumber: String(idx + 1).padStart(2, '0'),
+                        titleEn: f.title || `Shot ${idx + 1}`,
+                        titleBn: f.bengaliTitle || '',
+                        personality: 'KINETIC',
+                        inPoint: 0,
+                        outPoint: f.durationSec || f.slideHoldSec || 12.0,
+                        durationSec: f.durationSec || f.slideHoldSec || 12.0,
+                        mediaUrl: f.videoSrc || f.imageUrl,
+                        lutFilter: f.lutFilter,
+                        lensSpec: f.cameraSpec?.focalLength,
+                        directorNotes: f.directorNotes,
+                        lightId: f.lightId,
+                        lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+                      }));
+                      const xml = generateNLETimelineXML(bridgeShots, null, {
+                        fps: 24,
+                        projectName: 'HANDFILM_SEQUENCE'
+                      });
+                      triggerBrowserDownload(xml, `HANDFILM_SEQUENCE_${Date.now()}.fcpxml`, 'application/xml');
+                      setCockpitFeedback('[SANDBOX MODE] FCPXML exported — Tauri IPC ready for Windows .exe');
+                      setTimeout(() => setCockpitFeedback(null), 4000);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded bg-neutral-900 hover:bg-neutral-800 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>[ 📤 NLE XML ]</span>
+                  <span className="text-[9px] text-zinc-400">FCPXML v1.9</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (currentView === 'HOME') {
+                      eventBus.emit('cockpit:action', { type: 'capcut_pack' });
+                    } else {
+                      const bridgeShots: CockpitShotBridge[] = frames.map((f, idx) => ({
+                        shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+                        shotNumber: String(idx + 1).padStart(2, '0'),
+                        titleEn: f.title || `Shot ${idx + 1}`,
+                        titleBn: f.bengaliTitle || '',
+                        personality: 'KINETIC',
+                        inPoint: 0,
+                        outPoint: f.durationSec || f.slideHoldSec || 12.0,
+                        durationSec: f.durationSec || f.slideHoldSec || 12.0,
+                        mediaUrl: f.videoSrc || f.imageUrl,
+                        lutFilter: f.lutFilter,
+                        lensSpec: f.cameraSpec?.focalLength,
+                        directorNotes: f.directorNotes,
+                        lightId: f.lightId,
+                        lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+                      }));
+                      const zipBlob = await buildCapCutQuickPackZip(bridgeShots, null, null, {
+                        fps: 24,
+                        projectName: 'HANDFILM_REEL'
+                      });
+                      triggerBrowserDownload(zipBlob, `HANDFILM_CapCut_Pack_${Date.now()}.zip`, 'application/zip');
+                      setCockpitFeedback('[SANDBOX MODE] CapCut Pack exported — Tauri IPC ready for Windows .exe');
+                      setTimeout(() => setCockpitFeedback(null), 4000);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 hover:border-amber-400 text-amber-300 font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>[ ⚡ CAPCUT PACK ]</span>
+                  <span className="text-[9px] text-zinc-400">JSON + DIRECTOR SHEET</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (currentView === 'HOME') {
+                      eventBus.emit('cockpit:action', { type: 'freeze_all' });
+                    } else {
+                      const activeCanvas = document.querySelector('canvas');
+                      const bridgeShots: CockpitShotBridge[] = frames.slice(0, 14).map((f, idx) => ({
+                        shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+                        shotNumber: String(idx + 1).padStart(2, '0'),
+                        titleEn: f.title || `Shot ${idx + 1}`,
+                        titleBn: f.bengaliTitle || '',
+                        personality: 'KINETIC',
+                        inPoint: 0,
+                        outPoint: f.durationSec || f.slideHoldSec || 12.0,
+                        durationSec: f.durationSec || f.slideHoldSec || 12.0
+                      }));
+                      const res = await freezeAllShotFrames(bridgeShots, () =>
+                        activeCanvas ? activeCanvas.toDataURL('image/png', 1.0) : null
+                      );
+                      setCockpitFeedback(res.message);
+                      setTimeout(() => setCockpitFeedback(null), 4000);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded bg-neutral-900 hover:bg-neutral-800 border border-sky-500/40 hover:border-sky-400 text-sky-300 font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>[ 📸 FREEZE ALL FRAMES ]</span>
+                  <span className="text-[9px] text-zinc-400">LOSSLESS PNG</span>
+                </button>
+
+                {currentView === 'HOME' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCockpitHudOpen(false);
+                      eventBus.emit('cockpit:action', { type: 'open_modal' });
+                    }}
+                    className="w-full px-3 py-1.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-200 font-bold text-[10px] text-center cursor-pointer transition-colors"
+                  >
+                    OPEN FULL INTERCHANGE HUB
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2. RIGHT COLUMN: Master/Export Action Pod & Studio Tools */}

@@ -21,6 +21,10 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { AnthologyFrame, AspectRatio, LutPreset } from '../../types/anthology';
 import { getLutFilterCSS } from '../../utils/engine';
 import { keyScopeManager } from '../../core/keyScopeManager';
+import { useStudioStore } from '../../core/store';
+import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
+import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
+import { isVideoMediaUrl, type VlcAbLoop, type VlcLoopMode } from '../../utils/playbackClock';
 import { 
   Play, 
   Pause, 
@@ -41,7 +45,13 @@ import {
   Clock,
   Layers,
   Sparkles,
-  Scissors
+  Scissors,
+  Repeat,
+  Repeat1,
+  ArrowRightToLine,
+  Camera,
+  ListVideo,
+  Monitor
 } from 'lucide-react';
 
 export interface CinemaPlayerProps {
@@ -74,7 +84,15 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const hideHudTimerRef = useRef<number | null>(null);
   const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
 
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const activeFrame: AnthologyFrame = frames[currentIndex] || frames[0];
+  const activeVaultEntry = resolveShotMediaEntry(shotMediaMap, activeFrame, undefined, currentIndex);
+  const resolvedMediaUrl =
+    activeVaultEntry?.url ||
+    activeFrame?.videoSrc ||
+    activeFrame?.blobUrl ||
+    activeFrame?.imageUrl ||
+    '';
 
   // Playback States
   const [isPlaying, setIsPlaying] = useState(true);
@@ -82,11 +100,15 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const [duration, setDuration] = useState(12.0); // Updated dynamically from metadata
   const [bufferedTime, setBufferedTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(0.8);
+  const [volume, setVolume] = useState(0.85);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [showRemainingTime, setShowRemainingTime] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenFallbackNotice, setFullscreenFallbackNotice] = useState<string | null>(null);
+  const [loopMode, setLoopMode] = useState<VlcLoopMode>('repeat-one');
+  const [abLoop, setAbLoop] = useState<VlcAbLoop>({ a: null, b: null });
+  const [fitMode, setFitMode] = useState<'contain' | 'cover' | 'fill'>('contain');
+  const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
 
   // Aspect & Subclip
   const [aspect, setAspect] = useState<AspectRatio>(initialAspect);
@@ -106,17 +128,18 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [pipWarning, setPipWarning] = useState<string | null>(null);
 
-  const isVideo = Boolean(
-    activeFrame?.isVideo ||
-    (activeFrame?.imageUrl && (
-      activeFrame.imageUrl.startsWith('data:video') ||
-      /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(activeFrame.imageUrl)
-    )) ||
-    (activeFrame?.videoSrc && (
-      activeFrame.videoSrc.startsWith('data:video') ||
-      /\.(mp4|webm|mov|ogg|m4v|mkv)($|\?)/i.test(activeFrame.videoSrc)
-    ))
-  );
+  const isVideo = activeVaultEntry
+    ? activeVaultEntry.type === 'video'
+    : isVideoMediaUrl(
+        resolvedMediaUrl,
+        Boolean(activeFrame?.isVideo || activeFrame?.videoSrc),
+        (activeFrame as any)?.mimeType
+      );
+
+  useEffect(() => {
+    setAbLoop({ a: null, b: null });
+    setCurrentTime(0);
+  }, [currentIndex]);
 
   // Key Scope Layer Management & Hardware Fullscreen
   useEffect(() => {
@@ -254,30 +277,51 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     showControlsTemporarily();
   }, [duration, showControlsTemporarily]);
 
-  // Volume & Mute control
+  // Volume & Mute control (VLC 0% - 200% Preamp)
   const toggleMute = useCallback(() => {
-    if (videoRef.current) {
-      const nextMute = !videoRef.current.muted;
-      videoRef.current.muted = nextMute;
-      setIsMuted(nextMute);
-    } else {
-      setIsMuted(m => !m);
-    }
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (!next) resumeVlcAudioContext();
+      applyVlcMediaGain(videoRef.current, volume, next);
+      return next;
+    });
+    showControlsTemporarily();
+  }, [showControlsTemporarily, volume]);
+
+  const handleVolumeChange = useCallback((newVol: number) => {
+    const clamped = Math.max(0, Math.min(2.0, newVol));
+    setVolume(clamped);
+    const shouldMute = clamped <= 0.01;
+    setIsMuted(shouldMute);
+    if (!shouldMute) resumeVlcAudioContext();
+    applyVlcMediaGain(videoRef.current, clamped, shouldMute);
     showControlsTemporarily();
   }, [showControlsTemporarily]);
 
-  const handleVolumeChange = useCallback((newVol: number) => {
-    const clamped = Math.max(0, Math.min(1, newVol));
-    setVolume(clamped);
-    if (videoRef.current) {
-      videoRef.current.volume = clamped;
-      if (clamped > 0 && videoRef.current.muted) {
-        videoRef.current.muted = false;
-        setIsMuted(false);
-      }
+  const handleViewportWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(e.deltaY) < 2) return;
+    const step = e.deltaY < 0 ? 0.08 : -0.08;
+    handleVolumeChange(volume + step);
+  }, [volume, handleVolumeChange]);
+
+  const handleSnapshot = useCallback(() => {
+    const vid = videoRef.current;
+    if (!vid || vid.videoWidth <= 0) return;
+    try {
+      const c = document.createElement('canvas');
+      c.width = vid.videoWidth;
+      c.height = vid.videoHeight;
+      const ctx = c.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(vid, 0, 0, c.width, c.height);
+      const a = document.createElement('a');
+      a.href = c.toDataURL('image/png');
+      a.download = `cinema_shot_${String(currentIndex + 1).padStart(3, '0')}.png`;
+      a.click();
+    } catch {
+      // Ignore CORS-tainted canvas snapshot errors
     }
-    showControlsTemporarily();
-  }, [showControlsTemporarily]);
+  }, [currentIndex]);
 
   // Playback speed selection (0.25x to 4x)
   const changeSpeed = useCallback((spd: number) => {
@@ -391,6 +435,14 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       const cur = videoRef.current.currentTime;
       setCurrentTime(cur);
 
+      // Handle VLC A-B Loop Enforcement
+      if (abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a + 0.08) {
+        if (cur >= abLoop.b) {
+          videoRef.current.currentTime = abLoop.a;
+          setCurrentTime(abLoop.a);
+        }
+      }
+
       // Handle Subclip Loop Enforcement
       if (playSubclipOnly && activeFrame.subclipInSec !== undefined && activeFrame.subclipOutSec !== undefined) {
         if (cur >= activeFrame.subclipOutSec) {
@@ -419,8 +471,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         setDuration(dur);
       }
       videoRef.current.playbackRate = playbackSpeed;
-      videoRef.current.volume = volume;
-      videoRef.current.muted = isMuted;
+      applyVlcMediaGain(videoRef.current, volume, isMuted);
       if (playSubclipOnly && activeFrame.subclipInSec !== undefined) {
         videoRef.current.currentTime = activeFrame.subclipInSec;
       }
@@ -710,6 +761,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       {/* ========================================================================= */}
       <div 
         onClick={togglePlay}
+        onWheel={handleViewportWheel}
         onDoubleClick={(e) => {
           e.stopPropagation();
           toggleFullscreen();
@@ -719,23 +771,30 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         <div className={`relative ${getAspectClass()} bg-black shadow-[0_30px_90px_rgba(0,0,0,0.98)] overflow-hidden flex items-center justify-center`}>
           
           {/* Active Media Plate */}
-          {(activeFrame?.imageUrl || activeFrame?.videoSrc || activeFrame?.blobUrl) ? (
+          {resolvedMediaUrl ? (
             isVideo ? (
               <video
-                key={activeFrame?.videoSrc || activeFrame?.blobUrl || activeFrame?.imageUrl}
+                key={resolvedMediaUrl}
                 ref={videoRef}
-                src={activeFrame?.videoSrc || activeFrame?.blobUrl || activeFrame?.imageUrl}
+                src={resolvedMediaUrl}
                 crossOrigin="anonymous"
                 muted={isMuted}
                 autoPlay={isPlaying}
-                loop={!playSubclipOnly}
+                loop={!playSubclipOnly && loopMode === 'repeat-one' && abLoop.a === null && abLoop.b === null}
                 playsInline
-                preload="metadata"
+                preload="auto"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
-                className="w-full h-full object-cover pointer-events-none transition-transform duration-700 ease-out"
+                onEnded={() => {
+                  if (loopMode === 'sequence' && frames.length > 1) {
+                    onSelectFrame((currentIndex + 1) % frames.length);
+                  } else if (loopMode === 'once') {
+                    setIsPlaying(false);
+                  }
+                }}
+                className={`w-full h-full ${fitMode === 'contain' ? 'object-contain' : fitMode === 'fill' ? 'object-fill' : 'object-cover'} pointer-events-none transition-transform duration-700 ease-out`}
                 style={{
                   objectPosition: `center ${activeFrame?.panY ?? 50}%`,
                   filter: filterCSS
@@ -743,9 +802,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
               />
             ) : (
               <div
-                className="w-full h-full bg-cover bg-no-repeat transition-transform duration-700 ease-out"
+                className="w-full h-full bg-no-repeat transition-transform duration-700 ease-out"
                 style={{
-                  backgroundImage: `url(${activeFrame?.imageUrl || activeFrame?.blobUrl || activeFrame?.videoSrc})`,
+                  backgroundImage: `url(${resolvedMediaUrl})`,
+                  backgroundSize: fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? '100% 100%' : 'cover',
                   backgroundPosition: `center ${activeFrame?.panY ?? 50}%`,
                   filter: filterCSS
                 }}
@@ -854,6 +914,16 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
               style={{ width: `${bufferPct}%` }}
               className="absolute left-0 top-0 bottom-0 bg-white/30"
             />
+            {/* A-B Loop Highlight */}
+            {abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a && duration > 0 && (
+              <div
+                style={{
+                  left: `${(abLoop.a / duration) * 100}%`,
+                  width: `${((abLoop.b - abLoop.a) / duration) * 100}%`
+                }}
+                className="absolute top-0 bottom-0 bg-cyan-400/50"
+              />
+            )}
             {/* Playhead progress */}
             <div 
               style={{ width: `${progressPct}%` }}
@@ -950,13 +1020,16 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
               <input
                 type="range"
                 min="0"
-                max="1"
+                max="2"
                 step="0.05"
                 value={isMuted ? 0 : volume}
                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                aria-label="Volume slider"
-                className="w-16 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded-full"
+                aria-label="Volume slider (up to 200% preamp)"
+                className="w-20 accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded-full"
               />
+              <span className={`text-[10px] font-mono tabular-nums ${volume > 1.05 && !isMuted ? 'text-amber-300 font-bold' : 'text-white/55'}`}>
+                {Math.round((isMuted ? 0 : volume) * 100)}%
+              </span>
             </div>
 
             {/* Timecode display */}
@@ -973,7 +1046,117 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           </div>
 
           {/* Right Transport Utilities */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* A-B Loop */}
+            <div className="hidden md:flex items-center rounded border border-white/15 bg-black/50 text-[10px] font-mono overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setAbLoop((p) => ({ a: currentTime, b: p.b !== null && p.b <= currentTime ? null : p.b }))}
+                className={`px-2 py-1 cursor-pointer ${abLoop.a !== null ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-white/60 hover:text-white'}`}
+                title="Set A-B Loop Start"
+              >
+                A
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbLoop((p) => ({ a: p.a ?? 0, b: Math.max((p.a ?? 0) + 0.1, currentTime) }))}
+                className={`px-2 py-1 border-l border-white/15 cursor-pointer ${abLoop.b !== null ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-white/60 hover:text-white'}`}
+                title="Set A-B Loop End"
+              >
+                B
+              </button>
+              {(abLoop.a !== null || abLoop.b !== null) && (
+                <button
+                  type="button"
+                  onClick={() => setAbLoop({ a: null, b: null })}
+                  className="px-1.5 py-1 border-l border-white/15 text-rose-400 hover:bg-rose-500/20 cursor-pointer"
+                  title="Clear A-B Loop"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            {/* Loop Mode */}
+            <button
+              type="button"
+              onClick={() => {
+                const order: VlcLoopMode[] = ['repeat-one', 'sequence', 'once'];
+                setLoopMode(order[(order.indexOf(loopMode) + 1) % order.length]);
+              }}
+              className="p-2 rounded-full hover:bg-white/10 text-white/75 hover:text-[#D4AF37] transition-colors cursor-pointer"
+              title={`Loop Mode: ${loopMode}`}
+            >
+              {loopMode === 'repeat-one' ? (
+                <Repeat1 className="w-4 h-4 text-[#D4AF37]" />
+              ) : loopMode === 'sequence' ? (
+                <Repeat className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <ArrowRightToLine className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* Fit Mode */}
+            <button
+              type="button"
+              onClick={() => {
+                const order: Array<'contain' | 'cover' | 'fill'> = ['contain', 'cover', 'fill'];
+                setFitMode(order[(order.indexOf(fitMode) + 1) % order.length]);
+              }}
+              className="hidden sm:flex px-2.5 py-1 rounded-full bg-black/60 hover:bg-white/10 border border-white/10 text-[10px] font-mono text-white/80 items-center gap-1 cursor-pointer uppercase"
+              title={`Video Fit: ${fitMode}`}
+            >
+              <Monitor className="w-3.5 h-3.5 text-cyan-300" />
+              <span>{fitMode}</span>
+            </button>
+
+            {/* Snapshot */}
+            <button
+              type="button"
+              onClick={handleSnapshot}
+              className="p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-amber-300 transition-colors cursor-pointer"
+              title="Snapshot Frame PNG"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+
+            {/* Playlist Queue Toggle */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsPlaylistOpen((o) => !o)}
+                className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${isPlaylistOpen ? 'text-[#D4AF37] bg-white/10' : 'text-white/70 hover:text-white'}`}
+                title="Playlist Queue"
+              >
+                <ListVideo className="w-4 h-4" />
+              </button>
+              {isPlaylistOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute bottom-full right-0 mb-3 w-72 max-h-64 overflow-y-auto bg-[#0B0C12]/95 border border-[#272732] rounded-lg shadow-2xl divide-y divide-white/5 z-50 text-xs font-mono"
+                >
+                  {frames.map((item, idx) => (
+                    <button
+                      key={`${item.id}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        onSelectFrame(idx);
+                        setIsPlaylistOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 hover:bg-white/10 cursor-pointer ${
+                        idx === currentIndex ? 'text-[#D4AF37] bg-[#D4AF37]/10 font-bold' : 'text-white/75'
+                      }`}
+                    >
+                      <span className="truncate">#{String(idx + 1).padStart(2, '0')} {item.title}</span>
+                      <span className="text-[10px] text-white/40 tabular-nums shrink-0">
+                        {(item.durationSec || 4).toFixed(1)}s
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Titles / CC Toggle */}
             <button
               type="button"

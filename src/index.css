@@ -730,3 +730,21 @@
 .animate-proc-corona-bloom {
   animation: procCoronaBloom 680ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* CutStudio Live Shader FX Overlays */
+.rawx-shader-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.38) 0px,
+    rgba(0, 0, 0, 0.38) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+.rawx-shader-bloom {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 224, 102, 0.14) 0%, rgba(255, 255, 255, 0.04) 45%, transparent 75%);
+  mix-blend-mode: screen;
+}
+

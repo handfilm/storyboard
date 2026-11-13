@@ -279,14 +279,28 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     activeSlideDurationSec: SLIDE_MAX_TIME,
     onSlideChange: () => {},
     onTimeUpdate: (sSec) => {
-      onScrubSlideTime(sSec);
+      if (isPlaying) {
+        onScrubSlideTime(sSec);
+      }
     }
   });
 
-  // Attach active video element to engine
+  // Attach active video element & strictly sync hardware state with React props
   useEffect(() => {
     engine.attachVideoElement(videoRef.current);
   }, [engine, currentSlide?.remoteUrl]);
+
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    vid.muted = isMuted;
+    vid.playbackRate = Math.max(0.25, Math.min(4.0, playbackSpeed || 1.0));
+    if (isPlaying) {
+      if (vid.paused) vid.play().catch(() => {});
+    } else if (!vid.paused) {
+      vid.pause();
+    }
+  }, [isPlaying, playbackSpeed, isMuted, currentIndex]);
 
   // Frame-accurate stepping forward (+1F)
   const handleStepForward = useCallback(() => {
@@ -336,51 +350,8 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     }
   }, [isPlaying, onTogglePlay, engine, slideTimeSec, onScrubSlideTime]);
 
-  // Hook 2: Global Keyboard Shortcuts (Space, J/K/L, Arrows, I/O)
-  useGlobalKeyboardShortcuts({
-    playbackMode,
-    onTogglePlay: () => {
-      onTogglePlay();
-      engine.togglePlay();
-    },
-    onNextSlide: () => {
-      engine.nextSlide();
-    },
-    onPrevSlide: () => {
-      engine.prevSlide();
-    },
-    onStepFrame: (fwd) => {
-      if (fwd) {
-        handleStepForward();
-      } else {
-        handleStepBackward();
-      }
-    },
-    onShuttleReverse: () => {
-      engine.handleShuttleReverse();
-    },
-    onShuttleStop: () => {
-      engine.handleShuttleStop();
-    },
-    onShuttleForward: () => {
-      engine.handleShuttleForward();
-    },
-    onSetInPoint: () => {
-      engine.setInPoint();
-    },
-    onSetOutPoint: () => {
-      engine.setOutPoint();
-    },
-    onClearInOutPoints: () => {
-      engine.clearInOutPoints();
-    },
-    onToggleFullscreen: () => {
-      toggleFullscreen();
-    },
-    onToggleTitles: () => {
-      useStudioStore.getState().toggleTitles();
-    }
-  });
+  // Note: Keyboard shortcuts are managed centrally by keyScopeManager in App.tsx
+  // to avoid duplicate event handling conflicts when OpticalMonitor is mounted.
 
   const activeShotKey = getShotMediaKey(currentSlide as any, currentIndex);
   const vaultEntry = shotMediaMap?.[activeShotKey] ?? null;
@@ -672,16 +643,22 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
                   crossOrigin="anonymous"
                   playsInline
                   muted={isMuted}
-                  autoPlay
                   loop={isLooping && !engine.inOutRange.isActive}
                   preload="auto"
-                  className="w-full h-full object-cover pointer-events-none"
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={onTogglePlay}
                   style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
-                  onLoadedMetadata={() => {
-                    if (videoRef.current && slideTimeSec > 0) {
+                  onLoadedMetadata={(e) => {
+                    const vid = e.currentTarget;
+                    vid.muted = isMuted;
+                    vid.playbackRate = Math.max(0.25, Math.min(4.0, playbackSpeed || 1.0));
+                    if (slideTimeSec > 0) {
                       try {
-                        videoRef.current.currentTime = Math.min(slideTimeSec, videoRef.current.duration || slideTimeSec);
+                        vid.currentTime = Math.min(slideTimeSec, vid.duration || slideTimeSec);
                       } catch {}
+                    }
+                    if (isPlaying && vid.paused) {
+                      vid.play().catch(() => {});
                     }
                   }}
                 />

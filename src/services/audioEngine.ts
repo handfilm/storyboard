@@ -55,8 +55,9 @@ export class CinematicAudioEngine {
   private droneOsc2: OscillatorNode | null = null;
   private noiseNode: AudioBufferSourceNode | null = null;
   private isRunning: boolean = false;
+  private isAmbientDroneEnabled: boolean = false;
   private isMuted: boolean = true;
-  private volume: number = 0.4;
+  private volume: number = 0.8;
   private heartbeatInterval: number | null = null;
   private heartbeatRate: number = 1.0;
 
@@ -106,8 +107,10 @@ export class CinematicAudioEngine {
       this.filterNode.Q.setValueAtTime(3.5, this.ctx.currentTime);
       this.filterNode.connect(this.masterGain);
 
-      this.startDrone();
-      this.startHeartbeat();
+      if (this.isAmbientDroneEnabled) {
+        this.startDrone();
+        this.startHeartbeat();
+      }
     } catch {
       // AudioContext unavailable or restricted in this environment - fail silent
     }

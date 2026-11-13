@@ -14,6 +14,7 @@ import {
 } from '../../core/store';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { DopamineShotConfig } from '../../types/anthology';
+import { usePlaybackClock } from '../../utils/playbackClock';
 
 export interface StageCaptionStripProps {
   shotIndex: number;
@@ -65,9 +66,12 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
   const storeTitleConfig = useStudioStore((s) => s.titleConfig);
   const activePreset: HeroTitlePreset = storeTitleConfig?.preset || 'molten-gold';
   const effectiveAlign = resolveEffectiveTitleAlign(titleAlign, shotIndex, shotType);
+  const liveClock = usePlaybackClock(true);
 
+  const activeTime = liveClock.shotIndex === shotIndex ? liveClock.timeSec : slideTimeSec;
+  const activeDur = liveClock.shotIndex === shotIndex && liveClock.durationSec > 0 ? liveClock.durationSec : durationSec;
   const progressPct =
-    durationSec > 0 ? Math.min(100, Math.max(0, (slideTimeSec / durationSec) * 100)) : 0;
+    activeDur > 0 ? Math.min(100, Math.max(0, (activeTime / activeDur) * 100)) : 0;
 
   const presetHoverClass =
     activePreset === 'titanium-silver'

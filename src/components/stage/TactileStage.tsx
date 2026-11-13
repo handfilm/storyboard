@@ -82,9 +82,12 @@ import { depthOcclusionService } from '../../services/depthOcclusionService';
 import { transientPunchEngine } from '../../services/transientPunchEngine';
 import { StageMetadataFxBar } from './StageMetadataFxBar';
 import { StageCaptionStrip } from './StageCaptionStrip';
+import { VlcStageBar } from './VlcStageBar';
 import { getLightingPresetById } from '../../data/lightingPresets';
 import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
 import { formatFullSMPTETimecode } from '../../types/storyboard';
+import { playbackClock, type VlcLoopMode, type VlcAbLoop } from '../../utils/playbackClock';
+import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -177,7 +180,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onAdvanceFromVideoClock,
   isBorderlessFullscreen,
   isCursorAwake = true,
-  onToggleBorderlessFullscreen
+  onToggleBorderlessFullscreen,
+  onSelectPlaybackMode,
+  onChangePlaybackSpeed,
+  onToggleMute,
+  onOpenCinemaPlayer
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const slotVideoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
@@ -214,6 +221,37 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
   const [isFilterTrayOpen, setIsFilterTrayOpen] = useState(false);
   const [isWebCodecsEngineActive, setIsWebCodecsEngineActive] = useState<boolean>(true);
+  const [nativeVideoDuration, setNativeVideoDuration] = useState<number>(0);
+  const [loopMode, setLoopMode] = useState<VlcLoopMode>(playbackMode === 'solo' ? 'repeat-one' : 'sequence');
+  const [abLoop, setAbLoop] = useState<VlcAbLoop>({ a: null, b: null });
+  const [stageFitMode, setStageFitMode] = useState<'contain' | 'cover' | 'fill'>(fitMode === 'contain' ? 'contain' : 'cover');
+  const [clickBeacon, setClickBeacon] = useState<'play' | 'pause' | null>(null);
+  const lastParentSyncTsRef = useRef<number>(0);
+  const clickBeaconTimerRef = useRef<number | null>(null);
+
+  const storeAudioVolume = useStudioStore((s) => s.audioVolume);
+  const setStoreAudioVolume = useStudioStore((s) => s.setAudioVolume);
+  const storeIsAudioMuted = useStudioStore((s) => s.isAudioMuted);
+  const toggleStoreAudio = useStudioStore((s) => s.toggleAudio);
+  const setStoreAspectRatio = useStudioStore((s) => s.setAspectRatio);
+  const setStoreFitMode = useStudioStore((s) => s.setFitMode);
+
+  const effectiveMuted = isAudioMuted ?? storeIsAudioMuted;
+  const effectiveVolume = Number.isFinite(storeAudioVolume) ? storeAudioVolume : 0.85;
+
+  useEffect(() => {
+    setStageFitMode(fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? 'fill' : 'cover');
+  }, [fitMode]);
+
+  useEffect(() => {
+    setLoopMode(playbackMode === 'solo' ? 'repeat-one' : 'sequence');
+  }, [playbackMode]);
+
+  // Reset A-B loop & native duration cleanly when switching shots
+  useEffect(() => {
+    setAbLoop({ a: null, b: null });
+    setNativeVideoDuration(0);
+  }, [currentIndex]);
 
   // Auto-open filter dock when OPTICS or LIBRARY module is selected
   useEffect(() => {
@@ -477,7 +515,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {}
 
+      let didZoomMarquee = false;
       if (selectionBox?.isSelecting && selectionBox.width >= 24 && selectionBox.height >= 14) {
+        didZoomMarquee = true;
         const rect = stageMediaContainerRef.current?.getBoundingClientRect();
         const currentW = rect?.width || selectionDragRef.current.rectWidth || 1;
         const currentH = rect?.height || selectionDragRef.current.rectHeight || 1;
@@ -492,9 +532,19 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         applyGpuTransformImmediate(scale, panX, panY, true);
       }
 
+      const wasCleanClick = !selectionDragRef.current.hasDragged && !didZoomMarquee;
       selectionDragRef.current.isDown = false;
       selectionDragRef.current.hasDragged = false;
       setSelectionBox(null);
+
+      // Single click on viewport toggles Play/Pause cleanly like VLC
+      if (wasCleanClick && onTogglePlay) {
+        onTogglePlay();
+        const nextBeacon = !isAutoplay ? 'play' : 'pause';
+        setClickBeacon(nextBeacon);
+        if (clickBeaconTimerRef.current) window.clearTimeout(clickBeaconTimerRef.current);
+        clickBeaconTimerRef.current = window.setTimeout(() => setClickBeacon(null), 550);
+      }
     }
   };
 
@@ -802,6 +852,21 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   }
   const combinedMediaFilter = baseMediaFilter;
 
+  const effectiveShotDurationSec =
+    isVideoMedia && nativeVideoDuration > 0.25 ? nativeVideoDuration : activeShotDurationSec;
+
+  // Keep playbackClock updated for non-video shots too
+  useEffect(() => {
+    if (!isVideoMedia || !isAutoplay) {
+      playbackClock.emit({
+        timeSec: slideTimeSec,
+        durationSec: effectiveShotDurationSec,
+        bufferedPct: 1,
+        shotIndex: currentIndex
+      });
+    }
+  }, [slideTimeSec, effectiveShotDurationSec, currentIndex, isVideoMedia, isAutoplay]);
+
   // 0ms Hard Cut Pool Promotion & Pure Hardware <video> Transport Control (Zero rAF currentTime overrides)
   useLayoutEffect(() => {
     const activeVideo = slotVideoRefs.current.get(currentIndex) ?? videoRef.current;
@@ -822,11 +887,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
     if (!activeVideo || !isVideoMedia) return;
 
-    activeVideo.muted = isAudioMuted ?? true;
-    activeVideo.playbackRate = playbackSpeed || 1.0;
+    if (Number.isFinite(activeVideo.duration) && activeVideo.duration > 0.25) {
+      setNativeVideoDuration(activeVideo.duration);
+    }
+
+    applyVlcMediaGain(activeVideo, effectiveVolume, effectiveMuted);
+    activeVideo.playbackRate = Math.max(0.25, Math.min(4.0, playbackSpeed || 1.0));
 
     if (isAutoplay && !isScrubbingRef.current) {
-      if (slideTimeSecRef.current >= activeShotDurationSec - 0.04) {
+      if (!effectiveMuted) resumeVlcAudioContext();
+      if (slideTimeSecRef.current >= effectiveShotDurationSec - 0.04) {
         accumulatedShotClockRef.current = 0;
       } else {
         accumulatedShotClockRef.current = Math.max(0, slideTimeSecRef.current);
@@ -845,9 +915,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     } else if (!activeVideo.paused) {
       activeVideo.pause();
     }
-  }, [currentIndex, frames.length, isAutoplay, isVideoMedia, isAudioMuted, playbackSpeed, activeMediaUrl, activeShotDurationSec]);
+  }, [currentIndex, frames.length, isAutoplay, isVideoMedia, effectiveMuted, effectiveVolume, playbackSpeed, activeMediaUrl, effectiveShotDurationSec]);
 
-  // External Seek Sync (Only executes on explicit user scrub / step frame / shot jump via seekVersion)
+  // External Seek Sync (Only executes on explicit user scrub / step frame when delta > 0.08s)
   useEffect(() => {
     const activeVideo = videoRef.current;
     if (!activeVideo || !isVideoMedia) {
@@ -859,16 +929,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     lastHandledSeekVersionRef.current = seekVersion;
 
     if (versionChanged && !isDraggingScrubberRef.current) {
-      accumulatedShotClockRef.current = slideTimeSecRef.current;
-      seekGuardRef.current.requestSeek(activeVideo, slideTimeSecRef.current, {
-        exact: true,
-        pauseFirst: !isAutoplay
+      const targetSec = Math.max(0, slideTimeSecRef.current);
+      accumulatedShotClockRef.current = targetSec;
+      if (Math.abs((activeVideo.currentTime || 0) - targetSec) > 0.08) {
+        seekGuardRef.current.requestSeek(activeVideo, targetSec, {
+          exact: true,
+          pauseFirst: !isAutoplay
+        });
+      }
+      lastVideoClockTimeRef.current = targetSec;
+      playbackClock.emit({
+        timeSec: targetSec,
+        durationSec: effectiveShotDurationSec,
+        shotIndex: currentIndex
       });
-      lastVideoClockTimeRef.current = activeVideo.currentTime || slideTimeSecRef.current;
     }
-  }, [seekVersion, currentIndex, isVideoMedia, isAutoplay]);
+  }, [seekVersion, currentIndex, isVideoMedia, isAutoplay, effectiveShotDurationSec]);
 
-  // Hardware Video Clock -> Timeline Sync Reader (NEVER writes video.currentTime inside rAF)
+  // Hardware Video Clock -> 60fps PlaybackClock Bus + Throttled App Sync Reader
   useEffect(() => {
     if (!isAutoplay || !isVideoMedia) return;
     let rafId: number | null = null;
@@ -878,36 +956,69 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       const video = videoRef.current;
       if (video && !isScrubbingRef.current && !video.seeking && !video.paused && video.readyState >= 2) {
         const curRaw = video.currentTime || 0;
-        const prevRaw = lastVideoClockTimeRef.current;
-        const clipDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : activeShotDurationSec;
-        let dt = curRaw - prevRaw;
-        if (dt < -0.25 && clipDur > 0.25) {
-          // Video looped past clip boundary cleanly
-          dt = (clipDur - prevRaw) + curRaw;
-        }
-        if (dt > 0 && dt < 0.5) {
-          accumulatedShotClockRef.current += dt;
-        }
-        lastVideoClockTimeRef.current = curRaw;
+        const clipDur =
+          Number.isFinite(video.duration) && video.duration > 0.25
+            ? video.duration
+            : effectiveShotDurationSec;
 
-        const elapsed = accumulatedShotClockRef.current;
-        if (playbackMode === 'sequence' && elapsed >= activeShotDurationSec) {
-          // 0ms Hard Cut: promote pre-warmed nextSlot play before React commit if available
-          const nextVid = nextIdx >= 0 ? slotVideoRefs.current.get(nextIdx) : null;
-          if (nextVid && nextVid.paused) {
-            nextVid.muted = isAudioMuted ?? true;
-            nextVid.playbackRate = playbackSpeed || 1.0;
-            nextVid.play().catch(() => {});
-          }
-          onAdvanceFromVideoClock?.(currentIndexRef.current);
+        let bufferedPct = 1;
+        if (video.buffered && video.buffered.length > 0 && clipDur > 0) {
+          bufferedPct = Math.min(1, video.buffered.end(video.buffered.length - 1) / clipDur);
+        }
+
+        // VLC A-B Loop enforcement
+        if (
+          abLoop.a !== null &&
+          abLoop.b !== null &&
+          abLoop.b > abLoop.a + 0.08 &&
+          curRaw >= abLoop.b
+        ) {
+          seekGuardRef.current.requestSeek(video, abLoop.a, { exact: true });
+          accumulatedShotClockRef.current = abLoop.a;
+          lastVideoClockTimeRef.current = abLoop.a;
+          playbackClock.emit({ timeSec: abLoop.a, durationSec: clipDur, bufferedPct, shotIndex: currentIndexRef.current });
+          rafId = requestAnimationFrame(syncTick);
           return;
         }
 
-        if (playbackMode === 'solo' && elapsed >= activeShotDurationSec && activeShotDurationSec > 0) {
-          accumulatedShotClockRef.current = elapsed % activeShotDurationSec;
+        // Direct hardware time is the ground truth for VLC progress bar & timecode
+        accumulatedShotClockRef.current = curRaw;
+        lastVideoClockTimeRef.current = curRaw;
+
+        playbackClock.emit({
+          timeSec: curRaw,
+          durationSec: clipDur,
+          bufferedPct,
+          shotIndex: currentIndexRef.current
+        });
+
+        const endThreshold = Math.max(0.15, clipDur - 0.06);
+        if (curRaw >= endThreshold) {
+          if (loopMode === 'sequence' && frames.length > 1) {
+            const nextVid = nextIdx >= 0 ? slotVideoRefs.current.get(nextIdx) : null;
+            if (nextVid && nextVid.paused) {
+              applyVlcMediaGain(nextVid, effectiveVolume, effectiveMuted);
+              nextVid.playbackRate = Math.max(0.25, Math.min(4.0, playbackSpeed || 1.0));
+              nextVid.play().catch(() => {});
+            }
+            onAdvanceFromVideoClock?.(currentIndexRef.current);
+            return;
+          }
+          if (loopMode === 'once') {
+            video.pause();
+            if (isAutoplayRef.current && onTogglePlay) {
+              onTogglePlay();
+            }
+            return;
+          }
+          // repeat-one loops via onEnded/seek
         }
 
-        onSyncVideoTime?.(currentIndexRef.current, accumulatedShotClockRef.current);
+        const nowMs = performance.now();
+        if (nowMs - lastParentSyncTsRef.current >= 160) {
+          lastParentSyncTsRef.current = nowMs;
+          onSyncVideoTime?.(currentIndexRef.current, curRaw);
+        }
       }
       rafId = requestAnimationFrame(syncTick);
     };
@@ -916,7 +1027,22 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [isAutoplay, isVideoMedia, currentIndex, frames.length, activeShotDurationSec, playbackMode, playbackSpeed, isAudioMuted, onAdvanceFromVideoClock, onSyncVideoTime]);
+  }, [
+    isAutoplay,
+    isVideoMedia,
+    currentIndex,
+    frames.length,
+    effectiveShotDurationSec,
+    loopMode,
+    abLoop.a,
+    abLoop.b,
+    playbackSpeed,
+    effectiveMuted,
+    effectiveVolume,
+    onAdvanceFromVideoClock,
+    onSyncVideoTime,
+    onTogglePlay
+  ]);
 
   // Sync cached poster element for instant fallback
   useEffect(() => {
@@ -1209,10 +1335,154 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     };
   };
 
-  const fitModeClass = fitMode === 'contain' ? 'object-contain' : 'object-cover';
+  const fitModeClass =
+    stageFitMode === 'contain'
+      ? 'object-contain'
+      : stageFitMode === 'fill'
+        ? 'object-fill'
+        : 'object-cover';
   const activeLightPreset = frame?.lightId ? getLightingPresetById(frame.lightId) : undefined;
   const activeSmpte = formatFullSMPTETimecode(slideTimeSec, activeShotFps);
   const proceduralSpec = getShotProceduralSpec(currentIndex);
+
+  const handleVlcScrubStart = () => {
+    isDraggingScrubberRef.current = true;
+    wasAudioMutedBeforeScrubRef.current = audioEngine.getIsMuted();
+    audioEngine.setMuted(true);
+    setIsScrubbing(true);
+    isScrubbingRef.current = true;
+  };
+
+  const handleVlcScrubTo = (targetSec: number, exact = false) => {
+    const clamped = Math.max(0, Math.min(effectiveShotDurationSec, targetSec));
+    slideTimeSecRef.current = clamped;
+    accumulatedShotClockRef.current = clamped;
+    playbackClock.emit({
+      timeSec: clamped,
+      durationSec: effectiveShotDurationSec,
+      shotIndex: currentIndex
+    });
+    if (videoRef.current && isVideoMedia) {
+      seekGuardRef.current.requestSeek(videoRef.current, clamped, {
+        exact,
+        pauseFirst: !isAutoplay
+      });
+    }
+    const now = performance.now();
+    if (exact || now - lastParentSyncTsRef.current > 80) {
+      lastParentSyncTsRef.current = now;
+      if (onScrubSlideTime) onScrubSlideTime(clamped);
+    }
+  };
+
+  const handleVlcScrubEnd = (finalTimeSec: number) => {
+    isDraggingScrubberRef.current = false;
+    setIsScrubbing(false);
+    isScrubbingRef.current = false;
+    const clamped = Math.max(0, Math.min(effectiveShotDurationSec, finalTimeSec));
+    slideTimeSecRef.current = clamped;
+    accumulatedShotClockRef.current = clamped;
+    if (videoRef.current && isVideoMedia) {
+      seekGuardRef.current.requestSeek(videoRef.current, clamped, {
+        exact: true,
+        pauseFirst: !isAutoplay
+      });
+    }
+    if (onScrubSlideTime) onScrubSlideTime(clamped);
+    if (!wasAudioMutedBeforeScrubRef.current) {
+      audioEngine.setMuted(false);
+      if (isAutoplay) audioEngine.playAudio();
+    }
+  };
+
+  const handleVlcStop = () => {
+    if (isAutoplay && onTogglePlay) onTogglePlay();
+    slideTimeSecRef.current = 0;
+    accumulatedShotClockRef.current = 0;
+    if (videoRef.current && isVideoMedia) {
+      videoRef.current.pause();
+      seekGuardRef.current.requestSeek(videoRef.current, 0, { exact: true, pauseFirst: true });
+    }
+    playbackClock.emit({ timeSec: 0, durationSec: effectiveShotDurationSec, shotIndex: currentIndex });
+    if (onScrubSlideTime) onScrubSlideTime(0);
+  };
+
+  const handleVlcSkipSeconds = (deltaSec: number) => {
+    const current = videoRef.current && isVideoMedia
+      ? videoRef.current.currentTime
+      : slideTimeSecRef.current;
+    const next = Math.max(0, Math.min(effectiveShotDurationSec, current + deltaSec));
+    handleVlcScrubTo(next, true);
+  };
+
+  const handleVlcVolumeChange = (vol: number) => {
+    const clamped = Math.max(0, Math.min(2.0, vol));
+    setStoreAudioVolume(clamped);
+    if (clamped > 0.01 && effectiveMuted) {
+      if (onToggleMute) onToggleMute();
+      else toggleStoreAudio();
+    }
+    applyVlcMediaGain(videoRef.current, clamped, clamped <= 0.01);
+  };
+
+  const handleVlcToggleMute = () => {
+    if (onToggleMute) onToggleMute();
+    else toggleStoreAudio();
+  };
+
+  const handleVlcCycleLoop = () => {
+    const order: VlcLoopMode[] = ['sequence', 'repeat-one', 'once'];
+    const next = order[(order.indexOf(loopMode) + 1) % order.length];
+    setLoopMode(next);
+    if (onSelectPlaybackMode) {
+      onSelectPlaybackMode(next === 'repeat-one' ? 'solo' : 'sequence');
+    }
+  };
+
+  const handleVlcSetAb = (which: 'a' | 'b' | 'clear') => {
+    if (which === 'clear') {
+      setAbLoop({ a: null, b: null });
+      return;
+    }
+    const cur = videoRef.current && isVideoMedia ? videoRef.current.currentTime : slideTimeSecRef.current;
+    setAbLoop((prev) => {
+      if (which === 'a') {
+        return { a: cur, b: prev.b !== null && prev.b <= cur ? null : prev.b };
+      }
+      if (prev.a !== null && cur <= prev.a + 0.08) {
+        return { a: cur, b: prev.a + 0.1 };
+      }
+      return { a: prev.a ?? 0, b: cur };
+    });
+  };
+
+  const handleCaptureSnapshot = () => {
+    try {
+      const snapCanvas = document.createElement('canvas');
+      const activeVideo = videoRef.current;
+      if (activeVideo && isVideoMedia && activeVideo.videoWidth > 0) {
+        snapCanvas.width = activeVideo.videoWidth;
+        snapCanvas.height = activeVideo.videoHeight;
+        const ctx = snapCanvas.getContext('2d');
+        if (ctx) {
+          ctx.filter = combinedMediaFilter;
+          ctx.drawImage(activeVideo, 0, 0, snapCanvas.width, snapCanvas.height);
+        }
+      } else if (canvasRef.current) {
+        snapCanvas.width = canvasRef.current.width || 1280;
+        snapCanvas.height = canvasRef.current.height || 720;
+        const ctx = snapCanvas.getContext('2d');
+        ctx?.drawImage(canvasRef.current, 0, 0);
+      }
+      const dataUrl = snapCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `shot_${String(currentIndex + 1).padStart(3, '0')}_snapshot.png`;
+      a.click();
+    } catch (err) {
+      console.warn('Snapshot capture unavailable (CORS-restricted source):', err);
+    }
+  };
 
   return (
     <div
@@ -1363,6 +1633,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           {poolSlots.map((slot) => {
             if (!slot.url || !slot.isVideo) return null;
             const isSlotActive = slot.role === 'active';
+            const shouldNativeLoop = loopMode === 'repeat-one' && abLoop.a === null && abLoop.b === null;
             return (
               <video
                 key={`stage-pool-video-${slot.shotIdx}-${slot.shotKey}-${slot.url}`}
@@ -1372,8 +1643,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 src={slot.url}
                 crossOrigin="anonymous"
                 poster={slot.poster || undefined}
-                loop
-                muted={isSlotActive ? (isAudioMuted ?? true) : true}
+                loop={shouldNativeLoop}
+                muted={isSlotActive ? effectiveMuted : true}
                 playsInline
                 preload="auto"
                 onSeeked={(e) => {
@@ -1381,12 +1652,33 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                     seekGuardRef.current.handleSeeked(e.currentTarget);
                   }
                 }}
+                onLoadedMetadata={(e) => {
+                  if (isSlotActive && Number.isFinite(e.currentTarget.duration) && e.currentTarget.duration > 0.25) {
+                    setNativeVideoDuration(e.currentTarget.duration);
+                    playbackClock.emit({
+                      durationSec: e.currentTarget.duration,
+                      shotIndex: slot.shotIdx
+                    });
+                  }
+                }}
                 onLoadedData={(e) => {
                   if (isSlotActive && isAutoplay && !isScrubbingRef.current && e.currentTarget.paused) {
-                    e.currentTarget.playbackRate = playbackSpeed || 1.0;
+                    applyVlcMediaGain(e.currentTarget, effectiveVolume, effectiveMuted);
+                    e.currentTarget.playbackRate = Math.max(0.25, Math.min(4.0, playbackSpeed || 1.0));
                     e.currentTarget.play().catch(() => {});
                   } else if (slot.role === 'next' && Math.abs(e.currentTarget.currentTime) > 0.05) {
                     try { e.currentTarget.currentTime = 0; } catch {}
+                  }
+                }}
+                onEnded={(e) => {
+                  if (!isSlotActive) return;
+                  if (loopMode === 'sequence' && frames.length > 1) {
+                    onAdvanceFromVideoClock?.(currentIndexRef.current);
+                  } else if (loopMode === 'repeat-one') {
+                    e.currentTarget.currentTime = abLoop.a ?? 0;
+                    e.currentTarget.play().catch(() => {});
+                  } else if (loopMode === 'once' && isAutoplayRef.current && onTogglePlay) {
+                    onTogglePlay();
                   }
                 }}
                 className={`absolute inset-0 w-full h-full ${fitModeClass} will-change-transform`}
@@ -1562,6 +1854,19 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
+        {/* Click Play/Pause Center Beacon */}
+        {clickBeacon && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+            <div className="p-4 rounded-full bg-black/75 border border-amber-400/50 text-amber-300 shadow-2xl animate-hud-fade-in">
+              {clickBeacon === 'play' ? (
+                <Play className="w-8 h-8 fill-current" />
+              ) : (
+                <Pause className="w-8 h-8 fill-current" />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Ingesting Spinner Overlay */}
         {isIngesting && (
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2.5 z-30">
@@ -1574,7 +1879,53 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       </div>
 
-      {/* 3. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR (Hidden during Borderless Fullscreen idle) */}
+      {/* 3. VLC-GRADE STAGE TRANSPORT BAR (Scrubber, A-B Loop, Speed, 200% Preamp, Fit, Playlist) */}
+      {!hideFullscreenStageBars && (
+        <VlcStageBar
+          frames={frames}
+          currentIndex={currentIndex}
+          shotMediaMap={shotMediaMap}
+          durationSec={effectiveShotDurationSec}
+          fps={activeShotFps}
+          isPlaying={isAutoplay}
+          playbackSpeed={playbackSpeed}
+          isMuted={effectiveMuted}
+          volume={effectiveVolume}
+          loopMode={loopMode}
+          abLoop={abLoop}
+          fitMode={stageFitMode}
+          aspectRatio={aspectRatio || '16:9'}
+          isTitlesActive={isTitlesActive}
+          isFullscreen={effectiveFullscreen}
+          onTogglePlay={() => onTogglePlay?.()}
+          onStop={handleVlcStop}
+          onPrevShot={() => onSelectFrame(Math.max(0, currentIndex - 1))}
+          onNextShot={() => onSelectFrame(Math.min(frames.length - 1, currentIndex + 1))}
+          onSelectShot={(idx) => onSelectFrame(idx)}
+          onStepFrame={(fwd) => onStepFrame?.(fwd)}
+          onSkipSeconds={handleVlcSkipSeconds}
+          onScrubStart={handleVlcScrubStart}
+          onScrubTo={handleVlcScrubTo}
+          onScrubEnd={handleVlcScrubEnd}
+          onChangeSpeed={(spd) => onChangePlaybackSpeed?.(spd)}
+          onToggleMute={handleVlcToggleMute}
+          onChangeVolume={handleVlcVolumeChange}
+          onCycleLoopMode={handleVlcCycleLoop}
+          onSetAbPoint={handleVlcSetAb}
+          onChangeFitMode={(mode) => {
+            setStageFitMode(mode);
+            if (mode !== 'fill') setStoreFitMode(mode);
+          }}
+          onChangeAspectRatio={(r) => setStoreAspectRatio(r as any)}
+          onCaptureSnapshot={handleCaptureSnapshot}
+          onToggleTitles={onToggleTitles}
+          onUploadMedia={() => fileInputRef.current?.click()}
+          onOpenCinemaPlayer={onOpenCinemaPlayer}
+          onToggleFullscreen={toggleFullscreen}
+        />
+      )}
+
+      {/* 4. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR */}
       {!hideFullscreenStageBars && (
         <StageCaptionStrip
           shotIndex={currentIndex}
@@ -1589,7 +1940,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           lutFilter={frame?.lutFilter}
           dopamineConfig={frame?.dopamineConfig}
           slideTimeSec={slideTimeSec}
-          durationSec={activeShotDurationSec}
+          durationSec={effectiveShotDurationSec}
           isTitlesActive={isTitlesActive}
           onToggleTitles={onToggleTitles}
           componentsVisibility={componentsVisibility}

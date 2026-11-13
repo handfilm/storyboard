@@ -57,6 +57,7 @@ import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
 import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
+import { playbackClock } from './utils/playbackClock';
 import { studioDraftDb } from './services/db';
 import {
   loadAllShotMedia,
@@ -1429,6 +1430,7 @@ export default function App() {
     const currentOffset = shotOffsets[currentIndex];
     const shotSlideHold = currentOffset?.durationSec ?? getShotDurationSec(currentFrame, project.defaultSlideHoldSec ?? 12.0);
     const shotStartSec = currentOffset?.startSec ?? 0;
+    let lastReactSyncMs = 0;
 
     const tick = (now: number) => {
       if (lastTimestampRef.current !== null) {
@@ -1439,12 +1441,7 @@ export default function App() {
         const globalPlaybackSec = shotStartSec + nextTime;
         audioEngine.syncPlaybackTime(globalPlaybackSec);
 
-        try {
-          useStudioStore.getState().setSlideTimeSec(nextTime);
-        } catch {}
-
         if (playbackMode === 'sequence') {
-          // Elastic Sequence mode: respect per-shot durationSec and snap to nearest audio beat when enabled
           const boundaryDuration = (isSnapToBeat || currentFrame?.beatSnapEnabled)
             ? audioEngine.snapDurationToNearestBeat(shotStartSec, shotSlideHold)
             : shotSlideHold;
@@ -1462,6 +1459,7 @@ export default function App() {
             const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
             slideTimeSecRef.current = remainderTime;
             lastTimestampRef.current = null;
+            playbackClock.emit({ timeSec: remainderTime, durationSec: nextShotDur, shotIndex: nextIdx });
             setCurrentIndex(nextIdx);
             setSlideTimeSec(remainderTime);
             try {
@@ -1470,20 +1468,34 @@ export default function App() {
             } catch {}
           } else {
             slideTimeSecRef.current = nextTime;
-            setSlideTimeSec(nextTime);
+            playbackClock.emit({ timeSec: nextTime, durationSec: boundaryDuration, shotIndex: currentIndex });
+            if (now - lastReactSyncMs >= 120) {
+              lastReactSyncMs = now;
+              setSlideTimeSec(nextTime);
+              try {
+                useStudioStore.getState().setSlideTimeSec(nextTime);
+              } catch {}
+            }
           }
         } else {
-          // Solo Scrub mode: loops strictly within this shot's elastic durationSec
           if (nextTime >= shotSlideHold) {
             const loopTime = shotSlideHold > 0 ? nextTime % shotSlideHold : 0;
             slideTimeSecRef.current = loopTime;
+            playbackClock.emit({ timeSec: loopTime, durationSec: shotSlideHold, shotIndex: currentIndex });
             setSlideTimeSec(loopTime);
             try {
               useStudioStore.getState().setSlideTimeSec(loopTime);
             } catch {}
           } else {
             slideTimeSecRef.current = nextTime;
-            setSlideTimeSec(nextTime);
+            playbackClock.emit({ timeSec: nextTime, durationSec: shotSlideHold, shotIndex: currentIndex });
+            if (now - lastReactSyncMs >= 120) {
+              lastReactSyncMs = now;
+              setSlideTimeSec(nextTime);
+              try {
+                useStudioStore.getState().setSlideTimeSec(nextTime);
+              } catch {}
+            }
           }
         }
       }

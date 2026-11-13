@@ -19,10 +19,20 @@ import { isVideoMediaUrl } from '../utils/playbackClock';
 
 export const HEAD_PREFETCH_BYTES = 4 * 1024 * 1024; // 4MB head (ftyp + initial GOPs)
 export const TAIL_PREFETCH_BYTES = 1 * 1024 * 1024; // 1MB tail (moov atom when non-faststart)
+export const FRAGMENT_BLOCK_BYTES = 2 * 1024 * 1024; // 2MB aligned 4K video fragment blocks
+export const MAX_FRAGMENT_LRU_BYTES = 192 * 1024 * 1024; // 192MB LRU cap for 4K fragments
+export const SEQUENCE_LOOKAHEAD_FRAGMENTS = 3; // Pre-fetch next 3 upcoming fragments ahead of playhead
 export const MAX_SINGLE_RAM_BLOB_BYTES = 48 * 1024 * 1024; // 48MB per promoted remote clip
 export const MAX_RAM_BLOB_CACHE_BYTES = 256 * 1024 * 1024; // 256MB total promoted RAM blob LRU
 export const MAX_KEYFRAME_BITMAPS = 150;
 export const KEYFRAME_QUANT_SEC = 0.25;
+
+export interface VideoCacheServiceOptions {
+  fragmentBlockBytes?: number;
+  maxFragmentCacheBytes?: number;
+  lookaheadFragments?: number;
+  maxConcurrency?: number;
+}
 
 export interface ShotWindowFrameLike {
   id?: string | number;
@@ -45,6 +55,10 @@ export interface VideoCacheStats {
   promotedBlobBytes: number;
   keyframeBitmapCount: number;
   inFlightPrefetches: number;
+  fragmentCacheCount: number;
+  fragmentCacheBytes: number;
+  fragmentCacheHits: number;
+  fragmentCacheEvictions: number;
 }
 
 interface PromotedBlobRecord {
@@ -54,10 +68,30 @@ interface PromotedBlobRecord {
   lastUsedAt: number;
 }
 
+interface FragmentBlockRecord {
+  key: string;
+  url: string;
+  blockIndex: number;
+  startByte: number;
+  bytes: Uint8Array;
+  sizeBytes: number;
+  lastUsedAt: number;
+  hitCount: number;
+}
+
 interface KeyframeBitmapRecord {
   key: string;
   sourceUrl: string;
   bitmap: ImageBitmap;
+}
+
+interface PriorityPrefetchJob {
+  kind: 'shot' | 'fragment';
+  url: string;
+  blockIndex?: number;
+  priority: number;
+  promote: boolean;
+  generation: number;
 }
 
 export function isLocalRangeStreamUrl(url: string): boolean {
@@ -96,19 +130,41 @@ function makeKeyframeKey(sourceUrl: string, timeSec: number): string {
   return `${sourceUrl}@@${quantizeKeyframeTime(timeSec).toFixed(2)}`;
 }
 
-class VideoCacheService {
+function makeFragmentKey(sourceUrl: string, blockIndex: number): string {
+  return `${sourceUrl}#block=${blockIndex}`;
+}
+
+export class VideoCacheService {
+  private readonly fragmentBlockBytes: number;
+  private readonly maxFragmentCacheBytes: number;
+  private readonly lookaheadFragments: number;
+  private readonly maxConcurrency: number;
+
   private warmedRanges = new Map<string, { totalBytes: number | null; warmedAt: number }>();
+  private fragmentLru = new Map<string, FragmentBlockRecord>();
+  private fragmentCacheBytes = 0;
+  private fragmentCacheHits = 0;
+  private fragmentCacheEvictions = 0;
+
   private promotedBlobs = new Map<string, PromotedBlobRecord>();
   private promotedBlobBytes = 0;
   private keyframeBitmaps = new Map<string, KeyframeBitmapRecord>();
 
   private inFlightWarmups = new Map<string, Promise<void>>();
+  private inFlightFragments = new Map<string, Promise<Uint8Array | null>>();
   private inFlightPromotions = new Map<string, Promise<string | null>>();
-  private activeQueue: Array<{ url: string; priority: number; promote: boolean; generation: number }> = [];
+  private activeQueue: PriorityPrefetchJob[] = [];
   private activeWorkers = 0;
-  private readonly maxConcurrency = 2;
   private windowGeneration = 0;
   private activeAbortControllers = new Map<string, AbortController>();
+  private lastPlaybackBuckets = new Map<string, number>();
+
+  constructor(options: VideoCacheServiceOptions = {}) {
+    this.fragmentBlockBytes = Math.max(16 * 1024, options.fragmentBlockBytes ?? FRAGMENT_BLOCK_BYTES);
+    this.maxFragmentCacheBytes = Math.max(64 * 1024, options.maxFragmentCacheBytes ?? MAX_FRAGMENT_LRU_BYTES);
+    this.lookaheadFragments = Math.max(1, options.lookaheadFragments ?? SEQUENCE_LOOKAHEAD_FRAGMENTS);
+    this.maxConcurrency = Math.max(1, options.maxConcurrency ?? 2);
+  }
 
   /**
    * Synchronously returns a promoted `blob:` RAM ObjectURL if cached; otherwise returns the original URL.
@@ -135,13 +191,205 @@ class VideoCacheService {
   }
 
   /**
+   * Checks whether an aligned 4K byte-range fragment is resident in the LRU cache without mutating recency.
+   */
+  public hasFragment(url: string, blockIndex: number): boolean {
+    if (!url || blockIndex < 0) return false;
+    return this.fragmentLru.has(makeFragmentKey(url, blockIndex));
+  }
+
+  /**
+   * Retrieves a cached 4K video fragment and promotes it to MRU (Most Recently Used).
+   */
+  public getFragment(url: string, blockIndex: number): Uint8Array | null {
+    if (!url || blockIndex < 0) return null;
+    const key = makeFragmentKey(url, blockIndex);
+    const rec = this.fragmentLru.get(key);
+    if (!rec) return null;
+
+    // Promote to MRU tail
+    this.fragmentLru.delete(key);
+    rec.lastUsedAt = Date.now();
+    rec.hitCount += 1;
+    this.fragmentLru.set(key, rec);
+    this.fragmentCacheHits += 1;
+    return rec.bytes;
+  }
+
+  /**
+   * Inserts an aligned 4K video fragment into the byte-budgeted LRU cache,
+   * evicting Least Recently Used fragments until `fragmentCacheBytes <= maxFragmentCacheBytes`.
+   */
+  public putFragment(url: string, blockIndex: number, bytes: Uint8Array, totalBytes?: number | null): void {
+    if (!url || blockIndex < 0 || !bytes || bytes.byteLength === 0) return;
+    if (bytes.byteLength > this.maxFragmentCacheBytes) return;
+
+    if (totalBytes !== undefined && totalBytes !== null && totalBytes > 0) {
+      this.recordWarmedUrl(url, totalBytes);
+    }
+
+    const key = makeFragmentKey(url, blockIndex);
+    const existing = this.fragmentLru.get(key);
+    if (existing) {
+      this.fragmentCacheBytes = Math.max(0, this.fragmentCacheBytes - existing.sizeBytes);
+      this.fragmentLru.delete(key);
+    }
+
+    while (
+      this.fragmentCacheBytes + bytes.byteLength > this.maxFragmentCacheBytes &&
+      this.fragmentLru.size > 0
+    ) {
+      const oldestKey = this.fragmentLru.keys().next().value;
+      if (oldestKey === undefined) break;
+      const oldest = this.fragmentLru.get(oldestKey);
+      this.fragmentLru.delete(oldestKey);
+      if (oldest) {
+        this.fragmentCacheBytes = Math.max(0, this.fragmentCacheBytes - oldest.sizeBytes);
+        this.fragmentCacheEvictions += 1;
+      }
+    }
+
+    const record: FragmentBlockRecord = {
+      key,
+      url,
+      blockIndex,
+      startByte: blockIndex * this.fragmentBlockBytes,
+      bytes,
+      sizeBytes: bytes.byteLength,
+      lastUsedAt: Date.now(),
+      hitCount: 0
+    };
+    this.fragmentLru.set(key, record);
+    this.fragmentCacheBytes += bytes.byteLength;
+  }
+
+  /**
+   * Reads an arbitrary byte slice `[startByte, endByte]` purely from cached LRU fragments when fully resident.
+   */
+  public readCachedByteRange(url: string, startByte: number, endByte: number): Uint8Array | null {
+    if (!url || startByte < 0 || endByte < startByte) return null;
+    const firstBlock = Math.floor(startByte / this.fragmentBlockBytes);
+    const lastBlock = Math.floor(endByte / this.fragmentBlockBytes);
+    const chunks: Uint8Array[] = [];
+    let totalLen = 0;
+
+    for (let b = firstBlock; b <= lastBlock; b++) {
+      const blockBytes = this.getFragment(url, b);
+      if (!blockBytes) return null;
+      const blockBase = b * this.fragmentBlockBytes;
+      const sliceStart = Math.max(0, startByte - blockBase);
+      const sliceEnd = Math.min(blockBytes.byteLength, endByte - blockBase + 1);
+      if (sliceEnd <= sliceStart) return null;
+      const sub = blockBytes.subarray(sliceStart, sliceEnd);
+      chunks.push(sub);
+      totalLen += sub.byteLength;
+    }
+
+    if (chunks.length === 1) return chunks[0];
+    const merged = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return merged;
+  }
+
+  /**
+   * Fetches a single aligned 4K byte-range fragment (`Range: bytes=blockStart-blockEnd`) and caches it in LRU.
+   */
+  public fetchAndCacheFragment(
+    url: string,
+    blockIndex: number,
+    options: { signal?: AbortSignal } = {}
+  ): Promise<Uint8Array | null> {
+    if (!isCacheableHttpUrl(url) || blockIndex < 0 || typeof fetch !== 'function') {
+      return Promise.resolve(null);
+    }
+
+    const cached = this.getFragment(url, blockIndex);
+    if (cached) {
+      return Promise.resolve(cached);
+    }
+
+    const fragKey = makeFragmentKey(url, blockIndex);
+    const inflight = this.inFlightFragments.get(fragKey);
+    if (inflight) return inflight;
+
+    const knownTotal = this.warmedRanges.get(url)?.totalBytes ?? null;
+    const blockStart = blockIndex * this.fragmentBlockBytes;
+    const blockEnd =
+      knownTotal !== null && knownTotal > 0
+        ? Math.min(knownTotal - 1, blockStart + this.fragmentBlockBytes - 1)
+        : blockStart + this.fragmentBlockBytes - 1;
+
+    if (blockStart > blockEnd) {
+      return Promise.resolve(null);
+    }
+
+    const task = (async (): Promise<Uint8Array | null> => {
+      const controller = !options.signal && typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const signal = options.signal ?? controller?.signal;
+      if (controller) {
+        this.activeAbortControllers.set(fragKey, controller);
+      }
+
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: { Range: `bytes=${blockStart}-${blockEnd}` },
+          mode: 'cors',
+          credentials: 'omit',
+          signal
+        });
+
+        if (!res || (!res.ok && res.status !== 206)) return null;
+
+        const arrayBuf = await res.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuf);
+        if (bytes.byteLength === 0) return null;
+
+        const contentRangeTotal = parseContentRangeTotal(res.headers?.get?.('content-range') ?? null);
+        const contentLenHeader = Number(res.headers?.get?.('content-length') ?? 0);
+        const totalBytes =
+          contentRangeTotal ??
+          (res.status === 200 && Number.isFinite(contentLenHeader) && contentLenHeader > 0
+            ? contentLenHeader
+            : null);
+
+        if (res.status === 200 && blockIndex === 0 && bytes.byteLength > this.fragmentBlockBytes) {
+          // Server returned full file instead of 206: partition cleanly into aligned LRU fragments
+          const count = Math.ceil(bytes.byteLength / this.fragmentBlockBytes);
+          for (let b = 0; b < count; b++) {
+            const s = b * this.fragmentBlockBytes;
+            const e = Math.min(bytes.byteLength, s + this.fragmentBlockBytes);
+            this.putFragment(url, b, bytes.slice(s, e), bytes.byteLength);
+          }
+          return this.getFragment(url, 0);
+        }
+
+        this.putFragment(url, blockIndex, bytes, totalBytes);
+        return bytes;
+      } catch {
+        return null;
+      } finally {
+        this.activeAbortControllers.delete(fragKey);
+      }
+    })().finally(() => {
+      this.inFlightFragments.delete(fragKey);
+    });
+
+    this.inFlightFragments.set(fragKey, task);
+    return task;
+  }
+
+  /**
    * Pre-warms a single video URL using bounded HTTP Range requests (head 4MB + moov tail 1MB)
-   * so both local RAM block cache and Chromium HTTP cache are hot before playback/scrubbing.
+   * so both local fragment LRU, local RAM block cache, and Chromium HTTP cache are hot before playback.
    */
   public warmVideoUrl(url: string, options: { promoteSmallRemoteBlob?: boolean; force?: boolean } = {}): Promise<void> {
     if (!isCacheableHttpUrl(url)) return Promise.resolve();
     if (!options.force && this.warmedRanges.has(url)) {
-      // Refresh recency
       const existing = this.warmedRanges.get(url)!;
       this.warmedRanges.delete(url);
       existing.warmedAt = Date.now();
@@ -183,11 +431,12 @@ class VideoCacheService {
 
       if (!headRes || (!headRes.ok && headRes.status !== 206)) return;
 
-      // Consume response body so Chromium commits bytes to disk/memory cache cleanly
+      let receivedBytes: Uint8Array | null = null;
       let receivedLen = 0;
       try {
         const buf = await headRes.arrayBuffer();
-        receivedLen = buf.byteLength;
+        receivedBytes = new Uint8Array(buf);
+        receivedLen = receivedBytes.byteLength;
       } catch {
         // ignore abort/body consumption error
       }
@@ -204,6 +453,16 @@ class VideoCacheService {
 
       this.recordWarmedUrl(url, totalBytes);
 
+      // Populate aligned LRU fragments from head payload cleanly
+      if (receivedBytes && receivedBytes.byteLength > 0) {
+        const blockCount = Math.ceil(receivedBytes.byteLength / this.fragmentBlockBytes);
+        for (let b = 0; b < blockCount; b++) {
+          const s = b * this.fragmentBlockBytes;
+          const e = Math.min(receivedBytes.byteLength, s + this.fragmentBlockBytes);
+          this.putFragment(url, b, receivedBytes.slice(s, e), totalBytes);
+        }
+      }
+
       // Prefetch tail 1MB moov atom when file extends beyond initial 4MB head window
       if (totalBytes && totalBytes > HEAD_PREFETCH_BYTES + 4096) {
         const tailStart = Math.max(HEAD_PREFETCH_BYTES, totalBytes - TAIL_PREFETCH_BYTES);
@@ -218,7 +477,15 @@ class VideoCacheService {
               signal: controller?.signal
             });
             if (tailRes && (tailRes.ok || tailRes.status === 206)) {
-              await tailRes.arrayBuffer().catch(() => {});
+              const tailBuf = await tailRes.arrayBuffer().catch(() => null);
+              if (tailBuf && tailBuf.byteLength > 0 && tailStart % this.fragmentBlockBytes === 0) {
+                this.putFragment(
+                  url,
+                  Math.floor(tailStart / this.fragmentBlockBytes),
+                  new Uint8Array(tailBuf),
+                  totalBytes
+                );
+              }
             }
           } catch {
             // Non-fatal tail prefetch skip
@@ -280,7 +547,6 @@ class VideoCacheService {
         return null;
       }
       try {
-        // Optional HEAD/Range guard if file size unknown
         const known = this.warmedRanges.get(url)?.totalBytes ?? null;
         if (known !== null && known > MAX_SINGLE_RAM_BLOB_BYTES) {
           return null;
@@ -354,6 +620,116 @@ class VideoCacheService {
   }
 
   /**
+   * Prioritizes upcoming 4K byte-range fragments ahead of `currentTimeSec` in the active playback sequence,
+   * followed by upcoming storyboard shot URLs (`upcomingShotUrls`), guaranteeing buffer-free sequential playback.
+   */
+  public prefetchPlaybackSequence(
+    url: string,
+    currentTimeSec: number,
+    durationSec: number,
+    upcomingShotUrls: string[] = []
+  ): number[] {
+    if (!isCacheableHttpUrl(url)) return [];
+
+    const totalBytes = this.warmedRanges.get(url)?.totalBytes ?? null;
+    const queuedBlockIndices: number[] = [];
+
+    this.windowGeneration++;
+    const gen = this.windowGeneration;
+    this.activeQueue = [];
+
+    if (!totalBytes || totalBytes <= 0 || !Number.isFinite(durationSec) || durationSec <= 0) {
+      // File size not yet known: warm head + moov first at top priority
+      if (!this.warmedRanges.has(url)) {
+        this.activeQueue.push({
+          kind: 'shot',
+          url,
+          priority: 0,
+          promote: true,
+          generation: gen
+        });
+      }
+    } else {
+      const safeTime = Math.max(0, Math.min(durationSec, Number.isFinite(currentTimeSec) ? currentTimeSec : 0));
+      const estimatedByte = Math.floor((safeTime / durationSec) * totalBytes);
+      const startBlock = Math.max(0, Math.floor(estimatedByte / this.fragmentBlockBytes));
+      const totalBlocks = Math.ceil(totalBytes / this.fragmentBlockBytes);
+
+      const desiredKeys = new Set<string>();
+      for (let offset = 0; offset < this.lookaheadFragments; offset++) {
+        const blockIdx = startBlock + offset;
+        if (blockIdx >= totalBlocks) break;
+        const fragKey = makeFragmentKey(url, blockIdx);
+        desiredKeys.add(fragKey);
+
+        if (this.hasFragment(url, blockIdx)) {
+          // Refresh LRU recency for already-cached upcoming segments so they aren't evicted mid-playback
+          this.getFragment(url, blockIdx);
+        } else {
+          queuedBlockIndices.push(blockIdx);
+          this.activeQueue.push({
+            kind: 'fragment',
+            url,
+            blockIndex: blockIdx,
+            priority: offset,
+            promote: false,
+            generation: gen
+          });
+        }
+      }
+
+      // Abort stale in-flight fragment requests for other positions no longer ahead of playhead
+      for (const [inflightKey, controller] of this.activeAbortControllers.entries()) {
+        if (inflightKey.startsWith(`${url}#block=`) && !desiredKeys.has(inflightKey)) {
+          try {
+            controller.abort();
+          } catch {}
+          this.activeAbortControllers.delete(inflightKey);
+        }
+      }
+    }
+
+    // Queue upcoming shots in the storyboard playback sequence at lower priority than immediate active segments
+    upcomingShotUrls.forEach((nextUrl, idx) => {
+      if (!nextUrl || nextUrl === url || !isCacheableHttpUrl(nextUrl)) return;
+      this.activeQueue.push({
+        kind: 'shot',
+        url: nextUrl,
+        priority: 100 + idx,
+        promote: true,
+        generation: gen
+      });
+    });
+
+    this.drainQueue();
+    return queuedBlockIndices;
+  }
+
+  /**
+   * Lightweight playhead tracker invoked during playback/buffering.
+   * Quantizes position into 2s buckets so it triggers `prefetchPlaybackSequence` only when advancing into a new horizon.
+   */
+  public updatePlaybackPosition(
+    url: string,
+    currentTimeSec: number,
+    durationSec: number,
+    contiguousBufferedEndSec?: number,
+    upcomingShotUrls: string[] = []
+  ): void {
+    if (!isCacheableHttpUrl(url) || !Number.isFinite(durationSec) || durationSec <= 0) return;
+    const anchorSec = Math.max(
+      Number.isFinite(currentTimeSec) ? currentTimeSec : 0,
+      Number.isFinite(contiguousBufferedEndSec) ? (contiguousBufferedEndSec as number) : 0
+    );
+    const bucket = Math.floor(anchorSec / 2);
+    const prevBucket = this.lastPlaybackBuckets.get(url);
+    if (prevBucket === bucket) return;
+
+    this.lastPlaybackBuckets.set(url, bucket);
+    this.prefetchPlaybackSequence(url, anchorSec, durationSec, upcomingShotUrls);
+  }
+
+  /**
    * Lookahead shot-window prefetcher: warms active shot + neighbor shots `[0, +1, +2, +3, -1]`
    * in priority order under a strict concurrency cap of 2.
    */
@@ -395,17 +771,18 @@ class VideoCacheService {
     this.activeQueue = [];
 
     // Abort in-flight prefetches that are no longer inside the active window
-    for (const [inflightUrl, controller] of this.activeAbortControllers.entries()) {
-      if (!seenUrls.has(inflightUrl)) {
+    for (const [inflightKey, controller] of this.activeAbortControllers.entries()) {
+      const baseUrl = inflightKey.split('#block=')[0];
+      if (!seenUrls.has(baseUrl)) {
         try {
           controller.abort();
         } catch {}
-        this.activeAbortControllers.delete(inflightUrl);
+        this.activeAbortControllers.delete(inflightKey);
       }
     }
 
     targetUrls.forEach((url, priority) => {
-      this.activeQueue.push({ url, priority, promote, generation: gen });
+      this.activeQueue.push({ kind: 'shot', url, priority, promote, generation: gen });
     });
 
     if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller && targetUrls.length > 0) {
@@ -424,11 +801,20 @@ class VideoCacheService {
   }
 
   private drainQueue(): void {
+    if (this.activeQueue.length > 1) {
+      this.activeQueue.sort((a, b) => a.priority - b.priority);
+    }
     while (this.activeWorkers < this.maxConcurrency && this.activeQueue.length > 0) {
       const job = this.activeQueue.shift();
       if (!job || job.generation !== this.windowGeneration) continue;
       this.activeWorkers++;
-      void this.warmVideoUrl(job.url, { promoteSmallRemoteBlob: job.promote }).finally(() => {
+
+      const workPromise: Promise<unknown> =
+        job.kind === 'fragment' && job.blockIndex !== undefined
+          ? this.fetchAndCacheFragment(job.url, job.blockIndex)
+          : this.warmVideoUrl(job.url, { promoteSmallRemoteBlob: job.promote });
+
+      void workPromise.finally(() => {
         this.activeWorkers = Math.max(0, this.activeWorkers - 1);
         this.drainQueue();
       });
@@ -500,12 +886,22 @@ class VideoCacheService {
   public evictUrl(url: string): void {
     if (!url) return;
     this.warmedRanges.delete(url);
-    const controller = this.activeAbortControllers.get(url);
-    if (controller) {
-      try {
-        controller.abort();
-      } catch {}
-      this.activeAbortControllers.delete(url);
+    this.lastPlaybackBuckets.delete(url);
+
+    for (const [k, rec] of this.fragmentLru.entries()) {
+      if (rec.url === url) {
+        this.fragmentLru.delete(k);
+        this.fragmentCacheBytes = Math.max(0, this.fragmentCacheBytes - rec.sizeBytes);
+      }
+    }
+
+    for (const [key, controller] of this.activeAbortControllers.entries()) {
+      if (key === url || key.startsWith(`${url}#block=`)) {
+        try {
+          controller.abort();
+        } catch {}
+        this.activeAbortControllers.delete(key);
+      }
     }
 
     const blobRec = this.promotedBlobs.get(url);
@@ -541,7 +937,13 @@ class VideoCacheService {
     }
     this.activeAbortControllers.clear();
     this.warmedRanges.clear();
+    this.lastPlaybackBuckets.clear();
+    this.fragmentLru.clear();
+    this.fragmentCacheBytes = 0;
+    this.fragmentCacheHits = 0;
+    this.fragmentCacheEvictions = 0;
     this.inFlightWarmups.clear();
+    this.inFlightFragments.clear();
     this.inFlightPromotions.clear();
 
     for (const rec of this.promotedBlobs.values()) {
@@ -570,9 +972,17 @@ class VideoCacheService {
       promotedBlobCount: this.promotedBlobs.size,
       promotedBlobBytes: this.promotedBlobBytes,
       keyframeBitmapCount: this.keyframeBitmaps.size,
-      inFlightPrefetches: this.inFlightWarmups.size
+      inFlightPrefetches: this.inFlightWarmups.size + this.inFlightFragments.size,
+      fragmentCacheCount: this.fragmentLru.size,
+      fragmentCacheBytes: this.fragmentCacheBytes,
+      fragmentCacheHits: this.fragmentCacheHits,
+      fragmentCacheEvictions: this.fragmentCacheEvictions
     };
   }
+}
+
+export function createVideoCacheService(options?: VideoCacheServiceOptions): VideoCacheService {
+  return new VideoCacheService(options);
 }
 
 export const videoCacheService = new VideoCacheService();

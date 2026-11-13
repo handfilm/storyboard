@@ -10,6 +10,7 @@ import {
   LruByteBlockCache
 } from '../server/localVideoRangeServer';
 import {
+  createVideoCacheService,
   HEAD_PREFETCH_BYTES,
   MAX_KEYFRAME_BITMAPS,
   MAX_RAM_BLOB_CACHE_BYTES,
@@ -206,5 +207,84 @@ test('videoCacheService prefetches head+moov ranges, skips full-blob promotion o
     globalThis.fetch = originalFetch;
     URL.revokeObjectURL = originalRevoke;
     videoCacheService.clearAll();
+  }
+});
+
+test('VideoCacheService enforces 4K byte-range fragment LRU budget and prioritizes upcoming playback segments', async () => {
+  const originalFetch = globalThis.fetch;
+  const blockBytes = 64 * 1024;
+  const maxLruBytes = 192 * 1024; // Holds 3 x 64KB blocks max
+  const totalBytes = 512 * 1024; // 8 blocks (0..7)
+  const svc = createVideoCacheService({
+    fragmentBlockBytes: blockBytes,
+    maxFragmentCacheBytes: maxLruBytes,
+    lookaheadFragments: 3,
+    maxConcurrency: 1
+  });
+
+  const requested: Array<{ url: string; range: string | null }> = [];
+  const primaryUrl = 'https://cdn.example.com/4k_master.mp4';
+  const nextShotUrl = 'https://cdn.example.com/next_shot.mp4';
+
+  try {
+    // 1. Verify LRU insertion, recency promotion, and Least Recently Used eviction
+    const makeChunk = (fill: number) => new Uint8Array(blockBytes).fill(fill);
+    svc.putFragment(primaryUrl, 0, makeChunk(10), totalBytes);
+    svc.putFragment(primaryUrl, 1, makeChunk(11), totalBytes);
+    svc.putFragment(primaryUrl, 2, makeChunk(12), totalBytes);
+
+    // Access block 0 so block 1 becomes LRU victim
+    const hit0 = svc.getFragment(primaryUrl, 0);
+    assert.ok(hit0 && hit0[0] === 10);
+
+    // Cross-block range read works strictly from cached LRU fragments
+    const crossSlice = svc.readCachedByteRange(primaryUrl, blockBytes - 4, blockBytes + 3);
+    assert.ok(crossSlice && crossSlice.byteLength === 8);
+    assert.strictEqual(crossSlice[0], 10);
+    assert.strictEqual(crossSlice[4], 11);
+
+    // Re-touch block 0 right before inserting block 3 so block 2 (Wait: readCachedByteRange touched 0 then 1, making 2 LRU!)
+    svc.putFragment(primaryUrl, 3, makeChunk(13), totalBytes);
+    assert.strictEqual(svc.hasFragment(primaryUrl, 2), false); // Evicted LRU block 2
+    assert.strictEqual(svc.hasFragment(primaryUrl, 0), true);
+    assert.strictEqual(svc.hasFragment(primaryUrl, 1), true);
+    assert.strictEqual(svc.hasFragment(primaryUrl, 3), true);
+    assert.ok(svc.getStats().fragmentCacheBytes <= maxLruBytes);
+    assert.ok(svc.getStats().fragmentCacheEvictions >= 1);
+
+    // 2. Verify playback sequence prioritization fetches upcoming playhead segments BEFORE next shot URLs
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = (init?.headers || {}) as Record<string, string>;
+      const range = headers.Range || headers.range || null;
+      requested.push({ url, range });
+
+      return new Response(new Uint8Array(blockBytes).fill(77), {
+        status: 206,
+        headers: {
+          'Content-Range': `bytes 0-${blockBytes - 1}/${totalBytes}`,
+          'Content-Length': String(blockBytes)
+        }
+      });
+    }) as typeof fetch;
+
+    // Playhead at 20s / 40s (50%) -> byte 262144 -> block 4; upcoming lookahead = blocks [4, 5, 6]
+    const queuedBlocks = svc.prefetchPlaybackSequence(primaryUrl, 20, 40, [nextShotUrl]);
+    assert.deepStrictEqual(queuedBlocks, [4, 5, 6]);
+
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Verify primary upcoming blocks 4, 5, 6 were requested strictly ahead of nextShotUrl
+    assert.ok(requested.length >= 4);
+    assert.strictEqual(requested[0].url, primaryUrl);
+    assert.strictEqual(requested[0].range, `bytes=${4 * blockBytes}-${5 * blockBytes - 1}`);
+    assert.strictEqual(requested[1].url, primaryUrl);
+    assert.strictEqual(requested[1].range, `bytes=${5 * blockBytes}-${6 * blockBytes - 1}`);
+    assert.strictEqual(requested[2].url, primaryUrl);
+    assert.strictEqual(requested[2].range, `bytes=${6 * blockBytes}-${7 * blockBytes - 1}`);
+    assert.strictEqual(requested[3].url, nextShotUrl);
+  } finally {
+    globalThis.fetch = originalFetch;
+    svc.clearAll();
   }
 });

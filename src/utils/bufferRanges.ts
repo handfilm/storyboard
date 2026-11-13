@@ -13,9 +13,11 @@ export interface BufferedRangeSegment {
 
 export interface BufferedProgressSummary {
   segments: BufferedRangeSegment[];
+  currentTimePct: number;
   contiguousAheadSec: number;
   contiguousEndSec: number;
   contiguousEndPct: number;
+  aheadWidthPct: number;
   totalBufferedSec: number;
   totalBufferedPct: number;
 }
@@ -77,7 +79,7 @@ export function extractBufferedSegments(
 }
 
 /**
- * Computes contiguous ahead-of-playhead runway and total buffered coverage across all TimeRanges.
+ * Computes contiguous ahead-of-playhead runway relative to currentTime and total buffered coverage.
  */
 export function computeBufferedSummary(
   buffered: TimeRangesLike | null | undefined,
@@ -85,7 +87,10 @@ export function computeBufferedSummary(
   durationSec: number
 ): BufferedProgressSummary {
   const segments = extractBufferedSegments(buffered, durationSec);
-  const safeCur = Number.isFinite(currentTimeSec) && currentTimeSec >= 0 ? currentTimeSec : 0;
+  const safeDur = Number.isFinite(durationSec) && durationSec > 0 ? durationSec : 0;
+  const safeCur = Number.isFinite(currentTimeSec) && currentTimeSec >= 0
+    ? (safeDur > 0 ? Math.min(safeDur, currentTimeSec) : currentTimeSec)
+    : 0;
 
   let totalBufferedSec = 0;
   let contiguousEndSec = safeCur;
@@ -98,15 +103,18 @@ export function computeBufferedSummary(
   }
 
   const contiguousAheadSec = Math.max(0, contiguousEndSec - safeCur);
-  const safeDur = Number.isFinite(durationSec) && durationSec > 0 ? durationSec : 0;
-  const contiguousEndPct = safeDur > 0 ? Math.min(100, Math.max(0, (contiguousEndSec / safeDur) * 100)) : 0;
+  const currentTimePct = safeDur > 0 ? Math.min(100, Math.max(0, (safeCur / safeDur) * 100)) : 0;
+  const contiguousEndPct = safeDur > 0 ? Math.min(100, Math.max(currentTimePct, (contiguousEndSec / safeDur) * 100)) : 0;
+  const aheadWidthPct = Math.max(0, contiguousEndPct - currentTimePct);
   const totalBufferedPct = safeDur > 0 ? Math.min(100, Math.max(0, (totalBufferedSec / safeDur) * 100)) : 0;
 
   return {
     segments,
+    currentTimePct,
     contiguousAheadSec,
     contiguousEndSec,
     contiguousEndPct,
+    aheadWidthPct,
     totalBufferedSec,
     totalBufferedPct
   };

@@ -183,6 +183,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const activeFrameRef = useRef(activeFrame);
   activeFrameRef.current = activeFrame;
   const wasPlayingBeforeScrubRef = useRef(false);
+  const rawMediaUrlRef = useRef(rawResolvedMediaUrl);
+  rawMediaUrlRef.current = rawResolvedMediaUrl;
+  const rawNextMediaUrlRef = useRef(rawNextMediaUrl);
+  rawNextMediaUrlRef.current = rawNextMediaUrl;
   durationRef.current = duration;
 
   const isVideo = activeVaultEntry
@@ -294,7 +298,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     showControlsTemporarily();
   }, [showControlsTemporarily, triggerBeacon]);
 
-  // Direct DOM sync for exact multi-segment `buffered` TimeRanges (works paused, seeking, & playing)
+  // Direct DOM sync for exact multi-segment `buffered` TimeRanges vs `currentTime` (works paused, seeking, stalling, & playing)
   const syncBufferedRangesFromVideo = useCallback(
     (curSecOverride?: number, durSecOverride?: number) => {
       const vid = videoRef.current;
@@ -308,8 +312,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       bufferedSegmentsRef.current = summary.segments;
       bufferedTimeRef.current = summary.contiguousEndSec;
 
+      // Render contiguous ahead-of-playhead cached runway starting strictly at currentTime (never over unbuffered history)
       if (bufferedBarDomRef.current) {
-        bufferedBarDomRef.current.style.width = `${summary.contiguousEndPct.toFixed(3)}%`;
+        bufferedBarDomRef.current.style.left = `${summary.currentTimePct.toFixed(3)}%`;
+        bufferedBarDomRef.current.style.width = `${summary.aheadWidthPct.toFixed(3)}%`;
       }
 
       const segContainer = bufferedSegmentsDomRef.current;
@@ -321,7 +327,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         }
         while (segContainer.children.length < segCount) {
           const el = document.createElement('div');
-          el.className = 'absolute top-0 bottom-0 bg-white/35 border-r border-white/25 transition-[left,width] duration-75';
+          el.className = 'absolute top-0 bottom-0 bg-cyan-300/40 border-r border-cyan-200/40 transition-[left,width] duration-75';
           segContainer.appendChild(el);
         }
         for (let i = 0; i < segCount; i++) {
@@ -330,6 +336,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           child.style.left = `${seg.leftPct.toFixed(3)}%`;
           child.style.width = `${seg.widthPct.toFixed(3)}%`;
         }
+        segContainer.dataset.bufferedSegments = String(segCount);
       }
 
       if (bufferReadoutDomRef.current) {
@@ -341,6 +348,18 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
               ? `BUF ${pctInt}% · +${summary.contiguousAheadSec.toFixed(1)}s`
               : `BUF ${pctInt}%`;
         bufferReadoutDomRef.current.textContent = aheadLabel;
+      }
+
+      // Feed upcoming 4K byte-range prefetcher when playback/buffering advances (internally bucket-throttled)
+      if (rawMediaUrlRef.current && dur > 0) {
+        const nextQueue = rawNextMediaUrlRef.current ? [rawNextMediaUrlRef.current] : [];
+        videoCacheService.updatePlaybackPosition(
+          rawMediaUrlRef.current,
+          cur,
+          dur,
+          summary.contiguousEndSec,
+          nextQueue
+        );
       }
 
       return summary;
@@ -377,8 +396,9 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           bufferReadoutDomRef.current.textContent = 'BUF 0%';
         }
         if (bufferedBarDomRef.current) {
-          const bufPct = bufSec !== undefined && dur > 0 ? Math.min(100, Math.max(pct, (bufSec / dur) * 100)) : 0;
-          bufferedBarDomRef.current.style.width = `${bufPct.toFixed(3)}%`;
+          const bufPct = bufSec !== undefined && dur > 0 ? Math.min(100, Math.max(pct, (bufSec / dur) * 100)) : pct;
+          bufferedBarDomRef.current.style.left = `${pct.toFixed(3)}%`;
+          bufferedBarDomRef.current.style.width = `${Math.max(0, bufPct - pct).toFixed(3)}%`;
         }
       }
     },
@@ -607,27 +627,19 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
 
     const tick = () => {
       const vid = videoRef.current;
-      if (vid && !vid.seeking && !vid.paused && vid.readyState >= 2) {
+      if (vid && !vid.seeking && vid.readyState >= 1) {
         const cur = vid.currentTime;
         const dur = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : durationRef.current;
         if (Math.abs(dur - durationRef.current) > 0.05) {
           durationRef.current = dur;
         }
 
-        // Buffer ranges
-        let bufEnd = bufferedTimeRef.current;
-        const buf = vid.buffered;
-        if (buf && buf.length > 0) {
-          for (let i = 0; i < buf.length; i++) {
-            if (buf.start(i) <= cur && cur <= buf.end(i)) {
-              bufEnd = buf.end(i);
-              bufferedTimeRef.current = bufEnd;
-              break;
-            }
-          }
+        if (!vid.paused && vid.readyState >= 2) {
+          flushDirectPlayerDom(cur, dur);
+        } else {
+          // Even during brief waiting/stalls, keep cached buffer progress live against currentTime
+          syncBufferedRangesFromVideo(cur, dur);
         }
-
-        flushDirectPlayerDom(cur, dur, bufEnd);
       }
       rafId = requestAnimationFrame(tick);
     };
@@ -636,7 +648,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [isOpen, isPlaying, isVideo, flushDirectPlayerDom]);
+  }, [isOpen, isPlaying, isVideo, flushDirectPlayerDom, syncBufferedRangesFromVideo]);
 
   // Discrete timeUpdate handler: enforces A-B / subclip boundaries cleanly & syncs paused clock
   const handleTimeUpdate = () => {
@@ -1027,6 +1039,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
                 onProgress={() => syncBufferedRangesFromVideo()}
                 onLoadedData={() => syncBufferedRangesFromVideo()}
                 onCanPlay={() => syncBufferedRangesFromVideo()}
+                onCanPlayThrough={() => syncBufferedRangesFromVideo()}
                 onWaiting={() => syncBufferedRangesFromVideo()}
                 onSeeking={() => syncBufferedRangesFromVideo()}
                 onSeeked={() => syncBufferedRangesFromVideo()}
@@ -1144,35 +1157,44 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           onTouchEnd={() => setIsDraggingScrubber(false)}
           className="relative w-full h-5 flex items-center cursor-pointer group py-1"
         >
-          {/* Hover Time Tooltip + Buffer Readiness Indicator */}
+          {/* Hover Time Tooltip + Cached vs Unbuffered Status */}
           {hoverTime !== null && (
             <div 
               style={{ left: `${hoverPosition}%` }}
               className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-black/95 border border-[#D4AF37] text-[10px] font-mono text-[#FFE066] font-bold pointer-events-none z-30 whitespace-nowrap shadow-lg flex items-center gap-1.5"
             >
               <span>{formatTime(hoverTime)}</span>
-              {isVideo && isTimeInBufferedSegments(bufferedSegmentsRef.current, hoverTime) && (
-                <span className="text-[9px] text-emerald-300">● READY</span>
+              {isVideo && (
+                isTimeInBufferedSegments(bufferedSegmentsRef.current, hoverTime)
+                  ? <span className="text-[9px] text-emerald-300">● CACHED</span>
+                  : <span className="text-[9px] text-white/45">○ UNBUFFERED</span>
               )}
             </div>
           )}
 
-          {/* Scrubber Background Bar */}
+          {/* Scrubber Background Bar (Dark base = Unbuffered Video Region) */}
           <div
             aria-label="Timeline and buffer progress bar"
             className="w-full h-1.5 bg-white/15 rounded-full overflow-hidden relative group-hover:h-2 transition-all"
           >
-            {/* Exact Multi-Segment Buffered TimeRanges Layer */}
+            {/* Exact Multi-Segment Cached TimeRanges Layer (Cached vs Unbuffered contrast) */}
             <div
               ref={bufferedSegmentsDomRef}
-              aria-label="Buffered video TimeRanges"
-              className="absolute inset-0 pointer-events-none"
+              aria-label="Cached video TimeRanges"
+              className="absolute inset-0 z-[1] pointer-events-none"
             />
-            {/* Contiguous Ahead-of-Playhead Buffer Runway */}
+            {/* Playhead Progress Indicator [0 -> currentTime] */}
+            <div 
+              ref={progressBarDomRef}
+              style={{ width: `${progressPct}%` }}
+              className="absolute left-0 top-0 bottom-0 z-[2] bg-gradient-to-r from-[#D4AF37]/80 to-[#FFE066]/90 pointer-events-none"
+            />
+            {/* Contiguous Ahead-of-Playhead Cached Runway [currentTime -> contiguousEnd] */}
             <div 
               ref={bufferedBarDomRef}
-              style={{ width: `${bufferPct}%` }}
-              className="absolute left-0 top-0 bottom-0 bg-emerald-400/35 pointer-events-none"
+              aria-label="Ahead-of-playhead cached buffer runway"
+              style={{ left: `${progressPct}%`, width: `${Math.max(0, bufferPct - progressPct)}%` }}
+              className="absolute top-0 bottom-0 z-[3] bg-emerald-400/75 pointer-events-none"
             />
             {/* A-B Loop Highlight */}
             {abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a && duration > 0 && (
@@ -1181,15 +1203,9 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
                   left: `${(abLoop.a / duration) * 100}%`,
                   width: `${((abLoop.b - abLoop.a) / duration) * 100}%`
                 }}
-                className="absolute top-0 bottom-0 bg-cyan-400/50 pointer-events-none"
+                className="absolute top-0 bottom-0 z-[4] bg-cyan-400/50 pointer-events-none"
               />
             )}
-            {/* Playhead progress */}
-            <div 
-              ref={progressBarDomRef}
-              style={{ width: `${progressPct}%` }}
-              className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#D4AF37] to-[#FFE066] pointer-events-none"
-            />
           </div>
 
           {/* Scrub Knob */}

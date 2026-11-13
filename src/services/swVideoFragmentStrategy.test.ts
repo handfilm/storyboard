@@ -120,11 +120,19 @@ describe('bufferRanges TimeRanges utilities', () => {
     ]);
 
     const summary = computeBufferedSummary(ranges, 4, 40);
+    assert.equal(summary.currentTimePct, 10);
     assert.equal(summary.contiguousEndSec, 12);
     assert.equal(summary.contiguousAheadSec, 8);
     assert.equal(summary.contiguousEndPct, 30);
+    assert.equal(summary.aheadWidthPct, 20);
     assert.equal(summary.totalBufferedSec, 24);
     assert.equal(summary.totalBufferedPct, 60);
+
+    // Seeking into discontinuous segment [24..36] tracks runway from playhead (28 -> 36) without painting [0..28]
+    const jumped = computeBufferedSummary(ranges, 28, 40);
+    assert.equal(jumped.currentTimePct, 70);
+    assert.equal(jumped.contiguousEndPct, 90);
+    assert.equal(jumped.aheadWidthPct, 20);
   });
 });
 

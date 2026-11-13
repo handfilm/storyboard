@@ -47,6 +47,7 @@ import { useStudioStore } from '../../core/store';
 import { getShotMediaKey, resolveShotMediaEntry } from '../../services/handfilmMediaVault';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isVideoSourceUrl } from '../../services/thumbnailEngine';
+import { videoCacheService } from '../../services/videoCacheService';
 import {
   Play,
   Pause,
@@ -188,10 +189,19 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     () => resolveShotMediaEntry(shotMediaMap, currentSlide as any, undefined, safeIndex),
     [shotMediaMap, currentSlide, safeIndex]
   );
-  const monitorMediaUrl = currentVaultEntry?.url || currentSlide?.remoteUrl || '';
+  const rawMonitorMediaUrl = currentVaultEntry?.url || currentSlide?.remoteUrl || '';
+  const monitorMediaUrl = rawMonitorMediaUrl
+    ? (videoCacheService.getFastUrlSync(rawMonitorMediaUrl) || rawMonitorMediaUrl)
+    : '';
   const isMonitorVideo = currentVaultEntry
     ? currentVaultEntry.type === 'video'
-    : isVideoSourceUrl(monitorMediaUrl, { isVideo: Boolean(currentSlide?.isVideo) });
+    : isVideoSourceUrl(rawMonitorMediaUrl || monitorMediaUrl, { isVideo: Boolean(currentSlide?.isVideo) });
+
+  useEffect(() => {
+    if (activeSlides.length > 0) {
+      videoCacheService.prefetchShotWindow(activeSlides as any, safeIndex, shotMediaMap);
+    }
+  }, [activeSlides, safeIndex, shotMediaMap]);
 
   const showToastFeedback = useCallback((msg: string) => {
     setNleFeedback(msg);
@@ -790,10 +800,11 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                   <video
                     ref={monitorVideoRef}
                     src={monitorMediaUrl}
+                    crossOrigin="anonymous"
                     className="w-full h-full object-cover"
                     muted
                     playsInline
-                    preload="metadata"
+                    preload="auto"
                     style={{
                       transform: 'translateZ(0)',
                       backfaceVisibility: 'hidden'

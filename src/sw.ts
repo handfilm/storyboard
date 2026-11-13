@@ -157,7 +157,14 @@ self.addEventListener('message', (event) => {
       (async () => {
         const cache = await caches.open(VAULT_CACHE_NAME);
         for (const mediaUrl of payload.urls!) {
-          if (!mediaUrl || mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:')) continue;
+          if (
+            !mediaUrl ||
+            mediaUrl.startsWith('blob:') ||
+            mediaUrl.startsWith('data:') ||
+            mediaUrl.includes('/api/local-video')
+          ) {
+            continue;
+          }
           try {
             const match = await cache.match(mediaUrl, { ignoreSearch: true });
             if (!match) {

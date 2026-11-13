@@ -29,6 +29,7 @@ import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsM
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { useStudioStore } from '../core/store';
 import { getShotMediaKey } from '../services/handfilmMediaVault';
+import { videoCacheService } from '../services/videoCacheService';
 import { StageMetadataFxBar } from './stage/StageMetadataFxBar';
 import { StageCaptionStrip } from './stage/StageCaptionStrip';
 import { StageTextOverlay } from './StageTextOverlay';
@@ -176,13 +177,20 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   // Per-shot isolated media source resolution
   const activeShotKey = getShotMediaKey(currentSlide as any, currentIndex);
   const vaultEntry = shotMediaMap?.[activeShotKey] ?? null;
-  const mediaUrl = vaultEntry?.url || currentSlide?.remoteUrl || (currentSlide as any)?.imageUrl || '';
+  const rawMediaUrl = vaultEntry?.url || currentSlide?.remoteUrl || (currentSlide as any)?.imageUrl || '';
+  const mediaUrl = rawMediaUrl ? (videoCacheService.getFastUrlSync(rawMediaUrl) || rawMediaUrl) : '';
   const isVideo = vaultEntry
     ? vaultEntry.type === 'video'
     : Boolean(
         currentSlide?.isVideo ||
-        (mediaUrl && (mediaUrl.startsWith('data:video') || /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(mediaUrl)))
+        (rawMediaUrl && (rawMediaUrl.startsWith('data:video') || /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(rawMediaUrl)))
       );
+
+  useEffect(() => {
+    if (rawMediaUrl && isVideo) {
+      void videoCacheService.warmVideoUrl(rawMediaUrl, { promoteSmallRemoteBlob: true });
+    }
+  }, [rawMediaUrl, isVideo]);
 
   const displayBangla = currentSlide?.titleBn || 'আলোর স্মৃতি';
   const displayEnglish = currentSlide?.titleEn || `SHOT ${String(currentIndex + 1).padStart(3, '0')} // MASTER REEL`;

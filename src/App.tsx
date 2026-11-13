@@ -68,6 +68,7 @@ import {
   deleteShotMedia,
   getShotMediaKey
 } from './services/handfilmMediaVault';
+import { videoCacheService } from './services/videoCacheService';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   ensureVideoThumbnailUrl,
@@ -1076,14 +1077,18 @@ export default function App() {
     };
   }, [applyProjectV1ToState]);
 
-  // Precache Storyboard shot media in Service Worker L2 cache for instant playback & scrubbing
+  // Precache Storyboard shot media in Service Worker L2 cache & warm active+neighbor video ranges
   useEffect(() => {
     if (project.frames && project.frames.length > 0) {
       serviceWorkerManager.precacheStoryboardFrames(project.frames).catch(err => {
         console.warn('[App] SW precache non-fatal error:', err);
       });
+      try {
+        const currentShotMap = useStudioStore.getState().shotMediaMap;
+        videoCacheService.prefetchShotWindow(project.frames, currentIndex, currentShotMap);
+      } catch {}
     }
-  }, [project.frames]);
+  }, [project.frames, currentIndex]);
 
   // Persist Active Session to LocalStorage for zero-loss reload
   useEffect(() => {
@@ -2185,8 +2190,9 @@ export default function App() {
         isVideo: isVid
       });
 
-      // Extract lightweight 160x90 JPEG poster once in background so filmstrip stays 100% static <img>
+      // Extract lightweight 160x90 JPEG poster once in background + pre-warm head/tail range in RAM block cache
       if (isVid) {
+        void videoCacheService.warmVideoUrl(vaultEntry.url);
         void ensureVideoThumbnailUrl(
           [targetFrame?.id, `shot_${targetIndex}`, targetIndex],
           vaultEntry.url,
@@ -2406,8 +2412,11 @@ export default function App() {
     deleteShotMedia(shotKey).catch(() => {});
     useStudioStore.getState().removeShotMediaEntry(shotKey);
 
-    if (current.imageUrl && current.imageUrl.startsWith('blob:')) {
-      studioDraftDb.revokeTrackedUrl(current.imageUrl);
+    if (current.imageUrl) {
+      videoCacheService.evictUrl(current.imageUrl);
+      if (current.imageUrl.startsWith('blob:')) {
+        studioDraftDb.revokeTrackedUrl(current.imageUrl);
+      }
     }
     setProject(prev => {
       const nextFrames = [...prev.frames];

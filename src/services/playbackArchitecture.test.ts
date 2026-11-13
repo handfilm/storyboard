@@ -219,8 +219,8 @@ test('single hardware video decoder & GPU layer promotion invariants hold across
     path.resolve(process.cwd(), 'src/components/stage/TactileStage.tsx'),
     'utf8'
   );
-  assert.ok(tactileStage.includes("slot.role === 'active' || slot.role === 'next'"));
-  assert.ok(tactileStage.includes("preload={isSlotActive ? 'auto' : 'metadata'}"));
+  assert.ok(tactileStage.includes("const shouldPreloadAuto = slot.role === 'active' || slot.role === 'next'"));
+  assert.ok(tactileStage.includes("preload={shouldPreloadAuto ? 'auto' : 'metadata'}"));
   assert.ok(tactileStage.includes('crossOrigin="anonymous"'));
   assert.ok(tactileStage.includes('playsInline'));
   assert.ok(tactileStage.includes("transform: 'translateZ(0)'"));

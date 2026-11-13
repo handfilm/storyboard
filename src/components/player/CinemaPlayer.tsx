@@ -24,6 +24,7 @@ import { keyScopeManager } from '../../core/keyScopeManager';
 import { useStudioStore } from '../../core/store';
 import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
 import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
+import { videoCacheService } from '../../services/videoCacheService';
 import {
   isVideoMediaUrl,
   syncVideoCurrentTimeWithFastSeek,
@@ -96,12 +97,39 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const activeFrame: AnthologyFrame = frames[currentIndex] || frames[0];
   const activeVaultEntry = resolveShotMediaEntry(shotMediaMap, activeFrame, undefined, currentIndex);
-  const resolvedMediaUrl =
+  const rawResolvedMediaUrl =
     activeVaultEntry?.url ||
     activeFrame?.videoSrc ||
     activeFrame?.blobUrl ||
     activeFrame?.imageUrl ||
     '';
+  const resolvedMediaUrl = rawResolvedMediaUrl
+    ? (videoCacheService.getFastUrlSync(rawResolvedMediaUrl) || rawResolvedMediaUrl)
+    : '';
+
+  const nextShotIdx = frames.length > 1 ? (currentIndex + 1) % frames.length : -1;
+  const nextFrameObj = nextShotIdx >= 0 ? frames[nextShotIdx] : undefined;
+  const nextVaultEntry = nextFrameObj
+    ? resolveShotMediaEntry(shotMediaMap, nextFrameObj, undefined, nextShotIdx)
+    : undefined;
+  const rawNextMediaUrl =
+    nextVaultEntry?.url ||
+    nextFrameObj?.videoSrc ||
+    nextFrameObj?.blobUrl ||
+    nextFrameObj?.imageUrl ||
+    '';
+  const nextIsVideo = nextVaultEntry
+    ? nextVaultEntry.type === 'video'
+    : isVideoMediaUrl(rawNextMediaUrl, Boolean(nextFrameObj?.isVideo || nextFrameObj?.videoSrc), (nextFrameObj as any)?.mimeType);
+  const nextPrebufferUrl = isOpen && nextIsVideo && rawNextMediaUrl && rawNextMediaUrl !== resolvedMediaUrl
+    ? (videoCacheService.getFastUrlSync(rawNextMediaUrl) || rawNextMediaUrl)
+    : '';
+
+  useEffect(() => {
+    if (isOpen && frames.length > 0) {
+      videoCacheService.prefetchShotWindow(frames, currentIndex, shotMediaMap);
+    }
+  }, [isOpen, frames, currentIndex, shotMediaMap]);
 
   // Playback States (no 60fps currentTime React state re-renders)
   const [isPlaying, setIsPlaying] = useState(true);
@@ -768,6 +796,16 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         !isHudVisible ? 'cursor-none' : 'cursor-default'
       }`}
     >
+      {nextPrebufferUrl && (
+        <video
+          src={nextPrebufferUrl}
+          crossOrigin="anonymous"
+          className="hidden"
+          preload="auto"
+          muted
+          playsInline
+        />
+      )}
       {/* ========================================================================= */}
       {/* 1. VISIBLE FALLBACK / HONESTY WARNING BANNERS                             */}
       {/* ========================================================================= */}

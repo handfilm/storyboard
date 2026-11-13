@@ -115,7 +115,15 @@ class ServiceWorkerManager {
   public async precacheMediaUrls(urls: string[]): Promise<void> {
     if (!urls || urls.length === 0) return;
     const cleanUrls = Array.from(
-      new Set(urls.filter((u) => u && !u.startsWith('blob:') && !u.startsWith('data:')))
+      new Set(
+        urls.filter(
+          (u) =>
+            u &&
+            !u.startsWith('blob:') &&
+            !u.startsWith('data:') &&
+            !u.includes('/api/local-video')
+        )
+      )
     );
     if (cleanUrls.length === 0) return;
 
@@ -147,7 +155,7 @@ class ServiceWorkerManager {
    * Caches a single shot's media asset
    */
   public async cacheShotMedia(url: string): Promise<void> {
-    if (!url || url.startsWith('blob:') || url.startsWith('data:')) return;
+    if (!url || url.startsWith('blob:') || url.startsWith('data:') || url.includes('/api/local-video')) return;
     await this.precacheMediaUrls([url]);
   }
 

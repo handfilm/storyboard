@@ -88,6 +88,7 @@ import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../d
 import { formatFullSMPTETimecode } from '../../types/storyboard';
 import { playbackClock, syncVideoCurrentTimeWithFastSeek, type VlcLoopMode, type VlcAbLoop } from '../../utils/playbackClock';
 import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
+import { videoCacheService } from '../../services/videoCacheService';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -216,6 +217,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [cachedPosterUrl, setCachedPosterUrl] = useState<string | null>(null);
+  const [stillPlateRevision, setStillPlateRevision] = useState<number>(0);
   const [localFullscreen, setLocalFullscreen] = useState(false);
   const effectiveFullscreen = isBorderlessFullscreen ?? localFullscreen;
   const hideFullscreenStageBars = Boolean(effectiveFullscreen && !isCursorAwake);
@@ -708,23 +710,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const activeShotKey = getShotMediaKey(frame, currentIndex);
   const vaultEntry = shotMediaMap?.[activeShotKey] ?? null;
 
-  // Resolve strict per-shot media streams without leaking across unassigned shots
+  // Resolve strict per-shot media streams without leaking or flashing across shot transitions
   useEffect(() => {
     let isCancelled = false;
 
     const initialPoster = thumbnailMemoryCache.get(String(frame?.id)) || frame?.thumbnailUrl || null;
     setCachedPosterUrl(initialPoster);
-    setSourceUrl(null);
-    setProxyUrl(null);
 
     const resolvedDirectUrl = vaultEntry?.url || (frame?.imageUrl ? frame.imageUrl : null);
 
     if (resolvedDirectUrl) {
+      const fastUrl = videoCacheService.getFastUrlSync(resolvedDirectUrl) || resolvedDirectUrl;
       if (!isCancelled) {
-        setSourceUrl(resolvedDirectUrl);
-        setProxyUrl(resolvedDirectUrl);
+        setSourceUrl(fastUrl);
+        setProxyUrl(fastUrl);
       }
     } else if (frame) {
+      setSourceUrl(null);
+      setProxyUrl(null);
       const resolveFromLegacySlot = async () => {
         try {
           const slot = await studioDraftDb.getTimelineSlot(currentIndex);
@@ -735,12 +738,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                 setCachedPosterUrl(vaultItem.thumbnailUrl);
                 thumbnailMemoryCache.set(slot.mediaId, vaultItem.thumbnailUrl);
               }
-              const rawUrl = URL.createObjectURL(vaultItem.blob);
+              const rawUrl = studioDraftDb.getActiveMediaUrl(vaultItem.id, vaultItem.blob);
               setSourceUrl(rawUrl);
 
               const proxy = await studioDraftDb.getMediaProxy(slot.mediaId);
               if (proxy && !isCancelled) {
-                const pUrl = URL.createObjectURL(proxy.blob);
+                const pUrl = studioDraftDb.getActiveMediaUrl(`${vaultItem.id}_proxy`, proxy.blob);
                 setProxyUrl(pUrl);
               } else if (!isCancelled) {
                 setProxyUrl(rawUrl);
@@ -752,12 +755,21 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }
       };
       void resolveFromLegacySlot();
+    } else {
+      setSourceUrl(null);
+      setProxyUrl(null);
     }
 
     return () => {
       isCancelled = true;
     };
   }, [currentIndex, frame?.imageUrl, frame?.thumbnailUrl, frame?.id, vaultEntry?.url]);
+
+  // Lookahead prefetch active + neighbor shots (`[0, +1, +2, +3, -1]`) for VLC-grade instant seeking & transitions
+  useEffect(() => {
+    if (!frames || frames.length === 0) return;
+    videoCacheService.prefetchShotWindow(frames, currentIndex, shotMediaMap);
+  }, [currentIndex, frames, shotMediaMap]);
 
   // 3-Slot Pre-Warmed Video Pool descriptors (`prevShot`, `activeShot`, `nextShot`)
   const poolSlots = useMemo(() => {
@@ -767,12 +779,13 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       const shotKey = getShotMediaKey(f, desc.shotIdx);
       const entry = resolveShotMediaEntry(shotMediaMap, f, undefined, desc.shotIdx);
       const rawUrl = entry?.url || (f?.imageUrl ? f.imageUrl : '') || (desc.role === 'active' ? (sourceUrl || '') : '');
-      const url = rawUrl && !isSvgPlaceholderUrl(rawUrl) ? rawUrl : '';
+      const cleanRawUrl = rawUrl && !isSvgPlaceholderUrl(rawUrl) ? rawUrl : '';
+      const url = cleanRawUrl ? (videoCacheService.getFastUrlSync(cleanRawUrl) || cleanRawUrl) : '';
       const isVid = entry
         ? entry.type === 'video'
-        : isVideoSourceUrl(url, { isVideo: f?.isVideo, mimeType: (f as any)?.mimeType });
+        : isVideoSourceUrl(cleanRawUrl || url, { isVideo: f?.isVideo, mimeType: (f as any)?.mimeType });
       const poster =
-        getCachedThumbnailUrl([f?.id, `shot_${desc.shotIdx}`, desc.shotIdx, url]) ||
+        getCachedThumbnailUrl([f?.id, `shot_${desc.shotIdx}`, desc.shotIdx, cleanRawUrl, url]) ||
         (f?.thumbnailUrl && !isSvgPlaceholderUrl(f.thumbnailUrl) && !isVideoSourceUrl(f.thumbnailUrl) ? f.thumbnailUrl : '') ||
         (desc.role === 'active' && cachedPosterUrl ? cachedPosterUrl : '');
       const slotLut = getLutFilterCSS(f?.lutFilter, f?.adjustments);
@@ -828,10 +841,13 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     };
   }, []);
 
-  // Determine active media URL strictly for activeShot.id
-  const activeMediaUrl = (isScrubbing && proxyUrl)
+  // Determine active media URL strictly for activeShot.id (using promoted RAM blob when available)
+  const rawActiveMediaUrl = (isScrubbing && proxyUrl)
     ? proxyUrl
     : (vaultEntry?.url || sourceUrl || (frame?.imageUrl ? frame.imageUrl : null));
+  const activeMediaUrl = rawActiveMediaUrl
+    ? (videoCacheService.getFastUrlSync(rawActiveMediaUrl) || rawActiveMediaUrl)
+    : null;
 
   const isVideoMedia = vaultEntry
     ? vaultEntry.type === 'video'
@@ -1062,6 +1078,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     if (cachedPosterUrl) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      img.onload = () => setStillPlateRevision((r) => r + 1);
       img.src = cachedPosterUrl;
       cachedPosterImgRef.current = img;
     } else {
@@ -1077,13 +1094,15 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       img.src = activeMediaUrl;
       img.onload = () => {
         imageElementRef.current = img;
+        setStillPlateRevision((r) => r + 1);
       };
     } else {
       imageElementRef.current = null;
     }
   }, [activeMediaUrl, isVideoMedia]);
 
-  // Canvas Renderer: STRICTLY for non-video still plates & procedural cinema backdrops (Zero <video> drawImage / createImageBitmap)
+  // Canvas Renderer: STRICTLY for non-video still plates & procedural cinema backdrops
+  // Renders on-demand when paused on a static still plate so GPU decode budget stays free for video!
   useEffect(() => {
     if (activeMediaUrl && isVideoMedia) {
       const canvas = canvasRef.current;
@@ -1094,7 +1113,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       return;
     }
 
-    let animId: number;
+    let animId: number | null = null;
+    const isAnimatedBackdrop = !activeMediaUrl && !cachedPosterUrl;
 
     const drawCover = (ctx: CanvasRenderingContext2D, source: CanvasImageSource, targetW: number, targetH: number) => {
       let sw = 1920;
@@ -1126,7 +1146,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       ctx.drawImage(source, dx, dy, dw, dh);
     };
 
-    const render = () => {
+    const drawFrame = () => {
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext('2d', { alpha: true });
@@ -1189,13 +1209,23 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           }
         }
       }
-
-      animId = requestAnimationFrame(render);
     };
 
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
-  }, [activeMediaUrl, isVideoMedia, cachedPosterUrl, frame?.lutFilter, frame?.adjustments]);
+    const renderLoop = () => {
+      drawFrame();
+      animId = requestAnimationFrame(renderLoop);
+    };
+
+    if (isAutoplay || isAnimatedBackdrop) {
+      animId = requestAnimationFrame(renderLoop);
+    } else {
+      drawFrame();
+    }
+
+    return () => {
+      if (animId !== null) cancelAnimationFrame(animId);
+    };
+  }, [activeMediaUrl, isVideoMedia, cachedPosterUrl, frame?.lutFilter, frame?.adjustments, isAutoplay, currentIndex, stillPlateRevision]);
 
   // Seek-Locked Scrubbing: Single-in-flight seek guard (`isSeeking` + `pendingSeekTimeRef` flushed in `onSeeked`)
   const handleScrubPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1650,12 +1680,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             willChange: 'transform'
           }}
         >
-          {/* SINGLE ACTIVE HARDWARE <video> DECODER (+ at most 1 muted preload="metadata" next shot buffer) */}
+          {/* 3-SLOT PRE-WARMED HARDWARE <video> POOL (active & next use preload="auto", prev stays warm for instant reverse switch) */}
           {poolSlots
-            .filter((slot) => slot.role === 'active' || slot.role === 'next')
             .map((slot) => {
               if (!slot.url || !slot.isVideo) return null;
               const isSlotActive = slot.role === 'active';
+              const shouldPreloadAuto = slot.role === 'active' || slot.role === 'next';
               const shouldNativeLoop = loopMode === 'repeat-one' && abLoop.a === null && abLoop.b === null;
               return (
                 <video
@@ -1669,10 +1699,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                   loop={shouldNativeLoop}
                   muted={isSlotActive ? effectiveMuted : true}
                   playsInline
-                  preload={isSlotActive ? 'auto' : 'metadata'}
+                  preload={shouldPreloadAuto ? 'auto' : 'metadata'}
                   onSeeked={(e) => {
                     if (isSlotActive) {
                       seekGuardRef.current.handleSeeked(e.currentTarget);
+                      void videoCacheService.captureKeyframeBitmap(e.currentTarget, slot.url, e.currentTarget.currentTime);
+                    }
+                  }}
+                  onPause={(e) => {
+                    if (isSlotActive) {
+                      void videoCacheService.captureKeyframeBitmap(e.currentTarget, slot.url, e.currentTarget.currentTime);
                     }
                   }}
                   onLoadedMetadata={(e) => {

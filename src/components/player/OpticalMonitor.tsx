@@ -56,7 +56,9 @@ import {
   ZoomIn
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
-import { getShotMediaKey } from '../../services/handfilmMediaVault';
+import { getShotMediaKey, resolveShotMediaEntry } from '../../services/handfilmMediaVault';
+import { videoCacheService } from '../../services/videoCacheService';
+import { isVideoMediaUrl } from '../../utils/playbackClock';
 import { calculateMultiLayerZoom } from '../../utils/engine';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
@@ -397,9 +399,32 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     ? (proxyUrl || sourceUrl)
     : (sourceUrl || proxyUrl);
 
-  const mediaUrl = vaultEntry?.url || rawMediaUrl || (currentSlide?.remoteUrl
+  const baseMediaUrl = vaultEntry?.url || rawMediaUrl || (currentSlide?.remoteUrl
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
     : '');
+  const mediaUrl = baseMediaUrl ? (videoCacheService.getFastUrlSync(baseMediaUrl) || baseMediaUrl) : '';
+
+  // Resolve next shot URL for hidden prebuffer decoder
+  const nextIndex = totalSlides > 0 ? (currentIndex + 1) % totalSlides : 0;
+  const nextVaultEntry = nextSlide
+    ? resolveShotMediaEntry(shotMediaMap, nextSlide as any, undefined, nextIndex)
+    : undefined;
+  const rawNextUrl = nextVaultEntry?.url || nextSlide?.remoteUrl || nextSlide?.imageUrl || '';
+  const isNextVideo = nextVaultEntry
+    ? nextVaultEntry.type === 'video'
+    : isVideoMediaUrl(rawNextUrl, Boolean(nextSlide?.isVideo));
+  const nextMediaUrl = isNextVideo && rawNextUrl && rawNextUrl !== mediaUrl
+    ? (videoCacheService.getFastUrlSync(rawNextUrl) || rawNextUrl)
+    : '';
+
+  useEffect(() => {
+    if (baseMediaUrl && isVideo) {
+      void videoCacheService.warmVideoUrl(baseMediaUrl, { promoteSmallRemoteBlob: true });
+    }
+    if (rawNextUrl && isNextVideo) {
+      void videoCacheService.warmVideoUrl(rawNextUrl, { promoteSmallRemoteBlob: true });
+    }
+  }, [baseMediaUrl, isVideo, rawNextUrl, isNextVideo]);
 
   // Subtle Cross-Dissolve Transition State for Shot Navigation
   const [outgoingPlate, setOutgoingPlate] = useState<{
@@ -446,16 +471,8 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     };
   }, []);
 
-  // Delayed URL revocation: revoke old URLs only after the next slide mounts to prevent blank frames
+  // Track last active media URL without revoking shared shotMediaMap ObjectURLs on slide switches
   useEffect(() => {
-    const oldUrl = previousUrlRef.current;
-    if (mediaUrl && oldUrl && oldUrl !== mediaUrl && oldUrl.startsWith('blob:') && oldUrl !== sourceUrl && oldUrl !== proxyUrl) {
-      const timer = setTimeout(() => {
-        studioDraftDb.revokeTrackedUrl(oldUrl);
-      }, 1000);
-      previousUrlRef.current = mediaUrl;
-      return () => clearTimeout(timer);
-    }
     previousUrlRef.current = mediaUrl;
   }, [mediaUrl, sourceUrl, proxyUrl]);
 
@@ -552,13 +569,13 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Invisible Secondary Pre-Buffer Video Element (metadata-only so primary decoder never starves) */}
+      {/* Invisible Next-Shot Pre-Buffer Video Element (warms decoder & next shot range before cut) */}
       <video
         ref={prebufferVideoRef}
-        src={sourceUrl || undefined}
+        src={nextMediaUrl || undefined}
         crossOrigin="anonymous"
         className="hidden"
-        preload="metadata"
+        preload="auto"
         muted
         playsInline
       />

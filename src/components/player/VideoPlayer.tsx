@@ -19,6 +19,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { SlideDraft, AspectRatioType } from '../../types/project';
 import { PlaybackMode, SLIDE_DURATION_SEC, SLIDE_TOTAL_FRAMES_24FPS } from '../../types/editor';
 import { r2StorageService } from '../../services/r2StorageService';
+import { videoCacheService } from '../../services/videoCacheService';
 import { 
   Play, 
   Pause, 
@@ -241,10 +242,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  // Cloudflare R2 Edge Stream URL resolution or local fallback
-  const mediaUrl = currentSlide?.remoteUrl 
+  // Lookahead prefetch neighbor shot videos for VLC-grade instant switching
+  useEffect(() => {
+    if (slides && slides.length > 0) {
+      videoCacheService.prefetchShotWindow(slides as any, safeSlideIndex);
+    }
+  }, [slides, safeSlideIndex]);
+
+  // Cloudflare R2 Edge Stream URL resolution or local fallback (with promoted RAM blob when available)
+  const rawMediaUrl = currentSlide?.remoteUrl
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
     : (currentSlide?.imageUrl || currentSlide?.thumbnailUrl || '');
+  const mediaUrl = rawMediaUrl ? (videoCacheService.getFastUrlSync(rawMediaUrl) || rawMediaUrl) : '';
 
   const handleCaptureStill = () => {
     setIsExporting(true);
@@ -309,9 +318,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               muted={isMuted}
               loop={isLooping}
               playsInline
+              preload="auto"
               className="w-full h-full object-cover"
               style={{
-                objectPosition: `center ${currentSlide?.panY ?? 50}%`
+                objectPosition: `center ${currentSlide?.panY ?? 50}%`,
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden'
               }}
             />
           ) : (

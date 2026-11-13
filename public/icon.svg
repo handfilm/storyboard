@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#1A120B"/>
+      <stop offset="55%" stop-color="#0B0B0F"/>
+      <stop offset="100%" stop-color="#050505"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="50%" stop-color="#F5A623"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <linearGradient id="crimsonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF3B3B"/>
+      <stop offset="100%" stop-color="#B91C1C"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bgGrad)"/>
+  <rect x="28" y="28" width="456" height="456" rx="76" fill="none" stroke="url(#goldGrad)" stroke-opacity="0.35" stroke-width="6"/>
+  <!-- Cinema Aperture Frame -->
+  <rect x="88" y="136" width="336" height="196" rx="18" fill="#09090D" stroke="url(#goldGrad)" stroke-width="10"/>
+  <!-- Anamorphic Lens Flare Streak -->
+  <line x1="64" y1="234" x2="448" y2="234" stroke="#F5A623" stroke-opacity="0.45" stroke-width="6" stroke-linecap="round"/>
+  <!-- Play / Shutter Emblem -->
+  <polygon points="222,188 308,234 222,280" fill="url(#crimsonGrad)"/>
+  <!-- Film Sprockets -->
+  <rect x="112" y="156" width="20" height="14" rx="3" fill="#F5A623" fill-opacity="0.7"/>
+  <rect x="112" y="298" width="20" height="14" rx="3" fill="#F5A623" fill-opacity="0.7"/>
+  <rect x="380" y="156" width="20" height="14" rx="3" fill="#F5A623" fill-opacity="0.7"/>
+  <rect x="380" y="298" width="20" height="14" rx="3" fill="#F5A623" fill-opacity="0.7"/>
+  <!-- Wordmark Bar -->
+  <text x="256" y="402" text-anchor="middle" font-family="monospace" font-weight="900" font-size="46" letter-spacing="8" fill="#FFFFFF">HAND<tspan fill="#FF2B2B">FILM</tspan></text>
+</svg>

@@ -1,8 +1,11 @@
 /**
  * @file /src/services/serviceWorkerManager.ts
  * @description Master Service Worker Manager for RAWx Storyboard & HANDFILM Studio.
- * Handles background registration, Storyboard shot media precaching, and cache telemetry.
+ * Integrates Workbox via vite-plugin-pwa (`virtual:pwa-register`) for core storyboard precaching,
+ * media vault caching (`rawx-media-vault-v1`), Range Request scrubbing, and cache telemetry.
  */
+
+import { registerSW } from 'virtual:pwa-register';
 
 export interface ServiceWorkerMetrics {
   isRegistered: boolean;
@@ -17,6 +20,7 @@ const CACHE_NAME = 'rawx-media-vault-v1';
 class ServiceWorkerManager {
   private registration: ServiceWorkerRegistration | null = null;
   private isSupported: boolean = typeof window !== 'undefined' && 'serviceWorker' in navigator;
+  private initialized: boolean = false;
   private metricsListeners: Set<(metrics: ServiceWorkerMetrics) => void> = new Set();
   private lastMetrics: ServiceWorkerMetrics = {
     isRegistered: false,
@@ -33,35 +37,15 @@ class ServiceWorkerManager {
   }
 
   /**
-   * Initializes and registers the service worker
+   * Initializes and registers the Workbox service worker
    */
   public async init(): Promise<ServiceWorkerRegistration | null> {
     if (!this.isSupported) return null;
+    if (this.initialized) return this.registration;
+    this.initialized = true;
 
     try {
-      // In development / preview, register sw.js from root
-      const reg = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/'
-      });
-      this.registration = reg;
-
-      this.lastMetrics.isRegistered = true;
-      this.lastMetrics.isActive = Boolean(reg.active);
-
-      // Listen for updates
-      reg.addEventListener('updatefound', () => {
-        const installingWorker = reg.installing;
-        if (installingWorker) {
-          installingWorker.addEventListener('statechange', () => {
-            if (installingWorker.state === 'activated') {
-              this.lastMetrics.isActive = true;
-              this.notifyListeners();
-            }
-          });
-        }
-      });
-
-      // Listen for messages from sw.js
+      // Listen for metrics responses from Workbox sw.ts
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data?.type === 'CACHE_METRICS_RESPONSE') {
           const payload = event.data.payload;
@@ -71,10 +55,54 @@ class ServiceWorkerManager {
         }
       });
 
-      // Initial metrics query
-      this.refreshMetrics();
+      const updateSW = registerSW({
+        immediate: true,
+        onRegisteredSW: (_swUrl, reg) => {
+          if (reg) {
+            this.registration = reg;
+            this.lastMetrics.isRegistered = true;
+            this.lastMetrics.isActive = Boolean(reg.active || navigator.serviceWorker?.controller);
+            this.notifyListeners();
+            this.refreshMetrics();
 
-      return reg;
+            reg.addEventListener('updatefound', () => {
+              const installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.addEventListener('statechange', () => {
+                  if (installingWorker.state === 'activated') {
+                    this.lastMetrics.isActive = true;
+                    this.notifyListeners();
+                  }
+                });
+              }
+            });
+          }
+        },
+        onNeedRefresh: () => {
+          // Auto-activate updated Workbox precache shell smoothly
+          updateSW(true).catch(() => {});
+        },
+        onOfflineReady: () => {
+          this.lastMetrics.isRegistered = true;
+          this.lastMetrics.isActive = true;
+          this.notifyListeners();
+          this.refreshMetrics();
+        },
+        onRegisterError: (err) => {
+          console.warn('[ServiceWorkerManager] Workbox registration notice:', err);
+        }
+      });
+
+      // Resolve existing registration if already controlled
+      const existingReg = await navigator.serviceWorker.getRegistration();
+      if (existingReg) {
+        this.registration = existingReg;
+        this.lastMetrics.isRegistered = true;
+        this.lastMetrics.isActive = Boolean(existingReg.active || navigator.serviceWorker?.controller);
+      }
+
+      this.refreshMetrics();
+      return this.registration;
     } catch (err) {
       console.warn('[ServiceWorkerManager] Registration notice:', err);
       return null;
@@ -82,11 +110,13 @@ class ServiceWorkerManager {
   }
 
   /**
-   * Precaches an array of media URLs for instantaneous Storyboard shot loading
+   * Precaches an array of media URLs into the Workbox Vault cache for instant offline playback
    */
   public async precacheMediaUrls(urls: string[]): Promise<void> {
     if (!urls || urls.length === 0) return;
-    const cleanUrls = urls.filter((u) => u && !u.startsWith('blob:') && !u.startsWith('data:'));
+    const cleanUrls = Array.from(
+      new Set(urls.filter((u) => u && !u.startsWith('blob:') && !u.startsWith('data:')))
+    );
     if (cleanUrls.length === 0) return;
 
     if (navigator.serviceWorker?.controller) {
@@ -95,11 +125,10 @@ class ServiceWorkerManager {
         payload: { urls: cleanUrls }
       });
     } else if (typeof window !== 'undefined' && 'caches' in window) {
-      // Fallback: direct CacheStorage write
       try {
         const cache = await caches.open(CACHE_NAME);
         for (const url of cleanUrls) {
-          const match = await cache.match(url);
+          const match = await cache.match(url, { ignoreSearch: true });
           if (!match) {
             const resp = await fetch(url);
             if (resp && resp.status === 200) {
@@ -125,17 +154,20 @@ class ServiceWorkerManager {
   /**
    * Precaches media from all active Storyboard frames
    */
-  public async precacheStoryboardFrames(frames: Array<{ imageUrl?: string; videoSrc?: string; blobUrl?: string }>): Promise<void> {
+  public async precacheStoryboardFrames(
+    frames: Array<{ imageUrl?: string; videoSrc?: string; thumbnailUrl?: string; blobUrl?: string }>
+  ): Promise<void> {
     const urls: string[] = [];
     frames.forEach((f) => {
       if (f.imageUrl) urls.push(f.imageUrl);
       if (f.videoSrc) urls.push(f.videoSrc);
+      if (f.thumbnailUrl) urls.push(f.thumbnailUrl);
     });
     await this.precacheMediaUrls(urls);
   }
 
   /**
-   * Queries real-time metrics from the Service Worker and CacheStorage
+   * Queries real-time metrics from the Workbox Service Worker and CacheStorage
    */
   public async refreshMetrics(): Promise<ServiceWorkerMetrics> {
     let itemCount = 0;
@@ -147,7 +179,6 @@ class ServiceWorkerManager {
         const keys = await cache.keys();
         itemCount = keys.length;
 
-        // Estimate total bytes from cache
         for (const key of keys) {
           try {
             const resp = await cache.match(key);
@@ -156,7 +187,7 @@ class ServiceWorkerManager {
               totalBytes += blob.size;
             }
           } catch {
-            // ignore
+            // ignore opaque/unreadable entry
           }
         }
       } catch (err) {
@@ -177,7 +208,7 @@ class ServiceWorkerManager {
   }
 
   /**
-   * Purges all media assets from the Service Worker cache
+   * Purges all media assets from the Service Worker Vault cache
    */
   public async purgeCache(): Promise<void> {
     if (typeof window !== 'undefined' && 'caches' in window) {

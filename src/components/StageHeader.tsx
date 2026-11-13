@@ -179,6 +179,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   const activeReelIndex = useStudioStore((s) => s.activeReelIndex);
   const reelLoopActive = useStudioStore((s) => s.reelLoopActive);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const selectReel = useStudioStore((s) => s.selectReel);
   const setReelLoopActive = useStudioStore((s) => s.setReelLoopActive);
 
@@ -1379,6 +1380,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     const pipelineOpts = {
                       projectTitle: renderScope === 'reel' ? `REEL_${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER_100',
                       frames,
+                      shotMediaMap,
                       totalSlides: totalCount,
                       selectionMode: 'range' as const,
                       rangeStart: scopeStartIdx + 1,
@@ -2055,6 +2057,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         isOpen={isExportStudioOpen}
         onClose={() => setIsExportStudioOpen(false)}
         frames={frames}
+        shotMediaMap={shotMediaMap}
         currentIndex={currentIndex}
       />
       <EcosystemGridModal

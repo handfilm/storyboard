@@ -45,6 +45,10 @@ import {
   StoryboardPdfTheme 
 } from '../../utils/pdfExport';
 import { eventBus } from '../../core/eventBus';
+import { useStudioStore, resolveEffectiveTitleAlign } from '../../core/store';
+import { getShotMediaKey, ShotMediaMap } from '../../services/handfilmMediaVault';
+import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
+import { renderAlignedCinemaTitleOverlay } from '../../utils/interchangeExport';
 import { 
   Film, 
   Video, 
@@ -85,6 +89,7 @@ export interface UnifiedExportStudioProps {
   projectTitle?: string;
   frames?: AnthologyFrame[];
   slides?: SlideDraft[];
+  shotMediaMap?: ShotMediaMap;
   currentSlideIndex?: number;
   currentIndex?: number;
   totalSlides?: number;
@@ -138,6 +143,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   projectTitle = 'UNTITLED_PROJECT',
   frames = [],
   slides = [],
+  shotMediaMap: propShotMediaMap,
   currentSlideIndex: rawSlideIndex = 0,
   currentIndex,
   totalSlides = 1,
@@ -146,6 +152,10 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   aspectRatio = '2.39:1'
 }) => {
   const currentSlideIndex = typeof currentIndex === 'number' ? currentIndex : (rawSlideIndex ?? 0);
+  const storeShotMediaMap = useStudioStore((s) => s.shotMediaMap);
+  const titleAlign = useStudioStore((s) => s.titleAlign);
+  const titleConfig = useStudioStore((s) => s.titleConfig);
+  const activeShotMediaMap = propShotMediaMap ?? storeShotMediaMap;
 
   // =========================================================================
   // HOOKS SECTION: ALL HOOKS DECLARED UNCONDITIONALLY AT THE VERY TOP
@@ -419,21 +429,15 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     });
   }, [candidateSelection.indices.length]);
 
-  // Blit rendered frame from offline canvas to dedicated preview canvas with subtle GSAP transition
+  // Blit rendered frame directly 1:1 from the exact composited export <canvas> to LIVE RENDER ENCODER FEED
   const handleFrameRendered = useCallback((sourceCanvas: HTMLCanvasElement) => {
     const targets = [dedicatedCanvasRef.current, previewCanvasRef.current].filter(Boolean) as HTMLCanvasElement[];
     if (targets.length === 0) return;
 
-    // Subtle GSAP transition for fluid sequence rendering to canvas
     if (gsapTweenRef.current) {
       gsapTweenRef.current.kill();
+      gsapTweenRef.current = null;
     }
-    gsapTransitionRef.current.alpha = 0.88;
-    gsapTweenRef.current = gsap.to(gsapTransitionRef.current, {
-      alpha: 1,
-      duration: 0.15,
-      ease: 'power2.out'
-    });
 
     for (const destCanvas of targets) {
       const destCtx = destCanvas.getContext('2d');
@@ -445,8 +449,8 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       destCtx.fillStyle = '#06070B';
       destCtx.fillRect(0, 0, targetW, targetH);
 
-      const sRatio = sourceCanvas.width / sourceCanvas.height;
-      const dRatio = targetW / targetH;
+      const sRatio = sourceCanvas.width / Math.max(1, sourceCanvas.height);
+      const dRatio = targetW / Math.max(1, targetH);
       let dW = targetW;
       let dH = targetH;
       let dX = 0;
@@ -461,36 +465,15 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       }
 
       try {
-        // Subtle fluid frame blend if previous snapshot exists
-        if (prevRenderedCanvasRef.current && gsapTransitionRef.current.alpha < 1) {
-          destCtx.save();
-          destCtx.globalAlpha = 1 - gsapTransitionRef.current.alpha;
-          destCtx.drawImage(prevRenderedCanvasRef.current, dX, dY, dW, dH);
-          destCtx.restore();
-        }
-
         destCtx.save();
-        destCtx.globalAlpha = gsapTransitionRef.current.alpha;
+        destCtx.globalAlpha = 1;
         destCtx.drawImage(sourceCanvas, dX, dY, dW, dH);
         destCtx.restore();
       } catch {}
     }
-
-    // Save previous frame snapshot for smooth transition into next frame
-    if (!prevRenderedCanvasRef.current) {
-      prevRenderedCanvasRef.current = document.createElement('canvas');
-    }
-    prevRenderedCanvasRef.current.width = 640;
-    prevRenderedCanvasRef.current.height = 360;
-    const pCtx = prevRenderedCanvasRef.current.getContext('2d');
-    if (pCtx) {
-      try {
-        pCtx.drawImage(sourceCanvas, 0, 0, 640, 360);
-      } catch {}
-    }
   }, []);
 
-  // Idle Frame Preview Effect: Renders scaled-down frame preview of current shot selection before rendering
+  // Idle Frame Preview Effect: Renders per-shot media from shotMediaMap (or procedural palette) with decoded image/video
   useEffect(() => {
     if (!isOpen || isExporting) return;
     const canvas = dedicatedCanvasRef.current;
@@ -501,10 +484,6 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     const w = canvas.width || 640;
     const h = canvas.height || 360;
 
-    // Reset background
-    ctx.fillStyle = '#06070B';
-    ctx.fillRect(0, 0, w, h);
-
     const validShotIdx = activeSelection.indices.includes(previewShotIdx)
       ? previewShotIdx
       : (activeSelection.indices[0] ?? currentSlideIndex ?? 0);
@@ -514,7 +493,10 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     const shotNum = validShotIdx + 1;
     const titleEn = slide?.titleEn || frame?.title || `SHOT ${String(shotNum).padStart(3, '0')}`;
     const titleBn = slide?.titleBn || frame?.bengaliTitle || 'আলোর স্মৃতি';
-    const thumbUrl = slide?.remoteUrl || frame?.imageUrl || '';
+    const tagline = slide?.tagline || frame?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION';
+    const shotKey = getShotMediaKey(frame || slide, validShotIdx);
+    const mediaEntry = activeShotMediaMap[shotKey];
+    const thumbUrl = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
 
     let isCancelled = false;
 
@@ -564,56 +546,23 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         ctx.fillRect(0, flareY - 12, w, 24);
       }
 
-      // Centered Hero Title Burn-in Preview
+      // Aligned Hero Title Burn-in Preview matching exact exported MP4 alignment
       if (burnInTitles) {
-        ctx.save();
-        ctx.textAlign = 'center';
-
-        // Outer Volumetric Rim
-        ctx.save();
-        ctx.shadowColor = 'rgba(245, 166, 35, 0.45)';
-        ctx.shadowBlur = 18;
-        ctx.fillStyle = '#FFD54F';
-        ctx.font = 'bold 24px "Noto Sans Bengali", "Anek Bangla", sans-serif';
-        ctx.fillText(titleBn, w / 2, h / 2 - 8);
-        ctx.restore();
-
-        // Ambient Bloom
-        ctx.save();
-        ctx.shadowColor = '#F5A623';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#FFD54F';
-        ctx.font = 'bold 24px "Noto Sans Bengali", "Anek Bangla", sans-serif';
-        ctx.fillText(titleBn, w / 2, h / 2 - 8);
-        ctx.restore();
-
-        // Core Solid
-        ctx.save();
-        ctx.fillStyle = '#FFF8E1';
-        ctx.font = 'bold 24px "Noto Sans Bengali", "Anek Bangla", sans-serif';
-        ctx.fillText(titleBn, w / 2, h / 2 - 8);
-        ctx.restore();
-
-        // Tracked English Subtitle
-        ctx.save();
-        ctx.fillStyle = '#E2E8F0';
-        ctx.shadowColor = 'rgba(0,0,0,0.9)';
-        ctx.shadowBlur = 6;
-        ctx.font = 'bold 10px "JetBrains Mono", monospace';
-        ctx.fillText(titleEn.toUpperCase(), w / 2, h / 2 + 15);
-        ctx.restore();
-
-        // Flare divider
-        const flareW = 120;
-        const flareY = h / 2 + 22;
-        const grad = ctx.createLinearGradient((w - flareW) / 2, flareY, (w + flareW) / 2, flareY);
-        grad.addColorStop(0, 'rgba(245,166,35,0)');
-        grad.addColorStop(0.5, 'rgba(245,166,35,0.85)');
-        grad.addColorStop(1, 'rgba(245,166,35,0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect((w - flareW) / 2, flareY, flareW, 1.5);
-
-        ctx.restore();
+        const resolvedAlign = resolveEffectiveTitleAlign(
+          titleAlign ?? 'AUTO',
+          validShotIdx,
+          frame?.cameraSpec?.focalLength
+        );
+        renderAlignedCinemaTitleOverlay(ctx, w, h, {
+          banglaTitle: titleBn,
+          englishTitle: titleEn,
+          dialogue: tagline,
+          effectiveAlign: resolvedAlign,
+          preset: titleConfig?.preset ?? 'molten-gold',
+          titleSize: titleConfig?.titleSize ?? 72,
+          verticalOffset: titleConfig?.verticalOffset ?? 0,
+          opacity: 1.0
+        });
       }
 
       // Corner Crosshairs & Framing Reticles
@@ -622,35 +571,30 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       const bracketLen = 14;
       const pad = 12;
 
-      // Top-Left
       ctx.beginPath();
       ctx.moveTo(pad, pad + bracketLen);
       ctx.lineTo(pad, pad);
       ctx.lineTo(pad + bracketLen, pad);
       ctx.stroke();
 
-      // Top-Right
       ctx.beginPath();
       ctx.moveTo(w - pad - bracketLen, pad);
       ctx.lineTo(w - pad, pad);
       ctx.lineTo(w - pad, pad + bracketLen);
       ctx.stroke();
 
-      // Bottom-Left
       ctx.beginPath();
       ctx.moveTo(pad, h - pad - bracketLen);
       ctx.lineTo(pad, h - pad);
       ctx.lineTo(pad + bracketLen, h - pad);
       ctx.stroke();
 
-      // Bottom-Right
       ctx.beginPath();
       ctx.moveTo(w - pad - bracketLen, h - pad);
       ctx.lineTo(w - pad, h - pad);
       ctx.lineTo(w - pad, h - pad - bracketLen);
       ctx.stroke();
 
-      // Center crosshair
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -661,13 +605,18 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       ctx.stroke();
     };
 
+    // Always initialize monitor with shot's exact procedural color gradient backdrop
+    renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+
     if (thumbUrl) {
-      const isVideo = Boolean(
-        frame?.isVideo ||
-        slide?.isVideo ||
-        thumbUrl.startsWith('data:video') ||
-        /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumbUrl)
-      );
+      const isVideo = mediaEntry
+        ? mediaEntry.type === 'video'
+        : Boolean(
+            frame?.isVideo ||
+              slide?.isVideo ||
+              thumbUrl.startsWith('data:video') ||
+              /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumbUrl)
+          );
 
       if (isVideo) {
         const vid = document.createElement('video');
@@ -677,7 +626,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         vid.preload = 'auto';
         vid.src = thumbUrl;
         vid.onloadeddata = () => {
-          if (isCancelled || !dedicatedCanvasRef.current) return;
+          if (isCancelled || !dedicatedCanvasRef.current || vid.readyState < 2) return;
           const iRatio = (vid.videoWidth || 16) / (vid.videoHeight || 9);
           const dRatio = w / h;
           let dW = w;
@@ -693,55 +642,23 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             dX = Math.round((w - dW) / 2);
           }
 
-          // GSAP subtle fluid crossfade transition
-          const tweenState = { progress: prevPreviewCanvasRef.current ? 0 : 1 };
-          gsap.killTweensOf(tweenState);
-          gsap.to(tweenState, {
-            progress: 1,
-            duration: 0.28,
-            ease: 'power2.out',
-            onUpdate: () => {
-              if (isCancelled || !dedicatedCanvasRef.current) return;
-              ctx.fillStyle = '#06070B';
-              ctx.fillRect(0, 0, w, h);
-
-              if (prevPreviewCanvasRef.current && tweenState.progress < 1) {
-                ctx.save();
-                ctx.globalAlpha = 1 - tweenState.progress;
-                ctx.drawImage(prevPreviewCanvasRef.current, 0, 0, w, h);
-                ctx.restore();
-              }
-
-              ctx.save();
-              ctx.globalAlpha = tweenState.progress;
-              ctx.drawImage(vid, dX, dY, dW, dH);
-              ctx.restore();
-              drawCompositingOverlay();
-            },
-            onComplete: () => {
-              if (isCancelled || !dedicatedCanvasRef.current) return;
-              if (!prevPreviewCanvasRef.current) {
-                prevPreviewCanvasRef.current = document.createElement('canvas');
-              }
-              prevPreviewCanvasRef.current.width = w;
-              prevPreviewCanvasRef.current.height = h;
-              const pCtx = prevPreviewCanvasRef.current.getContext('2d');
-              if (pCtx) {
-                pCtx.drawImage(dedicatedCanvasRef.current, 0, 0, w, h);
-              }
-            }
-          });
+          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+          ctx.drawImage(vid, dX, dY, dW, dH);
+          drawCompositingOverlay();
         };
         vid.onerror = () => {
-          if (!isCancelled) drawCompositingOverlay();
+          if (!isCancelled) {
+            renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+            drawCompositingOverlay();
+          }
         };
       } else {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.src = thumbUrl;
-        img.onload = () => {
-          if (isCancelled || !dedicatedCanvasRef.current) return;
-          const iRatio = img.width / img.height;
+        const paintDecodedImage = () => {
+          if (isCancelled || !dedicatedCanvasRef.current || !img.naturalWidth) return;
+          const iRatio = img.naturalWidth / Math.max(1, img.naturalHeight);
           const dRatio = w / h;
           let dW = w;
           let dH = h;
@@ -756,59 +673,31 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             dX = Math.round((w - dW) / 2);
           }
 
-          // GSAP subtle fluid crossfade transition
-          const tweenState = { progress: prevPreviewCanvasRef.current ? 0 : 1 };
-          gsap.killTweensOf(tweenState);
-          gsap.to(tweenState, {
-            progress: 1,
-            duration: 0.28,
-            ease: 'power2.out',
-            onUpdate: () => {
-              if (isCancelled || !dedicatedCanvasRef.current) return;
-              ctx.fillStyle = '#06070B';
-              ctx.fillRect(0, 0, w, h);
+          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+          ctx.drawImage(img, dX, dY, dW, dH);
+          drawCompositingOverlay();
+        };
 
-              if (prevPreviewCanvasRef.current && tweenState.progress < 1) {
-                ctx.save();
-                ctx.globalAlpha = 1 - tweenState.progress;
-                ctx.drawImage(prevPreviewCanvasRef.current, 0, 0, w, h);
-                ctx.restore();
-              }
-
-              ctx.save();
-              ctx.globalAlpha = tweenState.progress;
-              ctx.drawImage(img, dX, dY, dW, dH);
-              ctx.restore();
+        if (typeof img.decode === 'function') {
+          img.decode().then(paintDecodedImage).catch(() => {
+            if (img.complete && img.naturalWidth > 0) {
+              paintDecodedImage();
+            } else if (!isCancelled) {
+              renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
               drawCompositingOverlay();
-            },
-            onComplete: () => {
-              if (isCancelled || !dedicatedCanvasRef.current) return;
-              if (!prevPreviewCanvasRef.current) {
-                prevPreviewCanvasRef.current = document.createElement('canvas');
-              }
-              prevPreviewCanvasRef.current.width = w;
-              prevPreviewCanvasRef.current.height = h;
-              const pCtx = prevPreviewCanvasRef.current.getContext('2d');
-              if (pCtx) {
-                pCtx.drawImage(dedicatedCanvasRef.current, 0, 0, w, h);
-              }
             }
           });
-        };
-        img.onerror = () => {
-          if (!isCancelled) drawCompositingOverlay();
-        };
+        } else {
+          img.onload = paintDecodedImage;
+          img.onerror = () => {
+            if (!isCancelled) {
+              renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+              drawCompositingOverlay();
+            }
+          };
+        }
       }
     } else {
-      // Clean plate background
-      ctx.fillStyle = '#0e0f17';
-      ctx.fillRect(16, 16, w - 32, h - 32);
-      ctx.fillStyle = '#64748b';
-      ctx.textAlign = 'center';
-      ctx.font = 'bold 12px monospace';
-      ctx.fillText(`[ PLATE: ${titleEn} ]`, w / 2, h / 2 - 4);
-      ctx.font = '10px monospace';
-      ctx.fillText(`SHOT SH${String(shotNum).padStart(3, '0')} • 24.0 FPS RAW MASTER`, w / 2, h / 2 + 14);
       drawCompositingOverlay();
     }
 
@@ -823,9 +712,12 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     currentSlideIndex,
     slides,
     frames,
+    activeShotMediaMap,
     resolutionPreset,
     burnInTitles,
-    simulateFlare
+    simulateFlare,
+    titleAlign,
+    titleConfig
   ]);
 
   // Launch Master MP4 Render Pipeline
@@ -847,6 +739,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         projectTitle,
         frames,
         slides,
+        shotMediaMap: activeShotMediaMap,
         currentSlideIndex,
         totalSlides: totalCount,
         selectionMode,
@@ -861,7 +754,6 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         cleanPlates: false,
         simulateFlare,
         includeAudio,
-        previewCanvas: previewCanvasRef.current,
         onProgress: (tel) => setTelemetry(tel),
         onFrameRendered: (canvas) => handleFrameRendered(canvas),
         abortSignal: abortCtrl.signal
@@ -913,6 +805,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     simulateFlare,
     includeAudio,
     customFilename,
+    activeShotMediaMap,
     handleFrameRendered
   ]);
 
@@ -946,6 +839,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         projectTitle,
         frames,
         slides,
+        shotMediaMap: activeShotMediaMap,
         currentSlideIndex,
         totalSlides: totalCount,
         selectionMode,
@@ -960,7 +854,6 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         cleanPlates: false,
         simulateFlare: true,
         includeAudio: true,
-        previewCanvas: previewCanvasRef.current,
         onProgress: (tel) => setTelemetry(tel),
         onFrameRendered: (canvas) => handleFrameRendered(canvas),
         abortSignal: abortCtrl.signal
@@ -1008,6 +901,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     excludedIndices,
     burnInTitles,
     customFilename,
+    activeShotMediaMap,
     handleFrameRendered
   ]);
 
@@ -1691,7 +1585,13 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                   const shotNumber = shotIdx + 1;
                   const shotLabel = `SH${String(shotNumber).padStart(3, '0')}`;
                   const title = slide?.titleEn || frame?.title || `Shot ${shotNumber}`;
-                  const thumb = slide?.remoteUrl || frame?.imageUrl || '';
+                  const shotKey = getShotMediaKey(frame || slide, shotIdx);
+                  const mediaEntry = activeShotMediaMap[shotKey];
+                  const thumb = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
+                  const isVideoThumb = mediaEntry
+                    ? mediaEntry.type === 'video'
+                    : Boolean(frame?.isVideo || slide?.isVideo || /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumb));
+                  const procPalette = getShotProceduralSpec(shotIdx).palette;
 
                   return (
                     <div
@@ -1706,17 +1606,30 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       }`}
                       title={isExcluded ? 'Shot excluded from render' : 'Click to preview shot in monitor'}
                     >
-                      <div className="relative aspect-video w-full bg-black overflow-hidden">
+                      <div
+                        className="relative aspect-video w-full bg-black overflow-hidden"
+                        style={!thumb ? { background: procPalette.thumbCssBackdrop } : undefined}
+                      >
                         {thumb ? (
-                          <img
-                            src={thumb}
-                            alt={shotLabel}
-                            className={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
-                          />
+                          isVideoThumb ? (
+                            <video
+                              src={thumb}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
+                            />
+                          ) : (
+                            <img
+                              src={thumb}
+                              alt={shotLabel}
+                              className={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
+                            />
+                          )
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-600 text-[8px]">
-                            <Film className="w-3.5 h-3.5 mb-0.5 opacity-40" />
-                            <span>PLATE</span>
+                          <div className="w-full h-full flex flex-col items-center justify-center text-white/75 text-[8px] font-mono">
+                            <Film className="w-3.5 h-3.5 mb-0.5 opacity-60" />
+                            <span>{procPalette.name.split(' ')[0]}</span>
                           </div>
                         )}
 

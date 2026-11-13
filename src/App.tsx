@@ -98,6 +98,7 @@ import {
   buildCapCutQuickPackZip,
   triggerBrowserDownload
 } from './utils/interchangeExport';
+import { OfflineIndicator } from './components/pwa/PWAComponents';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -115,6 +116,7 @@ export default function App() {
   projectFramesRef.current = project.frames;
   const activeReelIndex = useStudioStore((s) => s.activeReelIndex);
   const reelLoopActive = useStudioStore((s) => s.reelLoopActive);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const [currentView, setCurrentView] = useState<'HOME' | 'STUDIO'>('STUDIO');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('STAGE');
   const [activeModule, setActiveModule] = useState<StudioModuleId>('PLAYER');
@@ -2963,6 +2965,7 @@ export default function App() {
         isOpen={isExportStudioOpen}
         onClose={() => setIsExportStudioOpen(false)}
         frames={project.frames}
+        shotMediaMap={shotMediaMap}
         currentSlideIndex={currentIndex}
         totalSlides={project.frames.length}
         projectTitle={project.title}
@@ -3155,6 +3158,9 @@ export default function App() {
           initialTab="interchange"
         />
       )}
+
+      {/* Offline Status Toast (only rendered when browser loses connectivity) */}
+      <OfflineIndicator />
     </div>
   );
 }

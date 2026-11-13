@@ -58,4 +58,21 @@ if (fs.existsSync(publicAssetsDir)) {
   fs.cpSync(publicAssetsDir, distPublicAssets, { recursive: true, force: true });
 }
 
+// 5. Synchronize Workbox Service Worker, Web App Manifest, and PWA Icons to docs/
+const pwaFiles = [
+  'sw.js',
+  'manifest.webmanifest',
+  'icon.svg',
+  'pwa-192x192.png',
+  'pwa-512x512.png',
+  'pwa-maskable-512x512.png',
+  'apple-touch-icon.png'
+];
+pwaFiles.forEach((file) => {
+  const srcPath = path.join(distDir, file);
+  if (fs.existsSync(srcPath)) {
+    fs.copyFileSync(srcPath, path.join(docsDir, file));
+  }
+});
+
 console.log('[SYNC] Static sync completed for all GitHub Pages deployment targets (root, docs, and dist).');

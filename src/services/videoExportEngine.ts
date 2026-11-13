@@ -33,7 +33,7 @@ import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { Muxer as WebmMuxer, ArrayBufferTarget as WebmArrayBufferTarget } from 'webm-muxer';
 import JSZip from 'jszip';
 import { studioDraftDb } from './db';
-import { getShotMediaBlob, getShotMediaKey } from './handfilmMediaVault';
+import { getShotMediaBlob, getShotMediaKey, ShotMediaMap } from './handfilmMediaVault';
 import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
 import { renderAlignedCinemaTitleOverlay } from '../utils/interchangeExport';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
@@ -41,7 +41,6 @@ import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption } from '../typ
 import { SlideDraft } from '../types/project';
 import { buildFilmStockCssFilter, applyCinematicPostProcess } from './cinematicFilterEngine';
 import { renderCanvasBurnInCaption } from './captionEngine';
-import { depthOcclusionService } from './depthOcclusionService';
 
 export type ShotSelectionMode = 'all' | 'range' | 'custom' | 'current';
 
@@ -76,6 +75,9 @@ export interface CinemaExportPipelineOptions {
   cleanPlates: boolean;
   simulateFlare: boolean;
   includeAudio: boolean;
+
+  // Per-Shot IndexedDB Media Map
+  shotMediaMap?: ShotMediaMap;
 
   // Callback Hooks
   onProgress?: (telemetry: RenderTelemetry) => void;
@@ -242,61 +244,65 @@ export function getBitrateBps(profile: BitrateProfile, is4K: boolean): number {
 }
 
 /**
- * Frame-by-frame offline seek helper:
- * Guarantees that the video element has finished decoding the frame at targetTime before resolving.
- * Includes a safety timeout fallback to prevent deadlocks on problematic codecs.
+ * Awaits `loadeddata` (readyState >= 2) on a dedicated offscreen <video> element.
  */
-export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeoutMs: number = 800): Promise<void> {
+async function waitForVideoLoadedData(video: HTMLVideoElement, timeoutMs: number = 2500): Promise<void> {
+  if (video.readyState >= 2 && video.videoWidth > 0) return;
+  await new Promise<void>((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        video.removeEventListener('loadeddata', onLoaded);
+        video.removeEventListener('canplay', onLoaded);
+        video.removeEventListener('error', finish);
+        resolve();
+      }
+    };
+    const onLoaded = () => {
+      if (video.readyState >= 2) {
+        clearTimeout(timer);
+        finish();
+      }
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    video.addEventListener('loadeddata', onLoaded);
+    video.addEventListener('canplay', onLoaded);
+    video.addEventListener('error', finish, { once: true });
+  });
+}
+
+/**
+ * Frame-by-frame offline seek helper:
+ * Sets `video.currentTime` and awaits `video.onseeked` (with a safe 150ms timeout fallback)
+ * before calling `ctx.drawImage(video, ...)` to prevent blank/stale frame captures.
+ */
+export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeoutMs: number = 150): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
-    const cleanup = () => {
-      video.removeEventListener('seeked', onSeeked);
-      video.removeEventListener('error', finish);
-      video.removeEventListener('canplay', onReady);
-    };
-
     const finish = () => {
       if (!settled) {
         settled = true;
-        cleanup();
+        clearTimeout(timer);
+        video.onseeked = null;
+        video.onerror = null;
         resolve();
       }
     };
 
     const timer = setTimeout(finish, timeoutMs);
 
-    const onReady = () => {
-      if (video.readyState >= 2) {
-        clearTimeout(timer);
-        finish();
-      }
-    };
-
-    const onSeeked = () => {
-      if (video.readyState >= 2) {
-        clearTimeout(timer);
-        finish();
-      } else {
-        video.addEventListener('canplay', onReady, { once: true });
-        setTimeout(finish, 80);
-      }
-    };
-
-    // If already at targetTime with delta < 1ms
-    if (Math.abs(video.currentTime - targetTime) < 0.001) {
-      if (video.readyState >= 2) {
-        clearTimeout(timer);
-        return resolve();
-      }
+    if (Math.abs(video.currentTime - targetTime) < 0.001 && video.readyState >= 2) {
+      finish();
+      return;
     }
 
-    video.addEventListener('seeked', onSeeked, { once: true });
-    video.addEventListener('error', finish, { once: true });
+    video.onseeked = () => finish();
+    video.onerror = () => finish();
 
     try {
       video.currentTime = targetTime;
     } catch {
-      clearTimeout(timer);
       finish();
     }
   });
@@ -364,154 +370,97 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
 
   const isVertical = preset === '9_16_vertical';
   const is4K = width >= 3840 || height >= 2160;
+  const currentLocalSec = frameInShot / Math.max(1, fps);
 
-  const useAutonomousOcclusion = Boolean(!cleanPlates && burnInTitles && depthOcclusionService.isEnabled());
+  // 1. Always initialize export canvas with the shot's exact procedural color gradient backdrop
+  //    (guarantees zero blank #000000 frames even if media decode glitches or is unassigned).
+  renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
 
-  if (useAutonomousOcclusion && !isVertical) {
-    // Modular 3-Layer Offscreen Canvas Compositing Hook (Base Pass -> Text Pass -> Subject Matte Pass)
-    // Executes immediately prior to WebCodecs VideoFrame grab without mutating VideoEncoder loop.
-    const panProgress = frameInShot / Math.max(1, totalFramesInShot);
-    const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
-    const zoom = 1.0 + smoothProgress * 0.04;
-    const currentLocalSec = frameInShot / Math.max(1, fps);
-    const shotTotalSec = totalFramesInShot / Math.max(1, fps);
-    const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
+  // 2. Render Per-Shot Video/Image Media Layer if ready and decodable
+  const hasReadySource = Boolean(
+    sourceElement &&
+      (sourceElement instanceof HTMLVideoElement
+        ? sourceElement.readyState >= 2 && sourceElement.videoWidth > 0 && sourceElement.videoHeight > 0
+        : sourceElement instanceof HTMLImageElement
+          ? sourceElement.complete && sourceElement.naturalWidth > 0 && sourceElement.naturalHeight > 0
+          : sourceElement.width > 0 && sourceElement.height > 0)
+  );
 
-    depthOcclusionService.compositeFrame({
-      ctx,
-      width,
-      height,
-      sourceElement: (sourceElement as any) || null,
-      timeSec: currentLocalSec,
-      durationSec: shotTotalSec,
-      fps,
-      isLivePlaying: true,
-      titleBn,
-      titleEn,
-      lyricText: caption?.text || tagline,
-      filmFilter,
-      zoomScale: zoom,
-      skipBaseDraw: false,
-      postBaseHook: (baseCtx, w, h) => {
-        if (sourceElement) {
-          applyCinematicPostProcess(
-            baseCtx as CanvasRenderingContext2D,
-            w,
-            h,
-            lutFilter || 'kodak_vision3',
-            adjustments,
-            currentLocalSec
-          );
-        }
-      }
-    });
-  } else {
-    // 1. Dark Obsidian Canvas Base
-    ctx.fillStyle = '#06070B';
-    ctx.fillRect(0, 0, width, height);
-
-    // 2. Render Media Frame or Procedural Background
-    if (sourceElement) {
-      let srcW = 1920;
-      let srcH = 1080;
-      if (sourceElement instanceof HTMLVideoElement) {
-        srcW = sourceElement.videoWidth || 1920;
-        srcH = sourceElement.videoHeight || 1080;
-      } else if (sourceElement instanceof ImageBitmap) {
-        srcW = sourceElement.width;
-        srcH = sourceElement.height;
-      } else if (sourceElement instanceof HTMLImageElement) {
-        srcW = sourceElement.naturalWidth || 1920;
-        srcH = sourceElement.naturalHeight || 1080;
-      }
-
-      if (isVertical) {
-        // 9:16 Vertical Reel Mode:
-        // Ambient blurred scope backing + sharp centered letterbox
-        ctx.save();
-        ctx.filter = 'blur(30px) brightness(0.4)';
-        ctx.drawImage(sourceElement as any, -width * 0.5, 0, width * 2, height);
-        ctx.restore();
-
-        const targetScopeH = Math.round(width / 2.39);
-        const targetScopeY = Math.round((height - targetScopeH) / 2);
-
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 24;
-        ctx.shadowOffsetY = 4;
-        ctx.drawImage(sourceElement as any, 0, targetScopeY, width, targetScopeH);
-        ctx.restore();
-
-        ctx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(0, targetScopeY, width, targetScopeH);
-      } else {
-        const panProgress = frameInShot / totalFramesInShot;
-        const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
-        const zoom = 1.0 + smoothProgress * 0.04;
-
-        const mediaRatio = srcW / srcH;
-        const canvasRatio = width / height;
-
-        let drawW = width;
-        let drawH = height;
-        let drawX = 0;
-        let drawY = 0;
-
-        if (mediaRatio > canvasRatio) {
-          drawW = height * mediaRatio;
-          drawX = (width - drawW) / 2;
-        } else {
-          drawH = width / mediaRatio;
-          drawY = (height - drawH) / 2;
-        }
-
-        const scaledW = drawW * zoom;
-        const scaledH = drawH * zoom;
-        const scaledX = drawX - (scaledW - drawW) / 2;
-        const scaledY = drawY - (scaledH - drawH) / 2;
-
-        ctx.save();
-        const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
-        if (filmFilter && filmFilter !== 'none') {
-          ctx.filter = filmFilter;
-        }
-        try {
-          ctx.drawImage(sourceElement as any, scaledX, scaledY, scaledW, scaledH);
-        } catch {
-          // Fallback
-        }
-        ctx.restore();
-      }
-
-      const currentLocalSec = frameInShot / Math.max(1, fps);
-      applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
-    } else {
-      const currentLocalSec = frameInShot / Math.max(1, fps);
-      renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
-      applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
+  if (hasReadySource && sourceElement) {
+    let srcW = 1920;
+    let srcH = 1080;
+    if (sourceElement instanceof HTMLVideoElement) {
+      srcW = sourceElement.videoWidth || 1920;
+      srcH = sourceElement.videoHeight || 1080;
+    } else if (sourceElement instanceof ImageBitmap) {
+      srcW = sourceElement.width;
+      srcH = sourceElement.height;
+    } else if (sourceElement instanceof HTMLImageElement) {
+      srcW = sourceElement.naturalWidth || 1920;
+      srcH = sourceElement.naturalHeight || 1080;
     }
 
-    if (useAutonomousOcclusion && isVertical) {
-      const currentLocalSec = frameInShot / Math.max(1, fps);
-      const shotTotalSec = totalFramesInShot / Math.max(1, fps);
-      depthOcclusionService.compositeFrame({
-        ctx,
-        width,
-        height,
-        sourceElement: (sourceElement as any) || null,
-        timeSec: currentLocalSec,
-        durationSec: shotTotalSec,
-        fps,
-        isLivePlaying: true,
-        titleBn,
-        titleEn,
-        lyricText: caption?.text || tagline,
-        skipBaseDraw: true
-      });
+    if (isVertical) {
+      // 9:16 Vertical Reel Mode: Ambient blurred scope backing + sharp centered letterbox
+      ctx.save();
+      ctx.filter = 'blur(30px) brightness(0.4)';
+      ctx.drawImage(sourceElement as any, -width * 0.5, 0, width * 2, height);
+      ctx.restore();
+
+      const targetScopeH = Math.round(width / 2.39);
+      const targetScopeY = Math.round((height - targetScopeH) / 2);
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 24;
+      ctx.shadowOffsetY = 4;
+      ctx.drawImage(sourceElement as any, 0, targetScopeY, width, targetScopeH);
+      ctx.restore();
+
+      ctx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(0, targetScopeY, width, targetScopeH);
+    } else {
+      const panProgress = frameInShot / Math.max(1, totalFramesInShot);
+      const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
+      const zoom = 1.0 + smoothProgress * 0.04;
+
+      const mediaRatio = srcW / srcH;
+      const canvasRatio = width / height;
+
+      let drawW = width;
+      let drawH = height;
+      let drawX = 0;
+      let drawY = 0;
+
+      if (mediaRatio > canvasRatio) {
+        drawW = height * mediaRatio;
+        drawX = (width - drawW) / 2;
+      } else {
+        drawH = width / mediaRatio;
+        drawY = (height - drawH) / 2;
+      }
+
+      const scaledW = drawW * zoom;
+      const scaledH = drawH * zoom;
+      const scaledX = drawX - (scaledW - drawW) / 2;
+      const scaledY = drawY - (scaledH - drawH) / 2;
+
+      ctx.save();
+      const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
+      if (filmFilter && filmFilter !== 'none') {
+        ctx.filter = filmFilter;
+      }
+      try {
+        ctx.drawImage(sourceElement as any, scaledX, scaledY, scaledW, scaledH);
+      } catch {
+        // Fallback keeps procedural backdrop initialized above
+      }
+      ctx.restore();
     }
   }
+
+  applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
 
   // 2b. Theatrical 2.39:1 Scope Mattes (Letterbox boundaries) for Standard 16:9 or standalone slates
   const isStandard16_9 = preset === '1080p_standard' || preset === '4k_standard';
@@ -523,7 +472,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       ctx.fillRect(0, 0, width, matteH);
       ctx.fillRect(0, height - matteH, width, matteH);
 
-      // Distinctive gold accent letterbox boundary line
       ctx.strokeStyle = 'rgba(212, 175, 55, 0.35)';
       ctx.lineWidth = is4K ? 2 : 1;
       ctx.beginPath();
@@ -549,13 +497,13 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     width / 2, height / 2, Math.max(width, height) * 0.8
   );
   vignette.addColorStop(0, 'rgba(0,0,0,0)');
-  vignette.addColorStop(0.65, useAutonomousOcclusion ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.4)');
-  vignette.addColorStop(1, useAutonomousOcclusion ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.88)');
+  vignette.addColorStop(0.65, 'rgba(0,0,0,0.34)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.82)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, width, height);
 
   // 4. Anamorphic Flare & Light Streak Simulation
-  const shouldRenderFlare = useAutonomousOcclusion ? Boolean(simulateFlare) : (simulateFlare || !sourceElement);
+  const shouldRenderFlare = Boolean(simulateFlare || !hasReadySource);
   if (shouldRenderFlare) {
     const flareY = isVertical ? height * 0.5 : height * 0.48;
     const flareH = Math.max(8, height * 0.035);
@@ -582,7 +530,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   }
 
   // 5. Aligned Dopamine & Kinetics Title Overlay (LEFT | MID | RIGHT | AUTO)
-  if (burnInTitles && !useAutonomousOcclusion) {
+  if (burnInTitles) {
     const rampFrames = Math.min(16, Math.max(3, Math.floor(totalFramesInShot * 0.25)));
     const fadeIn = Math.min(1.0, Math.max(0.08, (frameInShot + 1) / rampFrames));
     const fadeOutFrames = Math.min(8, Math.max(2, Math.floor(totalFramesInShot * 0.12)));
@@ -657,11 +605,84 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   ctx.lineTo(width - pad, height - pad - bSize);
   ctx.stroke();
 
-  // 7. Kinetic Rap Captions & Lyrical Typography Burn-In (when legacy compositor is active)
-  if (!useAutonomousOcclusion && caption && caption.text && burnInTitles) {
-    const currentLocalSec = frameInShot / fps;
-    const shotTotalSec = totalFramesInShot / fps;
+  // 7. Kinetic Rap Captions & Lyrical Typography Burn-In
+  if (caption && caption.text && burnInTitles) {
+    const shotTotalSec = totalFramesInShot / activeFps;
     renderCanvasBurnInCaption(ctx, width, height, caption, currentLocalSec, shotTotalSec);
+  }
+}
+
+/**
+ * Non-Blank Pixel Guard executed right before encoding each VideoFrame / MediaRecorder frame.
+ * Verifies the active viewport is not pure #000000 black; if blank pixels are detected,
+ * repaints the shot's procedural palette backdrop + aligned title overlay immediately.
+ */
+function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
+  const {
+    ctx,
+    width,
+    height,
+    shotIndex,
+    frameInShot,
+    totalFramesInShot,
+    fps = 24,
+    lutFilter,
+    adjustments,
+    burnInTitles,
+    cleanPlates,
+    titleBn = 'দৃষ্টি // THE SINGULARITY',
+    titleEn = `SHOT ${String(shotIndex + 1).padStart(3, '0')}`,
+    tagline = '24.0 FPS UNCOMPRESSED MASTER',
+    shotType,
+    titleAlign,
+    titlePreset,
+    titleSize,
+    verticalOffset
+  } = props;
+
+  try {
+    const sampleCoords: Array<[number, number]> = [
+      [Math.floor(width * 0.5), Math.floor(height * 0.5)],
+      [Math.floor(width * 0.25), Math.floor(height * 0.5)],
+      [Math.floor(width * 0.75), Math.floor(height * 0.5)],
+      [Math.floor(width * 0.5), Math.floor(height * 0.35)],
+      [Math.floor(width * 0.5), Math.floor(height * 0.65)]
+    ];
+
+    let hasNonBlackPixel = false;
+    for (const [sx, sy] of sampleCoords) {
+      const px = ctx.getImageData(sx, sy, 1, 1).data;
+      if (px[0] + px[1] + px[2] > 8) {
+        hasNonBlackPixel = true;
+        break;
+      }
+    }
+
+    if (!hasNonBlackPixel) {
+      const currentLocalSec = frameInShot / Math.max(1, fps);
+      renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
+      applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
+      if (burnInTitles && !cleanPlates) {
+        const storeState = useStudioStore.getState();
+        const resolvedAlign = resolveEffectiveTitleAlign(
+          titleAlign ?? storeState.titleAlign ?? 'AUTO',
+          shotIndex,
+          shotType
+        );
+        renderAlignedCinemaTitleOverlay(ctx, width, height, {
+          banglaTitle: titleBn,
+          englishTitle: titleEn,
+          dialogue: tagline,
+          effectiveAlign: resolvedAlign,
+          preset: titlePreset ?? storeState.titleConfig?.preset ?? 'molten-gold',
+          titleSize: titleSize ?? storeState.titleConfig?.titleSize ?? 72,
+          verticalOffset: verticalOffset ?? storeState.titleConfig?.verticalOffset ?? 0,
+          opacity: 1.0
+        });
+      }
+    }
+  } catch {
+    // Never abort export on pixel guard inspection
   }
 }
 
@@ -768,38 +789,88 @@ async function loadShotRawBlob(shotIdx: number, slide: any, frame: any): Promise
 }
 
 /**
- * Decodes per-shot media (Blob or URL) into a ready-to-composite HTMLVideoElement or ImageBitmap.
+ * Decodes per-shot media from `shotMediaMap` (hydrated IndexedDB blob URLs) or `handfilm_media_vault`
+ * into a decoded HTMLVideoElement (awaiting `loadeddata`) or HTMLImageElement/ImageBitmap (awaiting `img.decode()`).
  */
 async function loadShotSourceMedia(
   shotIdx: number,
   slide: any,
-  frame: any
+  frame: any,
+  shotMediaMap?: ShotMediaMap
 ): Promise<{
   activeVideoElement: HTMLVideoElement | null;
-  activeBitmap: ImageBitmap | null;
+  activeBitmap: ImageBitmap | HTMLImageElement | null;
   activeObjectUrl: string | null;
+  ownsObjectUrl: boolean;
 }> {
-  const rawBlob = await loadShotRawBlob(shotIdx, slide, frame);
-  let activeVideoElement: HTMLVideoElement | null = null;
-  let activeBitmap: ImageBitmap | null = null;
-  let activeObjectUrl: string | null = null;
+  const shotKey = getShotMediaKey(frame || slide, shotIdx);
+  const storeMediaMap = useStudioStore.getState().shotMediaMap;
+  const mediaEntry = shotMediaMap?.[shotKey] ?? storeMediaMap?.[shotKey] ?? null;
 
+  let activeVideoElement: HTMLVideoElement | null = null;
+  let activeBitmap: ImageBitmap | HTMLImageElement | null = null;
+  let activeObjectUrl: string | null = null;
+  let ownsObjectUrl = false;
+
+  // 1. Primary: Resolve directly from live `shotMediaMap[shot.id]` (IndexedDB hydrated blob: URL)
+  if (mediaEntry?.url) {
+    if (mediaEntry.type === 'video') {
+      const vid = document.createElement('video');
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.preload = 'auto';
+      vid.crossOrigin = 'anonymous';
+      vid.src = mediaEntry.url;
+      await waitForVideoLoadedData(vid, 2500);
+      if (vid.readyState >= 2 && vid.videoWidth > 0) {
+        return {
+          activeVideoElement: vid,
+          activeBitmap: null,
+          activeObjectUrl: null,
+          ownsObjectUrl: false
+        };
+      }
+    } else {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = mediaEntry.url;
+        if (typeof img.decode === 'function') {
+          await img.decode();
+        } else {
+          await new Promise<void>((res) => {
+            img.onload = () => res();
+            img.onerror = () => res();
+            setTimeout(res, 1800);
+          });
+        }
+        if (img.naturalWidth > 0) {
+          return {
+            activeVideoElement: null,
+            activeBitmap: img,
+            activeObjectUrl: null,
+            ownsObjectUrl: false
+          };
+        }
+      } catch {
+        // Fall through to raw Blob recovery if hydrated blob URL expired
+      }
+    }
+  }
+
+  // 2. Secondary: Read binary Blob directly from IndexedDB (`handfilm_media_vault` / `studioDraftDb`)
+  const rawBlob = await loadShotRawBlob(shotIdx, slide, frame);
   if (rawBlob) {
     if (rawBlob.type.startsWith('video/')) {
       activeObjectUrl = URL.createObjectURL(rawBlob);
+      ownsObjectUrl = true;
       activeVideoElement = document.createElement('video');
-      activeVideoElement.crossOrigin = 'anonymous';
       activeVideoElement.muted = true;
       activeVideoElement.playsInline = true;
       activeVideoElement.preload = 'auto';
+      activeVideoElement.crossOrigin = 'anonymous';
       activeVideoElement.src = activeObjectUrl;
-
-      await new Promise<void>((res) => {
-        activeVideoElement!.onloadeddata = () => res();
-        activeVideoElement!.oncanplay = () => res();
-        activeVideoElement!.onerror = () => res();
-        setTimeout(res, 2000);
-      });
+      await waitForVideoLoadedData(activeVideoElement, 2500);
     } else {
       try {
         activeBitmap = await createImageBitmap(rawBlob);
@@ -807,48 +878,43 @@ async function loadShotSourceMedia(
         // fallback to procedural backdrop if corrupted
       }
     }
-    return { activeVideoElement, activeBitmap, activeObjectUrl };
+    return { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl };
   }
 
-  const shotKey = getShotMediaKey(frame || slide, shotIdx);
-  const vaultMapEntry = useStudioStore.getState().shotMediaMap?.[shotKey];
-  const mediaUrl = vaultMapEntry?.url || frame?.imageUrl || slide?.remoteUrl || '';
+  // 3. Tertiary: Check frame/slide image or video URL
+  const mediaUrl = frame?.videoSrc || frame?.imageUrl || slide?.remoteUrl || '';
   const isVideoMedia = Boolean(
-    vaultMapEntry
-      ? vaultMapEntry.type === 'video'
-      : frame?.isVideo ||
-        slide?.isVideo ||
-        mediaUrl.startsWith('data:video') ||
-        /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
+    frame?.isVideo ||
+      slide?.isVideo ||
+      mediaUrl.startsWith('data:video') ||
+      /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
   );
 
   if (mediaUrl) {
     if (isVideoMedia) {
       activeVideoElement = document.createElement('video');
-      activeVideoElement.crossOrigin = 'anonymous';
       activeVideoElement.muted = true;
       activeVideoElement.playsInline = true;
       activeVideoElement.preload = 'auto';
+      activeVideoElement.crossOrigin = 'anonymous';
       activeVideoElement.src = mediaUrl;
-
-      await new Promise<void>((res) => {
-        activeVideoElement!.onloadeddata = () => res();
-        activeVideoElement!.oncanplay = () => res();
-        activeVideoElement!.onerror = () => res();
-        setTimeout(res, 2500);
-      });
+      await waitForVideoLoadedData(activeVideoElement, 2500);
     } else {
       try {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        await new Promise<void>((res) => {
-          img.onload = () => res();
-          img.onerror = () => res();
-          img.src = mediaUrl;
-          setTimeout(res, 1800);
-        });
-        if (img.complete && img.naturalWidth > 0) {
-          activeBitmap = await createImageBitmap(img);
+        img.src = mediaUrl;
+        if (typeof img.decode === 'function') {
+          await img.decode();
+        } else {
+          await new Promise<void>((res) => {
+            img.onload = () => res();
+            img.onerror = () => res();
+            setTimeout(res, 1800);
+          });
+        }
+        if (img.naturalWidth > 0) {
+          activeBitmap = img;
         }
       } catch (imgErr) {
         console.warn('[videoExportEngine] Image load fallback warning:', imgErr);
@@ -856,7 +922,7 @@ async function loadShotSourceMedia(
     }
   }
 
-  return { activeVideoElement, activeBitmap, activeObjectUrl };
+  return { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl };
 }
 
 /**
@@ -932,6 +998,7 @@ async function exportCinemaMasterWithMediaRecorder(
     cleanPlates,
     simulateFlare,
     includeAudio,
+    shotMediaMap,
     onProgress,
     onFrameRendered,
     previewCanvas,
@@ -1111,11 +1178,11 @@ async function exportCinemaMasterWithMediaRecorder(
         const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
         const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
-        const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl } =
-          await loadShotSourceMedia(shotIdx, slide, frame);
+        const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl, ownsObjectUrl } =
+          await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
         let activeVideoElement = loadedVid;
         let activeBitmap = loadedBmp;
-        let activeObjectUrl = loadedUrl;
+        let activeObjectUrl = ownsObjectUrl ? loadedUrl : null;
 
         const shotDurationSec = perShotDurationsSec[shotListIdx];
         const shotFramesCount = perShotFrameCounts[shotListIdx];
@@ -1124,20 +1191,21 @@ async function exportCinemaMasterWithMediaRecorder(
         for (let f = 0; f < shotFramesCount; f++) {
           if (abortSignal?.aborted) {
             if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
-            if (activeBitmap) activeBitmap.close();
+            if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
             recorder.stop();
             return reject(new Error('Export cancelled by user.'));
           }
 
-          if (activeVideoElement && activeVideoElement.duration > 0) {
-            const localSec = (f / fps);
-            const targetVideoSec = activeVideoElement.duration > 0
-              ? localSec % activeVideoElement.duration
-              : Math.min(localSec, shotDurationSec);
-            await waitForSeek(activeVideoElement, targetVideoSec, 800);
+          if (activeVideoElement) {
+            await waitForVideoLoadedData(activeVideoElement, 400);
+            const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
+              ? activeVideoElement.duration
+              : shotDurationSec;
+            const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
+            await waitForSeek(activeVideoElement, targetVideoSec, 150);
           }
 
-          compositeCinemaFrame({
+          const frameProps: FrameCompositeProps = {
             ctx,
             width,
             height,
@@ -1158,7 +1226,9 @@ async function exportCinemaMasterWithMediaRecorder(
             lutFilter: frame?.lutFilter,
             adjustments: frame?.adjustments,
             caption: frame?.caption
-          });
+          };
+          compositeCinemaFrame(frameProps);
+          ensureNonBlankCanvasFrame(frameProps);
 
           if (hasRequestFrame) {
             try {
@@ -1215,7 +1285,7 @@ async function exportCinemaMasterWithMediaRecorder(
           URL.revokeObjectURL(activeObjectUrl);
           activeObjectUrl = null;
         }
-        if (activeBitmap) {
+        if (activeBitmap && 'close' in activeBitmap) {
           activeBitmap.close();
           activeBitmap = null;
         }
@@ -1273,6 +1343,7 @@ async function exportWithWebCodecs(
     cleanPlates,
     simulateFlare,
     includeAudio,
+    shotMediaMap,
     onProgress,
     onFrameRendered,
     previewCanvas,
@@ -1483,11 +1554,11 @@ async function exportWithWebCodecs(
     const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
     const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
-    const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl } =
-      await loadShotSourceMedia(shotIdx, slide, frame);
+    const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl, ownsObjectUrl } =
+      await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
     let activeVideoElement = loadedVid;
     let activeBitmap = loadedBmp;
-    let activeObjectUrl = loadedUrl;
+    let activeObjectUrl = ownsObjectUrl ? loadedUrl : null;
 
     const shotDurationSec = perShotDurationsSec[shotListIdx];
     const shotFramesCount = perShotFrameCounts[shotListIdx];
@@ -1496,24 +1567,20 @@ async function exportWithWebCodecs(
     for (let f = 0; f < shotFramesCount; f++) {
       if (abortSignal?.aborted) {
         if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
-        if (activeBitmap) activeBitmap.close();
+        if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
         throw new Error('Export cancelled by user.');
       }
 
-      if (activeVideoElement && activeVideoElement.duration > 0) {
-        const localSec = (f / fps);
-        const targetVideoSec = activeVideoElement.duration > 0
-          ? localSec % activeVideoElement.duration
-          : Math.min(localSec, shotDurationSec);
-        await waitForSeek(activeVideoElement, targetVideoSec, 800);
-      } else if (activeVideoElement && activeVideoElement.readyState < 2) {
-        await new Promise<void>((res) => {
-          activeVideoElement!.oncanplay = () => res();
-          setTimeout(res, 300);
-        });
+      if (activeVideoElement) {
+        await waitForVideoLoadedData(activeVideoElement, 400);
+        const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
+          ? activeVideoElement.duration
+          : shotDurationSec;
+        const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
+        await waitForSeek(activeVideoElement, targetVideoSec, 150);
       }
 
-      compositeCinemaFrame({
+      const frameProps: FrameCompositeProps = {
         ctx,
         width,
         height,
@@ -1534,7 +1601,9 @@ async function exportWithWebCodecs(
         lutFilter: frame?.lutFilter,
         adjustments: frame?.adjustments,
         caption: frame?.caption
-      });
+      };
+      compositeCinemaFrame(frameProps);
+      ensureNonBlankCanvasFrame(frameProps);
 
       const timestampMicros = Math.round((globalFrameIndex / fps) * 1_000_000);
       const durationMicros = Math.round((1 / fps) * 1_000_000);
@@ -1599,7 +1668,7 @@ async function exportWithWebCodecs(
       URL.revokeObjectURL(activeObjectUrl);
       activeObjectUrl = null;
     }
-    if (activeBitmap) {
+    if (activeBitmap && 'close' in activeBitmap) {
       activeBitmap.close();
       activeBitmap = null;
     }
@@ -1765,6 +1834,7 @@ export async function exportCinemaMasterVp9(
     cleanPlates,
     simulateFlare,
     includeAudio,
+    shotMediaMap,
     onProgress,
     onFrameRendered,
     abortSignal
@@ -1937,25 +2007,30 @@ export async function exportCinemaMasterVp9(
       const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
       const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
-      const { activeVideoElement, activeBitmap, activeObjectUrl } = await loadShotSourceMedia(shotIdx, slide, frame);
+      const { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl } =
+        await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
+      const ownedUrl = ownsObjectUrl ? activeObjectUrl : null;
       const shotDurationSec = perShotDurationsSec[shotListIdx];
       const shotFramesCount = perShotFrameCounts[shotListIdx];
       const shotStartTimeSec = shotBoundaryTimesSec[shotListIdx] ?? 0;
 
       for (let f = 0; f < shotFramesCount; f++) {
         if (abortSignal?.aborted) {
-          if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
-          if (activeBitmap) activeBitmap.close();
+          if (ownedUrl) URL.revokeObjectURL(ownedUrl);
+          if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
           throw new Error('Export cancelled by user.');
         }
 
-        if (activeVideoElement && activeVideoElement.duration > 0) {
-          const localSec = f / fps;
-          const targetVideoSec = localSec % activeVideoElement.duration;
-          await waitForSeek(activeVideoElement, targetVideoSec, 800);
+        if (activeVideoElement) {
+          await waitForVideoLoadedData(activeVideoElement, 400);
+          const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
+            ? activeVideoElement.duration
+            : shotDurationSec;
+          const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
+          await waitForSeek(activeVideoElement, targetVideoSec, 150);
         }
 
-        compositeCinemaFrame({
+        const frameProps: FrameCompositeProps = {
           ctx,
           width,
           height,
@@ -1976,7 +2051,9 @@ export async function exportCinemaMasterVp9(
           lutFilter: frame?.lutFilter,
           adjustments: frame?.adjustments,
           caption: frame?.caption
-        });
+        };
+        compositeCinemaFrame(frameProps);
+        ensureNonBlankCanvasFrame(frameProps);
 
         const timestampMicros = Math.round((globalFrameIndex / fps) * 1_000_000);
         const durationMicros = Math.round((1 / fps) * 1_000_000);
@@ -2004,8 +2081,8 @@ export async function exportCinemaMasterVp9(
         if (globalFrameIndex % 4 === 0) await new Promise((r) => setTimeout(r, 0));
       }
 
-      if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
-      if (activeBitmap) activeBitmap.close();
+      if (ownedUrl) URL.revokeObjectURL(ownedUrl);
+      if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
       if (activeVideoElement) activeVideoElement.src = '';
     }
 
@@ -2084,6 +2161,7 @@ export async function exportPngSequenceZip(
     cleanPlates,
     simulateFlare,
     framesPerShot = 1,
+    shotMediaMap,
     onProgress,
     onFrameRendered,
     abortSignal
@@ -2152,24 +2230,30 @@ export async function exportPngSequenceZip(
     const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
     const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
-    const { activeVideoElement, activeBitmap, activeObjectUrl } = await loadShotSourceMedia(shotIdx, slide, frame);
+    const { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl } =
+      await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
+    const ownedUrl = ownsObjectUrl ? activeObjectUrl : null;
 
     for (let s = 0; s < samplesPerShot; s++) {
       if (abortSignal?.aborted) {
-        if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
-        if (activeBitmap) activeBitmap.close();
+        if (ownedUrl) URL.revokeObjectURL(ownedUrl);
+        if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
         throw new Error('Export cancelled by user.');
       }
 
       const sampleRatio = samplesPerShot === 1 ? 0.25 : s / samplesPerShot;
       const frameInShot = Math.min(totalShotFrames - 1, Math.round(sampleRatio * totalShotFrames));
 
-      if (activeVideoElement && activeVideoElement.duration > 0) {
-        const targetSec = (frameInShot / 24) % activeVideoElement.duration;
-        await waitForSeek(activeVideoElement, targetSec, 800);
+      if (activeVideoElement) {
+        await waitForVideoLoadedData(activeVideoElement, 400);
+        const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
+          ? activeVideoElement.duration
+          : shotDurSec;
+        const targetSec = vidDuration > 0 ? (frameInShot / 24) % vidDuration : 0;
+        await waitForSeek(activeVideoElement, targetSec, 150);
       }
 
-      compositeCinemaFrame({
+      const frameProps: FrameCompositeProps = {
         ctx,
         width,
         height,
@@ -2190,7 +2274,9 @@ export async function exportPngSequenceZip(
         lutFilter: frame?.lutFilter,
         adjustments: frame?.adjustments,
         caption: frame?.caption
-      });
+      };
+      compositeCinemaFrame(frameProps);
+      ensureNonBlankCanvasFrame(frameProps);
 
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       const base64 = dataUrl.split(',')[1];
@@ -2218,8 +2304,8 @@ export async function exportPngSequenceZip(
     }
 
     runningStartSec += shotDurSec;
-    if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
-    if (activeBitmap) activeBitmap.close();
+    if (ownedUrl) URL.revokeObjectURL(ownedUrl);
+    if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
     if (activeVideoElement) activeVideoElement.src = '';
   }
 

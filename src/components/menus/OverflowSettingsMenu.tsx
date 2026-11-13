@@ -28,6 +28,7 @@ import {
   Keyboard
 } from 'lucide-react';
 import { SmartHoverCard } from '../ui/SmartHoverCard';
+import { PWAInstallButton } from '../pwa/PWAComponents';
 import { studioDraftDb } from '../../services/db';
 import { eventBus } from '../../core/eventBus';
 import { RESTORED_OVERFLOW_MODULES } from '../../types/modules';
@@ -504,6 +505,9 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
               <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⇧?</kbd>
             </button>
           </SmartHoverCard>
+
+          {/* In-App PWA Install Prompt (hidden automatically if already installed as standalone) */}
+          <PWAInstallButton onTriggered={() => setIsOpen(false)} />
 
           {/* Cache Status Badge */}
           {cacheStatus && (

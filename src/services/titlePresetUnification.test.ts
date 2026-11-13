@@ -416,14 +416,19 @@ test('Compact chrome proportions and HandfilmHome 10 permanent manifesto slides'
     assert.ok(homeSource.includes(label), `Missing showcase deck label: ${label}`);
   }
   for (const cardString of [
-    '1–6 Cinematic Title Cards',
+    'Top 10 Master Shots Today',
     'OPENING SEQUENCE // RAW 4K',
     'EVENT HORIZON // 35MM FILM',
     'SOLAR CORONA // NOCTILUX',
     'VELOCITY IMPACT // ZERO BLUR',
     'SILENT GAZE // CLOSER 85MM',
     'END SEQUENCE // 4K BROADCAST',
-    'Built for Autonomous Directors',
+    'More Reasons to Create on HANDFILM',
+    'LOCAL DATA SOVEREIGNTY',
+    'TEMPORAL PRECISION',
+    'NLE PIPELINE',
+    'Frequently Asked Questions',
+    'OPEN HANDFILM PRO STUDIO NOW',
     'HANDS &amp; HEAD CREATIVE GROUP',
     'All Rights Reserved',
     'Rakib Himon',

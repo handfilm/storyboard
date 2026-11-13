@@ -37,6 +37,7 @@ import { videoCacheService } from '../services/videoCacheService';
 import { syncVideoCurrentTimeWithFastSeek } from '../utils/playbackClock';
 import { StageMetadataFxBar } from './stage/StageMetadataFxBar';
 import { StageTextOverlay } from './StageTextOverlay';
+import { eventBus } from '../core/eventBus';
 import {
   BEAT_INTERVAL_OPTIONS,
   HYPER_REEL_FPS,
@@ -417,6 +418,39 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     if (onSelectSlide) onSelectSlide(idx);
     else onJumpToShot?.(idx);
   };
+
+  // Subscribe to Top Bar FEATURES mega-dropdown triggers
+  const pack12sRef = useRef(handlePack12sHyperReel);
+  pack12sRef.current = handlePack12sHyperReel;
+  const toggleBeatFxRef = useRef(handleToggleBeatFx);
+  toggleBeatFxRef.current = handleToggleBeatFx;
+  const smartCropPresetRef = useRef(handleApplySmartCropPreset);
+  smartCropPresetRef.current = handleApplySmartCropPreset;
+  const activeSlideRef = useRef(activeSlide);
+  activeSlideRef.current = activeSlide;
+
+  useEffect(() => {
+    const unsubPack = eventBus.on('reels:pack_12s', () => {
+      pack12sRef.current();
+    });
+    const unsubBeat = eventBus.on('reels:toggle_beat_fx', () => {
+      const cur = activeSlideRef.current;
+      const nextFlash = !(cur?.flashCutEnabled && cur?.beatDropEnabled);
+      toggleBeatFxRef.current({
+        flashCutEnabled: nextFlash,
+        beatDropEnabled: nextFlash,
+        flashCutIntervalSec: cur?.flashCutIntervalSec ?? 1.0
+      });
+    });
+    const unsubCrop = eventBus.on('reels:smart_crop_916', () => {
+      smartCropPresetRef.current('AUTO_ZOOM');
+    });
+    return () => {
+      unsubPack();
+      unsubBeat();
+      unsubCrop();
+    };
+  }, []);
 
   const displayBangla = activeSlide?.titleBn || 'আলোর স্মৃতি';
   const displayEnglish = activeSlide?.titleEn || `SHOT ${String(currentIndex + 1).padStart(3, '0')} // MASTER REEL`;

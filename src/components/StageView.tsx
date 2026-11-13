@@ -86,10 +86,13 @@ export const StageView: React.FC<StageViewProps> = ({
         currentIndex={currentIndex}
         totalShots={frames.length || 100}
         currentFrame={currentFrame}
+        frames={frames}
+        aspectRatio={typeof aspectRatio === 'string' ? aspectRatio : '2.39:1'}
         playbackMode={playbackMode}
         onSelectPlaybackMode={onSelectPlaybackMode}
         slideDurationSec={SLIDE_DURATION_SEC}
         fps={fps}
+        onJumpToShot={onSelectFrame}
       />
 
       {/* 2. Primary 2.39:1 Cinema Viewport */}

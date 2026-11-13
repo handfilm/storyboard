@@ -196,7 +196,7 @@ export default function App() {
   const [isSnapToBeat, setIsSnapToBeat] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState(120);
   const [isTelemetryRackOpen, setIsTelemetryRackOpen] = useState(false);
-  const [isZenMode, setIsZenMode] = useState(true);
+  const [isZenMode, setIsZenMode] = useState(false);
 
   // Screen Recorder & WebCodecs Trimmer Suite State
   const [isScreenRecorderOpen, setIsScreenRecorderOpen] = useState(false);
@@ -261,6 +261,7 @@ export default function App() {
   }, [workspaceMode, currentView]);
 
   const sessionRestoreInputRef = useRef<HTMLInputElement>(null);
+  const batchMediaInputRef = useRef<HTMLInputElement>(null);
 
   // 1. Hard Reload Recovery: Automatically hydrate state from IndexedDB
   useEffect(() => {
@@ -430,6 +431,123 @@ export default function App() {
       console.warn('[App] Failed to restore project JSON:', err);
     } finally {
       if (e.target) e.target.value = '';
+    }
+  }, []);
+
+  // 3b. Header Mega-Menu & Focus Mode Handlers
+  const handleToggleFocusMode = useCallback(() => {
+    setIsZenMode(prev => {
+      const next = !prev;
+      if (next) {
+        setIsDrawerOpen(false);
+        setIsInspectorOpen(false);
+        setIsTelemetryRackOpen(false);
+        setIsRailCollapsed(true);
+      }
+      try {
+        useStudioStore.setState({ isZenMode: next });
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleNewAnthologyProject = useCallback(() => {
+    studioDraftDb.revokeAllTrackedUrls();
+    const freshFrames = ensureUniqueFrameIds(generateInitialFrames());
+    const newId = `project-${Date.now()}`;
+    setActiveProjectId(newId);
+    setCurrentIndex(0);
+    slideTimeSecRef.current = 0;
+    setSlideTimeSec(0);
+    setIsPlaying(false);
+    setAspectRatio('2.39:1');
+    setHistoryStack([]);
+    setRedoStack([]);
+    setProject({
+      title: 'RAWx // New Anthology Project',
+      director: 'Rakib Himon',
+      nodeLocation: 'DHAKA_01',
+      aspectRatio: '2.39:1',
+      frames: freshFrames,
+      createdAt: new Date().toISOString(),
+      version: '1.0.0'
+    });
+    try {
+      const store = useStudioStore.getState();
+      store.setActiveShotIndex(0);
+      store.setSlideTimeSec(0);
+      store.setShotMediaMap({});
+      store.setAspectRatio('2.39:1');
+    } catch {}
+    setCurrentView('STUDIO');
+    setWorkspaceMode('STAGE');
+    setActiveDualPanel('TACTILE_STAGE');
+  }, []);
+
+  const handleSaveSnapshot = useCallback(async () => {
+    try {
+      const v1 = migrateToProjectV1({
+        id: activeProjectId,
+        title: project.title,
+        director: project.director,
+        nodeLocation: project.nodeLocation,
+        aspectRatio,
+        frames: project.frames.map(f => ({
+          ...f,
+          adjustments: f.adjustments
+        })),
+        createdAt: project.createdAt,
+        version: project.version
+      });
+      v1.settings.fitMode = fitMode;
+      v1.settings.componentsVisibility = componentsVisibility;
+      v1.shots.forEach((s, i) => {
+        s.panY = panOffsets[i] ?? 50;
+      });
+      await storageManager.saveProjectNow(v1);
+
+      const snapshotState: SovereignProjectState = {
+        version: '1.0.0',
+        updatedAt: Date.now(),
+        activeShotIndex: currentIndex,
+        projectTitle: project.title,
+        shots: project.frames.map((f, i) => ({
+          id: String(f.id ?? i),
+          shotIndex: i,
+          title: f.title,
+          bengaliTitle: f.bengaliTitle || '',
+          englishTitle: f.title,
+          tagline: f.tagline,
+          directorNotes: f.directorNotes,
+          soundCue: f.soundCue,
+          durationSeconds: f.slideHoldSec ?? 12.0,
+          imageUrl: f.imageUrl,
+          thumbnailUrl: f.thumbnailUrl,
+          dopamineConfig: f.dopamineConfig,
+          isVideo: f.isVideo,
+          aspectRatio: f.aspectRatio,
+          lutFilter: f.lutFilter
+        })),
+        multiCamGroup
+      };
+      await projectStorageEngine.saveSession(snapshotState);
+    } catch (err) {
+      console.warn('[App] Save snapshot error:', err);
+    }
+  }, [activeProjectId, project, aspectRatio, fitMode, componentsVisibility, panOffsets, currentIndex, multiCamGroup]);
+
+  const handleClearOpfsAndReset = useCallback(async () => {
+    try {
+      opfsMediaStorage.cleanup();
+      const root = await opfsMediaStorage.getRootDirectory();
+      if (root) {
+        await root.removeEntry('media_vault', { recursive: true }).catch(() => {});
+        await root.removeEntry('proxies', { recursive: true }).catch(() => {});
+      }
+      await studioDraftDb.purgeTransientCache();
+      thumbnailMemoryCache.clear();
+    } catch (err) {
+      console.warn('[App] Clear OPFS Cache & Reset warning:', err);
     }
   }, []);
 
@@ -853,6 +971,18 @@ export default function App() {
     const unsubExportFcpxml = eventBus.on('export:fcpxml', () => {
       handleOpenExportStudio('premiere');
     });
+    const unsubProjectNew = eventBus.on('project:new', () => {
+      handleNewAnthologyProject();
+    });
+    const unsubSaveSnapshot = eventBus.on('project:save_snapshot', () => {
+      void handleSaveSnapshot();
+    });
+    const unsubBatchImport = eventBus.on('media:batch_import', () => {
+      batchMediaInputRef.current?.click();
+    });
+    const unsubWalkthrough = eventBus.on('walkthrough:open', () => {
+      setShowWalkthrough(true);
+    });
 
     return () => {
       unsub();
@@ -881,8 +1011,12 @@ export default function App() {
       unsubSettingsOpen();
       unsubExportXml();
       unsubExportFcpxml();
+      unsubProjectNew();
+      unsubSaveSnapshot();
+      unsubBatchImport();
+      unsubWalkthrough();
     };
-  }, [handleOpenExportStudio, aspectRatio]);
+  }, [handleOpenExportStudio, aspectRatio, handleNewAnthologyProject, handleSaveSnapshot]);
 
   // Global browser navigation guard for OS drag-and-drop (never stopPropagation so card/stage onDrop receive drops)
   useEffect(() => {
@@ -1694,11 +1828,10 @@ export default function App() {
     };
   }, []);
 
-  // Global Alt+R / Shift+R Screen Recorder Shortcut Listener
+  // Global Alt+1..Alt+6 Panel Switcher (preserves playback state), Ctrl+S Snapshot, and Alt+R / Shift+R Recorder
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is inside text input/textarea
-      const target = e.target as HTMLElement;
+    const handleGlobalShortcutsCapture = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
       if (
         target &&
         (target.tagName === 'INPUT' ||
@@ -1707,6 +1840,47 @@ export default function App() {
           target.isContentEditable)
       ) {
         return;
+      }
+
+      // Ctrl+S / Cmd+S: Save Project Snapshot to IDB without triggering browser Save Page dialog
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        e.stopPropagation();
+        void handleSaveSnapshot();
+        return;
+      }
+
+      // Alt+1 .. Alt+6: Instant Tactile Workspace Mode Switching without losing playback state
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const altPanelMap: Record<string, StagePanelType> = {
+          Digit1: 'TACTILE_STAGE',
+          Digit2: 'SPLIT',
+          Digit3: 'SEQUENCER',
+          Digit4: 'MULTICAM',
+          Digit5: 'OPTICAL'
+        };
+        const keyFallbackMap: Record<string, StagePanelType> = {
+          '1': 'TACTILE_STAGE',
+          '2': 'SPLIT',
+          '3': 'SEQUENCER',
+          '4': 'MULTICAM',
+          '5': 'OPTICAL'
+        };
+        const targetPanel = altPanelMap[e.code] || keyFallbackMap[e.key];
+        if (targetPanel) {
+          e.preventDefault();
+          e.stopPropagation();
+          setCurrentView('STUDIO');
+          setWorkspaceMode('STAGE');
+          setActiveDualPanel(targetPanel);
+          return;
+        }
+        if (e.code === 'Digit6' || e.key === '6') {
+          e.preventDefault();
+          e.stopPropagation();
+          eventBus.emit('cockpit:toggle_hud');
+          return;
+        }
       }
 
       // Alt+R toggles dock; Shift+R opens dock if closed
@@ -1721,9 +1895,9 @@ export default function App() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isScreenRecorderOpen]);
+    window.addEventListener('keydown', handleGlobalShortcutsCapture, { capture: true });
+    return () => window.removeEventListener('keydown', handleGlobalShortcutsCapture, { capture: true });
+  }, [isScreenRecorderOpen, handleSaveSnapshot]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -2404,6 +2578,20 @@ export default function App() {
     await handleUploadMediaForIndex(currentIndex, file);
   }, [currentIndex, handleUploadMediaForIndex]);
 
+  const handleBatchMediaChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
+    try {
+      const total = Math.max(1, projectFramesRef.current.length);
+      const startIndex = currentIndexRef.current;
+      for (let i = 0; i < files.length; i++) {
+        await handleUploadMediaForIndex((startIndex + i) % total, files[i]);
+      }
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  }, [handleUploadMediaForIndex]);
+
   // Instant Decision Purge (Shift + Delete): zero-loss RAM & per-shot Vault cleanup
   const handlePurgeMedia = useCallback(() => {
     const current = projectFramesRef.current[currentIndex];
@@ -2579,7 +2767,7 @@ export default function App() {
         case 'z':
         case 'Z':
           e.preventDefault();
-          setIsZenMode(prev => !prev);
+          handleToggleFocusMode();
           break;
         case 'd':
         case 'D':
@@ -2607,7 +2795,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleStepFrame, isPlaying, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio, handleToggleMultiCam, isShortcutsOpen, isCommandPaletteOpen]);
+  }, [handleStepFrame, isPlaying, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio, handleToggleMultiCam, handleToggleFocusMode, isShortcutsOpen, isCommandPaletteOpen]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -2958,7 +3146,7 @@ export default function App() {
       <div className={hideFullscreenChrome ? 'hidden' : 'contents'}>
       <StageHeader
         isZenMode={isZenMode}
-        onToggleZen={() => setIsZenMode(z => !z)}
+        onToggleZen={handleToggleFocusMode}
         currentPanel={activeDualPanel}
         onSelectPanel={(panel) => {
           setActiveDualPanel(panel);
@@ -2980,6 +3168,13 @@ export default function App() {
         onSelectPlaybackMode={setPlaybackMode}
         slideDurationSec={getShotDurationSec(currentFrame, 12.0)}
         fps={getShotTargetFps(currentFrame, 24)}
+        aspectRatio={aspectRatio}
+        saveState={saveState}
+        onNewProject={handleNewAnthologyProject}
+        onSaveSnapshot={() => { void handleSaveSnapshot(); }}
+        onRestoreProjectJson={handleRestoreProjectJson}
+        onBatchImportMedia={() => batchMediaInputRef.current?.click()}
+        onClearOpfsCache={handleClearOpfsAndReset}
         onOpenRecorder={() => setIsScreenRecorderOpen(prev => !prev)}
         onOpenExport={() => handleOpenExportStudio('mp4')}
         onCompile={() => setIsCompilationWizardOpen(true)}
@@ -2993,9 +3188,53 @@ export default function App() {
         }}
         onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
         onOpenAiStudio={() => {
+          setCurrentView('STUDIO');
           setActiveModule('AI');
           setWorkspaceMode('STAGE');
           setIsDrawerOpen(true);
+        }}
+        onOpenColorLab={() => {
+          setCurrentView('STUDIO');
+          setActiveModule('OPTICS');
+          setWorkspaceMode('STAGE');
+          setIsDrawerOpen(true);
+        }}
+        onOpenAudioAnalyzer={() => {
+          setCurrentView('STUDIO');
+          setActiveModule('SOUND');
+          setWorkspaceMode('STAGE');
+          setIsDrawerOpen(true);
+          setIsTelemetryRackOpen(true);
+        }}
+        onTriggerHyperReelPack={() => {
+          setCurrentView('STUDIO');
+          setWorkspaceMode('STAGE');
+          setActiveDualPanel('SPLIT');
+          setIsDrawerOpen(false);
+          setTimeout(() => eventBus.emit('reels:pack_12s'), 60);
+        }}
+        onTriggerBeatDropEngine={() => {
+          setCurrentView('STUDIO');
+          setWorkspaceMode('STAGE');
+          setActiveDualPanel('SPLIT');
+          setIsDrawerOpen(false);
+          setTimeout(() => eventBus.emit('reels:toggle_beat_fx'), 60);
+        }}
+        onTriggerSmartCrop916={() => {
+          setAspectRatio('9:16');
+          try {
+            useStudioStore.getState().setAspectRatio('9:16');
+          } catch {}
+          setCurrentView('STUDIO');
+          setWorkspaceMode('STAGE');
+          setActiveDualPanel('SPLIT');
+          setIsDrawerOpen(false);
+          setTimeout(() => eventBus.emit('reels:smart_crop_916'), 60);
+        }}
+        onJumpToShot={(idx) => {
+          if (currentView !== 'STUDIO') setCurrentView('STUDIO');
+          if (workspaceMode !== 'STAGE') setWorkspaceMode('STAGE');
+          goToFrame(idx);
         }}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
@@ -3014,6 +3253,17 @@ export default function App() {
         type="file"
         accept=".json,application/json"
         onChange={handleFileRestoreChange}
+        className="hidden"
+        aria-hidden="true"
+      />
+
+      {/* Hidden Batch Media Folder/Files Input */}
+      <input
+        ref={batchMediaInputRef}
+        type="file"
+        multiple
+        accept="video/*,image/*,audio/*"
+        onChange={handleBatchMediaChange}
         className="hidden"
         aria-hidden="true"
       />
@@ -3050,7 +3300,7 @@ export default function App() {
         <>
           {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
           <div className="flex-1 min-h-0 w-full flex overflow-hidden relative">
-        <div className={`zen-rail-container h-full flex shrink-0 ${hideFullscreenChrome ? 'hidden' : ''}`}>
+        <div className={`zen-rail-container h-full flex shrink-0 ${hideFullscreenChrome || isZenMode ? 'hidden' : ''}`}>
           <LeftRail
             activeModule={activeModule}
             onSelectModule={(mod) => {
@@ -3353,8 +3603,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Resizable Bottom Control Dock (Hidden in Borderless Fullscreen until cursor wake) */}
-      <div className={hideFullscreenChrome ? 'hidden' : 'contents'}>
+      {/* Resizable Bottom Control Dock (Hidden in Borderless Fullscreen or Focus Mode) */}
+      <div className={hideFullscreenChrome || isZenMode ? 'hidden' : 'contents'}>
       <ControlDock
         frames={project.frames}
         currentIndex={currentIndex}

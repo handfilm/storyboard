@@ -549,9 +549,9 @@
   --zen-timing: 100ms;
 }
 
-/* 1. RESTING STATE: Mute non-essential chrome, keep canvas and scrub timeline 100% visible */
+/* 1. RESTING STATE: Keep top header crisp and readable, collapse secondary rail */
 .console-zen-mode .zen-disclose-header {
-  opacity: 0.22;
+  opacity: 0.96;
   transition: opacity var(--zen-timing) var(--zen-ease), border-color var(--zen-timing) var(--zen-ease);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -582,7 +582,7 @@
 
 /* Secondary telemetry & navigation rail resting state */
 .console-zen-mode .zen-rail-container {
-  opacity: 0.15;
+  opacity: 0;
   transition: opacity var(--zen-timing) var(--zen-ease);
 }
 

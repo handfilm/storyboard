@@ -410,19 +410,20 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         return;
       }
 
-      if (e.altKey && e.key === '1') {
+      // Keyboard switcher: 1-9 punch cameras, C splits at playhead, A toggles AFV, Space toggles play, Alt+Shift+1/2/3 matrix preset
+      if (e.altKey && e.shiftKey && (e.code === 'Digit1' || e.key === '1' || e.key === '!')) {
         e.preventDefault();
         setLayoutPreset('3x3');
         onChangeLayoutConfig?.('3x3');
         return;
       }
-      if (e.altKey && e.key === '2') {
+      if (e.altKey && e.shiftKey && (e.code === 'Digit2' || e.key === '2' || e.key === '@')) {
         e.preventDefault();
         setLayoutPreset('2x2');
         onChangeLayoutConfig?.('2x2');
         return;
       }
-      if (e.altKey && e.key === '3') {
+      if (e.altKey && e.shiftKey && (e.code === 'Digit3' || e.key === '3' || e.key === '#')) {
         e.preventDefault();
         setLayoutPreset('1x3');
         onChangeLayoutConfig?.('1x3');

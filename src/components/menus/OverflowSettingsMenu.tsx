@@ -176,10 +176,10 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
         <button
           type="button"
           onClick={() => setIsOpen(prev => !prev)}
-          className={`w-8 h-8 rounded-full border text-zinc-300 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center cursor-pointer ${
+          className={`w-8 h-8 rounded-full border transition-all flex items-center justify-center cursor-pointer ${
             isOpen
-              ? 'border-amber-500/80 bg-amber-500/15 text-amber-300 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
-              : 'border-white/15 bg-[#111216] hover:border-white/35'
+              ? 'border-[#F59E0B]/70 bg-[#F59E0B]/15 text-[#F59E0B]'
+              : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-white/[0.16]'
           }`}
           aria-label="More Workspace Actions"
           title="More Workspace Actions"
@@ -188,13 +188,13 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
         </button>
       </SmartHoverCard>
 
-      {/* Glassmorphic Dropdown Panel */}
+      {/* Monochrome Stealth Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-[#0E1015]/96 border border-white/15 rounded-xl shadow-[0_24px_60px_rgba(0,0,0,0.95)] backdrop-blur-xl p-2 z-[9999] text-xs font-mono text-white/90 animate-in fade-in zoom-in-95 duration-150 space-y-1">
+        <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-[#0B0B0D]/96 border border-white/[0.07] rounded-xl shadow-[0_24px_60px_rgba(0,0,0,0.95)] backdrop-blur-xl p-2 z-[9999] text-xs font-mono text-[#F4F4F5] animate-in fade-in zoom-in-95 duration-150 space-y-1">
           {/* Header */}
-          <div className="px-2.5 py-1 text-[8.5px] font-bold text-amber-400 border-b border-white/10 uppercase tracking-wider flex items-center justify-between">
+          <div className="px-2.5 py-1 text-[8.5px] font-bold text-[#F59E0B] border-b border-white/[0.07] uppercase tracking-wider flex items-center justify-between">
             <span>WORKSPACE SUITE // TOOLS</span>
-            <span className="text-zinc-500">BUILD 2.4</span>
+            <span className="text-[#8E8E93] tabular-nums">BUILD 2.4</span>
           </div>
 
           {/* Module 1: COMPILE ENGINE */}
@@ -207,23 +207,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('COMPILE')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-amber-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <Zap className="w-3.5 h-3.5 fill-current" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>COMPILE ENGINE</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#F59E0B] border border-[#F59E0B]/35">
                       MASTER
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">100-shot sequence stitching</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">100-shot sequence stitching</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⌘B</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">⌘B</kbd>
             </button>
           </SmartHoverCard>
 
@@ -237,23 +237,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('RAP_SYNC')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-yellow-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-yellow-500/15 border border-yellow-500/40 flex items-center justify-center text-yellow-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <Music className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>RAP MUSIC & AUDIO SYNC</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07]">
                       DSP
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">140 BPM transient chopper & 808 lock</div>
+                  <div className="text-[8.5px] text-[#8E8E93] tabular-nums">140 BPM transient chopper & 808 lock</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">M</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">M</kbd>
             </button>
           </SmartHoverCard>
 
@@ -267,23 +267,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('SETTINGS')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-sky-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-sky-500/15 border border-sky-500/40 flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <Settings className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>GLOBAL SETTINGS</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07]">
                       CONFIG
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">Preferences, canvas scaling & renderers</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">Preferences, canvas scaling & renderers</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⌘,</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">⌘,</kbd>
             </button>
           </SmartHoverCard>
 
@@ -297,23 +297,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('INSPECTOR')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-purple-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-purple-500/15 border border-purple-500/40 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <SlidersHorizontal className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>DIRECTOR INSPECTOR</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07]">
                       HUD
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">Optical telemetry & buffer HUD</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">Optical telemetry & buffer HUD</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">E</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">E</kbd>
             </button>
           </SmartHoverCard>
 
@@ -328,32 +328,32 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
               type="button"
               onClick={() => handleAction('CACHE_MANAGER')}
               disabled={isPurging}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-rose-300 disabled:opacity-50"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5] disabled:opacity-50"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-rose-500/15 border border-rose-500/40 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>CACHE MANAGER</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07]">
                       INDEXEDDB
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">
+                  <div className="text-[8.5px] text-[#8E8E93] tabular-nums">
                     {cacheStatus || 'Purge temporary bitmaps & cache'}
                   </div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⌘⇧⌫</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">⌘⇧⌫</kbd>
             </button>
           </SmartHoverCard>
 
           {/* Section Divider: FORMATS & EXPORT PIPELINE */}
-          <div className="pt-2 pb-1 px-2.5 text-[8.5px] font-bold text-amber-400 border-t border-white/10 uppercase tracking-wider flex items-center justify-between">
+          <div className="pt-2 pb-1 px-2.5 text-[8.5px] font-bold text-[#F59E0B] border-t border-white/[0.07] uppercase tracking-wider flex items-center justify-between">
             <span>FORMATS & EXPORT PIPELINE</span>
-            <span className="text-zinc-500">NLE // 4K</span>
+            <span className="text-[#8E8E93] tabular-nums">NLE // 4K</span>
           </div>
 
           {/* Module 6: MP4 4K / PRORES */}
@@ -366,23 +366,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('MP4')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-amber-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <Film className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>MP4 4K / PRORES</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#F59E0B] border border-[#F59E0B]/35 tabular-nums">
                       4K MUX
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">Direct WebCodecs hardware export</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">Direct WebCodecs hardware export</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⌘E</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">⌘E</kbd>
             </button>
           </SmartHoverCard>
 
@@ -396,23 +396,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('XML')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-cyan-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <FileCode className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>PREMIERE XML</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07] tabular-nums">
                       FCP7
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">Hollywood NLE sequence XML</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">Hollywood NLE sequence XML</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">XML</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">XML</kbd>
             </button>
           </SmartHoverCard>
 
@@ -426,30 +426,30 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('FCPXML')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-emerald-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <Share2 className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>CAPCUT / FCPXML</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07]">
                       FCPXML
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">CapCut & DaVinci sequence export</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">CapCut & DaVinci sequence export</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">FCP</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">FCP</kbd>
             </button>
           </SmartHoverCard>
 
           {/* Section Divider: STATS & SHORTCUTS */}
-          <div className="pt-2 pb-1 px-2.5 text-[8.5px] font-bold text-amber-400 border-t border-white/10 uppercase tracking-wider flex items-center justify-between">
+          <div className="pt-2 pb-1 px-2.5 text-[8.5px] font-bold text-[#F59E0B] border-t border-white/[0.07] uppercase tracking-wider flex items-center justify-between">
             <span>DIAGNOSTICS & HELP</span>
-            <span className="text-zinc-500">HUD</span>
+            <span className="text-[#8E8E93]">HUD</span>
           </div>
 
           {/* Module 9: STATS & TELEMETRY */}
@@ -462,23 +462,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('STATS')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-blue-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-blue-500/15 border border-blue-500/40 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <BarChart2 className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>STATS & TELEMETRY</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07]">
                       METRICS
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">Total runtime, shot count & pacing</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">Total runtime, shot count & pacing</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⇧D</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">⇧D</kbd>
             </button>
           </SmartHoverCard>
 
@@ -492,23 +492,23 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleAction('SHORTCUTS')}
-              className="w-full px-2.5 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-left transition-colors cursor-pointer group text-white/90 hover:text-yellow-300"
+              className="w-full px-2.5 py-2 rounded-lg hover:bg-[#141417] flex items-center justify-between text-left transition-colors cursor-pointer group text-[#F4F4F5]"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded bg-yellow-500/15 border border-yellow-500/40 flex items-center justify-center text-yellow-400 group-hover:scale-105 transition-transform">
+                <div className="w-6 h-6 rounded bg-[#141417] border border-white/[0.07] group-hover:border-[#F59E0B]/50 flex items-center justify-center text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors">
                   <Keyboard className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="font-bold text-[11px] flex items-center gap-1.5">
                     <span>KEYBOARD SHORTCUTS</span>
-                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+                    <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#141417] text-[#8E8E93] border border-white/[0.07]">
                       KEYS
                     </span>
                   </div>
-                  <div className="text-[8.5px] text-zinc-400">Directorial hotkey cheatsheet</div>
+                  <div className="text-[8.5px] text-[#8E8E93]">Directorial hotkey cheatsheet</div>
                 </div>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[9px] text-zinc-400">⇧?</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums">⇧?</kbd>
             </button>
           </SmartHoverCard>
 
@@ -517,8 +517,8 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
 
           {/* Cache Status Badge */}
           {cacheStatus && (
-            <div className="p-2 rounded-lg bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-[9.5px] flex items-center gap-1.5">
-              <Check className="w-3 h-3 text-emerald-400" />
+            <div className="p-2 rounded-lg bg-[#141417] border border-[#F59E0B]/50 text-[#F4F4F5] text-[9.5px] flex items-center gap-1.5 tabular-nums">
+              <Check className="w-3 h-3 text-[#F59E0B]" />
               <span>{cacheStatus}</span>
             </div>
           )}

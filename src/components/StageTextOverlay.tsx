@@ -436,7 +436,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   transform: `translate3d(${horizontalTranslateX}, 0, 0)`
                 }}
               >
-                <div className={`inline-flex items-center gap-2 bg-black/65 backdrop-blur-md border ${presetStyle.capsuleBorder} px-5 py-1.5 rounded-full text-xs sm:text-sm italic shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                <div className="inline-flex items-center gap-2 bg-[#141417]/50 backdrop-blur-xl backdrop-saturate-150 border border-white/[0.14] text-[#F4F4F5]/95 px-5 py-1.5 rounded-full text-xs sm:text-sm italic shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <span>"{displayDialogue}"</span>
                 </div>
               </div>
@@ -451,18 +451,18 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
           <button
             type="button"
             onClick={() => setShowQuickHud(v => !v)}
-            className="p-1.5 rounded-full bg-black/80 hover:bg-black border border-white/20 hover:border-[#F5A623] text-white/80 hover:text-[#F5A623] text-[10px] font-mono flex items-center gap-1 transition-all backdrop-blur-md shadow-lg cursor-pointer"
+            className="p-1.5 rounded-full bg-[#141417]/90 hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] text-[10px] font-mono flex items-center gap-1 transition-all backdrop-blur-md shadow-lg cursor-pointer"
             title="Adjust Hero Title Kinetics"
           >
-            <Sliders className="w-3 h-3 text-[#F5A623]" />
+            <Sliders className="w-3 h-3 text-[#F59E0B]" />
             <span className="text-[9px] font-bold">TITLE FX</span>
           </button>
 
           {showQuickHud && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a10]/95 border border-[#272732] rounded-md p-3 font-mono text-[10px] text-zinc-300 space-y-2.5 backdrop-blur-2xl shadow-2xl animate-in fade-in duration-150">
-              <div className="flex items-center justify-between text-[#F5A623] font-bold text-[9px] border-b border-white/10 pb-1.5">
+            <div className="absolute right-0 top-full mt-2 w-64 bg-[#0B0B0D]/95 border border-white/[0.07] rounded-md p-3 font-mono text-[10px] text-[#8E8E93] space-y-2.5 backdrop-blur-2xl shadow-2xl animate-in fade-in duration-150 tabular-nums">
+              <div className="flex items-center justify-between text-[#F4F4F5] font-bold text-[9px] border-b border-white/[0.07] pb-1.5">
                 <span>HERO TITLE ENGINE</span>
-                <span className="text-[8px] bg-[#F5A623]/20 px-1 py-0.2 rounded text-[#F5A623] font-mono">
+                <span className="text-[8px] bg-[#F59E0B]/15 border border-[#F59E0B]/40 px-1 py-0.2 rounded text-[#F59E0B] font-mono">
                   {presetStyle.badgeText}
                 </span>
               </div>
@@ -474,41 +474,41 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   onClick={() => setTitlePreset('molten-gold')}
                   className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
                     activePreset === 'molten-gold' 
-                      ? 'bg-amber-500/25 border-amber-400 text-amber-300' 
-                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
+                      ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]' 
+                      : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                   }`}
                 >
-                  ⚡ GOLD
+                  GOLD
                 </button>
                 <button
                   type="button"
                   onClick={() => setTitlePreset('titanium-silver')}
                   className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
                     activePreset === 'titanium-silver' 
-                      ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300' 
-                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
+                      ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]' 
+                      : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                   }`}
                 >
-                  ❄ SILVER
+                  SILVER
                 </button>
                 <button
                   type="button"
                   onClick={() => setTitlePreset('neon-crimson')}
                   className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
                     activePreset === 'neon-crimson' 
-                      ? 'bg-rose-500/25 border-rose-400 text-rose-300' 
-                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
+                      ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]' 
+                      : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                   }`}
                 >
-                  🩸 CRIMSON
+                  CRIMSON
                 </button>
               </div>
 
               {/* Title Size Slider */}
               <div>
-                <div className="flex justify-between text-[8.5px] text-white/60">
+                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
                   <span>TITLE SIZE</span>
-                  <span className="text-[#F5A623] font-bold">{titleSizePx}px</span>
+                  <span className="text-[#F59E0B] font-bold tabular-nums">{titleSizePx}px</span>
                 </div>
                 <input
                   type="range"
@@ -517,15 +517,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   step="2"
                   value={titleSizePx}
                   onChange={(e) => setTitleSize(parseInt(e.target.value, 10))}
-                  className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
+                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
                 />
               </div>
 
               {/* Glow Intensity Slider */}
               <div>
-                <div className="flex justify-between text-[8.5px] text-white/60">
+                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
                   <span>GLOW INTENSITY</span>
-                  <span className="text-[#F5A623] font-bold">{Math.round(glow * 100)}%</span>
+                  <span className="text-[#F59E0B] font-bold tabular-nums">{Math.round(glow * 100)}%</span>
                 </div>
                 <input
                   type="range"
@@ -534,15 +534,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   step="0.05"
                   value={glow}
                   onChange={(e) => setTitleGlowIntensity(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
+                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
                 />
               </div>
 
               {/* Vertical Offset Slider */}
               <div>
-                <div className="flex justify-between text-[8.5px] text-white/60">
+                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
                   <span>VERTICAL OFFSET</span>
-                  <span className="text-[#F5A623] font-bold">{verticalOffset}px</span>
+                  <span className="text-[#F59E0B] font-bold tabular-nums">{verticalOffset}px</span>
                 </div>
                 <input
                   type="range"
@@ -551,15 +551,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   step="5"
                   value={verticalOffset}
                   onChange={(e) => setTitleVerticalOffset(parseInt(e.target.value, 10))}
-                  className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
+                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
                 />
               </div>
 
               {/* Tracking Slider */}
               <div>
-                <div className="flex justify-between text-[8.5px] text-white/60">
+                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
                   <span>TRACKING</span>
-                  <span className="text-[#F5A623] font-bold">{tracking.toFixed(2)}em</span>
+                  <span className="text-[#F59E0B] font-bold tabular-nums">{tracking.toFixed(2)}em</span>
                 </div>
                 <input
                   type="range"
@@ -568,7 +568,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   step="0.02"
                   value={tracking}
                   onChange={(e) => setTitleTracking(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-zinc-700 accent-[#F5A623] cursor-pointer"
+                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
                 />
               </div>
             </div>

@@ -88,10 +88,10 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
 
   const presetHoverClass =
     activePreset === 'titanium-silver'
-      ? 'group-hover:text-cyan-300 group-hover:border-cyan-400/40'
+      ? 'group-hover:text-[#F4F4F5] group-hover:border-white/25'
       : activePreset === 'neon-crimson'
-        ? 'group-hover:text-rose-400 group-hover:border-rose-500/40'
-        : 'group-hover:text-amber-400 group-hover:border-amber-400/40';
+        ? 'group-hover:text-[#F59E0B] group-hover:border-[#F59E0B]/40'
+        : 'group-hover:text-[#F59E0B] group-hover:border-[#F59E0B]/40';
 
   const sceneLabel = sceneCode || String(Math.floor(shotIndex / 10)).padStart(2, '0');
   const shotLabel = String(shotIndex + 1).padStart(2, '0');
@@ -99,36 +99,36 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
   return (
     <div
       data-testid="stage-caption-strip"
-      className={`group relative w-full h-5 min-h-[20px] max-h-[20px] px-2.5 bg-black/90 border-t border-b border-neutral-900 text-neutral-500 group-hover:text-neutral-200 transition-colors duration-200 flex items-center justify-between gap-2 shrink-0 select-none overflow-hidden font-mono text-[10px] tracking-wider ${className}`}
+      className={`group relative w-full h-5 min-h-[20px] max-h-[20px] px-2.5 bg-[#0B0B0D]/95 border-t border-b border-white/[0.07] text-neutral-500 group-hover:text-neutral-200 !text-[#8E8E93] group-hover:!text-[#F4F4F5] transition-colors duration-200 flex items-center justify-between gap-2 shrink-0 select-none overflow-hidden font-mono text-[10px] tracking-wider tabular-nums ${className}`}
     >
-      {/* Subtle 1px Progress Baseline (Stealth grey at rest -> radiant amber/red on bar hover) */}
-      <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-neutral-900 pointer-events-none">
+      {/* Subtle 1px Progress Baseline (Stealth grey at rest -> Molten Amber on hover) */}
+      <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-white/[0.07] pointer-events-none">
         <div
           ref={progressFillDomRef}
-          className="h-full bg-neutral-700 group-hover:bg-gradient-to-r group-hover:from-[#F5A623] group-hover:via-[#FFE066] group-hover:to-[#E50914]"
+          className="h-full bg-[#8E8E93]/60 group-hover:bg-[#F59E0B] transition-colors duration-200"
           style={{ width: `${initialProgressPct}%` }}
         />
       </div>
 
       {/* Left: Unified Single-Line Technical Telemetry */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5 truncate uppercase">
-        <span className="text-neutral-400 group-hover:text-amber-400 font-bold whitespace-nowrap shrink-0 transition-colors duration-200">
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 truncate uppercase tabular-nums">
+        <span className="text-[#F4F4F5]/90 group-hover:text-[#F59E0B] font-bold whitespace-nowrap shrink-0 transition-colors duration-200">
           SCENE {sceneLabel} // SHOT {shotLabel}
         </span>
 
-        <span className="text-neutral-700 group-hover:text-white/25 shrink-0">·</span>
+        <span className="text-white/15 group-hover:text-white/25 shrink-0">·</span>
         <span className="whitespace-nowrap shrink-0">
           {aspectRatio} SCOPE
         </span>
 
-        <span className="hidden sm:inline text-neutral-700 group-hover:text-white/25 shrink-0">·</span>
-        <span className="hidden sm:inline text-neutral-500 group-hover:text-cyan-300 whitespace-nowrap shrink-0 transition-colors duration-200">
+        <span className="hidden sm:inline text-white/15 group-hover:text-white/25 shrink-0">·</span>
+        <span className="hidden sm:inline text-[#8E8E93] group-hover:text-[#F4F4F5] whitespace-nowrap shrink-0 transition-colors duration-200">
           TITLE: {titleAlign === 'AUTO' ? `AUTO→${effectiveAlign}` : titleAlign}
         </span>
 
         {cameraSpec && (
           <>
-            <span className="hidden md:inline text-neutral-700 group-hover:text-white/25 shrink-0">·</span>
+            <span className="hidden md:inline text-white/15 group-hover:text-white/25 shrink-0">·</span>
             <span className="hidden md:inline whitespace-nowrap shrink-0">
               {cameraSpec}
             </span>
@@ -137,8 +137,8 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
 
         {lutFilter && (
           <>
-            <span className="hidden lg:inline text-neutral-700 group-hover:text-white/25 shrink-0">·</span>
-            <span className="hidden lg:inline text-neutral-500 group-hover:text-emerald-400 whitespace-nowrap shrink-0 transition-colors duration-200">
+            <span className="hidden lg:inline text-white/15 group-hover:text-white/25 shrink-0">·</span>
+            <span className="hidden lg:inline text-[#8E8E93] group-hover:text-[#F4F4F5] whitespace-nowrap shrink-0 transition-colors duration-200">
               LUT: {lutFilter}
             </span>
           </>
@@ -146,8 +146,8 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
 
         {dopamineConfig && (
           <>
-            <span className="hidden xl:inline text-neutral-700 group-hover:text-white/25 shrink-0">·</span>
-            <span className="hidden xl:inline-flex items-center gap-1 text-neutral-500 group-hover:text-rose-400 font-bold whitespace-nowrap shrink-0 tabular-nums transition-colors duration-200">
+            <span className="hidden xl:inline text-white/15 group-hover:text-white/25 shrink-0">·</span>
+            <span className="hidden xl:inline-flex items-center gap-1 text-[#8E8E93] group-hover:text-[#F59E0B] font-bold whitespace-nowrap shrink-0 tabular-nums transition-colors duration-200">
               <Zap className="w-2.5 h-2.5" />
               <span>
                 DOPAMINE FX {dopamineConfig.glitchIntensity ?? 80}%/{dopamineConfig.strobeRate ?? 60}Hz
@@ -158,15 +158,15 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
       </div>
 
       {/* Right: Merged Hardware Pipeline, Calibration, Runtime, Preset & Quick Triggers */}
-      <div className="flex items-center gap-1.5 shrink-0 uppercase text-[9px]">
+      <div className="flex items-center gap-1.5 shrink-0 uppercase text-[9px] tabular-nums">
         {onToggleWebCodecs && (
           <button
             type="button"
             onClick={onToggleWebCodecs}
             className={`px-1 py-0 rounded border text-[8.5px] font-bold flex items-center gap-0.5 transition-colors duration-200 cursor-pointer leading-tight ${
               isWebCodecsEngineActive
-                ? 'bg-neutral-900/60 border-neutral-800 text-neutral-400 group-hover:bg-amber-400 group-hover:text-black group-hover:border-amber-400'
-                : 'bg-neutral-900/60 border-neutral-800 text-neutral-500 group-hover:text-amber-300 group-hover:border-amber-500/40'
+                ? 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:bg-[#F59E0B] group-hover:text-[#0B0B0D] group-hover:border-[#F59E0B]'
+                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-[#F59E0B]/40'
             }`}
             title="Toggle WebCodecs 24fps WebGL2 Ping-Pong Engine"
           >
@@ -175,21 +175,21 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
           </button>
         )}
 
-        <span className="hidden md:inline text-neutral-700 group-hover:text-white/20">·</span>
+        <span className="hidden md:inline text-white/15 group-hover:text-white/25">·</span>
         <span className="hidden md:inline-flex items-center gap-1 whitespace-nowrap">
-          <span className="w-1.5 h-1.5 rounded-full bg-neutral-600 group-hover:bg-emerald-400 group-hover:animate-pulse transition-colors duration-200" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#8E8E93]/60 group-hover:bg-[#F59E0B] transition-colors duration-200" />
           <span>CALIBRATED</span>
         </span>
 
-        <span className="hidden md:inline text-neutral-700 group-hover:text-white/20">·</span>
-        <span className="hidden md:inline text-neutral-500 group-hover:text-emerald-400 whitespace-nowrap transition-colors duration-200">
+        <span className="hidden md:inline text-white/15 group-hover:text-white/25">·</span>
+        <span className="hidden md:inline text-[#8E8E93] group-hover:text-[#F4F4F5] whitespace-nowrap transition-colors duration-200">
           16-BIT ARRI
         </span>
 
         {totalRuntimeTimecode && (
           <>
-            <span className="hidden lg:inline text-neutral-700 group-hover:text-white/20">·</span>
-            <span className="hidden lg:inline text-neutral-500 group-hover:text-emerald-400 whitespace-nowrap tabular-nums transition-colors duration-200">
+            <span className="hidden lg:inline text-white/15 group-hover:text-white/25">·</span>
+            <span className="hidden lg:inline text-[#8E8E93] group-hover:text-[#F4F4F5] whitespace-nowrap tabular-nums transition-colors duration-200">
               RUNTIME: {totalRuntimeTimecode}
               {typeof totalShotsCount === 'number' ? `/${totalShotsCount}S` : ''}
             </span>
@@ -197,7 +197,7 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
         )}
 
         <span
-          className={`hidden sm:inline px-1 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 text-[8.5px] leading-tight transition-colors duration-200 ${presetHoverClass}`}
+          className={`hidden sm:inline px-1 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] text-[8.5px] leading-tight transition-colors duration-200 ${presetHoverClass}`}
         >
           {activePreset.replace('-', ' ').toUpperCase()}
         </span>
@@ -206,7 +206,7 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
           <button
             type="button"
             onClick={onToggleTitles}
-            className="px-1 rounded border bg-neutral-900/60 border-neutral-800 text-neutral-500 group-hover:text-neutral-200 group-hover:border-neutral-700 hover:!text-amber-300 flex items-center gap-0.5 cursor-pointer transition-colors duration-200 text-[8.5px] leading-tight"
+            className="px-1 rounded border bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-white/[0.14] hover:!text-[#F59E0B] flex items-center gap-0.5 cursor-pointer transition-colors duration-200 text-[8.5px] leading-tight"
             title={isTitlesActive ? 'Hide Stage Cinema Title Overlay' : 'Show Stage Cinema Title Overlay'}
           >
             {isTitlesActive ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
@@ -218,7 +218,7 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
           <button
             type="button"
             onClick={onUploadMedia}
-            className="p-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:text-neutral-200 hover:!text-amber-300 transition-colors duration-200 cursor-pointer"
+            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] transition-colors duration-200 cursor-pointer"
             title="Upload / Replace Media Plate"
           >
             <Upload className="w-2.5 h-2.5" />
@@ -229,7 +229,7 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
           <button
             type="button"
             onClick={onToggleFullscreen}
-            className="p-0.5 rounded bg-neutral-900/60 border border-neutral-800 text-neutral-500 group-hover:text-neutral-200 hover:!text-white transition-colors duration-200 cursor-pointer"
+            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] transition-colors duration-200 cursor-pointer"
             title="Toggle Stage Fullscreen"
           >
             <Maximize2 className="w-2.5 h-2.5" />

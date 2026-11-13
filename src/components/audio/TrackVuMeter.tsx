@@ -158,8 +158,8 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
           const hasActiveAudio = current.isActive && !current.isMuted;
 
           ctx.lineWidth = 1.5;
-          ctx.strokeStyle = hasActiveAudio ? '#F5A623' : 'rgba(245, 166, 35, 0.35)';
-          ctx.fillStyle = hasActiveAudio ? 'rgba(245, 166, 35, 0.15)' : 'rgba(245, 166, 35, 0.04)';
+          ctx.strokeStyle = hasActiveAudio ? '#F59E0B' : 'rgba(142, 142, 147, 0.35)';
+          ctx.fillStyle = hasActiveAudio ? 'rgba(245, 158, 11, 0.14)' : 'rgba(142, 142, 147, 0.05)';
 
           ctx.beginPath();
           ctx.moveTo(0, h / 2);
@@ -218,20 +218,20 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
   if (variant === 'mini') {
     return (
       <div 
-        className={`flex items-center gap-1 bg-black/80 px-1.5 py-0.5 rounded border border-white/10 ${className}`}
+        className={`flex items-center gap-1 bg-[#141417] px-1.5 py-0.5 rounded border border-white/[0.07] tabular-nums ${className}`}
         title={`Audio Track VU: L ${levels.leftDb}dB | R ${levels.rightDb}dB | Gain: ${gainPercent}% (${gainDb}dB)`}
       >
-        <Activity className={`w-2.5 h-2.5 ${levels.isActive && !isMuted ? 'text-[#F5A623] animate-pulse' : 'text-zinc-600'}`} />
+        <Activity className={`w-2.5 h-2.5 ${levels.isActive && !isMuted ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
         <div className="flex flex-col gap-0.5 w-8">
-          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-1 bg-[#0B0B0D] rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-[width] duration-75"
+              className="h-full bg-[#F59E0B] transition-[width] duration-75"
               style={{ width: `${isMuted ? 0 : Math.round(levels.leftRms * 100)}%` }}
             />
           </div>
-          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-1 bg-[#0B0B0D] rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-[width] duration-75"
+              className="h-full bg-[#F59E0B] transition-[width] duration-75"
               style={{ width: `${isMuted ? 0 : Math.round(levels.rightRms * 100)}%` }}
             />
           </div>
@@ -243,7 +243,7 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
   // Standard Dock & Compact variant: High-contrast VU ladder + Optional Visual Audio Wave Gain Editor
   return (
     <div 
-      className={`flex items-center gap-1.5 bg-[#06070B]/95 border border-white/15 px-1.5 py-0.5 rounded-md select-none text-[9px] font-mono shrink-0 shadow-inner group ${className}`}
+      className={`flex items-center gap-1.5 bg-[#141417] border border-white/[0.07] px-1.5 py-0.5 rounded-md select-none text-[9px] font-mono shrink-0 shadow-inner group tabular-nums ${className}`}
       title={`Stereo Master Output: L ${levels.leftDb}dBFS | R ${levels.rightDb}dBFS | Gain: ${gainPercent}% (${gainDb}dB)`}
     >
       {/* Compact Mute Speaker Toggle */}
@@ -253,20 +253,20 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
         disabled={!onToggleMute}
         aria-label={isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)'}
         aria-pressed={isMuted}
-        className={`flex items-center justify-center gap-1 shrink-0 ${showLabels ? 'px-1.5 py-0.5' : 'w-5 h-5'} rounded bg-neutral-900/90 border transition-colors cursor-pointer ${
+        className={`flex items-center justify-center gap-1 shrink-0 ${showLabels ? 'px-1.5 py-0.5' : 'w-5 h-5'} rounded bg-[#0B0B0D] border transition-colors cursor-pointer ${
           isMuted
-            ? 'border-neutral-700/70 text-zinc-400 hover:text-white hover:border-neutral-600'
-            : 'border-amber-500/40 text-[#F5A623] hover:text-[#FFE066] hover:border-amber-400/70'
+            ? 'border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
+            : 'border-[#F59E0B]/60 text-[#F59E0B] hover:border-[#F59E0B]'
         }`}
         title={onToggleMute ? (isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)') : undefined}
       >
         {isMuted ? (
-          <VolumeX className="w-3 h-3 text-zinc-400 shrink-0" />
+          <VolumeX className="w-3 h-3 text-[#8E8E93] shrink-0" />
         ) : (
-          <Volume2 className={`w-3 h-3 shrink-0 ${levels.isActive ? 'text-[#F5A623]' : 'text-amber-500/80'}`} />
+          <Volume2 className={`w-3 h-3 shrink-0 ${levels.isActive ? 'text-[#F59E0B]' : 'text-[#F59E0B]/80'}`} />
         )}
         {showLabels && (
-          <span className="text-[8px] font-bold tracking-widest text-zinc-300 uppercase hidden sm:inline shrink-0">
+          <span className="text-[8px] font-bold tracking-widest text-[#8E8E93] uppercase hidden sm:inline shrink-0">
             {isMuted ? 'MUTE' : 'VU'}
           </span>
         )}
@@ -276,16 +276,16 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
       <div className="flex flex-col gap-0.5 w-16 shrink-0">
         {/* Left Channel */}
         <div className="flex items-center gap-1 leading-none">
-          <span className="text-[7px] text-zinc-500 font-bold w-2 shrink-0 leading-none">L</span>
-          <div className="flex-1 h-1 bg-[#12131C] rounded-[1px] relative overflow-hidden border border-black">
+          <span className="text-[7px] text-[#8E8E93] font-bold w-2 shrink-0 leading-none">L</span>
+          <div className="flex-1 h-1 bg-[#0B0B0D] rounded-[1px] relative overflow-hidden border border-white/[0.07]">
             <div 
-              className="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-[width] duration-75"
+              className="h-full bg-[#F59E0B] transition-[width] duration-75"
               style={{ width: `${isMuted ? 0 : Math.round(levels.leftRms * 100)}%` }}
             />
             {!isMuted && peakHoldLRef.current > 0.05 && (
               <div 
                 className={`absolute top-0 bottom-0 w-0.5 z-10 ${
-                  peakHoldLRef.current > 0.88 ? 'bg-rose-500' : peakHoldLRef.current > 0.65 ? 'bg-amber-400' : 'bg-emerald-400'
+                  peakHoldLRef.current > 0.88 ? 'bg-[#F4F4F5]' : 'bg-[#F59E0B]'
                 }`}
                 style={{ left: `${Math.min(98, Math.round(peakHoldLRef.current * 100))}%` }}
               />
@@ -295,16 +295,16 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
 
         {/* Right Channel */}
         <div className="flex items-center gap-1 leading-none">
-          <span className="text-[7px] text-zinc-500 font-bold w-2 shrink-0 leading-none">R</span>
-          <div className="flex-1 h-1 bg-[#12131C] rounded-[1px] relative overflow-hidden border border-black">
+          <span className="text-[7px] text-[#8E8E93] font-bold w-2 shrink-0 leading-none">R</span>
+          <div className="flex-1 h-1 bg-[#0B0B0D] rounded-[1px] relative overflow-hidden border border-white/[0.07]">
             <div 
-              className="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-[width] duration-75"
+              className="h-full bg-[#F59E0B] transition-[width] duration-75"
               style={{ width: `${isMuted ? 0 : Math.round(levels.rightRms * 100)}%` }}
             />
             {!isMuted && peakHoldRRef.current > 0.05 && (
               <div 
                 className={`absolute top-0 bottom-0 w-0.5 z-10 ${
-                  peakHoldRRef.current > 0.88 ? 'bg-rose-500' : peakHoldRRef.current > 0.65 ? 'bg-amber-400' : 'bg-emerald-400'
+                  peakHoldRRef.current > 0.88 ? 'bg-[#F4F4F5]' : 'bg-[#F59E0B]'
                 }`}
                 style={{ left: `${Math.min(98, Math.round(peakHoldRRef.current * 100))}%` }}
               />
@@ -323,10 +323,10 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
           onDoubleClick={handleResetGain}
           onMouseEnter={() => setIsHoveringWave(true)}
           onMouseLeave={() => setIsHoveringWave(false)}
-          className={`relative h-6 w-20 sm:w-24 shrink-0 bg-[#090A0F] border rounded-[3px] overflow-hidden cursor-ns-resize transition-all select-none touch-none ${
+          className={`relative h-6 w-20 sm:w-24 shrink-0 bg-[#0B0B0D] border rounded-[3px] overflow-hidden cursor-ns-resize transition-all select-none touch-none ${
             isDraggingGain || isHoveringWave
-              ? 'border-[#F5A623]/70 shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-              : 'border-white/10 hover:border-white/30'
+              ? 'border-[#F59E0B]/70'
+              : 'border-white/[0.07] hover:border-white/[0.16]'
           }`}
           title="Audio Wave & Gain Editor: Drag vertically to adjust gain • Double-click to reset (0 dB)"
         >
@@ -343,18 +343,18 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
             className="absolute inset-x-0 pointer-events-none z-10 transition-all duration-75 flex items-center"
             style={{ bottom: `${Math.min(88, Math.max(8, gain * 100))}%` }}
           >
-            {/* Glowing Amber Gain Line */}
-            <div className="w-full h-[1.5px] bg-[#F5A623] shadow-[0_0_6px_rgba(245,166,35,0.9)]" />
+            {/* Amber Gain Line */}
+            <div className="w-full h-[1.5px] bg-[#F59E0B]" />
             
             {/* Draggable Thumb Handle */}
-            <div className="absolute right-0.5 w-2 h-2 rounded-full bg-[#F5A623] border border-black shadow-[0_0_4px_rgba(245,166,35,1)]" />
+            <div className="absolute right-0.5 w-2 h-2 rounded-full bg-[#F59E0B] border border-[#0B0B0D]" />
           </div>
 
           {/* Gain Trim Readout Badge on Drag or Hover */}
           {(isDraggingGain || isHoveringWave) && (
-            <div className="absolute inset-x-0 bottom-0 bg-black/90 text-[#F5A623] font-mono text-[7px] font-bold px-1 py-0.5 flex items-center justify-between pointer-events-none z-20 border-t border-[#F5A623]/30">
+            <div className="absolute inset-x-0 bottom-0 bg-[#0B0B0D]/90 text-[#F59E0B] font-mono text-[7px] font-bold px-1 py-0.5 flex items-center justify-between pointer-events-none z-20 border-t border-[#F59E0B]/30 tabular-nums">
               <span className="tracking-tight">GAIN {gainPercent}%</span>
-              <span className="text-zinc-300">{gainDb}dB</span>
+              <span className="text-[#F4F4F5]">{gainDb}dB</span>
             </div>
           )}
         </div>
@@ -362,21 +362,21 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
 
       {/* dB Readout & Peak Clip LED */}
       {showDbReadout && (
-        <div className="hidden md:flex flex-col items-end pl-2 border-l border-white/10 shrink-0 tabular-nums min-w-[44px]">
+        <div className="hidden md:flex flex-col items-end pl-2 border-l border-white/[0.07] shrink-0 tabular-nums min-w-[44px]">
           <div className="flex items-center gap-1.5">
-            <span className={`text-[7.5px] font-bold leading-none ${
-              isMuted ? 'text-zinc-400' : levels.leftDb > -6 ? 'text-rose-400' : levels.leftDb > -18 ? 'text-[#F5A623]' : 'text-zinc-300'
+            <span className={`text-[7.5px] font-bold leading-none tabular-nums ${
+              isMuted ? 'text-[#8E8E93]' : levels.leftDb > -6 ? 'text-[#F4F4F5]' : levels.leftDb > -18 ? 'text-[#F59E0B]' : 'text-[#8E8E93]'
             }`}>
               {isMuted ? 'OFF' : `${levels.leftDb}dB`}
             </span>
             <div 
               className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                isClipping && !isMuted ? 'bg-rose-500 shadow-[0_0_6px_rgba(239,68,68,1)]' : 'bg-zinc-800'
+                isClipping && !isMuted ? 'bg-[#F59E0B]' : 'bg-white/[0.08]'
               }`}
               title={isClipping ? 'Audio Peak Clip Warning' : 'Headroom Nominal'}
             />
           </div>
-          <span className="text-[6.5px] text-zinc-500 tracking-tight leading-tight mt-0.5">
+          <span className="text-[6.5px] text-[#8E8E93] tracking-tight leading-tight mt-0.5 tabular-nums">
             {gain === 1 ? '0.0dB' : `${gainDb}dB`}
           </span>
         </div>

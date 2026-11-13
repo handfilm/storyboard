@@ -64,7 +64,8 @@ import {
   Video,
   ChevronDown,
   ChevronUp,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { ToolTooltip } from './ui/ToolTooltip';
 import { TrackVuMeter } from './audio/TrackVuMeter';
@@ -717,7 +718,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         setIsDockHovered(false);
         scheduleHoverLeaveClear();
       }}
-      className="relative w-full shrink-0 z-40 flex flex-col items-center pointer-events-auto px-1 sm:px-2 pb-0.5 pt-0.5 bg-black/95 border-t border-white/10 transition-all duration-200 ease-out opacity-100"
+      className="relative w-full shrink-0 z-40 flex flex-col items-center pointer-events-auto px-1 sm:px-2 pb-0.5 pt-0.5 bg-[#0B0B0D]/95 border-t border-white/[0.07] transition-all duration-200 ease-out opacity-100"
     >
       {/* Hidden File Input for Hover Card Replace Shot Action */}
       <input
@@ -761,7 +762,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             top: `${Math.max(24, dragShotState.clientY - 42)}px`,
             zIndex: 9999
           }}
-          className="px-2 py-0.5 rounded-md bg-black/95 border border-[#F5A623] text-[9.5px] font-mono font-bold text-[#FFE066] whitespace-nowrap shadow-[0_8px_24px_rgba(0,0,0,0.9)] pointer-events-none tabular-nums"
+          className="px-2 py-0.5 rounded-md bg-[#0B0B0D]/95 border border-[#F59E0B]/60 text-[9.5px] font-mono font-bold text-[#F4F4F5] whitespace-nowrap shadow-[0_8px_24px_rgba(0,0,0,0.9)] pointer-events-none tabular-nums"
         >
           DUR: {dragShotState?.durationSec ? dragShotState.durationSec.toFixed(2) : '12.00'}s //{' '}
           {getShotFrameCount(dragShotState?.durationSec ?? 12.0, getShotTargetFps(safeFrames[dragShotState?.index ?? 0], 24))} FRAMES
@@ -782,10 +783,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             transform: 'translate(-50%, -100%)',
             zIndex: 9998
           }}
-          className="w-56 bg-[#090A10]/98 backdrop-blur-2xl border border-[#F5A623]/70 rounded-[6px] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.96)] pointer-events-auto select-none transform-gpu animate-in fade-in zoom-in-95 duration-150"
+          className="w-56 bg-[#0B0B0D]/96 backdrop-blur-2xl border border-white/[0.12] rounded-[6px] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.96)] pointer-events-auto select-none transform-gpu animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Frame Thumbnail Viewport (Always Full-Color) */}
-          <div className="relative w-full aspect-[16/9] rounded-[3px] overflow-hidden bg-[#050508] border border-white/15">
+          <div className="relative w-full aspect-[16/9] rounded-[3px] overflow-hidden bg-[#0B0B0D] border border-white/[0.07]">
             {hoveredPreviewData.hasMedia ? (
               <ShotMediaThumbnail
                 shotIndex={hoveredPreviewData.idx}
@@ -847,10 +848,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
             {/* Scrim + Unboxed Index & Start Timecode */}
             <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/90 via-black/45 to-transparent flex items-end justify-between px-1.5 pb-0.5 font-mono text-[8px] tabular-nums">
-              <span className="font-bold text-[#FFE066]">
+              <span className="font-bold text-[#F59E0B]">
                 SH{String(hoveredPreviewData.shotNumber).padStart(2, '0')}
               </span>
-              <span className="text-zinc-300">
+              <span className="text-[#8E8E93]">
                 {hoveredPreviewData.startTimecode}
               </span>
             </div>
@@ -859,25 +860,25 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           {/* Frame Title, Bengali Subtitle, Duration & Lens Metadata */}
           <div className="pt-1.5 px-0.5 flex flex-col gap-0.5">
             <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[10px] font-bold text-white truncate">
+              <span className="text-[10px] font-bold text-[#F4F4F5] truncate">
                 {hoveredPreviewData.frame.title || `Frame ${hoveredPreviewData.shotNumber}`}
               </span>
-              <span className="text-[8.5px] font-mono font-bold text-[#F5A623] tabular-nums shrink-0">
+              <span className="text-[8.5px] font-mono font-bold text-[#F59E0B] tabular-nums shrink-0">
                 {formatDurationPillValue(hoveredPreviewData.holdSec)}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-1.5 text-[8px] text-zinc-400">
-              <span className="truncate font-bangla text-zinc-300">
+            <div className="flex items-center justify-between gap-1.5 text-[8px] text-[#8E8E93]">
+              <span className="truncate font-bangla text-[#8E8E93]">
                 {hoveredPreviewData.frame.bengaliTitle || 'Sequence Frame'}
               </span>
-              <span className="font-mono text-zinc-500 shrink-0 truncate max-w-[92px]">
+              <span className="font-mono text-[#8E8E93] shrink-0 truncate max-w-[92px] tabular-nums">
                 {hoveredPreviewData.frame.cameraSpec?.focalLength || '50mm Cine'}
               </span>
             </div>
           </div>
 
           {/* Interactive Action Trio: JUMP / SOLO / REPLACE */}
-          <div className="mt-1.5 pt-1.5 border-t border-white/10 grid grid-cols-3 gap-1 font-mono text-[8px] font-black uppercase">
+          <div className="mt-1.5 pt-1.5 border-t border-white/[0.07] grid grid-cols-3 gap-1 font-mono text-[8px] font-black uppercase">
             <button
               type="button"
               onClick={(e) => {
@@ -885,7 +886,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onSelectFrame(hoveredPreviewData.idx);
                 setHoveredMarker(null);
               }}
-              className="py-1 px-1 rounded bg-[#F5A623]/20 hover:bg-[#F5A623] text-[#F5A623] hover:text-black border border-[#F5A623]/50 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              className="py-1 px-1 rounded bg-[#F59E0B]/15 hover:bg-[#F59E0B] text-[#F59E0B] hover:text-[#0B0B0D] border border-[#F59E0B]/50 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
             >
               <Play className="w-2.5 h-2.5" />
               <span>JUMP</span>
@@ -898,7 +899,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onSelectPlaybackMode?.('solo');
                 setHoveredMarker(null);
               }}
-              className="py-1 px-1 rounded bg-[#00F0FF]/15 hover:bg-[#00F0FF] text-[#00F0FF] hover:text-black border border-[#00F0FF]/45 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              className="py-1 px-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] border border-white/[0.07] transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
             >
               <Focus className="w-2.5 h-2.5" />
               <span>SOLO</span>
@@ -910,7 +911,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 setReplaceTargetIdx(hoveredPreviewData.idx);
                 replaceFileInputRef.current?.click();
               }}
-              className="py-1 px-1 rounded bg-white/5 hover:bg-white/20 text-zinc-200 hover:text-white border border-white/15 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              className="py-1 px-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] border border-white/[0.07] transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
             >
               <RefreshCw className="w-2.5 h-2.5" />
               <span>REPLACE</span>
@@ -922,7 +923,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             style={{
               left: `calc(50% + ${hoveredPreviewData.caretOffsetPx}px)`
             }}
-            className="absolute -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#090A10] border-r border-b border-[#F5A623]/70"
+            className="absolute -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#0B0B0D] border-r border-b border-white/[0.12]"
           />
         </div>
       )}
@@ -950,7 +951,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             type="button"
             onClick={onPrev}
             aria-label="Previous Shot (J)"
-            className="p-1.5 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300 backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
+            className="p-1.5 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
@@ -964,7 +965,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               e.currentTarget.scrollLeft += e.deltaY;
             }
           }}
-          className="flex-1 flex items-center gap-2 px-2.5 py-1 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar bg-black/85 backdrop-blur-2xl border border-white/10 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.85)]"
+          className="flex-1 flex items-center gap-2 px-2.5 py-1 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar bg-[#0B0B0D]/90 backdrop-blur-2xl border border-white/[0.07] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.85)]"
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -1063,10 +1064,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
                 className={`group relative min-w-[88px] w-[88px] h-[48px] flex-shrink-0 snap-start rounded-md overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-150 ease-out will-change-transform ${
                   dropTargetIndex === idx
-                    ? 'border-2 border-dashed border-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.55)] scale-[1.04] z-30 bg-[#0d1f18]'
+                    ? 'border-2 border-dashed border-[#F59E0B] shadow-[0_0_16px_rgba(245,158,11,0.4)] scale-[1.04] z-30 bg-[#141417]'
                     : isActive
-                    ? 'border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-[1.02] z-20 bg-[#121218]'
-                    : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-[#0e0e14]'
+                    ? 'border-2 border-[#F59E0B] shadow-[0_0_14px_rgba(245,158,11,0.28)] scale-[1.02] z-20 bg-[#141417]'
+                    : 'border border-white/[0.07] opacity-80 hover:opacity-100 hover:border-white/[0.16] bg-[#141417]'
                 }`}
               >
                 {/* Virtualized Persistent Media Thumbnail Preview */}
@@ -1139,7 +1140,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 <div className="relative z-10 pl-1 pr-6 pt-0.5 flex items-center justify-between gap-1 font-mono pointer-events-none">
                   <span
                     className={`px-1 py-0.5 rounded text-[8.5px] font-black leading-none tabular-nums ${
-                      isActive ? 'bg-amber-400 text-black' : 'bg-black/80 text-white'
+                      isActive ? 'bg-[#F59E0B] text-[#0B0B0D]' : 'bg-[#0B0B0D]/85 text-[#F4F4F5]'
                     }`}
                   >
                     {shotBadge}
@@ -1148,15 +1149,15 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     ref={isActive ? activeShotRelTcDomRef : undefined}
                     className={`px-1 py-0.5 rounded text-[8px] font-bold leading-none tabular-nums ${
                       isActive
-                        ? 'bg-black/90 border border-amber-400/70 text-amber-300'
-                        : 'bg-black/75 text-zinc-300'
+                        ? 'bg-[#0B0B0D]/90 border border-[#F59E0B]/60 text-[#F59E0B]'
+                        : 'bg-[#0B0B0D]/80 text-[#8E8E93]'
                     }`}
                   >
                     {isActive && isPlaying ? relativeTc : formatDurationPillValue(holdSec)}
                   </span>
                 </div>
 
-                {/* Top-Right Always-Visible Directorial Dispatch Trigger (⚡) */}
+                {/* Top-Right Always-Visible Directorial Dispatch Trigger */}
                 <button
                   type="button"
                   data-dispatch-trigger="true"
@@ -1179,18 +1180,18 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }}
                   title={`Dispatch Shot ${shotBadge} to Photoshop / Premiere / CapCut`}
                   aria-label={`Dispatch Shot ${shotNumber} to External Studio`}
-                  className="absolute top-0.5 right-0.5 z-30 bg-amber-500 text-black font-bold w-3.5 h-3.5 rounded-sm flex items-center justify-center text-[9px] shadow hover:bg-amber-400 active:scale-95 transition-all cursor-pointer"
+                  className="absolute top-0.5 right-0.5 z-30 bg-[#141417]/90 border border-white/[0.12] text-[#8E8E93] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] font-bold w-3.5 h-3.5 rounded-sm flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer"
                 >
-                  ⚡
+                  <Zap className="w-2.5 h-2.5" />
                 </button>
 
-                {/* Bottom Metadata Bar: Title/Bangla Label + Active Light Badge */}
+                {/* Bottom Metadata Bar: Title/Bangla Label + Active LUT Badge */}
                 <div className="relative z-10 px-1 pb-0.5 flex items-center justify-between gap-1 font-mono pointer-events-none">
-                  <span className="text-[8.5px] font-semibold text-white truncate leading-none drop-shadow">
+                  <span className="text-[8.5px] font-semibold text-[#F4F4F5] truncate leading-none drop-shadow">
                     {bn || title}
                   </span>
                   {frame?.lutFilter && (
-                    <span className="px-1 py-0.5 rounded bg-black/75 text-[7px] text-amber-300 font-bold uppercase leading-none shrink-0">
+                    <span className="px-1 py-0.5 rounded bg-[#0B0B0D]/80 border border-white/[0.07] text-[7px] text-[#8E8E93] font-bold uppercase leading-none shrink-0">
                       {frame.lutFilter.slice(0, 3)}
                     </span>
                   )}
@@ -1198,10 +1199,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
                 {/* Real-Time Slide Progress Baseline */}
                 {isActive && (
-                  <div className="absolute bottom-0 inset-x-0 h-[2px] bg-black/80 overflow-hidden pointer-events-none z-20">
+                  <div className="absolute bottom-0 inset-x-0 h-[2px] bg-[#0B0B0D]/80 overflow-hidden pointer-events-none z-20">
                     <div
                       ref={activeShotProgressDomRef}
-                      className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFE066] shadow-[0_0_6px_rgba(255,224,102,0.9)]"
+                      className="h-full bg-[#F59E0B]"
                       style={{
                         width: `${Math.min(100, Math.max(0, (slideTimeSec / holdSec) * 100))}%`
                       }}
@@ -1217,8 +1218,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     title={`Drag right edge to resize SH${String(shotNumber).padStart(3, '0')} (${holdSec.toFixed(2)}s // ${shotFrames}F)`}
                     className={`absolute top-0 bottom-0 right-0 w-1.5 z-30 cursor-ew-resize transition-colors ${
                       dragShotState?.index === idx
-                        ? 'bg-[#FFE066]'
-                        : 'bg-transparent group-hover:bg-[#F5A623]/80 hover:!bg-[#FFE066]'
+                        ? 'bg-[#F59E0B]'
+                        : 'bg-transparent group-hover:bg-[#F59E0B]/70 hover:!bg-[#F59E0B]'
                     }`}
                   />
                 )}
@@ -1236,7 +1237,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             type="button"
             onClick={onNext}
             aria-label="Next Shot (L)"
-            className="p-1.5 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300 backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
+            className="p-1.5 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -1253,7 +1254,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               type="button"
               onClick={() => onApplyDurationToAll(currentDurationSec)}
               aria-label="Ripple Apply Duration to All Shots"
-              className="hidden md:flex p-1.5 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 cursor-pointer transition-all active:scale-95 shrink-0"
+              className="hidden md:flex p-1.5 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0"
             >
               <Repeat className="w-3.5 h-3.5" />
             </button>
@@ -1270,7 +1271,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               type="button"
               onClick={onMatchAudioBeats}
               aria-label="Match Audio Beats"
-              className="hidden lg:flex p-1.5 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-cyan-300 hover:text-cyan-200 cursor-pointer transition-all active:scale-95 shrink-0"
+              className="hidden lg:flex p-1.5 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0"
             >
               <Music className="w-3.5 h-3.5" />
             </button>
@@ -1285,7 +1286,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onBlur={() => handleJumpSubmit()}
             placeholder={`#${currentIndex + 1}`}
             aria-label="Jump to Shot Number"
-            className="w-10 h-7 bg-neutral-900/90 border border-neutral-800 focus:border-amber-400 text-white text-[10px] font-mono px-1 rounded text-center outline-none transition-colors tabular-nums"
+            className="w-10 h-7 bg-[#141417] border border-white/[0.07] focus:border-[#F59E0B] text-[#F4F4F5] placeholder-[#8E8E93] text-[10px] font-mono px-1 rounded text-center outline-none transition-colors tabular-nums"
             title="Type shot number and press Enter to jump"
           />
         </form>
@@ -1316,10 +1317,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       {/* Main Single-Row Sleek 34px Iconic Transport & Optics Toolbar */}
       <div
         data-testid="control-dock-toolbar"
-        className="relative w-full h-[34px] min-h-[34px] py-1 pointer-events-auto bg-black/92 backdrop-blur-2xl border border-white/10 rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-2 flex flex-row items-center justify-between flex-nowrap gap-1.5 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono-tech select-none"
+        className="relative w-full h-[34px] min-h-[34px] py-1 pointer-events-auto bg-[#0B0B0D]/95 backdrop-blur-2xl border border-white/[0.07] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-2 flex flex-row items-center justify-between flex-nowrap gap-1.5 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono-tech select-none"
       >
-        {/* Subtle Ambient Gold Audio Reactivity Edge */}
-        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.4)]" />
+        {/* Subtle 1px Top Hairline Divider */}
+        <div className="absolute top-0 inset-x-0 h-[1px] bg-white/[0.07] pointer-events-none" />
 
         {/* ======================================================= */}
         {/* 1. LEFT WING: PLAY/PAUSE, STEP BUTTONS & SMPTE CLOCK */}
@@ -1337,8 +1338,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               aria-label={isPlaying ? 'Pause Loop' : 'Play Loop'}
               className={`w-6.5 h-6.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 ${
                 isPlaying
-                  ? 'bg-gradient-to-r from-amber-500 to-[#F5A623] text-black ring-1 ring-amber-500/40 shadow-[0_0_10px_rgba(245,166,35,0.6)]'
-                  : 'bg-[#e50914] hover:bg-[#ff1e2b] text-white ring-1 ring-red-500/40 shadow-[0_0_10px_rgba(229,9,20,0.6)]'
+                  ? 'bg-[#F59E0B] text-[#0B0B0D] ring-1 ring-[#F59E0B]/50 shadow-[0_0_10px_rgba(245,158,11,0.4)]'
+                  : 'bg-[#141417] border border-white/[0.14] hover:border-[#F59E0B]/70 text-[#F4F4F5] hover:text-[#F59E0B]'
               }`}
             >
               {isPlaying ? (
@@ -1363,7 +1364,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   else onPrev();
                 }}
                 aria-label="Step Backward 1 Frame"
-                className="p-1 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+                className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] transition-all active:scale-95 cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
@@ -1381,7 +1382,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   else onNext();
                 }}
                 aria-label="Step Forward 1 Frame"
-                className="p-1 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+                className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] transition-all active:scale-95 cursor-pointer"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
@@ -1394,11 +1395,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             why="Displays cumulative timeline clock and shot duration"
             how={`Running at ${currentFps} FPS; drag card edges to adjust`}
           >
-            <div className="flex items-center gap-1 h-6.5 px-2 rounded bg-neutral-900/90 border border-neutral-800 text-[9.5px] font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums">
-              <Clock className="w-3 h-3 text-amber-400" />
-              <span ref={tcDomRef} className="text-amber-400 font-bold tracking-wider text-[10px]">{tcString}</span>
-              <span className="text-zinc-600 text-[9px]">/</span>
-              <span className="text-zinc-300 font-bold text-[9.5px]">{currentDurationSec.toFixed(1)}s</span>
+            <div className="flex items-center gap-1 h-6.5 px-2 rounded bg-[#141417] border border-white/[0.07] text-[9.5px] font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums">
+              <Clock className="w-3 h-3 text-[#8E8E93]" />
+              <span ref={tcDomRef} className="text-[#F59E0B] font-bold tracking-wider text-[10px] tabular-nums">{tcString}</span>
+              <span className="text-[#8E8E93]/50 text-[9px]">/</span>
+              <span className="text-[#F4F4F5] font-bold text-[9.5px] tabular-nums">{currentDurationSec.toFixed(1)}s</span>
             </div>
           </ToolTooltip>
 
@@ -1438,48 +1439,30 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             why="Locks playback to active clip or plays continuous sequence"
             how="Pick SOLO for single-shot review, MASTER for full cut"
           >
-            <div className="flex items-center h-6.5 p-0.5 bg-black/90 rounded border border-neutral-800 shadow-inner">
+            <div className="flex items-center h-6.5 p-0.5 bg-[#0B0B0D] rounded border border-white/[0.07] shadow-inner">
               <button
                 type="button"
                 onClick={() => onSelectPlaybackMode?.('solo')}
-                style={
-                  playbackMode === 'solo'
-                    ? {
-                        border: '1px solid #00f0ff',
-                        background: 'rgba(0, 240, 255, 0.18)',
-                        color: '#00f0ff',
-                        fontWeight: 800,
-                        boxShadow: '0 0 8px rgba(0, 240, 255, 0.4)'
-                      }
-                    : undefined
-                }
                 className={`h-5 px-1.5 rounded font-mono text-[9.5px] uppercase flex items-center gap-1 transition-all cursor-pointer ${
-                  playbackMode === 'solo' ? '' : 'text-zinc-400 hover:text-white'
+                  playbackMode === 'solo'
+                    ? 'bg-[#F59E0B]/15 border border-[#F59E0B]/65 text-[#F4F4F5] font-bold'
+                    : 'border border-transparent text-[#8E8E93] hover:text-[#F4F4F5]'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${playbackMode === 'solo' ? 'bg-[#00f0ff] animate-ping' : 'bg-zinc-600'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${playbackMode === 'solo' ? 'bg-[#F59E0B]' : 'bg-[#8E8E93]/40'}`} />
                 <span>SOLO</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onSelectPlaybackMode?.('sequence')}
-                style={
-                  playbackMode !== 'solo'
-                    ? {
-                        border: '1px solid #ffaa00',
-                        background: 'rgba(255, 170, 0, 0.22)',
-                        color: '#ffaa00',
-                        fontWeight: 800,
-                        boxShadow: '0 0 8px rgba(255, 170, 0, 0.4)'
-                      }
-                    : undefined
-                }
                 className={`h-5 px-1.5 rounded font-mono text-[9.5px] uppercase flex items-center gap-1 transition-all cursor-pointer ${
-                  playbackMode !== 'solo' ? '' : 'text-zinc-400 hover:text-white'
+                  playbackMode !== 'solo'
+                    ? 'bg-[#F59E0B]/15 border border-[#F59E0B]/65 text-[#F4F4F5] font-bold'
+                    : 'border border-transparent text-[#8E8E93] hover:text-[#F4F4F5]'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${playbackMode !== 'solo' ? 'bg-[#ffaa00] animate-pulse' : 'bg-zinc-600'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${playbackMode !== 'solo' ? 'bg-[#F59E0B]' : 'bg-[#8E8E93]/40'}`} />
                 <span>MASTER</span>
               </button>
             </div>
@@ -1499,8 +1482,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               onClick={handleSnapToBeatToggle}
               className={`p-1 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
                 effectiveSnapToBeat
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-amber-300'
+                  ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                  : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
             >
               <Music className="w-3.5 h-3.5" />
@@ -1513,7 +1496,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             why="Controls slideshow interval and transition tempo"
             how="Drag slider to tune shot hold cadence in seconds"
           >
-            <div className="hidden xl:flex items-center gap-1.5 h-6.5 bg-neutral-900/90 px-2 rounded border border-neutral-800 hover:border-amber-400/60 font-mono text-[9.5px] text-zinc-400 shrink-0 transition-colors">
+            <div className="hidden xl:flex items-center gap-1.5 h-6.5 bg-[#141417] px-2 rounded border border-white/[0.07] hover:border-[#F59E0B]/60 font-mono text-[9.5px] text-[#8E8E93] shrink-0 transition-colors tabular-nums">
               <input
                 type="range"
                 min="1"
@@ -1521,9 +1504,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 value={speed}
                 onChange={(e) => onSpeedChange(Number(e.target.value))}
                 aria-label="Playback Tempo"
-                className="w-10 accent-[#F5A623] cursor-pointer h-1 bg-white/20 rounded shrink-0"
+                className="w-10 accent-[#F59E0B] cursor-pointer h-1 bg-white/15 rounded shrink-0"
               />
-              <span className="text-amber-400 font-bold tabular-nums text-[9.5px]">{intervalSeconds}s</span>
+              <span className="text-[#F4F4F5] font-bold tabular-nums text-[9.5px]">{intervalSeconds}s</span>
             </div>
           </ToolTooltip>
 
@@ -1539,13 +1522,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onClick={onTogglePan}
                 aria-label="Toggle Frame Pan Tool"
                 aria-pressed={isPanActive}
-                className={`p-1 px-1.5 rounded border flex items-center gap-1 font-mono text-[9.5px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 ${
+                className={`p-1 px-1.5 rounded border flex items-center gap-1 font-mono text-[9.5px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 tabular-nums ${
                   isPanActive
-                    ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.3)]'
-                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white'
+                    ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5]'
+                    : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
                 }`}
               >
-                <Move className="w-3.5 h-3.5 text-amber-400" />
+                <Move className={`w-3.5 h-3.5 ${isPanActive ? 'text-[#F59E0B]' : 'text-current'}`} />
                 <span className="tabular-nums text-[9px]">{panOffsetPercent}%</span>
               </button>
             </ToolTooltip>
@@ -1562,9 +1545,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 type="button"
                 onClick={onOpenLiquify}
                 aria-label="Open Liquify Warp Studio"
-                className="p-1 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300 cursor-pointer transition-all active:scale-95 shrink-0"
+                className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0"
               >
-                <Wand2 className="w-3.5 h-3.5 text-amber-400" />
+                <Wand2 className="w-3.5 h-3.5" />
               </button>
             </ToolTooltip>
           )}
@@ -1589,8 +1572,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   aria-pressed={showTitles}
                   className={`p-1 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
                     showTitles
-                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                      : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+                      ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                      : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
                   }`}
                 >
                   <Type className="w-3.5 h-3.5" />
@@ -1609,8 +1592,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 aria-label="Edit Shot Title"
                 className={`p-1 rounded border transition-all active:scale-95 cursor-pointer shrink-0 ${
                   isEditingTitle
-                    ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-amber-300'
+                    ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                    : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
                 }`}
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -1619,20 +1602,20 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
             {/* Inline Title Quick Edit Popover */}
             {isEditingTitle && (
-              <div className="absolute right-0 bottom-full mb-2 w-72 bg-neutral-950/98 backdrop-blur-2xl border border-white/20 rounded-xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs font-mono space-y-2">
-                <div className="flex items-center justify-between text-zinc-400 border-b border-white/10 pb-1.5 text-[10px] uppercase font-bold tracking-wider">
+              <div className="absolute right-0 bottom-full mb-2 w-72 bg-[#0B0B0D]/96 backdrop-blur-2xl border border-white/[0.12] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs font-mono space-y-2">
+                <div className="flex items-center justify-between text-[#8E8E93] border-b border-white/[0.07] pb-1.5 text-[10px] uppercase font-bold tracking-wider">
                   <span>QUICK EDIT TITLES</span>
                   <button
                     type="button"
                     onClick={() => setIsEditingTitle(false)}
-                    className="text-zinc-500 hover:text-white"
+                    className="text-[#8E8E93] hover:text-[#F4F4F5]"
                   >
                     ✕
                   </button>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-400 uppercase">English Title</label>
+                  <label className="text-[10px] text-[#8E8E93] uppercase">English Title</label>
                   <input
                     type="text"
                     value={quickTitleInput}
@@ -1642,13 +1625,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                       if (e.key === 'Escape') setIsEditingTitle(false);
                     }}
                     placeholder="Scene Title..."
-                    className="w-full h-8 px-2.5 bg-black/80 border border-white/15 focus:border-amber-400 rounded text-xs text-white outline-none"
+                    className="w-full h-8 px-2.5 bg-[#141417] border border-white/[0.07] focus:border-[#F59E0B] rounded text-xs text-[#F4F4F5] outline-none"
                     autoFocus
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-400 uppercase">Bangla Subtitle</label>
+                  <label className="text-[10px] text-[#8E8E93] uppercase">Bangla Subtitle</label>
                   <input
                     type="text"
                     value={quickBengaliInput}
@@ -1658,22 +1641,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                       if (e.key === 'Escape') setIsEditingTitle(false);
                     }}
                     placeholder="বাংলা শিরোনাম..."
-                    className="w-full h-8 px-2.5 bg-black/80 border border-white/15 focus:border-cyan-400 rounded text-xs font-bangla text-white outline-none"
+                    className="w-full h-8 px-2.5 bg-[#141417] border border-white/[0.07] focus:border-[#F59E0B] rounded text-xs font-bangla text-[#F4F4F5] outline-none"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/10">
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/[0.07]">
                   <button
                     type="button"
                     onClick={() => setIsEditingTitle(false)}
-                    className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-[11px]"
+                    className="px-2.5 py-1 rounded bg-[#141417] hover:bg-white/[0.06] text-[#8E8E93] hover:text-[#F4F4F5] text-[11px]"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveQuickTitle}
-                    className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px]"
+                    className="px-3 py-1 rounded bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#0B0B0D] font-bold text-[11px]"
                   >
                     Save Titles
                   </button>
@@ -1692,7 +1675,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               value={aspectRatio}
               onChange={(e) => onChangeAspectRatio(e.target.value)}
               aria-label="Aspect Ratio"
-              className="h-6.5 px-1.5 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 focus:border-amber-400 text-white font-mono text-[9.5px] font-bold outline-none cursor-pointer transition-colors shrink-0"
+              className="h-6.5 px-1.5 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 focus:border-[#F59E0B] text-[#F4F4F5] font-mono text-[9.5px] font-bold outline-none cursor-pointer transition-colors shrink-0 tabular-nums"
             >
               <option value="2.39:1">2.39:1</option>
               <option value="16:9">16:9</option>
@@ -1712,17 +1695,17 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               value={currentFrame?.lutFilter || 'cinematic'}
               onChange={(e) => onChangeLut(e.target.value as LutPreset)}
               aria-label="LUT Preset"
-              className="hidden sm:block h-6.5 px-1.5 bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 focus:border-amber-400 rounded text-[9.5px] text-amber-300 font-mono font-bold outline-none cursor-pointer shrink-0 max-w-[84px] truncate"
+              className="hidden sm:block h-6.5 px-1.5 bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 focus:border-[#F59E0B] rounded text-[9.5px] text-[#F4F4F5] font-mono font-bold outline-none cursor-pointer shrink-0 max-w-[84px] truncate"
             >
               {LUT_PRESETS.map((p) => (
-                <option key={p.id} value={p.id} className="bg-[#101014] text-white">
+                <option key={p.id} value={p.id} className="bg-[#0B0B0D] text-[#F4F4F5]">
                   {p.label}
                 </option>
               ))}
             </select>
           </ToolTooltip>
 
-          {/* Module 3: Freeze Master Frame ([ 📸 ]) surfaced in visible right-center cluster */}
+          {/* Freeze Master Frame */}
           <ToolTooltip
             title="FREEZE MASTER FRAME"
             why="Exports current composite frame as lossless PNG for Photoshop paint-over or thumbnailing."
@@ -1733,13 +1716,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               data-testid="control-dock-freeze-frame"
               onClick={() => handleDispatchToTool('photoshop', currentIndex)}
               aria-label="Freeze Master Frame"
-              className="text-amber-300 border border-amber-500/40 bg-neutral-900 hover:bg-amber-500/15 hover:border-amber-400 p-1 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-xs leading-none"
+              className="bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F59E0B] p-1 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center"
             >
-              <span>📸</span>
+              <Camera className="w-3.5 h-3.5" />
             </button>
           </ToolTooltip>
 
-          {/* Module 3: Ecosystem Bridge ([ 🚀 ]) surfaced in visible right-center cluster */}
+          {/* Ecosystem Bridge */}
           <ToolTooltip
             title="ECOSYSTEM BRIDGE"
             why="Hand off timeline cuts, audio sync & Bangla/English scripts to Premiere, Resolve, or CapCut."
@@ -1750,13 +1733,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               data-testid="control-dock-ecosystem-bridge"
               onClick={() => eventBus.emit('cockpit:action', { type: 'open_modal' })}
               aria-label="Open Ecosystem Bridge"
-              className="text-amber-300 border border-amber-500/40 bg-neutral-900 hover:bg-amber-500/15 hover:border-amber-400 p-1 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center text-xs leading-none"
+              className="bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F59E0B] p-1 rounded transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center"
             >
-              <span>🚀</span>
+              <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </ToolTooltip>
 
-          {/* [ 🎛️ ] Icon-Only Signal Rack Square Toggle Button (w-7 h-7) */}
+          {/* Icon-Only Signal Rack Square Toggle Button */}
           <ToolTooltip
             title="SIGNAL RACK"
             why="Opens the 3-Panel Signal Rack (Audio Beat Sync, Voiceover & Subtitles, 3D LUT Grade) cleanly above the timeline."
@@ -1773,15 +1756,15 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               }}
               className={`w-6.5 h-6.5 rounded border flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 ${
                 isTelemetryRackOpen
-                  ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_10px_rgba(245,166,35,0.5)]'
-                  : 'bg-neutral-900 border-amber-500/40 text-amber-300 hover:bg-amber-500/15 hover:border-amber-400'
+                  ? 'bg-[#F59E0B] text-[#0B0B0D] border-[#F59E0B]'
+                  : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
             </button>
           </ToolTooltip>
 
-          {/* [ ⊞ ] Icon-Only All Tools Master Menu Square Button (w-7 h-7) */}
+          {/* Icon-Only All Tools Master Menu Square Button */}
           <ToolTooltip
             title="ALL TOOLS MASTER MENU"
             why="1-click 4-column Master Command Menu for every engine, preset, scope, vault, and export tool."
@@ -1795,8 +1778,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               onClick={() => setIsAllToolsOpen((prev) => !prev)}
               className={`w-6.5 h-6.5 rounded border flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 ${
                 isAllToolsOpen
-                  ? 'bg-[#e50914] border-red-400 text-white shadow-[0_0_12px_rgba(229,9,20,0.6)]'
-                  : 'bg-gradient-to-r from-amber-500/20 to-red-600/20 border-amber-400/70 text-[#FFE066] hover:border-amber-300 hover:bg-amber-500/25'
+                  ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D]'
+                  : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -1817,8 +1800,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 aria-pressed={isZenMode}
                 className={`p-1 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
                   isZenMode
-                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.45)]'
-                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-cyan-300'
+                    ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                    : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
                 }`}
               >
                 <Focus className="w-3.5 h-3.5" />
@@ -1840,8 +1823,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               onClick={onToggleHud}
               className={`p-1 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
                 showHud
-                  ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
-                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+                  ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                  : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
@@ -1862,8 +1845,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 aria-pressed={showGuides}
                 className={`p-1 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
                   showGuides
-                    ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.3)]'
-                    : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-400 hover:text-white'
+                    ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                    : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
                 }`}
               >
                 <Crosshair className="w-3.5 h-3.5" />
@@ -1882,7 +1865,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 type="button"
                 onClick={onCaptureStill}
                 aria-label="Capture High-Res Still"
-                className="p-1 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+                className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
               >
                 <Camera className="w-3.5 h-3.5" />
               </button>
@@ -1912,9 +1895,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 type="button"
                 onClick={handleResetAllZoom}
                 aria-label="Reset Zoom"
-                className="p-1 rounded border flex items-center gap-1 font-mono text-[9.5px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 bg-amber-500/25 border-amber-400 text-amber-300 shadow-[0_0_8px_rgba(245,166,35,0.35)]"
+                className="p-1 rounded border flex items-center gap-1 font-mono text-[9.5px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5] tabular-nums"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-3.5 h-3.5 text-[#F59E0B]" />
                 <span className="tabular-nums text-[9px]">
                   {digitalZoom?.isZoomed ? `${digitalZoom.scale.toFixed(1)}x` : `${fgZoom.toFixed(1)}x`}
                 </span>
@@ -1934,8 +1917,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               aria-label="Toggle Contact Sheet Grid (G)"
               className={`p-1 rounded border cursor-pointer transition-all active:scale-95 shrink-0 ${
                 viewMode === 'grid'
-                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
-                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white'
+                  ? 'bg-[#F59E0B] text-[#0B0B0D] border-[#F59E0B]'
+                  : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
             >
               <Grid className="w-3.5 h-3.5" />
@@ -1952,7 +1935,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               type="button"
               onClick={onOpenInspector}
               aria-label="Open Director Optical Inspector (E)"
-              className="p-1 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-[#FFE066] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+              className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
             >
               <Sliders className="w-3.5 h-3.5" />
             </button>
@@ -1975,8 +1958,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               }}
               className={`p-1 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
                 isStripCollapsed
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white'
+                  ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                  : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
             >
               {isStripCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -1993,7 +1976,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               type="button"
               onClick={onToggleFullscreen}
               aria-label="Toggle Cinema Fullscreen (F)"
-              className="p-1 rounded bg-neutral-900/90 border border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+              className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
@@ -2006,14 +1989,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       {cockpitToast && typeof document !== 'undefined' && createPortal(
         <div
           style={{ zIndex: 9999 }}
-          className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[9999] px-3.5 py-2 rounded-lg bg-neutral-950/95 border border-amber-400/70 text-amber-300 font-mono text-[11px] font-bold shadow-2xl backdrop-blur-md pointer-events-none"
+          className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[9999] px-3.5 py-2 rounded-lg bg-[#0B0B0D]/95 border border-[#F59E0B]/60 text-[#F4F4F5] font-mono text-[11px] font-bold shadow-2xl backdrop-blur-md pointer-events-none tabular-nums"
         >
           {cockpitToast}
         </div>,
         document.body
       )}
 
-      {/* Module 2: Floating Portal Directorial Dispatch HUD anchored cleanly above shot card */}
+      {/* Floating Portal Directorial Dispatch HUD anchored cleanly above shot card */}
       {dispatchHudAnchor && typeof document !== 'undefined' && createPortal(
         <div
           data-testid="directorial-dispatch-hud"
@@ -2026,18 +2009,18 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             transform: 'translateY(-100%)',
             zIndex: 9999
           }}
-          className="z-[9999] w-48 bg-[#08090f]/98 backdrop-blur-xl border border-amber-400/90 rounded-lg p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.95)] font-mono text-[10px] flex flex-col gap-1 animate-in fade-in zoom-in-95"
+          className="z-[9999] w-48 bg-[#0B0B0D]/96 backdrop-blur-xl border border-white/[0.12] rounded-lg p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.95)] font-mono text-[10px] flex flex-col gap-1 animate-in fade-in zoom-in-95 tabular-nums"
         >
-          <div className="text-[8px] text-zinc-400 font-bold uppercase px-1 border-b border-white/10 pb-1 flex items-center justify-between">
+          <div className="text-[8px] text-[#8E8E93] font-bold uppercase px-1 border-b border-white/[0.07] pb-1 flex items-center justify-between">
             <span>DISPATCH #{String(dispatchHudAnchor.idx + 1).padStart(2, '0')}</span>
-            <span className="text-amber-300">
+            <span className="text-[#F59E0B] tabular-nums">
               {(allCockpitShots[dispatchHudAnchor.idx]?.durationSec ?? 12.0).toFixed(1)}s
             </span>
           </div>
           <button
             type="button"
             onClick={() => handleDispatchToTool('photoshop', dispatchHudAnchor.idx)}
-            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-blue-600 hover:text-white text-blue-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+            className="px-2 py-1.5 rounded bg-[#141417] border border-white/[0.07] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] text-[#F4F4F5] text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
           >
             <span>[ PS // PAINT-OVER ]</span>
             <Camera className="w-3 h-3" />
@@ -2045,7 +2028,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <button
             type="button"
             onClick={() => handleDispatchToTool('premiere', dispatchHudAnchor.idx)}
-            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-purple-600 hover:text-white text-purple-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+            className="px-2 py-1.5 rounded bg-[#141417] border border-white/[0.07] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] text-[#F4F4F5] text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
           >
             <span>[ PR // SEND SEQUENCE ]</span>
             <Film className="w-3 h-3" />
@@ -2053,7 +2036,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <button
             type="button"
             onClick={() => handleDispatchToTool('capcut', dispatchHudAnchor.idx)}
-            className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-amber-500 hover:text-black text-amber-300 text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
+            className="px-2 py-1.5 rounded bg-[#141417] border border-white/[0.07] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] text-[#F4F4F5] text-left font-bold flex items-center justify-between transition-colors cursor-pointer"
           >
             <span>[ CC // REEL BUNDLE ]</span>
             <Zap className="w-3 h-3" />
@@ -2062,7 +2045,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         document.body
       )}
 
-      {/* 4-Column Master Command Popover ([ ⊞ ALL TOOLS ]) */}
+      {/* 4-Column Master Command Popover (ALL TOOLS) */}
       {isAllToolsOpen && typeof document !== 'undefined' && createPortal(
         <>
           <div
@@ -2072,22 +2055,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           <div
             data-testid="all-tools-mega-popover"
             onClick={(e) => e.stopPropagation()}
-            className="fixed bottom-28 left-1/2 -translate-x-1/2 w-[min(96vw,1080px)] max-h-[72vh] overflow-y-auto z-[9999] bg-neutral-950/98 border border-amber-500/50 rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.98)] p-4 font-mono text-zinc-200 animate-in fade-in zoom-in-95 duration-150"
+            className="fixed bottom-28 left-1/2 -translate-x-1/2 w-[min(96vw,1080px)] max-h-[72vh] overflow-y-auto z-[9999] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.98)] p-4 font-mono text-[#F4F4F5] animate-in fade-in zoom-in-95 duration-150 tabular-nums"
           >
-            <div className="flex items-center justify-between border-b border-white/10 pb-2.5 mb-3">
+            <div className="flex items-center justify-between border-b border-white/[0.07] pb-2.5 mb-3">
               <div className="flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-black tracking-widest uppercase text-white">
+                <LayoutGrid className="w-4 h-4 text-[#F59E0B]" />
+                <span className="text-xs font-black tracking-widest uppercase text-[#F4F4F5]">
                   MASTER STUDIO COMMAND DIRECTORY
                 </span>
-                <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[9px] font-bold">
+                <span className="px-2 py-0.5 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] text-[9px] font-bold">
                   1-CLICK ACCESS
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAllToolsOpen(false)}
-                className="p-1 rounded bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white cursor-pointer"
+                className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer"
                 aria-label="Close All Tools Menu"
               >
                 <X className="w-4 h-4" />
@@ -2096,8 +2079,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[10.5px]">
               {/* Column 1: Stage & Camera */}
-              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-amber-400 border-b border-white/10 pb-1">
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
                   STAGE &amp; CAMERA
                 </div>
                 {[
@@ -2121,9 +2104,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                         setIsAllToolsOpen(false);
                         item.action();
                       }}
-                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-amber-500/15 border border-white/5 hover:border-amber-400/50 text-left text-zinc-200 hover:text-amber-300 flex items-center gap-2 transition-colors cursor-pointer"
+                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <Icon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="truncate">{item.label}</span>
                     </button>
                   );
@@ -2131,8 +2114,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               </div>
 
               {/* Column 2: 34-Preset Lights, FX & Typography */}
-              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-cyan-300 border-b border-white/10 pb-1">
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
                   LIGHTS, LUTS &amp; TYPOGRAPHY
                 </div>
                 {[
@@ -2154,9 +2137,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                         setIsAllToolsOpen(false);
                         item.action();
                       }}
-                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-cyan-500/15 border border-white/5 hover:border-cyan-400/50 text-left text-zinc-200 hover:text-cyan-300 flex items-center gap-2 transition-colors cursor-pointer"
+                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <Icon className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="truncate">{item.label}</span>
                     </button>
                   );
@@ -2164,8 +2147,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               </div>
 
               {/* Column 3: Signal Rack, Scopes & Media Vault */}
-              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-emerald-400 border-b border-white/10 pb-1">
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
                   SIGNAL RACK, SCOPES &amp; VAULT
                 </div>
                 {[
@@ -2188,9 +2171,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                         setIsAllToolsOpen(false);
                         item.action();
                       }}
-                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-emerald-500/15 border border-white/5 hover:border-emerald-400/50 text-left text-zinc-200 hover:text-emerald-300 flex items-center gap-2 transition-colors cursor-pointer"
+                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <Icon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="truncate">{item.label}</span>
                     </button>
                   );
@@ -2198,8 +2181,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               </div>
 
               {/* Column 4: Cockpit Export, Recorder & System */}
-              <div className="bg-black/50 border border-white/10 rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-rose-400 border-b border-white/10 pb-1">
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
                   COCKPIT, EXPORT &amp; SYSTEM
                 </div>
                 {[
@@ -2223,9 +2206,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                         setIsAllToolsOpen(false);
                         item.action();
                       }}
-                      className="w-full px-2 py-1.5 rounded bg-neutral-900/80 hover:bg-rose-500/15 border border-white/5 hover:border-rose-400/50 text-left text-zinc-200 hover:text-rose-300 flex items-center gap-2 transition-colors cursor-pointer"
+                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <Icon className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="truncate">{item.label}</span>
                     </button>
                   );

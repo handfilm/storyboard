@@ -671,7 +671,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             title: `#${padded2} · ${f.title || `Frame ${idx + 1}`}`,
             sub: `${f.bengaliTitle ? `${f.bengaliTitle} · ` : ''}${lensTag}${f.cameraSpec?.aperture ? ` ${f.cameraSpec.aperture}` : ''}`,
             badge: `#${padded2}`,
-            badgeColor: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
+            badgeColor: 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/30',
             categoryGroup: 'SHOTS',
             score,
             shotIndex: idx,
@@ -762,7 +762,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           title: p.title,
           sub: p.sub,
           badge: p.badge,
-          badgeColor: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
+          badgeColor: 'text-[#8E8E93] bg-[#141417] border-white/[0.07]',
           categoryGroup: 'WORKSPACE',
           score,
           panelTarget: p.panelTarget,
@@ -781,8 +781,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         badge: em.category,
         badgeColor:
           em.type === 'studio-tool'
-            ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
-            : 'text-zinc-400 bg-white/5 border-white/10',
+            ? 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/30'
+            : 'text-[#8E8E93] bg-[#141417] border-white/[0.07]',
         categoryGroup: em.categoryGroup,
         score: em.score,
         url: em.url,
@@ -1117,7 +1117,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'STAGE',
       shortcut: '1',
       title: 'Primary Cinema Stage (Alt+1)',
-      accentHex: '#F5A623',
+      accentHex: '#F59E0B',
       icon: PlaySquare
     },
     {
@@ -1126,7 +1126,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'REELS',
       shortcut: '2',
       title: '9:16 Reels & Hyper-Reel Engine (Alt+2)',
-      accentHex: '#FB7185',
+      accentHex: '#F59E0B',
       icon: Flame
     },
     {
@@ -1135,7 +1135,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'SCRUB',
       shortcut: '3',
       title: 'Sub-Frame Precision Scrub (Alt+3)',
-      accentHex: '#00F0FF',
+      accentHex: '#F59E0B',
       icon: Scissors
     },
     {
@@ -1144,7 +1144,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'MULTI-CAM',
       shortcut: '4',
       title: 'Multi-Camera Cutting Grid (Alt+4)',
-      accentHex: '#A855F7',
+      accentHex: '#F59E0B',
       icon: LayoutGrid
     },
     {
@@ -1153,7 +1153,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'MONITOR',
       shortcut: '5',
       title: 'Optical Cinema Monitor (Alt+5)',
-      accentHex: '#10B981',
+      accentHex: '#F59E0B',
       icon: Monitor
     },
     {
@@ -1161,7 +1161,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'COCKPIT',
       shortcut: '6',
       title: "Director's Cockpit Telemetry Hub (Alt+6)",
-      accentHex: '#FBBF24',
+      accentHex: '#F59E0B',
       icon: Zap
     }
   ];
@@ -1174,7 +1174,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   return (
     <>
       <header
-        className={`relative w-full h-12 bg-[#08080A]/95 backdrop-blur-xl border-b border-white/[0.08] px-2.5 xl:px-4 flex items-center justify-between gap-2 xl:gap-3 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
+        className={`relative w-full h-12 bg-[#0B0B0D]/95 backdrop-blur-xl border-b border-white/[0.07] px-2.5 xl:px-4 flex items-center justify-between gap-2 xl:gap-3 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
       >
         {/* ================================================================
             LEFT ZONE: Brand Wordmark + Tagline & Mega-Dropdown Menus
@@ -1187,16 +1187,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             className="group flex flex-col items-start justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-0.5 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 text-left"
             title="HANDFILM STUDIO — Return to Director Home"
           >
-            <span className="font-space-grotesk font-black tracking-[0.14em] text-[15px] xl:text-[16px] leading-none">
-              <span className="text-[#E50914]">HAND</span>
-              <span className="text-white">FILM</span>
+            <span className="font-space-grotesk font-black tracking-[0.14em] text-[15px] xl:text-[16px] leading-none text-[#F4F4F5]">
+              HAND<span className="text-[#F4F4F5]">FILM</span>
             </span>
-            <span className="mt-[3px] font-mono text-[7px] xl:text-[7.5px] font-semibold tracking-[0.2em] uppercase text-zinc-400 group-hover:text-zinc-300 leading-none">
+            <span className="mt-[3px] font-mono text-[7px] xl:text-[7.5px] font-semibold tracking-[0.2em] uppercase text-[#8E8E93] group-hover:text-[#F4F4F5] leading-none transition-colors">
               RAW. RAPID. CINEMA.
             </span>
           </button>
 
-          <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-white/[0.08] shrink-0" />
+          <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-white/[0.07] shrink-0" />
 
           {/* Interactive Mega-Dropdown Menus: HOME | FEATURES | APPS */}
           <nav aria-label="Studio Menus" className="flex items-center gap-0.5 xl:gap-1 shrink-0">
@@ -1213,14 +1212,14 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 onClick={() => toggleDropdown('HOME')}
                 className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                   activeDropdown === 'HOME'
-                    ? 'bg-[#16161A] text-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                    ? 'bg-[#141417] text-[#F4F4F5]'
+                    : 'text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-[#141417]/70'
                 }`}
               >
                 <span>HOME</span>
                 <ChevronDown
                   className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'HOME' ? 'rotate-180 text-[#FBBF24]' : 'text-zinc-500'
+                    activeDropdown === 'HOME' ? 'rotate-180 text-[#F59E0B]' : 'text-[#8E8E93]'
                   }`}
                 />
               </button>
@@ -1231,9 +1230,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   style={flyoutPanelStyle}
                   onMouseEnter={() => openDropdown('HOME')}
                   onMouseLeave={scheduleCloseDropdown}
-                  className="absolute left-0 top-full mt-1.5 w-[312px] bg-[#0B0B0E]/96 border border-[#27272A] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
+                  className="absolute left-0 top-full mt-1.5 w-[312px] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
                 >
-                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-zinc-400">
+                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-[#8E8E93] tabular-nums">
                     <span>PROJECT &amp; VAULT</span>
                     <span className="text-[#F59E0B]">
                       {saveState === 'SAVING...' ? 'SAVING...' : isUnsavedOrSaving ? 'UNSAVED' : 'LOCAL OPFS'}
@@ -1252,13 +1251,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       }
                       showNotice('New Anthology Project Ready');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <FolderPlus className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
+                      <FolderPlus className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">New Anthology Project</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       NEW
                     </kbd>
                   </button>
@@ -1276,13 +1275,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         eventBus.emit('studio:open_project_manager');
                       }
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <FolderOpen className="w-3.5 h-3.5 text-zinc-300 group-hover:text-[#FBBF24] shrink-0" />
+                      <FolderOpen className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Open / Import Project (.json)</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       JSON
                     </kbd>
                   </button>
@@ -1295,13 +1294,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenProjectManager) onOpenProjectManager();
                       else eventBus.emit('studio:open_project_manager');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Database className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <Database className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Project Vault Manager</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       IDB
                     </kbd>
                   </button>
@@ -1318,13 +1317,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       }
                       showNotice('Snapshot Saved');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Save className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <Save className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Save Snapshot</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       Ctrl+S
                     </kbd>
                   </button>
@@ -1340,13 +1339,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         eventBus.emit('media:batch_import');
                       }
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <FolderInput className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <FolderInput className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Batch Import Media Folder</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       BATCH
                     </kbd>
                   </button>
@@ -1359,13 +1358,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenR2Automation) onOpenR2Automation();
                       else eventBus.emit('studio:open_module', { module: 'R2_STORAGE' });
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Cloud className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <Cloud className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Cloudflare R2 Edge Sync</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       R2
                     </kbd>
                   </button>
@@ -1374,13 +1373,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     type="button"
                     role="menuitem"
                     onClick={handleClearOpfsAction}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-rose-950/40 text-zinc-300 hover:text-rose-200 flex items-center justify-between gap-2 cursor-pointer transition-colors border-t border-white/[0.07] mt-1 pt-2"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors border-t border-white/[0.07] mt-1 pt-2 group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <RotateCcw className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <RotateCcw className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Clear OPFS Cache &amp; Reset</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-rose-300 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] group-hover:text-[#F59E0B] tabular-nums shrink-0">
                       PURGE
                     </kbd>
                   </button>
@@ -1389,7 +1388,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     <button
                       type="button"
                       onClick={handleHomeClick}
-                      className="text-[10px] text-zinc-400 hover:text-[#FBBF24] flex items-center gap-1.5 py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
+                      className="text-[10px] text-[#8E8E93] hover:text-[#F59E0B] flex items-center gap-1.5 py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
                     >
                       <Home className="w-3 h-3" />
                       <span>Director Home</span>
@@ -1401,7 +1400,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         if (onOpenManifesto) onOpenManifesto();
                         else eventBus.emit('walkthrough:open');
                       }}
-                      className="text-[10px] text-zinc-400 hover:text-white py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
+                      className="text-[10px] text-[#8E8E93] hover:text-[#F4F4F5] py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
                     >
                       Manifesto
                     </button>
@@ -1423,14 +1422,14 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 onClick={() => toggleDropdown('FEATURES')}
                 className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                   activeDropdown === 'FEATURES'
-                    ? 'bg-[#16161A] text-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                    ? 'bg-[#141417] text-[#F4F4F5]'
+                    : 'text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-[#141417]/70'
                 }`}
               >
                 <span>FEATURES</span>
                 <ChevronDown
                   className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'FEATURES' ? 'rotate-180 text-[#FBBF24]' : 'text-zinc-500'
+                    activeDropdown === 'FEATURES' ? 'rotate-180 text-[#F59E0B]' : 'text-[#8E8E93]'
                   }`}
                 />
               </button>
@@ -1441,9 +1440,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   style={flyoutPanelStyle}
                   onMouseEnter={() => openDropdown('FEATURES')}
                   onMouseLeave={scheduleCloseDropdown}
-                  className="absolute left-0 top-full mt-1.5 w-[316px] bg-[#0B0B0E]/96 border border-[#27272A] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
+                  className="absolute left-0 top-full mt-1.5 w-[316px] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
                 >
-                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-zinc-400">
+                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-[#8E8E93] tabular-nums">
                     <span>CINEMA ENGINES</span>
                     <span className="text-[#F59E0B]">24 / 60 FPS</span>
                   </div>
@@ -1460,13 +1459,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         setTimeout(() => eventBus.emit('reels:pack_12s'), 60);
                       }
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Flame className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />
+                      <Flame className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">12s Hyper-Reel Auto-Packer</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-[#FBBF24] shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] group-hover:text-[#F59E0B] tabular-nums shrink-0">
                       288F
                     </kbd>
                   </button>
@@ -1483,13 +1482,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         setTimeout(() => eventBus.emit('reels:toggle_beat_fx'), 60);
                       }
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Zap className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <Zap className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Beat-Drop &amp; Flash-Cut Engine</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       2F FX
                     </kbd>
                   </button>
@@ -1507,13 +1506,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         setTimeout(() => eventBus.emit('reels:smart_crop_916'), 60);
                       }
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Crop className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <Crop className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">9:16 Smart Subject Auto-Crop</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       9:16
                     </kbd>
                   </button>
@@ -1526,13 +1525,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenBloomSequencer) onOpenBloomSequencer();
                       else eventBus.emit('studio:open_bloom');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Bloom Interactive Sequencer</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       BLOOM
                     </kbd>
                   </button>
@@ -1545,13 +1544,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenVideoScopes) onOpenVideoScopes();
                       else eventBus.emit('studio:open_scopes');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <BarChart2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <BarChart2 className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Live IRE &amp; RGB Video Scopes</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       SCOPES
                     </kbd>
                   </button>
@@ -1560,13 +1559,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     type="button"
                     role="menuitem"
                     onClick={handleTriggerExport}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Film className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <Film className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Deterministic Multi-Shot Exporter</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       ⌘E
                     </kbd>
                   </button>
@@ -1579,13 +1578,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenShortcuts) onOpenShortcuts();
                       else eventBus.emit('shortcuts:open');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-[#FBBF24] flex items-center justify-between gap-2 cursor-pointer transition-colors border-t border-white/[0.07] mt-1 pt-2"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors border-t border-white/[0.07] mt-1 pt-2 group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Keyboard className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
+                      <Keyboard className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Keyboard Shortcuts Map</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-[#FBBF24] font-bold shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#F59E0B] font-bold tabular-nums shrink-0">
                       ?
                     </kbd>
                   </button>
@@ -1606,15 +1605,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 onClick={() => toggleDropdown('APPS')}
                 className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                   activeDropdown === 'APPS'
-                    ? 'bg-[#16161A] text-white'
-                    : 'text-zinc-300 hover:text-white hover:bg-white/[0.04]'
+                    ? 'bg-[#141417] text-[#F4F4F5]'
+                    : 'text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-[#141417]/70'
                 }`}
               >
-                <LayoutGrid className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
+                <LayoutGrid className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeDropdown === 'APPS' ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
                 <span>APPS</span>
                 <ChevronDown
                   className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'APPS' ? 'rotate-180 text-[#FBBF24]' : 'text-zinc-500'
+                    activeDropdown === 'APPS' ? 'rotate-180 text-[#F59E0B]' : 'text-[#8E8E93]'
                   }`}
                 />
               </button>
@@ -1625,11 +1624,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   style={flyoutPanelStyle}
                   onMouseEnter={() => openDropdown('APPS')}
                   onMouseLeave={scheduleCloseDropdown}
-                  className="absolute left-0 top-full mt-1.5 w-[304px] bg-[#0B0B0E]/96 border border-[#27272A] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
+                  className="absolute left-0 top-full mt-1.5 w-[304px] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
                 >
-                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-zinc-400">
+                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-[#8E8E93] tabular-nums">
                     <span>STUDIO LABS &amp; APPS</span>
-                    <span className="text-emerald-400">READY</span>
+                    <span className="text-[#F59E0B]">READY</span>
                   </div>
 
                   <button
@@ -1640,13 +1639,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenRecorder) onOpenRecorder();
                       else eventBus.emit('recorder:open');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Video className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <Video className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Screen &amp; Audio Recorder</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       Alt+R
                     </kbd>
                   </button>
@@ -1659,13 +1658,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenAiStudio) onOpenAiStudio();
                       else setIsAIForgeOpen(true);
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Sparkles className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">AI Shot Prompt Generator</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-[#FBBF24] shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] group-hover:text-[#F59E0B] tabular-nums shrink-0">
                       AI
                     </kbd>
                   </button>
@@ -1681,13 +1680,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         eventBus.emit('studio:open_module', { module: 'OPTICS' });
                       }
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Palette className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <Palette className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Color LUT &amp; Halation Lab</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       LUT
                     </kbd>
                   </button>
@@ -1705,13 +1704,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         eventBus.emit('studio:open_module', { module: 'SOUND' });
                       }
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <AudioWaveform className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <AudioWaveform className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Audio Beat &amp; Waveform Analyzer</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       DSP
                     </kbd>
                   </button>
@@ -1724,13 +1723,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       if (onOpenDiagnostics) onOpenDiagnostics();
                       else eventBus.emit('diagnostics:open');
                     }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <Cpu className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
                       <span className="text-[11px] font-semibold truncate">Hardware Diagnostics Self-Test</span>
                     </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
                       TEST
                     </kbd>
                   </button>
@@ -1741,7 +1740,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       setActiveDropdown(null);
                       setIsAppsModalOpen(true);
                     }}
-                    className="w-full mt-1 pt-2 px-2.5 py-1.5 border-t border-white/[0.07] text-[10px] text-zinc-400 hover:text-[#FBBF24] flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full mt-1 pt-2 px-2.5 py-1.5 border-t border-white/[0.07] text-[10px] text-[#8E8E93] hover:text-[#F59E0B] flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-1.5">
                       <LayoutGrid className="w-3 h-3" />
@@ -1756,12 +1755,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
 
         {/* ================================================================
-            CENTER ZONE: Next-Level Chromatic Workspace Hardware Switcher
+            CENTER ZONE: Monochrome Stealth Workspace Switcher
             ================================================================ */}
         <div
           role="tablist"
           aria-label="Workspace Switcher"
-          className="hidden md:flex items-center bg-[#06070B]/95 border border-white/[0.09] rounded-[7px] p-[3px] gap-1 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_20px_rgba(0,0,0,0.6)]"
+          className="hidden md:flex items-center bg-[#0B0B0D] border border-white/[0.07] rounded-[7px] p-[3px] gap-1 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
         >
           {WORKSPACE_TABS.map((tab) => {
             const isCockpitTab = tab.id === 'cockpit';
@@ -1773,7 +1772,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             return (
               <React.Fragment key={tab.id}>
                 {isCockpitTab && (
-                  <span aria-hidden="true" className="w-px h-5 bg-white/[0.1] mx-0.5 shrink-0" />
+                  <span aria-hidden="true" className="w-px h-5 bg-white/[0.07] mx-0.5 shrink-0" />
                 )}
                 <div
                   ref={isCockpitTab ? cockpitContainerRef : undefined}
@@ -1784,7 +1783,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    style={{ '--tab-accent': tab.accentHex } as React.CSSProperties}
+                    style={{ '--tab-accent': '#F59E0B' } as React.CSSProperties}
                     onClick={() => {
                       if (isCockpitTab) {
                         toggleCockpitDrawer();
@@ -1793,83 +1792,54 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       }
                     }}
                     title={tab.title}
-                    className={`studio-workspace-tab relative group/tab h-[32px] px-2 xl:px-2.5 2xl:px-3 rounded-[5px] border font-mono text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] tracking-[0.09em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out hover:-translate-y-[0.5px] active:translate-y-0 active:scale-[0.97] motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                    className={`studio-workspace-tab relative group/tab h-[32px] px-2 xl:px-2.5 2xl:px-3 rounded-[5px] border font-mono text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] tracking-[0.09em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                       isActive
-                        ? 'text-white font-black'
-                        : 'text-zinc-300 hover:text-white font-bold'
+                        ? 'text-[#F4F4F5] font-bold'
+                        : 'text-[#8E8E93] hover:text-[#F4F4F5] font-semibold'
                     }`}
                   >
-                    {/* Inner clipped ambient glow & sheen sweep layer */}
+                    {/* Inner clipped subtle amber highlight strictly on active */}
                     <span
                       aria-hidden="true"
                       className="absolute inset-0 rounded-[4px] overflow-hidden pointer-events-none"
                     >
                       <span
                         style={{
-                          background: `radial-gradient(circle at 30% 50%, ${tab.accentHex}38 0%, transparent 72%)`
+                          background: 'radial-gradient(circle at 30% 50%, rgba(245,158,11,0.16) 0%, transparent 72%)'
                         }}
                         className={`absolute inset-0 transition-opacity duration-150 ${
-                          isActive ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-90'
+                          isActive ? 'opacity-100' : 'opacity-0'
                         }`}
-                      />
-                      <span
-                        style={{
-                          background: `linear-gradient(90deg, transparent 0%, ${tab.accentHex}40 50%, transparent 100%)`
-                        }}
-                        className="studio-tab-sheen absolute inset-y-0 w-1/2 opacity-0 pointer-events-none"
                       />
                     </span>
 
-                    {/* Left-Rail-Inspired Chromatic Icon with Dynamic Glow */}
+                    {/* Neutral matte icon at rest -> Molten Amber (#F59E0B) when active */}
                     <TabIcon
                       style={{
-                        color: tab.accentHex,
-                        filter: isActive
-                          ? `drop-shadow(0 0 7px ${tab.accentHex})`
-                          : undefined
+                        color: isActive ? '#F59E0B' : undefined
                       }}
-                      className={`relative z-10 w-3.5 h-3.5 shrink-0 transition-transform duration-150 ease-out ${
-                        isActive ? 'scale-110' : 'group-hover/tab:scale-115'
+                      className={`relative z-10 w-3.5 h-3.5 shrink-0 transition-colors duration-150 ${
+                        isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover/tab:text-[#F4F4F5]'
                       }`}
                     />
 
                     {/* Crisp Label */}
-                    <span
-                      style={{
-                        color: isActive ? '#FFFFFF' : undefined,
-                        textShadow: isActive ? `0 0 12px ${tab.accentHex}99` : undefined
-                      }}
-                      className="relative z-10 leading-none"
-                    >
+                    <span className="relative z-10 leading-none">
                       {tab.label}
                     </span>
 
-                    {/* Luminous Bottom Category Edge Bar (Idle subtle, Hover/Active vibrant) */}
+                    {/* Single Signature Molten Amber Bottom Bar when Active */}
                     <span
                       aria-hidden="true"
-                      style={{
-                        backgroundColor: tab.accentHex,
-                        boxShadow: isActive ? `0 0 10px ${tab.accentHex}` : undefined
-                      }}
-                      className={`absolute bottom-0 inset-x-1.5 h-[2.5px] rounded-t-full pointer-events-none transition-opacity duration-150 ${
-                        isActive ? 'opacity-100' : 'opacity-35 group-hover/tab:opacity-90'
+                      className={`absolute bottom-0 inset-x-1.5 h-[2px] rounded-t-full bg-[#F59E0B] pointer-events-none transition-opacity duration-150 ${
+                        isActive ? 'opacity-100 shadow-[0_0_8px_rgba(245,158,11,0.65)]' : 'opacity-0'
                       }`}
                     />
-
-                    {/* Top Specular Edge Highlight when Active */}
-                    {isActive && (
-                      <span
-                        aria-hidden="true"
-                        style={{ backgroundColor: tab.accentHex }}
-                        className="absolute top-0 inset-x-3 h-[1px] opacity-80 rounded-full pointer-events-none"
-                      />
-                    )}
 
                     {/* Micro Hover Shortcut Hint [1]..[6] */}
                     <span
                       aria-hidden="true"
-                      style={{ borderColor: `${tab.accentHex}55`, color: tab.accentHex }}
-                      className="pointer-events-none opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150 absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-[3px] bg-[#090A0F]/95 border text-[9px] font-mono font-bold whitespace-nowrap z-[9999] shadow-xl"
+                      className="pointer-events-none opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150 absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-[3px] bg-[#0B0B0D]/95 border border-white/[0.07] text-[#F59E0B] text-[9px] font-mono font-bold tabular-nums whitespace-nowrap z-[9999] shadow-xl"
                     >
                       [{tab.shortcut}] · Alt+{tab.shortcut}
                     </span>
@@ -1896,27 +1866,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       }
                     : { zIndex: 9999, backdropFilter: 'blur(16px)' }
                 }
-                className="fixed top-12 left-72 w-80 sm:w-[356px] max-h-[82vh] overflow-y-auto bg-[#0B0B0E]/96 border border-[#27272A] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-4 rounded-[4px] z-[9999] font-mono text-xs text-zinc-200 space-y-3"
+                className="fixed top-12 left-72 w-80 sm:w-[356px] max-h-[82vh] overflow-y-auto bg-[#0B0B0D]/96 border border-white/[0.07] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-4 rounded-[4px] z-[9999] font-mono text-xs text-[#F4F4F5] space-y-3"
               >
-                <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-zinc-400">
+                <div className="flex items-center justify-between pb-2 border-b border-white/[0.07]">
+                  <span className="text-[10px] font-bold tracking-wider uppercase text-[#8E8E93]">
                     DIRECTOR&apos;S COCKPIT BRIDGE
                   </span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-[2px] border ${
-                      resolvedCockpitStats.isTauriActive
-                        ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-300'
-                        : 'bg-amber-950/80 border-amber-500/40 text-amber-300'
-                    }`}
-                  >
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-[2px] border bg-[#141417] border-white/[0.07] text-[#F59E0B] tabular-nums">
                     {resolvedCockpitStats.isTauriActive ? 'TAURI NATIVE IPC' : 'OFFLINE READY'}
                   </span>
                 </div>
 
                 {/* 10x10 Modular Reel Engine Quick-Jump */}
-                <div className="space-y-1.5 pb-2 border-b border-white/10">
-                  <div className="flex items-center justify-between text-[9px] font-bold tracking-wider uppercase">
-                    <span className="text-zinc-400">
+                <div className="space-y-1.5 pb-2 border-b border-white/[0.07]">
+                  <div className="flex items-center justify-between text-[9px] font-bold tracking-wider uppercase tabular-nums">
+                    <span className="text-[#8E8E93]">
                       10×10 MODULAR REEL (
                       {reelLoopActive
                         ? `REEL ${String(activeReelIndex + 1).padStart(2, '0')} · ${activeReelIndex * 10 + 1}-${Math.min(frames.length || 100, activeReelIndex * 10 + 10)}`
@@ -1928,14 +1892,14 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       onClick={() => setReelLoopActive(!reelLoopActive)}
                       className={`px-1.5 py-0.5 rounded-[2px] border text-[9px] cursor-pointer transition-colors ${
                         !reelLoopActive
-                          ? 'bg-red-600/80 border-red-500 text-white'
-                          : 'bg-neutral-900 border-white/15 text-zinc-400 hover:text-white'
+                          ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
+                          : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                       }`}
                     >
                       {reelLoopActive ? 'MASTER ALL' : 'REEL LOOP ON'}
                     </button>
                   </div>
-                  <div className="grid grid-cols-5 gap-1">
+                  <div className="grid grid-cols-5 gap-1 tabular-nums">
                     {Array.from({ length: 10 }, (_, rIdx) => {
                       const isSelected = reelLoopActive && activeReelIndex === rIdx;
                       return (
@@ -1949,8 +1913,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           }}
                           className={`py-1 rounded-[2px] text-[10px] font-bold border transition-colors cursor-pointer ${
                             isSelected
-                              ? 'bg-red-600 border-red-400 text-white shadow-[0_0_8px_rgba(220,38,38,0.45)]'
-                              : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white hover:border-amber-400/50'
+                              ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
+                              : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/50'
                           }`}
                         >
                           R{String(rIdx + 1).padStart(2, '0')}
@@ -1962,27 +1926,27 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
                 {/* Live Project Manifest Stats */}
                 <div className="grid grid-cols-2 gap-2 text-[11px] tabular-nums">
-                  <div className="p-2 rounded-[3px] bg-black/60 border border-white/10">
-                    <div className="text-[9px] text-zinc-500 uppercase">TOTAL SHOTS</div>
-                    <div className="text-sm font-bold text-white">{resolvedCockpitStats.totalShots}</div>
+                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
+                    <div className="text-[9px] text-[#8E8E93] uppercase">TOTAL SHOTS</div>
+                    <div className="text-sm font-bold text-[#F4F4F5]">{resolvedCockpitStats.totalShots}</div>
                   </div>
-                  <div className="p-2 rounded-[3px] bg-black/60 border border-white/10">
-                    <div className="text-[9px] text-zinc-500 uppercase">ACTIVE LIGHTS</div>
-                    <div className="text-sm font-bold text-amber-300">
+                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
+                    <div className="text-[9px] text-[#8E8E93] uppercase">ACTIVE LIGHTS</div>
+                    <div className="text-sm font-bold text-[#F59E0B]">
                       {resolvedCockpitStats.activeLightsCount} RIGS
                     </div>
                   </div>
-                  <div className="p-2 rounded-[3px] bg-black/60 border border-white/10">
-                    <div className="text-[9px] text-zinc-500 uppercase">MASTER AUDIO</div>
-                    <div className="text-xs font-bold text-cyan-300 truncate">
+                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
+                    <div className="text-[9px] text-[#8E8E93] uppercase">MASTER AUDIO</div>
+                    <div className="text-xs font-bold text-[#F4F4F5] truncate">
                       {resolvedCockpitStats.audioSynced
                         ? `SYNCED · ${resolvedCockpitStats.audioTrackName || 'TRACK'}`
                         : 'STANDBY / UNROUTED'}
                     </div>
                   </div>
-                  <div className="p-2 rounded-[3px] bg-black/60 border border-white/10">
-                    <div className="text-[9px] text-zinc-500 uppercase">SEQUENCE RUNTIME</div>
-                    <div className="text-sm font-bold text-emerald-300">
+                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
+                    <div className="text-[9px] text-[#8E8E93] uppercase">SEQUENCE RUNTIME</div>
+                    <div className="text-sm font-bold text-[#F4F4F5]">
                       {resolvedCockpitStats.totalDurationSec.toFixed(1)}s
                     </div>
                   </div>
@@ -2084,19 +2048,19 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   };
 
                   return (
-                    <div className="pt-2 border-t border-white/10 space-y-2">
+                    <div className="pt-2 border-t border-white/[0.07] space-y-2 tabular-nums">
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-bold tracking-wider uppercase text-amber-300">
+                        <span className="text-[9px] font-bold tracking-wider uppercase text-[#8E8E93]">
                           OFFLINE RENDER PIPELINE
                         </span>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => setRenderScope('reel')}
-                            className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold border cursor-pointer ${
+                            className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold border cursor-pointer transition-colors ${
                               renderScope === 'reel'
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-200'
-                                : 'bg-black/50 border-white/10 text-zinc-400 hover:text-white'
+                                ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
+                                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                             }`}
                           >
                             REEL {String(activeReelIndex + 1).padStart(2, '0')} (10)
@@ -2104,10 +2068,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           <button
                             type="button"
                             onClick={() => setRenderScope('master')}
-                            className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold border cursor-pointer ${
+                            className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold border cursor-pointer transition-colors ${
                               renderScope === 'master'
-                                ? 'bg-red-600/80 border-red-400 text-white'
-                                : 'bg-black/50 border-white/10 text-zinc-400 hover:text-white'
+                                ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
+                                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                             }`}
                           >
                             MASTER ({totalCount})
@@ -2116,26 +2080,26 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       </div>
 
                       {isRenderingOffline && renderTelemetry && (
-                        <div className="p-2 rounded-[3px] bg-black/80 border border-amber-400/50 space-y-1.5">
-                          <div className="flex items-center justify-between text-[9px] font-bold text-amber-300">
+                        <div className="p-2 rounded-[3px] bg-[#141417] border border-[#F59E0B]/50 space-y-1.5 tabular-nums">
+                          <div className="flex items-center justify-between text-[9px] font-bold text-[#F59E0B]">
                             <span className="truncate pr-2">
                               {`RENDERING SHOT ${String(renderTelemetry.currentShotIndex).padStart(2, '0')}/${String(renderTelemetry.totalShots).padStart(2, '0')}...`}
                             </span>
                             <button
                               type="button"
                               onClick={() => renderAbortRef.current?.abort()}
-                              className="text-red-400 hover:text-red-300 underline shrink-0 cursor-pointer"
+                              className="text-[#8E8E93] hover:text-[#F4F4F5] underline shrink-0 cursor-pointer"
                             >
                               ABORT
                             </button>
                           </div>
-                          <div className="w-full h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                          <div className="w-full h-1.5 rounded-full bg-[#0B0B0D] overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 transition-all duration-150"
+                              className="h-full bg-[#F59E0B] transition-all duration-150"
                               style={{ width: `${Math.max(4, Math.min(100, renderTelemetry.percent))}%` }}
                             />
                           </div>
-                          <div className="text-[8.5px] text-zinc-400 truncate">
+                          <div className="text-[8.5px] text-[#8E8E93] truncate">
                             {renderTelemetry.statusText}
                           </div>
                         </div>
@@ -2146,7 +2110,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           type="button"
                           disabled={isRenderingOffline}
                           onClick={() => runOfflineVideoRender('mp4')}
-                          className="px-2 py-1.5 rounded-[2px] bg-red-600/20 hover:bg-red-600/35 disabled:opacity-40 border border-red-500/50 text-red-200 font-bold text-[10px] cursor-pointer transition-colors"
+                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] disabled:opacity-40 border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
                         >
                           MP4
                         </button>
@@ -2154,7 +2118,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           type="button"
                           disabled={isRenderingOffline}
                           onClick={() => runOfflineVideoRender('vp9')}
-                          className="px-2 py-1.5 rounded-[2px] bg-emerald-600/20 hover:bg-emerald-600/35 disabled:opacity-40 border border-emerald-500/50 text-emerald-200 font-bold text-[10px] cursor-pointer transition-colors"
+                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] disabled:opacity-40 border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
                         >
                           VP9 WEBM
                         </button>
@@ -2162,7 +2126,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           type="button"
                           disabled={isRenderingOffline}
                           onClick={() => runOfflineVideoRender('png')}
-                          className="px-2 py-1.5 rounded-[2px] bg-sky-600/20 hover:bg-sky-600/35 disabled:opacity-40 border border-sky-500/50 text-sky-200 font-bold text-[10px] cursor-pointer transition-colors"
+                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] disabled:opacity-40 border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
                         >
                           PNG SEQ
                         </button>
@@ -2188,7 +2152,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                             setCockpitFeedback('PREMIERE XMEML EXPORTED');
                             setTimeout(() => setCockpitFeedback(null), 4000);
                           }}
-                          className="px-2 py-1.5 rounded-[2px] bg-neutral-900 hover:bg-neutral-800 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] cursor-pointer transition-colors"
+                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
                         >
                           PREMIERE XML
                         </button>
@@ -2211,7 +2175,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                             setCockpitFeedback('CAPCUT DRAFT JSON EXPORTED');
                             setTimeout(() => setCockpitFeedback(null), 4000);
                           }}
-                          className="px-2 py-1.5 rounded-[2px] bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-bold text-[10px] cursor-pointer transition-colors"
+                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
                         >
                           CAPCUT JSON
                         </button>
@@ -2221,12 +2185,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 })()}
 
                 {cockpitFeedback && (
-                  <div className="px-2.5 py-1.5 rounded-[3px] bg-amber-500/15 border border-amber-400/50 text-[10px] font-bold text-amber-300">
+                  <div className="px-2.5 py-1.5 rounded-[3px] bg-[#F59E0B]/15 border border-[#F59E0B]/50 text-[10px] font-bold text-[#F59E0B] tabular-nums">
                     {cockpitFeedback}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-white/10">
+                <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-white/[0.07]">
                   <button
                     type="button"
                     onClick={() => {
@@ -2262,10 +2226,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         setTimeout(() => setCockpitFeedback(null), 4000);
                       }
                     }}
-                    className="w-full px-3 py-2 rounded-[3px] bg-neutral-900 hover:bg-neutral-800 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                    className="w-full px-3 py-2 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
                   >
                     <span>FCPXML v1.9</span>
-                    <span className="text-[9px] text-zinc-400">ALL SHOTS</span>
+                    <span className="text-[9px] text-[#8E8E93]">ALL SHOTS</span>
                   </button>
 
                   <button
@@ -2303,10 +2267,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         setTimeout(() => setCockpitFeedback(null), 4000);
                       }
                     }}
-                    className="w-full px-3 py-2 rounded-[3px] bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 hover:border-amber-400 text-amber-300 font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                    className="w-full px-3 py-2 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
                   >
                     <span>CAPCUT PACK</span>
-                    <span className="text-[9px] text-zinc-400">JSON + SHEET</span>
+                    <span className="text-[9px] text-[#8E8E93]">JSON + SHEET</span>
                   </button>
 
                   <button
@@ -2333,10 +2297,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         setTimeout(() => setCockpitFeedback(null), 4000);
                       }
                     }}
-                    className="w-full px-3 py-2 rounded-[3px] bg-neutral-900 hover:bg-neutral-800 border border-sky-500/40 hover:border-sky-400 text-sky-300 font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                    className="w-full px-3 py-2 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
                   >
                     <span>FREEZE ALL FRAMES</span>
-                    <span className="text-[9px] text-zinc-400">LOSSLESS PNG</span>
+                    <span className="text-[9px] text-[#8E8E93]">LOSSLESS PNG</span>
                   </button>
 
                   <button
@@ -2345,15 +2309,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       setIsCockpitHudOpen(false);
                       eventBus.emit('cockpit:action', { type: 'open_modal' });
                     }}
-                    className="w-full px-3 py-1.5 rounded-[3px] bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-200 font-bold text-[10px] text-center cursor-pointer transition-colors"
+                    className="w-full px-3 py-1.5 rounded-[3px] bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 border border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] text-center cursor-pointer transition-colors"
                   >
                     OPEN FULL INTERCHANGE HUB
                   </button>
                 </div>
 
                 {/* Telemetry & Spectral Overlay Toggles */}
-                <div className="pt-2 border-t border-white/10 space-y-1.5">
-                  <div className="text-[9px] font-bold tracking-wider uppercase text-zinc-400">
+                <div className="pt-2 border-t border-white/[0.07] space-y-1.5">
+                  <div className="text-[9px] font-bold tracking-wider uppercase text-[#8E8E93]">
                     TELEMETRY &amp; SPECTRAL HUD LAYERS
                   </div>
                   <div className="grid grid-cols-1 gap-1">
@@ -2362,12 +2326,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       onClick={() => eventBus.emit('cockpit:toggle_telemetry')}
                       className={`w-full px-2.5 py-1.5 rounded-[2px] border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
                         isTelemetryLayerOn
-                          ? 'bg-teal-500/20 border-teal-400/70 text-teal-200'
-                          : 'bg-neutral-900/90 border-white/10 hover:border-teal-400/50 text-zinc-300'
+                          ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
+                          : 'bg-[#141417] border-white/[0.07] hover:border-white/20 text-[#8E8E93] hover:text-[#F4F4F5]'
                       }`}
                     >
                       <span>MODULAR TELEMETRY RACK</span>
-                      <span className={isTelemetryLayerOn ? 'text-teal-300' : 'text-zinc-500'}>
+                      <span className={isTelemetryLayerOn ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}>
                         {isTelemetryLayerOn ? 'ACTIVE' : 'HIDDEN'}
                       </span>
                     </button>
@@ -2376,12 +2340,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       onClick={() => eventBus.emit('cockpit:toggle_spectrum')}
                       className={`w-full px-2.5 py-1.5 rounded-[2px] border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
                         isSpectrumLayerOn
-                          ? 'bg-amber-500/20 border-amber-400/70 text-amber-200'
-                          : 'bg-neutral-900/90 border-white/10 hover:border-amber-400/50 text-zinc-300'
+                          ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
+                          : 'bg-[#141417] border-white/[0.07] hover:border-white/20 text-[#8E8E93] hover:text-[#F4F4F5]'
                       }`}
                     >
                       <span>SPECTRAL ENERGY ANALYZER</span>
-                      <span className={isSpectrumLayerOn ? 'text-amber-300' : 'text-zinc-500'}>
+                      <span className={isSpectrumLayerOn ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}>
                         {isSpectrumLayerOn ? 'ACTIVE' : 'HIDDEN'}
                       </span>
                     </button>
@@ -2390,12 +2354,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       onClick={() => eventBus.emit('cockpit:toggle_zoom')}
                       className={`w-full px-2.5 py-1.5 rounded-[2px] border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
                         isZoomHudLayerOn
-                          ? 'bg-cyan-500/20 border-cyan-400/70 text-cyan-200'
-                          : 'bg-neutral-900/90 border-white/10 hover:border-cyan-400/50 text-zinc-300'
+                          ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
+                          : 'bg-[#141417] border-white/[0.07] hover:border-white/20 text-[#8E8E93] hover:text-[#F4F4F5]'
                       }`}
                     >
                       <span>MULTI-LAYER PARALLAX ZOOM</span>
-                      <span className={isZoomHudLayerOn ? 'text-cyan-300' : 'text-zinc-500'}>
+                      <span className={isZoomHudLayerOn ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}>
                         {isZoomHudLayerOn ? 'ACTIVE' : 'HIDDEN'}
                       </span>
                     </button>
@@ -2407,12 +2371,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
 
         {/* ================================================================
-            RIGHT ZONE: Search, Telemetry, Red STUDIO, Export, Record & 3-Dots Menu
+            RIGHT ZONE: Search, Telemetry, STUDIO, Export, Record & 3-Dots Menu
             ================================================================ */}
         <div className="flex items-center gap-1.5 xl:gap-2 min-w-0">
           {/* Brief inline feedback notice when snapshot/cache action completes */}
           {headerNotice && (
-            <span className="hidden 2xl:inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 whitespace-nowrap shrink-0">
+            <span className="hidden 2xl:inline-flex items-center gap-1 text-[10px] font-mono text-[#F59E0B] whitespace-nowrap shrink-0">
               <Check className="w-3 h-3" />
               <span>{headerNotice}</span>
             </span>
@@ -2420,8 +2384,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 1. Compact Command Search (Cmd+K / /) */}
           <div ref={searchContainerRef} className="relative shrink-0">
-            <div className="relative flex items-center h-8 w-28 sm:w-32 xl:w-36 2xl:w-48 bg-[#111114] border border-white/[0.1] hover:border-white/25 focus-within:border-[#F59E0B]/70 rounded-full px-2.5 gap-1.5 transition-colors">
-              <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            <div className="relative flex items-center h-8 w-28 sm:w-32 xl:w-36 2xl:w-48 bg-[#141417] border border-white/[0.07] hover:border-white/20 focus-within:border-[#F59E0B]/70 rounded-full px-2.5 gap-1.5 transition-colors">
+              <Search className="w-3.5 h-3.5 text-[#8E8E93] shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -2438,7 +2402,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 }}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search shots, tools..."
-                className="w-full min-w-0 bg-transparent text-[10.5px] font-mono text-white placeholder:text-zinc-500 focus:outline-none"
+                className="w-full min-w-0 bg-transparent text-[10.5px] font-mono text-[#F4F4F5] placeholder:text-[#8E8E93] focus:outline-none"
               />
               {globalSearchQuery ? (
                 <button
@@ -2447,14 +2411,14 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     setGlobalSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="text-zinc-500 hover:text-white p-0.5 cursor-pointer shrink-0"
+                  className="text-[#8E8E93] hover:text-[#F4F4F5] p-0.5 cursor-pointer shrink-0"
                   title="Clear Search"
                   aria-label="Clear Search"
                 >
                   <X className="w-3 h-3" />
                 </button>
               ) : (
-                <kbd className="hidden xl:inline-flex items-center text-[9px] font-mono text-zinc-500 border border-[#27272A] bg-[#16161A] rounded-[3px] px-1 py-0 pointer-events-none shrink-0">
+                <kbd className="hidden xl:inline-flex items-center text-[9px] font-mono text-[#8E8E93] border border-white/[0.07] bg-[#0B0B0D] rounded-[3px] px-1 py-0 pointer-events-none tabular-nums shrink-0">
                   ⌘K
                 </kbd>
               )}
@@ -2463,12 +2427,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             {isGlobalSearchOpen && (
               <div
                 style={flyoutPanelStyle}
-                className="absolute top-full right-0 mt-1.5 w-80 sm:w-[420px] max-h-[460px] overflow-y-auto bg-[#0B0B0E]/96 border border-[#27272A] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-2 space-y-1.5 z-[9999] font-mono text-xs select-none"
+                className="absolute top-full right-0 mt-1.5 w-80 sm:w-[420px] max-h-[460px] overflow-y-auto bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-2 space-y-1.5 z-[9999] font-mono text-xs select-none"
               >
-                <div className="flex flex-col gap-1.5 px-1 pb-1.5 border-b border-white/[0.08]">
-                  <div className="flex items-center justify-between text-[9px] text-zinc-400 uppercase tracking-widest px-0.5">
+                <div className="flex flex-col gap-1.5 px-1 pb-1.5 border-b border-white/[0.07]">
+                  <div className="flex items-center justify-between text-[9px] text-[#8E8E93] uppercase tracking-widest px-0.5">
                     <span className="font-bold">COMMAND SEARCH · SHOTS / LENS / TOOLS</span>
-                    <span className="text-[#FBBF24] font-bold tabular-nums">
+                    <span className="text-[#F59E0B] font-bold tabular-nums">
                       {globalSearchQuery ? `${unifiedSearchResults.length} FOUND` : 'QUICK JUMP'}
                     </span>
                   </div>
@@ -2484,8 +2448,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         }}
                         className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded-[2px] tracking-wider uppercase transition-colors cursor-pointer border ${
                           searchFilterTab === tab
-                            ? 'bg-amber-500/20 text-[#FBBF24] border-amber-500/40'
-                            : 'bg-white/[0.03] text-zinc-400 border-white/10 hover:text-white hover:bg-white/10'
+                            ? 'bg-[#F59E0B]/15 text-[#F4F4F5] border-[#F59E0B]/60'
+                            : 'bg-[#141417] text-[#8E8E93] border-white/[0.07] hover:text-[#F4F4F5]'
                         }`}
                       >
                         {tab}
@@ -2496,7 +2460,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
                 <div className="py-1 space-y-0.5">
                   {unifiedSearchResults.length === 0 ? (
-                    <div className="p-5 text-center text-zinc-500 text-xs font-mono space-y-2">
+                    <div className="p-5 text-center text-[#8E8E93] text-xs font-mono space-y-2">
                       <p>No results match &ldquo;{globalSearchQuery}&rdquo;</p>
                       <button
                         type="button"
@@ -2504,7 +2468,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           setIsGlobalSearchOpen(false);
                           setIsAppsModalOpen(true);
                         }}
-                        className="text-[10px] text-[#FBBF24] hover:underline font-bold cursor-pointer"
+                        className="text-[10px] text-[#F59E0B] hover:underline font-bold cursor-pointer"
                       >
                         Browse All 28 Ecosystem Apps
                       </button>
@@ -2520,14 +2484,14 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           onMouseEnter={() => setSearchHighlightIdx(idx)}
                           className={`w-full px-2.5 py-2 rounded-[3px] flex items-center justify-between gap-3 text-left transition-colors cursor-pointer border ${
                             isSelected
-                              ? 'bg-[#16161A] border-amber-500/40 text-white'
-                              : 'bg-transparent border-transparent text-zinc-300 hover:bg-white/[0.04]'
+                              ? 'bg-[#141417] border-[#F59E0B]/50 text-[#F4F4F5]'
+                              : 'bg-transparent border-transparent text-[#F4F4F5]/85 hover:bg-[#141417]/70'
                           }`}
                         >
                           <div className="shrink-0 flex items-center justify-center">
                             {item.type === 'shot' ? (
                               item.thumbnailUrl ? (
-                                <div className="w-9 h-7 rounded-[2px] overflow-hidden border border-white/15 bg-black/60 shrink-0">
+                                <div className="w-9 h-7 rounded-[2px] overflow-hidden border border-white/[0.07] bg-[#0B0B0D] shrink-0">
                                   <img
                                     src={item.thumbnailUrl}
                                     alt=""
@@ -2536,20 +2500,20 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                                   />
                                 </div>
                               ) : (
-                                <div className="w-8 h-7 rounded-[2px] border border-[#27272A] flex items-center justify-center bg-black/60 text-[9px] font-mono text-[#FBBF24] font-bold tabular-nums">
+                                <div className="w-8 h-7 rounded-[2px] border border-white/[0.07] flex items-center justify-center bg-[#141417] text-[9px] font-mono text-[#F59E0B] font-bold tabular-nums">
                                   #{String((item.shotIndex ?? 0) + 1).padStart(2, '0')}
                                 </div>
                               )
                             ) : item.type === 'panel' ? (
-                              <div className="w-8 h-7 rounded-[2px] border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                              <div className="w-8 h-7 rounded-[2px] border border-white/[0.07] bg-[#141417] flex items-center justify-center text-[#8E8E93]">
                                 <LayoutGrid className="w-3.5 h-3.5" />
                               </div>
                             ) : item.type === 'studio-tool' ? (
-                              <div className="w-8 h-7 rounded-[2px] border border-amber-500/30 bg-amber-500/10 flex items-center justify-center text-amber-400">
+                              <div className="w-8 h-7 rounded-[2px] border border-[#F59E0B]/30 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B]">
                                 <Zap className="w-3.5 h-3.5" />
                               </div>
                             ) : (
-                              <div className="w-8 h-7 rounded-[2px] border border-white/15 bg-white/5 flex items-center justify-center text-zinc-400">
+                              <div className="w-8 h-7 rounded-[2px] border border-white/[0.07] bg-[#141417] flex items-center justify-center text-[#8E8E93]">
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </div>
                             )}
@@ -2559,31 +2523,31 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-[11px] truncate">{item.title}</span>
                               <span
-                                className={`text-[8px] px-1.5 py-0.2 rounded-[2px] border font-semibold uppercase tracking-wider shrink-0 ${
-                                  item.badgeColor || 'text-zinc-400 bg-black/60 border-white/10'
+                                className={`text-[8px] px-1.5 py-0.2 rounded-[2px] border font-semibold uppercase tracking-wider tabular-nums shrink-0 ${
+                                  item.badgeColor || 'text-[#8E8E93] bg-[#141417] border-white/[0.07]'
                                 }`}
                               >
                                 {item.badge}
                               </span>
                             </div>
-                            <p className="text-[9.5px] text-zinc-400 truncate mt-0.5">{item.sub}</p>
+                            <p className="text-[9.5px] text-[#8E8E93] truncate mt-0.5">{item.sub}</p>
                           </div>
 
-                          <span className="text-[9px] text-zinc-500 shrink-0">↵</span>
+                          <span className="text-[9px] text-[#8E8E93] shrink-0">↵</span>
                         </button>
                       );
                     })
                   )}
                 </div>
 
-                <div className="pt-1.5 border-t border-white/[0.08] flex items-center justify-between px-2 text-[9px] text-zinc-500 font-mono">
+                <div className="pt-1.5 border-t border-white/[0.07] flex items-center justify-between px-2 text-[9px] text-[#8E8E93] font-mono">
                   <button
                     type="button"
                     onClick={() => {
                       setIsGlobalSearchOpen(false);
                       setIsAppsModalOpen(true);
                     }}
-                    className="text-[#FBBF24] hover:underline font-bold tracking-wider uppercase cursor-pointer"
+                    className="text-[#F59E0B] hover:underline font-bold tracking-wider uppercase cursor-pointer"
                   >
                     VIEW ALL 28 APPS
                   </button>
@@ -2595,19 +2559,19 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 2. Live Engine Telemetry (visible on wider desktops 2xl+) */}
           <div
-            className="hidden 2xl:flex h-7 px-2 rounded-full bg-[#111114] border border-white/[0.08] items-center gap-1.5 font-mono text-[9.5px] tabular-nums whitespace-nowrap shrink-0"
+            className="hidden 2xl:flex h-7 px-2 rounded-full bg-[#141417] border border-white/[0.07] items-center gap-1.5 font-mono text-[9.5px] tabular-nums whitespace-nowrap shrink-0"
             title={`Engine Telemetry: ${resolvedFps} FPS · ${resolvedAspectRatio} · ${vaultClipCount} Clips in Vault/OPFS`}
           >
-            <span className="text-zinc-200 font-semibold">{resolvedFps} FPS</span>
-            <span aria-hidden="true" className="text-zinc-600">·</span>
-            <span className="text-[#FBBF24] font-semibold">{resolvedAspectRatio}</span>
-            <span aria-hidden="true" className="text-zinc-600">·</span>
-            <span className="text-emerald-400 font-semibold">
+            <span className="text-[#F4F4F5] font-semibold">{resolvedFps} FPS</span>
+            <span aria-hidden="true" className="text-[#8E8E93]">·</span>
+            <span className="text-[#F59E0B] font-semibold">{resolvedAspectRatio}</span>
+            <span aria-hidden="true" className="text-[#8E8E93]">·</span>
+            <span className="text-[#8E8E93] font-semibold">
               {vaultClipCount} {vaultClipCount === 1 ? 'CLIP' : 'CLIPS'}
             </span>
           </div>
 
-          {/* 3. STUDIO Red Pill Button (Enters Studio from Home; toggles Focus Mode in Studio) */}
+          {/* 3. STUDIO Stealth Pill Button (Enters Studio from Home; toggles Focus Mode in Studio) */}
           <button
             type="button"
             aria-pressed={currentView === 'STUDIO' ? isZenMode : false}
@@ -2619,30 +2583,30 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 ? 'Focus Mode Active — Click to Restore Side Rail & Dock (Z)'
                 : 'STUDIO — Click to Toggle Focus Mode (Z)'
             }
-            className={`h-8 px-3.5 rounded-full bg-[#E50914] hover:bg-[#F40612] text-white font-mono text-[10.5px] font-black tracking-[0.12em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+            className={`h-8 px-3.5 rounded-full font-mono text-[10.5px] font-bold tracking-[0.12em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
               currentView === 'STUDIO' && isZenMode
-                ? 'ring-2 ring-[#FBBF24] shadow-[0_0_20px_rgba(229,9,20,0.75)]'
-                : 'shadow-[0_0_16px_rgba(229,9,20,0.5)] hover:shadow-[0_0_22px_rgba(229,9,20,0.7)]'
+                ? 'bg-[#F59E0B]/15 border border-[#F59E0B] text-[#F4F4F5]'
+                : 'bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.1] hover:border-[#F59E0B]/60 text-[#F4F4F5]'
             }`}
           >
             {currentView === 'STUDIO' && isZenMode && (
-              <Minimize2 className="w-3 h-3 shrink-0" />
+              <Minimize2 className="w-3 h-3 text-[#F59E0B] shrink-0" />
             )}
             <span>STUDIO</span>
           </button>
 
-          {/* 4. Circular Golden Export Action Button */}
+          {/* 4. Circular Monochrome Export Action Button */}
           <button
             type="button"
             onClick={handleTriggerExport}
             aria-label="Export Master Render"
             title="Open Unified Render & Export Studio (⌘E)"
-            className="w-8 h-8 rounded-full bg-[#13100A] hover:bg-[#F59E0B]/20 border border-[#F59E0B]/55 hover:border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shadow-[0_0_12px_rgba(245,158,11,0.2)] hover:shadow-[0_0_18px_rgba(245,158,11,0.45)] transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FBBF24]"
+            className="w-8 h-8 rounded-full bg-[#141417] hover:bg-[#F59E0B]/15 border border-white/[0.07] hover:border-[#F59E0B]/70 text-[#8E8E93] hover:text-[#F59E0B] flex items-center justify-center transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B]"
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
           </button>
 
-          {/* 5. Circular Screen & Audio Record Button */}
+          {/* 5. Circular Screen & Audio Record Button (Crimson Red reserved strictly for Record trigger) */}
           <button
             type="button"
             onClick={() => {
@@ -2652,11 +2616,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             }}
             aria-label="Screen and Audio Recorder"
             title="Screen & Audio Recorder Studio (Alt+R)"
-            className="w-8 h-8 rounded-full bg-[#111216] hover:bg-[#E50914]/15 border border-white/15 hover:border-[#E50914]/70 flex items-center justify-center transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
+            className="w-8 h-8 rounded-full bg-[#141417] hover:bg-[#E50914]/15 border border-white/[0.07] hover:border-[#E50914]/70 flex items-center justify-center transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
           >
             <span
               aria-hidden="true"
-              className="w-2.5 h-2.5 rounded-full bg-[#E50914] shadow-[0_0_8px_rgba(229,9,20,0.9)]"
+              className="w-2.5 h-2.5 rounded-full bg-[#E50914] shadow-[0_0_8px_rgba(229,9,20,0.85)]"
             />
           </button>
 
@@ -2699,11 +2663,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       {dissolvePulseId > 0 && (
         <div
           key={dissolvePulseId}
-          className="fixed top-12 inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-amber-500/[0.08] via-[#070709]/60 to-[#070709]/80 flex items-start justify-center pt-5 animate-workspace-dissolve-veil transition-opacity duration-200 transform-gpu will-change-[opacity,transform] motion-reduce:hidden"
+          className="fixed top-12 inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-[#F59E0B]/[0.06] via-[#0B0B0D]/60 to-[#0B0B0D]/80 flex items-start justify-center pt-5 animate-workspace-dissolve-veil transition-opacity duration-200 transform-gpu will-change-[opacity,transform] motion-reduce:hidden"
           aria-hidden="true"
         >
           {dissolveModeLabel && (
-            <span className="px-3 py-1 rounded-[3px] bg-black/80 border border-amber-400/30 text-[10px] font-mono font-bold tracking-[0.25em] text-amber-300 uppercase shadow-lg">
+            <span className="px-3 py-1 rounded-[3px] bg-[#0B0B0D]/90 border border-[#F59E0B]/40 text-[10px] font-mono font-bold tracking-[0.25em] text-[#F59E0B] uppercase shadow-lg">
               {dissolveModeLabel} WORKSPACE
             </span>
           )}
@@ -2830,19 +2794,19 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           onClick={() => setIsCacheManagerOpen(false)}
         >
           <div
-            className="w-full max-w-lg bg-[#08080A]/98 backdrop-blur-2xl border border-[#27272A] rounded-[6px] p-6 text-zinc-200 font-mono shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col gap-5"
+            className="w-full max-w-lg bg-[#0B0B0D]/98 backdrop-blur-2xl border border-white/[0.07] rounded-[6px] p-6 text-[#F4F4F5] font-mono shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col gap-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-[4px] bg-rose-500/15 border border-rose-500/40 text-rose-400">
+                <div className="p-2 rounded-[4px] bg-[#141417] border border-white/[0.07] text-[#F59E0B]">
                   <Database className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">
+                  <h3 className="text-xs sm:text-sm font-bold text-[#F4F4F5] tracking-wider uppercase">
                     OPFS &amp; IndexedDB Cache Manager
                   </h3>
-                  <p className="text-[10px] text-zinc-400">
+                  <p className="text-[10px] text-[#8E8E93]">
                     Local Media Proxy Buffers &amp; Browser Vault Telemetry
                   </p>
                 </div>
@@ -2850,7 +2814,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCacheManagerOpen(false)}
-                className="p-1.5 rounded-[3px] bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] transition-colors cursor-pointer"
                 aria-label="Close Cache Manager"
               >
                 <X className="w-4 h-4" />
@@ -2858,15 +2822,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs tabular-nums">
-              <div className="p-3.5 rounded-[4px] bg-black/50 border border-white/10">
-                <div className="text-[10px] text-zinc-400 uppercase mb-1">Active Vault Usage</div>
-                <div className="text-base font-bold text-white">
+              <div className="p-3.5 rounded-[4px] bg-[#141417] border border-white/[0.07]">
+                <div className="text-[10px] text-[#8E8E93] uppercase mb-1">Active Vault Usage</div>
+                <div className="text-base font-bold text-[#F4F4F5]">
                   {(cacheUsageBytes / (1024 * 1024)).toFixed(2)} MB
                 </div>
               </div>
-              <div className="p-3.5 rounded-[4px] bg-black/50 border border-white/10">
-                <div className="text-[10px] text-zinc-400 uppercase mb-1">Available Quota</div>
-                <div className="text-base font-bold text-emerald-400">
+              <div className="p-3.5 rounded-[4px] bg-[#141417] border border-white/[0.07]">
+                <div className="text-[10px] text-[#8E8E93] uppercase mb-1">Available Quota</div>
+                <div className="text-base font-bold text-[#F59E0B]">
                   {cacheQuotaBytes > 0
                     ? `${(cacheQuotaBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
                     : 'Unlimited'}
@@ -2874,22 +2838,22 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               </div>
             </div>
 
-            <p className="text-xs text-zinc-400 leading-relaxed">
+            <p className="text-xs text-[#8E8E93] leading-relaxed">
               Purging clears OPFS proxy/media cache and temporary canvas bitmaps from IndexedDB without deleting saved storyboard metadata.
             </p>
 
             {cachePurgeFeedback && (
-              <div className="p-3 rounded-[4px] bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="p-3 rounded-[4px] bg-[#141417] border border-[#F59E0B]/50 text-[#F4F4F5] text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 text-[#F59E0B] shrink-0" />
                 <span>{cachePurgeFeedback}</span>
               </div>
             )}
 
-            <div className="pt-2 border-t border-white/10 flex items-center justify-end gap-3">
+            <div className="pt-2 border-t border-white/[0.07] flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setIsCacheManagerOpen(false)}
-                className="px-4 py-2 rounded-[4px] bg-white/5 hover:bg-white/15 border border-white/15 text-xs font-bold text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-[4px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] text-xs font-bold text-[#8E8E93] hover:text-[#F4F4F5] transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -2897,7 +2861,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 type="button"
                 disabled={isPurgingCache}
                 onClick={handleExecuteCachePurge}
-                className="px-4 py-2 rounded-[4px] bg-rose-600/20 hover:bg-rose-600 border border-rose-500/60 text-xs font-bold text-rose-200 hover:text-white transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 rounded-[4px] bg-[#F59E0B]/15 hover:bg-[#F59E0B] border border-[#F59E0B]/60 text-xs font-bold text-[#F4F4F5] hover:text-[#0B0B0D] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isPurgingCache ? (
                   <>

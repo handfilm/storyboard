@@ -680,7 +680,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   return (
     <aside
       aria-label="Director Left Tool Rail"
-      className={`h-full select-none z-30 shrink-0 bg-[#05060A]/95 backdrop-blur-2xl border-r border-white/10 flex flex-col font-mono-tech transition-all duration-200 relative ${
+      className={`h-full select-none z-30 shrink-0 bg-[#0B0B0D]/95 backdrop-blur-2xl border-r border-white/[0.07] flex flex-col font-mono-tech transition-all duration-200 relative ${
         isCollapsed ? 'w-[72px]' : 'w-56'
       }`}
     >
@@ -708,34 +708,36 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 openButtonFlyout(btn.key, e.currentTarget);
                 btn.onPrimaryClick();
               }}
-              style={{
-                borderColor: isActive ? btn.accentHex : `${btn.accentHex}38`,
-                boxShadow: isActive ? `inset 0 0 14px ${btn.accentHex}28, 0 0 14px ${btn.accentHex}30` : undefined,
-                backgroundColor: isActive ? `${btn.accentHex}1F` : '#0C0E14'
-              }}
               className={`group relative flex-1 min-h-0 rounded-md cursor-pointer transition-all duration-150 select-none active:scale-95 border ${
+                isActive
+                  ? 'bg-[#18181D] border-[#F59E0B]/55'
+                  : 'bg-[#141417] border-white/[0.07] hover:bg-[#1B1B20] hover:border-white/[0.15]'
+              } ${
                 isCollapsed
                   ? 'w-full px-1 py-0.5 flex flex-col items-center justify-center gap-0.5'
                   : 'w-full px-2.5 py-0.5 flex items-center gap-2.5'
-              } hover:brightness-125`}
+              }`}
             >
-              {/* Crisp Category Accent Bar */}
+              {/* Single Signature Molten Amber Active Indicator Bar */}
               <span
-                style={{ backgroundColor: btn.accentHex }}
-                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r transition-opacity ${
-                  isActive ? 'opacity-100' : 'opacity-45 group-hover:opacity-100'
+                className={`absolute left-0 top-1.5 bottom-1.5 w-[2.5px] rounded-r transition-opacity ${
+                  isActive
+                    ? 'bg-[#F59E0B] opacity-100'
+                    : 'bg-[#8E8E93] opacity-0 group-hover:opacity-45'
                 }`}
               />
 
               <Icon
-                style={{ color: btn.accentHex }}
-                className={`${isCollapsed ? 'w-5 h-5' : 'w-5 h-5'} shrink-0 transition-transform duration-150 group-hover:scale-110`}
+                className={`w-5 h-5 shrink-0 transition-all duration-150 group-hover:scale-105 ${
+                  isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
+                }`}
               />
 
               {isCollapsed ? (
                 <span
-                  style={{ color: isActive ? '#FFFFFF' : btn.accentHex }}
-                  className="text-[9.5px] leading-none font-black uppercase tracking-wider whitespace-nowrap"
+                  className={`text-[9.5px] leading-none font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                    isActive ? 'text-[#F4F4F5]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
+                  }`}
                 >
                   {btn.label}
                 </span>
@@ -743,14 +745,19 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 <div className="min-w-0 flex-1 text-left">
                   <div className="flex items-center justify-between gap-1">
                     <span
-                      style={{ color: isActive ? '#FFFFFF' : btn.accentHex }}
-                      className="text-[11px] font-black tracking-wider uppercase truncate"
+                      className={`text-[11px] font-bold tracking-wider uppercase truncate transition-colors ${
+                        isActive ? 'text-[#F4F4F5]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
+                      }`}
                     >
                       {btn.label}
                     </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white shrink-0" />
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                        isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
+                      }`}
+                    />
                   </div>
-                  <div className="text-[8.5px] text-zinc-400 truncate leading-tight">
+                  <div className="text-[8.5px] text-[#8E8E93] truncate leading-tight">
                     {btn.why}
                   </div>
                 </div>
@@ -760,7 +767,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         })}
       </nav>
 
-      {/* Portaled z-[9999] Glassmorphic Brutalist Advanced Flyout Drawer */}
+      {/* Portaled z-[9999] Monochrome Stealth Flyout Drawer */}
       {openFlyout && activeFlyoutConfig && typeof document !== 'undefined' && createPortal(
         <div
           ref={flyoutRef}
@@ -770,33 +777,21 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
             position: 'fixed',
             top: `${openFlyout.top}px`,
             left: `${openFlyout.left}px`,
-            zIndex: 9999,
-            borderColor: `${activeFlyoutConfig.accentHex}99`,
-            boxShadow: `0 22px 54px rgba(0,0,0,0.95), 0 0 28px ${activeFlyoutConfig.accentHex}2A`
+            zIndex: 9999
           }}
-          className="z-[9999] w-72 bg-[#07080D]/95 border rounded-xl backdrop-blur-2xl p-2.5 font-mono text-xs text-zinc-200 space-y-2"
+          className="z-[9999] w-72 bg-[#0B0B0D]/96 border border-white/[0.07] shadow-[0_22px_54px_rgba(0,0,0,0.95)] rounded-xl backdrop-blur-2xl p-2.5 font-mono text-xs text-[#F4F4F5] space-y-2"
         >
           {/* Flyout Header */}
-          <div className="px-2 py-1 border-b border-white/10 flex items-center justify-between gap-2">
-            <span
-              style={{ color: activeFlyoutConfig.accentHex }}
-              className="text-[10px] font-black tracking-widest uppercase truncate"
-            >
+          <div className="px-2 py-1 border-b border-white/[0.07] flex items-center justify-between gap-2">
+            <span className="text-[10px] font-black tracking-widest uppercase text-[#F4F4F5] truncate">
               {activeFlyoutConfig.title}
             </span>
-            <span
-              style={{
-                color: activeFlyoutConfig.accentHex,
-                borderColor: `${activeFlyoutConfig.accentHex}55`,
-                backgroundColor: `${activeFlyoutConfig.accentHex}1A`
-              }}
-              className="text-[8.5px] font-black px-1.5 py-0.5 rounded border shrink-0"
-            >
+            <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded bg-[#141417] border border-[#F59E0B]/40 text-[#F59E0B] shrink-0">
               {activeFlyoutConfig.label}
             </span>
           </div>
 
-          <p className="px-2 text-[9.5px] text-zinc-400 leading-snug">
+          <p className="px-2 text-[9.5px] text-[#8E8E93] leading-snug">
             {activeFlyoutConfig.why}
           </p>
 
@@ -804,6 +799,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           <div className="space-y-1">
             {activeFlyoutConfig.subTools.map((sub) => {
               const SubIcon = sub.icon;
+              const isRecBadge = sub.badge === 'REC';
               return (
                 <button
                   key={sub.id}
@@ -812,25 +808,30 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                     sub.onSelect();
                     setOpenFlyout(null);
                   }}
-                  style={{
-                    borderColor: sub.isActive ? activeFlyoutConfig.accentHex : 'rgba(255,255,255,0.1)',
-                    backgroundColor: sub.isActive ? `${activeFlyoutConfig.accentHex}20` : 'rgba(18,20,28,0.85)'
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-all cursor-pointer border hover:brightness-125"
+                  className={`w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer border group ${
+                    sub.isActive
+                      ? 'bg-[#F59E0B]/12 border-[#F59E0B]/60'
+                      : 'bg-[#141417] border-white/[0.07] hover:bg-[#1B1B20] hover:border-white/[0.15]'
+                  }`}
                 >
                   <SubIcon
-                    className={`w-4 h-4 shrink-0 ${
-                      sub.isActive ? 'text-white' : 'text-zinc-300'
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      sub.isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10.5px] font-bold text-white truncate">{sub.label}</div>
-                    <div className="text-[8.5px] text-zinc-400 truncate">{sub.sub}</div>
+                    <div className="text-[10.5px] font-bold text-[#F4F4F5] truncate">{sub.label}</div>
+                    <div className="text-[8.5px] text-[#8E8E93] truncate">{sub.sub}</div>
                   </div>
                   {(sub.shortcut || sub.badge) && (
                     <span
-                      style={{ color: activeFlyoutConfig.accentHex }}
-                      className="text-[8.5px] font-black px-1.5 py-0.5 rounded bg-black/80 border border-white/15 shrink-0"
+                      className={`text-[8.5px] font-black px-1.5 py-0.5 rounded bg-[#0B0B0D] border shrink-0 tabular-nums ${
+                        isRecBadge
+                          ? 'border-[#E50914]/55 text-[#E50914]'
+                          : sub.isActive
+                            ? 'border-[#F59E0B]/50 text-[#F59E0B]'
+                            : 'border-white/[0.07] text-[#8E8E93]'
+                      }`}
                     >
                       {sub.shortcut || sub.badge}
                     </span>
@@ -842,22 +843,22 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 
           {/* Live Interactive Optical/Grading Sliders in LIGHT & FX Flyouts */}
           {(activeFlyoutConfig.key === 'LIGHT' || activeFlyoutConfig.key === 'FX') && onUpdateActiveAdjustments && (
-            <div className="pt-2 border-t border-white/10 space-y-2 px-1">
-              <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider" style={{ color: activeFlyoutConfig.accentHex }}>
-                <span>LIVE SHOT SHADERS (SH{String(currentShotIndex + 1).padStart(2, '0')})</span>
+            <div className="pt-2 border-t border-white/[0.07] space-y-2 px-1">
+              <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-[#F59E0B]">
+                <span className="tabular-nums">LIVE SHOT SHADERS (SH{String(currentShotIndex + 1).padStart(2, '0')})</span>
                 <button
                   type="button"
                   onClick={() => onUpdateActiveAdjustments({ bloom: 25, grain: 12, vignette: 18 })}
-                  className="text-zinc-400 hover:text-white cursor-pointer"
+                  className="text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer"
                 >
                   RESET
                 </button>
               </div>
 
               <label className="block space-y-0.5">
-                <div className="flex justify-between text-[9px] text-zinc-300">
+                <div className="flex justify-between text-[9px] text-[#8E8E93]">
                   <span>HALATION / BLOOM</span>
-                  <span className="font-bold tabular-nums">{bloomVal}%</span>
+                  <span className="font-bold text-[#F4F4F5] tabular-nums">{bloomVal}%</span>
                 </div>
                 <input
                   type="range"
@@ -865,14 +866,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                   max={100}
                   value={bloomVal}
                   onChange={(e) => onUpdateActiveAdjustments({ bloom: Number(e.target.value) })}
-                  className="w-full accent-amber-400 cursor-pointer"
+                  className="w-full accent-[#F59E0B] cursor-pointer"
                 />
               </label>
 
               <label className="block space-y-0.5">
-                <div className="flex justify-between text-[9px] text-zinc-300">
+                <div className="flex justify-between text-[9px] text-[#8E8E93]">
                   <span>35MM FILM GRAIN</span>
-                  <span className="font-bold tabular-nums">{grainVal}%</span>
+                  <span className="font-bold text-[#F4F4F5] tabular-nums">{grainVal}%</span>
                 </div>
                 <input
                   type="range"
@@ -880,14 +881,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                   max={100}
                   value={grainVal}
                   onChange={(e) => onUpdateActiveAdjustments({ grain: Number(e.target.value) })}
-                  className="w-full accent-purple-400 cursor-pointer"
+                  className="w-full accent-[#F59E0B] cursor-pointer"
                 />
               </label>
 
               <label className="block space-y-0.5">
-                <div className="flex justify-between text-[9px] text-zinc-300">
+                <div className="flex justify-between text-[9px] text-[#8E8E93]">
                   <span>OPTICAL VIGNETTE</span>
-                  <span className="font-bold tabular-nums">{vignetteVal}%</span>
+                  <span className="font-bold text-[#F4F4F5] tabular-nums">{vignetteVal}%</span>
                 </div>
                 <input
                   type="range"
@@ -895,7 +896,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                   max={100}
                   value={vignetteVal}
                   onChange={(e) => onUpdateActiveAdjustments({ vignette: Number(e.target.value) })}
-                  className="w-full accent-cyan-400 cursor-pointer"
+                  className="w-full accent-[#F59E0B] cursor-pointer"
                 />
               </label>
             </div>
@@ -903,13 +904,13 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 
           {/* Inline Cine Rig Switcher inside CROP flyout */}
           {activeFlyoutConfig.key === 'CROP' && (
-            <div className="pt-1.5 border-t border-white/10 space-y-1">
-              <div className="px-2 flex items-center justify-between text-[8.5px] text-[#00F0FF] font-bold uppercase tracking-wider">
+            <div className="pt-1.5 border-t border-white/[0.07] space-y-1">
+              <div className="px-2 flex items-center justify-between text-[8.5px] text-[#F59E0B] font-bold uppercase tracking-wider">
                 <span className="flex items-center gap-1">
                   <Camera className="w-3 h-3" />
                   CINE BODY & LENS
                 </span>
-                <span className="text-zinc-500">{currentProfile.shutter}</span>
+                <span className="text-[#8E8E93] tabular-nums">{currentProfile.shutter}</span>
               </div>
               <div className="space-y-0.5 max-h-36 overflow-y-auto no-scrollbar">
                 {CINE_PROFILES.map((prof) => {
@@ -921,15 +922,15 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                       onClick={() => handleSelectCineProfile(prof)}
                       className={`w-full px-2 py-1 rounded text-left flex items-center justify-between gap-2 cursor-pointer transition-colors ${
                         selected
-                          ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/50'
-                          : 'hover:bg-white/5 text-zinc-300 border border-transparent'
+                          ? 'bg-[#F59E0B]/15 text-[#F4F4F5] border border-[#F59E0B]/60'
+                          : 'hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] border border-transparent'
                       }`}
                     >
                       <div className="min-w-0">
-                        <div className="text-[9.5px] font-bold truncate">{prof.body}</div>
-                        <div className="text-[8px] text-zinc-400 truncate">{prof.lens}</div>
+                        <div className="text-[9.5px] font-bold text-[#F4F4F5] truncate">{prof.body}</div>
+                        <div className="text-[8px] text-[#8E8E93] truncate">{prof.lens}</div>
                       </div>
-                      {selected && <Check className="w-3 h-3 text-cyan-300 shrink-0" />}
+                      {selected && <Check className="w-3 h-3 text-[#F59E0B] shrink-0" />}
                     </button>
                   );
                 })}

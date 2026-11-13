@@ -3129,7 +3129,7 @@ export default function App() {
 
   return (
     <div
-      className={`relative w-screen h-screen bg-[#000000] text-zinc-200 overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
+      className={`relative w-screen h-screen bg-[#0B0B0D] text-[#F4F4F5] overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -3591,7 +3591,7 @@ export default function App() {
 
       {/* Brutalist Modular Signal Rack (Docked cleanly ABOVE the timeline strip, never behind shot cards) */}
       {isTelemetryRackOpen && (
-        <div className="relative w-full shrink-0 z-[999] bg-neutral-950/95 border-t border-amber-500/40 shadow-[0_-16px_40px_rgba(0,0,0,0.85)]">
+        <div className="relative w-full shrink-0 z-[999] bg-[#0B0B0D]/95 border-t border-white/[0.07] shadow-[0_-16px_40px_rgba(0,0,0,0.85)]">
           <ModularTelemetryRack
             currentFrame={currentFrame}
             slideTimeSec={slideTimeSec}

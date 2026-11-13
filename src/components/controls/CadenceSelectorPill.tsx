@@ -155,15 +155,15 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
           compact ? 'px-2.5 py-0.5 text-[9.5px]' : 'px-3 py-1 text-[10px]'
         } ${
           isOpen
-            ? 'bg-[#F5A623]/20 border-[#F5A623] text-[#FFE066] shadow-[0_0_14px_rgba(245,166,35,0.3)]'
-            : 'bg-[#12121A]/95 hover:bg-[#191924] border-white/15 hover:border-[#F5A623]/70 text-[#EDEDED]'
+            ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
+            : 'bg-[#141417] hover:border-[#F59E0B]/60 border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
         } ${className}`}
       >
-        <Clock className="w-3 h-3 text-[#F5A623] shrink-0" />
-        <span className="text-white/55 font-semibold">DURATION:</span>
-        <span className="text-[#FFE066] font-bold">{formatDurationPillValue(safeDuration)}</span>
+        <Clock className={`w-3 h-3 shrink-0 ${isOpen ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
+        <span className="text-[#8E8E93] font-semibold">DURATION:</span>
+        <span className="text-[#F4F4F5] font-bold tabular-nums">{formatDurationPillValue(safeDuration)}</span>
         <ChevronDown
-          className={`w-3 h-3 text-white/50 transition-transform duration-150 ${isOpen ? 'rotate-180 text-[#F5A623]' : ''}`}
+          className={`w-3 h-3 text-[#8E8E93] transition-transform duration-150 ${isOpen ? 'rotate-180 text-[#F59E0B]' : ''}`}
         />
       </button>
 
@@ -181,17 +181,17 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
               width: '304px',
               zIndex: 9999
             }}
-            className="bg-[#0B0B11]/95 backdrop-blur-2xl border border-white/15 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] p-3 font-mono text-xs text-white select-none"
+            className="bg-[#0B0B0D]/96 backdrop-blur-2xl border border-white/[0.07] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] p-3 font-mono text-xs text-[#F4F4F5] select-none tabular-nums"
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.07]">
               <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#F5A623]" />
-                <span className="text-[10.5px] font-bold tracking-wide text-white/90">
+                <Clock className="w-3.5 h-3.5 text-[#F59E0B]" />
+                <span className="text-[10.5px] font-bold tracking-wide text-[#F4F4F5]">
                   Cadence & Shot Hold
                 </span>
               </div>
-              <div className="flex items-center gap-1 bg-black/70 border border-white/10 rounded-md p-0.5 text-[9.5px] tabular-nums">
+              <div className="flex items-center gap-1 bg-[#141417] border border-white/[0.07] rounded-md p-0.5 text-[9.5px] tabular-nums">
                 {[24, 60].map((fpsVal) => (
                   <button
                     key={fpsVal}
@@ -199,8 +199,8 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                     onClick={() => onChangeTargetFps?.(fpsVal)}
                     className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                       safeFps === fpsVal
-                        ? 'bg-[#F5A623] text-black font-bold'
-                        : 'text-white/50 hover:text-white'
+                        ? 'bg-[#F59E0B] text-[#0B0B0D] font-bold'
+                        : 'text-[#8E8E93] hover:text-[#F4F4F5]'
                     }`}
                   >
                     {fpsVal}FPS
@@ -224,23 +224,23 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                     }}
                     className={`w-full px-2.5 py-2 rounded-lg border text-left transition-colors duration-150 cursor-pointer flex items-center justify-between gap-2 ${
                       isSelected
-                        ? 'bg-[#F5A623]/15 border-[#F5A623] text-[#FFE066]'
-                        : 'bg-white/[0.03] hover:bg-white/[0.07] border-white/10 text-white/85'
+                        ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5]'
+                        : 'bg-[#141417] hover:border-white/[0.14] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                     }`}
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 text-[10.5px] font-bold whitespace-nowrap">
                         <span>{preset.icon}</span>
-                        <span>{preset.label}</span>
-                        <span className="text-[#F5A623] tabular-nums">
+                        <span className="text-[#F4F4F5]">{preset.label}</span>
+                        <span className="text-[#F59E0B] tabular-nums">
                           ({preset.durationSec.toFixed(1)}s / {presetFrames}F)
                         </span>
                       </div>
-                      <p className="text-[9.5px] text-white/45 truncate mt-0.5 font-sans">
+                      <p className="text-[9.5px] text-[#8E8E93] truncate mt-0.5 font-sans">
                         {preset.subtitle}
                       </p>
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#F5A623] shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />}
                   </button>
                 );
               })}
@@ -250,23 +250,23 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                 onWheel={handleWheelStep}
                 className={`rounded-lg border p-2.5 transition-colors ${
                   !matchedPreset || isCustomExpanded
-                    ? 'bg-[#F5A623]/10 border-[#F5A623]/80'
-                    : 'bg-white/[0.03] border-white/10'
+                    ? 'bg-[#F59E0B]/10 border-[#F59E0B]/65'
+                    : 'bg-[#141417] border-white/[0.07]'
                 }`}
               >
                 <button
                   type="button"
                   onClick={() => setIsCustomExpanded((v) => !v)}
-                  className="w-full flex items-center justify-between text-[10.5px] font-bold text-white/90 cursor-pointer"
+                  className="w-full flex items-center justify-between text-[10.5px] font-bold text-[#F4F4F5] cursor-pointer"
                 >
                   <span className="flex items-center gap-1.5">
-                    <span className="text-[#F5A623]">∞</span>
+                    <span className="text-[#F59E0B]">∞</span>
                     <span>CUSTOM</span>
-                    <span className="text-[9.5px] text-white/45 font-normal">
+                    <span className="text-[9.5px] text-[#8E8E93] font-normal">
                       (Wheel / Timecode)
                     </span>
                   </span>
-                  <span className="text-[#FFE066] tabular-nums">
+                  <span className="text-[#F59E0B] tabular-nums">
                     {safeDuration.toFixed(2)}s · {activeFrames}F
                   </span>
                 </button>
@@ -278,7 +278,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                       type="button"
                       onClick={() => stepDuration(-1.0)}
                       disabled={safeDuration <= MIN_SHOT_DURATION_SEC}
-                      className="px-2 py-1 rounded bg-black/60 hover:bg-black border border-white/10 text-[9.5px] text-white/75 hover:text-white disabled:opacity-35 cursor-pointer tabular-nums"
+                      className="px-2 py-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[9.5px] text-[#8E8E93] hover:text-[#F4F4F5] disabled:opacity-35 cursor-pointer tabular-nums"
                       title="Decrease by 1.0s"
                     >
                       -1.0s
@@ -287,7 +287,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                       type="button"
                       onClick={() => stepDuration(-0.1)}
                       disabled={safeDuration <= MIN_SHOT_DURATION_SEC}
-                      className="p-1 rounded bg-black/60 hover:bg-black border border-white/10 text-white/75 hover:text-white disabled:opacity-35 cursor-pointer"
+                      className="p-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] disabled:opacity-35 cursor-pointer"
                       title="Decrease by 0.1s"
                     >
                       <Minus className="w-3 h-3" />
@@ -307,14 +307,14 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                       }}
                       placeholder="00:01:45.00"
                       title="Enter seconds (e.g. 2.5s, 45) or timecode (00:01:45.00). Scroll wheel to micro-step."
-                      className="flex-1 min-w-0 bg-black/80 border border-white/20 focus:border-[#F5A623] rounded px-2 py-1 text-center text-[10.5px] text-[#FFE066] font-mono tabular-nums outline-none"
+                      className="flex-1 min-w-0 bg-[#0B0B0D] border border-white/[0.12] focus:border-[#F59E0B] rounded px-2 py-1 text-center text-[10.5px] text-[#F4F4F5] font-mono tabular-nums outline-none"
                     />
 
                     <button
                       type="button"
                       onClick={() => stepDuration(0.1)}
                       disabled={safeDuration >= MAX_SHOT_DURATION_SEC}
-                      className="p-1 rounded bg-black/60 hover:bg-black border border-white/10 text-white/75 hover:text-white disabled:opacity-35 cursor-pointer"
+                      className="p-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] disabled:opacity-35 cursor-pointer"
                       title="Increase by 0.1s"
                     >
                       <Plus className="w-3 h-3" />
@@ -323,7 +323,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                       type="button"
                       onClick={() => stepDuration(1.0)}
                       disabled={safeDuration >= MAX_SHOT_DURATION_SEC}
-                      className="px-2 py-1 rounded bg-black/60 hover:bg-black border border-white/10 text-[9.5px] text-white/75 hover:text-white disabled:opacity-35 cursor-pointer tabular-nums"
+                      className="px-2 py-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[9.5px] text-[#8E8E93] hover:text-[#F4F4F5] disabled:opacity-35 cursor-pointer tabular-nums"
                       title="Increase by 1.0s"
                     >
                       +1.0s
@@ -331,7 +331,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                   </div>
 
                   {/* Quick extreme anchors (0.5s staccato .. 30m docu) */}
-                  <div className="flex items-center justify-between gap-1 text-[9px] text-white/55 tabular-nums">
+                  <div className="flex items-center justify-between gap-1 text-[9px] text-[#8E8E93] tabular-nums">
                     {[
                       { label: '0.5s', val: 0.5 },
                       { label: '2.5s', val: 2.5 },
@@ -343,7 +343,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                         key={anchor.label}
                         type="button"
                         onClick={() => onChangeDuration(anchor.val)}
-                        className="flex-1 py-0.5 rounded bg-black/50 hover:bg-white/10 border border-white/10 hover:text-[#FFE066] transition-colors cursor-pointer"
+                        className="flex-1 py-0.5 rounded bg-[#0B0B0D] hover:border-[#F59E0B]/60 border border-white/[0.07] hover:text-[#F4F4F5] transition-colors cursor-pointer tabular-nums"
                       >
                         {anchor.label}
                       </button>
@@ -355,7 +355,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
 
             {/* Footer Actions: Snap to Beats & Ripple Apply & Match Beats */}
             {(onToggleSnapToBeat || onApplyDurationToAll || onMatchAudioBeats) && (
-              <div className="mt-2.5 pt-2.5 border-t border-white/10 flex flex-col gap-1.5">
+              <div className="mt-2.5 pt-2.5 border-t border-white/[0.07] flex flex-col gap-1.5">
                 {onMatchAudioBeats && (
                   <button
                     type="button"
@@ -363,10 +363,10 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                       onMatchAudioBeats();
                       setIsOpen(false);
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/50 text-cyan-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     title="Align all timeline shot cuts to detected musical beat transients"
                   >
-                    <Music className="w-3 h-3 text-cyan-400" />
+                    <Music className="w-3 h-3 text-[#F59E0B]" />
                     <span>Match Beats (Auto-Cut Rhythm)</span>
                   </button>
                 )}
@@ -377,15 +377,17 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                     onClick={onToggleSnapToBeat}
                     className={`w-full px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center justify-between transition-colors cursor-pointer ${
                       isSnapToBeat
-                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
-                        : 'bg-white/[0.03] hover:bg-white/[0.07] border-white/10 text-white/70'
+                        ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5]'
+                        : 'bg-[#141417] hover:border-[#F59E0B]/60 border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
-                      <Music className="w-3 h-3 text-cyan-400" />
+                      <Music className={`w-3 h-3 ${isSnapToBeat ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
                       <span>SNAP CUTS TO BEATS</span>
                     </span>
-                    <span className="text-[9px] tabular-nums">{isSnapToBeat ? 'ON' : 'OFF'}</span>
+                    <span className={`text-[9px] tabular-nums ${isSnapToBeat ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`}>
+                      {isSnapToBeat ? 'ON' : 'OFF'}
+                    </span>
                   </button>
                 )}
 
@@ -396,9 +398,9 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
                       onApplyDurationToAll(safeDuration);
                       setIsOpen(false);
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#F5A623]/15 hover:bg-[#F5A623]/25 border border-[#F5A623]/60 text-[#FFE066] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 border border-[#F59E0B]/60 text-[#F4F4F5] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer tabular-nums"
                   >
-                    <Repeat className="w-3 h-3" />
+                    <Repeat className="w-3 h-3 text-[#F59E0B]" />
                     <span>Ripple All ({formatDurationPillValue(safeDuration)})</span>
                   </button>
                 )}

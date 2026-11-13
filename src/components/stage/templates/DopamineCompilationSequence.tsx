@@ -257,9 +257,9 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
             }}
           />
 
-          {/* SubText with brutalist cinematic capsule */}
-          <div className="max-w-xl px-5 py-2.5 rounded-lg bg-black/80 border border-white/10 backdrop-blur-xl shadow-2xl">
-            <p className="text-base sm:text-xl font-mono text-zinc-200 uppercase tracking-widest font-semibold">
+          {/* SubText with translucent frosted-glass cinematic capsule */}
+          <div className="max-w-xl px-5 py-2.5 rounded-lg bg-[#141417]/50 border border-white/[0.14] backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)]">
+            <p className="text-base sm:text-xl font-mono text-[#F4F4F5] uppercase tracking-widest font-semibold">
               {subText}
             </p>
           </div>

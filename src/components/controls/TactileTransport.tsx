@@ -114,12 +114,12 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
   }, [slideTimeSec, effectiveDuration]);
 
   return (
-    <div className={`w-full bg-[#08080C]/95 backdrop-blur-xl border border-white/10 rounded-[3px] p-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech select-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] ${className}`}>
+    <div className={`w-full bg-[#0B0B0D]/95 backdrop-blur-xl border border-white/[0.07] rounded-[3px] p-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech select-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] ${className}`}>
       {/* Left: Transport buttons & Quick Cadence Selector */}
       <div className="flex items-center gap-1.5 shrink-0">
         <button
           onClick={() => onStepFrame?.(false)}
-          className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/15 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95"
+          className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95"
           title={`Previous Frame (1/${safeFps}s)`}
         >
           <SkipBack className="w-3.5 h-3.5" />
@@ -129,13 +129,13 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
           onClick={onTogglePlay}
           className={`px-3 py-1.5 rounded-[2px] border font-bold flex items-center gap-1.5 tracking-wider transition-all cursor-pointer text-[10px] sm:text-[11px] ${
             isPlaying
-              ? 'border-[#D4AF37] bg-[#D4AF37]/25 text-[#FFE066] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
-              : 'border-white/20 bg-white/5 text-white hover:border-[#D4AF37] hover:text-[#FFE066]'
+              ? 'border-[#F59E0B] bg-[#F59E0B]/15 text-[#F4F4F5]'
+              : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:border-[#F59E0B]/60 hover:text-[#F4F4F5]'
           }`}
         >
           {isPlaying ? (
             <>
-              <Pause className="w-3.5 h-3.5 fill-current" />
+              <Pause className="w-3.5 h-3.5 fill-current text-[#F59E0B]" />
               <span>PAUSE</span>
             </>
           ) : (
@@ -148,7 +148,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
 
         <button
           onClick={() => onStepFrame?.(true)}
-          className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/15 text-white/70 hover:text-white cursor-pointer transition-all active:scale-95"
+          className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95"
           title={`Next Frame (1/${safeFps}s)`}
         >
           <SkipForward className="w-3.5 h-3.5" />
@@ -159,8 +159,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             onClick={onToggleLoop}
             className={`p-1.5 rounded-[2px] border cursor-pointer transition-all ${
               isLooping
-                ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#FFE066]'
-                : 'bg-white/5 border-white/15 text-white/50 hover:text-white'
+                ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
+                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
             }`}
             title="Toggle Shot Loop"
           >
@@ -184,7 +184,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
 
       {/* Center: Slide timeline scrubber */}
       <div className="flex-1 min-w-[200px] flex items-center gap-2 px-2 tabular-nums">
-        <span ref={timeLabelDomRef} className="text-[9px] text-[#D4AF37] font-semibold w-12 text-right">
+        <span ref={timeLabelDomRef} className="text-[9px] text-[#F59E0B] font-semibold w-12 text-right tabular-nums">
           {slideTimeSec.toFixed(2)}s
         </span>
         <input
@@ -195,9 +195,9 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
           step={1 / safeFps}
           defaultValue={Math.min(effectiveDuration, slideTimeSec)}
           onChange={(e) => onScrubSlideTime?.(Number(e.target.value))}
-          className="flex-1 accent-[#D4AF37] cursor-pointer h-1.5 bg-white/20 rounded"
+          className="flex-1 accent-[#F59E0B] cursor-pointer h-1.5 bg-white/15 rounded"
         />
-        <span className="text-[9px] text-white/50 min-w-[36px]">
+        <span className="text-[9px] text-[#8E8E93] min-w-[36px] tabular-nums">
           {formatDurationPillValue(effectiveDuration)}
         </span>
       </div>
@@ -205,13 +205,13 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
       {/* Right: Mode & Extras */}
       <div className="flex items-center gap-1.5 shrink-0">
         {/* Playback Mode (Solo vs Sequence) */}
-        <div className="flex items-center bg-black/80 border border-white/15 rounded-[2px] p-0.5">
+        <div className="flex items-center bg-[#141417] border border-white/[0.07] rounded-[2px] p-0.5">
           <button
             onClick={() => onSelectPlaybackMode('sequence')}
             className={`px-2 py-0.5 text-[9px] rounded-[1px] transition-all cursor-pointer ${
               playbackMode === 'sequence'
-                ? 'bg-[#D4AF37] text-black font-bold'
-                : 'text-white/50 hover:text-white'
+                ? 'bg-[#F59E0B] text-[#0B0B0D] font-bold'
+                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
             }`}
           >
             SEQ
@@ -220,8 +220,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             onClick={() => onSelectPlaybackMode('solo')}
             className={`px-2 py-0.5 text-[9px] rounded-[1px] transition-all cursor-pointer ${
               playbackMode === 'solo'
-                ? 'bg-[#D4AF37] text-black font-bold'
-                : 'text-white/50 hover:text-white'
+                ? 'bg-[#F59E0B] text-[#0B0B0D] font-bold'
+                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
             }`}
           >
             SOLO
@@ -233,8 +233,8 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
             onClick={onToggleMute}
             className={`p-1.5 rounded-[2px] border cursor-pointer transition-all ${
               isMuted
-                ? 'bg-white/5 border-white/15 text-white/40 hover:text-white'
-                : 'bg-amber-500/20 border-amber-400 text-amber-300'
+                ? 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
+                : 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
             }`}
             title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
@@ -245,7 +245,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
         {onCaptureStill && (
           <button
             onClick={onCaptureStill}
-            className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/15 text-white/70 hover:text-[#FFE066] cursor-pointer transition-all"
+            className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all"
             title="Capture High-Res Frame PNG"
           >
             <Camera className="w-3.5 h-3.5" />
@@ -255,7 +255,7 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
         {hasMedia && onPurgeMedia && (
           <button
             onClick={onPurgeMedia}
-            className="p-1.5 rounded-[2px] bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-300 cursor-pointer transition-all"
+            className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F59E0B] cursor-pointer transition-all"
             title="Purge Active Shot Media"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -265,10 +265,10 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
         {onToggleFullscreen && (
           <button
             onClick={onToggleFullscreen}
-            className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/12 border border-white/15 text-white/70 hover:text-white cursor-pointer transition-all"
+            className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all"
             title="Toggle Monitor Fullscreen"
           >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-[#F59E0B]" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         )}
       </div>

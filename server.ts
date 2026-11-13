@@ -19,7 +19,11 @@ const cliPort = portArgIdx !== -1
   ? Number(process.argv[portArgIdx + 1])
   : eqPortArg
     ? Number(eqPortArg.slice('--port='.length))
-    : Number(process.env.PORT);
+    : process.env.DEFAULT_APP_PORT
+      ? Number(process.env.DEFAULT_APP_PORT)
+      : process.env.NODE_ENV === 'production' && process.env.PORT && process.env.PORT !== process.env.NGINX_PORT
+        ? Number(process.env.PORT)
+        : 3000;
 const PORT = Number.isFinite(cliPort) && cliPort > 0 ? cliPort : 3000;
 const HOST = '0.0.0.0';
 

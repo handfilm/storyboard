@@ -415,6 +415,21 @@ test('Compact chrome proportions and HandfilmHome 10 permanent manifesto slides'
   for (const label of ['STAGE', '12s REELS', 'SCRUB', 'COCKPIT', 'ENTER STUDIO WORKSPACE']) {
     assert.ok(homeSource.includes(label), `Missing showcase deck label: ${label}`);
   }
+  for (const cardString of [
+    '1–6 Cinematic Title Cards',
+    'OPENING SEQUENCE // RAW 4K',
+    'EVENT HORIZON // 35MM FILM',
+    'SOLAR CORONA // NOCTILUX',
+    'VELOCITY IMPACT // ZERO BLUR',
+    'SILENT GAZE // CLOSER 85MM',
+    'END SEQUENCE // 4K BROADCAST',
+    'Built for Autonomous Directors',
+    'HANDS &amp; HEAD CREATIVE GROUP',
+    'All Rights Reserved',
+    'Rakib Himon',
+  ]) {
+    assert.ok(homeSource.includes(cardString), `Missing restored Home content: ${cardString}`);
+  }
   assert.strictEqual(homeSource.includes('CHOPPER 140 BPM'), false);
   assert.strictEqual(homeSource.includes('DROP 4K MEDIA HERE'), false);
 });

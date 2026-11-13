@@ -119,6 +119,24 @@ export interface SpeedRampKeyframe {
   rate: number; // 0.25 .. 4.0 speed multiplier
 }
 
+export interface LightNodePosition {
+  x: number;
+  y: number;
+}
+
+export interface ShotLightConfig {
+  keyPos: LightNodePosition;
+  rimPos: LightNodePosition;
+  fillPos: LightNodePosition;
+  keyIntensity: number; // 0 to 200 (%)
+  colorTempK: number; // 2400 to 7500 K
+  hazeBloom: number; // 0 to 100 (%)
+  rimCatchlight: number; // 0 to 100 (%)
+  vignetteFalloff: number; // 0 to 100 (%)
+  streakAngle: number; // -45 to +45 deg
+  enabled?: boolean;
+}
+
 export interface AnthologyFrame {
   id: number;
   epNumber: string;
@@ -139,6 +157,9 @@ export interface AnthologyFrame {
   blobUrl?: string;
   previewUrl?: string;
   isVideo?: boolean;
+  isReversed?: boolean;
+  voAudioUrl?: string;
+  sfxAudioUrl?: string;
   colorAccent: string;
   hoverStyle: number;
   soundCue: string;
@@ -178,6 +199,7 @@ export interface AnthologyFrame {
   subclipInSec?: number;
   subclipOutSec?: number;
   lightId?: string | null;
+  lightConfig?: ShotLightConfig;
   shotType?: string;
   proceduralPaletteId?: string;
   typographyArchitecture?: string;

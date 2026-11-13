@@ -32,7 +32,8 @@ import {
   RectangleHorizontal,
   Palette,
   Clock,
-  X
+  X,
+  ArrowLeftRight
 } from 'lucide-react';
 import {
   playbackClock,
@@ -87,6 +88,8 @@ export interface VlcStageBarProps {
   onUploadMedia?: () => void;
   onOpenCinemaPlayer?: () => void;
   onToggleFullscreen: () => void;
+  isReversed?: boolean;
+  onToggleReverse?: () => void;
 }
 
 const VLC_SPEED_OPTIONS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 4.0];
@@ -131,7 +134,9 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
   onToggleTitles,
   onUploadMedia,
   onOpenCinemaPlayer,
-  onToggleFullscreen
+  onToggleFullscreen,
+  isReversed = false,
+  onToggleReverse
 }) => {
   const scrubberRef = useRef<HTMLDivElement>(null);
   const currentTimeDomRef = useRef<HTMLSpanElement>(null);
@@ -683,6 +688,25 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
               </div>
             )}
           </div>
+
+          {/* Non-Destructive Reverse Clip Toggle */}
+          {onToggleReverse && (
+            <button
+              type="button"
+              data-testid="toggle-reverse-clip-btn"
+              onClick={onToggleReverse}
+              aria-pressed={isReversed}
+              className={`px-1.5 h-[16px] rounded border flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap font-bold ${
+                isReversed
+                  ? 'border-[#F59E0B] bg-[#F59E0B]/20 text-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.3)]'
+                  : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
+              }`}
+              title={isReversed ? 'Reverse Clip Active (Click to play Forward)' : 'Reverse Video & Scrubbing (⇄ REVERSE)'}
+            >
+              <ArrowLeftRight className="w-[9px] h-[9px]" />
+              <span className="hidden sm:inline">REVERSE</span>
+            </button>
+          )}
 
           {/* Video Fit Mode (Contain / Cover / Fill) */}
           <button

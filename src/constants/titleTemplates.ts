@@ -9,16 +9,21 @@ import {
   TitlePresetCategory,
   TitlePresetConfig,
   ShotTitleData,
-  ShotTitleAlignment
+  ShotTitleAlignment,
+  TitleLayerKey,
+  TitleLayerStyle,
+  TitleKeyframeConfig
 } from '../types/titlePreset';
 import { CORPORATE_PROFILES } from './corporateData';
 
 export interface TitleTemplatePreset {
   id: string;
   name: string;
-  category: 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate';
+  category: 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate' | 'viral-hooks' | 'end-credits' | 'dopamine';
   primaryText: string;
   secondaryText?: string;
+  eyebrowText?: string;
+  creditsText?: string;
   fontFamily: string;
   color: string;
   glowColor?: string;
@@ -33,6 +38,156 @@ export interface TitleTemplatePreset {
   industry?: string;
   mockImage?: string;
   theme?: string;
+}
+
+export const PRO_TITLE_FONT_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'Bangla Display', value: '"Anek Bangla", "Noto Serif Bengali", sans-serif' },
+  { label: 'Condensed Impact', value: 'Impact, "Arial Black", sans-serif' },
+  { label: 'Editorial Serif', value: '"Playfair Display", Cinzel, Didot, serif' },
+  { label: 'Monospace HUD', value: '"JetBrains Mono", Orbitron, "Courier New", monospace' },
+  { label: 'Brutalist Stencil', value: '"Arial Black", Impact, sans-serif' },
+];
+
+export const DEFAULT_TITLE_KEYFRAMES: TitleKeyframeConfig = {
+  inAnim: 'slow-cinema-fade',
+  midAnim: 'subtle-depth-drift',
+  outAnim: 'dissolve-out',
+  durationSec: 0.55,
+  delaySec: 0,
+  easingCurve: 'cubic-out',
+  staggerMode: 'block',
+};
+
+/**
+ * Splits Unicode strings safely using Intl.Segmenter('bn', { granularity: 'grapheme' })
+ * so Bangla conjunct ligatures (যুক্তাক্ষর) and vowel signs never shatter during char stagger.
+ */
+export function segmentTextGraphemes(text: string): string[] {
+  if (!text) return [];
+  try {
+    if (typeof Intl !== 'undefined' && typeof (Intl as any).Segmenter === 'function') {
+      const seg = new (Intl as any).Segmenter('bn', { granularity: 'grapheme' });
+      return Array.from(seg.segment(text), (s: { segment: string }) => s.segment);
+    }
+  } catch {
+    // Fallback below
+  }
+  return Array.from(text);
+}
+
+export function buildDefaultTitleLayers(
+  config: TitlePresetConfig,
+  overrides?: Partial<Record<TitleLayerKey, Partial<TitleLayerStyle>>>
+): Record<TitleLayerKey, TitleLayerStyle> {
+  const accent = config.backdropPlate?.accentBarColor || config.primaryColor || '#F5A623';
+  const basePlate = {
+    enabled: Boolean(config.backdropPlate?.enabled),
+    background: config.backdropPlate?.background || 'rgba(10, 10, 14, 0.72)',
+    border: config.backdropPlate?.border || `1px solid ${accent}`,
+    borderRadius: config.layoutMode === 'brutalist-box' ? 0 : 8,
+    backdropBlur: config.backdropPlate?.backdropBlur ?? 8,
+    padding: config.backdropPlate?.padding || '8px 16px',
+  };
+  const defaults: Record<TitleLayerKey, TitleLayerStyle> = {
+    eyebrow: {
+      enabled: true,
+      fontFamily: '"JetBrains Mono", Orbitron, monospace',
+      fontWeight: 700,
+      fontSize: 12,
+      lineHeight: 1.2,
+      letterSpacing: 0.24,
+      textTransform: 'uppercase',
+      color: accent,
+      strokeWidth: 0,
+      strokeColor: '#000000',
+      dropShadow: '0 2px 8px rgba(0,0,0,0.85)',
+      bloomIntensity: 0.4,
+      plate: { ...basePlate, enabled: false, padding: '2px 8px' },
+    },
+    bangla: {
+      enabled: true,
+      fontFamily: config.banglaFontFamily || '"Anek Bangla", "Noto Serif Bengali", sans-serif',
+      fontWeight: 900,
+      fontSize: Math.max(10, Math.min(160, config.fontScale || 72)),
+      lineHeight: 1.08,
+      letterSpacing: config.letterTracking ?? 0.15,
+      textTransform: config.uppercase ? 'uppercase' : 'none',
+      color: config.primaryColor || '#F5A623',
+      gradientStops: config.primaryGradient,
+      strokeWidth: config.strokeWidth ?? 0,
+      strokeColor: config.strokeColor || '#000000',
+      dropShadow: '0 2px 10px rgba(0,0,0,0.9)',
+      bloomIntensity: config.glowIntensity ?? 1.0,
+      plate: { ...basePlate },
+    },
+    english: {
+      enabled: true,
+      fontFamily: config.englishFontFamily || '"JetBrains Mono", monospace',
+      fontWeight: 700,
+      fontSize: 16,
+      lineHeight: 1.25,
+      letterSpacing: Math.max(0.06, (config.letterTracking ?? 0.15) + 0.04),
+      textTransform: config.uppercase ? 'uppercase' : 'none',
+      color: config.secondaryColor || '#E2E8F0',
+      strokeWidth: 0,
+      strokeColor: '#000000',
+      dropShadow: '0 2px 10px rgba(0,0,0,0.92)',
+      bloomIntensity: 0.35,
+      plate: { ...basePlate, enabled: false },
+    },
+    subtitle: {
+      enabled: true,
+      fontFamily: config.englishFontFamily || 'Inter, sans-serif',
+      fontWeight: 500,
+      fontSize: 13,
+      lineHeight: 1.35,
+      letterSpacing: 0.04,
+      textTransform: 'none',
+      color: '#F4F4F5',
+      strokeWidth: 0,
+      strokeColor: '#000000',
+      dropShadow: '0 2px 8px rgba(0,0,0,0.9)',
+      bloomIntensity: 0.15,
+      plate: {
+        enabled: true,
+        background: 'rgba(14, 14, 18, 0.65)',
+        border: `1px solid ${accent}66`,
+        borderRadius: 999,
+        backdropBlur: 12,
+        padding: '6px 16px',
+      },
+    },
+    credits: {
+      enabled: true,
+      fontFamily: '"JetBrains Mono", monospace',
+      fontWeight: 600,
+      fontSize: 11,
+      lineHeight: 1.45,
+      letterSpacing: 0.22,
+      textTransform: 'uppercase',
+      color: config.secondaryColor || '#CBD5E1',
+      strokeWidth: 0,
+      strokeColor: '#000000',
+      dropShadow: '0 2px 8px rgba(0,0,0,0.9)',
+      bloomIntensity: 0.2,
+      plate: { ...basePlate, enabled: false },
+    },
+  };
+
+  if (overrides) {
+    (['eyebrow', 'bangla', 'english', 'subtitle', 'credits'] as TitleLayerKey[]).forEach((key) => {
+      if (overrides[key]) {
+        defaults[key] = {
+          ...defaults[key],
+          ...overrides[key],
+          plate: overrides[key]?.plate
+            ? { ...defaults[key].plate, ...overrides[key]!.plate }
+            : defaults[key].plate,
+        };
+      }
+    });
+  }
+  return defaults;
 }
 
 export const BASE_CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
@@ -256,9 +411,179 @@ export const CORPORATE_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = CORPO
   };
 });
 
+export const VIRAL_HOOKS_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
+  {
+    id: 'viral-retention-pop',
+    name: '16. RETENTION POP-IN HOOK',
+    category: 'viral-hooks',
+    eyebrowText: '00:00 RETENTION LOCK',
+    primaryText: 'WAIT FOR THE CUT',
+    bengaliText: 'শেষ পর্যন্ত দেখুন',
+    secondaryText: 'WATCH TILL 00:09 // FRAME SHIFT',
+    fontFamily: 'Impact, "Arial Black", sans-serif',
+    color: '#FACC15',
+    glowColor: 'rgba(250, 204, 21, 0.9)',
+    animationStyle: 'pop',
+    position: 'center',
+    letterSpacing: '0.06em',
+    fontSizeRem: 2.35,
+    badge: 'VIRAL HOOK'
+  },
+  {
+    id: 'viral-reels-slam',
+    name: '17. HIGH-CONTRAST REELS SLAM',
+    category: 'viral-hooks',
+    eyebrowText: '9:16 REELS // KINETIC',
+    primaryText: 'STOP SCROLLING NOW',
+    bengaliText: 'থামুন // চমক আসছে',
+    secondaryText: 'HIGH-CONTRAST TRANSIENT SLAM',
+    fontFamily: 'Impact, "Arial Black", sans-serif',
+    color: '#FFFFFF',
+    glowColor: 'rgba(239, 68, 68, 0.9)',
+    animationStyle: 'pop',
+    position: 'bottom-wide',
+    letterSpacing: '0.04em',
+    fontSizeRem: 2.45,
+    badge: 'REELS SLAM'
+  },
+  {
+    id: 'viral-docu-fact-card',
+    name: '18. DOCU FACT-CARD CALLOUT',
+    category: 'viral-hooks',
+    eyebrowText: 'FACT CHECK // ARCHIVE 01',
+    primaryText: '94% NEVER NOTICE THIS',
+    bengaliText: '৯৪% মানুষ জানেন না',
+    secondaryText: 'VERIFIED FIELD TELEMETRY · 2026',
+    fontFamily: '"JetBrains Mono", Inter, monospace',
+    color: '#38BDF8',
+    glowColor: 'rgba(56, 189, 248, 0.75)',
+    animationStyle: 'slide',
+    position: 'lower-third',
+    letterSpacing: '0.1em',
+    fontSizeRem: 1.75,
+    badge: 'FACT CARD'
+  },
+  {
+    id: 'viral-breaking-ticker',
+    name: '19. BREAKING NEWS TICKER',
+    category: 'viral-hooks',
+    eyebrowText: 'BREAKING // LIVE FEED',
+    primaryText: 'SIGNAL OVERRIDE DETECTED',
+    bengaliText: 'সরাসরি সম্প্রচার',
+    secondaryText: 'DHAKA NODE 01 // PRIORITY BROADCAST',
+    fontFamily: '"JetBrains Mono", Orbitron, monospace',
+    color: '#EF4444',
+    glowColor: 'rgba(239, 68, 68, 0.85)',
+    animationStyle: 'glitch',
+    position: 'top',
+    letterSpacing: '0.14em',
+    fontSizeRem: 1.65,
+    badge: 'LIVE TICKER'
+  }
+];
+
+export const END_CREDITS_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
+  {
+    id: 'credits-hollywood-scroll',
+    name: '20. HOLLYWOOD VERTICAL SCROLL',
+    category: 'end-credits',
+    eyebrowText: 'FIN // MASTER PRODUCTION ROLL',
+    primaryText: 'দৃষ্টির সমাপ্তি',
+    bengaliText: 'দৃষ্টির সমাপ্তি',
+    secondaryText: 'WRITTEN & DIRECTED BY RAKIB HIMON',
+    creditsText: 'CINEMATOGRAPHY DHAKA_01 · COLOR 16-BIT ARRI · SOUND 48KHZ',
+    fontFamily: '"Playfair Display", Cinzel, serif',
+    color: '#F8FAFC',
+    glowColor: 'rgba(248, 250, 252, 0.45)',
+    animationStyle: 'slide',
+    position: 'center',
+    letterSpacing: '0.24em',
+    fontSizeRem: 1.85,
+    badge: 'CREDIT ROLL'
+  },
+  {
+    id: 'credits-dual-billing',
+    name: '21. DIRECTED BY / STARRING CARD',
+    category: 'end-credits',
+    eyebrowText: 'AN ATELIER RAWx PRODUCTION',
+    primaryText: 'DIRECTED BY RAKIB HIMON',
+    bengaliText: 'পরিচালনায় রাকিব হিমন',
+    secondaryText: 'STARRING DHAKA NOIR ENSEMBLE',
+    creditsText: 'PRODUCED AT HANDFILM STUDIO · ANAMORPHIC 2.39:1',
+    fontFamily: 'Cinzel, "Playfair Display", serif',
+    color: '#F5A623',
+    glowColor: 'rgba(245, 166, 35, 0.72)',
+    animationStyle: 'fade',
+    position: 'center',
+    letterSpacing: '0.22em',
+    fontSizeRem: 1.9,
+    badge: 'DUAL BILLING'
+  },
+  {
+    id: 'credits-a24-slate',
+    name: '22. A24 MINIMAL FESTIVAL SLATE',
+    category: 'end-credits',
+    eyebrowText: 'OFFICIAL SELECTION · 2026',
+    primaryText: 'SILENCE OF THE MONSOON',
+    bengaliText: 'বর্ষার নীরবতা',
+    secondaryText: 'IN COMPETITION // ANAMORPHIC CHAPTER',
+    creditsText: 'SHOT ON 35MM // DHAKA 01 ARCHIVE',
+    fontFamily: '"Playfair Display", Georgia, serif',
+    color: '#E4E4E7',
+    glowColor: 'rgba(228, 228, 231, 0.35)',
+    animationStyle: 'fade',
+    position: 'lower-third',
+    letterSpacing: '0.32em',
+    fontSizeRem: 1.5,
+    badge: 'FESTIVAL SLATE'
+  },
+  {
+    id: 'credits-post-teaser',
+    name: '23. POST-CREDIT TEASER CARD',
+    category: 'end-credits',
+    eyebrowText: 'AFTER THE REEL // CHAPTER 02',
+    primaryText: 'RAWx WILL RETURN',
+    bengaliText: 'ফিরে আসছে দ্বিতীয় অধ্যায়',
+    secondaryText: 'STAY TUNED AFTER END SEQUENCE',
+    creditsText: 'TRANSMISSION CONTINUES IN REEL 02',
+    fontFamily: 'Orbitron, "JetBrains Mono", monospace',
+    color: '#22D3EE',
+    glowColor: 'rgba(34, 211, 238, 0.85)',
+    animationStyle: 'glitch',
+    position: 'top',
+    letterSpacing: '0.2em',
+    fontSizeRem: 1.85,
+    badge: 'POST-CREDIT'
+  }
+];
+
+export const DOPAMINE_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
+  {
+    id: 'dopamine-kinetic-punch',
+    name: '24. DOPAMINE KINETIC PUNCH',
+    category: 'dopamine',
+    eyebrowText: '140 BPM // HYPER-CUT',
+    primaryText: 'HYPERFRAME VELOCITY',
+    bengaliText: 'অগ্নিবেগ // HYPER',
+    secondaryText: 'STACCATO BEAT TRANSIENT LOCK',
+    creditsText: 'KINETIC ENGINE v2',
+    fontFamily: 'Impact, "Arial Black", sans-serif',
+    color: '#FF2B2B',
+    glowColor: 'rgba(255, 43, 43, 0.9)',
+    animationStyle: 'pop',
+    position: 'bottom-wide',
+    letterSpacing: '0.08em',
+    fontSizeRem: 2.35,
+    badge: 'DOPAMINE'
+  }
+];
+
 export const CINEMATIC_TITLE_PRESETS: ReadonlyArray<TitleTemplatePreset> = [
   ...BASE_CINEMATIC_TITLE_PRESETS,
   ...CORPORATE_TITLE_PRESETS,
+  ...VIRAL_HOOKS_TITLE_PRESETS,
+  ...END_CREDITS_TITLE_PRESETS,
+  ...DOPAMINE_TITLE_PRESETS,
 ];
 
 export const TEMPLATES: ReadonlyArray<TitleTemplatePreset> = CINEMATIC_TITLE_PRESETS;
@@ -748,6 +1073,243 @@ const PRESET_CONFIG_OVERRIDES: Record<string, Partial<TitlePresetConfig>> = {
     fontScale: 72,
     verticalOffset: 0,
     uppercase: true
+  },
+  'viral-retention-pop': {
+    category: 'VIRAL_HOOKS',
+    layoutMode: 'brutalist-box',
+    banglaFontFamily: '"Anek Bangla", Impact, sans-serif',
+    englishFontFamily: 'Impact, "Arial Black", sans-serif',
+    primaryColor: '#FACC15',
+    primaryGradient: ['#FEF08A', '#FACC15', '#F59E0B'],
+    secondaryColor: '#FFFFFF',
+    strokeColor: '#000000',
+    strokeWidth: 4,
+    glowColor: 'rgba(250, 204, 21, 0.85)',
+    glowIntensity: 1.15,
+    backdropPlate: {
+      enabled: true,
+      background: 'rgba(8, 8, 10, 0.92)',
+      border: '2px solid #FACC15',
+      backdropBlur: 6,
+      padding: '14px 26px',
+      accentBarColor: '#FACC15'
+    },
+    motionAnimation: 'viral-pop-bounce',
+    chromaticAberration: 16,
+    letterTracking: 0.06,
+    fontScale: 78,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'viral-reels-slam': {
+    category: 'VIRAL_HOOKS',
+    layoutMode: 'center-hero',
+    banglaFontFamily: '"Anek Bangla", Impact, sans-serif',
+    englishFontFamily: 'Impact, "Arial Black", sans-serif',
+    primaryColor: '#FFFFFF',
+    secondaryColor: '#FDE047',
+    strokeColor: '#000000',
+    strokeWidth: 4,
+    glowColor: 'rgba(239, 68, 68, 0.9)',
+    glowIntensity: 1.25,
+    backdropPlate: {
+      enabled: false,
+      background: 'transparent',
+      border: 'none',
+      backdropBlur: 0,
+      padding: '0px',
+      accentBarColor: '#EF4444'
+    },
+    motionAnimation: 'kinetic-slam',
+    chromaticAberration: 28,
+    letterTracking: 0.05,
+    fontScale: 84,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'viral-docu-fact-card': {
+    category: 'VIRAL_HOOKS',
+    layoutMode: 'lower-third-bar',
+    banglaFontFamily: '"Anek Bangla", Inter, sans-serif',
+    englishFontFamily: '"JetBrains Mono", Inter, monospace',
+    primaryColor: '#38BDF8',
+    secondaryColor: '#F1F5F9',
+    strokeColor: '#082F49',
+    strokeWidth: 0,
+    glowColor: 'rgba(56, 189, 248, 0.72)',
+    glowIntensity: 0.8,
+    backdropPlate: {
+      enabled: true,
+      background: 'rgba(6, 16, 28, 0.86)',
+      border: '1px solid rgba(56, 189, 248, 0.5)',
+      backdropBlur: 12,
+      padding: '12px 22px',
+      accentBarColor: '#38BDF8'
+    },
+    motionAnimation: 'anamorphic-sweep',
+    chromaticAberration: 0,
+    letterTracking: 0.1,
+    fontScale: 58,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'viral-breaking-ticker': {
+    category: 'VIRAL_HOOKS',
+    layoutMode: 'hud-bracket',
+    banglaFontFamily: '"Anek Bangla", "JetBrains Mono", sans-serif',
+    englishFontFamily: '"JetBrains Mono", Orbitron, monospace',
+    primaryColor: '#EF4444',
+    secondaryColor: '#FEE2E2',
+    strokeColor: '#000000',
+    strokeWidth: 1,
+    glowColor: 'rgba(239, 68, 68, 0.85)',
+    glowIntensity: 0.95,
+    backdropPlate: {
+      enabled: true,
+      background: 'rgba(28, 6, 8, 0.82)',
+      border: '1px solid rgba(239, 68, 68, 0.55)',
+      backdropBlur: 8,
+      padding: '10px 22px',
+      accentBarColor: '#EF4444'
+    },
+    motionAnimation: 'typewriter-telemetry',
+    chromaticAberration: 14,
+    letterTracking: 0.14,
+    fontScale: 56,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'credits-hollywood-scroll': {
+    category: 'END_CREDITS',
+    layoutMode: 'editorial-split',
+    banglaFontFamily: '"Noto Serif Bengali", "Anek Bangla", serif',
+    englishFontFamily: '"Playfair Display", Cinzel, serif',
+    primaryColor: '#F8FAFC',
+    secondaryColor: '#CBD5E1',
+    strokeColor: '#000000',
+    strokeWidth: 0,
+    glowColor: 'rgba(248, 250, 252, 0.4)',
+    glowIntensity: 0.5,
+    backdropPlate: {
+      enabled: false,
+      background: 'transparent',
+      border: 'none',
+      backdropBlur: 0,
+      padding: '10px 20px',
+      accentBarColor: '#F8FAFC'
+    },
+    motionAnimation: 'cinema-credit-crawl',
+    chromaticAberration: 0,
+    letterTracking: 0.24,
+    fontScale: 60,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'credits-dual-billing': {
+    category: 'END_CREDITS',
+    layoutMode: 'center-hero',
+    banglaFontFamily: '"Noto Serif Bengali", "Anek Bangla", serif',
+    englishFontFamily: 'Cinzel, "Playfair Display", serif',
+    primaryColor: '#F5A623',
+    primaryGradient: ['#FDE68A', '#F5A623', '#D97706'],
+    secondaryColor: '#F1F5F9',
+    strokeColor: '#000000',
+    strokeWidth: 0,
+    glowColor: 'rgba(245, 166, 35, 0.72)',
+    glowIntensity: 0.85,
+    backdropPlate: {
+      enabled: false,
+      background: 'transparent',
+      border: 'none',
+      backdropBlur: 0,
+      padding: '0px',
+      accentBarColor: '#F5A623'
+    },
+    motionAnimation: '3d-flip',
+    chromaticAberration: 0,
+    letterTracking: 0.22,
+    fontScale: 62,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'credits-a24-slate': {
+    category: 'END_CREDITS',
+    layoutMode: 'minimal-whisper',
+    banglaFontFamily: '"Noto Serif Bengali", "Anek Bangla", serif',
+    englishFontFamily: '"Playfair Display", Georgia, serif',
+    primaryColor: '#E4E4E7',
+    secondaryColor: '#A1A1AA',
+    strokeColor: '#000000',
+    strokeWidth: 0,
+    glowColor: 'rgba(228, 228, 231, 0.35)',
+    glowIntensity: 0.35,
+    backdropPlate: {
+      enabled: false,
+      background: 'transparent',
+      border: 'none',
+      backdropBlur: 0,
+      padding: '0px',
+      accentBarColor: '#E4E4E7'
+    },
+    motionAnimation: 'subtle-depth-drift',
+    chromaticAberration: 0,
+    letterTracking: 0.32,
+    fontScale: 48,
+    verticalOffset: 0,
+    uppercase: false
+  },
+  'credits-post-teaser': {
+    category: 'END_CREDITS',
+    layoutMode: 'hud-bracket',
+    banglaFontFamily: '"Anek Bangla", Orbitron, sans-serif',
+    englishFontFamily: 'Orbitron, "JetBrains Mono", monospace',
+    primaryColor: '#22D3EE',
+    secondaryColor: '#E0F2FE',
+    strokeColor: '#083344',
+    strokeWidth: 1,
+    glowColor: 'rgba(34, 211, 238, 0.85)',
+    glowIntensity: 1.05,
+    backdropPlate: {
+      enabled: true,
+      background: 'rgba(4, 18, 26, 0.78)',
+      border: '1px solid rgba(34, 211, 238, 0.5)',
+      backdropBlur: 10,
+      padding: '12px 24px',
+      accentBarColor: '#22D3EE'
+    },
+    motionAnimation: 'glitch-slice',
+    chromaticAberration: 22,
+    letterTracking: 0.2,
+    fontScale: 60,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'dopamine-kinetic-punch': {
+    category: 'DOPAMINE',
+    layoutMode: 'brutalist-box',
+    banglaFontFamily: '"Anek Bangla", Impact, sans-serif',
+    englishFontFamily: 'Impact, "Arial Black", sans-serif',
+    primaryColor: '#FF2B2B',
+    primaryGradient: ['#FECACA', '#FF2B2B', '#B91C1C'],
+    secondaryColor: '#FFFFFF',
+    strokeColor: '#000000',
+    strokeWidth: 4,
+    glowColor: 'rgba(255, 43, 43, 0.92)',
+    glowIntensity: 1.35,
+    backdropPlate: {
+      enabled: true,
+      background: 'rgba(12, 4, 6, 0.9)',
+      border: '2px solid #FF2B2B',
+      backdropBlur: 6,
+      padding: '14px 26px',
+      accentBarColor: '#FF2B2B'
+    },
+    motionAnimation: '3d-flip',
+    chromaticAberration: 36,
+    letterTracking: 0.08,
+    fontScale: 78,
+    verticalOffset: 0,
+    uppercase: true
   }
 };
 
@@ -761,6 +1323,12 @@ function mapPresetCategory(cat: TitleTemplatePreset['category']): TitlePresetCat
       return 'DOCU';
     case 'retro':
       return 'RETRO';
+    case 'viral-hooks':
+      return 'VIRAL_HOOKS';
+    case 'end-credits':
+      return 'END_CREDITS';
+    case 'dopamine':
+      return 'DOPAMINE';
     case 'cinematic':
     default:
       return 'CINEMATIC';
@@ -942,12 +1510,22 @@ export function applyTitleTemplateToFrame(
   const nextEnglish = preserveText && existingEn ? existingEn : preset.primaryText;
   const nextCaption = frame.titleData?.captionNote ?? (nextNotes || preset.secondaryText || frame.tagline || '');
 
+  const nextEyebrow = preset.eyebrowText || frame.titleData?.eyebrowText || '';
+  const nextCredits = preset.creditsText || frame.titleData?.creditsText || '';
+  const defaultLayers = buildDefaultTitleLayers(styleConfig);
+  const nextKeyframes: TitleKeyframeConfig = {
+    ...DEFAULT_TITLE_KEYFRAMES,
+    inAnim: styleConfig.motionAnimation,
+  };
+
   const nextTitleData: ShotTitleData = {
     enabled: frame.titleData?.enabled ?? true,
     presetId: preset.id,
+    eyebrowText: nextEyebrow,
     banglaTitle: nextBangla,
     englishSubtitle: nextEnglish,
     captionNote: nextCaption,
+    creditsText: nextCredits,
     alignment: frame.titleData?.alignment ?? 'MID',
     fontScale: styleConfig.fontScale,
     glowIntensity: styleConfig.glowIntensity,
@@ -955,6 +1533,8 @@ export function applyTitleTemplateToFrame(
     verticalOffset: styleConfig.verticalOffset,
     entranceAnim: styleConfig.motionAnimation,
     exitAnim: frame.titleData?.exitAnim ?? 'dissolve-out',
+    layers: defaultLayers,
+    keyframes: nextKeyframes,
     styleConfig
   };
 
@@ -1030,12 +1610,14 @@ export function createDefaultShotTitleData(
   return {
     enabled: true,
     presetId: baseStyleConfig.presetId || presetId,
+    eyebrowText: '',
     banglaTitle: rawBn && rawBn.trim().length > 0 ? rawBn : fallbackBn,
     englishSubtitle:
       rawEn && rawEn.trim().length > 0
         ? rawEn
         : `SHOT ${String(index + 1).padStart(3, '0')} // MASTER SEQUENCE`,
     captionNote: rawCaption,
+    creditsText: '',
     alignment: 'MID',
     fontScale: baseStyleConfig.fontScale ?? 72,
     glowIntensity: baseStyleConfig.glowIntensity ?? 1.0,
@@ -1043,6 +1625,11 @@ export function createDefaultShotTitleData(
     verticalOffset: baseStyleConfig.verticalOffset ?? 0,
     entranceAnim: baseStyleConfig.motionAnimation || 'slow-cinema-fade',
     exitAnim: 'dissolve-out',
+    layers: buildDefaultTitleLayers(baseStyleConfig),
+    keyframes: {
+      ...DEFAULT_TITLE_KEYFRAMES,
+      inAnim: baseStyleConfig.motionAnimation || 'slow-cinema-fade',
+    },
     styleConfig: baseStyleConfig
   };
 }
@@ -1110,6 +1697,7 @@ export function resolveShotTitleData(
     return {
       ...defaults,
       ...existing,
+      eyebrowText: existing.eyebrowText ?? defaults.eyebrowText,
       banglaTitle:
         typeof existing.banglaTitle === 'string' && existing.banglaTitle.length > 0
           ? existing.banglaTitle
@@ -1118,6 +1706,7 @@ export function resolveShotTitleData(
         typeof existing.englishSubtitle === 'string' && existing.englishSubtitle.length > 0
           ? existing.englishSubtitle
           : defaults.englishSubtitle,
+      creditsText: existing.creditsText ?? defaults.creditsText,
       alignment: existing.alignment ?? fallbackAlignment ?? 'MID',
       ...(existing.zone9 ? { zone9: existing.zone9 } : {}),
       ...(existing.kineticEntrance ? { kineticEntrance: existing.kineticEntrance } : {}),
@@ -1125,6 +1714,10 @@ export function resolveShotTitleData(
       glowIntensity: existing.glowIntensity ?? resolvedStyle.glowIntensity,
       letterTracking: existing.letterTracking ?? resolvedStyle.letterTracking,
       verticalOffset: existing.verticalOffset ?? resolvedStyle.verticalOffset,
+      layers: existing.layers ? { ...buildDefaultTitleLayers(resolvedStyle), ...existing.layers } : buildDefaultTitleLayers(resolvedStyle),
+      keyframes: existing.keyframes
+        ? { ...DEFAULT_TITLE_KEYFRAMES, inAnim: resolvedStyle.motionAnimation, ...existing.keyframes }
+        : { ...DEFAULT_TITLE_KEYFRAMES, inAnim: resolvedStyle.motionAnimation },
       styleConfig: resolvedStyle
     };
   }

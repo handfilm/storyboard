@@ -23,10 +23,16 @@ export interface MultiTrackBusTelemetry {
   duckingDb: number;
 }
 
+export type VoiceEqPreset = 'podcast-crisp' | 'cinema-narrator' | 'radio-warm';
+
 export interface StemConfig {
   volume: number;       // Linear 0.0 to 2.0 (1.0 = 0dB)
   isMuted: boolean;
   isSoloed: boolean;
+  pan: number;          // -1.0 (L) to +1.0 (R)
+  eqLowDb: number;      // -12 to +12 dB @ 200Hz
+  eqMidDb: number;      // -12 to +12 dB @ 1.6kHz
+  eqHighDb: number;     // -12 to +12 dB @ 6.5kHz
 }
 
 export class MultiTrackAudioBus {
@@ -35,16 +41,28 @@ export class MultiTrackAudioBus {
   private ctx: AudioContext | null = null;
   private isInitialized = false;
 
-  // Stems Gain Nodes
+  // Stems Gain & Stereo Panning Nodes
   private voiceGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
   private masterGain: GainNode | null = null;
 
+  private voicePan: StereoPannerNode | null = null;
+  private musicPan: StereoPannerNode | null = null;
+  private sfxPan: StereoPannerNode | null = null;
+
+  // Per-Stem 3-Band EQ Nodes
+  private stemEqNodes: Record<'voice' | 'music' | 'sfx', { low: BiquadFilterNode; mid: BiquadFilterNode; high: BiquadFilterNode } | null> = {
+    voice: null,
+    music: null,
+    sfx: null
+  };
+
   // Voice DSP chain: Highpass -> Speech Clarity Peaking Filter -> Compressor
   private voiceHighpass: BiquadFilterNode | null = null;
   private voiceClarityFilter: BiquadFilterNode | null = null;
   private voiceCompressor: DynamicsCompressorNode | null = null;
+  private activeVoiceEqPreset: VoiceEqPreset = 'cinema-narrator';
 
   // Music Ducking Gain Node (sidechained to voice level)
   private musicDuckingGain: GainNode | null = null;
@@ -68,16 +86,16 @@ export class MultiTrackAudioBus {
   private duckingEnabled = true;
   private limiterEnabled = true;
 
-  private duckingAmountDb = -4.0; // User spec: -4dB auto-ducking
+  private duckingAmountDb = -12.0; // Pro cinema -12dB auto-ducking
   private currentDuckingGain = 1.0;
   private isDuckingActive = false;
 
-  // Volumes
+  // Volumes, Pan & 3-Band EQ
   private stemConfigs: Record<StemType, StemConfig> = {
-    voice: { volume: 1.0, isMuted: false, isSoloed: false },
-    music: { volume: 0.85, isMuted: false, isSoloed: false },
-    sfx: { volume: 0.9, isMuted: false, isSoloed: false },
-    master: { volume: 1.0, isMuted: false, isSoloed: false }
+    voice: { volume: 1.0, isMuted: false, isSoloed: false, pan: 0, eqLowDb: 0, eqMidDb: 1.5, eqHighDb: 2.0 },
+    music: { volume: 0.85, isMuted: false, isSoloed: false, pan: 0, eqLowDb: 0, eqMidDb: 0, eqHighDb: 0 },
+    sfx: { volume: 0.9, isMuted: false, isSoloed: false, pan: 0, eqLowDb: 0, eqMidDb: 0, eqHighDb: 0 },
+    master: { volume: 1.0, isMuted: false, isSoloed: false, pan: 0, eqLowDb: 0, eqMidDb: 0, eqHighDb: 0 }
   };
 
   // Pre-calculated waveform buffers for visualizer
@@ -142,24 +160,51 @@ export class MultiTrackAudioBus {
     this.masterGain.connect(this.masterAnalyser);
     this.masterAnalyser.connect(this.ctx.destination);
 
+    const createStemEqChain = (stem: 'voice' | 'music' | 'sfx') => {
+      const cfg = this.stemConfigs[stem];
+      const low = this.ctx!.createBiquadFilter();
+      low.type = 'lowshelf';
+      low.frequency.setValueAtTime(200, this.ctx!.currentTime);
+      low.gain.setValueAtTime(cfg.eqLowDb, this.ctx!.currentTime);
+
+      const mid = this.ctx!.createBiquadFilter();
+      mid.type = 'peaking';
+      mid.frequency.setValueAtTime(1600, this.ctx!.currentTime);
+      mid.Q.setValueAtTime(1.0, this.ctx!.currentTime);
+      mid.gain.setValueAtTime(cfg.eqMidDb, this.ctx!.currentTime);
+
+      const high = this.ctx!.createBiquadFilter();
+      high.type = 'highshelf';
+      high.frequency.setValueAtTime(6500, this.ctx!.currentTime);
+      high.gain.setValueAtTime(cfg.eqHighDb, this.ctx!.currentTime);
+
+      low.connect(mid);
+      mid.connect(high);
+      this.stemEqNodes[stem] = { low, mid, high };
+      return { low, high };
+    };
+
     // 2. TIER 1: VOICE / DIALOGUE CHANNEL
-    // Highpass (80Hz) + Speech EQ boost (+2.5dB at 3.2kHz) + Compressor (-24dB, 4:1)
     this.voiceHighpass = this.ctx.createBiquadFilter();
     this.voiceHighpass.type = 'highpass';
-    this.voiceHighpass.frequency.setValueAtTime(80, this.ctx.currentTime); // 80Hz rumble cut
+    this.voiceHighpass.frequency.setValueAtTime(80, this.ctx.currentTime);
 
     this.voiceClarityFilter = this.ctx.createBiquadFilter();
     this.voiceClarityFilter.type = 'peaking';
-    this.voiceClarityFilter.frequency.setValueAtTime(3200, this.ctx.currentTime); // 3.2 kHz
-    this.voiceClarityFilter.gain.setValueAtTime(this.clarityEnabled ? 2.5 : 0.0, this.ctx.currentTime); // +2.5 dB
+    this.voiceClarityFilter.frequency.setValueAtTime(3200, this.ctx.currentTime);
+    this.voiceClarityFilter.gain.setValueAtTime(this.clarityEnabled ? 2.5 : 0.0, this.ctx.currentTime);
     this.voiceClarityFilter.Q.setValueAtTime(1.2, this.ctx.currentTime);
 
     this.voiceCompressor = this.ctx.createDynamicsCompressor();
-    this.voiceCompressor.threshold.setValueAtTime(-24, this.ctx.currentTime); // -24 dB
+    this.voiceCompressor.threshold.setValueAtTime(-24, this.ctx.currentTime);
     this.voiceCompressor.knee.setValueAtTime(6, this.ctx.currentTime);
-    this.voiceCompressor.ratio.setValueAtTime(4.0, this.ctx.currentTime);     // 4:1 ratio
-    this.voiceCompressor.attack.setValueAtTime(0.003, this.ctx.currentTime);  // 3 ms attack
-    this.voiceCompressor.release.setValueAtTime(0.150, this.ctx.currentTime); // 150 ms release
+    this.voiceCompressor.ratio.setValueAtTime(4.0, this.ctx.currentTime);
+    this.voiceCompressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+    this.voiceCompressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+
+    const voiceEq = createStemEqChain('voice');
+    this.voicePan = this.ctx.createStereoPanner();
+    this.voicePan.pan.setValueAtTime(this.stemConfigs.voice.pan, this.ctx.currentTime);
 
     this.voiceGain = this.ctx.createGain();
     this.voiceAnalyser = this.ctx.createAnalyser();
@@ -167,14 +212,19 @@ export class MultiTrackAudioBus {
 
     this.voiceHighpass.connect(this.voiceClarityFilter);
     this.voiceClarityFilter.connect(this.voiceCompressor);
-    this.voiceCompressor.connect(this.voiceGain);
+    this.voiceCompressor.connect(voiceEq.low);
+    voiceEq.high.connect(this.voicePan);
+    this.voicePan.connect(this.voiceGain);
     this.voiceGain.connect(this.voiceAnalyser);
     this.voiceGain.connect(this.masterSumNode);
 
     // 3. TIER 2: MUSIC STEM CHANNEL
-    // Ducking-enabled channel that automatically dips -4dB when Voice stem is active
     this.musicDuckingGain = this.ctx.createGain();
     this.musicDuckingGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+
+    const musicEq = createStemEqChain('music');
+    this.musicPan = this.ctx.createStereoPanner();
+    this.musicPan.pan.setValueAtTime(this.stemConfigs.music.pan, this.ctx.currentTime);
 
     this.musicGain = this.ctx.createGain();
     this.musicGain.gain.setValueAtTime(this.stemConfigs.music.volume, this.ctx.currentTime);
@@ -182,18 +232,25 @@ export class MultiTrackAudioBus {
     this.musicAnalyser = this.ctx.createAnalyser();
     this.musicAnalyser.fftSize = 256;
 
-    this.musicDuckingGain.connect(this.musicGain);
+    this.musicDuckingGain.connect(musicEq.low);
+    musicEq.high.connect(this.musicPan);
+    this.musicPan.connect(this.musicGain);
     this.musicGain.connect(this.musicAnalyser);
     this.musicGain.connect(this.masterSumNode);
 
     // 4. TIER 3: SFX / AMBIENCE CHANNEL
-    // Pass-through channel for risers, whooshes, and cinematic impacts
+    const sfxEq = createStemEqChain('sfx');
+    this.sfxPan = this.ctx.createStereoPanner();
+    this.sfxPan.pan.setValueAtTime(this.stemConfigs.sfx.pan, this.ctx.currentTime);
+
     this.sfxGain = this.ctx.createGain();
     this.sfxGain.gain.setValueAtTime(this.stemConfigs.sfx.volume, this.ctx.currentTime);
 
     this.sfxAnalyser = this.ctx.createAnalyser();
     this.sfxAnalyser.fftSize = 256;
 
+    sfxEq.high.connect(this.sfxPan);
+    this.sfxPan.connect(this.sfxGain);
     this.sfxGain.connect(this.sfxAnalyser);
     this.sfxGain.connect(this.masterSumNode);
 
@@ -258,7 +315,86 @@ export class MultiTrackAudioBus {
 
   public getSfxInputNode(): AudioNode | null {
     this.init();
-    return this.sfxGain;
+    return this.stemEqNodes.sfx?.low ?? this.sfxGain;
+  }
+
+  public setStemPan(stem: 'voice' | 'music' | 'sfx', pan: number): void {
+    const clamped = Math.max(-1, Math.min(1, pan));
+    this.stemConfigs[stem].pan = clamped;
+    const panNode =
+      stem === 'voice' ? this.voicePan : stem === 'music' ? this.musicPan : this.sfxPan;
+    if (this.ctx && panNode) {
+      panNode.pan.setTargetAtTime(clamped, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  public setStemEq(stem: 'voice' | 'music' | 'sfx', band: 'low' | 'mid' | 'high', db: number): void {
+    const clamped = Math.max(-12, Math.min(12, db));
+    if (band === 'low') this.stemConfigs[stem].eqLowDb = clamped;
+    else if (band === 'mid') this.stemConfigs[stem].eqMidDb = clamped;
+    else this.stemConfigs[stem].eqHighDb = clamped;
+
+    const eq = this.stemEqNodes[stem];
+    if (this.ctx && eq) {
+      eq[band].gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.03);
+    }
+  }
+
+  public applyVoiceEqPreset(preset: VoiceEqPreset): void {
+    this.activeVoiceEqPreset = preset;
+    if (preset === 'podcast-crisp') {
+      this.setStemEq('voice', 'low', -2.5);
+      this.setStemEq('voice', 'mid', 2.0);
+      this.setStemEq('voice', 'high', 4.5);
+    } else if (preset === 'cinema-narrator') {
+      this.setStemEq('voice', 'low', 3.5);
+      this.setStemEq('voice', 'mid', 1.5);
+      this.setStemEq('voice', 'high', 2.0);
+    } else {
+      // radio-warm
+      this.setStemEq('voice', 'low', 2.5);
+      this.setStemEq('voice', 'mid', 4.0);
+      this.setStemEq('voice', 'high', -1.5);
+    }
+  }
+
+  public getActiveVoiceEqPreset(): VoiceEqPreset {
+    return this.activeVoiceEqPreset;
+  }
+
+  public setDuckingDepthDb(db: number): void {
+    this.duckingAmountDb = Math.max(-24, Math.min(0, db));
+  }
+
+  public getDuckingDepthDb(): number {
+    return this.duckingAmountDb;
+  }
+
+  public async playAudioUrlOnStem(stem: 'voice' | 'music' | 'sfx', url: string): Promise<() => void> {
+    if (!url) return () => {};
+    const ctx = this.init();
+    const res = await fetch(url);
+    const ab = await res.arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(ab);
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuf;
+    const target =
+      stem === 'voice'
+        ? this.getVoiceInputNode()
+        : stem === 'music'
+        ? this.getMusicInputNode()
+        : this.getSfxInputNode();
+    if (target) {
+      src.connect(target);
+    } else {
+      src.connect(ctx.destination);
+    }
+    src.start(0);
+    return () => {
+      try {
+        src.stop();
+      } catch {}
+    };
   }
 
   // --- Volume & Solo/Mute Controls ---

@@ -13,24 +13,63 @@
  * and keyframed time-driven entrance motion.
  */
 
-import { TitlePresetConfig, TitleZone9, TitleKineticEntrance } from '../types/titlePreset';
+import {
+  TitlePresetConfig,
+  TitleZone9,
+  TitleKineticEntrance,
+  TitleLayerKey,
+  TitleLayerStyle,
+  TitleKeyframeConfig,
+  TitleMotionAnimation
+} from '../types/titlePreset';
 import { getZone9Metadata, isValidTitleZone9 } from './titleChoreographyEngine';
+import {
+  buildDefaultTitleLayers,
+  DEFAULT_TITLE_KEYFRAMES,
+  segmentTextGraphemes
+} from '../constants/titleTemplates';
 
 export interface TitleCanvasCompositeMeta {
+  eyebrowText?: string;
   banglaTitle?: string;
   englishTitle?: string;
   dialogue?: string;
+  creditsText?: string;
   cameraInfo?: string;
   effectiveAlign?: 'LEFT' | 'MID' | 'RIGHT';
   zone9?: TitleZone9;
   kineticEntrance?: TitleKineticEntrance;
   opacity?: number;
   beatSlamScale?: number;
+  durationSec?: number;
+  layers?: Partial<Record<TitleLayerKey, Partial<TitleLayerStyle>>>;
+  keyframes?: Partial<TitleKeyframeConfig>;
 }
 
 function easeOutCubic(t: number): number {
   const clamped = Math.max(0, Math.min(1, t));
   return 1 - Math.pow(1 - clamped, 3);
+}
+
+function evaluateKeyframeEasing(
+  t: number,
+  curve?: TitleKeyframeConfig['easingCurve']
+): number {
+  const x = Math.max(0, Math.min(1, t));
+  switch (curve) {
+    case 'spring-overshoot': {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+    case 'linear-hud':
+      return x;
+    case 'whip-slam':
+      return 1 - Math.pow(1 - x, 4);
+    case 'cubic-out':
+    default:
+      return easeOutCubic(x);
+  }
 }
 
 function drawRoundedBox(
@@ -150,49 +189,76 @@ export function renderTitlePresetToCanvas(
   config: TitlePresetConfig,
   timeSec: number = 0
 ): void {
-  const banglaTitle = meta.banglaTitle || '';
-  const englishTitle = meta.englishTitle || '';
-  const dialogue = meta.dialogue || '';
-  if (!banglaTitle && !englishTitle && !dialogue) return;
+  const layers = buildDefaultTitleLayers(config, meta.layers);
+  const keyframes: TitleKeyframeConfig = {
+    ...DEFAULT_TITLE_KEYFRAMES,
+    inAnim: config.motionAnimation,
+    ...(meta.keyframes || {}),
+  };
+
+  const eyebrowText = layers.eyebrow.enabled ? (meta.eyebrowText || '') : '';
+  const banglaTitle = layers.bangla.enabled ? (meta.banglaTitle || '') : '';
+  const englishTitle = layers.english.enabled ? (meta.englishTitle || '') : '';
+  const dialogue = layers.subtitle.enabled ? (meta.dialogue || '') : '';
+  const creditsText = layers.credits.enabled ? (meta.creditsText || '') : '';
+
+  if (!eyebrowText && !banglaTitle && !englishTitle && !dialogue && !creditsText) return;
 
   const baseOpacity = Math.max(0, Math.min(1, meta.opacity ?? 1));
   if (baseOpacity <= 0.005) return;
 
   const scaleFactor = Math.min(height / 720, Math.max(0.58, width / 1080));
-  const safeTime = Math.max(0, timeSec);
+  const rawTime = Math.max(0, timeSec);
+  const delaySec = Math.max(0, keyframes.delaySec || 0);
+  const animDur = Math.max(0.1, keyframes.durationSec || 0.55);
+  const safeTime = Math.max(0, rawTime - delaySec);
+  if (rawTime < delaySec * 0.98) {
+    return;
+  }
 
-  // Compute entrance motion transform
+  // Compute IN entrance motion transform
   let motionOpacity = 1;
   let motionScale = meta.beatSlamScale && meta.beatSlamScale > 0 ? meta.beatSlamScale : 1;
+  let motionScaleY = 1;
   let motionTranslateX = 0;
   let motionTranslateY = 0;
   let glitchJitterPx = 0;
   let visibleEnglish = englishTitle;
+  let visibleBangla = banglaTitle;
 
-  switch (config.motionAnimation) {
+  const inAnim: TitleMotionAnimation = keyframes.inAnim || config.motionAnimation;
+  const pNorm = Math.min(1, safeTime / animDur);
+  const easedP = evaluateKeyframeEasing(pNorm, keyframes.easingCurve);
+
+  switch (inAnim) {
     case 'kinetic-slam': {
-      const p = easeOutCubic(safeTime / 0.35);
-      motionOpacity = Math.min(1, safeTime / 0.12);
-      motionScale *= 1.24 - 0.24 * p;
+      motionOpacity = Math.min(1, safeTime / (animDur * 0.35));
+      motionScale *= 1.24 - 0.24 * easedP;
       break;
     }
     case 'chopper-staccato': {
-      const p = easeOutCubic(safeTime / 0.24);
-      motionOpacity = Math.min(1, safeTime / 0.08);
-      motionScale *= safeTime < 0.24 ? 0.84 + 0.16 * p : 1 + Math.sin(safeTime * 14) * 0.015;
+      motionOpacity = Math.min(1, safeTime / (animDur * 0.32));
+      motionScale *= safeTime < animDur ? 0.84 + 0.16 * easedP : 1 + Math.sin(safeTime * 14) * 0.015;
       break;
     }
-    case 'typewriter-hud': {
+    case 'typewriter-hud':
+    case 'typewriter-telemetry': {
       motionOpacity = Math.min(1, safeTime / 0.12);
-      if (safeTime < 0.45 && englishTitle.length > 0) {
-        const chars = Math.max(1, Math.floor((safeTime / 0.45) * englishTitle.length));
+      if (safeTime < animDur && englishTitle.length > 0) {
+        const chars = Math.max(1, Math.floor((safeTime / animDur) * englishTitle.length));
         visibleEnglish = englishTitle.slice(0, chars);
+      }
+      if (safeTime < animDur && banglaTitle.length > 0) {
+        const graphemes = segmentTextGraphemes(banglaTitle);
+        const count = Math.max(1, Math.ceil((safeTime / animDur) * graphemes.length));
+        visibleBangla = graphemes.slice(0, count).join('');
       }
       break;
     }
-    case 'neon-glitch-rgb': {
+    case 'neon-glitch-rgb':
+    case 'glitch-slice': {
       motionOpacity = Math.min(1, safeTime / 0.12);
-      if (safeTime < 0.4) {
+      if (safeTime < animDur) {
         glitchJitterPx = Math.sin(safeTime * 65) * 4 * scaleFactor;
         motionTranslateX = Math.sin(safeTime * 50) * 5 * scaleFactor;
       } else {
@@ -201,17 +267,71 @@ export function renderTitlePresetToCanvas(
       break;
     }
     case 'lower-third-slide': {
-      const p = easeOutCubic(safeTime / 0.42);
-      motionOpacity = p;
-      motionTranslateX = -(1 - p) * 48 * scaleFactor;
+      motionOpacity = easedP;
+      motionTranslateX = -(1 - easedP) * 48 * scaleFactor;
+      break;
+    }
+    case '3d-flip': {
+      motionOpacity = Math.min(1, easedP * 1.3);
+      motionScaleY = 0.25 + 0.75 * easedP;
+      motionTranslateY = (1 - easedP) * 18 * scaleFactor;
+      break;
+    }
+    case 'anamorphic-sweep': {
+      motionOpacity = Math.min(1, easedP * 1.25);
+      motionTranslateX = -(1 - easedP) * 24 * scaleFactor;
+      motionScale *= 1 + (1 - easedP) * 0.05;
+      break;
+    }
+    case 'cinema-credit-crawl': {
+      motionOpacity = Math.min(1, safeTime / 0.25);
+      motionTranslateY = (1 - easedP) * 36 * scaleFactor;
+      break;
+    }
+    case 'viral-pop-bounce': {
+      motionOpacity = Math.min(1, safeTime / 0.1);
+      motionScale *= 0.65 + 0.35 * easedP;
+      break;
+    }
+    case 'subtle-depth-drift': {
+      motionOpacity = easedP;
+      motionScale *= 1.06 - 0.06 * easedP;
       break;
     }
     case 'slow-cinema-fade':
     default: {
-      const p = easeOutCubic(safeTime / 0.48);
-      motionOpacity = p;
-      motionScale *= 0.96 + 0.04 * p;
+      motionOpacity = easedP;
+      motionScale *= 0.96 + 0.04 * easedP;
       break;
+    }
+  }
+
+  // Optional Stagger progressive grapheme/word reveal
+  if (keyframes.staggerMode && keyframes.staggerMode !== 'block' && safeTime < animDur) {
+    if (visibleBangla) {
+      const units =
+        keyframes.staggerMode === 'word'
+          ? visibleBangla.split(' ')
+          : segmentTextGraphemes(visibleBangla);
+      const count = Math.max(1, Math.ceil((safeTime / animDur) * units.length));
+      visibleBangla =
+        keyframes.staggerMode === 'word'
+          ? units.slice(0, count).join(' ')
+          : units.slice(0, count).join('');
+    }
+  }
+
+  // Subtle MID ambient drift during hold phase
+  if (safeTime > animDur && keyframes.midAnim === 'subtle-depth-drift') {
+    motionScale *= 1 + Math.sin(safeTime * 1.2) * 0.012;
+  }
+
+  // OUT exit dissolve at end of clip
+  if (typeof meta.durationSec === 'number' && meta.durationSec > 0.8 && rawTime > meta.durationSec - 0.25) {
+    const outRem = Math.max(0, meta.durationSec - rawTime) / 0.25;
+    motionOpacity *= Math.max(0.05, outRem);
+    if (keyframes.outAnim === 'slide-out') {
+      motionTranslateY -= (1 - outRem) * 12 * scaleFactor;
     }
   }
 
@@ -289,7 +409,7 @@ export function renderTitlePresetToCanvas(
   ctx.save();
   ctx.globalAlpha = finalOpacity;
   ctx.translate(anchorX + motionTranslateX, anchorY + motionTranslateY);
-  ctx.scale(motionScale, motionScale);
+  ctx.scale(motionScale, motionScale * motionScaleY);
   ctx.translate(-anchorX, -anchorY);
 
   // Measure line widths for plate sizing
@@ -448,29 +568,75 @@ export function renderTitlePresetToCanvas(
   ctx.textAlign = textAlign;
   ctx.textBaseline = 'middle';
 
-  // Primary Headline
-  if (banglaTitle) {
-    drawHeadlineText(ctx, banglaTitle, textX, primaryLineY, maxTextW, config, scaleFactor, glitchJitterPx);
+  // Eyebrow Kicker (Layer 1)
+  if (eyebrowText) {
+    ctx.save();
+    const eyePx = Math.max(9, Math.round((layers.eyebrow.fontSize || 12) * scaleFactor));
+    ctx.font = `${layers.eyebrow.fontWeight || 700} ${eyePx}px ${layers.eyebrow.fontFamily}`;
+    setCanvasLetterSpacing(ctx, layers.eyebrow.letterSpacing ?? 0.22);
+    ctx.fillStyle = layers.eyebrow.color || accentHex;
+    ctx.fillText(
+      layers.eyebrow.textTransform === 'uppercase' ? eyebrowText.toUpperCase() : eyebrowText,
+      textX,
+      primaryLineY - Math.round(banglaFontPx * 0.65),
+      maxTextW
+    );
+    ctx.restore();
   }
 
-  // Secondary Subtitle
+  // Primary Headline (Layer 2)
+  if (visibleBangla) {
+    const effectiveCfg: TitlePresetConfig = {
+      ...config,
+      banglaFontFamily: layers.bangla.fontFamily || config.banglaFontFamily,
+      fontScale: layers.bangla.fontSize || config.fontScale,
+      letterTracking: layers.bangla.letterSpacing ?? config.letterTracking,
+      primaryColor: layers.bangla.color || config.primaryColor,
+      primaryGradient: layers.bangla.gradientStops ?? config.primaryGradient,
+      strokeWidth: layers.bangla.strokeWidth ?? config.strokeWidth,
+      strokeColor: layers.bangla.strokeColor || config.strokeColor,
+      glowIntensity: layers.bangla.bloomIntensity ?? config.glowIntensity,
+    };
+    drawHeadlineText(ctx, visibleBangla, textX, primaryLineY, maxTextW, effectiveCfg, scaleFactor, glitchJitterPx);
+  }
+
+  // Secondary Subtitle (Layer 3)
   if (visibleEnglish) {
     ctx.save();
-    const subStr = config.uppercase ? visibleEnglish.toUpperCase() : visibleEnglish;
-    ctx.font = `700 ${englishFontPx}px ${config.englishFontFamily || '"JetBrains Mono", monospace'}`;
-    setCanvasLetterSpacing(ctx, Math.max(0.05, (config.letterTracking || 0.15) + 0.08));
-    ctx.fillStyle = config.secondaryColor || '#E4E4E7';
+    const subStr = layers.english.textTransform === 'none'
+      ? visibleEnglish
+      : (config.uppercase || layers.english.textTransform === 'uppercase' ? visibleEnglish.toUpperCase() : visibleEnglish);
+    const enPx = Math.max(10, Math.round((layers.english.fontSize || 16) * scaleFactor));
+    ctx.font = `${layers.english.fontWeight || 700} ${enPx}px ${layers.english.fontFamily || config.englishFontFamily || '"JetBrains Mono", monospace'}`;
+    setCanvasLetterSpacing(ctx, Math.max(0.04, layers.english.letterSpacing ?? (config.letterTracking || 0.15) + 0.08));
+    ctx.fillStyle = layers.english.color || config.secondaryColor || '#E4E4E7';
     ctx.shadowColor = 'rgba(0,0,0,0.95)';
     ctx.shadowBlur = Math.round(10 * scaleFactor);
     ctx.fillText(subStr, textX, subLineY, maxTextW);
     ctx.restore();
   }
 
+  // Credits Line (Layer 5)
+  if (creditsText) {
+    ctx.save();
+    const credPx = Math.max(9, Math.round((layers.credits.fontSize || 11) * scaleFactor));
+    ctx.font = `${layers.credits.fontWeight || 600} ${credPx}px ${layers.credits.fontFamily}`;
+    setCanvasLetterSpacing(ctx, layers.credits.letterSpacing ?? 0.2);
+    ctx.fillStyle = layers.credits.color || '#CBD5E1';
+    ctx.fillText(
+      layers.credits.textTransform === 'uppercase' ? creditsText.toUpperCase() : creditsText,
+      textX,
+      subLineY + Math.round(24 * scaleFactor),
+      maxTextW
+    );
+    ctx.restore();
+  }
+
   // Subtle inline dialogue for bottom-plate layouts
   if (isLowerPlate && cleanDialogue) {
     ctx.save();
-    ctx.font = `italic 500 ${dialogueFontPx}px ${config.englishFontFamily || 'sans-serif'}`;
-    ctx.fillStyle = config.secondaryColor || '#D4D4D8';
+    ctx.font = `italic 500 ${dialogueFontPx}px ${layers.subtitle.fontFamily || config.englishFontFamily || 'sans-serif'}`;
+    ctx.fillStyle = layers.subtitle.color || config.secondaryColor || '#D4D4D8';
     ctx.globalAlpha *= 0.85;
     ctx.fillText(`"${cleanDialogue}"`, textX, diagLineY, maxTextW);
     ctx.restore();

@@ -535,10 +535,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   }, [onUploadMedia]);
 
   const getStageBoxStyle = (): React.CSSProperties => {
-    if (stageScale === 0.7) {
+    if (stageScale === 0.5 || stageScale === 0.75) {
+      const pct = `${Math.round(stageScale * 100)}%`;
       return {
-        width: '70%',
-        height: '70%',
+        width: pct,
+        height: pct,
         margin: '0 auto'
       };
     }

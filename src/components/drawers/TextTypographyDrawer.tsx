@@ -18,8 +18,19 @@ import {
   buildDopamineTitlePresetConfig,
   stripDopamineDirectorNote,
   resolveShotTitlePresetConfig,
-  resolveShotTitleData
+  resolveShotTitleData,
+  PRO_TITLE_FONT_OPTIONS,
+  DEFAULT_TITLE_KEYFRAMES,
+  buildDefaultTitleLayers
 } from '../../constants/titleTemplates';
+import type {
+  TitleEasingCurve,
+  TitleKeyframeConfig,
+  TitleLayerKey,
+  TitleLayerStyle,
+  TitleMotionAnimation,
+  TitleStaggerMode
+} from '../../types/titlePreset';
 import { 
   COMPILATION_PRESETS, 
   CompilationPreset, 
@@ -82,7 +93,11 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
   const [copiedAllSuccess, setCopiedAllSuccess] = useState(false);
 
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'dopamine' | 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<
+    'all' | 'viral-hooks' | 'end-credits' | 'dopamine' | 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate'
+  >('all');
+  const [inspectorMode, setInspectorMode] = useState<'layers' | 'keyframes'>('layers');
+  const [activeLayerTab, setActiveLayerTab] = useState<TitleLayerKey>('bangla');
   const [hoveredPresetId, setHoveredPresetId] = useState<string | null>(null);
   const [appliedPresetId, setAppliedPresetId] = useState<string | null>(null);
   const [dragOverPresetId, setDragOverPresetId] = useState<string | null>(null);
@@ -105,13 +120,53 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
   const categoryChips = [
     { id: 'all', label: `ALL (${CINEMATIC_TITLE_PRESETS.length})` },
+    { id: 'viral-hooks', label: '🎬 VIRAL HOOKS' },
+    { id: 'end-credits', label: '🎞️ END CREDITS' },
     { id: 'dopamine', label: '🌪️ DOPAMINE' },
     { id: 'corporate', label: '🏢 CORPORATE B2B' },
-    { id: 'cinematic', label: '🎬 CINEMATIC' },
+    { id: 'cinematic', label: '🎥 CINEMATIC' },
     { id: 'rap', label: '⚡ RAP' },
     { id: 'docu', label: '🎙 DOCU' },
     { id: 'retro', label: '📼 RETRO' }
   ] as const;
+
+  const resolvedLayers = buildDefaultTitleLayers(activePresetConfig, {
+    ...(activePresetConfig.layers || {}),
+    ...(shotTitleData.layers || {})
+  });
+  const activeLayerStyle: TitleLayerStyle = resolvedLayers[activeLayerTab] || {};
+  const activeKeyframes: TitleKeyframeConfig = {
+    ...DEFAULT_TITLE_KEYFRAMES,
+    inAnim: activePresetConfig.motionAnimation || DEFAULT_TITLE_KEYFRAMES.inAnim,
+    ...(activePresetConfig.keyframes || {}),
+    ...(shotTitleData.keyframes || {})
+  };
+
+  const updateLayerStyle = (layerKey: TitleLayerKey, patch: Partial<TitleLayerStyle>) => {
+    const nextLayers = {
+      ...(shotTitleData.layers || {}),
+      [layerKey]: {
+        ...(resolvedLayers[layerKey] || {}),
+        ...patch,
+        plate: patch.plate
+          ? { ...(resolvedLayers[layerKey]?.plate || {}), ...patch.plate }
+          : resolvedLayers[layerKey]?.plate
+      }
+    };
+    updateShotTitleData(targetShotIndex, { layers: nextLayers });
+  };
+
+  const updateKeyframeConfig = (patch: Partial<TitleKeyframeConfig>) => {
+    const nextKeyframes: TitleKeyframeConfig = {
+      ...activeKeyframes,
+      ...patch
+    };
+    updateShotTitleData(targetShotIndex, {
+      keyframes: nextKeyframes,
+      entranceAnim: nextKeyframes.inAnim,
+      exitAnim: nextKeyframes.outAnim
+    });
+  };
 
   const handleSelectDopaminePreset = (preset: CompilationPreset) => {
     setActiveDopamineId(preset.id);
@@ -240,16 +295,36 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       });
     }
 
+    const nextEyebrow = hasOwnCustomText
+      ? shotTitleData.eyebrowText || ''
+      : preset.eyebrowText || '';
+    const nextCredits = hasOwnCustomText
+      ? shotTitleData.creditsText || ''
+      : preset.creditsText || '';
+
+    const presetLayers = buildDefaultTitleLayers(styleConfig, styleConfig.layers);
+    const presetKeyframes: TitleKeyframeConfig = {
+      ...DEFAULT_TITLE_KEYFRAMES,
+      inAnim: styleConfig.motionAnimation,
+      ...(styleConfig.keyframes || {})
+    };
+
     store.updateShotTitleData(targetShotIndex, {
       enabled: true,
       presetId: preset.id,
+      eyebrowText: nextEyebrow,
       banglaTitle: nextBangla,
       englishSubtitle: nextEnglish,
       captionNote: nextCaption,
+      creditsText: nextCredits,
       fontScale: styleConfig.fontScale,
       glowIntensity: styleConfig.glowIntensity,
       letterTracking: styleConfig.letterTracking,
       verticalOffset: styleConfig.verticalOffset,
+      entranceAnim: presetKeyframes.inAnim,
+      exitAnim: presetKeyframes.outAnim,
+      layers: presetLayers,
+      keyframes: presetKeyframes,
       styleConfig
     });
 
@@ -508,6 +583,395 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
             placeholder="ENGLISH SUBTITLE..."
             className="w-full px-2.5 py-1.5 rounded bg-black/70 border border-white/10 focus:border-[#F59E0B] text-[11px] font-mono font-bold text-white uppercase outline-none"
           />
+        </div>
+
+        {/* Pro 06 Super Title Studio Sub-Inspector: 5 Layers & IN/MID/OUT Keyframes */}
+        <div className="pt-1.5 border-t border-white/10 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 bg-black/70 p-0.5 rounded border border-white/10">
+              <button
+                type="button"
+                onClick={() => setInspectorMode('layers')}
+                className={`px-2 py-0.5 rounded text-[8.5px] font-bold uppercase cursor-pointer whitespace-nowrap transition-colors ${
+                  inspectorMode === 'layers'
+                    ? 'bg-[#F59E0B] text-[#0B0B0D]'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                5-LAYER STUDIO
+              </button>
+              <button
+                type="button"
+                onClick={() => setInspectorMode('keyframes')}
+                className={`px-2 py-0.5 rounded text-[8.5px] font-bold uppercase cursor-pointer whitespace-nowrap transition-colors ${
+                  inspectorMode === 'keyframes'
+                    ? 'bg-[#F59E0B] text-[#0B0B0D]'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                IN / MID / OUT KEYFRAMES
+              </button>
+            </div>
+            <span className="text-[8.5px] text-zinc-500 uppercase tracking-wider tabular-nums">
+              {activeKeyframes.staggerMode.toUpperCase()} STAGGER
+            </span>
+          </div>
+
+          {inspectorMode === 'layers' ? (
+            <div className="space-y-2 bg-black/40 border border-white/10 rounded-lg p-2">
+              <div className="grid grid-cols-5 gap-1">
+                {(
+                  [
+                    { id: 'eyebrow', label: 'EYEBROW' },
+                    { id: 'bangla', label: 'BANGLA' },
+                    { id: 'english', label: 'ENGLISH' },
+                    { id: 'subtitle', label: 'SUBTITLE' },
+                    { id: 'credits', label: 'CREDITS' }
+                  ] as const
+                ).map((layer) => {
+                  const isSel = activeLayerTab === layer.id;
+                  const isEnabled = resolvedLayers[layer.id]?.enabled !== false;
+                  return (
+                    <button
+                      key={layer.id}
+                      type="button"
+                      onClick={() => setActiveLayerTab(layer.id)}
+                      className={`py-1 px-1 rounded text-[8px] font-bold uppercase truncate cursor-pointer border transition-colors ${
+                        isSel
+                          ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B]'
+                          : isEnabled
+                          ? 'bg-black/60 border-white/10 text-zinc-300 hover:text-white'
+                          : 'bg-black/40 border-white/5 text-zinc-600'
+                      }`}
+                    >
+                      {layer.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Layer Text Input */}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  aria-label={`Layer Text ${activeLayerTab}`}
+                  value={
+                    activeLayerTab === 'eyebrow'
+                      ? shotTitleData.eyebrowText || ''
+                      : activeLayerTab === 'bangla'
+                      ? shotTitleData.banglaTitle
+                      : activeLayerTab === 'english'
+                      ? shotTitleData.englishSubtitle
+                      : activeLayerTab === 'subtitle'
+                      ? shotTitleData.captionNote || ''
+                      : shotTitleData.creditsText || ''
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (activeLayerTab === 'eyebrow') updateShotTitleData(targetShotIndex, { eyebrowText: val });
+                    else if (activeLayerTab === 'bangla') updateShotTitleData(targetShotIndex, { banglaTitle: val });
+                    else if (activeLayerTab === 'english') updateShotTitleData(targetShotIndex, { englishSubtitle: val });
+                    else if (activeLayerTab === 'subtitle') updateShotTitleData(targetShotIndex, { captionNote: val });
+                    else updateShotTitleData(targetShotIndex, { creditsText: val });
+                  }}
+                  placeholder={
+                    activeLayerTab === 'eyebrow'
+                      ? 'EPISODE 01 // SCENE BEAT...'
+                      : activeLayerTab === 'credits'
+                      ? 'DIRECTED BY // CINEMATOGRAPHY...'
+                      : activeLayerTab === 'subtitle'
+                      ? 'Subtitle or dialogue note...'
+                      : 'Layer text...'
+                  }
+                  className="flex-1 min-w-0 px-2 py-1 rounded bg-black/80 border border-white/10 focus:border-[#F59E0B] text-[10.5px] text-white outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateLayerStyle(activeLayerTab, { enabled: activeLayerStyle.enabled === false })
+                  }
+                  className={`px-2 py-1 rounded text-[8.5px] font-bold border cursor-pointer shrink-0 ${
+                    activeLayerStyle.enabled !== false
+                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                      : 'bg-zinc-900 border-white/10 text-zinc-500'
+                  }`}
+                >
+                  {activeLayerStyle.enabled !== false ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              {/* Font + Transform + Colors */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                <select
+                  aria-label="Layer Font Family"
+                  value={activeLayerStyle.fontFamily || PRO_TITLE_FONT_OPTIONS[0].value}
+                  onChange={(e) => updateLayerStyle(activeLayerTab, { fontFamily: e.target.value })}
+                  className="col-span-2 bg-black/80 border border-white/10 rounded px-1.5 py-1 text-[9.5px] text-zinc-200 outline-none focus:border-[#F59E0B]"
+                >
+                  {PRO_TITLE_FONT_OPTIONS.map((f) => (
+                    <option key={f.label} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Layer Text Transform"
+                  value={activeLayerStyle.textTransform || 'none'}
+                  onChange={(e) =>
+                    updateLayerStyle(activeLayerTab, {
+                      textTransform: e.target.value as TitleLayerStyle['textTransform']
+                    })
+                  }
+                  className="bg-black/80 border border-white/10 rounded px-1.5 py-1 text-[9.5px] text-zinc-200 outline-none focus:border-[#F59E0B]"
+                >
+                  <option value="none">As Typed</option>
+                  <option value="uppercase">UPPERCASE</option>
+                  <option value="lowercase">lowercase</option>
+                </select>
+                <div className="flex items-center gap-1 bg-black/80 border border-white/10 rounded px-1.5 py-0.5">
+                  <span className="text-[8px] text-zinc-400">COLOR</span>
+                  <input
+                    type="color"
+                    aria-label="Layer Color"
+                    value={activeLayerStyle.color || '#F5A623'}
+                    onChange={(e) => updateLayerStyle(activeLayerTab, { color: e.target.value })}
+                    className="w-5 h-4 bg-transparent border-0 cursor-pointer ml-auto"
+                  />
+                </div>
+              </div>
+
+              {/* Size, Weight, Tracking, Stroke */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[8.5px] text-zinc-400">
+                <div>
+                  <div className="flex justify-between tabular-nums">
+                    <span>SIZE</span>
+                    <span className="text-[#FFE066]">{Math.round(activeLayerStyle.fontSize ?? 32)}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={10}
+                    max={160}
+                    value={activeLayerStyle.fontSize ?? 32}
+                    onChange={(e) => updateLayerStyle(activeLayerTab, { fontSize: Number(e.target.value) })}
+                    className="w-full accent-[#F5A623] cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between tabular-nums">
+                    <span>WEIGHT</span>
+                    <span className="text-[#FFE066]">{activeLayerStyle.fontWeight ?? 700}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={300}
+                    max={900}
+                    step={100}
+                    value={activeLayerStyle.fontWeight ?? 700}
+                    onChange={(e) => updateLayerStyle(activeLayerTab, { fontWeight: Number(e.target.value) })}
+                    className="w-full accent-[#F5A623] cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between tabular-nums">
+                    <span>TRACKING</span>
+                    <span className="text-[#FFE066]">{(activeLayerStyle.letterSpacing ?? 0.1).toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-0.05}
+                    max={0.5}
+                    step={0.02}
+                    value={activeLayerStyle.letterSpacing ?? 0.1}
+                    onChange={(e) => updateLayerStyle(activeLayerTab, { letterSpacing: Number(e.target.value) })}
+                    className="w-full accent-[#F5A623] cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between tabular-nums">
+                    <span>BLOOM</span>
+                    <span className="text-[#FFE066]">{Math.round((activeLayerStyle.bloomIntensity ?? 0.4) * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    value={activeLayerStyle.bloomIntensity ?? 0.4}
+                    onChange={(e) => updateLayerStyle(activeLayerTab, { bloomIntensity: Number(e.target.value) })}
+                    className="w-full accent-[#F5A623] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-0.5 text-[8.5px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-400">STROKE:</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={6}
+                    step={0.5}
+                    value={activeLayerStyle.strokeWidth ?? 0}
+                    onChange={(e) => updateLayerStyle(activeLayerTab, { strokeWidth: Number(e.target.value) })}
+                    className="w-20 accent-[#F5A623] cursor-pointer"
+                  />
+                  <span className="text-zinc-300 tabular-nums">{activeLayerStyle.strokeWidth ?? 0}px</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateLayerStyle(activeLayerTab, {
+                      plate: {
+                        enabled: !activeLayerStyle.plate?.enabled
+                      }
+                    })
+                  }
+                  className={`px-2 py-0.5 rounded border text-[8px] font-bold uppercase cursor-pointer ${
+                    activeLayerStyle.plate?.enabled
+                      ? 'bg-[#F59E0B]/20 border-[#F59E0B]/60 text-[#F59E0B]'
+                      : 'bg-black/60 border-white/10 text-zinc-400'
+                  }`}
+                >
+                  PLATE {activeLayerStyle.plate?.enabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 bg-black/40 border border-white/10 rounded-lg p-2 text-[9px]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                <label className="space-y-0.5">
+                  <span className="text-[8px] text-zinc-400 uppercase block">IN MOTION</span>
+                  <select
+                    aria-label="In Animation"
+                    value={activeKeyframes.inAnim}
+                    onChange={(e) =>
+                      updateKeyframeConfig({ inAnim: e.target.value as TitleMotionAnimation })
+                    }
+                    className="w-full bg-black/80 border border-white/10 rounded px-1.5 py-1 text-[9.5px] text-amber-300 outline-none focus:border-[#F59E0B]"
+                  >
+                    <option value="slow-cinema-fade">Slow Cinema Fade</option>
+                    <option value="kinetic-slam">Kinetic Slam</option>
+                    <option value="3d-flip">3D Flip</option>
+                    <option value="anamorphic-sweep">Anamorphic Sweep</option>
+                    <option value="glitch-slice">Glitch Slice</option>
+                    <option value="typewriter-telemetry">Typewriter Telemetry</option>
+                    <option value="cinema-credit-crawl">Cinema Credit Crawl</option>
+                    <option value="viral-pop-bounce">Viral Pop Bounce</option>
+                    <option value="subtle-depth-drift">Subtle Depth Drift</option>
+                    <option value="neon-glitch-rgb">Neon Glitch RGB</option>
+                    <option value="chopper-staccato">Chopper Staccato</option>
+                    <option value="lower-third-slide">Lower-Third Slide</option>
+                    <option value="typewriter-hud">Typewriter HUD</option>
+                  </select>
+                </label>
+
+                <label className="space-y-0.5">
+                  <span className="text-[8px] text-zinc-400 uppercase block">MID AMBIENT</span>
+                  <select
+                    aria-label="Mid Loop Animation"
+                    value={activeKeyframes.midAnim}
+                    onChange={(e) =>
+                      updateKeyframeConfig({
+                        midAnim: e.target.value as TitleKeyframeConfig['midAnim']
+                      })
+                    }
+                    className="w-full bg-black/80 border border-white/10 rounded px-1.5 py-1 text-[9.5px] text-zinc-200 outline-none focus:border-[#F59E0B]"
+                  >
+                    <option value="none">Static Hold</option>
+                    <option value="subtle-depth-drift">Subtle Depth Drift</option>
+                    <option value="viral-pop-bounce">Pulse Pop</option>
+                    <option value="cinema-credit-crawl">Credit Crawl</option>
+                    <option value="neon-glitch-rgb">RGB Glitch</option>
+                    <option value="chopper-staccato">Chopper Staccato</option>
+                  </select>
+                </label>
+
+                <label className="space-y-0.5">
+                  <span className="text-[8px] text-zinc-400 uppercase block">OUT EXIT</span>
+                  <select
+                    aria-label="Out Exit Animation"
+                    value={activeKeyframes.outAnim}
+                    onChange={(e) =>
+                      updateKeyframeConfig({
+                        outAnim: e.target.value as TitleKeyframeConfig['outAnim']
+                      })
+                    }
+                    className="w-full bg-black/80 border border-white/10 rounded px-1.5 py-1 text-[9.5px] text-zinc-200 outline-none focus:border-[#F59E0B]"
+                  >
+                    <option value="dissolve-out">Dissolve Out</option>
+                    <option value="slide-out">Slide Out</option>
+                    <option value="glitch-slice">Glitch Cut</option>
+                    <option value="3d-flip">3D Fold Out</option>
+                    <option value="none">Hard Cut</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <div>
+                  <div className="flex justify-between text-[8px] text-zinc-400 tabular-nums">
+                    <span>DURATION</span>
+                    <span className="text-[#FFE066]">{activeKeyframes.durationSec.toFixed(2)}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={2.5}
+                    step={0.05}
+                    value={activeKeyframes.durationSec}
+                    onChange={(e) => updateKeyframeConfig({ durationSec: Number(e.target.value) })}
+                    className="w-full accent-[#F5A623] cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-[8px] text-zinc-400 tabular-nums">
+                    <span>DELAY</span>
+                    <span className="text-[#FFE066]">{activeKeyframes.delaySec.toFixed(2)}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2.0}
+                    step={0.05}
+                    value={activeKeyframes.delaySec}
+                    onChange={(e) => updateKeyframeConfig({ delaySec: Number(e.target.value) })}
+                    className="w-full accent-[#F5A623] cursor-pointer"
+                  />
+                </div>
+                <label className="space-y-0.5">
+                  <span className="text-[8px] text-zinc-400 uppercase block">EASING</span>
+                  <select
+                    aria-label="Keyframe Easing"
+                    value={activeKeyframes.easingCurve}
+                    onChange={(e) =>
+                      updateKeyframeConfig({ easingCurve: e.target.value as TitleEasingCurve })
+                    }
+                    className="w-full bg-black/80 border border-white/10 rounded px-1.5 py-1 text-[9px] text-zinc-200 outline-none"
+                  >
+                    <option value="cubic-out">Cubic Out</option>
+                    <option value="spring-overshoot">Spring Overshoot</option>
+                    <option value="linear-hud">Linear HUD</option>
+                    <option value="whip-slam">Whip Slam</option>
+                  </select>
+                </label>
+                <label className="space-y-0.5">
+                  <span className="text-[8px] text-zinc-400 uppercase block">STAGGER</span>
+                  <select
+                    aria-label="Stagger Mode"
+                    value={activeKeyframes.staggerMode}
+                    onChange={(e) =>
+                      updateKeyframeConfig({ staggerMode: e.target.value as TitleStaggerMode })
+                    }
+                    className="w-full bg-black/80 border border-white/10 rounded px-1.5 py-1 text-[9px] text-zinc-200 outline-none"
+                  >
+                    <option value="block">Block</option>
+                    <option value="word">Word</option>
+                    <option value="char">Char (Bangla Safe)</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Per-Shot Alignment + Copy Style to All Shots */}

@@ -1007,6 +1007,149 @@
   animation: titleSlideFromRight 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes title3dFlip {
+  0% {
+    opacity: 0;
+    transform: perspective(800px) rotateX(-72deg) translateY(16px);
+  }
+  60% {
+    opacity: 1;
+    transform: perspective(800px) rotateX(8deg) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(800px) rotateX(0deg) translateY(0);
+  }
+}
+.animate-title-3d-flip {
+  animation: title3dFlip var(--title-anim-dur, 520ms) var(--title-anim-ease, cubic-bezier(0.16, 1, 0.3, 1)) var(--title-anim-delay, 0ms) both;
+}
+
+@keyframes titleAnamorphicSweep {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translate3d(-18px, 0, 0) scaleX(1.06);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0% 0 0);
+    transform: translate3d(0, 0, 0) scaleX(1);
+  }
+}
+.animate-title-anamorphic-sweep {
+  animation: titleAnamorphicSweep var(--title-anim-dur, 560ms) var(--title-anim-ease, cubic-bezier(0.16, 1, 0.3, 1)) var(--title-anim-delay, 0ms) both;
+}
+
+@keyframes titleGlitchSlice {
+  0% {
+    opacity: 0;
+    clip-path: inset(38% 0 42% 0);
+    transform: translate3d(-14px, 0, 0) skewX(-10deg);
+  }
+  35% {
+    opacity: 1;
+    clip-path: inset(8% 0 14% 0);
+    transform: translate3d(8px, 0, 0) skewX(5deg);
+  }
+  70% {
+    clip-path: inset(2% 0 2% 0);
+    transform: translate3d(-3px, 0, 0) skewX(-2deg);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0) skewX(0deg);
+  }
+}
+.animate-title-glitch-slice {
+  animation: titleGlitchSlice var(--title-anim-dur, 440ms) steps(6, end) var(--title-anim-delay, 0ms) both;
+}
+
+@keyframes titleTypewriterTelemetry {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0% 0 0);
+  }
+}
+.animate-title-typewriter-telemetry {
+  animation: titleTypewriterTelemetry var(--title-anim-dur, 620ms) steps(22, end) var(--title-anim-delay, 0ms) both;
+}
+
+@keyframes titleCinemaCreditCrawl {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.animate-title-cinema-credit-crawl {
+  animation: titleCinemaCreditCrawl var(--title-anim-dur, 900ms) linear var(--title-anim-delay, 0ms) both;
+}
+
+@keyframes titleViralPopBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.62) translateY(8px);
+  }
+  58% {
+    opacity: 1;
+    transform: scale(1.09) translateY(-3px);
+  }
+  80% {
+    transform: scale(0.97) translateY(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.animate-title-viral-pop-bounce {
+  animation: titleViralPopBounce var(--title-anim-dur, 420ms) cubic-bezier(0.34, 1.56, 0.64, 1) var(--title-anim-delay, 0ms) both;
+}
+
+@keyframes titleSubtleDepthDrift {
+  0% {
+    opacity: 0;
+    transform: perspective(900px) translateZ(-24px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(900px) translateZ(0px) scale(1);
+  }
+}
+.animate-title-subtle-depth-drift {
+  animation: titleSubtleDepthDrift var(--title-anim-dur, 850ms) cubic-bezier(0.16, 1, 0.3, 1) var(--title-anim-delay, 0ms) both;
+}
+
+@keyframes titleStaggerWordIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+.animate-title-stagger-unit {
+  display: inline-block;
+  animation: titleStaggerWordIn 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-title-kinetic-slam,
   .animate-title-typewriter-hud,
@@ -1017,6 +1160,14 @@
   .animate-title-slide-left,
   .animate-title-center-bloom,
   .animate-title-slide-right,
+  .animate-title-3d-flip,
+  .animate-title-anamorphic-sweep,
+  .animate-title-glitch-slice,
+  .animate-title-typewriter-telemetry,
+  .animate-title-cinema-credit-crawl,
+  .animate-title-viral-pop-bounce,
+  .animate-title-subtle-depth-drift,
+  .animate-title-stagger-unit,
   .animate-title-reveal-in,
   .animate-title-exit-dissolve,
   .title-morph-smooth {

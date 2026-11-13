@@ -43,11 +43,12 @@ import {
 } from './handfilmMediaVault';
 import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
-import { AnthologyFrame, DopamineShotConfig, FrameAdjustments, LutPreset, ShotCaption, SmartCropMode, SpeedRampPreset } from '../types/anthology';
+import { AnthologyFrame, DopamineShotConfig, FrameAdjustments, LutPreset, ShotCaption, ShotLightConfig, SmartCropMode, SpeedRampPreset } from '../types/anthology';
 import type { ShotTitleData, TitlePresetConfig } from '../types/titlePreset';
 import { buildTitlePresetConfigById, resolveShotTitleData, resolveShotTitlePresetConfig } from '../constants/titleTemplates';
 import { renderTitlePresetToCanvas } from './titleCanvasRenderer';
 import { resolveSpatialTitleChoreography } from './titleChoreographyEngine';
+import { renderShotLightConfigToCanvas } from './lightingRelightingService';
 import { renderCanvasBurnInCaption } from './captionEngine';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from './thumbnailEngine';
 import {
@@ -911,6 +912,8 @@ export interface FrameCompositeProps {
   flashCutEnabled?: boolean;
   flashCutIntervalSec?: number;
   beatDropEnabled?: boolean;
+  lightId?: string | null;
+  lightConfig?: ShotLightConfig | null;
 }
 
 export function compositeCinemaFrame(props: FrameCompositeProps): void {
@@ -1087,6 +1090,10 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
 
   applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
 
+  if (props.lightConfig || props.lightId) {
+    renderShotLightConfigToCanvas(ctx, width, height, props.lightConfig, props.lightId, currentLocalSec * 1000);
+  }
+
   // 2a. Beat-Drop Chromatic Aberration & 2-Frame Vantablack Flash Cut FX
   const beatFx = evaluateBeatDropFx(
     { flashCutEnabled, flashCutIntervalSec, beatDropEnabled },
@@ -1224,15 +1231,20 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
         width,
         height,
         {
+          eyebrowText: resolvedTitleData.eyebrowText,
           banglaTitle: resolvedTitleData.banglaTitle || titleBn,
           englishTitle: resolvedTitleData.englishSubtitle || titleEn,
           dialogue: resolvedTitleData.captionNote || tagline || '24.0 FPS RAW • MASTER CINE PROJECTION',
+          creditsText: resolvedTitleData.creditsText,
           cameraInfo,
           effectiveAlign: spatial.effectiveAlign,
           zone9: spatial.zone9,
           kineticEntrance: resolvedTitleData.kineticEntrance ?? spatial.kineticEntrance,
           opacity: titleFade,
-          beatSlamScale: beatFx.beatSlamScale
+          beatSlamScale: beatFx.beatSlamScale,
+          durationSec: totalFramesInShot / Math.max(1, fps),
+          layers: resolvedTitleData.layers,
+          keyframes: resolvedTitleData.keyframes
         },
         finalPresetConfig,
         currentLocalSec
@@ -1391,14 +1403,19 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
             width,
             height,
             {
+              eyebrowText: resolvedTitleData.eyebrowText,
               banglaTitle: resolvedTitleData.banglaTitle || titleBn,
               englishTitle: resolvedTitleData.englishSubtitle || titleEn,
               dialogue: resolvedTitleData.captionNote || tagline,
+              creditsText: resolvedTitleData.creditsText,
               cameraInfo: props.cameraInfo,
               effectiveAlign: spatial.effectiveAlign,
               zone9: spatial.zone9,
               kineticEntrance: resolvedTitleData.kineticEntrance ?? spatial.kineticEntrance,
-              opacity: 1.0
+              opacity: 1.0,
+              durationSec: props.totalFramesInShot / Math.max(1, fps),
+              layers: resolvedTitleData.layers,
+              keyframes: resolvedTitleData.keyframes
             },
             fallbackStyleConfig,
             currentLocalSec
@@ -1479,6 +1496,90 @@ export function synthesizeAmbientAudioBuffer(
 }
 
 /**
+ * Builds final export AudioBuffer combining the ambient cinema bed with per-shot
+ * recorded/AI Voiceover (`voAudioUrl`), Foley/SFX (`sfxAudioUrl`), and custom shot stems,
+ * including `-12dB` bed ducking during VO segments and audio reversal for `isReversed` shots.
+ */
+async function buildExportMasterAudioBuffer(
+  durationSec: number,
+  sampleRate: number,
+  shotIndices: number[],
+  shotBoundaryTimesSec: number[],
+  perShotDurationsSec: number[],
+  slides: any[],
+  frames: any[]
+): Promise<AudioBuffer> {
+  const masterBuffer = synthesizeAmbientAudioBuffer(durationSec, sampleRate, shotBoundaryTimesSec);
+  const storeShots = useStudioStore.getState().project?.shots || [];
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtx) return masterBuffer;
+
+  const masterL = masterBuffer.getChannelData(0);
+  const masterR = masterBuffer.getChannelData(1);
+  const decodeCtx = new AudioCtx({ sampleRate });
+
+  const decodeAudioUrl = async (url: string): Promise<AudioBuffer | null> => {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return null;
+      const ab = await resp.arrayBuffer();
+      return await decodeCtx.decodeAudioData(ab);
+    } catch {
+      return null;
+    }
+  };
+
+  try {
+    for (let i = 0; i < shotIndices.length; i++) {
+      const shotIdx = shotIndices[i];
+      const slide = slides[shotIdx];
+      const frame = frames[shotIdx];
+      const storeShot = storeShots[shotIdx];
+      const shotStartSec = shotBoundaryTimesSec[i] ?? 0;
+      const shotDurSec = perShotDurationsSec[i] ?? 12;
+      const startSample = Math.max(0, Math.floor(shotStartSec * sampleRate));
+      const maxShotSamples = Math.max(1, Math.floor(shotDurSec * sampleRate));
+      const endSample = Math.min(masterBuffer.length, startSample + maxShotSamples);
+
+      const voUrl = slide?.voAudioUrl ?? frame?.voAudioUrl ?? storeShot?.voAudioUrl;
+      const sfxUrl = slide?.sfxAudioUrl ?? frame?.sfxAudioUrl ?? storeShot?.sfxAudioUrl;
+      const musicUrl = slide?.audioUrl ?? frame?.audioUrl ?? storeShot?.audioUrl;
+      const isRev = Boolean(slide?.isReversed ?? frame?.isReversed ?? storeShot?.isReversed);
+
+      // Duck ambient bed by -12dB (~0.25x) whenever this shot carries VO
+      if (voUrl) {
+        for (let s = startSample; s < endSample; s++) {
+          masterL[s] *= 0.25;
+          masterR[s] *= 0.25;
+        }
+      }
+
+      const mixStem = async (url: string, gain: number, allowReverse: boolean) => {
+        const decoded = await decodeAudioUrl(url);
+        if (!decoded) return;
+        const srcL = decoded.getChannelData(0);
+        const srcR = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : srcL;
+        const copyCount = Math.min(srcL.length, endSample - startSample);
+        for (let k = 0; k < copyCount; k++) {
+          const srcIdx = allowReverse ? copyCount - 1 - k : k;
+          const outIdx = startSample + k;
+          masterL[outIdx] = Math.max(-0.98, Math.min(0.98, masterL[outIdx] + srcL[srcIdx] * gain));
+          masterR[outIdx] = Math.max(-0.98, Math.min(0.98, masterR[outIdx] + srcR[srcIdx] * gain));
+        }
+      };
+
+      if (musicUrl) await mixStem(musicUrl, 0.72, isRev);
+      if (sfxUrl) await mixStem(sfxUrl, 0.85, isRev);
+      if (voUrl) await mixStem(voUrl, 1.0, false);
+    }
+  } finally {
+    await decodeCtx.close().catch(() => {});
+  }
+
+  return masterBuffer;
+}
+
+/**
  * Resolves flexible shot duration in seconds for WebCodecs rendering (0.25s to 1800.0s).
  */
 function resolveExportShotDurationSec(slide: any, frame: any): number {
@@ -1497,16 +1598,19 @@ function resolveExportShotDurationSec(slide: any, frame: any): number {
 }
 
 /**
- * Resolves exact source <video> seek timestamp accounting for NLE inPointMs, playbackSpeed, and Velocity Speed-Ramp curves.
+ * Resolves exact source <video> seek timestamp accounting for NLE inPointMs, playbackSpeed,
+ * Velocity Speed-Ramp curves, and non-destructive `isReversed` clip playback.
  */
 function resolveExportVideoSeekSec(
   slide: any,
   frame: any,
   frameInShot: number,
   fps: number,
-  vidDuration: number
+  vidDuration: number,
+  storeIsReversed?: boolean
 ): number {
   if (!(vidDuration > 0)) return 0;
+  const shotDur = resolveExportShotDurationSec(slide, frame);
   const merged = {
     ...frame,
     ...slide,
@@ -1514,9 +1618,12 @@ function resolveExportVideoSeekSec(
     outPointMs: slide?.outPointMs ?? frame?.outPointMs,
     playbackSpeed: slide?.playbackSpeed ?? frame?.playbackSpeed,
     speedRampPreset: slide?.speedRampPreset ?? frame?.speedRampPreset,
-    durationSec: resolveExportShotDurationSec(slide, frame)
+    durationSec: shotDur
   };
-  const sourceSec = evaluateSpeedRampSourceTime(merged, frameInShot / Math.max(1, fps));
+  const localSec = frameInShot / Math.max(1, fps);
+  const isReversed = Boolean(storeIsReversed ?? slide?.isReversed ?? frame?.isReversed);
+  const evalLocalSec = isReversed ? Math.max(0, shotDur - localSec) : localSec;
+  const sourceSec = evaluateSpeedRampSourceTime(merged, evalLocalSec);
   return sourceSec >= vidDuration ? sourceSec % vidDuration : Math.max(0, sourceSec);
 }
 
@@ -1924,7 +2031,15 @@ async function exportCinemaMasterWithMediaRecorder(
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContextClass) {
         audioContext = new AudioContextClass({ sampleRate: 48000 });
-        const audioBuffer = synthesizeAmbientAudioBuffer(totalExportDurationSec, 48000, shotBoundaryTimesSec);
+        const audioBuffer = await buildExportMasterAudioBuffer(
+          totalExportDurationSec,
+          48000,
+          shotIndices,
+          shotBoundaryTimesSec,
+          perShotDurationsSec,
+          slides,
+          frames
+        );
         const dest = audioContext.createMediaStreamDestination();
         audioSourceNode = audioContext.createBufferSource();
         audioSourceNode.buffer = audioBuffer;
@@ -2035,17 +2150,24 @@ async function exportCinemaMasterWithMediaRecorder(
             return reject(new Error('Export cancelled by user.'));
           }
 
+          const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
           let verifiedSource: HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement | null = activeBitmap;
           if (activeVideoElement) {
             await waitForVideoLoadedData(activeVideoElement, 1200);
             const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
               ? activeVideoElement.duration
               : shotDurationSec;
-            const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
+            const targetVideoSec = resolveExportVideoSeekSec(
+              slide,
+              frame,
+              f,
+              fps,
+              vidDuration,
+              storeShot?.isReversed
+            );
             verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
           }
 
-          const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
           const frameProps: FrameCompositeProps = {
             ctx,
             width,
@@ -2079,7 +2201,9 @@ async function exportCinemaMasterWithMediaRecorder(
             smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode,
             flashCutEnabled: slide?.flashCutEnabled ?? frame?.flashCutEnabled,
             flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
-            beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled
+            beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled,
+            lightId: frame?.lightId ?? slide?.lightId ?? storeShot?.lightId,
+            lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig
           };
           compositeCinemaFrame(frameProps);
           ensureNonBlankCanvasFrame(frameProps);
@@ -2282,7 +2406,15 @@ async function exportWithWebCodecs(
 
   if (shouldMuxAudio) {
     try {
-      audioBuffer = synthesizeAmbientAudioBuffer(totalExportDurationSec, 48000, shotBoundaryTimesSec);
+      audioBuffer = await buildExportMasterAudioBuffer(
+        totalExportDurationSec,
+        48000,
+        shotIndices,
+        shotBoundaryTimesSec,
+        perShotDurationsSec,
+        slides,
+        frames
+      );
       muxer = new Muxer({
         target,
         video: {
@@ -2417,17 +2549,24 @@ async function exportWithWebCodecs(
         throw encoderError;
       }
 
+      const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
       let verifiedSource: HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement | null = activeBitmap;
       if (activeVideoElement) {
         await waitForVideoLoadedData(activeVideoElement, 1200);
         const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
           ? activeVideoElement.duration
           : shotDurationSec;
-        const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
+        const targetVideoSec = resolveExportVideoSeekSec(
+          slide,
+          frame,
+          f,
+          fps,
+          vidDuration,
+          storeShot?.isReversed
+        );
         verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
       }
 
-      const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
       const frameProps: FrameCompositeProps = {
         ctx,
         width,
@@ -2461,7 +2600,9 @@ async function exportWithWebCodecs(
         smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode,
         flashCutEnabled: slide?.flashCutEnabled ?? frame?.flashCutEnabled,
         flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
-        beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled
+        beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled,
+        lightId: frame?.lightId ?? slide?.lightId ?? storeShot?.lightId,
+        lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig
       };
       compositeCinemaFrame(frameProps);
       ensureNonBlankCanvasFrame(frameProps);

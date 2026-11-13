@@ -11,7 +11,9 @@ export type TitlePresetCategory =
   | 'CINEMATIC'
   | 'RAP'
   | 'DOCU'
-  | 'RETRO';
+  | 'RETRO'
+  | 'VIRAL_HOOKS'
+  | 'END_CREDITS';
 
 export type TitleLayoutMode =
   | 'center-hero'
@@ -27,7 +29,66 @@ export type TitleMotionAnimation =
   | 'neon-glitch-rgb'
   | 'slow-cinema-fade'
   | 'chopper-staccato'
-  | 'lower-third-slide';
+  | 'lower-third-slide'
+  | '3d-flip'
+  | 'anamorphic-sweep'
+  | 'glitch-slice'
+  | 'typewriter-telemetry'
+  | 'cinema-credit-crawl'
+  | 'viral-pop-bounce'
+  | 'subtle-depth-drift';
+
+export type TitleEasingCurve =
+  | 'cubic-out'
+  | 'spring-overshoot'
+  | 'linear-hud'
+  | 'whip-slam';
+
+export type TitleStaggerMode = 'block' | 'word' | 'char';
+
+export type TitleLayerKey = 'bangla' | 'english' | 'subtitle' | 'eyebrow' | 'credits';
+
+export interface TitleLayerPlateStyle {
+  enabled?: boolean;
+  background?: string;
+  border?: string;
+  borderRadius?: number;
+  backdropBlur?: number;
+  padding?: string;
+}
+
+export interface TitleLayerStyle {
+  enabled?: boolean;
+  fontFamily?: string;
+  fontWeight?: number;
+  fontSize?: number; // 10 to 160 px
+  lineHeight?: number;
+  letterSpacing?: number; // em
+  textTransform?: 'none' | 'uppercase' | 'lowercase';
+  color?: string;
+  gradientStops?: [string, string, string];
+  strokeWidth?: number;
+  strokeColor?: string;
+  dropShadow?: string;
+  bloomIntensity?: number;
+  plate?: TitleLayerPlateStyle;
+}
+
+export interface TitleKeyframeConfig {
+  inAnim: TitleMotionAnimation;
+  midAnim:
+    | 'none'
+    | 'subtle-depth-drift'
+    | 'viral-pop-bounce'
+    | 'cinema-credit-crawl'
+    | 'chopper-staccato'
+    | 'neon-glitch-rgb';
+  outAnim: 'dissolve-out' | 'slide-out' | 'glitch-slice' | '3d-flip' | 'none';
+  durationSec: number; // 0.1 to 2.5
+  delaySec: number; // 0.0 to 2.0
+  easingCurve: TitleEasingCurve;
+  staggerMode: TitleStaggerMode;
+}
 
 export interface TitleBackdropPlate {
   enabled: boolean;
@@ -36,6 +97,7 @@ export interface TitleBackdropPlate {
   backdropBlur: number;
   padding: string;
   accentBarColor?: string;
+  borderRadius?: number;
 }
 
 export interface TitlePresetConfig {
@@ -56,9 +118,11 @@ export interface TitlePresetConfig {
   motionAnimation: TitleMotionAnimation;
   chromaticAberration: number; // 0 to 100
   letterTracking: number; // 0.0 to 0.60 em
-  fontScale: number; // 24 to 140 px
+  fontScale: number; // 24 to 160 px
   verticalOffset: number; // -200 to +200 px
   uppercase?: boolean;
+  layers?: Partial<Record<TitleLayerKey, TitleLayerStyle>>;
+  keyframes?: Partial<TitleKeyframeConfig>;
 }
 
 export type ShotTitleAlignment = 'LEFT' | 'MID' | 'RIGHT' | 'AUTO';
@@ -85,6 +149,8 @@ export interface ShotTitleData {
   banglaTitle: string;
   englishSubtitle: string;
   captionNote?: string;
+  eyebrowText?: string;
+  creditsText?: string;
   alignment: ShotTitleAlignment;
   zone9?: TitleZone9 | 'AUTO';
   kineticEntrance?: TitleKineticEntrance;
@@ -93,8 +159,8 @@ export interface ShotTitleData {
   letterTracking: number;
   verticalOffset: number;
   entranceAnim?: TitleMotionAnimation | string;
-  exitAnim?: 'dissolve-out' | 'slide-out' | 'none';
+  exitAnim?: 'dissolve-out' | 'slide-out' | 'glitch-slice' | '3d-flip' | 'none';
+  layers?: Partial<Record<TitleLayerKey, TitleLayerStyle>>;
+  keyframes?: Partial<TitleKeyframeConfig>;
   styleConfig?: TitlePresetConfig;
 }
-
-

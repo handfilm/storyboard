@@ -982,6 +982,228 @@ app.post('/api/ai/music/generate', async (req, res) => {
   }
 });
 
+// 4B. Gemini Neural Voiceover TTS (Unary WAV generation)
+app.post('/api/ai/audio/tts', async (req, res) => {
+  try {
+    if (!getConfiguredGeminiKey(req)) {
+      return res.status(401).json({
+        success: false,
+        code: 'KEY_REQUIRED',
+        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+      });
+    }
+
+    const { text, voiceName = 'Kore', style = 'cinema-narrator' } = req.body || {};
+    const cleanText = String(text || '').trim();
+    if (!cleanText) {
+      return res.status(400).json({ success: false, error: 'Narration text prompt is required for TTS synthesis.' });
+    }
+
+    const allowedVoices = new Set(['Kore', 'Puck', 'Fenrir', 'Zephyr', 'Aoede']);
+    const safeVoice = allowedVoices.has(String(voiceName)) ? String(voiceName) : 'Kore';
+
+    const stylePrefixMap: Record<string, string> = {
+      'cinema-narrator': 'Deliver in a deep, measured theatrical narrator cadence:',
+      'bangla-poetic': 'Deliver gently with expressive poetic intonation:',
+      'hype-trailer': 'Deliver with punchy high-energy cinema trailer intensity:',
+      'whisper': 'Deliver in a close, intimate cinematic whisper:'
+    };
+    const styleDirective = stylePrefixMap[String(style)] || '';
+    const promptInput = styleDirective ? `${styleDirective} ${cleanText}` : cleanText;
+
+    const ai = getAiClient(req);
+    const ttsModels = ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts'];
+    let audioBase64 = '';
+    let mimeType = 'audio/wav';
+    let usedModel = ttsModels[0];
+    let lastError: any = null;
+
+    for (const candidateModel of ttsModels) {
+      try {
+        const response = await ai.models.generateContent({
+          model: candidateModel,
+          contents: [{ role: 'user', parts: [{ text: promptInput }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: safeVoice }
+              }
+            }
+          }
+        });
+        const parts = response?.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+          if (part.inlineData?.data) {
+            audioBase64 = part.inlineData.data;
+            mimeType = part.inlineData.mimeType || 'audio/wav';
+            usedModel = candidateModel;
+            break;
+          }
+        }
+        if (audioBase64) break;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (!audioBase64) {
+      if (lastError) {
+        const parsed = parseGeminiHttpError(lastError, 'Gemini TTS synthesis failed', req);
+        return res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
+      }
+      return res.status(500).json({ success: false, error: 'TTS model returned empty audio payload.' });
+    }
+
+    // Gemini unary TTS already includes a valid 44-byte RIFF WAV header
+    const audioDataUrl = `data:${mimeType};base64,${audioBase64}`;
+    res.json({ success: true, audioDataUrl, voiceName: safeVoice, model: usedModel });
+  } catch (error: any) {
+    console.error('Gemini TTS error:', error);
+    const parsed = parseGeminiHttpError(error, 'Gemini TTS synthesis failed', req);
+    res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
+  }
+});
+
+// 4C. Gemini AI Foley & Soundscape Recipe Generator
+function buildDeterministicFoleyRecipeServer(promptText: string, durationSec: number) {
+  const lower = promptText.toLowerCase();
+  const safeDur = Math.max(0.8, Math.min(12.0, Number(durationSec) || 4.0));
+  if (/rain|storm|water|asphalt|wind|ambien/.test(lower)) {
+    return {
+      name: 'Atmospheric Rain & Street Wash',
+      oscType: 'sine',
+      baseFreqHz: 95,
+      endFreqHz: 68,
+      noiseMix: 0.78,
+      filterCutoffHz: 2200,
+      pulseRateHz: 1.5,
+      durationSec: safeDur,
+      reverbMix: 0.45,
+      gain: 0.65
+    };
+  }
+  if (/boom|drop|sub|bass|impact|hit|slam|explosion/.test(lower)) {
+    return {
+      name: 'Anamorphic Sub-Bass Impact',
+      oscType: 'sine',
+      baseFreqHz: 130,
+      endFreqHz: 34,
+      noiseMix: 0.18,
+      filterCutoffHz: 480,
+      pulseRateHz: 0.4,
+      durationSec: Math.min(safeDur, 3.2),
+      reverbMix: 0.35,
+      gain: 0.85
+    };
+  }
+  if (/projector|film|reel|tape|35mm|hum|mechanical/.test(lower)) {
+    return {
+      name: '35mm Optical Projector Cadence',
+      oscType: 'triangle',
+      baseFreqHz: 60,
+      endFreqHz: 58,
+      noiseMix: 0.25,
+      filterCutoffHz: 1400,
+      pulseRateHz: 24,
+      durationSec: safeDur,
+      reverbMix: 0.2,
+      gain: 0.6
+    };
+  }
+  if (/cyber|synth|pulse|neon|tension|thriller|sci/.test(lower)) {
+    return {
+      name: 'Cyberpunk Tension Pulse',
+      oscType: 'sawtooth',
+      baseFreqHz: 73.4,
+      endFreqHz: 110,
+      noiseMix: 0.12,
+      filterCutoffHz: 950,
+      pulseRateHz: 4.5,
+      durationSec: safeDur,
+      reverbMix: 0.4,
+      gain: 0.7
+    };
+  }
+  return {
+    name: 'Custom Cinema Soundscape',
+    oscType: 'triangle',
+    baseFreqHz: 82.4,
+    endFreqHz: 55,
+    noiseMix: 0.3,
+    filterCutoffHz: 1100,
+    pulseRateHz: 2.0,
+    durationSec: safeDur,
+    reverbMix: 0.3,
+    gain: 0.7
+  };
+}
+
+app.post('/api/ai/audio/foley-design', async (req, res) => {
+  const { prompt = '', durationSec = 4.0 } = req.body || {};
+  const cleanPrompt = String(prompt || '').trim();
+  if (!cleanPrompt) {
+    return res.status(400).json({ success: false, error: 'Prompt is required for Foley sound design.' });
+  }
+
+  const fallbackRecipe = buildDeterministicFoleyRecipeServer(cleanPrompt, Number(durationSec) || 4.0);
+  if (!getConfiguredGeminiKey(req)) {
+    return res.json({ success: true, recipe: fallbackRecipe, source: 'offline-dsp' });
+  }
+
+  try {
+    const ai = getAiClient(req);
+    const systemPrompt = `Design a Web Audio synthesizer Foley soundscape recipe for the cinematic prompt: "${cleanPrompt}".
+Return a strict JSON object with these exact keys and numeric ranges:
+{
+  "name": short string title (2-5 words),
+  "oscType": one of "sine" | "triangle" | "sawtooth" | "square",
+  "baseFreqHz": number (28 to 1200),
+  "endFreqHz": number (28 to 1200),
+  "noiseMix": number (0.0 to 1.0),
+  "filterCutoffHz": number (180 to 8000),
+  "pulseRateHz": number (0.2 to 24.0),
+  "durationSec": number (0.8 to 10.0),
+  "reverbMix": number (0.0 to 0.8),
+  "gain": number (0.25 to 0.9)
+}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: systemPrompt,
+      config: { responseMimeType: 'application/json' }
+    });
+    const text = response?.text || '';
+    const parsed = JSON.parse(text);
+    const validOsc = ['sine', 'triangle', 'sawtooth', 'square'].includes(parsed?.oscType)
+      ? parsed.oscType
+      : fallbackRecipe.oscType;
+
+    const clamp = (v: unknown, min: number, max: number, d: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d;
+    };
+
+    const recipe = {
+      name: typeof parsed?.name === 'string' && parsed.name.trim() ? parsed.name.trim().slice(0, 48) : fallbackRecipe.name,
+      oscType: validOsc,
+      baseFreqHz: clamp(parsed?.baseFreqHz, 28, 1200, fallbackRecipe.baseFreqHz),
+      endFreqHz: clamp(parsed?.endFreqHz, 28, 1200, fallbackRecipe.endFreqHz),
+      noiseMix: clamp(parsed?.noiseMix, 0, 1, fallbackRecipe.noiseMix),
+      filterCutoffHz: clamp(parsed?.filterCutoffHz, 180, 8000, fallbackRecipe.filterCutoffHz),
+      pulseRateHz: clamp(parsed?.pulseRateHz, 0.2, 24, fallbackRecipe.pulseRateHz),
+      durationSec: clamp(parsed?.durationSec, 0.8, 10, fallbackRecipe.durationSec),
+      reverbMix: clamp(parsed?.reverbMix, 0, 0.8, fallbackRecipe.reverbMix),
+      gain: clamp(parsed?.gain, 0.25, 0.9, fallbackRecipe.gain)
+    };
+
+    res.json({ success: true, recipe, source: 'gemini-3.8-flash' });
+  } catch (err) {
+    console.warn('[foley-design] Falling back to offline recipe:', (err as any)?.message);
+    res.json({ success: true, recipe: fallbackRecipe, source: 'offline-dsp' });
+  }
+});
+
 // Local File HTTP 206 Partial Content Byte-Range Streamer + LRU 1MB RAM Block Cache (VLC-grade 4K seeking)
 const localVideoRangeHandler = createLocalVideoRangeMiddleware({
   maxCacheBytes: 192 * 1024 * 1024,

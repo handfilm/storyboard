@@ -14,6 +14,7 @@ import { depthOcclusionService, DepthLayerMode } from '../services/depthOcclusio
 import { AudioPunchMode } from '../services/transientPunchEngine';
 import { AutonomousKineticPreset } from '../services/kineticTypographyStyles';
 import type { ShotMediaEntry, ShotMediaMap } from '../services/handfilmMediaVault';
+import type { ShotLightConfig } from '../types/anthology';
 import type {
   TitlePresetConfig,
   ShotTitleData,
@@ -91,6 +92,8 @@ export interface DigitalZoomState {
   translateY: number;
   isZoomed: boolean;
 }
+
+export type StageViewportScale = 0.5 | 0.75 | 1.0 | 'fit';
 
 export type HeroTitlePreset = 'molten-gold' | 'titanium-silver' | 'neon-crimson';
 export type TitleAlign = 'LEFT' | 'MID' | 'RIGHT' | 'AUTO';
@@ -232,8 +235,19 @@ export interface StudioState {
   foregroundZoom: number;
   backgroundZoom: number;
   isVertigoLinked: boolean;
-  stageScale: 0.7 | 1.0;
-  setStageScale: (scale: 0.7 | 1.0) => void;
+  stageScale: StageViewportScale;
+  setStageScale: (scale: StageViewportScale) => void;
+  monitorGuidesVisible: boolean;
+  setMonitorGuidesVisible: (visible: boolean) => void;
+  toggleMonitorGuides: () => void;
+  monitorFocusPeaking: boolean;
+  toggleMonitorFocusPeaking: () => void;
+  monitorZebraExposure: boolean;
+  toggleMonitorZebraExposure: () => void;
+  monitorSplitCompare: boolean;
+  toggleMonitorSplitCompare: () => void;
+  monitorSplitPosition: number;
+  setMonitorSplitPosition: (pct: number) => void;
   digitalZoom: DigitalZoomState;
   setDigitalZoom: (zoom: Partial<DigitalZoomState>) => void;
   resetDigitalZoom: () => void;
@@ -290,6 +304,8 @@ export interface StudioState {
   toggleAudio: () => void;
   setAudioVolume: (vol: number) => void;
   updateShot: (index: number, partial: Partial<Shot>) => void;
+  toggleShotReverse: (shotIndex?: number) => void;
+  setShotLightConfig: (shotIndex: number, lightConfig: ShotLightConfig, lightId?: string | null) => void;
   setShots: (shots: Shot[]) => void;
   deleteShots: (indicesToRemove: number[]) => void;
   addShot: (shot: Partial<Shot>) => void;
@@ -393,6 +409,7 @@ export function createDefaultStoreShots(): Shot[] {
     tags: bf.tags,
     activeLens: '50mm f/1.4 Human Eye',
     dof: '1.8cm',
+    isReversed: false,
     titleData: createDefaultShotTitleData(bf, i),
     updatedAt: Date.now()
   }));
@@ -471,10 +488,45 @@ export const useStudioStore = create<StudioState>()(
     foregroundZoom: 1.0,
     backgroundZoom: 1.0,
     isVertigoLinked: false,
-    stageScale: 1.0,
-    setStageScale: (scale: 0.7 | 1.0) => {
+    stageScale: 'fit',
+    setStageScale: (scale: StageViewportScale) => {
       set((state) => {
         state.stageScale = scale;
+      });
+    },
+    monitorGuidesVisible: false,
+    setMonitorGuidesVisible: (visible: boolean) => {
+      set((state) => {
+        state.monitorGuidesVisible = Boolean(visible);
+      });
+    },
+    toggleMonitorGuides: () => {
+      set((state) => {
+        state.monitorGuidesVisible = !state.monitorGuidesVisible;
+      });
+    },
+    monitorFocusPeaking: false,
+    toggleMonitorFocusPeaking: () => {
+      set((state) => {
+        state.monitorFocusPeaking = !state.monitorFocusPeaking;
+      });
+    },
+    monitorZebraExposure: false,
+    toggleMonitorZebraExposure: () => {
+      set((state) => {
+        state.monitorZebraExposure = !state.monitorZebraExposure;
+      });
+    },
+    monitorSplitCompare: false,
+    toggleMonitorSplitCompare: () => {
+      set((state) => {
+        state.monitorSplitCompare = !state.monitorSplitCompare;
+      });
+    },
+    monitorSplitPosition: 50,
+    setMonitorSplitPosition: (pct: number) => {
+      set((state) => {
+        state.monitorSplitPosition = Math.max(5, Math.min(95, Number.isFinite(pct) ? pct : 50));
       });
     },
     digitalZoom: {
@@ -1393,6 +1445,46 @@ export const useStudioStore = create<StudioState>()(
         }
       });
       eventBus.emit('shot:updated', { index, partial });
+    },
+
+    toggleShotReverse: (shotIndex?: number) => {
+      const targetIndex = typeof shotIndex === 'number' ? shotIndex : get().activeShotIndex;
+      let nextReversed = false;
+      set((state) => {
+        if (!state.project.shots || state.project.shots.length === 0) {
+          state.project.shots = createDefaultStoreShots();
+        }
+        const shot = state.project.shots[targetIndex];
+        if (shot) {
+          nextReversed = !Boolean(shot.isReversed);
+          shot.isReversed = nextReversed;
+          shot.updatedAt = Date.now();
+        }
+      });
+      eventBus.emit('shot:updated', { index: targetIndex, partial: { isReversed: nextReversed } });
+    },
+
+    setShotLightConfig: (shotIndex: number, lightConfig: ShotLightConfig, lightId?: string | null) => {
+      set((state) => {
+        if (!state.project.shots || state.project.shots.length === 0) {
+          state.project.shots = createDefaultStoreShots();
+        }
+        const shot = state.project.shots[shotIndex];
+        if (shot) {
+          shot.lightConfig = { ...lightConfig };
+          if (lightId !== undefined) {
+            shot.lightId = lightId;
+          }
+          shot.updatedAt = Date.now();
+        }
+      });
+      eventBus.emit('shot:updated', {
+        index: shotIndex,
+        partial: {
+          lightConfig,
+          ...(lightId !== undefined ? { lightId } : {})
+        }
+      });
     },
 
     addShot: (partial: Partial<Shot>) => {

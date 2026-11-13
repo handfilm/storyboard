@@ -65,13 +65,107 @@ export const TitleBackdropPlateSchema = z.object({
   border: z.string().default('none'),
   backdropBlur: z.number().default(0),
   padding: z.string().default('0px'),
-  accentBarColor: z.string().optional()
+  accentBarColor: z.string().optional(),
+  borderRadius: z.number().optional()
+});
+
+export const TitleMotionAnimationEnum = z.enum([
+  'kinetic-slam',
+  'typewriter-hud',
+  'neon-glitch-rgb',
+  'slow-cinema-fade',
+  'chopper-staccato',
+  'lower-third-slide',
+  '3d-flip',
+  'anamorphic-sweep',
+  'glitch-slice',
+  'typewriter-telemetry',
+  'cinema-credit-crawl',
+  'viral-pop-bounce',
+  'subtle-depth-drift'
+]);
+
+export const TitleLayerStyleSchema = z.object({
+  enabled: z.boolean().optional(),
+  fontFamily: z.string().optional(),
+  fontWeight: z.number().optional(),
+  fontSize: z.number().optional(),
+  lineHeight: z.number().optional(),
+  letterSpacing: z.number().optional(),
+  textTransform: z.enum(['none', 'uppercase', 'lowercase']).optional(),
+  color: z.string().optional(),
+  gradientStops: z.tuple([z.string(), z.string(), z.string()]).optional(),
+  strokeWidth: z.number().optional(),
+  strokeColor: z.string().optional(),
+  dropShadow: z.string().optional(),
+  bloomIntensity: z.number().optional(),
+  plate: z
+    .object({
+      enabled: z.boolean().optional(),
+      background: z.string().optional(),
+      border: z.string().optional(),
+      borderRadius: z.number().optional(),
+      backdropBlur: z.number().optional(),
+      padding: z.string().optional()
+    })
+    .optional()
+});
+
+export const TitleKeyframeConfigSchema = z.object({
+  inAnim: TitleMotionAnimationEnum.optional(),
+  midAnim: z
+    .enum([
+      'none',
+      'subtle-depth-drift',
+      'viral-pop-bounce',
+      'cinema-credit-crawl',
+      'chopper-staccato',
+      'neon-glitch-rgb'
+    ])
+    .optional(),
+  outAnim: z.enum(['dissolve-out', 'slide-out', 'glitch-slice', '3d-flip', 'none']).optional(),
+  durationSec: z.number().optional(),
+  delaySec: z.number().optional(),
+  easingCurve: z.enum(['cubic-out', 'spring-overshoot', 'linear-hud', 'whip-slam']).optional(),
+  staggerMode: z.enum(['block', 'word', 'char']).optional()
+});
+
+export const TitleLayersRecordSchema = z
+  .object({
+    bangla: TitleLayerStyleSchema.optional(),
+    english: TitleLayerStyleSchema.optional(),
+    subtitle: TitleLayerStyleSchema.optional(),
+    eyebrow: TitleLayerStyleSchema.optional(),
+    credits: TitleLayerStyleSchema.optional()
+  })
+  .optional();
+
+export const ShotLightConfigSchema = z.object({
+  keyPos: z.object({ x: z.number(), y: z.number() }).default({ x: 32, y: 28 }),
+  rimPos: z.object({ x: z.number(), y: z.number() }).default({ x: 78, y: 26 }),
+  fillPos: z.object({ x: z.number(), y: z.number() }).default({ x: 64, y: 74 }),
+  keyIntensity: z.number().default(100),
+  colorTempK: z.number().default(5200),
+  hazeBloom: z.number().default(28),
+  rimCatchlight: z.number().default(45),
+  vignetteFalloff: z.number().default(35),
+  streakAngle: z.number().default(0),
+  enabled: z.boolean().optional()
 });
 
 export const TitlePresetConfigSchema = z.object({
   presetId: z.string(),
   presetName: z.string(),
-  category: z.enum(['DOPAMINE', 'CORPORATE', 'CINEMATIC', 'RAP', 'DOCU', 'RETRO']),
+  category: z.enum([
+    'DOPAMINE',
+    'CORPORATE',
+    'CINEMATIC',
+    'RAP',
+    'DOCU',
+    'RETRO',
+    'VIRAL_HOOKS',
+    'END_CREDITS'
+  ]),
   layoutMode: z.enum([
     'center-hero',
     'lower-third-bar',
@@ -90,19 +184,14 @@ export const TitlePresetConfigSchema = z.object({
   glowColor: z.string(),
   glowIntensity: z.number(),
   backdropPlate: TitleBackdropPlateSchema,
-  motionAnimation: z.enum([
-    'kinetic-slam',
-    'typewriter-hud',
-    'neon-glitch-rgb',
-    'slow-cinema-fade',
-    'chopper-staccato',
-    'lower-third-slide'
-  ]),
+  motionAnimation: TitleMotionAnimationEnum,
   chromaticAberration: z.number(),
   letterTracking: z.number(),
   fontScale: z.number(),
   verticalOffset: z.number(),
-  uppercase: z.boolean().optional()
+  uppercase: z.boolean().optional(),
+  layers: TitleLayersRecordSchema,
+  keyframes: TitleKeyframeConfigSchema.optional()
 });
 
 export const ShotTitleDataSchema = z.object({
@@ -111,6 +200,8 @@ export const ShotTitleDataSchema = z.object({
   banglaTitle: z.string().default(''),
   englishSubtitle: z.string().default(''),
   captionNote: z.string().optional(),
+  eyebrowText: z.string().optional(),
+  creditsText: z.string().optional(),
   alignment: z.enum(['LEFT', 'MID', 'RIGHT', 'AUTO']).default('MID'),
   zone9: z
     .enum([
@@ -134,7 +225,9 @@ export const ShotTitleDataSchema = z.object({
   letterTracking: z.number().default(0.15),
   verticalOffset: z.number().default(0),
   entranceAnim: z.string().optional(),
-  exitAnim: z.enum(['dissolve-out', 'slide-out', 'none']).optional(),
+  exitAnim: z.enum(['dissolve-out', 'slide-out', 'glitch-slice', '3d-flip', 'none']).optional(),
+  layers: TitleLayersRecordSchema,
+  keyframes: TitleKeyframeConfigSchema.optional(),
   styleConfig: TitlePresetConfigSchema.optional()
 });
 
@@ -150,6 +243,11 @@ export const ShotSchema = z.object({
   tagline: z.string().default(''),
   directorNotes: z.string().default(''),
   soundCue: z.string().default('Sub-bass pulse 36Hz'),
+  voAudioUrl: z.string().optional(),
+  sfxAudioUrl: z.string().optional(),
+  isReversed: z.boolean().optional(),
+  lightId: z.string().nullable().optional(),
+  lightConfig: ShotLightConfigSchema.optional(),
   cameraSpec: CameraSpecSchema.default(() => CameraSpecSchema.parse({})),
   imageUrl: z.string().optional(),
   thumbnailUrl: z.string().optional(),

@@ -31,7 +31,12 @@ import {
   getKineticEntranceCssClass,
   resolveSpatialTitleChoreography
 } from '../services/titleChoreographyEngine';
-import { TitleZone9 } from '../types/titlePreset';
+import { TitleZone9, TitleLayerStyle, TitleKeyframeConfig } from '../types/titlePreset';
+import {
+  buildDefaultTitleLayers,
+  DEFAULT_TITLE_KEYFRAMES,
+  segmentTextGraphemes
+} from '../constants/titleTemplates';
 import { Sliders } from 'lucide-react';
 
 export type StageTitleVariant =
@@ -86,10 +91,65 @@ function getMotionAnimationClass(anim: TitlePresetConfig['motionAnimation']): st
       return 'animate-title-chopper-staccato';
     case 'lower-third-slide':
       return 'animate-title-lower-third';
+    case '3d-flip':
+      return 'animate-title-3d-flip';
+    case 'anamorphic-sweep':
+      return 'animate-title-anamorphic-sweep';
+    case 'glitch-slice':
+      return 'animate-title-glitch-slice';
+    case 'typewriter-telemetry':
+      return 'animate-title-typewriter-telemetry';
+    case 'cinema-credit-crawl':
+      return 'animate-title-cinema-credit-crawl';
+    case 'viral-pop-bounce':
+      return 'animate-title-viral-pop-bounce';
+    case 'subtle-depth-drift':
+      return 'animate-title-subtle-depth-drift';
     case 'slow-cinema-fade':
     default:
       return 'animate-title-slow-fade';
   }
+}
+
+function getEasingCss(curve?: TitleKeyframeConfig['easingCurve']): string {
+  switch (curve) {
+    case 'spring-overshoot':
+      return 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+    case 'linear-hud':
+      return 'linear';
+    case 'whip-slam':
+      return 'cubic-bezier(0.2, 0.9, 0.3, 1)';
+    case 'cubic-out':
+    default:
+      return 'cubic-bezier(0.16, 1, 0.3, 1)';
+  }
+}
+
+function renderStaggeredText(
+  text: string,
+  staggerMode: TitleKeyframeConfig['staggerMode'] | undefined,
+  delaySec: number
+): React.ReactNode {
+  if (!text || !staggerMode || staggerMode === 'block') return text;
+  const units =
+    staggerMode === 'word'
+      ? text.split(/(\s+)/)
+      : segmentTextGraphemes(text);
+  let animIdx = 0;
+  return units.map((unit, idx) => {
+    if (/^\s+$/.test(unit)) return unit;
+    const unitDelayMs = Math.round((delaySec + animIdx * 0.032) * 1000);
+    animIdx += 1;
+    return (
+      <span
+        key={idx}
+        className="animate-title-stagger-unit"
+        style={{ animationDelay: `${unitDelayMs}ms` }}
+      >
+        {unit}
+      </span>
+    );
+  });
 }
 
 export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
@@ -218,15 +278,31 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       ? Math.max(0.08, (durationSec - currentTimeSec) / 0.2)
       : 1;
 
+  const resolvedEyebrow =
+    storeShot?.titleData?.eyebrowText ?? resolvedShotTitle.eyebrowText ?? '';
+  const resolvedCredits =
+    storeShot?.titleData?.creditsText ?? resolvedShotTitle.creditsText ?? '';
+  const keyframes: TitleKeyframeConfig = {
+    ...DEFAULT_TITLE_KEYFRAMES,
+    inAnim: presetConfig.motionAnimation,
+    ...(resolvedShotTitle.keyframes || {}),
+  };
+  const layerStyles = React.useMemo(
+    () => buildDefaultTitleLayers(presetConfig, resolvedShotTitle.layers),
+    [presetConfig, resolvedShotTitle.layers]
+  );
+
   // Explicit component visibility check for title elements + per-shot toggle
-  const showBangla = componentsVisibility ? componentsVisibility.titleBn !== false : true;
-  const showEnglish = componentsVisibility ? componentsVisibility.titleEn !== false : true;
-  const showDialogue = componentsVisibility
+  const showEyebrow = Boolean(resolvedEyebrow.trim() && layerStyles.eyebrow.enabled);
+  const showBangla = (componentsVisibility ? componentsVisibility.titleBn !== false : true) && layerStyles.bangla.enabled;
+  const showEnglish = (componentsVisibility ? componentsVisibility.titleEn !== false : true) && layerStyles.english.enabled;
+  const showDialogue = (componentsVisibility
     ? componentsVisibility.tagline !== false || componentsVisibility.caption !== false
-    : true;
+    : true) && layerStyles.subtitle.enabled;
+  const showCredits = Boolean(resolvedCredits.trim() && layerStyles.credits.enabled);
   const effectiveTitlesAll =
     componentsVisibility !== undefined
-      ? Boolean(componentsVisibility.titlesAll && (showBangla || showEnglish || showDialogue))
+      ? Boolean(componentsVisibility.titlesAll && (showBangla || showEnglish || showDialogue || showEyebrow || showCredits))
       : Boolean((storeTitleConfig?.showTitles ?? true) && storeVisibility);
 
   const isEnabled = Boolean(isVisible && effectiveTitlesAll && resolvedShotTitle.enabled !== false);
@@ -334,30 +410,38 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     };
   };
 
-  // Use preset's own fontScale directly, tempered gently by architecture multiplier only for default hero
+  const bnLayer: TitleLayerStyle = layerStyles.bangla;
+  const enLayer: TitleLayerStyle = layerStyles.english;
+  const eyebrowLayer: TitleLayerStyle = layerStyles.eyebrow;
+  const subLayer: TitleLayerStyle = layerStyles.subtitle;
+  const creditsLayer: TitleLayerStyle = layerStyles.credits;
+
   const isCustomPreset = presetConfig.presetId !== 'molten-gold' && presetConfig.presetId !== 'titanium-silver' && presetConfig.presetId !== 'neon-crimson';
   const effectiveFontSizePx = isCustomPreset
-    ? Math.max(20, Math.min(54, Math.round(presetConfig.fontScale)))
-    : Math.max(20, Math.min(58, Math.round(titleSizePx * scale * procArch.scaleMultiplier)));
-  const clampedFontSizeCss = `clamp(16px, 3.3cqw, ${effectiveFontSizePx}px)`;
+    ? Math.max(20, Math.min(96, Math.round(bnLayer.fontSize || presetConfig.fontScale)))
+    : Math.max(20, Math.min(96, Math.round((bnLayer.fontSize || titleSizePx) * scale * procArch.scaleMultiplier)));
+  const clampedFontSizeCss = `clamp(16px, ${(effectiveFontSizePx / 16).toFixed(2)}cqw, ${effectiveFontSizePx}px)`;
   const effectiveTrackingEm = isCustomPreset
-    ? Math.max(0.01, tracking)
-    : Math.max(0.02, tracking + procArch.trackingBoostEm);
+    ? Math.max(0.01, bnLayer.letterSpacing ?? tracking)
+    : Math.max(0.02, (bnLayer.letterSpacing ?? tracking) + procArch.trackingBoostEm);
 
-  const hasGradientFill =
-    Array.isArray(presetConfig.primaryGradient) && presetConfig.primaryGradient.length >= 2;
+  const bnGrad = bnLayer.gradientStops ?? presetConfig.primaryGradient;
+  const hasGradientFill = Array.isArray(bnGrad) && bnGrad.length >= 2;
   const gradientBg = hasGradientFill
-    ? `linear-gradient(90deg, ${presetConfig.primaryGradient!.join(', ')})`
+    ? `linear-gradient(90deg, ${bnGrad!.join(', ')})`
     : undefined;
 
-  const glowBlurPrimary = Math.max(0, Math.round(22 * glow));
-  const glowBlurAmbient = Math.max(0, Math.round(44 * glow));
+  const bnBloom = bnLayer.bloomIntensity ?? glow;
+  const glowBlurPrimary = Math.max(0, Math.round(22 * bnBloom));
+  const glowBlurAmbient = Math.max(0, Math.round(44 * bnBloom));
 
   const primaryTitleStyle: React.CSSProperties = {
-    fontFamily: presetConfig.banglaFontFamily,
+    fontFamily: bnLayer.fontFamily || presetConfig.banglaFontFamily,
+    fontWeight: bnLayer.fontWeight || 900,
     fontSize: clampedFontSizeCss,
+    lineHeight: bnLayer.lineHeight || 1.08,
     letterSpacing: `${effectiveTrackingEm}em`,
-    textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
+    textTransform: bnLayer.textTransform || (presetConfig.uppercase ? 'uppercase' : 'none'),
     ...(hasGradientFill
       ? {
           backgroundImage: gradientBg,
@@ -366,21 +450,21 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
           color: 'transparent',
           WebkitTextFillColor: 'transparent',
           filter:
-            glow > 0.02
+            bnBloom > 0.02
               ? `drop-shadow(0 0 ${glowBlurPrimary}px ${presetConfig.glowColor}) drop-shadow(0 0 ${glowBlurAmbient}px ${presetConfig.glowColor})`
-              : 'drop-shadow(0 2px 6px rgba(0,0,0,0.85))'
+              : bnLayer.dropShadow || 'drop-shadow(0 2px 6px rgba(0,0,0,0.85))'
         }
       : {
-          color: presetConfig.primaryColor,
-          WebkitTextFillColor: presetConfig.primaryColor,
+          color: bnLayer.color || presetConfig.primaryColor,
+          WebkitTextFillColor: bnLayer.color || presetConfig.primaryColor,
           WebkitTextStroke:
-            presetConfig.strokeWidth > 0
-              ? `${presetConfig.strokeWidth}px ${presetConfig.strokeColor}`
+            (bnLayer.strokeWidth ?? presetConfig.strokeWidth) > 0
+              ? `${bnLayer.strokeWidth ?? presetConfig.strokeWidth}px ${bnLayer.strokeColor || presetConfig.strokeColor}`
               : undefined,
           textShadow:
-            glow > 0.02
+            bnBloom > 0.02
               ? `0 2px 8px rgba(0,0,0,0.85), 0 0 ${glowBlurPrimary}px ${presetConfig.glowColor}, 0 0 ${glowBlurAmbient}px ${presetConfig.glowColor}`
-              : '0 2px 10px rgba(0,0,0,0.9)'
+              : bnLayer.dropShadow || '0 2px 10px rgba(0,0,0,0.9)'
         }),
     transformOrigin:
       layoutEffectiveAlign === 'LEFT'
@@ -391,11 +475,13 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   };
 
   const englishSubtitleStyle: React.CSSProperties = {
-    fontFamily: presetConfig.englishFontFamily,
-    color: presetConfig.secondaryColor,
-    textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
-    letterSpacing: `${Math.max(0.06, effectiveTrackingEm + (isCustomPreset ? 0.04 : 0.16))}em`,
-    textShadow: '0 2px 10px rgba(0,0,0,0.92)'
+    fontFamily: enLayer.fontFamily || presetConfig.englishFontFamily,
+    fontWeight: enLayer.fontWeight || 700,
+    lineHeight: enLayer.lineHeight || 1.25,
+    color: enLayer.color || presetConfig.secondaryColor,
+    textTransform: enLayer.textTransform || (presetConfig.uppercase ? 'uppercase' : 'none'),
+    letterSpacing: `${Math.max(0.04, enLayer.letterSpacing ?? (effectiveTrackingEm + (isCustomPreset ? 0.04 : 0.16)))}em`,
+    textShadow: enLayer.dropShadow || '0 2px 10px rgba(0,0,0,0.92)'
   };
 
   const hasRgbSplit = presetConfig.chromaticAberration > 0 || procFx.hasRgbSplit;
@@ -439,7 +525,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     );
   };
 
-  const motionClass = getMotionAnimationClass(presetConfig.motionAnimation);
+  const activeInAnim = keyframes.inAnim || presetConfig.motionAnimation;
+  const motionClass = getMotionAnimationClass(activeInAnim);
   const directionalMotionClass = getKineticEntranceCssClass(choreography.kineticEntrance);
 
   // Smooth 180ms outgoing title dissolve snapshot when crossing shot boundaries
@@ -640,7 +727,12 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                           ? 'rounded-xs'
                           : ''
                 }`}
-                style={plateStyle}
+                style={{
+                  ...plateStyle,
+                  ['--title-anim-dur' as any]: `${Math.round((keyframes.durationSec || 0.55) * 1000)}ms`,
+                  ['--title-anim-delay' as any]: `${Math.round((keyframes.delaySec || 0) * 1000)}ms`,
+                  ['--title-anim-ease' as any]: getEasingCss(keyframes.easingCurve),
+                }}
               >
                 {/* Lower-Third Vertical Signature Accent Bar */}
                 {presetConfig.layoutMode === 'lower-third-bar' && (
@@ -700,6 +792,33 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                     presetConfig.layoutMode === 'lower-third-bar' ? 'pl-3' : ''
                   }`}
                 >
+                  {/* Layer 1: Eyebrow Kicker / Scene Slate */}
+                  {showEyebrow && (
+                    <span
+                      data-testid="stage-eyebrow-kicker"
+                      className="mb-1 max-w-full truncate"
+                      style={{
+                        fontFamily: eyebrowLayer.fontFamily,
+                        fontWeight: eyebrowLayer.fontWeight,
+                        fontSize: `${Math.max(9, Math.min(28, eyebrowLayer.fontSize))}px`,
+                        letterSpacing: `${eyebrowLayer.letterSpacing}em`,
+                        textTransform: eyebrowLayer.textTransform,
+                        color: eyebrowLayer.color,
+                        textShadow: eyebrowLayer.dropShadow,
+                        ...(eyebrowLayer.plate.enabled
+                          ? {
+                              background: eyebrowLayer.plate.background,
+                              border: eyebrowLayer.plate.border,
+                              borderRadius: `${eyebrowLayer.plate.borderRadius}px`,
+                              padding: eyebrowLayer.plate.padding,
+                            }
+                          : {}),
+                      }}
+                    >
+                      {resolvedEyebrow}
+                    </span>
+                  )}
+
                   {/* Primary Title (Double-click directly on Stage to inline edit) */}
                   {showBangla && (
                     <div className="relative inline-block max-w-full">
@@ -739,10 +858,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                                 aria-hidden="true"
                                 className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full [text-wrap:balance]"
                                 style={{
-                                  fontFamily: presetConfig.banglaFontFamily,
+                                  fontFamily: bnLayer.fontFamily || presetConfig.banglaFontFamily,
                                   fontSize: clampedFontSizeCss,
                                   letterSpacing: `${effectiveTrackingEm}em`,
-                                  textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
+                                  textTransform: bnLayer.textTransform || (presetConfig.uppercase ? 'uppercase' : 'none'),
                                   color: '#00F0FF',
                                   wordBreak: 'keep-all',
                                   overflowWrap: 'break-word',
@@ -755,10 +874,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                                 aria-hidden="true"
                                 className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full [text-wrap:balance]"
                                 style={{
-                                  fontFamily: presetConfig.banglaFontFamily,
+                                  fontFamily: bnLayer.fontFamily || presetConfig.banglaFontFamily,
                                   fontSize: clampedFontSizeCss,
                                   letterSpacing: `${effectiveTrackingEm}em`,
-                                  textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
+                                  textTransform: bnLayer.textTransform || (presetConfig.uppercase ? 'uppercase' : 'none'),
                                   color: '#FF0055',
                                   wordBreak: 'keep-all',
                                   overflowWrap: 'break-word',
@@ -770,7 +889,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                             </>
                           )}
                           <h1
-                            key={`bangla-title-${shotIndex}`}
+                            key={`bangla-title-${shotIndex}-${keyframes.staggerMode}`}
                             data-interactive="true"
                             data-testid="stage-bangla-title-heading"
                             onDoubleClick={(e) => {
@@ -796,7 +915,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                               overflowWrap: 'break-word'
                             }}
                           >
-                            {displayBangla}
+                            {renderStaggeredText(displayBangla, keyframes.staggerMode, keyframes.delaySec)}
                           </h1>
                         </>
                       )}
@@ -830,8 +949,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                           onClick={(e) => e.stopPropagation()}
                           className="pointer-events-auto cursor-text bg-[#0B0B0D]/85 border border-[#F59E0B] rounded px-3 py-1 text-xs sm:text-sm md:text-base font-bold text-[#F4F4F5] outline-none min-w-[200px] shadow-[0_0_20px_rgba(245,158,11,0.4)]"
                           style={{
-                            fontFamily: presetConfig.englishFontFamily,
-                            textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
+                            fontFamily: enLayer.fontFamily || presetConfig.englishFontFamily,
+                            textTransform: enLayer.textTransform || (presetConfig.uppercase ? 'uppercase' : 'none'),
                             textAlign: layoutEffectiveAlign === 'LEFT' ? 'left' : layoutEffectiveAlign === 'RIGHT' ? 'right' : 'center'
                           }}
                         />
@@ -858,16 +977,16 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                             overflowWrap: 'break-word'
                           }}
                         >
-                          {displayEnglish}
+                          {renderStaggeredText(displayEnglish, keyframes.staggerMode, keyframes.delaySec + 0.08)}
                         </p>
                       )}
 
                       {renderAccentDivider()}
 
-                      {cameraInfo && presetConfig.layoutMode !== 'minimal-whisper' && (
+                      {cameraInfo && presetConfig.layoutMode !== 'minimal-whisper' && !showCredits && (
                         <span
                           className="font-mono text-[9px] tracking-[0.25em] uppercase mt-1.5 opacity-65 max-w-full truncate"
-                          style={{ color: presetConfig.secondaryColor }}
+                          style={{ color: enLayer.color || presetConfig.secondaryColor }}
                         >
                           {cameraInfo}
                         </span>
@@ -875,13 +994,35 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                     </div>
                   )}
 
+                  {/* Layer 5: End Credits / Production Billing Line */}
+                  {showCredits && (
+                    <p
+                      data-testid="stage-credits-layer"
+                      className="mt-2 max-w-full"
+                      style={{
+                        fontFamily: creditsLayer.fontFamily,
+                        fontWeight: creditsLayer.fontWeight,
+                        fontSize: `${Math.max(9, Math.min(24, creditsLayer.fontSize))}px`,
+                        lineHeight: creditsLayer.lineHeight,
+                        letterSpacing: `${creditsLayer.letterSpacing}em`,
+                        textTransform: creditsLayer.textTransform,
+                        color: creditsLayer.color,
+                        textShadow: creditsLayer.dropShadow,
+                        wordBreak: 'keep-all',
+                        overflowWrap: 'break-word',
+                      }}
+                    >
+                      {resolvedCredits}
+                    </p>
+                  )}
+
                   {/* If lower-plate or lower-row layout is active and dialogue exists, display subtle metadata line inside card */}
                   {(isBottomPlateLayout || choreography.row === 'lower') && showDialogue && displayDialogue && (
                     <p
                       className="mt-1.5 text-[11px] italic opacity-85 max-w-full truncate"
                       style={{
-                        fontFamily: presetConfig.englishFontFamily,
-                        color: presetConfig.secondaryColor
+                        fontFamily: subLayer.fontFamily || presetConfig.englishFontFamily,
+                        color: subLayer.color || presetConfig.secondaryColor
                       }}
                     >
                       "{displayDialogue}"

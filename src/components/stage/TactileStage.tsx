@@ -83,6 +83,7 @@ import { transientPunchEngine } from '../../services/transientPunchEngine';
 import { StageMetadataFxBar } from './StageMetadataFxBar';
 import { VlcStageBar } from './VlcStageBar';
 import { getLightingPresetById } from '../../data/lightingPresets';
+import { buildStageLightOverlayStyles } from '../../services/lightingRelightingService';
 import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
 import { formatFullSMPTETimecode } from '../../types/storyboard';
 import { playbackClock, syncVideoCurrentTimeWithFastSeek, type VlcLoopMode, type VlcAbLoop } from '../../utils/playbackClock';
@@ -246,7 +247,15 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const setStoreAspectRatio = useStudioStore((s) => s.setAspectRatio);
   const setStoreFitMode = useStudioStore((s) => s.setFitMode);
   const isSafeZoneOverlayVisible = useStudioStore((s) => s.isSafeZoneOverlayVisible);
+  const monitorGuidesVisible = useStudioStore((s) => s.monitorGuidesVisible);
+  const monitorFocusPeaking = useStudioStore((s) => s.monitorFocusPeaking);
+  const monitorZebraExposure = useStudioStore((s) => s.monitorZebraExposure);
+  const monitorSplitCompare = useStudioStore((s) => s.monitorSplitCompare);
+  const monitorSplitPosition = useStudioStore((s) => s.monitorSplitPosition);
+  const setMonitorSplitPosition = useStudioStore((s) => s.setMonitorSplitPosition);
+  const toggleShotReverse = useStudioStore((s) => s.toggleShotReverse);
   const titleZone = useStudioStore((s) => s.titleZone);
+  const splitWipeDragRef = useRef<boolean>(false);
 
   const effectiveMuted = isAudioMuted ?? storeIsAudioMuted;
   const effectiveVolume = Number.isFinite(storeAudioVolume) ? storeAudioVolume : 0.85;
@@ -952,20 +961,27 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     !hasExplicitTrimOrSpeed && isVideoMedia && nativeVideoDuration > 0.25
       ? nativeVideoDuration
       : activeShotDurationSec;
+  const isReversedClip = Boolean(frame?.isReversed);
 
   const localToSourceSec = useCallback(
     (localSec: number) => {
       const clampedLocal = Math.max(0, Math.min(effectiveShotDurationSec, localSec));
-      return Math.max(0, clipInSec + clampedLocal * clipSpeed);
+      const directedLocal = isReversedClip
+        ? Math.max(0, effectiveShotDurationSec - clampedLocal)
+        : clampedLocal;
+      return Math.max(0, clipInSec + directedLocal * clipSpeed);
     },
-    [clipInSec, clipSpeed, effectiveShotDurationSec]
+    [clipInSec, clipSpeed, effectiveShotDurationSec, isReversedClip]
   );
 
   const sourceToLocalSec = useCallback(
     (rawVideoSec: number) => {
-      return Math.max(0, Math.min(effectiveShotDurationSec, (rawVideoSec - clipInSec) / clipSpeed));
+      const forwardLocal = Math.max(0, Math.min(effectiveShotDurationSec, (rawVideoSec - clipInSec) / clipSpeed));
+      return isReversedClip
+        ? Math.max(0, effectiveShotDurationSec - forwardLocal)
+        : forwardLocal;
     },
-    [clipInSec, clipSpeed, effectiveShotDurationSec]
+    [clipInSec, clipSpeed, effectiveShotDurationSec, isReversedClip]
   );
 
   // Keep playbackClock updated for non-video shots and paused state
@@ -1007,13 +1023,27 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
     if (isInitialEntry && activeVideo.readyState >= 1) {
       lastShotEntrySeekKeyRef.current = entryKey;
-      const entrySourceSec = clipInSec > 0.001 ? clipInSec : (slideTimeSecRef.current > 0.05 && slideTimeSecRef.current < effectiveShotDurationSec - 0.05 ? localToSourceSec(slideTimeSecRef.current) : 0);
-      if (entrySourceSec > 0.01 && Math.abs((activeVideo.currentTime || 0) - entrySourceSec) > 0.05) {
+      const entrySourceSec = isReversedClip
+        ? localToSourceSec(slideTimeSecRef.current)
+        : clipInSec > 0.001
+          ? clipInSec
+          : (slideTimeSecRef.current > 0.05 && slideTimeSecRef.current < effectiveShotDurationSec - 0.05
+              ? localToSourceSec(slideTimeSecRef.current)
+              : 0);
+      if (Math.abs((activeVideo.currentTime || 0) - entrySourceSec) > 0.05) {
         if (!activeVideo.paused) activeVideo.pause();
         try {
           activeVideo.currentTime = entrySourceSec;
         } catch {}
       }
+    }
+
+    // Reverse video playback steps via rAF seek engine; pause native forward decoding
+    if (isReversedClip) {
+      if (!activeVideo.paused) {
+        activeVideo.pause();
+      }
+      return;
     }
 
     if (isAutoplay && !isScrubbingRef.current) {
@@ -1030,7 +1060,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     } else if (!activeVideo.paused) {
       activeVideo.pause();
     }
-  }, [currentIndex, isAutoplay, isVideoMedia, effectiveMuted, effectiveVolume, playbackSpeed, clipSpeed, clipInSec, activeMediaUrl, effectiveShotDurationSec, localToSourceSec]);
+  }, [currentIndex, isAutoplay, isVideoMedia, isReversedClip, effectiveMuted, effectiveVolume, playbackSpeed, clipSpeed, clipInSec, activeMediaUrl, effectiveShotDurationSec, localToSourceSec]);
 
   // External Seek Sync: strictly ONLY runs when paused (!isAutoplay) for frame-step / scrub
   useEffect(() => {
@@ -1063,58 +1093,116 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     }
   }, [seekVersion, currentIndex, isVideoMedia, isAutoplay, effectiveShotDurationSec, activeShotFps, localToSourceSec]);
 
-  // Passive Hardware Video Clock -> 60fps Direct-DOM PlaybackClock Bus (ZERO currentTime/fastSeek writes in rAF!)
+  // Passive Hardware Video Clock + Reverse Frame Stepper -> 60fps Direct-DOM PlaybackClock Bus
   useEffect(() => {
     if (!isAutoplay || !isVideoMedia) return;
     let rafId: number | null = null;
+    let lastTs = performance.now();
+    let lastSeekDispatchTs = 0;
 
-    const syncTick = () => {
+    const syncTick = (now: number) => {
       const video = videoRef.current;
-      if (video && !isScrubbingRef.current && !video.seeking && !video.paused && video.readyState >= 2) {
-        const curRaw = video.currentTime || 0;
-        const curLocal = sourceToLocalSec(curRaw);
+      const dtSec = Math.min(0.1, Math.max(0, (now - lastTs) / 1000));
+      lastTs = now;
+
+      if (video && !isScrubbingRef.current && video.readyState >= 1) {
         const clipDur = effectiveShotDurationSec;
 
-        let bufferedPct = 1;
-        if (video.buffered && video.buffered.length > 0 && Number.isFinite(video.duration) && video.duration > 0) {
-          bufferedPct = Math.min(1, video.buffered.end(video.buffered.length - 1) / video.duration);
-        }
+        if (isReversedClip) {
+          if (!video.paused) video.pause();
+          const activeRamp = frameRef.current?.speedRampPreset;
+          const rampFactor =
+            activeRamp && activeRamp !== 'NONE'
+              ? getSpeedRampInstantRate(activeRamp, accumulatedShotClockRef.current, clipDur)
+              : 1.0;
+          const nextLocal = Math.min(
+            clipDur,
+            accumulatedShotClockRef.current + dtSec * (playbackSpeed || 1.0) * clipSpeed * rampFactor
+          );
+          accumulatedShotClockRef.current = nextLocal;
+          lastVideoClockTimeRef.current = nextLocal;
+          slideTimeSecRef.current = nextLocal;
 
-        // Direct hardware time mapped to trimmed clip timeline is ground truth (read-only)
-        accumulatedShotClockRef.current = curLocal;
-        lastVideoClockTimeRef.current = curLocal;
-
-        // Live Velocity Speed-Ramp rate modulation during active playback
-        const activeRamp = frameRef.current?.speedRampPreset;
-        if (activeRamp && activeRamp !== 'NONE') {
-          const rampFactor = getSpeedRampInstantRate(activeRamp, curLocal, clipDur);
-          const targetRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * clipSpeed * rampFactor));
-          if (Math.abs(video.playbackRate - targetRate) > 0.04) {
-            video.playbackRate = targetRate;
+          const targetSrc = localToSourceSec(nextLocal);
+          if (!video.seeking && now - lastSeekDispatchTs >= 32) {
+            lastSeekDispatchTs = now;
+            try {
+              video.currentTime = targetSrc;
+            } catch {}
           }
-        }
 
-        playbackClock.emit({
-          timeSec: curLocal,
-          durationSec: clipDur,
-          bufferedPct,
-          shotIndex: currentIndexRef.current,
-          fps: activeShotFps
-        });
+          playbackClock.emit({
+            timeSec: nextLocal,
+            durationSec: clipDur,
+            bufferedPct: 1,
+            shotIndex: currentIndexRef.current,
+            fps: activeShotFps
+          });
 
-        const endThreshold = Math.max(0.15, clipDur - 0.06);
-        if (curLocal >= endThreshold) {
-          if (loopMode === 'sequence' && frames.length > 1) {
-            onAdvanceFromVideoClock?.(currentIndexRef.current);
-            return;
-          }
-          if (loopMode === 'once') {
-            video.pause();
-            onSyncVideoTime?.(currentIndexRef.current, curLocal);
-            if (isAutoplayRef.current && onTogglePlay) {
-              onTogglePlay();
+          const endThreshold = Math.max(0.12, clipDur - 0.04);
+          if (nextLocal >= endThreshold) {
+            if (loopMode === 'sequence' && frames.length > 1) {
+              onAdvanceFromVideoClock?.(currentIndexRef.current);
+              return;
             }
-            return;
+            if (loopMode === 'repeat-one') {
+              accumulatedShotClockRef.current = 0;
+              slideTimeSecRef.current = 0;
+            } else if (loopMode === 'once') {
+              onSyncVideoTime?.(currentIndexRef.current, clipDur);
+              if (isAutoplayRef.current && onTogglePlay) onTogglePlay();
+              return;
+            }
+          }
+          rafId = requestAnimationFrame(syncTick);
+          return;
+        }
+
+        if (!video.seeking && !video.paused && video.readyState >= 2) {
+          const curRaw = video.currentTime || 0;
+          const curLocal = sourceToLocalSec(curRaw);
+
+          let bufferedPct = 1;
+          if (video.buffered && video.buffered.length > 0 && Number.isFinite(video.duration) && video.duration > 0) {
+            bufferedPct = Math.min(1, video.buffered.end(video.buffered.length - 1) / video.duration);
+          }
+
+          // Direct hardware time mapped to trimmed clip timeline is ground truth (read-only)
+          accumulatedShotClockRef.current = curLocal;
+          lastVideoClockTimeRef.current = curLocal;
+
+          // Live Velocity Speed-Ramp rate modulation during active playback
+          const activeRamp = frameRef.current?.speedRampPreset;
+          if (activeRamp && activeRamp !== 'NONE') {
+            const rampFactor = getSpeedRampInstantRate(activeRamp, curLocal, clipDur);
+            const targetRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * clipSpeed * rampFactor));
+            if (Math.abs(video.playbackRate - targetRate) > 0.04) {
+              video.playbackRate = targetRate;
+            }
+          }
+
+          playbackClock.emit({
+            timeSec: curLocal,
+            durationSec: clipDur,
+            bufferedPct,
+            shotIndex: currentIndexRef.current,
+            fps: activeShotFps
+          });
+
+          const endThreshold = Math.max(0.15, clipDur - 0.06);
+          if (curLocal >= endThreshold) {
+            if (loopMode === 'sequence' && frames.length > 1) {
+              onAdvanceFromVideoClock?.(currentIndexRef.current);
+              return;
+            }
+            if (loopMode === 'once') {
+              video.pause();
+              onSyncVideoTime?.(currentIndexRef.current, curLocal);
+              if (isAutoplayRef.current && onTogglePlay) {
+                onTogglePlay();
+              }
+              return;
+            }
           }
         }
       }
@@ -1132,12 +1220,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   }, [
     isAutoplay,
     isVideoMedia,
+    isReversedClip,
+    playbackSpeed,
+    clipSpeed,
     currentIndex,
     frames.length,
     effectiveShotDurationSec,
     activeShotFps,
     loopMode,
     clipInSec,
+    localToSourceSec,
     sourceToLocalSec,
     onAdvanceFromVideoClock,
     onSyncVideoTime,
@@ -1450,7 +1542,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   const getStageBoxStyle = (): React.CSSProperties => {
     const { numeric, css } = resolveActiveStageRatio();
-    const scaleFactor = stageScale === 0.7 ? 0.7 : 1;
+    const scaleFactor =
+      stageScale === 0.5 ? 0.5 : stageScale === 0.75 ? 0.75 : 1;
     const availW = stageSlotBounds.width;
     const availH = stageSlotBounds.height;
 
@@ -1470,10 +1563,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       };
     }
 
+    const fallbackPct =
+      stageScale === 0.5 ? '50%' : stageScale === 0.75 ? '75%' : '100%';
     return {
-      width: stageScale === 0.7 ? '70%' : '100%',
+      width: fallbackPct,
       maxWidth: '100%',
-      maxHeight: stageScale === 0.7 ? '70%' : '100%',
+      maxHeight: fallbackPct,
       aspectRatio: css,
       border: '1px solid rgba(245, 158, 11, 0.22)',
       margin: '0 auto'
@@ -1487,6 +1582,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         ? 'object-fill'
         : 'object-cover';
   const activeLightPreset = frame?.lightId ? getLightingPresetById(frame.lightId) : undefined;
+  const stageLightStyles = useMemo(
+    () => buildStageLightOverlayStyles(frame?.lightConfig),
+    [frame?.lightConfig]
+  );
   const activeSmpte = formatFullSMPTETimecode(slideTimeSec, activeShotFps);
   const proceduralSpec = getShotProceduralSpec(currentIndex);
 
@@ -1732,10 +1831,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       )}
 
-      {/* 2. BOUNDED 2.39:1 CINEMA VIEWPORT GATE (Matte #050505 surround, zero edge overflow) */}
+      {/* 2. BOUNDED 2.39:1 CINEMA VIEWPORT GATE (Flush fit, matte #050505 surround, zero dead-space) */}
       <div
         ref={stageSlotWrapperRef}
-        className="flex-1 min-h-0 w-full flex items-center justify-center bg-[#050505] overflow-hidden p-0.5"
+        className="flex-1 min-h-0 w-full flex items-center justify-center bg-[#050505] overflow-hidden p-0"
       >
         <div
           id="stage-media-container"
@@ -2136,8 +2235,158 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
-        {/* LIVE 90% TITLE-SAFE & 93% ACTION-SAFE GUIDE OVERLAY (Active while adjusting 9-Zone Matrix) */}
-        {isSafeZoneOverlayVisible && (() => {
+        {/* LIVE 3D RELIGHTING OVERLAY (Key / Rim / Fill / Haze / Vignette / Streak) */}
+        {(frame?.lightConfig || activeLightPreset) && (
+          <div
+            data-testid="stage-light-rig-overlay"
+            className="absolute inset-0 pointer-events-none select-none z-[12]"
+            style={{
+              filter: activeLightPreset?.filter || undefined
+            }}
+          >
+            <div
+              className="absolute inset-0 mix-blend-screen"
+              style={{ background: stageLightStyles.keyGradient }}
+            />
+            <div
+              className="absolute inset-0 mix-blend-screen"
+              style={{ background: stageLightStyles.rimGradient }}
+            />
+            <div
+              className="absolute inset-0 mix-blend-lighter"
+              style={{ background: stageLightStyles.fillGradient }}
+            />
+            <div
+              className="absolute inset-0 mix-blend-screen"
+              style={{
+                background: stageLightStyles.streakGradient,
+                opacity: stageLightStyles.streakOpacity
+              }}
+            />
+            <div
+              className="absolute inset-0 mix-blend-screen"
+              style={{ background: stageLightStyles.hazeGradient }}
+            />
+            <div
+              className="absolute inset-0 mix-blend-multiply"
+              style={{ background: stageLightStyles.vignetteGradient }}
+            />
+          </div>
+        )}
+
+        {/* FOCUS PEAKING EDGE HIGHLIGHT OVERLAY */}
+        {monitorFocusPeaking && (
+          <div
+            data-testid="stage-focus-peaking-overlay"
+            className="absolute inset-0 pointer-events-none select-none z-[16]"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 50% 50%, transparent 0%, rgba(16,185,129,0.06) 100%), repeating-linear-gradient(0deg, rgba(16,185,129,0.12) 0px, rgba(16,185,129,0.12) 1px, transparent 1px, transparent 4px)',
+              mixBlendMode: 'screen',
+              boxShadow: 'inset 0 0 0 2px rgba(16,185,129,0.6)'
+            }}
+          >
+            <span className="absolute top-1.5 right-2 px-1.5 py-0.5 rounded bg-black/80 border border-emerald-400/60 text-[8px] font-mono font-bold text-emerald-300">
+              FOCUS PEAKING ACTIVE
+            </span>
+          </div>
+        )}
+
+        {/* ZEBRA EXPOSURE WARNING (>90 IRE) OVERLAY */}
+        {monitorZebraExposure && (
+          <div
+            data-testid="stage-zebra-overlay"
+            className="absolute inset-0 pointer-events-none select-none z-[17]"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, rgba(244,63,94,0.28) 0px, rgba(244,63,94,0.28) 4px, transparent 4px, transparent 10px)',
+              mixBlendMode: 'color-dodge'
+            }}
+          >
+            <span className="absolute top-1.5 left-2 px-1.5 py-0.5 rounded bg-black/80 border border-rose-400/60 text-[8px] font-mono font-bold text-rose-300">
+              ZEBRA &gt;90 IRE
+            </span>
+          </div>
+        )}
+
+        {/* BEFORE/AFTER SPLIT-SCREEN WIPE COMPARE (Left = Raw Clip, Right = LUT + Light + Titles) */}
+        {monitorSplitCompare && (
+          <div
+            data-testid="stage-split-compare-overlay"
+            className="absolute inset-0 z-[26] pointer-events-none select-none"
+          >
+            {/* Left Raw Ungraded Layer clipped at monitorSplitPosition% */}
+            <div
+              className="absolute inset-0 overflow-hidden bg-[#050507]"
+              style={{ clipPath: `inset(0 ${100 - monitorSplitPosition}% 0 0)` }}
+            >
+              {activeMediaUrl && !isVideoMedia ? (
+                <img
+                  src={activeMediaUrl}
+                  alt="Raw Before Plate"
+                  className={`w-full h-full ${fitModeClass}`}
+                  style={{ filter: 'none' }}
+                />
+              ) : !activeMediaUrl && !cachedPosterUrl ? (
+                <div
+                  className="w-full h-full"
+                  style={{ background: proceduralSpec.palette.cssBackdrop, filter: 'none' }}
+                />
+              ) : (
+                <img
+                  src={cachedPosterUrl || activeMediaUrl || ''}
+                  alt="Raw Before Frame"
+                  className={`w-full h-full ${fitModeClass}`}
+                  style={{ filter: 'none' }}
+                />
+              )}
+              <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/85 border border-white/20 text-[8px] font-mono font-bold text-neutral-300">
+                BEFORE · RAW PLATE
+              </span>
+            </div>
+
+            <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/85 border border-[#F59E0B]/60 text-[8px] font-mono font-bold text-[#F59E0B]">
+              AFTER · LUT + LIGHT + FX
+            </span>
+
+            {/* Draggable Vertical Golden Handle */}
+            <div
+              data-interactive="true"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                splitWipeDragRef.current = true;
+                try {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                } catch {}
+              }}
+              onPointerMove={(e) => {
+                if (!splitWipeDragRef.current) return;
+                e.stopPropagation();
+                const rect = stageMediaContainerRef.current?.getBoundingClientRect();
+                if (!rect || rect.width <= 0) return;
+                const pct = ((e.clientX - rect.left) / rect.width) * 100;
+                setMonitorSplitPosition(pct);
+              }}
+              onPointerUp={(e) => {
+                splitWipeDragRef.current = false;
+                try {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                } catch {}
+              }}
+              style={{ left: `${monitorSplitPosition}%` }}
+              className="pointer-events-auto absolute inset-y-0 -translate-x-1/2 w-5 flex items-center justify-center cursor-ew-resize group/wipe"
+              title="Drag to compare Raw Clip vs Graded + Lit + Titles"
+            >
+              <div className="w-[2px] h-full bg-[#F59E0B] shadow-[0_0_12px_rgba(245,158,11,0.9)]" />
+              <div className="absolute top-1/2 -translate-y-1/2 w-5 h-7 rounded bg-[#0B0B0D] border border-[#F59E0B] text-[#F59E0B] text-[9px] font-mono font-bold flex items-center justify-center shadow-lg">
+                ⇆
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LIVE 90% TITLE-SAFE & 93% ACTION-SAFE GUIDE OVERLAY */}
+        {(isSafeZoneOverlayVisible || monitorGuidesVisible) && (() => {
           const activeChoreography = resolveSpatialTitleChoreography({
             titleAlign,
             zone9: frame?.titleData?.zone9 ?? titleZone,
@@ -2246,6 +2495,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onUploadMedia={() => fileInputRef.current?.click()}
           onOpenCinemaPlayer={onOpenCinemaPlayer}
           onToggleFullscreen={toggleFullscreen}
+          isReversed={isReversedClip}
+          onToggleReverse={() => toggleShotReverse(currentIndex)}
         />
       )}
 

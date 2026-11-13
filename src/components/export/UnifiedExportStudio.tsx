@@ -55,6 +55,7 @@ import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEng
 import { resolveShotTitleData, resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
 import { renderTitlePresetToCanvas } from '../../services/titleCanvasRenderer';
 import { resolveSpatialTitleChoreography } from '../../services/titleChoreographyEngine';
+import { renderShotLightConfigToCanvas } from '../../services/lightingRelightingService';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from '../../services/thumbnailEngine';
 import { getLutFilterCSS, formatLutPresetLabel } from '../../utils/engine';
@@ -644,6 +645,13 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         ctx.fillRect(0, flareY - 12, w, 24);
       }
 
+      // 3D Relighting & Volumetric Rig Overlay Parity
+      const activeLightId = frame?.lightId ?? slide?.lightId ?? storeShot?.lightId ?? null;
+      const activeLightConfig = frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig;
+      if (activeLightConfig || activeLightId) {
+        renderShotLightConfigToCanvas(ctx, w, h, activeLightConfig, activeLightId, 500);
+      }
+
       // 1:1 WYSIWYG Preset Title Burn-in Preview matching exact exported MP4 canvas compositor
       if (burnInTitles && activeMonitorTitleData.enabled !== false) {
         const spatial = resolveSpatialTitleChoreography({
@@ -660,20 +668,31 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         const camInfo = camSpecs
           ? `${camSpecs.focalLength || '35mm'} · ${camSpecs.aperture || 'T1.5'}`
           : undefined;
+        const shotDuration =
+          (typeof slide?.durationSec === 'number' && slide.durationSec > 0
+            ? slide.durationSec
+            : typeof frame?.durationSec === 'number' && frame.durationSec > 0
+            ? frame.durationSec
+            : 12);
 
         renderTitlePresetToCanvas(
           ctx,
           w,
           h,
           {
+            eyebrowText: activeMonitorTitleData.eyebrowText,
             banglaTitle: activeMonitorTitleData.banglaTitle || titleBn,
             englishTitle: activeMonitorTitleData.englishSubtitle || titleEn,
             dialogue: activeMonitorTitleData.captionNote || tagline,
+            creditsText: activeMonitorTitleData.creditsText,
             cameraInfo: camInfo,
             effectiveAlign: spatial.effectiveAlign,
             zone9: spatial.zone9,
             kineticEntrance: activeMonitorTitleData.kineticEntrance ?? spatial.kineticEntrance,
-            opacity: 1.0
+            opacity: 1.0,
+            durationSec: shotDuration,
+            layers: activeMonitorTitleData.layers,
+            keyframes: activeMonitorTitleData.keyframes
           },
           activeMonitorPresetConfig,
           1.0

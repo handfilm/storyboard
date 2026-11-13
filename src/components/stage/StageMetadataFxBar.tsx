@@ -22,9 +22,13 @@ import {
   ArrowLeft,
   ArrowRight,
   Sparkles,
-  Crosshair
+  Crosshair,
+  Frame,
+  Activity,
+  SplitSquareHorizontal,
+  ArrowLeftRight
 } from 'lucide-react';
-import { useStudioStore, HeroTitlePreset, TitleAlign } from '../../core/store';
+import { useStudioStore, HeroTitlePreset, TitleAlign, StageViewportScale } from '../../core/store';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { eventBus } from '../../core/eventBus';
 import { playbackClock, formatSmpteTimecode } from '../../utils/playbackClock';
@@ -113,6 +117,18 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
   const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
   const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
+
+  const stageScale = useStudioStore((s) => s.stageScale);
+  const setStageScale = useStudioStore((s) => s.setStageScale);
+  const monitorGuidesVisible = useStudioStore((s) => s.monitorGuidesVisible);
+  const toggleMonitorGuides = useStudioStore((s) => s.toggleMonitorGuides);
+  const monitorFocusPeaking = useStudioStore((s) => s.monitorFocusPeaking);
+  const toggleMonitorFocusPeaking = useStudioStore((s) => s.toggleMonitorFocusPeaking);
+  const monitorZebraExposure = useStudioStore((s) => s.monitorZebraExposure);
+  const toggleMonitorZebraExposure = useStudioStore((s) => s.toggleMonitorZebraExposure);
+  const monitorSplitCompare = useStudioStore((s) => s.monitorSplitCompare);
+  const toggleMonitorSplitCompare = useStudioStore((s) => s.toggleMonitorSplitCompare);
+  const toggleShotReverse = useStudioStore((s) => s.toggleShotReverse);
 
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [isTitleFxOpen, setIsTitleFxOpen] = useState(false);
@@ -450,6 +466,19 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           </span>
         )}
 
+        {activeFrame?.isReversed && (
+          <button
+            type="button"
+            data-testid="hud-reverse-indicator"
+            onClick={() => toggleShotReverse(shotIndex)}
+            className="h-[17px] px-1.5 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/60 text-[#F59E0B] flex items-center gap-1 text-[8px] font-bold whitespace-nowrap cursor-pointer shrink-0"
+            title="Clip Reversed — Click to restore forward playback"
+          >
+            <ArrowLeftRight className="w-2.5 h-2.5" />
+            <span>REV</span>
+          </button>
+        )}
+
         {digitalZoom.isZoomed && (
           <div className="flex items-center gap-1 px-1.5 h-[17px] rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:bg-[#F59E0B]/15 group-hover:border-[#F59E0B]/60 group-hover:text-[#F59E0B] text-[8px] font-bold tabular-nums shrink-0 transition-colors duration-200">
             <span>{digitalZoom.scale.toFixed(1)}x</span>
@@ -466,8 +495,109 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         )}
       </div>
 
-      {/* RIGHT CLUSTER (Deduplicated): Title Position & Choreography Matrix • Zoom • [ TITLE FX ] • Edit In */}
+      {/* RIGHT CLUSTER (Deduplicated): Scale 50|75|100|FIT • Monitor Overlays • Title Matrix • Zoom • [ TITLE FX ] • Edit In */}
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Stage Viewport Scale: 50% | 75% | 100% | FIT */}
+        <div
+          data-testid="stage-scale-selector"
+          className="hidden sm:flex items-center gap-0.5 px-1 h-[18px] rounded bg-[#141417] border border-white/[0.07] text-[8px] font-bold tabular-nums shrink-0"
+          role="group"
+          aria-label="Viewport Scale"
+        >
+          {(
+            [
+              { value: 0.5, label: '50%' },
+              { value: 0.75, label: '75%' },
+              { value: 1.0, label: '100%' },
+              { value: 'fit', label: 'FIT' },
+            ] as Array<{ value: StageViewportScale; label: string }>
+          ).map((opt) => (
+            <button
+              key={String(opt.value)}
+              type="button"
+              data-testid={`stage-scale-${opt.value}`}
+              aria-pressed={stageScale === opt.value}
+              onClick={() => setStageScale(opt.value)}
+              className={`px-1 h-[14px] leading-none flex items-center rounded cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+                stageScale === opt.value
+                  ? 'bg-[#F59E0B] text-[#0B0B0D] font-bold'
+                  : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+              }`}
+              title={`Set Stage Viewport Scale: ${opt.label}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Pro Cinema Monitor Overlays: Guides | Focus Peaking | Zebra >90 IRE | Split Wipe A|B */}
+        <div
+          data-testid="monitor-overlays-group"
+          className="hidden md:flex items-center gap-0.5 px-1 h-[18px] rounded bg-[#141417] border border-white/[0.07] text-[8px] font-bold shrink-0"
+          role="group"
+          aria-label="Monitor Overlays"
+        >
+          <button
+            type="button"
+            data-testid="monitor-overlay-guides"
+            aria-pressed={monitorGuidesVisible}
+            onClick={toggleMonitorGuides}
+            className={`px-1 h-[14px] rounded flex items-center gap-0.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+              monitorGuidesVisible
+                ? 'bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/50'
+                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+            }`}
+            title="Rule-of-Thirds & 90%/93% Title-Safe Guides"
+          >
+            <Frame className="w-2.5 h-2.5" />
+            <span className="hidden 2xl:inline">SAFE</span>
+          </button>
+          <button
+            type="button"
+            data-testid="monitor-overlay-peaking"
+            aria-pressed={monitorFocusPeaking}
+            onClick={toggleMonitorFocusPeaking}
+            className={`px-1 h-[14px] rounded flex items-center gap-0.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+              monitorFocusPeaking
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50'
+                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+            }`}
+            title="Focus Peaking Edge Detection Overlay"
+          >
+            <Crosshair className="w-2.5 h-2.5" />
+            <span className="hidden 2xl:inline">PEAK</span>
+          </button>
+          <button
+            type="button"
+            data-testid="monitor-overlay-zebra"
+            aria-pressed={monitorZebraExposure}
+            onClick={toggleMonitorZebraExposure}
+            className={`px-1 h-[14px] rounded flex items-center gap-0.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+              monitorZebraExposure
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-400/50'
+                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+            }`}
+            title="Zebra Exposure Warning (>90 IRE)"
+          >
+            <Activity className="w-2.5 h-2.5" />
+            <span className="hidden 2xl:inline">ZEBRA</span>
+          </button>
+          <button
+            type="button"
+            data-testid="monitor-overlay-wipe"
+            aria-pressed={monitorSplitCompare}
+            onClick={toggleMonitorSplitCompare}
+            className={`px-1 h-[14px] rounded flex items-center gap-0.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+              monitorSplitCompare
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50'
+                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+            }`}
+            title="Before/After Split-Screen Wipe (Raw vs Graded + Lit + Titles)"
+          >
+            <SplitSquareHorizontal className="w-2.5 h-2.5" />
+            <span className="hidden 2xl:inline">A|B</span>
+          </button>
+        </div>
         {safeZone && onChangeSafeZone && (
           <div className="hidden md:flex items-center gap-0.5 px-1 py-0 h-[18px] rounded bg-[#141417] border border-white/[0.07] text-[8px] transition-colors duration-200">
             <Compass className="w-2.5 h-2.5 text-[#8E8E93] group-hover:text-[#F59E0B] mr-0.5 transition-colors duration-200" />

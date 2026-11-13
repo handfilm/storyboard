@@ -1,136 +1,63 @@
 /**
  * @file /src/components/multicam/MultiCamGridMonitor.tsx
- * @description In-browser CapCut-style Multi-Camera Live Switching & Precision Shorts Grid Monitor.
- * 
- * Capabilities:
- * 1. Responsive Quad-Split / Multi-Grid: 2x2 or 3x3 vertical 9:16 layout with camera tags and shortcut badges.
- * 2. Active Broadcast Tally: Glowing golden amber border & "PROGRAM ON AIR" tag on active angle.
- * 3. Real-Time Punch-In Live Switching: Number keys (1-9) switch cameras and commit cut events during playback.
- * 4. Master Audio & Video Synchronization: Clock-locked playback across angles taking syncOffsetMs into account.
- * 5. Cut Matrix & Undo: Instant Cmd+Z / Ctrl+Z undo stack for rapid live cutting iterations.
- * 6. Dual-Mode Viewport: Toggle between Quad-Split Monitoring and Full Clean Program view.
- * 7. 1-Click 9:16 Shorts Export: WebCodecs/Canvas render pipeline with instant IndexedDB vault injection.
+ * @description Broadcast Live Switcher Monitor Deck:
+ * - Top ~70% Split Visual Deck:
+ *   - Left (60%): 9-Camera Live Preview Matrix (3x3 / 2x2 / 1x3) with CAM 01-09, red ON AIR / amber CUED tally, audio meters.
+ *   - Right (40%): Dedicated MASTER PROGRAM Monitor (16:9 / 2.39:1) with LUT filter + Title burn-in preview + LIVE ON AIR · CAM XX · TC 00:00:00.
+ * - Bottom ~30% Compact Multi-Cam Timeline Track + Transport & Render Actions.
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  Volume2, 
-  VolumeX, 
-  Maximize2, 
-  Scissors, 
-  Download, 
-  Sparkles, 
-  Layers, 
-  X, 
-  ChevronRight, 
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Download,
+  Sparkles,
+  X,
+  ChevronRight,
   ChevronLeft,
   RotateCw,
-  Sliders,
   Check,
   Video,
   Radio,
-  HardDrive,
-  RefreshCw
+  Type,
+  Sliders
 } from 'lucide-react';
-import { MultiCamGroup, MultiCamAngle, MultiCamCutEvent } from '../../types/multicam';
+import { MultiCamGroup, MultiCamCutEvent } from '../../types/multicam';
 import { MultiCamTimelineTrack } from './MultiCamTimelineTrack';
-import { ExpandableMultiCamLayout, MultiCamLayoutPreset } from './ExpandableMultiCamLayout';
-import { MultiCamViewportGrid, MultiCamGridConfig } from './MultiCamViewportGrid';
+import { MultiCamViewportGrid, MultiCamGridConfig, ProceduralAngleCanvas } from './MultiCamViewportGrid';
 import { multiCamRenderPipeline } from '../../services/multiCamRenderPipeline';
-import { VaultMediaItem, db } from '../../services/db';
+import { VaultMediaItem } from '../../services/db';
 import { samplePacks } from '../../data/frames';
 import { EventSourcedJournal } from '../../services/media/eventSourcedJournal';
 import { proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';
 import { multiCamSyncEngine } from '../../services/multiCamSyncEngine';
+import { getLutFilterCSS } from '../../utils/engine';
+import { isVideoSourceUrl } from '../../services/thumbnailEngine';
+import { AnthologyFrame, LutPreset } from '../../types/anthology';
+import {
+  formatBroadcastTimecode,
+  getActiveMultiCamAngleAtTime,
+  punchMultiCamAngle,
+  splitMultiCamAtPlayhead
+} from '../../utils/multiCamMath';
 
 export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
   id: 'multicam-default-group',
-  name: 'DIRECTOR MULTI-CAM 9-CAMERA DIRECTORS GRID',
+  name: 'BROADCAST LIVE SWITCHER',
   angles: [
-    {
-      id: 'ang-1',
-      mediaId: 'm1',
-      label: 'CAM 01',
-      blobUrl: samplePacks.cyberNoir[0] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Wide Master 35mm f/1.4'
-    },
-    {
-      id: 'ang-2',
-      mediaId: 'm2',
-      label: 'CAM 02',
-      blobUrl: samplePacks.cosmicMacro[1] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Medium Punch 50mm T2.0'
-    },
-    {
-      id: 'ang-3',
-      mediaId: 'm3',
-      label: 'CAM 03',
-      blobUrl: samplePacks.liquidGold[2] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Close-Up 85mm T1.3'
-    },
-    {
-      id: 'ang-4',
-      mediaId: 'm4',
-      label: 'CAM 04',
-      blobUrl: samplePacks.cyberNoir[3] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Low-Angle 24mm f/1.8'
-    },
-    {
-      id: 'ang-5',
-      mediaId: 'm5',
-      label: 'CAM 05',
-      blobUrl: samplePacks.liquidGold[0] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Overhead Tracking 18mm'
-    },
-    {
-      id: 'ang-6',
-      mediaId: 'm6',
-      label: 'CAM 06',
-      blobUrl: samplePacks.cosmicMacro[2] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Macro Profile 100mm Cine'
-    },
-    {
-      id: 'ang-7',
-      mediaId: 'm7',
-      label: 'CAM 07',
-      blobUrl: samplePacks.cyberNoir[1] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Steadicam Orbit 28mm'
-    },
-    {
-      id: 'ang-8',
-      mediaId: 'm8',
-      label: 'CAM 08',
-      blobUrl: samplePacks.liquidGold[1] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Dutch Tilt 40mm Cine'
-    },
-    {
-      id: 'ang-9',
-      mediaId: 'm9',
-      label: 'CAM 09',
-      blobUrl: samplePacks.cosmicMacro[0] || '',
-      aspectRatio: 9 / 16,
-      syncOffsetMs: 0,
-      name: 'Master Telephoto 135mm'
-    }
+    { id: 'ang-1', mediaId: 'm1', label: 'CAM 01', blobUrl: samplePacks.cyberNoir[0] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Wide Master 35mm' },
+    { id: 'ang-2', mediaId: 'm2', label: 'CAM 02', blobUrl: samplePacks.cosmicMacro[1] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Medium Punch 50mm' },
+    { id: 'ang-3', mediaId: 'm3', label: 'CAM 03', blobUrl: samplePacks.liquidGold[2] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Close-Up 85mm' },
+    { id: 'ang-4', mediaId: 'm4', label: 'CAM 04', blobUrl: samplePacks.cyberNoir[3] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Low-Angle 24mm' },
+    { id: 'ang-5', mediaId: 'm5', label: 'CAM 05', blobUrl: samplePacks.liquidGold[0] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Overhead 18mm' },
+    { id: 'ang-6', mediaId: 'm6', label: 'CAM 06', blobUrl: samplePacks.cosmicMacro[2] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Macro Profile 100mm' },
+    { id: 'ang-7', mediaId: 'm7', label: 'CAM 07', blobUrl: samplePacks.cyberNoir[1] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Steadicam 28mm' },
+    { id: 'ang-8', mediaId: 'm8', label: 'CAM 08', blobUrl: samplePacks.liquidGold[1] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Dutch Tilt 40mm' },
+    { id: 'ang-9', mediaId: 'm9', label: 'CAM 09', blobUrl: samplePacks.cosmicMacro[0] || '', aspectRatio: 16 / 9, syncOffsetMs: 0, name: 'Telephoto 135mm' }
   ],
   duration: 12.0,
   durationMs: 12000,
@@ -142,8 +69,17 @@ export const DEFAULT_SAMPLE_MULTICAM_GROUP: MultiCamGroup = {
     { id: 'cut-2', timeMs: 6500, angleIndex: 2 },
     { id: 'cut-3', timeMs: 9500, angleIndex: 3 }
   ],
-  aspectRatio: '9:16'
+  aspectRatio: '16:9'
 };
+
+const PROGRAM_LUT_OPTIONS: Array<{ id: LutPreset; label: string }> = [
+  { id: 'cinematic', label: 'CINE' },
+  { id: 'kodak_vision3', label: 'VISION3' },
+  { id: 'noir', label: 'NOIR' },
+  { id: 'bleach', label: 'BLEACH' },
+  { id: 'technicolor', label: 'TECH' },
+  { id: 'raw', label: 'RAW' }
+];
 
 export interface MultiCamGridMonitorProps {
   group?: MultiCamGroup;
@@ -154,6 +90,8 @@ export interface MultiCamGridMonitorProps {
   isInline?: boolean;
   layoutConfig?: MultiCamGridConfig;
   onChangeLayoutConfig?: (config: MultiCamGridConfig) => void;
+  activeShotFrame?: AnthologyFrame;
+  projectFrames?: AnthologyFrame[];
 }
 
 export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
@@ -164,168 +102,148 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   onExportSuccess,
   isInline = false,
   layoutConfig: controlledConfig,
-  onChangeLayoutConfig
+  onChangeLayoutConfig,
+  activeShotFrame,
+  projectFrames
 }) => {
   const [group, setGroup] = useState<MultiCamGroup>(initialGroup || DEFAULT_SAMPLE_MULTICAM_GROUP);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
-  const [programAspectRatio, setProgramAspectRatio] = useState<'9:16' | '2.39:1'>('9:16');
+  const [programAspectRatio, setProgramAspectRatio] = useState<'16:9' | '2.39:1'>('16:9');
   const [isMuted, setIsMuted] = useState(false);
   const [masterVolume, setMasterVolume] = useState(0.85);
-  const [layoutPreset, setLayoutPreset] = useState<MultiCamGridConfig>(controlledConfig || '2x2');
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [layoutPreset, setLayoutPreset] = useState<MultiCamGridConfig>(controlledConfig || '3x3');
+  const [cuedAngleIdx, setCuedAngleIdx] = useState<number>(1);
+  const [programLut, setProgramLut] = useState<LutPreset>(activeShotFrame?.lutFilter || 'cinematic');
+  const [showProgramTitleBurnIn, setShowProgramTitleBurnIn] = useState<boolean>(true);
   const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(null);
   const [isAfvEnabled, setIsAfvEnabled] = useState(false);
-  const [isSynthesizingFeeds, setIsSynthesizingFeeds] = useState(false);
-  const [synthesisProgress, setSynthesisProgress] = useState<string | null>(null);
 
-  // Undo/Redo append-only cut log stack
   const [cutStack, setCutStack] = useState<MultiCamCutEvent[]>([]);
   const [redoStack, setRedoStack] = useState<MultiCamCutEvent[]>([]);
 
-  // Export State
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState('');
   const [exportedItem, setExportedItem] = useState<VaultMediaItem | null>(null);
 
-  // References for angle video elements and program video
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const programVideoRef = useRef<HTMLVideoElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(performance.now());
 
-  const durationMs = group.durationMs || Math.round((group.duration || 15) * 1000);
+  const durationMs = group.durationMs || Math.round((group.duration || 12) * 1000);
 
-  // Keep group in sync with prop updates
+  // Sync group & enrich unassigned camera slots with live project shot media when available
   useEffect(() => {
-    setGroup(initialGroup);
-  }, [initialGroup]);
+    const base = initialGroup || DEFAULT_SAMPLE_MULTICAM_GROUP;
+    if (!projectFrames || projectFrames.length === 0) {
+      setGroup(base);
+      return;
+    }
 
-  // Auto-provision 4 distinct synchronized video sources if not already present
+    setGroup({
+      ...base,
+      angles: base.angles.map((angle, idx) => {
+        const frame = projectFrames[idx];
+        const hasUserUpload = angle.mediaId?.startsWith('user-') || angle.blobUrl?.startsWith('blob:');
+        if (!hasUserUpload && frame?.imageUrl) {
+          return {
+            ...angle,
+            blobUrl: frame.imageUrl,
+            isVideo: Boolean(frame.isVideo),
+            name: frame.title || angle.name
+          };
+        }
+        return angle;
+      })
+    });
+  }, [initialGroup, projectFrames]);
+
+  useEffect(() => {
+    if (activeShotFrame?.lutFilter) {
+      setProgramLut(activeShotFrame.lutFilter);
+    }
+  }, [activeShotFrame?.lutFilter]);
+
+  // Seed procedural feeds silently if slots lack video streams (optional enhancement; procedural canvas already renders live at 60fps)
   useEffect(() => {
     let isCancelled = false;
-    const needsVideoSources = group.angles.some(
-      a => !a.blobUrl || (!a.blobUrl.startsWith('blob:') && !a.blobUrl.endsWith('.mp4') && !a.blobUrl.endsWith('.webm'))
-    );
+    const needsSeed = group.angles.every((a) => !a.blobUrl);
+    if (!needsSeed) return;
 
-    if (needsVideoSources && !isSynthesizingFeeds) {
-      setIsSynthesizingFeeds(true);
-      proceduralMultiCamFeeds.getSynchronizedAngles(
-        group.angles[group.activeAngleIndex || 0]?.id || 'ang-1',
-        (idx, total, label) => {
-          if (!isCancelled) {
-            setSynthesisProgress(`Synthesizing ${label} (${idx + 1}/${total})...`);
-          }
+    proceduralMultiCamFeeds
+      .getSynchronizedAngles(group.angles[0]?.id || 'ang-1')
+      .then((synched) => {
+        if (!isCancelled && synched?.length) {
+          setGroup((prev) => ({
+            ...prev,
+            angles: prev.angles.map((old, idx) => ({
+              ...old,
+              blobUrl: old.blobUrl || synched[idx]?.blobUrl || '',
+              isVideo: old.isVideo ?? Boolean(synched[idx]?.blobUrl)
+            }))
+          }));
         }
-      ).then(synchedAngles => {
-        if (!isCancelled && synchedAngles && synchedAngles.length > 0) {
-          setGroup(prev => {
-            const merged = prev.angles.map((oldAngle, idx) => {
-              const synched = synchedAngles[idx];
-              if (!synched) return oldAngle;
-              return {
-                ...oldAngle,
-                blobUrl: synched.blobUrl || oldAngle.blobUrl,
-                name: oldAngle.name || synched.name
-              };
-            });
-            const next = { ...prev, angles: merged };
-            onSaveGroup?.(next);
-            return next;
-          });
-          setIsSynthesizingFeeds(false);
-          setSynthesisProgress(null);
-        }
-      }).catch(err => {
-        console.warn('[MultiCamGridMonitor] Procedural feed generation error:', err);
-        if (!isCancelled) {
-          setIsSynthesizingFeeds(false);
-          setSynthesisProgress(null);
-        }
-      });
-    }
+      })
+      .catch(() => {});
 
     return () => {
       isCancelled = true;
     };
   }, []);
 
-  // Upload or replace video file for a specific camera angle
-  const handleUploadAngleVideo = useCallback(async (angleIndex: number, file: File) => {
-    try {
-      const blobUrl = URL.createObjectURL(file);
-      const angleName = file.name.replace(/\.[^/.]+$/, '');
+  const handleUploadAngleVideo = useCallback(
+    (angleIndex: number, file: File) => {
+      try {
+        const blobUrl = URL.createObjectURL(file);
+        const angleName = file.name.replace(/\.[^/.]+$/, '');
+        const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|mkv)$/i.test(file.name);
 
-      setGroup(prev => {
-        const updated = [...prev.angles];
-        if (updated[angleIndex]) {
-          updated[angleIndex] = {
-            ...updated[angleIndex],
-            blobUrl,
-            name: angleName,
-            mediaId: `user-${Date.now()}`
-          };
-        }
-        const next = { ...prev, angles: updated };
-        onSaveGroup?.(next);
-        return next;
-      });
-
-      setSendSuccessMessage(`⚡ Ingested "${file.name}" into CAM 0${angleIndex + 1}!`);
-      setTimeout(() => setSendSuccessMessage(null), 3000);
-
-      multiCamSyncEngine.extractAudioBuffer(blobUrl).then(buffer => {
-        if (buffer) {
-          console.log(`[MultiCamGridMonitor] Audio decoded for CAM 0${angleIndex + 1}`);
-        }
-      }).catch(() => {});
-    } catch (err: any) {
-      console.warn('[MultiCamGridMonitor] Upload video error:', err);
-    }
-  }, [onSaveGroup]);
-
-  // Re-synthesize fresh cinema feeds on demand
-  const handleResynthesizeFeeds = useCallback(async () => {
-    setIsSynthesizingFeeds(true);
-    try {
-      const synchedAngles = await proceduralMultiCamFeeds.getSynchronizedAngles(
-        group.angles[group.activeAngleIndex || 0]?.id || 'ang-1',
-        (idx, total, label) => {
-          setSynthesisProgress(`Synthesizing ${label} (${idx + 1}/${total})...`);
-        }
-      );
-      if (synchedAngles && synchedAngles.length > 0) {
-        setGroup(prev => {
-          const next = { ...prev, angles: synchedAngles };
+        setGroup((prev) => {
+          const updated = prev.angles.map((ang, idx) =>
+            idx === angleIndex
+              ? {
+                  ...ang,
+                  blobUrl,
+                  isVideo: isVid,
+                  name: angleName,
+                  mediaId: `user-${Date.now()}`
+                }
+              : ang
+          );
+          const next = { ...prev, angles: updated };
           onSaveGroup?.(next);
           return next;
         });
-        setSendSuccessMessage('⚡ 4 Cinema Camera Video Feeds Synthesized & Locked!');
-        setTimeout(() => setSendSuccessMessage(null), 3000);
-      }
-    } catch (e: any) {
-      console.warn('[MultiCamGridMonitor] Synthesize error:', e);
-    } finally {
-      setIsSynthesizingFeeds(false);
-      setSynthesisProgress(null);
-    }
-  }, [group.activeAngleIndex, group.angles, onSaveGroup]);
 
-  // Master audio angle index (CAM 01 by default / index 0)
+        setSendSuccessMessage(`Loaded "${file.name}" into CAM ${String(angleIndex + 1).padStart(2, '0')}`);
+        window.setTimeout(() => setSendSuccessMessage(null), 2600);
+
+        if (isVid) {
+          multiCamSyncEngine.extractAudioBuffer(blobUrl).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('[MultiCamGridMonitor] Upload media error:', err);
+      }
+    },
+    [onSaveGroup]
+  );
+
   const masterAudioIndex = Math.max(0, Math.min(group.angles.length - 1, group.masterAudioAngleIndex || 0));
 
-  // Determine active angle for current playhead
-  const currentActiveAngleIdx = useMemo(() => {
-    return multiCamRenderPipeline.getActiveAngleIndexAtTime(
-      group.cutEvents,
-      currentTimeMs,
-      group.activeAngleIndex || 0
-    );
-  }, [group.cutEvents, currentTimeMs, group.activeAngleIndex]);
+  const currentActiveAngleIdx = useMemo(
+    () => getActiveMultiCamAngleAtTime(group.cutEvents, currentTimeMs, group.activeAngleIndex || 0),
+    [group.cutEvents, currentTimeMs, group.activeAngleIndex]
+  );
 
-  // Format Timecode
+  const activeAngle = group.angles[currentActiveAngleIdx] || group.angles[0];
+  const activeProgramLutCss = useMemo(
+    () => getLutFilterCSS(programLut, activeShotFrame?.adjustments),
+    [programLut, activeShotFrame?.adjustments]
+  );
+
   const formatTimecode = (ms: number) => {
     const totalSec = Math.floor(ms / 1000);
     const mins = Math.floor(totalSec / 60);
@@ -334,76 +252,75 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
   };
 
-  // Instant Punch-In Switching without pausing the media stream
-  const switchAngle = useCallback((angleIndex: number) => {
-    if (angleIndex < 0 || angleIndex >= group.angles.length) return;
+  // Immediate live camera punch-in cut (supports CAM 01..CAM 09)
+  const switchAngle = useCallback(
+    (angleIndex: number) => {
+      if (angleIndex < 0 || angleIndex >= group.angles.length) return;
 
-    setGroup(prev => {
-      const prevAngle = prev.activeAngleIndex || 0;
-      const frameNum = Math.floor((currentTimeMs / 1000) * 30);
-
-      // Create new CutEvent
-      const newCut: MultiCamCutEvent = {
-        id: `cut-${Date.now()}-${angleIndex}`,
-        timeMs: Math.max(0, Math.min(durationMs, currentTimeMs)),
-        angleIndex,
-        timestampMs: currentTimeMs,
-        frame: frameNum,
-        previousAngle: prevAngle,
-        newAngle: angleIndex
-      };
-
-      // Push to append-only undo stack
-      setCutStack(stack => [...stack, newCut]);
-      setRedoStack([]); // Clear redo on fresh cut
-
-      // Check for existing cut at current timestamp window (within 120ms)
-      const existingIdx = prev.cutEvents.findIndex(c => Math.abs(c.timeMs - currentTimeMs) < 120);
-      let updatedCuts: MultiCamCutEvent[];
-
-      if (existingIdx >= 0) {
-        updatedCuts = prev.cutEvents.map((c, i) => i === existingIdx ? { ...c, angleIndex } : c);
-      } else {
-        updatedCuts = [...prev.cutEvents, newCut].sort((a, b) => a.timeMs - b.timeMs);
-      }
-
-      const next = {
-        ...prev,
-        activeAngleIndex: angleIndex,
-        cutEvents: updatedCuts
-      };
-
-      // Commit to event-sourced transaction journal
-      EventSourcedJournal.getInstance().commitAction({
-        actionType: 'SPLIT_SHOT',
-        frameIndex: frameNum,
-        payload: {
-          angleIndex,
-          timeMs: currentTimeMs,
-          label: prev.angles[angleIndex]?.label || `CAM 0${angleIndex + 1}`
-        },
-        inversePayload: {
-          previousAngle: prevAngle,
-          timeMs: currentTimeMs
+      setGroup((prev) => {
+        const prevAngle = getActiveMultiCamAngleAtTime(prev.cutEvents, currentTimeMs, prev.activeAngleIndex || 0);
+        if (prevAngle !== angleIndex) {
+          setCuedAngleIdx(prevAngle);
         }
-      }).catch(() => {});
+        const punched = punchMultiCamAngle(prev.cutEvents, currentTimeMs, angleIndex, durationMs, prevAngle);
 
+        setCutStack((stack) => [...stack, punched.newCut]);
+        setRedoStack([]);
+
+        const next: MultiCamGroup = {
+          ...prev,
+          activeAngleIndex: angleIndex,
+          cutEvents: punched.cutEvents
+        };
+
+        EventSourcedJournal.getInstance()
+          .commitAction({
+            actionType: 'SPLIT_SHOT',
+            frameIndex: punched.newCut.frame || 0,
+            payload: {
+              angleIndex,
+              timeMs: currentTimeMs,
+              label: prev.angles[angleIndex]?.label || `CAM 0${angleIndex + 1}`
+            },
+            inversePayload: {
+              previousAngle: prevAngle,
+              timeMs: currentTimeMs
+            }
+          })
+          .catch(() => {});
+
+        onSaveGroup?.(next);
+        return next;
+      });
+    },
+    [currentTimeMs, durationMs, group.angles.length, onSaveGroup]
+  );
+
+  const handleSplitAtPlayhead = useCallback(() => {
+    setGroup((prev) => {
+      const activeIdx = getActiveMultiCamAngleAtTime(prev.cutEvents, currentTimeMs, prev.activeAngleIndex || 0);
+      const res = splitMultiCamAtPlayhead(prev.cutEvents, currentTimeMs, durationMs, activeIdx);
+      if (!res.inserted || !res.newCut) return prev;
+      setCutStack((stack) => [...stack, res.newCut!]);
+      setRedoStack([]);
+      const next = { ...prev, cutEvents: res.cutEvents };
       onSaveGroup?.(next);
       return next;
     });
-  }, [currentTimeMs, durationMs, group.angles.length, onSaveGroup]);
+  }, [currentTimeMs, durationMs, onSaveGroup]);
 
-  // Undo last cut event (Ctrl+Z) - seamlessly restores previous angle duration without desyncing playhead
   const undoLastCut = useCallback(() => {
     if (cutStack.length === 0) return;
     const lastCut = cutStack[cutStack.length - 1];
+    setCutStack((stack) => stack.slice(0, -1));
+    setRedoStack((redo) => [...redo, lastCut]);
 
-    setCutStack(stack => stack.slice(0, stack.length - 1));
-    setRedoStack(redo => [...redo, lastCut]);
-
-    setGroup(prev => {
-      const updatedCuts = prev.cutEvents.filter(c => c.id !== lastCut.id && Math.abs(c.timeMs - (lastCut.timestampMs ?? lastCut.timeMs)) > 50);
-      const safeCuts = updatedCuts.length > 0 ? updatedCuts : [{ id: 'cut-init', timeMs: 0, angleIndex: lastCut.previousAngle ?? 0 }];
+    setGroup((prev) => {
+      const updatedCuts = prev.cutEvents.filter((c) => c.id !== lastCut.id);
+      const safeCuts =
+        updatedCuts.length > 0
+          ? updatedCuts
+          : [{ id: 'cut-init', timeMs: 0, angleIndex: lastCut.previousAngle ?? 0 }];
       const next = {
         ...prev,
         activeAngleIndex: lastCut.previousAngle ?? 0,
@@ -414,16 +331,16 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     });
   }, [cutStack, onSaveGroup]);
 
-  // Redo cut event (Ctrl+Y / Ctrl+Shift+Z)
   const redoCut = useCallback(() => {
     if (redoStack.length === 0) return;
     const cutToRedo = redoStack[redoStack.length - 1];
+    setRedoStack((redo) => redo.slice(0, -1));
+    setCutStack((stack) => [...stack, cutToRedo]);
 
-    setRedoStack(redo => redo.slice(0, redo.length - 1));
-    setCutStack(stack => [...stack, cutToRedo]);
-
-    setGroup(prev => {
-      const updatedCuts = [...prev.cutEvents.filter(c => c.id !== cutToRedo.id), cutToRedo].sort((a, b) => a.timeMs - b.timeMs);
+    setGroup((prev) => {
+      const updatedCuts = [...prev.cutEvents.filter((c) => c.id !== cutToRedo.id), cutToRedo].sort(
+        (a, b) => a.timeMs - b.timeMs
+      );
       const next = {
         ...prev,
         activeAngleIndex: cutToRedo.newAngle ?? cutToRedo.angleIndex,
@@ -434,121 +351,116 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     });
   }, [redoStack, onSaveGroup]);
 
-  // Keyboard shortcut listener for camera switching (1-4), spacebar, undo/redo, layout presets
+  // Keyboard switcher: 1-9 punch cameras, C splits at playhead, A toggles AFV, Space toggles play, Alt+1/2/3 matrix preset
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Avoid firing when user is typing in an input
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      const target = e.target as HTMLElement | null;
+      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) {
         return;
       }
 
-      // Alt + 1, 2, 3: Layout presets
       if (e.altKey && e.key === '1') {
         e.preventDefault();
-        setLayoutPreset('1x1');
-        onChangeLayoutConfig?.('1x1');
+        setLayoutPreset('3x3');
+        onChangeLayoutConfig?.('3x3');
         return;
       }
       if (e.altKey && e.key === '2') {
-        e.preventDefault();
-        setLayoutPreset('1x3');
-        onChangeLayoutConfig?.('1x3');
-        return;
-      }
-      if (e.altKey && e.key === '3') {
         e.preventDefault();
         setLayoutPreset('2x2');
         onChangeLayoutConfig?.('2x2');
         return;
       }
+      if (e.altKey && e.key === '3') {
+        e.preventDefault();
+        setLayoutPreset('1x3');
+        onChangeLayoutConfig?.('1x3');
+        return;
+      }
 
-      // Number keys '1', '2', '3', '4' (and Numpad 1-4): Instant punch-in hard cut to camera angle
-      if (['1', '2', '3', '4'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      // Keys 1-9: Instant Live Punch-in Cut across CAM 01..CAM 09
+      if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const targetIndex = parseInt(e.key, 10) - 1;
         if (targetIndex < group.angles.length) {
           e.preventDefault();
+          e.stopPropagation();
           switchAngle(targetIndex);
           return;
         }
       }
 
-      // Hotkey 'a' or 'A': Toggle Audio Follows Video (AFV)
+      // Key C: Split at playhead
+      if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSplitAtPlayhead();
+        return;
+      }
+
       if ((e.key === 'a' || e.key === 'A') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        setIsAfvEnabled(a => !a);
+        setIsAfvEnabled((a) => !a);
         return;
       }
 
-      // Spacebar toggles Play/Pause with zero latency
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
-        setIsPlaying(p => !p);
-      }
-
-      // Undo: Cmd+Z or Ctrl+Z
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          redoCut();
-        } else {
-          undoLastCut();
-        }
+        e.stopPropagation();
+        setIsPlaying((p) => !p);
         return;
       }
 
-      // Redo: Cmd+Y or Ctrl+Y
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redoCut();
+        else undoLastCut();
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         redoCut();
         return;
       }
 
-      // Frame stepping with Arrow keys
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setCurrentTimeMs(t => Math.max(0, t - (1000 / 30)));
-      }
-      if (e.key === 'ArrowRight') {
+        setCurrentTimeMs((t) => Math.max(0, t - 1000 / 30));
+      } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setCurrentTimeMs(t => Math.min(durationMs, t + (1000 / 30)));
+        setCurrentTimeMs((t) => Math.min(durationMs, t + 1000 / 30));
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, group.angles.length, switchAngle, undoLastCut, redoCut, durationMs, onChangeLayoutConfig]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, group.angles.length, switchAngle, handleSplitAtPlayhead, undoLastCut, redoCut, durationMs, onChangeLayoutConfig]);
 
-  // Master Clock Synchronization Loop & Continuous Audio Bus Lock
+  // Synchronized Master Clock & Video Element Sync
   useEffect(() => {
     if (!isOpen) return;
 
     const syncVideosToTime = (timeMs: number) => {
-      const isSoloMode = (controlledConfig || layoutPreset) === '1x1';
-
       videoRefs.current.forEach((video, idx) => {
         if (!video) return;
         const angle = group.angles[idx];
         if (!angle) return;
 
-        // Dynamic GPU decode release: in 1x1 SOLO mode, pause off-screen angles unless it is the active angle or master audio
-        if (isSoloMode && idx !== currentActiveAngleIdx && idx !== masterAudioIndex) {
-          if (!video.paused) {
-            video.pause();
-          }
-          return;
-        }
-
-        // Apply audio offset with continuous master clock
         const targetSec = Math.max(0, (timeMs - (angle.syncOffsetMs || 0)) / 1000);
-
-        // Relaxed 0.18s drift threshold to guarantee continuous master audio without popping or seek micro-stutters
-        if (Math.abs(video.currentTime - targetSec) > 0.18) {
-          video.currentTime = targetSec;
+        if (Math.abs(video.currentTime - targetSec) > 0.16) {
+          if (typeof video.fastSeek === 'function') {
+            try {
+              video.fastSeek(targetSec);
+            } catch {
+              video.currentTime = targetSec;
+            }
+          } else {
+            video.currentTime = targetSec;
+          }
         }
 
-        // Configure continuous audio routing: respect Audio Follows Video (AFV) or Master Audio
         const effectiveSoundIdx = isAfvEnabled ? currentActiveAngleIdx : masterAudioIndex;
         if (idx === effectiveSoundIdx) {
           video.muted = isMuted;
@@ -558,12 +470,16 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         }
       });
 
-      // Synchronize Master Program Output video element
-      if (programVideoRef.current) {
-        const activeAngle = group.angles[currentActiveAngleIdx] || group.angles[0];
-        if (activeAngle) {
-          const targetSec = Math.max(0, (timeMs - (activeAngle.syncOffsetMs || 0)) / 1000);
-          if (Math.abs(programVideoRef.current.currentTime - targetSec) > 0.15) {
+      if (programVideoRef.current && activeAngle) {
+        const targetSec = Math.max(0, (timeMs - (activeAngle.syncOffsetMs || 0)) / 1000);
+        if (Math.abs(programVideoRef.current.currentTime - targetSec) > 0.14) {
+          if (typeof programVideoRef.current.fastSeek === 'function') {
+            try {
+              programVideoRef.current.fastSeek(targetSec);
+            } catch {
+              programVideoRef.current.currentTime = targetSec;
+            }
+          } else {
             programVideoRef.current.currentTime = targetSec;
           }
         }
@@ -572,18 +488,8 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
     if (isPlaying) {
       lastTimeRef.current = performance.now();
-      const isSoloMode = (controlledConfig || layoutPreset) === '1x1';
-
-      // Play active video elements (in solo mode, only play active angle and master audio)
-      videoRefs.current.forEach((v, idx) => {
-        if (!v) return;
-        if (isSoloMode && idx !== currentActiveAngleIdx && idx !== masterAudioIndex) {
-          if (!v.paused) v.pause();
-        } else {
-          if (v.paused) {
-            v.play().catch(() => {});
-          }
-        }
+      videoRefs.current.forEach((v) => {
+        if (v && v.paused) v.play().catch(() => {});
       });
       if (programVideoRef.current && programVideoRef.current.paused) {
         programVideoRef.current.play().catch(() => {});
@@ -593,7 +499,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         const deltaMs = now - lastTimeRef.current;
         lastTimeRef.current = now;
 
-        setCurrentTimeMs(prev => {
+        setCurrentTimeMs((prev) => {
           let next = prev + deltaMs;
           if (next >= durationMs) {
             if (isLooping) {
@@ -612,14 +518,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
       animFrameRef.current = requestAnimationFrame(tick);
     } else {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-      // Pause all videos
-      videoRefs.current.forEach(v => {
-        if (v && !v.paused) {
-          v.pause();
-        }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      videoRefs.current.forEach((v) => {
+        if (v && !v.paused) v.pause();
       });
       if (programVideoRef.current && !programVideoRef.current.paused) {
         programVideoRef.current.pause();
@@ -628,36 +529,48 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     }
 
     return () => {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPlaying, isLooping, durationMs, group.angles, masterAudioIndex, isMuted, masterVolume, isOpen, layoutPreset, controlledConfig, currentActiveAngleIdx, isAfvEnabled]);
+  }, [isPlaying, isLooping, durationMs, group.angles, masterAudioIndex, isMuted, masterVolume, isOpen, currentActiveAngleIdx, isAfvEnabled, activeAngle]);
 
-  // Handle Scrubbing
   const handleSeekMs = (targetMs: number) => {
     setCurrentTimeMs(targetMs);
     videoRefs.current.forEach((video, idx) => {
       if (!video) return;
       const angle = group.angles[idx];
       if (angle) {
-        video.currentTime = Math.max(0, (targetMs - (angle.syncOffsetMs || 0)) / 1000);
+        const sec = Math.max(0, (targetMs - (angle.syncOffsetMs || 0)) / 1000);
+        if (typeof video.fastSeek === 'function') {
+          try { video.fastSeek(sec); } catch { video.currentTime = sec; }
+        } else {
+          video.currentTime = sec;
+        }
       }
     });
+    if (programVideoRef.current && activeAngle) {
+      const sec = Math.max(0, (targetMs - (activeAngle.syncOffsetMs || 0)) / 1000);
+      if (typeof programVideoRef.current.fastSeek === 'function') {
+        try { programVideoRef.current.fastSeek(sec); } catch { programVideoRef.current.currentTime = sec; }
+      } else {
+        programVideoRef.current.currentTime = sec;
+      }
+    }
   };
 
-  // Render & Export 9:16 Short
   const handleExportShort = async () => {
     setIsPlaying(false);
     setIsExporting(true);
     setExportProgress(0);
-    setExportStatus('Initializing WebCodecs 9:16 Shorts export...');
+    setExportStatus('Compositing multi-cam program master...');
 
     try {
       const result = await multiCamRenderPipeline.renderMultiCamGroup(group, {
-        width: 1080,
-        height: 1920,
+        width: programAspectRatio === '2.39:1' ? 1920 : 1920,
+        height: programAspectRatio === '2.39:1' ? 804 : 1080,
         fps: 30,
+        burnInTitles: showProgramTitleBurnIn,
+        banglaTitle: activeShotFrame?.bengaliTitle,
+        englishTitle: activeShotFrame?.title,
         onProgress: (pct, msg) => {
           setExportProgress(pct);
           setExportStatus(msg);
@@ -676,247 +589,347 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
   if (!isOpen) return null;
 
-  // Grid layout class based on number of angles
-  const getGridColsClass = () => {
-    const count = group.angles.length;
-    if (count <= 2) return 'grid-cols-2';
-    if (count <= 4) return 'grid-cols-2';
-    return 'grid-cols-3';
-  };
+  const activeConfig = controlledConfig !== undefined ? controlledConfig : layoutPreset;
+  const activeAngleIsVideo = Boolean(
+    activeAngle?.blobUrl &&
+    (activeAngle.isVideo || isVideoSourceUrl(activeAngle.blobUrl, { isVideo: activeAngle.isVideo }))
+  );
+  const activeAngleIsImage = Boolean(activeAngle?.blobUrl && !activeAngleIsVideo);
 
   return (
-    <div className={isInline ? "w-full h-full flex flex-col bg-[#08090C] text-white font-sans overflow-hidden select-none" : "fixed inset-0 z-[110] flex flex-col bg-[#08090C] text-white font-sans overflow-hidden select-none animate-fade-in"}>
-      {/* Top Header Bar */}
-      <header className="h-14 px-6 border-b border-white/10 bg-[#0C0D12] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[#F5A623]">
-            <Video className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold tracking-tight text-white">{group.name}</h1>
-              <span className="text-[10px] font-mono font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
-                9:16 SHORTS LIVE SWITCHER
-              </span>
-            </div>
-            <div className="text-[11px] text-neutral-400">
-              {group.angles.length} Cameras Locked · Press keys 1–{group.angles.length} to punch-in cuts
-            </div>
-          </div>
+    <div
+      className={
+        isInline
+          ? 'w-full h-full flex flex-col bg-[#07080B] text-white font-sans overflow-hidden select-none'
+          : 'fixed inset-0 z-[110] flex flex-col bg-[#07080B] text-white font-sans overflow-hidden select-none'
+      }
+    >
+      {/* Top Broadcast Switcher Header (Slim) */}
+      <header className="h-11 px-4 border-b border-white/10 bg-[#0B0C11] flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Video className="w-4 h-4 text-red-500 shrink-0" />
+          <h1 className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white truncate">
+            {group.name || 'BROADCAST LIVE SWITCHER'}
+          </h1>
+          <span className="hidden md:inline text-[11px] font-mono text-neutral-400 tabular-nums">
+            · 9-CAM MATRIX · TC {formatBroadcastTimecode(currentTimeMs)}
+          </span>
         </div>
 
-        {/* Header Actions */}
-        <div className="flex items-center gap-2.5">
-          {/* AFV Mode Toggle Button */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => setIsAfvEnabled(a => !a)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            onClick={() => setIsAfvEnabled((a) => !a)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-colors flex items-center gap-1.5 cursor-pointer border ${
               isAfvEnabled
-                ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                : 'bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-400 hover:text-white'
+                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                : 'bg-white/5 hover:bg-white/10 border-white/10 text-neutral-300'
             }`}
-            title="Toggle Audio Follows Video (Key 'A'): Automatically routes audio to currently focused camera"
+            title="Audio Follows Video (Key A)"
           >
-            <Radio className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{isAfvEnabled ? 'AFV ON (AUTO SOUND)' : 'CAM 1 SOUND LOCKED'}</span>
+            <Radio className="w-3 h-3" />
+            <span>{isAfvEnabled ? 'AFV ON' : 'AFV LOCK'}</span>
           </button>
 
-          {/* Re-Synthesize Cinema Video Feeds */}
-          <button
-            type="button"
-            onClick={handleResynthesizeFeeds}
-            disabled={isSynthesizingFeeds}
-            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-40 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Re-synthesize all 4 camera feeds with fresh procedural cinematography and audio"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#FFE066] ${isSynthesizingFeeds ? 'animate-spin' : ''}`} />
-            <span>{isSynthesizingFeeds ? (synthesisProgress || 'Generating...') : 'Re-Gen 4 Feeds'}</span>
-          </button>
-
-          {/* Direct Send to Master Storyboard Timeline */}
           <button
             type="button"
             onClick={() => {
               const count = multiCamRenderPipeline.sendMultiCamSequenceToMasterTimeline(group);
-              setSendSuccessMessage(`⚡ Sequenced ${count} cuts into Storyboard Shots 001-${String(count).padStart(3, '0')}!`);
-              setTimeout(() => setSendSuccessMessage(null), 3500);
+              setSendSuccessMessage(`Sequenced ${count} cuts to Storyboard Slots 001-${String(count).padStart(3, '0')}`);
+              window.setTimeout(() => setSendSuccessMessage(null), 3200);
             }}
-            className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            title="Send multi-camera live cuts directly to Master Storyboard Shots 001-100"
+            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>⚡ Send Cuts to Storyboard (001-100)</span>
+            <span>SEND CUTS TO STORYBOARD</span>
           </button>
 
           <button
-            onClick={undoLastCut}
-            disabled={cutStack.length === 0}
-            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-30 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Undo last live cut (Ctrl+Z / Cmd+Z)"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>↶ Undo</span>
-          </button>
-
-          <button
-            onClick={redoCut}
-            disabled={redoStack.length === 0}
-            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-neutral-300 disabled:opacity-30 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Redo cut (Ctrl+Y / Cmd+Y / Ctrl+Shift+Z)"
-          >
-            <RotateCw className="w-3.5 h-3.5 text-cyan-400" />
-            <span>↷ Redo</span>
-          </button>
-
-          <button
+            type="button"
             onClick={handleExportShort}
             disabled={isExporting}
-            className="px-4 py-1.5 bg-[#141520] hover:bg-[#1f2133] border border-cyan-500/40 text-cyan-300 hover:text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+            className="px-3 py-1 bg-[#141622] hover:bg-[#1E2133] border border-cyan-500/40 text-cyan-300 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Download className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Render 9:16 Short</span>
+            <Download className="w-3.5 h-3.5" />
+            <span>RENDER</span>
           </button>
 
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Close Multi-Cam View"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* Success Notification Banner */}
       {sendSuccessMessage && (
-        <div className="bg-amber-500/15 border-b border-amber-500/40 px-6 py-2 flex items-center justify-between text-xs text-amber-300 animate-in fade-in duration-150">
+        <div className="bg-amber-500/15 border-b border-amber-500/40 px-4 py-1.5 flex items-center justify-between text-xs text-amber-300 shrink-0">
           <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-amber-400" />
+            <Check className="w-3.5 h-3.5 text-amber-400" />
             <span className="font-semibold">{sendSuccessMessage}</span>
           </div>
-          <span className="text-[10px] text-amber-400/80 font-mono">STORYBOARD SLOTS 1-100 POPULATED</span>
+          <span className="text-[10px] font-mono text-amber-400/80">SYNCED TO MASTER TIMELINE</span>
         </div>
       )}
 
-      {/* Multi-Cam Viewport Grid with 2x2, 1x3, and 1x1 Configurations */}
-      <div className="flex-1 w-full p-3 overflow-hidden flex flex-col min-h-0">
-        <MultiCamViewportGrid
-          group={group}
-          currentActiveAngleIdx={currentActiveAngleIdx}
-          currentTimeMs={currentTimeMs}
-          isPlaying={isPlaying}
-          isMuted={isMuted}
-          masterAudioIndex={masterAudioIndex}
-          onSelectAngle={switchAngle}
-          onUploadAngleVideo={handleUploadAngleVideo}
-          videoRefs={videoRefs}
-          config={controlledConfig !== undefined ? controlledConfig : layoutPreset}
-          onChangeConfig={(cfg) => {
-            setLayoutPreset(cfg);
-            onChangeLayoutConfig?.(cfg);
-          }}
-          isExpanded={isExpanded}
-          onToggleExpand={() => setIsExpanded(e => !e)}
-          aspectRatio={programAspectRatio === '2.39:1' ? '2.39:1' : '9:16'}
-          onChangeAspectRatio={(r) => setProgramAspectRatio(r === '2.39:1' ? '2.39:1' : '9:16')}
-        />
+      {/* TOP ~70% BROADCAST LIVE SWITCHER MONITOR DECK: Left 60% (9-Cam Matrix) + Right 40% (Master Program) */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-2.5 p-2.5 overflow-hidden">
+        {/* LEFT (60%): 9-Camera Live Preview Matrix */}
+        <div className="w-full lg:w-[60%] h-[55%] lg:h-full min-h-0 flex flex-col">
+          <MultiCamViewportGrid
+            group={group}
+            currentActiveAngleIdx={currentActiveAngleIdx}
+            cuedAngleIdx={cuedAngleIdx}
+            currentTimeMs={currentTimeMs}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            masterAudioIndex={masterAudioIndex}
+            onSelectAngle={switchAngle}
+            onCueAngle={setCuedAngleIdx}
+            onUploadAngleVideo={handleUploadAngleVideo}
+            videoRefs={videoRefs}
+            config={activeConfig}
+            onChangeConfig={(cfg) => {
+              setLayoutPreset(cfg);
+              onChangeLayoutConfig?.(cfg);
+            }}
+            lutCssFilter={activeProgramLutCss}
+          />
+        </div>
+
+        {/* RIGHT (40%): Dedicated MASTER PROGRAM Monitor */}
+        <div className="w-full lg:w-[40%] h-[45%] lg:h-full min-h-0 flex flex-col bg-[#090A0F] border border-red-600/40 rounded-xl overflow-hidden shadow-[0_0_24px_rgba(220,38,38,0.12)]">
+          {/* Master Program Telemetry Bar */}
+          <div className="h-9 px-3 bg-[#10090B] border-b border-red-600/30 flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2 min-w-0 font-mono text-[11px]">
+              <span className="px-1.5 py-0.5 rounded bg-red-600 text-white font-black text-[9.5px] tracking-wider uppercase shrink-0">
+                MASTER PROGRAM
+              </span>
+              <span className="text-red-300 font-bold tracking-wide truncate tabular-nums">
+                LIVE ON AIR · {activeAngle?.label || `CAM ${String(currentActiveAngleIdx + 1).padStart(2, '0')}`} · TC {formatBroadcastTimecode(currentTimeMs)}
+              </span>
+            </div>
+
+            {/* Aspect Ratio Switcher (16:9 / 2.39:1) */}
+            <div className="flex items-center gap-1 bg-black/70 border border-white/10 rounded-lg p-0.5 font-mono text-[10px] shrink-0">
+              {(['16:9', '2.39:1'] as const).map((ratio) => (
+                <button
+                  key={ratio}
+                  type="button"
+                  onClick={() => setProgramAspectRatio(ratio)}
+                  className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-colors ${
+                    programAspectRatio === ratio ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  {ratio}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* High-Contrast Program Screen */}
+          <div className="flex-1 min-h-0 bg-black flex items-center justify-center p-2.5 overflow-hidden relative">
+            <div
+              className={`relative w-full max-h-full bg-black border border-white/15 rounded-lg overflow-hidden shadow-2xl flex items-center justify-center ${
+                programAspectRatio === '2.39:1' ? 'aspect-[2.39/1]' : 'aspect-video'
+              }`}
+            >
+              <div className="w-full h-full" style={{ filter: activeProgramLutCss !== 'none' ? activeProgramLutCss : undefined }}>
+                {activeAngleIsVideo ? (
+                  <video
+                    ref={programVideoRef}
+                    src={activeAngle?.blobUrl}
+                    crossOrigin="anonymous"
+                    playsInline
+                    muted
+                    autoPlay={isPlaying}
+                    preload="auto"
+                    className="w-full h-full object-cover"
+                  />
+                ) : activeAngleIsImage ? (
+                  <img
+                    src={activeAngle?.blobUrl}
+                    alt={activeAngle?.label || 'Master Program'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ProceduralAngleCanvas
+                    index={currentActiveAngleIdx}
+                    currentTimeMs={currentTimeMs}
+                    isActive={true}
+                    label={activeAngle?.label || 'CAM 01'}
+                  />
+                )}
+              </div>
+
+              {/* Active Title Burn-In Preview */}
+              {showProgramTitleBurnIn && (
+                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/45 to-transparent pointer-events-none flex items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[#FFE066] font-serif font-bold text-sm sm:text-base leading-tight drop-shadow truncate">
+                      {activeShotFrame?.bengaliTitle || 'দৃশ্য // লাইভ প্রোগ্রাম'}
+                    </div>
+                    <div className="text-white font-mono font-bold text-xs tracking-wider uppercase truncate">
+                      {activeShotFrame?.title || activeAngle?.name || `PROGRAM ${activeAngle?.label}`}
+                    </div>
+                  </div>
+                  <div className="text-right font-mono text-[10px] text-neutral-300 shrink-0 tabular-nums">
+                    <div className="text-amber-400 font-bold">{programLut.toUpperCase()}</div>
+                    <div>{programAspectRatio}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Program LUT & Title Burn-In Controls Strip */}
+          <div className="h-9 px-3 bg-[#0D0E14] border-t border-white/10 flex items-center justify-between gap-2 shrink-0 text-[10px] font-mono">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              <Sliders className="w-3 h-3 text-amber-400 shrink-0 mr-1" />
+              {PROGRAM_LUT_OPTIONS.map((lut) => (
+                <button
+                  key={lut.id}
+                  type="button"
+                  onClick={() => setProgramLut(lut.id)}
+                  className={`px-1.5 py-0.5 rounded font-bold cursor-pointer transition-colors shrink-0 ${
+                    programLut === lut.id
+                      ? 'bg-amber-500 text-black'
+                      : 'text-neutral-400 hover:text-white bg-white/5'
+                  }`}
+                >
+                  {lut.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowProgramTitleBurnIn((b) => !b)}
+              className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 cursor-pointer border shrink-0 ${
+                showProgramTitleBurnIn
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                  : 'bg-white/5 border-white/10 text-neutral-400'
+              }`}
+            >
+              <Type className="w-3 h-3" />
+              <span>TITLE BURN-IN</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Floating Control Transport & Timecode Bar */}
-      <div className="px-6 py-3 bg-[#0C0D12] border-t border-white/10 flex flex-col gap-3 shrink-0">
-        <div className="flex items-center justify-between">
-          {/* Left Transport Controls */}
-          <div className="flex items-center gap-2">
+      {/* BOTTOM ~30% COMPACT MULTI-CAM TIMELINE & TRANSPORT DOCK */}
+      <div className="h-[30%] min-h-[168px] max-h-[240px] px-3 py-2 bg-[#0B0C11] border-t border-white/10 flex flex-col justify-between gap-2 shrink-0">
+        {/* Sleek Transport Strip */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
             <button
+              type="button"
               onClick={() => setCurrentTimeMs(0)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 cursor-pointer"
               title="Return to Start"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={() => setCurrentTimeMs(t => Math.max(0, t - 1000 / 30))}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+              type="button"
+              onClick={() => setCurrentTimeMs((t) => Math.max(0, t - 1000 / 30))}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 cursor-pointer"
               title="Step -1 Frame"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setIsPlaying(p => !p)}
-              className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center shadow-lg transition-transform active:scale-95"
-              title="Play / Pause (Spacebar)"
+              type="button"
+              onClick={() => setIsPlaying((p) => !p)}
+              className="px-3.5 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+              title="Play / Pause (Space)"
             >
-              {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+              <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
             </button>
             <button
-              onClick={() => setCurrentTimeMs(t => Math.min(durationMs, t + 1000 / 30))}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+              type="button"
+              onClick={() => setCurrentTimeMs((t) => Math.min(durationMs, t + 1000 / 30))}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 cursor-pointer"
               title="Step +1 Frame"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setIsLooping(l => !l)}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono transition-colors ${
-                isLooping ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-neutral-500 hover:text-white'
+              type="button"
+              onClick={() => setIsLooping((l) => !l)}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer border ${
+                isLooping ? 'bg-amber-500/15 border-amber-500/40 text-amber-400' : 'border-transparent text-neutral-500 hover:text-white'
               }`}
-              title="Toggle Loop"
+              title="Loop Playback"
             >
               <RotateCw className="w-3.5 h-3.5" />
             </button>
+
+            <div className="h-4 w-px bg-white/10 mx-1" />
+
+            <button
+              type="button"
+              onClick={undoLastCut}
+              disabled={cutStack.length === 0}
+              className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-[11px] font-mono text-neutral-300 disabled:opacity-30 cursor-pointer"
+            >
+              UNDO
+            </button>
+            <button
+              type="button"
+              onClick={redoCut}
+              disabled={redoStack.length === 0}
+              className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-[11px] font-mono text-neutral-300 disabled:opacity-30 cursor-pointer"
+            >
+              REDO
+            </button>
           </div>
 
-          {/* Center: Live Timecode & Frame Readout */}
-          <div className="flex items-center gap-4 bg-[#14151F] border border-white/10 px-4 py-1.5 rounded-xl">
-            <div className="font-mono text-sm font-semibold tracking-wider text-amber-400 tabular-nums">
-              TC {formatTimecode(currentTimeMs)}
-            </div>
+          {/* Center Timecode Readout */}
+          <div className="hidden md:flex items-center gap-2 font-mono text-xs tabular-nums">
+            <span className="text-amber-400 font-bold">TC {formatTimecode(currentTimeMs)}</span>
             <span className="text-neutral-600">/</span>
-            <div className="font-mono text-xs text-neutral-400 tabular-nums">
-              TOTAL {formatTimecode(durationMs)}
-            </div>
-            <span className="text-neutral-600">/</span>
-            <div className="font-mono text-xs text-neutral-500 tabular-nums">
-              F{Math.floor((currentTimeMs / 1000) * 30)}
-            </div>
+            <span className="text-neutral-400">{formatTimecode(durationMs)}</span>
+            <span className="text-neutral-600">·</span>
+            <span className="text-neutral-300">{group.cutEvents.length} CUTS</span>
           </div>
 
-          {/* Right: Audio Volume & Cut Stats */}
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-mono text-neutral-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
-              {group.cutEvents.length} CUTS RECORDED
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsMuted(m => !m)}
-                className="text-neutral-400 hover:text-white p-1"
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={isMuted ? 0 : masterVolume}
-                onChange={e => {
-                  setMasterVolume(parseFloat(e.target.value));
-                  setIsMuted(false);
-                }}
-                className="w-16 accent-amber-500 cursor-pointer"
-              />
-            </div>
+          {/* Right Audio Level */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMuted((m) => !m)}
+              className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={isMuted ? 0 : masterVolume}
+              onChange={(e) => {
+                setMasterVolume(parseFloat(e.target.value));
+                setIsMuted(false);
+              }}
+              className="w-16 accent-amber-500 cursor-pointer"
+            />
           </div>
         </div>
 
-        {/* Integrated Multi-Cam Timeline Track */}
+        {/* Low-Profile Multi-Cam Timeline Track */}
         <MultiCamTimelineTrack
           group={group}
           currentTimeMs={currentTimeMs}
           onSeekMs={handleSeekMs}
-          onUpdateCutEvents={cuts => {
-            setGroup(prev => {
+          onUpdateCutEvents={(cuts) => {
+            setGroup((prev) => {
               const next = { ...prev, cutEvents: cuts };
               onSaveGroup?.(next);
               return next;
@@ -924,68 +937,45 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
           }}
           onSelectAngle={switchAngle}
           isPlaying={isPlaying}
-          onTogglePlay={() => setIsPlaying(p => !p)}
-          onStepFrame={(dir) => setCurrentTimeMs(t => Math.max(0, Math.min(durationMs, t + dir * (1000 / 30))))}
+          onTogglePlay={() => setIsPlaying((p) => !p)}
+          onStepFrame={(dir) => setCurrentTimeMs((t) => Math.max(0, Math.min(durationMs, t + dir * (1000 / 30))))}
+          className="flex-1 min-h-0"
         />
       </div>
 
-      {/* Exporting Progress Modal Overlay */}
+      {/* Export Progress Modal */}
       {isExporting && (
         <div className="fixed inset-0 z-[130] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#0C0D12] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[#F5A623] flex items-center justify-center mx-auto animate-pulse">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[#F5A623] flex items-center justify-center mx-auto">
               <Sparkles className="w-6 h-6" />
             </div>
-
             <div>
-              <h3 className="text-base font-semibold text-white tracking-tight">Compositing 9:16 Short</h3>
+              <h3 className="text-base font-semibold text-white">Rendering Multi-Cam Program</h3>
               <p className="text-xs text-neutral-400 mt-1">{exportStatus}</p>
             </div>
-
-            {/* Progress Bar */}
             <div className="w-full h-2.5 bg-neutral-900 rounded-full overflow-hidden border border-white/10">
               <div
-                className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-150"
+                className="h-full bg-amber-500 transition-all duration-150"
                 style={{ width: `${exportProgress}%` }}
               />
             </div>
-
-            <div className="text-xs font-mono text-amber-400">{exportProgress}% Completed</div>
+            <div className="text-xs font-mono text-amber-400 tabular-nums">{exportProgress}%</div>
           </div>
         </div>
       )}
 
-      {/* Export Success Modal Overlay */}
+      {/* Export Success Modal */}
       {exportedItem && (
         <div className="fixed inset-0 z-[130] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#0C0D12] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
               <Check className="w-6 h-6" />
             </div>
-
             <div className="text-center">
-              <h3 className="text-base font-semibold text-white tracking-tight">Export Successful!</h3>
-              <p className="text-xs text-neutral-400 mt-1">
-                Your 9:16 multi-camera short has been saved into the Media Vault and is ready for use.
-              </p>
+              <h3 className="text-base font-semibold text-white">Multi-Cam Render Complete</h3>
+              <p className="text-xs text-neutral-400 mt-1">Saved to Media Vault and ready for download.</p>
             </div>
-
-            <div className="p-3 bg-neutral-900 rounded-xl border border-white/10 flex items-center gap-3">
-              <div className="w-12 h-12 bg-neutral-800 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
-                {exportedItem.thumbnailUrl ? (
-                  <img src={exportedItem.thumbnailUrl} alt={exportedItem.name} className="w-full h-full object-cover" />
-                ) : (
-                  <Video className="w-5 h-5 text-neutral-500" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium text-white truncate">{exportedItem.name}</div>
-                <div className="text-[11px] text-neutral-400 font-mono">
-                  {exportedItem.resolution || '1080x1920'} · {(exportedItem.size / (1024 * 1024)).toFixed(1)} MB
-                </div>
-              </div>
-            </div>
-
             <div className="flex items-center gap-3 mt-2">
               <a
                 href={URL.createObjectURL(exportedItem.blob)}
@@ -997,7 +987,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
               <button
                 type="button"
                 onClick={() => setExportedItem(null)}
-                className="flex-1 py-2 px-4 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs rounded-xl transition-colors"
+                className="flex-1 py-2 px-4 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer"
               >
                 Done
               </button>

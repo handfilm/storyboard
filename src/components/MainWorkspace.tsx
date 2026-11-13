@@ -38,6 +38,7 @@ import {
   getShotDurationSec,
   getShotTargetFps
 } from '../types/storyboard';
+import { MIN_NLE_CLIP_DURATION_SEC } from '../utils/scrubNleMath';
 
 interface MainWorkspaceProps {
   activeMode: WorkspaceMode;
@@ -93,6 +94,7 @@ interface MainWorkspaceProps {
   onDuplicateSlide?: (index: number) => void;
   onDeleteSlide?: (index: number) => void;
   onUpdateSlide?: (index: number, partial: Partial<SlideDraft>) => void;
+  onCommitSlidesNle?: (nextSlides: SlideDraft[], nextActiveIndex: number, nextLocalTimeSec: number) => void;
   playbackSpeed?: number;
   onChangePlaybackSpeed?: (speed: number) => void;
   onPurgeMedia?: () => void;
@@ -173,6 +175,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onDuplicateSlide,
   onDeleteSlide,
   onUpdateSlide,
+  onCommitSlidesNle,
   playbackSpeed = 1.0,
   onChangePlaybackSpeed,
   onPurgeMedia,
@@ -267,6 +270,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         targetFps: fps,
         inPointMs: f.inPointMs,
         outPointMs: f.outPointMs,
+        playbackSpeed: f.playbackSpeed,
+        mediaVaultKey: f.mediaVaultKey ?? (f.id !== undefined ? String(f.id) : undefined),
         beatSnapEnabled: f.beatSnapEnabled,
         remoteUrl: f.imageUrl,
         titleBn: f.bengaliTitle,
@@ -293,9 +298,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
       const original = frames[index];
       const nextDuration =
         partial.durationSec !== undefined
-          ? clampShotDuration(partial.durationSec)
+          ? clampShotDuration(partial.durationSec, 12.0, MIN_NLE_CLIP_DURATION_SEC)
           : partial.duration !== undefined
-          ? clampShotDuration(partial.duration)
+          ? clampShotDuration(partial.duration, 12.0, MIN_NLE_CLIP_DURATION_SEC)
           : getShotDurationSec(original, 12.0);
 
       const updatedFrame: AnthologyFrame = {
@@ -310,6 +315,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         targetFps: partial.targetFps !== undefined ? partial.targetFps : original.targetFps,
         inPointMs: partial.inPointMs !== undefined ? partial.inPointMs : original.inPointMs,
         outPointMs: partial.outPointMs !== undefined ? partial.outPointMs : original.outPointMs,
+        playbackSpeed: partial.playbackSpeed !== undefined ? partial.playbackSpeed : original.playbackSpeed,
+        mediaVaultKey: partial.mediaVaultKey !== undefined ? partial.mediaVaultKey : original.mediaVaultKey,
         beatSnapEnabled: partial.beatSnapEnabled !== undefined ? partial.beatSnapEnabled : original.beatSnapEnabled
       };
 
@@ -654,13 +661,18 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                       imageUrl: s.remoteUrl || original.imageUrl,
                       slideHoldSec: dur,
                       durationSec: dur,
-                      targetFps: s.targetFps ?? original.targetFps
+                      targetFps: s.targetFps ?? original.targetFps,
+                      inPointMs: s.inPointMs !== undefined ? s.inPointMs : original.inPointMs,
+                      outPointMs: s.outPointMs !== undefined ? s.outPointMs : original.outPointMs,
+                      playbackSpeed: s.playbackSpeed !== undefined ? s.playbackSpeed : original.playbackSpeed,
+                      mediaVaultKey: s.mediaVaultKey ?? original.mediaVaultKey ?? (original.id !== undefined ? String(original.id) : undefined)
                     };
                   });
                   onReorderFrames(newFrames);
                 }
               }}
               onUpdateSlide={handleUpdateSlideInternal}
+              onCommitNleEdit={onCommitSlidesNle}
               onApplyDurationToAll={onApplyDurationToAll}
               isSnapToBeat={isSnapToBeat}
               onToggleSnapToBeat={onToggleSnapToBeat}
@@ -686,6 +698,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               isInline={true}
               isOpen={true}
               group={multiCamGroup}
+              activeShotFrame={currentFrame}
+              projectFrames={frames}
               layoutConfig={multiCamLayoutConfig}
               onChangeLayoutConfig={onChangeMultiCamLayoutConfig}
               onClose={() => handleSelectPanel('TACTILE_STAGE')}

@@ -11,6 +11,8 @@ export interface DirectorShot {
   targetFps: number;          // 24.0 or 60.0
   inPointMs?: number;
   outPointMs?: number;
+  playbackSpeed?: number;
+  mediaVaultKey?: string;
   beatSnapEnabled?: boolean;
   titleBangla: string;
   titleEnglish: string;
@@ -89,11 +91,16 @@ export interface ResolvedGlobalTimelinePosition {
 /**
  * Clamps any candidate shot duration to [0.5s, 1800.0s] with millisecond precision.
  */
-export function clampShotDuration(sec: number, fallbackSec: number = DEFAULT_SHOT_DURATION_SEC): number {
+export function clampShotDuration(
+  sec: number,
+  fallbackSec: number = DEFAULT_SHOT_DURATION_SEC,
+  minSec: number = MIN_SHOT_DURATION_SEC
+): number {
   if (typeof sec !== 'number' || !Number.isFinite(sec) || sec <= 0) {
     return fallbackSec;
   }
-  const clamped = Math.max(MIN_SHOT_DURATION_SEC, Math.min(MAX_SHOT_DURATION_SEC, sec));
+  const effectiveMin = Math.max(0.1, minSec);
+  const clamped = Math.max(effectiveMin, Math.min(MAX_SHOT_DURATION_SEC, sec));
   return Math.round(clamped * 1000) / 1000;
 }
 
@@ -105,21 +112,26 @@ export function getShotDurationSec(
   fallbackSec: number = DEFAULT_SHOT_DURATION_SEC
 ): number {
   if (!shot) return clampShotDuration(fallbackSec);
+  const hasNleTrim =
+    typeof shot.inPointMs === 'number' ||
+    typeof shot.outPointMs === 'number' ||
+    (typeof shot.playbackSpeed === 'number' && shot.playbackSpeed !== 1);
+  const minBound = hasNleTrim ? 0.2 : MIN_SHOT_DURATION_SEC;
 
   if (typeof shot.durationSec === 'number' && Number.isFinite(shot.durationSec) && shot.durationSec > 0) {
-    return clampShotDuration(shot.durationSec, fallbackSec);
+    return clampShotDuration(shot.durationSec, fallbackSec, minBound);
   }
   if (typeof shot.slideHoldSec === 'number' && Number.isFinite(shot.slideHoldSec) && shot.slideHoldSec > 0) {
-    return clampShotDuration(shot.slideHoldSec, fallbackSec);
+    return clampShotDuration(shot.slideHoldSec, fallbackSec, minBound);
   }
   if (typeof shot.duration === 'number' && Number.isFinite(shot.duration) && shot.duration > 0) {
-    return clampShotDuration(shot.duration, fallbackSec);
+    return clampShotDuration(shot.duration, fallbackSec, minBound);
   }
   if (typeof shot.durationSeconds === 'number' && Number.isFinite(shot.durationSeconds) && shot.durationSeconds > 0) {
-    return clampShotDuration(shot.durationSeconds, fallbackSec);
+    return clampShotDuration(shot.durationSeconds, fallbackSec, minBound);
   }
 
-  return clampShotDuration(fallbackSec);
+  return clampShotDuration(fallbackSec, fallbackSec, minBound);
 }
 
 /**
@@ -373,6 +385,14 @@ export function toDirectorShot(source: Record<string, any>, index: number): Dire
         ? source.outPointMs
         : typeof source?.subclipOutSec === 'number'
         ? Math.round(source.subclipOutSec * 1000)
+        : undefined,
+    playbackSpeed:
+      typeof source?.playbackSpeed === 'number' && source.playbackSpeed > 0
+        ? source.playbackSpeed
+        : undefined,
+    mediaVaultKey:
+      typeof source?.mediaVaultKey === 'string' && source.mediaVaultKey
+        ? source.mediaVaultKey
         : undefined,
     beatSnapEnabled: Boolean(source?.beatSnapEnabled),
     titleBangla: String(source?.titleBangla ?? source?.bengaliTitle ?? source?.titleBn ?? ''),

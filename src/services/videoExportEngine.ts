@@ -1083,7 +1083,7 @@ export function synthesizeAmbientAudioBuffer(
 }
 
 /**
- * Resolves flexible shot duration in seconds for WebCodecs rendering (0.5s to 1800.0s).
+ * Resolves flexible shot duration in seconds for WebCodecs rendering (0.25s to 1800.0s).
  */
 function resolveExportShotDurationSec(slide: any, frame: any): number {
   const candidates = [
@@ -1094,10 +1094,31 @@ function resolveExportShotDurationSec(slide: any, frame: any): number {
   ];
   for (const c of candidates) {
     if (typeof c === 'number' && Number.isFinite(c) && c > 0) {
-      return Math.max(0.5, Math.min(1800.0, c));
+      return Math.max(0.25, Math.min(1800.0, c));
     }
   }
   return 12.0;
+}
+
+/**
+ * Resolves exact source <video> seek timestamp accounting for NLE inPointMs and playbackSpeed.
+ */
+function resolveExportVideoSeekSec(
+  slide: any,
+  frame: any,
+  frameInShot: number,
+  fps: number,
+  vidDuration: number
+): number {
+  if (!(vidDuration > 0)) return 0;
+  const rawInMs = slide?.inPointMs ?? frame?.inPointMs ?? 0;
+  const inSec = typeof rawInMs === 'number' && Number.isFinite(rawInMs) && rawInMs > 0 ? rawInMs / 1000 : 0;
+  const rawSpeed = slide?.playbackSpeed ?? frame?.playbackSpeed ?? 1.0;
+  const speed = typeof rawSpeed === 'number' && Number.isFinite(rawSpeed) && rawSpeed > 0
+    ? Math.max(0.25, Math.min(4.0, rawSpeed))
+    : 1.0;
+  const sourceSec = inSec + (frameInShot / fps) * speed;
+  return sourceSec >= vidDuration ? sourceSec % vidDuration : Math.max(0, sourceSec);
 }
 
 /**
@@ -1514,7 +1535,7 @@ async function exportCinemaMasterWithMediaRecorder(
             const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
               ? activeVideoElement.duration
               : shotDurationSec;
-            const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
+            const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
             await waitForSeek(activeVideoElement, targetVideoSec, 1000);
             verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
           }
@@ -1882,7 +1903,7 @@ async function exportWithWebCodecs(
         const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
           ? activeVideoElement.duration
           : shotDurationSec;
-        const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
+        const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
         await waitForSeek(activeVideoElement, targetVideoSec, 1000);
         verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
       }
@@ -2360,7 +2381,7 @@ export async function exportCinemaMasterVp9(
           const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
             ? activeVideoElement.duration
             : shotDurationSec;
-          const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
+          const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
           await waitForSeek(activeVideoElement, targetVideoSec, 1000);
           verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
         }

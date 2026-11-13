@@ -1905,23 +1905,32 @@ export default function App() {
         return;
       }
 
-      const bridgeShots: CockpitShotBridge[] = project.frames.map((f, idx) => ({
-        shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
-        shotNumber: idx + 1,
-        titleEn: f.title || `Shot ${idx + 1}`,
-        titleBn: f.bengaliTitle || '',
-        titleText: [f.bengaliTitle, f.title].filter(Boolean).join(' // ') || `Shot ${idx + 1}`,
-        personality: 'KINETIC',
-        inPoint: 0,
-        outPoint: getShotDurationSec(f, 12.0),
-        durationSec: getShotDurationSec(f, 12.0),
-        mediaUrl: f.videoSrc || f.imageUrl,
-        lutFilter: f.lutFilter,
-        lensSpec: f.cameraSpec?.focalLength,
-        directorNotes: f.directorNotes,
-        lightId: f.lightId,
-        lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
-      }));
+      const bridgeShots: CockpitShotBridge[] = project.frames.map((f, idx) => {
+        const durSec = getShotDurationSec(f, 12.0);
+        const inSec = typeof f.inPointMs === 'number' && Number.isFinite(f.inPointMs) ? Math.max(0, f.inPointMs / 1000) : 0;
+        const speed = typeof f.playbackSpeed === 'number' && f.playbackSpeed > 0 ? f.playbackSpeed : 1.0;
+        const outSec = typeof f.outPointMs === 'number' && Number.isFinite(f.outPointMs) && f.outPointMs > inSec * 1000
+          ? f.outPointMs / 1000
+          : inSec + durSec * speed;
+        return {
+          shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+          shotNumber: idx + 1,
+          titleEn: f.title || `Shot ${idx + 1}`,
+          titleBn: f.bengaliTitle || '',
+          titleText: [f.bengaliTitle, f.title].filter(Boolean).join(' // ') || `Shot ${idx + 1}`,
+          personality: 'KINETIC',
+          inPoint: inSec,
+          outPoint: outSec,
+          durationSec: durSec,
+          speedMultiplier: speed,
+          mediaUrl: f.videoSrc || f.imageUrl,
+          lutFilter: f.lutFilter,
+          lensSpec: f.cameraSpec?.focalLength,
+          directorNotes: f.directorNotes,
+          lightId: f.lightId,
+          lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+        };
+      });
 
       if (payload.type === 'nle_xml') {
         const xml = generateNLETimelineXML(bridgeShots, null, {
@@ -2450,6 +2459,11 @@ export default function App() {
         return;
       }
 
+      const isScrubOrMultiCam =
+        currentView === 'STUDIO' &&
+        workspaceMode === 'STAGE' &&
+        (activeDualPanel === 'SEQUENCER' || activeDualPanel === 'MULTICAM');
+
       // Note: Space, ArrowLeft, ArrowRight, ',', '.', 'G', 'F', 'M', and '?' are handled cleanly
       // in capture phase by keyScopeManager to guarantee single-dispatch without double-toggling.
       switch (e.key) {
@@ -2480,6 +2494,7 @@ export default function App() {
           break;
         case 'w':
         case 'W':
+          if (isScrubOrMultiCam) break;
           e.preventDefault();
           setIsLiquifyOpen(true);
           break;
@@ -2492,6 +2507,7 @@ export default function App() {
           break;
         case 'c':
         case 'C':
+          if (isScrubOrMultiCam) break;
           e.preventDefault();
           setShowGuides(prev => !prev);
           break;
@@ -2502,6 +2518,7 @@ export default function App() {
           break;
         case 's':
         case 'S':
+          if (isScrubOrMultiCam) break;
           e.preventDefault();
           handleCaptureStill();
           break;
@@ -2671,6 +2688,84 @@ export default function App() {
     }
     syncFramesToStoreAndSession(safeFrames, safeNextIndex);
   }, [currentIndex, project, syncFramesToStoreAndSession]);
+
+  // Atomic CapCut NLE Edit Commit (Razor Split Part A/B, [| & |] Ripple Trim, Q/W/Delete Ripple, Clip Speed)
+  const handleCommitSlidesNle = useCallback(
+    (nextSlides: SlideDraft[], nextActiveIndex: number, nextLocalTimeSec: number) => {
+      const currentFrames = projectFramesRef.current;
+      const seenOriginals = new Set<string>();
+      const mappedFrames: AnthologyFrame[] = nextSlides.map((s, idx) => {
+        const numericIdFromSlide =
+          typeof s.id === 'string' && /^slide_\d+$/.test(s.id)
+            ? Number(s.id.replace(/^slide_/, ''))
+            : NaN;
+        const original =
+          (Number.isFinite(numericIdFromSlide)
+            ? currentFrames.find((f) => f.id === numericIdFromSlide)
+            : undefined) ||
+          currentFrames[s.orderIndex ?? idx] ||
+          currentFrames[idx] ||
+          currentFrames[0];
+
+        const baseId = original?.id ?? idx;
+        const origKey = String(baseId);
+        const isFirstUse = !seenOriginals.has(origKey);
+        seenOriginals.add(origKey);
+
+        const resolvedDur = getShotDurationSec(s as any, getShotDurationSec(original, 12.0));
+        const vaultKey =
+          s.mediaVaultKey ??
+          original?.mediaVaultKey ??
+          (original?.id !== undefined ? String(original.id) : String(idx));
+
+        return {
+          ...original,
+          id: isFirstUse ? baseId : -1, // -1 forces ensureUniqueFrameIds to allocate a collision-free ID for Part B
+          epNumber: String(idx + 1).padStart(3, '0'),
+          title: s.titleEn ?? original?.title ?? `Shot ${idx + 1}`,
+          bengaliTitle: s.titleBn ?? original?.bengaliTitle,
+          directorNotes: s.directorNotes ?? original?.directorNotes,
+          soundCue: s.soundCue ?? original?.soundCue,
+          imageUrl: s.remoteUrl ?? original?.imageUrl ?? '',
+          isVideo: s.isVideo !== undefined ? s.isVideo : original?.isVideo,
+          slideHoldSec: resolvedDur,
+          durationSec: resolvedDur,
+          targetFps: s.targetFps ?? original?.targetFps ?? 24,
+          inPointMs: s.inPointMs !== undefined ? s.inPointMs : original?.inPointMs,
+          outPointMs: s.outPointMs !== undefined ? s.outPointMs : original?.outPointMs,
+          playbackSpeed: s.playbackSpeed !== undefined ? s.playbackSpeed : original?.playbackSpeed,
+          mediaVaultKey: vaultKey
+        };
+      });
+
+      const safeFrames = ensureUniqueFrameIds(mappedFrames);
+      const safeNextIndex = Math.max(0, Math.min(safeFrames.length - 1, nextActiveIndex));
+      const targetFrame = safeFrames[safeNextIndex];
+      const targetDur = getShotDurationSec(targetFrame, 12.0);
+      const clampedLocalSec = Math.max(0, Math.min(targetDur, nextLocalTimeSec));
+
+      setHistoryStack((h) => [...h.slice(-19), project]);
+      setRedoStack([]);
+      setProject((prev) => ({
+        ...prev,
+        frames: safeFrames
+      }));
+
+      slideTimeSecRef.current = clampedLocalSec;
+      currentIndexRef.current = safeNextIndex;
+      setCurrentIndex(safeNextIndex);
+      setSlideTimeSec(clampedLocalSec);
+      setSeekVersion((v) => v + 1);
+      playbackClock.emit({
+        timeSec: clampedLocalSec,
+        durationSec: targetDur,
+        shotIndex: safeNextIndex,
+        fps: getShotTargetFps(targetFrame, 24)
+      });
+      syncFramesToStoreAndSession(safeFrames, safeNextIndex);
+    },
+    [project, syncFramesToStoreAndSession]
+  );
 
   const handlePermanentDeleteFrames = useCallback((remainingFrames: AnthologyFrame[], deletedIds: number[]) => {
     const deletedIdSet = new Set(deletedIds);
@@ -3060,6 +3155,7 @@ export default function App() {
           onReorderFrames={handleReorderFrames}
           onUpdateFrame={handleUpdateFrame}
           onUpdateFrameAtIndex={handleUpdateFrameAtIndex}
+          onCommitSlidesNle={handleCommitSlidesNle}
           onApplyDurationToAll={handleApplyDurationToAll}
           onMatchAudioBeats={handleMatchAudioBeats}
           playbackMode={playbackMode}
@@ -3546,40 +3642,58 @@ export default function App() {
         <DirectorCockpitModal
           isOpen={isStudioCockpitOpen}
           onClose={() => setIsStudioCockpitOpen(false)}
-          activeShot={{
-            shotId: `shot_${String(currentIndex + 1).padStart(2, '0')}`,
-            shotNumber: currentIndex + 1,
-            titleEn: currentFrame?.title || `Shot ${currentIndex + 1}`,
-            titleBn: currentFrame?.bengaliTitle || '',
-            titleText: [currentFrame?.bengaliTitle, currentFrame?.title].filter(Boolean).join(' // ') || `Shot ${currentIndex + 1}`,
-            personality: 'KINETIC',
-            inPoint: 0,
-            outPoint: getShotDurationSec(currentFrame, 12.0),
-            durationSec: getShotDurationSec(currentFrame, 12.0),
-            mediaUrl: currentFrame?.videoSrc || currentFrame?.imageUrl,
-            lutFilter: currentFrame?.lutFilter,
-            lensSpec: currentFrame?.cameraSpec?.focalLength,
-            directorNotes: currentFrame?.directorNotes,
-            lightId: currentFrame?.lightId,
-            lightName: currentFrame?.lightId ? getLightingPresetById(currentFrame.lightId)?.name : undefined
-          }}
-          allShots={project.frames.map<CockpitShotBridge>((f, idx) => ({
-            shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
-            shotNumber: idx + 1,
-            titleEn: f.title || `Shot ${idx + 1}`,
-            titleBn: f.bengaliTitle || '',
-            titleText: [f.bengaliTitle, f.title].filter(Boolean).join(' // ') || `Shot ${idx + 1}`,
-            personality: 'KINETIC',
-            inPoint: 0,
-            outPoint: getShotDurationSec(f, 12.0),
-            durationSec: getShotDurationSec(f, 12.0),
-            mediaUrl: f.videoSrc || f.imageUrl,
-            lutFilter: f.lutFilter,
-            lensSpec: f.cameraSpec?.focalLength,
-            directorNotes: f.directorNotes,
-            lightId: f.lightId,
-            lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
-          }))}
+          activeShot={(() => {
+            const durSec = getShotDurationSec(currentFrame, 12.0);
+            const inSec = typeof currentFrame?.inPointMs === 'number' && Number.isFinite(currentFrame.inPointMs) ? Math.max(0, currentFrame.inPointMs / 1000) : 0;
+            const speed = typeof currentFrame?.playbackSpeed === 'number' && currentFrame.playbackSpeed > 0 ? currentFrame.playbackSpeed : 1.0;
+            const outSec = typeof currentFrame?.outPointMs === 'number' && Number.isFinite(currentFrame.outPointMs) && currentFrame.outPointMs > inSec * 1000
+              ? currentFrame.outPointMs / 1000
+              : inSec + durSec * speed;
+            return {
+              shotId: `shot_${String(currentIndex + 1).padStart(2, '0')}`,
+              shotNumber: currentIndex + 1,
+              titleEn: currentFrame?.title || `Shot ${currentIndex + 1}`,
+              titleBn: currentFrame?.bengaliTitle || '',
+              titleText: [currentFrame?.bengaliTitle, currentFrame?.title].filter(Boolean).join(' // ') || `Shot ${currentIndex + 1}`,
+              personality: 'KINETIC',
+              inPoint: inSec,
+              outPoint: outSec,
+              durationSec: durSec,
+              speedMultiplier: speed,
+              mediaUrl: currentFrame?.videoSrc || currentFrame?.imageUrl,
+              lutFilter: currentFrame?.lutFilter,
+              lensSpec: currentFrame?.cameraSpec?.focalLength,
+              directorNotes: currentFrame?.directorNotes,
+              lightId: currentFrame?.lightId,
+              lightName: currentFrame?.lightId ? getLightingPresetById(currentFrame.lightId)?.name : undefined
+            };
+          })()}
+          allShots={project.frames.map<CockpitShotBridge>((f, idx) => {
+            const durSec = getShotDurationSec(f, 12.0);
+            const inSec = typeof f.inPointMs === 'number' && Number.isFinite(f.inPointMs) ? Math.max(0, f.inPointMs / 1000) : 0;
+            const speed = typeof f.playbackSpeed === 'number' && f.playbackSpeed > 0 ? f.playbackSpeed : 1.0;
+            const outSec = typeof f.outPointMs === 'number' && Number.isFinite(f.outPointMs) && f.outPointMs > inSec * 1000
+              ? f.outPointMs / 1000
+              : inSec + durSec * speed;
+            return {
+              shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+              shotNumber: idx + 1,
+              titleEn: f.title || `Shot ${idx + 1}`,
+              titleBn: f.bengaliTitle || '',
+              titleText: [f.bengaliTitle, f.title].filter(Boolean).join(' // ') || `Shot ${idx + 1}`,
+              personality: 'KINETIC',
+              inPoint: inSec,
+              outPoint: outSec,
+              durationSec: durSec,
+              speedMultiplier: speed,
+              mediaUrl: f.videoSrc || f.imageUrl,
+              lutFilter: f.lutFilter,
+              lensSpec: f.cameraSpec?.focalLength,
+              directorNotes: f.directorNotes,
+              lightId: f.lightId,
+              lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+            };
+          })}
           audioTrack={null}
           stageCanvasRef={studioStageCanvasRef}
           onHotReloadShot={(shotIdx, newMediaUrl) => {

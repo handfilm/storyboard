@@ -17,6 +17,7 @@
 
 import { AnthologyFrame, AnthologyProject } from '../types/anthology';
 import { SLIDE_DURATION_SEC } from '../types/editor';
+import { getShotDurationSec } from '../types/storyboard';
 
 export interface NleExportOptions {
   fps?: number; // 24 (default), 23.976, 25, 29.97, 60
@@ -92,12 +93,12 @@ export function generatePremiereCapCutXml(
   const projectTitle = options.projectTitle || project.title || 'RAWx_Master_Anthology';
   const sequenceName = `${projectTitle} - Cinema Sequence`;
 
-  // Calculate cumulative frames and durations
+  // Calculate cumulative frames and durations (honoring Scrub NLE trims and variable durations)
   let totalSequenceFrames = 0;
-  const clipDurationsFrames = project.frames.map((_, idx) => {
-    const secDuration = options.customDurations && options.customDurations[idx] 
-      ? options.customDurations[idx] 
-      : SLIDE_DURATION_SEC; // default 12.0s = 288 frames @ 24fps
+  const clipDurationsFrames = project.frames.map((frame, idx) => {
+    const secDuration = options.customDurations && options.customDurations[idx]
+      ? options.customDurations[idx]
+      : getShotDurationSec(frame, SLIDE_DURATION_SEC);
     const frames = Math.max(1, Math.round(secDuration * fps));
     totalSequenceFrames += frames;
     return frames;
@@ -113,10 +114,19 @@ export function generatePremiereCapCutXml(
     const endFrame = cumulativeFrame + duration;
     cumulativeFrame = endFrame;
 
+    const inSec = typeof frame.inPointMs === 'number' && Number.isFinite(frame.inPointMs) && frame.inPointMs > 0
+      ? frame.inPointMs / 1000
+      : 0;
+    const clipInFrame = Math.max(0, Math.round(inSec * fps));
+    const speed = typeof frame.playbackSpeed === 'number' && frame.playbackSpeed > 0 ? frame.playbackSpeed : 1.0;
+    const clipOutFrame = typeof frame.outPointMs === 'number' && Number.isFinite(frame.outPointMs) && frame.outPointMs > inSec * 1000
+      ? Math.max(clipInFrame + 1, Math.round((frame.outPointMs / 1000) * fps))
+      : clipInFrame + Math.max(1, Math.round(duration * speed));
+
     const clipName = `SH${shotStr} - ${frame.bengaliTitle || 'দৃষ্টি'} // ${frame.title}`;
     const safeMediaName = `SH${shotStr}_${(frame.title || 'shot').replace(/[^a-zA-Z0-9_-]/g, '_')}.webp`;
     const safePathUrl = frame.imageUrl 
-      ? escapeXml(frame.imageUrl)
+      ? escapeXml(frame.imageUrl) 
       : `file://localhost/Media/RAWx_SH${shotStr}.webp`;
 
     const focalLength = frame.cameraSpec?.focalLength || '35mm';
@@ -143,8 +153,8 @@ export function generatePremiereCapCutXml(
             </rate>
             <start>${startFrame}</start>
             <end>${endFrame}</end>
-            <in>0</in>
-            <out>${duration}</out>
+            <in>${clipInFrame}</in>
+            <out>${clipOutFrame}</out>
             <file id="file-${shotNum}">
               <name>${escapeXml(safeMediaName)}</name>
               <pathurl>${safePathUrl}</pathurl>
@@ -152,7 +162,7 @@ export function generatePremiereCapCutXml(
                 <timebase>${fps}</timebase>
                 <ntsc>FALSE</ntsc>
               </rate>
-              <duration>${duration}</duration>
+              <duration>${Math.max(duration, clipOutFrame)}</duration>
               <media>
                 <video>
                   <samplecharacteristics>
@@ -298,10 +308,10 @@ export function generateFcpXml(
   const projectTitle = options.projectTitle || project.title || 'RAWx_Master_Anthology';
 
   // Total duration in seconds
-  const totalSeconds = project.frames.reduce((sum, _, idx) => {
+  const totalSeconds = project.frames.reduce((sum, frame, idx) => {
     const sec = options.customDurations && options.customDurations[idx]
       ? options.customDurations[idx]
-      : SLIDE_DURATION_SEC;
+      : getShotDurationSec(frame, SLIDE_DURATION_SEC);
     return sum + sec;
   }, 0);
 
@@ -323,9 +333,13 @@ export function generateFcpXml(
     const shotStr = String(shotNum).padStart(3, '0');
     const clipDurationSec = options.customDurations && options.customDurations[idx]
       ? options.customDurations[idx]
-      : SLIDE_DURATION_SEC;
+      : getShotDurationSec(frame, SLIDE_DURATION_SEC);
+    const clipInSec = typeof frame.inPointMs === 'number' && Number.isFinite(frame.inPointMs) && frame.inPointMs > 0
+      ? frame.inPointMs / 1000
+      : 0;
 
     const offsetStr = secondsToFcpTime(cumulativeOffsetSec, fps);
+    const startStr = secondsToFcpTime(clipInSec, fps);
     const durationStr = secondsToFcpTime(clipDurationSec, fps);
     cumulativeOffsetSec += clipDurationSec;
 
@@ -336,7 +350,7 @@ export function generateFcpXml(
         <marker start="0s" duration="${frameDurationStr}" value="${escapeXml(`[${frame.bengaliTitle || 'দৃষ্টি'}] ${frame.title}`)}" note="${escapeXml(frame.directorNotes || frame.tagline || '')}" />
         <chapter-marker start="0s" duration="${frameDurationStr}" value="${escapeXml(`Shot ${shotStr}`)}" posterOffset="0s" />` : '';
 
-    return `      <asset-clip name="${escapeXml(clipName)}" ref="${assetId}" offset="${offsetStr}" duration="${durationStr}" start="0s" format="${formatId}">
+    return `      <asset-clip name="${escapeXml(clipName)}" ref="${assetId}" offset="${offsetStr}" duration="${durationStr}" start="${startStr}" format="${formatId}">
         <metadata>
           <md key="com.apple.quicktime.Description" value="${escapeXml(frame.directorNotes || '')}" />
           <md key="com.apple.quicktime.Keywords" value="${escapeXml(frame.tags?.join(', ') || 'RAWx, Cinema')}" />

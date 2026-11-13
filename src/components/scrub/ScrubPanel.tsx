@@ -1,25 +1,20 @@
 /**
  * @file /src/components/scrub/ScrubPanel.tsx
- * @description Dedicated Full-Screen Sub-Frame Precision Timeline Scrubber & Card Management Interface.
- * 
+ * @description CapCut-Grade Real-Time NLE Cutting, Trimming & Sub-Frame Precision Scrubber.
+ *
  * Capabilities:
- * 1. Sub-Frame Precision Scrubber:
- *    - 24 FPS frame-accurate resolution (288 individual frames across strict 12.000s duration).
- *    - Interactive tick ruler with major seconds, half-seconds, and sub-frame ticks.
- *    - Glowing gold needle with real-time frame readout (F001 - F288) and timecode (0.000s - 12.000s).
- *    - Magnetic frame snapping toggle (1/24s frame snap vs continuous sub-frame fluid scrub).
- *    - Tactile rotary jog wheel & fine horizontal nudge strip for frame-by-frame adjustments.
- *    - Synchronized audio waveform track with beat downbeat flags.
+ * 1. Real-Time Multi-Clip Proportional NLE Timeline:
+ *    - Proportional draggable clip blocks with filmstrip thumbnails, Bangla/English titles,
+ *      live duration (`1.5s / 36F`), and speed badges (`0.5x`, `1.0x`, `1.5x`, `2.0x`).
+ *    - Razor Split at Playhead (`✂ SPLIT` / `S` / `Ctrl+B`) -> Part A & Part B sub-clips.
+ *    - Thick Amber/White Edge Drag Trim Handles (`[|` left `inPoint`, `|]` right `outPoint`)
+ *      with real-time ripple auto-close (zero gaps) and live `<video>` frame scrubbing.
+ *    - CapCut Ripple Hotkeys: `Q` (Trim Start), `W` (Trim End), `Delete/Backspace` (Ripple Delete).
+ *    - Magnetic red playhead needle (`SNAP 1F`) synced with Stage & Monitor `<video>` via fastSeek.
  * 2. Active Frame Cinema Monitor:
- *    - High-fidelity 2.39:1 theatrical reference viewport with live optical overlays.
- *    - Direct media ingestion (drag-and-drop or file upload) and sample frame applicator.
- *    - Collapsible split view to toggle between Split Monitor Mode and Full Card Management Mode.
+ *    - Synchronized `<video>` preview honoring `inPointMs`, `outPointMs`, and `playbackSpeed`.
  * 3. Card Management Interface (Filmstrip & Grid Matrix):
- *    - Complete sequence ordering: Move Left (<-), Move Right (->), Duplicate, and Delete.
- *    - In-line rapid editing for English titles, Bengali titles, director notes, and sound cues.
- *    - Direct media replacement per card.
- *    - Quick search / filter by shot number and keyword.
- *    - Dynamic view mode: Horizontal Filmstrip vs High-Density Grid Matrix.
+ *    - Preserved sequence ordering, inline bilingual editing, search filter, and drag-and-drop ingest.
  */
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
@@ -33,42 +28,53 @@ import {
   getShotFrameCount,
   getShotTargetFps
 } from '../../types/storyboard';
+import {
+  MIN_NLE_CLIP_DURATION_SEC,
+  SCRUB_SPEED_OPTIONS,
+  getClipSourceWindow,
+  getClipSourceMediaTimeSec,
+  splitClipAtTime,
+  trimClipEdge,
+  trimStartToPlayheadQ,
+  trimEndToPlayheadW,
+  rippleDeleteClip,
+  applyClipSpeed
+} from '../../utils/scrubNleMath';
+import { syncVideoCurrentTimeWithFastSeek } from '../../utils/playbackClock';
 import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
 import { audioEngine } from '../../utils/audioEngine';
 import { useStudioStore } from '../../core/store';
-import { getShotMediaKey, resolveShotMediaEntry } from '../../services/handfilmMediaVault';
+import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isVideoSourceUrl } from '../../services/thumbnailEngine';
-import { 
-  Play, 
-  Pause, 
-  Plus, 
-  Trash2, 
-  Copy, 
-  ChevronLeft, 
-  ChevronRight, 
-  SkipBack, 
-  SkipForward, 
-  Upload, 
-  Edit3, 
-  Check, 
-  X, 
-  Volume2, 
-  Layers,
-  SlidersHorizontal,
-  Maximize2,
-  Minimize2,
+import {
+  Play,
+  Pause,
+  Plus,
+  Trash2,
+  Copy,
+  ChevronLeft,
+  ChevronRight,
+  SkipBack,
+  SkipForward,
+  Upload,
+  Edit3,
   Search,
-  RotateCcw,
-  Sparkles,
   Magnet,
   Film,
   Camera,
-  Eye,
-  ArrowLeftRight,
   Video,
   Music,
-  RefreshCw
+  RefreshCw,
+  Scissors,
+  SlidersHorizontal,
+  Maximize2,
+  Minimize2,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  Gauge,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 
 export interface ScrubPanelProps {
@@ -76,7 +82,7 @@ export interface ScrubPanelProps {
   activeSlideIndex: number;
   playbackMode: PlaybackMode;
   isPlaying: boolean;
-  slideTimeSec: number; // 0.0s to 12.0s
+  slideTimeSec: number;
   aspectRatio?: AspectRatioType;
   onSelectSlide: (index: number) => void;
   onTogglePlay: () => void;
@@ -89,6 +95,7 @@ export interface ScrubPanelProps {
   onDeleteSlide: (index: number) => void;
   onReorderSlides: (reordered: SlideDraft[]) => void;
   onUpdateSlide: (index: number, partial: Partial<SlideDraft>) => void;
+  onCommitNleEdit?: (nextSlides: SlideDraft[], nextActiveIndex: number, nextLocalTimeSec: number) => void;
   onApplyDurationToAll?: (durationSec: number) => void;
   isSnapToBeat?: boolean;
   onToggleSnapToBeat?: () => void;
@@ -105,7 +112,6 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   playbackMode,
   isPlaying,
   slideTimeSec,
-  aspectRatio = '2.39:1',
   onSelectSlide,
   onTogglePlay,
   onStepFrame,
@@ -117,6 +123,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   onDeleteSlide,
   onReorderSlides,
   onUpdateSlide,
+  onCommitNleEdit,
   onApplyDurationToAll,
   isSnapToBeat = false,
   onToggleSnapToBeat,
@@ -130,9 +137,36 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   const [cardLayout, setCardLayout] = useState<'FILMSTRIP' | 'GRID'>('FILMSTRIP');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMagneticSnap, setIsMagneticSnap] = useState(true);
-  const [jogRotation, setJogRotation] = useState(0);
   const [dropCardIndex, setDropCardIndex] = useState<number | null>(null);
+  const [timelineZoom, setTimelineZoom] = useState<number>(1.0);
+  const [nleFeedback, setNleFeedback] = useState<string | null>(null);
   const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
+
+  // Optimistic NLE preview state while dragging edge trim handles `[|` or `|]`
+  const [trimPreviewSlides, setTrimPreviewSlides] = useState<SlideDraft[] | null>(null);
+  const activeTrimDragRef = useRef<{
+    clipIndex: number;
+    edge: 'left' | 'right';
+    startClientX: number;
+    baseSlides: SlideDraft[];
+    latestSlides: SlideDraft[];
+  } | null>(null);
+
+  const activeSlides = trimPreviewSlides ?? slides;
+  const safeIndex = Math.max(0, Math.min(activeSlides.length - 1, activeSlideIndex));
+  const currentSlide = activeSlides[safeIndex] || activeSlides[0];
+  const currentWindow = getClipSourceWindow(currentSlide);
+  const activeSlideDurationSec = currentWindow.timelineDurationSec;
+  const activeSlideFps = currentWindow.fps;
+  const activeSlideTotalFrames = getShotFrameCount(activeSlideDurationSec, activeSlideFps);
+
+  const shotOffsets = useMemo(() => getCumulativeShotOffsets(activeSlides), [activeSlides]);
+  const totalDurationSec = useMemo(() => calculateMasterSequenceDuration(activeSlides), [activeSlides]);
+  const currentFrameNum = Math.min(
+    activeSlideTotalFrames,
+    Math.max(1, Math.floor(Math.min(slideTimeSec, activeSlideDurationSec) * activeSlideFps) + 1)
+  );
+  const globalCurrentSec = (shotOffsets[safeIndex]?.startSec ?? 0) + Math.min(slideTimeSec, activeSlideDurationSec);
 
   // In-line Edit State
   const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
@@ -141,29 +175,79 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   const [editNotes, setEditNotes] = useState('');
   const [editSoundCue, setEditSoundCue] = useState('');
 
-  // Scrubber DOM & Drag Refs
-  const scrubTrackRef = useRef<HTMLDivElement>(null);
-  const isDraggingScrubRef = useRef(false);
+  // DOM Refs
+  const monitorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const nleTimelineScrollRef = useRef<HTMLDivElement>(null);
+  const isDraggingMasterNeedleRef = useRef(false);
   const filmstripScrollRef = useRef<HTMLDivElement>(null);
   const fileUploadInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetIdx, setUploadTargetIdx] = useState<number | null>(null);
-  const [hoveredScrubMarker, setHoveredScrubMarker] = useState<{
-    slideIndex: number;
-    centerX: number;
-    topY: number;
-    subLabel?: string;
-  } | null>(null);
 
-  const safeIndex = Math.max(0, Math.min(slides.length - 1, activeSlideIndex));
-  const currentSlide = slides[safeIndex] || slides[0];
-  const activeSlideDurationSec = getShotDurationSec(currentSlide, 12.0);
-  const activeSlideFps = getShotTargetFps(currentSlide, 24);
-  const activeSlideTotalFrames = getShotFrameCount(activeSlideDurationSec, activeSlideFps);
+  // Resolve current slide media for live NLE Monitor
+  const currentVaultEntry = useMemo(
+    () => resolveShotMediaEntry(shotMediaMap, currentSlide as any, undefined, safeIndex),
+    [shotMediaMap, currentSlide, safeIndex]
+  );
+  const monitorMediaUrl = currentVaultEntry?.url || currentSlide?.remoteUrl || '';
+  const isMonitorVideo = currentVaultEntry
+    ? currentVaultEntry.type === 'video'
+    : isVideoSourceUrl(monitorMediaUrl, { isVideo: Boolean(currentSlide?.isVideo) });
 
-  const shotOffsets = useMemo(() => getCumulativeShotOffsets(slides), [slides]);
-  const totalDurationSec = useMemo(() => calculateMasterSequenceDuration(slides), [slides]);
-  const currentFrameNum = Math.min(activeSlideTotalFrames, Math.max(1, Math.floor(slideTimeSec * activeSlideFps) + 1));
-  const globalCurrentSec = (shotOffsets[safeIndex]?.startSec ?? 0) + slideTimeSec;
+  const showToastFeedback = useCallback((msg: string) => {
+    setNleFeedback(msg);
+    window.setTimeout(() => {
+      setNleFeedback((prev) => (prev === msg ? null : prev));
+    }, 1800);
+  }, []);
+
+  // Commit NLE Edit helper (routes to App-level atomic committer or safe fallbacks)
+  const commitNleResult = useCallback(
+    (nextSlides: SlideDraft[], nextIdx: number, nextLocalSec: number, label?: string) => {
+      if (onCommitNleEdit) {
+        onCommitNleEdit(nextSlides, nextIdx, nextLocalSec);
+      } else {
+        onReorderSlides(nextSlides);
+        onSelectSlide(nextIdx);
+        onScrubSlideTime(nextLocalSec);
+      }
+      if (label) showToastFeedback(label);
+    },
+    [onCommitNleEdit, onReorderSlides, onSelectSlide, onScrubSlideTime, showToastFeedback]
+  );
+
+  // Synchronize Monitor <video> with trim inPoint, clip playbackSpeed, and fastSeek
+  useEffect(() => {
+    const vid = monitorVideoRef.current;
+    if (!vid || !isMonitorVideo || !monitorMediaUrl) return;
+    const effectiveRate = Math.max(0.25, Math.min(4.0, currentWindow.speed * (playbackSpeed || 1.0)));
+    if (Math.abs(vid.playbackRate - effectiveRate) > 0.01) {
+      vid.playbackRate = effectiveRate;
+    }
+
+    const targetSourceSec = getClipSourceMediaTimeSec(currentSlide, slideTimeSec);
+    if (!isPlaying || activeTrimDragRef.current || isDraggingMasterNeedleRef.current) {
+      if (!vid.paused) vid.pause();
+      if (vid.readyState >= 1) {
+        syncVideoCurrentTimeWithFastSeek(vid, targetSourceSec, 0.002);
+      }
+    } else {
+      if (Math.abs((vid.currentTime || 0) - targetSourceSec) > 0.14 && vid.readyState >= 1) {
+        syncVideoCurrentTimeWithFastSeek(vid, targetSourceSec, 0.01);
+      }
+      if (vid.paused) {
+        vid.play().catch(() => {});
+      }
+    }
+  }, [
+    monitorMediaUrl,
+    isMonitorVideo,
+    slideTimeSec,
+    isPlaying,
+    playbackSpeed,
+    currentWindow.speed,
+    currentWindow.inSec,
+    currentSlide
+  ]);
 
   // Auto-scroll active card into view in filmstrip mode
   useEffect(() => {
@@ -175,6 +259,116 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     }
   }, [safeIndex, cardLayout]);
 
+  // NLE Edit Actions
+  const handleSplitAtPlayhead = useCallback(() => {
+    const res = splitClipAtTime(slides, safeIndex, slideTimeSec, isMagneticSnap);
+    if (!res.changed) {
+      showToastFeedback(`MIN ${(MIN_NLE_CLIP_DURATION_SEC * 2).toFixed(1)}S NEEDED TO SPLIT`);
+      return;
+    }
+    try {
+      audioEngine.playShutterClick();
+    } catch {}
+    commitNleResult(
+      res.slides,
+      res.activeIndex,
+      res.localTimeSec,
+      `SPLIT SH${String(safeIndex + 1).padStart(3, '0')} -> PART A + PART B`
+    );
+  }, [slides, safeIndex, slideTimeSec, isMagneticSnap, commitNleResult, showToastFeedback]);
+
+  const handleTrimStartQ = useCallback(() => {
+    const res = trimStartToPlayheadQ(slides, safeIndex, slideTimeSec, isMagneticSnap);
+    if (!res.changed) {
+      showToastFeedback('PLAYHEAD TOO CLOSE TO CLIP IN/OUT');
+      return;
+    }
+    try {
+      audioEngine.playShutterClick();
+    } catch {}
+    commitNleResult(res.slides, res.activeIndex, res.localTimeSec, 'TRIM START [Q] · RIPPLE CLOSED');
+  }, [slides, safeIndex, slideTimeSec, isMagneticSnap, commitNleResult, showToastFeedback]);
+
+  const handleTrimEndW = useCallback(() => {
+    const res = trimEndToPlayheadW(slides, safeIndex, slideTimeSec, isMagneticSnap);
+    if (!res.changed) {
+      showToastFeedback('PLAYHEAD TOO CLOSE TO CLIP END');
+      return;
+    }
+    try {
+      audioEngine.playShutterClick();
+    } catch {}
+    commitNleResult(res.slides, res.activeIndex, res.localTimeSec, 'TRIM END [W] · RIPPLE CLOSED');
+  }, [slides, safeIndex, slideTimeSec, isMagneticSnap, commitNleResult, showToastFeedback]);
+
+  const handleRippleDelete = useCallback(() => {
+    const res = rippleDeleteClip(slides, safeIndex);
+    if (!res.changed) {
+      showToastFeedback('CANNOT DELETE LAST REMAINING CLIP');
+      return;
+    }
+    try {
+      audioEngine.playShutterClick();
+    } catch {}
+    commitNleResult(res.slides, res.activeIndex, res.localTimeSec, 'RIPPLE DELETED · ZERO GAPS');
+  }, [slides, safeIndex, commitNleResult, showToastFeedback]);
+
+  const handleClipSpeedChange = useCallback(
+    (speed: number) => {
+      const res = applyClipSpeed(slides, safeIndex, speed);
+      if (!res.changed) return;
+      commitNleResult(res.slides, res.activeIndex, res.localTimeSec, `CLIP SPEED ${speed.toFixed(1)}x`);
+    },
+    [slides, safeIndex, commitNleResult, showToastFeedback]
+  );
+
+  // Scoped CapCut NLE Keyboard Hotkeys (`S` / `Ctrl+B`, `Q`, `W`, `Delete/Backspace`)
+  useEffect(() => {
+    const handleNleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSplitAtPlayhead();
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+
+      const lower = e.key.toLowerCase();
+      if (lower === 's') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSplitAtPlayhead();
+      } else if (lower === 'q') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleTrimStartQ();
+      } else if (lower === 'w') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleTrimEndW();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleRippleDelete();
+      }
+    };
+
+    window.addEventListener('keydown', handleNleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleNleKeyDown, true);
+  }, [handleSplitAtPlayhead, handleTrimStartQ, handleTrimEndW, handleRippleDelete]);
+
   // Format Timecode to SMPTE HH:MM:SS:FF
   const formatSMPTE = (sec: number, fps = activeSlideFps) => {
     const totalFrames = Math.max(0, Math.floor(sec * fps));
@@ -185,53 +379,138 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     return `${hh}:${mm}:${ss}:${ff}`;
   };
 
-  // High-Precision Scrub Pointer Handlers
-  const handleScrubPointer = useCallback((clientX: number) => {
-    if (!scrubTrackRef.current) return;
-    const rect = scrubTrackRef.current.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    let rawSec = ratio * activeSlideDurationSec;
+  // Proportional NLE Scale (px per second)
+  const pxPerSec = useMemo(() => {
+    const base = 36 * timelineZoom;
+    return Math.max(12, Math.min(180, base));
+  }, [timelineZoom]);
 
-    if (isMagneticSnap) {
-      const frameIndex = Math.round(rawSec * activeSlideFps);
-      rawSec = Math.max(0, Math.min(activeSlideDurationSec, frameIndex / activeSlideFps));
-    }
+  const totalTrackWidthPx = Math.max(640, Math.round(totalDurationSec * pxPerSec));
 
-    onScrubSlideTime(rawSec);
-    try {
-      audioEngine.playShutterClick();
-    } catch {
-      // Safe fallback
-    }
-  }, [activeSlideDurationSec, activeSlideFps, isMagneticSnap, onScrubSlideTime]);
+  // Scrubbing across the Master Multi-Clip NLE Ruler / Track
+  const scrubAtTrackClientX = useCallback(
+    (clientX: number) => {
+      const container = nleTimelineScrollRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const offsetX = clientX - rect.left + container.scrollLeft;
+      const targetGlobalSec = Math.max(0, Math.min(totalDurationSec, offsetX / pxPerSec));
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    isDraggingScrubRef.current = true;
+      if (onScrubGlobalTime) {
+        onScrubGlobalTime(targetGlobalSec);
+      } else {
+        // Fallback resolution against shotOffsets
+        let matchedIdx = 0;
+        let localSec = 0;
+        for (let i = 0; i < shotOffsets.length; i++) {
+          const off = shotOffsets[i];
+          if (targetGlobalSec >= off.startSec && targetGlobalSec <= off.endSec) {
+            matchedIdx = i;
+            localSec = targetGlobalSec - off.startSec;
+            break;
+          }
+          if (targetGlobalSec > off.endSec) {
+            matchedIdx = i;
+            localSec = off.durationSec;
+          }
+        }
+        onSelectSlide(matchedIdx);
+        onScrubSlideTime(localSec);
+      }
+    },
+    [totalDurationSec, pxPerSec, onScrubGlobalTime, shotOffsets, onSelectSlide, onScrubSlideTime]
+  );
+
+  const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingMasterNeedleRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
-    handleScrubPointer(e.clientX);
+    scrubAtTrackClientX(e.clientX);
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isDraggingScrubRef.current) {
-      handleScrubPointer(e.clientX);
-    }
+  const handleRulerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingMasterNeedleRef.current) return;
+    scrubAtTrackClientX(e.clientX);
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isDraggingScrubRef.current) {
-      isDraggingScrubRef.current = false;
+  const handleRulerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingMasterNeedleRef.current) {
+      isDraggingMasterNeedleRef.current = false;
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {}
     }
   };
 
+  // Real-Time Edge Drag Trim Handles (`[|` left `inPoint` and `|]` right `outPoint`)
+  const handleTrimHandlePointerDown = (
+    e: React.PointerEvent<HTMLDivElement>,
+    clipIndex: number,
+    edge: 'left' | 'right'
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    onSelectSlide(clipIndex);
+
+    activeTrimDragRef.current = {
+      clipIndex,
+      edge,
+      startClientX: e.clientX,
+      baseSlides: slides,
+      latestSlides: slides
+    };
+  };
+
+  const handleTrimHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = activeTrimDragRef.current;
+    if (!drag) return;
+    e.stopPropagation();
+
+    const deltaPx = e.clientX - drag.startClientX;
+    const deltaSec = deltaPx / pxPerSec;
+    const res = trimClipEdge(drag.baseSlides, drag.clipIndex, drag.edge, deltaSec, isMagneticSnap);
+    drag.latestSlides = res.slides;
+    setTrimPreviewSlides(res.slides);
+
+    // Live <video> scrub under cursor while trimming
+    const vid = monitorVideoRef.current;
+    if (vid && isMonitorVideo && vid.readyState >= 1) {
+      syncVideoCurrentTimeWithFastSeek(vid, res.scrubPreviewSourceSec, 0.002);
+    }
+
+    const updatedWin = getClipSourceWindow(res.slides[drag.clipIndex]);
+    onScrubSlideTime(drag.edge === 'left' ? 0 : Math.max(0, updatedWin.timelineDurationSec - 1 / updatedWin.fps));
+  };
+
+  const handleTrimHandlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = activeTrimDragRef.current;
+    if (!drag) return;
+    e.stopPropagation();
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    const finalSlides = drag.latestSlides;
+    const finalWin = getClipSourceWindow(finalSlides[drag.clipIndex]);
+    const finalLocalSec =
+      drag.edge === 'left' ? 0 : Math.max(0, finalWin.timelineDurationSec - 1 / finalWin.fps);
+
+    activeTrimDragRef.current = null;
+    setTrimPreviewSlides(null);
+
+    commitNleResult(
+      finalSlides,
+      drag.clipIndex,
+      finalLocalSec,
+      `${drag.edge === 'left' ? 'IN' : 'OUT'} TRIMMED (${finalWin.timelineDurationSec.toFixed(2)}S)`
+    );
+  };
+
   // Fine Jog-Wheel Nudge
   const handleJogNudge = (deltaFrames: number) => {
     const frameDuration = 1 / activeSlideFps;
-    const nextTime = Math.max(0, Math.min(activeSlideDurationSec, slideTimeSec + (deltaFrames * frameDuration)));
+    const nextTime = Math.max(0, Math.min(activeSlideDurationSec, slideTimeSec + deltaFrames * frameDuration));
     onScrubSlideTime(nextTime);
-    setJogRotation(r => r + (deltaFrames * 15));
     try {
       audioEngine.playShutterClick();
     } catch {}
@@ -293,7 +572,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     }
   };
 
-  // Quick AI Direct Actions (Omni Flash & Lyria 3)
+  // Quick AI Direct Actions
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
 
@@ -344,7 +623,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
       const data = await res.json();
       if (data.success && data.audioUrl) {
         onUpdateSlide(safeIndex, {
-          soundCue: `Lyria 12s Score // ${currentSlide.titleEn || 'Thematic Cue'}`
+          soundCue: `Lyria 12s Score — ${currentSlide.titleEn || 'Thematic Cue'}`
         });
         const audio = new Audio(data.audioUrl);
         audio.play().catch(() => {});
@@ -360,11 +639,10 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     }
   };
 
-  // Filtered Cards
   const filteredSlides = useMemo(() => {
-    if (!searchQuery.trim()) return slides;
+    if (!searchQuery.trim()) return activeSlides;
     const q = searchQuery.toLowerCase();
-    return slides.filter((s, idx) => {
+    return activeSlides.filter((s, idx) => {
       const shotNum = String(idx + 1).padStart(3, '0');
       return (
         shotNum.includes(q) ||
@@ -373,23 +651,22 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         (s.directorNotes && s.directorNotes.toLowerCase().includes(q))
       );
     });
-  }, [slides, searchQuery]);
+  }, [activeSlides, searchQuery]);
 
-  // Audio Waveform Peaks Generator (Simulated high-density optical audio track)
-  const waveformBars = useMemo(() => {
-    const bars: number[] = [];
-    const count = 96; // 8 bars per second across 12 seconds
-    for (let i = 0; i < count; i++) {
-      const phase = (i / count) * Math.PI * 4;
-      const noise = Math.sin(phase) * 0.4 + Math.sin(phase * 3.7) * 0.3 + 0.3;
-      bars.push(Math.max(0.15, Math.min(1.0, Math.abs(noise))));
+  // Ruler Second Marks for Proportional NLE Track
+  const rulerTicks = useMemo(() => {
+    const stepSec = timelineZoom >= 2.0 ? 1 : timelineZoom >= 1.0 ? 2 : 5;
+    const ticks: number[] = [];
+    for (let s = 0; s <= totalDurationSec + 0.01; s += stepSec) {
+      ticks.push(s);
     }
-    return bars;
-  }, []);
+    return ticks;
+  }, [totalDurationSec, timelineZoom]);
+
+  const masterNeedleLeftPx = Math.max(0, Math.min(totalTrackWidthPx, globalCurrentSec * pxPerSec));
 
   return (
     <div className={`w-full h-full bg-[#08090C] text-slate-200 flex flex-col overflow-hidden select-none font-mono ${className}`}>
-      {/* Hidden File Input for Card Media Ingestion */}
       <input
         ref={fileUploadInputRef}
         type="file"
@@ -398,202 +675,194 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         onChange={handleFileChange}
       />
 
-      {/* 1. Master Header Strip: Title, Global Telemetry & View Configuration */}
-      <header className="h-14 sm:h-16 px-4 sm:px-6 bg-[#0B0C10] border-b border-white/10 flex items-center justify-between shrink-0 gap-3 z-20">
-        {/* Left: View Title & Active Shot Badge */}
+      {/* 1. Master Header Strip */}
+      <header className="h-12 sm:h-14 px-4 bg-[#0B0C10] border-b border-white/10 flex items-center justify-between shrink-0 gap-3 z-20">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-[#F5A623]/30 flex items-center justify-center text-[#F5A623]">
-            <SlidersHorizontal className="w-4 h-4" />
+          <div className="w-7 h-7 bg-amber-500/10 border border-[#F5A623]/30 flex items-center justify-center text-[#F5A623]">
+            <SlidersHorizontal className="w-3.5 h-3.5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-bold tracking-wider text-white">SCRUB & SEQUENCE MATRIX</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623]">
-                SH{String(safeIndex + 1).padStart(3, '0')} / {slides.length}
+              <span className="text-xs font-bold tracking-wider text-white uppercase">SCRUB NLE CUTTER</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] tabular-nums">
+                SH{String(safeIndex + 1).padStart(3, '0')} / {activeSlides.length}
               </span>
             </div>
-            <div className="text-[10px] text-slate-400 truncate max-w-[280px] sm:max-w-[420px]">
-              {currentSlide.titleBn ? `${currentSlide.titleBn} // ` : ''}{currentSlide.titleEn || 'Untitled Sequence'}
+            <div className="text-[10px] text-slate-400 truncate max-w-[260px] sm:max-w-[380px]">
+              {currentSlide?.titleBn ? `${currentSlide.titleBn} · ` : ''}{currentSlide?.titleEn || 'Untitled Sequence'}
             </div>
           </div>
         </div>
 
-        {/* Center: Live Frame & SMPTE Timecode Badges */}
-        <div className="hidden lg:flex items-center gap-2.5 text-xs tabular-nums">
-          <div className="bg-black/60 border border-white/10 px-3 py-1 rounded-lg flex items-center gap-2">
-            <span className="text-slate-400 text-[10px]">SHOT:</span>
+        {/* Center: SMPTE Timecode & In/Out Readouts */}
+        <div className="hidden lg:flex items-center gap-2 text-xs tabular-nums">
+          <div className="bg-black/70 border border-white/10 px-2.5 py-1 flex items-center gap-2">
+            <span className="text-slate-400 text-[10px]">CLIP:</span>
             <span className="font-bold text-[#F5A623]">{formatSMPTE(slideTimeSec)}</span>
             <span className="text-slate-500 text-[10px]">/ {formatDurationPillValue(activeSlideDurationSec)}</span>
           </div>
 
-          <div className="bg-black/60 border border-white/10 px-3 py-1 rounded-lg flex items-center gap-2">
+          <div className="bg-black/70 border border-white/10 px-2.5 py-1 flex items-center gap-2">
+            <span className="text-slate-400 text-[10px]">IN–OUT:</span>
+            <span className="font-bold text-cyan-300">
+              {currentWindow.inSec.toFixed(2)}s–{currentWindow.outSec.toFixed(2)}s
+            </span>
+          </div>
+
+          <div className="bg-black/70 border border-white/10 px-2.5 py-1 flex items-center gap-2">
             <span className="text-slate-400 text-[10px]">MASTER:</span>
             <span className="font-semibold text-white">{formatSMPTE(globalCurrentSec)}</span>
             <span className="text-slate-500 text-[10px]">/ {totalDurationSec.toFixed(1)}s</span>
           </div>
 
-          <div className="bg-black/60 border border-white/10 px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-bold">
-            <span className="text-amber-400">{currentFrameNum}</span>
+          <div className="bg-black/70 border border-white/10 px-2 py-1 flex items-center gap-1 font-bold">
+            <span className="text-amber-400">F{String(currentFrameNum).padStart(3, '0')}</span>
             <span className="text-slate-500">/</span>
-            <span className="text-slate-400">{activeSlideTotalFrames} F</span>
+            <span className="text-slate-400">{activeSlideTotalFrames}F</span>
           </div>
         </div>
 
-        {/* Right: Controls & Layout Switches */}
+        {/* Right: Snap, Mode & Monitor Toggle */}
         <div className="flex items-center gap-2">
-          {/* Magnetic Frame Snap Toggle */}
+          {nleFeedback && (
+            <span className="px-2 py-1 bg-[#F5A623]/15 border border-[#F5A623]/60 text-[#FFE066] text-[10px] font-bold tracking-wider">
+              {nleFeedback}
+            </span>
+          )}
+
           <button
             type="button"
-            onClick={() => setIsMagneticSnap(m => !m)}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+            onClick={() => setIsMagneticSnap((m) => !m)}
+            className={`px-2 py-1 text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer ${
               isMagneticSnap
                 ? 'bg-amber-500/20 border-amber-500/50 text-[#F5A623]'
                 : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
             }`}
-            title={isMagneticSnap ? 'Magnetic 1/24s Frame Snap ON' : 'Magnetic Frame Snap OFF (Continuous Sub-Frame)'}
+            title="Magnetic 1-Frame Snapping (SNAP 1F)"
           >
-            <Magnet className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">SNAP 1F</span>
+            <Magnet className="w-3 h-3" />
+            <span>SNAP 1F</span>
           </button>
 
-          {/* Animatic vs Solo Scrub Mode Switch */}
           <button
             type="button"
             onClick={() => onSelectPlaybackMode(playbackMode === 'sequence' ? 'solo' : 'sequence')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+            className={`px-2 py-1 text-[10px] font-bold border transition-colors cursor-pointer ${
               playbackMode === 'sequence'
                 ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
                 : 'bg-amber-950/40 border-amber-500/40 text-[#F5A623]'
             }`}
-            title="Toggle between Sequence Animatic auto-advance and Solo card scrubbing"
           >
             {playbackMode === 'sequence' ? 'ANIMATIC' : 'SOLO'}
           </button>
 
-          {/* Split Monitor vs Expanded Cards Toggle */}
           <button
             type="button"
-            onClick={() => setViewMode(v => v === 'SPLIT' ? 'CARDS_EXPANDED' : 'SPLIT')}
-            className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
-            title={viewMode === 'SPLIT' ? 'Expand Cards Rack' : 'Show Live Monitor'}
+            onClick={() => setViewMode((v) => (v === 'SPLIT' ? 'CARDS_EXPANDED' : 'SPLIT'))}
+            className="p-1.5 bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:border-white/30 transition-colors cursor-pointer"
+            title={viewMode === 'SPLIT' ? 'Expand Card Matrix' : 'Show Live Preview Monitor'}
           >
-            {viewMode === 'SPLIT' ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+            {viewMode === 'SPLIT' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </header>
 
-      {/* 2. Main Middle Viewport: Split Monitor (Optional) + Full Card Management Area */}
+      {/* 2. Main Viewport: Monitor Preview + Collapsible Card Matrix */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {/* Live Cinema Monitor Viewport (Active in SPLIT mode) */}
         {viewMode === 'SPLIT' && (
-          <div className="h-[40%] min-h-[220px] max-h-[380px] w-full bg-[#050608] border-b border-white/10 flex items-center justify-center p-3 relative overflow-hidden shrink-0">
-            {/* Aspect Ratio Bounded Stage Screen */}
-            <div 
-              className="relative h-full max-w-full aspect-[2.39/1] bg-black rounded-lg border border-white/15 overflow-hidden shadow-2xl flex items-center justify-center group"
-            >
-              {currentSlide.remoteUrl ? (
-                currentSlide.isVideo ? (
+          <div className="h-[36%] min-h-[180px] max-h-[300px] w-full bg-[#050608] border-b border-white/10 flex items-center justify-center p-2.5 relative overflow-hidden shrink-0">
+            <div className="relative h-full max-w-full aspect-[2.39/1] bg-black border border-white/15 overflow-hidden shadow-2xl flex items-center justify-center group">
+              {monitorMediaUrl ? (
+                isMonitorVideo ? (
                   <video
-                    src={currentSlide.remoteUrl}
+                    ref={monitorVideoRef}
+                    src={monitorMediaUrl}
                     className="w-full h-full object-cover"
                     muted
-                    loop
                     playsInline
+                    preload="auto"
                   />
                 ) : (
                   <img
-                    src={currentSlide.remoteUrl}
-                    alt={currentSlide.titleEn || 'Slide preview'}
+                    src={monitorMediaUrl}
+                    alt={currentSlide?.titleEn || 'Slide preview'}
                     className="w-full h-full object-cover"
                   />
                 )
               ) : (
                 <div className="flex flex-col items-center justify-center gap-2 text-slate-600">
-                  <Film className="w-8 h-8 opacity-40" />
-                  <span className="text-xs font-mono tracking-widest text-slate-500 uppercase">NO MEDIA ATTACHED</span>
+                  <Film className="w-7 h-7 opacity-40" />
+                  <span className="text-[11px] font-mono tracking-widest text-slate-500 uppercase">NO MEDIA ATTACHED</span>
                   <button
                     type="button"
                     onClick={(e) => handleTriggerUpload(safeIndex, e)}
-                    className="mt-1 px-3 py-1 bg-amber-500/15 border border-[#F5A623]/30 rounded text-amber-300 text-xs hover:bg-amber-500/30 transition-all cursor-pointer"
+                    className="px-3 py-1 bg-amber-500/15 border border-[#F5A623]/30 text-amber-300 text-xs hover:bg-amber-500/30 transition-colors cursor-pointer"
                   >
                     + Ingest Frame Media
                   </button>
                 </div>
               )}
 
-              {/* Scope Letterbox Overlay */}
               <div className="absolute inset-0 pointer-events-none border border-[#F5A623]/20 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]" />
 
-              {/* Theatrical Subtitle & Camera Spec Overlay */}
-              <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none flex items-end justify-between text-xs">
+              <div className="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none flex items-end justify-between text-xs">
                 <div>
-                  {currentSlide.titleBn && (
-                    <div className="text-[#FFE066] font-serif font-bold text-sm sm:text-base leading-tight drop-shadow-md">
+                  {currentSlide?.titleBn && (
+                    <div className="text-[#FFE066] font-serif font-bold text-sm leading-tight drop-shadow-md">
                       {currentSlide.titleBn}
                     </div>
                   )}
                   <div className="text-white font-bold tracking-wide drop-shadow-md">
-                    {currentSlide.titleEn || `Shot ${String(safeIndex + 1).padStart(3, '0')}`}
+                    {currentSlide?.titleEn || `Shot ${String(safeIndex + 1).padStart(3, '0')}`}
                   </div>
-                  {currentSlide.directorNotes && (
-                    <div className="text-[10px] text-slate-400 italic line-clamp-1 mt-0.5">
-                      "{currentSlide.directorNotes}"
-                    </div>
-                  )}
                 </div>
-
-                <div className="text-right text-[10px] text-slate-400 font-mono space-y-0.5 hidden sm:block">
-                  <div className="text-amber-400 font-bold">{currentSlide.cameraSpec?.focalLength || '35mm High-Speed Master'}</div>
-                  <div>{currentSlide.cameraSpec?.aperture || 'f/1.4'} // {currentSlide.cameraSpec?.shutter || '1/48s 180°'}</div>
-                  <div className="text-slate-500">{currentSlide.cameraSpec?.format || 'RAW 14-BIT ARRI'}</div>
+                <div className="text-right text-[10px] text-slate-400 font-mono hidden sm:block tabular-nums">
+                  <div className="text-amber-400 font-bold">
+                    {currentWindow.speed !== 1 ? `${currentWindow.speed.toFixed(1)}x SPEED · ` : ''}
+                    {activeSlideDurationSec.toFixed(2)}s ({activeSlideTotalFrames}F)
+                  </div>
+                  <div>{currentSlide?.cameraSpec?.focalLength || '35mm'} · {currentSlide?.cameraSpec?.aperture || 'f/1.4'}</div>
                 </div>
               </div>
 
-              {/* Frame Counter HUD Tag */}
-              <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/80 border border-white/20 text-[10px] font-mono text-[#F5A623] pointer-events-none font-bold tabular-nums">
-                F{String(currentFrameNum).padStart(3, '0')} · {activeSlideTotalFrames}F
+              <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/85 border border-white/20 text-[10px] font-mono text-[#F5A623] pointer-events-none font-bold tabular-nums">
+                F{String(currentFrameNum).padStart(3, '0')} / {activeSlideTotalFrames}F · SRC {getClipSourceMediaTimeSec(currentSlide, slideTimeSec).toFixed(2)}s
               </div>
 
-              {/* Quick AI Action Buttons on hover */}
-              <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                {currentSlide.remoteUrl && !currentSlide.isVideo && (
+              <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                {currentSlide?.remoteUrl && !isMonitorVideo && (
                   <button
                     type="button"
                     onClick={handleQuickAnimateOmni}
                     disabled={isAiGenerating}
-                    className="px-2.5 py-1 rounded bg-black/80 hover:bg-black border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 hover:text-white text-xs flex items-center gap-1.5 cursor-pointer backdrop-blur font-bold shadow-sm"
-                    title="Animate photo to 10s video using Gemini Omni Flash"
+                    className="px-2 py-1 bg-black/85 border border-cyan-500/40 text-cyan-300 text-[10px] flex items-center gap-1 cursor-pointer font-bold"
                   >
-                    <Video className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Omni Video</span>
+                    <Video className="w-3 h-3" />
+                    <span>Omni</span>
                   </button>
                 )}
-
                 <button
                   type="button"
                   onClick={handleQuickScoreLyria}
                   disabled={isAiGenerating}
-                  className="px-2.5 py-1 rounded bg-black/80 hover:bg-black border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-white text-xs flex items-center gap-1.5 cursor-pointer backdrop-blur font-bold shadow-sm"
-                  title="Synthesize 12s film score stem with Lyria 3"
+                  className="px-2 py-1 bg-black/85 border border-emerald-500/40 text-emerald-300 text-[10px] flex items-center gap-1 cursor-pointer font-bold"
                 >
-                  <Music className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Lyria Score</span>
+                  <Music className="w-3 h-3" />
+                  <span>Lyria</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={(e) => handleTriggerUpload(safeIndex, e)}
-                  className="px-2.5 py-1 rounded bg-black/80 hover:bg-black border border-white/20 hover:border-amber-400 text-slate-200 hover:text-amber-300 text-xs flex items-center gap-1.5 cursor-pointer backdrop-blur"
+                  className="px-2 py-1 bg-black/85 border border-white/20 text-slate-200 hover:text-amber-300 text-[10px] flex items-center gap-1 cursor-pointer"
                 >
-                  <Upload className="w-3.5 h-3.5" />
+                  <Upload className="w-3 h-3" />
                   <span>Replace</span>
                 </button>
               </div>
 
-              {/* Real-time AI Generation Feedback Banner */}
               {aiMessage && (
-                <div className="absolute top-10 right-2.5 px-3 py-1.5 rounded-lg bg-black/90 border border-amber-400/50 text-amber-300 text-xs font-bold font-mono shadow-xl backdrop-blur animate-fade-in flex items-center gap-2">
-                  {isAiGenerating && <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />}
+                <div className="absolute top-9 right-2 px-2.5 py-1 bg-black/90 border border-amber-400/50 text-amber-300 text-[10px] font-bold flex items-center gap-1.5">
+                  {isAiGenerating && <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />}
                   <span>{aiMessage}</span>
                 </div>
               )}
@@ -601,13 +870,11 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
           </div>
         )}
 
-        {/* Card Management Area: Search Bar & Multi-Card Filmstrip / Grid Matrix */}
+        {/* Card Management Matrix */}
         <div className="flex-1 min-h-0 flex flex-col bg-[#07080B] overflow-hidden">
-          {/* Card Management Action Toolbar */}
-          <div className="h-10 px-4 bg-[#090A0E] border-b border-white/5 flex items-center justify-between shrink-0 text-xs gap-3">
-            {/* Left: View Filter & Search */}
+          <div className="h-9 px-4 bg-[#090A0E] border-b border-white/5 flex items-center justify-between shrink-0 text-xs gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-bold text-[11px] tracking-wider uppercase">CARD MATRIX:</span>
+              <span className="text-slate-400 font-bold text-[10px] tracking-wider uppercase">SEQUENCE CARDS</span>
               <div className="relative">
                 <Search className="w-3 h-3 text-slate-500 absolute left-2 top-1/2 -translate-y-1/2" />
                 <input
@@ -615,18 +882,17 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                   placeholder="Filter shots..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-black/60 border border-white/10 rounded-md pl-6 pr-2 py-0.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 w-32 sm:w-48"
+                  className="bg-black/60 border border-white/10 pl-6 pr-2 py-0.5 text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 w-32 sm:w-44"
                 />
               </div>
             </div>
 
-            {/* Right: Layout Switcher & + Add Shot Button */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-black/50 border border-white/10 rounded-lg p-0.5">
+              <div className="flex items-center bg-black/50 border border-white/10 p-0.5">
                 <button
                   type="button"
                   onClick={() => setCardLayout('FILMSTRIP')}
-                  className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                  className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer ${
                     cardLayout === 'FILMSTRIP' ? 'bg-[#F5A623] text-black' : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -635,7 +901,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setCardLayout('GRID')}
-                  className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                  className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer ${
                     cardLayout === 'GRID' ? 'bg-[#F5A623] text-black' : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -646,50 +912,48 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               <button
                 type="button"
                 onClick={onAddSlide}
-                className="px-3 py-1 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black font-extrabold text-xs rounded-lg flex items-center gap-1 shadow-md transition-all cursor-pointer"
+                className="px-2.5 py-1 bg-[#F5A623] hover:bg-amber-400 text-black font-extrabold text-[11px] flex items-center gap-1 cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3" />
                 <span>Add 12s Shot</span>
               </button>
             </div>
           </div>
 
-          {/* Cards Container: Horizontal Filmstrip OR Responsive Grid */}
-          <div 
+          <div
             ref={filmstripScrollRef}
-            className={`flex-1 p-3 overflow-auto ${
+            className={`flex-1 p-2.5 overflow-auto ${
               cardLayout === 'FILMSTRIP'
-                ? 'flex flex-row gap-3 items-stretch'
-                : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5'
+                ? 'flex flex-row gap-2.5 items-stretch'
+                : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3'
             }`}
           >
             {filteredSlides.map((slide, idx) => {
-              const originalIndex = slides.findIndex(s => s.id === slide.id);
-              const isSelected = originalIndex === safeIndex;
-              const isEditing = editingCardIndex === originalIndex;
-              const shotNumStr = String(originalIndex + 1).padStart(3, '0');
-              const shotKey = getShotMediaKey(slide as any, originalIndex);
-              const vaultEntry = resolveShotMediaEntry(shotMediaMap, slide as any, undefined, originalIndex);
+              const originalIndex = activeSlides.findIndex((s) => s.id === slide.id);
+              const resolvedIndex = originalIndex >= 0 ? originalIndex : idx;
+              const isSelected = resolvedIndex === safeIndex;
+              const isEditing = editingCardIndex === resolvedIndex;
+              const shotNumStr = String(resolvedIndex + 1).padStart(3, '0');
+              const vaultEntry = resolveShotMediaEntry(shotMediaMap, slide as any, undefined, resolvedIndex);
               const cardMediaUrl = vaultEntry?.url || slide.remoteUrl || '';
               const isCardVideo = vaultEntry
                 ? vaultEntry.type === 'video'
-                : isVideoSourceUrl(cardMediaUrl, {
-                    isVideo: Boolean(slide.isVideo)
-                  });
+                : isVideoSourceUrl(cardMediaUrl, { isVideo: Boolean(slide.isVideo) });
+              const cardWin = getClipSourceWindow(slide);
 
               return (
                 <div
-                  key={slide.id || `slide_${originalIndex}`}
-                  data-shot-card={originalIndex}
-                  data-shot-drop-index={originalIndex}
-                  onClick={() => onSelectSlide(originalIndex)}
+                  key={slide.id || `slide_${resolvedIndex}`}
+                  data-shot-card={resolvedIndex}
+                  data-shot-drop-index={resolvedIndex}
+                  onClick={() => onSelectSlide(resolvedIndex)}
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (dropCardIndex !== originalIndex) setDropCardIndex(originalIndex);
+                    if (dropCardIndex !== resolvedIndex) setDropCardIndex(resolvedIndex);
                   }}
                   onDragLeave={() => {
-                    setDropCardIndex((prev) => (prev === originalIndex ? null : prev));
+                    setDropCardIndex((prev) => (prev === resolvedIndex ? null : prev));
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -697,83 +961,77 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                     setDropCardIndex(null);
                     const file = e.dataTransfer.files?.[0];
                     if (file && onUploadMedia) {
-                      onUploadMedia(originalIndex, file);
+                      onUploadMedia(resolvedIndex, file);
                     }
                   }}
-                  className={`relative rounded-xl border transition-all duration-150 cursor-pointer flex flex-col overflow-hidden ${
-                    cardLayout === 'FILMSTRIP' ? 'w-64 sm:w-72 shrink-0' : 'w-full'
+                  className={`relative border transition-colors cursor-pointer flex flex-col overflow-hidden ${
+                    cardLayout === 'FILMSTRIP' ? 'w-56 sm:w-60 shrink-0' : 'w-full'
                   } ${
-                    dropCardIndex === originalIndex
+                    dropCardIndex === resolvedIndex
                       ? 'bg-[#0d1f18] border-emerald-400 border-dashed ring-2 ring-emerald-400/50'
                       : isSelected
-                      ? 'bg-[#15130f] border-[#F5A623] shadow-[0_0_16px_rgba(245,166,35,0.35)] ring-1 ring-[#F5A623]/50'
-                      : 'bg-[#0E0F14] border-white/10 hover:border-white/30 hover:bg-[#12131A]'
+                      ? 'bg-[#15130f] border-[#F5A623] ring-1 ring-[#F5A623]/50'
+                      : 'bg-[#0E0F14] border-white/10 hover:border-white/30'
                   }`}
                 >
-                  {/* Card Header Strip: Shot #, Order Arrows, Duplicate, Delete */}
-                  <div className="p-2 bg-black/40 border-b border-white/5 flex items-center justify-between text-xs">
+                  <div className="px-2 py-1 bg-black/40 border-b border-white/5 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1.5 font-bold tabular-nums">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                      <span className={`px-1 py-0.5 text-[10px] ${
                         isSelected ? 'bg-[#F5A623] text-black' : 'bg-white/10 text-slate-300'
                       }`}>
                         SH{shotNumStr}
                       </span>
-                      <span className="text-[10px] text-[#F5A623] font-mono">
-                        {formatDurationPillValue(getShotDurationSec(slide, 12.0))}
+                      <span className="text-[10px] text-[#F5A623]">
+                        {formatDurationPillValue(cardWin.timelineDurationSec)}
                       </span>
+                      {cardWin.speed !== 1.0 && (
+                        <span className="text-[9px] text-cyan-300 font-bold">{cardWin.speed}x</span>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      {/* Move Left */}
+                    <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={() => handleMoveCard(originalIndex, 'left')}
-                        disabled={originalIndex === 0}
-                        className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+                        onClick={() => handleMoveCard(resolvedIndex, 'left')}
+                        disabled={resolvedIndex === 0}
+                        className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
                         title="Move Shot Left"
                       >
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
-
-                      {/* Move Right */}
                       <button
                         type="button"
-                        onClick={() => handleMoveCard(originalIndex, 'right')}
-                        disabled={originalIndex === slides.length - 1}
-                        className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+                        onClick={() => handleMoveCard(resolvedIndex, 'right')}
+                        disabled={resolvedIndex === activeSlides.length - 1}
+                        className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
                         title="Move Shot Right"
                       >
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
-
-                      {/* Duplicate Shot */}
                       <button
                         type="button"
-                        onClick={() => onDuplicateSlide(originalIndex)}
-                        className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-amber-300"
+                        onClick={() => onDuplicateSlide(resolvedIndex)}
+                        className="p-0.5 text-slate-400 hover:text-amber-300 cursor-pointer"
                         title="Duplicate Shot"
                       >
-                        <Copy className="w-3.5 h-3.5" />
+                        <Copy className="w-3 h-3" />
                       </button>
-
-                      {/* Delete Shot */}
                       <button
                         type="button"
-                        onClick={() => onDeleteSlide(originalIndex)}
-                        disabled={slides.length <= 1}
-                        className="p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 disabled:opacity-30 disabled:hover:bg-transparent"
+                        onClick={() => onDeleteSlide(resolvedIndex)}
+                        disabled={activeSlides.length <= 1}
+                        className="p-0.5 text-slate-400 hover:text-rose-400 disabled:opacity-30 cursor-pointer"
                         title="Delete Shot"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Card Thumbnail Box with Scope Frame */}
                   <div className="relative aspect-[2.39/1] bg-black overflow-hidden flex items-center justify-center group/card-thumb">
                     {cardMediaUrl || slide.thumbnailUrl ? (
                       <ShotMediaThumbnail
-                        shotIndex={originalIndex}
+                        shotIndex={resolvedIndex}
                         shotId={slide.id}
                         mediaUrl={cardMediaUrl}
                         thumbnailUrl={slide.thumbnailUrl}
@@ -786,121 +1044,91 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                         alt={slide.titleEn || `Shot ${shotNumStr}`}
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center text-slate-600 gap-1">
-                        <Camera className="w-5 h-5 opacity-40" />
+                      <div className="flex flex-col items-center justify-center text-slate-600 gap-0.5">
+                        <Camera className="w-4 h-4 opacity-40" />
                         <span className="text-[9px] uppercase tracking-wider">Empty</span>
                       </div>
                     )}
 
-                    {/* Progress Bar inside Active Thumbnail */}
                     {isSelected && (
                       <div className="absolute inset-x-0 bottom-0 h-1 bg-black/60">
-                        <div 
-                          className="h-full bg-[#F5A623] shadow-[0_0_8px_#F5A623]" 
-                          style={{ width: `${Math.min(100, Math.max(0, (slideTimeSec / getShotDurationSec(slide, 12.0)) * 100))}%` }}
+                        <div
+                          className="h-full bg-[#F5A623]"
+                          style={{
+                            width: `${Math.min(100, Math.max(0, (slideTimeSec / cardWin.timelineDurationSec) * 100))}%`
+                          }}
                         />
                       </div>
                     )}
 
-                    {/* Thumbnail Ingest Hover Overlay */}
                     <button
                       type="button"
-                      onClick={(e) => handleTriggerUpload(originalIndex, e)}
-                      className="absolute inset-0 bg-black/70 opacity-0 group-hover/card-thumb:opacity-100 flex items-center justify-center gap-1.5 text-xs text-amber-300 font-bold transition-opacity"
+                      onClick={(e) => handleTriggerUpload(resolvedIndex, e)}
+                      className="absolute inset-0 bg-black/70 opacity-0 group-hover/card-thumb:opacity-100 flex items-center justify-center gap-1 text-xs text-amber-300 font-bold transition-opacity"
                     >
-                      <Upload className="w-4 h-4" />
+                      <Upload className="w-3.5 h-3.5" />
                       <span>Ingest</span>
                     </button>
                   </div>
 
-                  {/* Card Details & In-Line Edit Form */}
-                  <div className="p-2.5 flex-1 flex flex-col justify-between text-xs space-y-1.5">
+                  <div className="p-2 flex-1 flex flex-col justify-between text-xs">
                     {isEditing ? (
-                      <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
-                        <div>
-                          <label className="text-[9px] text-slate-400 uppercase font-mono block">English Title</label>
-                          <input
-                            type="text"
-                            value={editTitleEn}
-                            onChange={(e) => setEditTitleEn(e.target.value)}
-                            className="w-full bg-black/70 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[9px] text-slate-400 uppercase font-mono block">Bengali Title</label>
-                          <input
-                            type="text"
-                            value={editTitleBn}
-                            onChange={(e) => setEditTitleBn(e.target.value)}
-                            className="w-full bg-black/70 border border-white/20 rounded px-1.5 py-0.5 text-xs text-amber-300 font-serif focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[9px] text-slate-400 uppercase font-mono block">Director Notes</label>
-                          <textarea
-                            value={editNotes}
-                            onChange={(e) => setEditNotes(e.target.value)}
-                            rows={2}
-                            className="w-full bg-black/70 border border-white/20 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-amber-400 resize-none"
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-end gap-1 pt-1">
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 text-[10px]"
-                          >
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={editTitleEn}
+                          onChange={(e) => setEditTitleEn(e.target.value)}
+                          placeholder="English Title"
+                          className="w-full bg-black/70 border border-white/20 px-1.5 py-0.5 text-[11px] text-white"
+                        />
+                        <input
+                          type="text"
+                          value={editTitleBn}
+                          onChange={(e) => setEditTitleBn(e.target.value)}
+                          placeholder="Bengali Title"
+                          className="w-full bg-black/70 border border-white/20 px-1.5 py-0.5 text-[11px] text-amber-300 font-serif"
+                        />
+                        <textarea
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          rows={2}
+                          placeholder="Director Notes"
+                          className="w-full bg-black/70 border border-white/20 px-1.5 py-0.5 text-[11px] text-slate-300 resize-none"
+                        />
+                        <div className="flex justify-end gap-1">
+                          <button type="button" onClick={handleCancelEdit} className="px-2 py-0.5 bg-white/10 text-[10px]">
                             Cancel
                           </button>
                           <button
                             type="button"
-                            onClick={(e) => handleSaveEdit(originalIndex, e)}
-                            className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[10px]"
+                            onClick={(e) => handleSaveEdit(resolvedIndex, e)}
+                            className="px-2 py-0.5 bg-amber-500 text-black font-bold text-[10px]"
                           >
                             Save
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <>
-                        <div className="flex items-start justify-between gap-1">
-                          <div className="truncate">
-                            {slide.titleBn && (
-                              <div className="text-[#FFE066] font-serif font-bold text-xs truncate">
-                                {slide.titleBn}
-                              </div>
-                            )}
-                            <div className="text-white font-bold text-xs truncate">
-                              {slide.titleEn || `Shot ${shotNumStr}`}
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="truncate">
+                          {slide.titleBn && (
+                            <div className="text-[#FFE066] font-serif font-bold text-[11px] truncate">
+                              {slide.titleBn}
                             </div>
+                          )}
+                          <div className="text-white font-bold text-[11px] truncate">
+                            {slide.titleEn || `Shot ${shotNumStr}`}
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={(e) => handleStartEdit(originalIndex, e)}
-                            className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white shrink-0"
-                            title="Edit Shot Metadata"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                          </button>
                         </div>
-
-                        {slide.directorNotes ? (
-                          <p className="text-[10px] text-slate-400 italic line-clamp-1">
-                            "{slide.directorNotes}"
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-slate-600 italic">No notes</p>
-                        )}
-
-                        <div className="pt-1 border-t border-white/5 flex items-center justify-between text-[9px] text-slate-500 font-mono">
-                          <span>{slide.cameraSpec?.focalLength || '35mm Cine'}</span>
-                          <span className="text-amber-500/80 font-bold">24 FPS</span>
-                        </div>
-                      </>
+                        <button
+                          type="button"
+                          onClick={(e) => handleStartEdit(resolvedIndex, e)}
+                          className="p-0.5 text-slate-400 hover:text-white shrink-0"
+                          title="Edit Shot Metadata"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -910,87 +1138,115 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         </div>
       </div>
 
-      {/* 3. Bottom Master Sub-Frame Timeline Scrubber Bar (288 Frames @ 24fps) */}
-      <footer className="h-44 sm:h-48 bg-[#0A0B10] border-t border-white/10 px-4 sm:px-6 py-2.5 flex flex-col justify-between shrink-0 z-30 select-none shadow-[0_-8px_24px_rgba(0,0,0,0.8)]">
-        {/* Top Scrubber Control Row: NLE Transport Buttons & Rotary Jog Shuttle */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Transport Left Cluster: Frame Stepping */}
-          <div className="flex items-center gap-1 sm:gap-1.5">
-            {/* Jump to Beginning of Shot */}
+      {/* 3. CapCut-Grade Real-Time NLE Cutting & Ripple Trim Timeline Dock */}
+      <footer className="h-56 sm:h-60 bg-[#0A0B10] border-t border-white/15 px-3 sm:px-5 py-2 flex flex-col justify-between shrink-0 z-30 select-none shadow-[0_-8px_24px_rgba(0,0,0,0.8)]">
+        {/* Top Row: CapCut NLE Cutter Toolbar + Transport + Speed Multiplier */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-white/10">
+          {/* CapCut Quick Edit Actions */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-testid="scrub-split-btn"
+              onClick={handleSplitAtPlayhead}
+              className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400 text-[#FFE066] text-[10px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+              title="Razor Split Active Clip at Playhead (S or Ctrl+B)"
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              <span>SPLIT [S]</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="scrub-trim-q-btn"
+              onClick={handleTrimStartQ}
+              className="px-2 py-1 bg-white/5 hover:bg-white/15 border border-white/15 text-slate-200 hover:text-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Trim Start to Playhead & Ripple Left (Q)"
+            >
+              <ArrowLeftToLine className="w-3 h-3 text-amber-400" />
+              <span>TRIM IN [Q]</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="scrub-trim-w-btn"
+              onClick={handleTrimEndW}
+              className="px-2 py-1 bg-white/5 hover:bg-white/15 border border-white/15 text-slate-200 hover:text-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Trim End to Playhead & Ripple Left (W)"
+            >
+              <span>TRIM OUT [W]</span>
+              <ArrowRightToLine className="w-3 h-3 text-amber-400" />
+            </button>
+
+            <button
+              type="button"
+              data-testid="scrub-ripple-delete-btn"
+              onClick={handleRippleDelete}
+              disabled={slides.length <= 1}
+              className="px-2 py-1 bg-rose-950/30 hover:bg-rose-600/30 border border-rose-500/30 text-rose-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-35 transition-colors"
+              title="Ripple Delete Selected Clip (Delete / Backspace)"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span className="hidden sm:inline">RIPPLE DEL</span>
+            </button>
+          </div>
+
+          {/* Center Transport Controls */}
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => onScrubSlideTime(0)}
-              className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-              title="Jump to Start of Shot (0.0s)"
+              className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 cursor-pointer"
+              title="Start of Clip"
             >
-              <SkipBack className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <SkipBack className="w-3.5 h-3.5" />
             </button>
-
-            {/* Step -1.0s (24 frames) */}
             <button
               type="button"
               onClick={() => handleJogNudge(-24)}
-              className="px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
-              title="Nudge Backward 1.0s (-24 frames)"
+              className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-slate-300 cursor-pointer"
             >
               -1s
             </button>
-
-            {/* Step -1 Frame */}
             <button
               type="button"
               onClick={() => onStepFrame(false)}
-              className="px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[#F5A623] hover:text-amber-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-0.5"
-              title="Step -1 Frame at 24fps (J or <-)"
+              className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-amber-300 cursor-pointer"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>-1F</span>
+              -1F
             </button>
-
-            {/* Big Tactile Play / Pause Button */}
             <button
               type="button"
               onClick={onTogglePlay}
-              className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ${
+              className={`px-3.5 py-1 font-extrabold text-[11px] flex items-center gap-1.5 border cursor-pointer ${
                 isPlaying
-                  ? 'bg-gradient-to-b from-amber-600 to-amber-700 text-white border border-amber-400 shadow-[0_0_16px_rgba(245,166,35,0.4)]'
-                  : 'bg-gradient-to-b from-[#3a2810] via-[#241808] to-[#120c04] text-[#F5A623] border-2 border-[#F5A623] shadow-[0_0_20px_rgba(245,166,35,0.5)]'
+                  ? 'bg-amber-600 border-amber-400 text-white'
+                  : 'bg-[#1a1308] border-[#F5A623] text-[#F5A623]'
               }`}
-              title="Play / Pause (Space)"
             >
-              {isPlaying ? <Pause className="w-4 h-4 fill-white text-white" /> : <Play className="w-4 h-4 fill-[#F5A623] text-[#F5A623]" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
               <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
             </button>
-
-            {/* Step +1 Frame */}
             <button
               type="button"
               onClick={() => onStepFrame(true)}
-              className="px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[#F5A623] hover:text-amber-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-0.5"
-              title="Step +1 Frame at 24fps (L or ->)"
+              className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-amber-300 cursor-pointer"
             >
-              <span>+1F</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              +1F
             </button>
-
-            {/* Step +1.0s (24 frames) */}
             <button
               type="button"
               onClick={() => handleJogNudge(24)}
-              className="px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
-              title="Nudge Forward 1.0s (+24 frames)"
+              className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-slate-300 cursor-pointer"
             >
               +1s
             </button>
-
-            {/* Jump to End of Shot */}
             <button
               type="button"
               onClick={() => onScrubSlideTime(activeSlideDurationSec)}
-              className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-              title={`Jump to End of Shot (${formatDurationPillValue(activeSlideDurationSec)})`}
+              className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 cursor-pointer"
+              title="End of Clip"
             >
-              <SkipForward className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <SkipForward className="w-3.5 h-3.5" />
             </button>
 
             <CadenceSelectorPill
@@ -1004,259 +1260,198 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             />
           </div>
 
-          {/* Center Jog Strip / Nudge Slider (Frame Fine-Tuner) */}
-          <div className="hidden md:flex items-center gap-2 bg-black/60 border border-white/10 px-3 py-1 rounded-xl text-xs">
-            <span className="text-slate-400 text-[10px] font-bold tracking-wider">JOG:</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => handleJogNudge(-5)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-[10px] cursor-pointer"
-                title="-5 Frames"
-              >
-                « -5F
-              </button>
-              <button
-                type="button"
-                onClick={() => handleJogNudge(-1)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-amber-400 hover:text-white text-[10px] cursor-pointer"
-                title="-1 Frame"
-              >
-                ‹ -1F
-              </button>
-              <div
-                className="min-w-[48px] px-1.5 h-6 rounded bg-[#151620] border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-[11px] shadow-inner tabular-nums"
-              >
-                F{String(currentFrameNum).padStart(3, '0')}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleJogNudge(1)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-amber-400 hover:text-white text-[10px] cursor-pointer"
-                title="+1 Frame"
-              >
-                +1F ›
-              </button>
-              <button
-                type="button"
-                onClick={() => handleJogNudge(5)}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-[10px] cursor-pointer"
-                title="+5 Frames"
-              >
-                +5F »
-              </button>
-            </div>
-          </div>
-
-          {/* Right Playback Speed Selector */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-slate-400 text-[10px] hidden sm:inline">SPEED:</span>
-            {[0.5, 1.0, 2.0].map((spd) => (
-              <button
-                key={spd}
-                type="button"
-                onClick={() => onChangePlaybackSpeed?.(spd)}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
-                  playbackSpeed === spd
-                    ? 'bg-amber-500/20 border-amber-400 text-[#F5A623]'
-                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                }`}
-              >
-                {spd}x
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Master Interactive Sub-Frame Timeline Track (Ruler + Waveform + Playhead) */}
-        <div className="flex-1 mt-2 flex flex-col justify-end relative">
-          {/* Floating Thumbnail Hover Preview for Scrubber Index Markers */}
-          {hoveredScrubMarker && slides[hoveredScrubMarker.slideIndex] && (() => {
-            const previewSlide = slides[hoveredScrubMarker.slideIndex];
-            const shotNum = hoveredScrubMarker.slideIndex + 1;
-            const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
-            const clampedLeft = Math.max(96, Math.min(viewportWidth - 96, hoveredScrubMarker.centerX));
-            const topY = Math.max(110, hoveredScrubMarker.topY - 10);
-            return (
-              <div
-                role="tooltip"
-                data-testid="scrub-panel-hover-preview"
-                style={{
-                  position: 'fixed',
-                  left: `${clampedLeft}px`,
-                  top: `${topY}px`,
-                  transform: 'translate(-50%, -100%)',
-                  zIndex: 9998
-                }}
-                className="w-48 bg-[#090A10]/95 backdrop-blur-xl border border-[#F5A623]/60 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in duration-150"
-              >
-                <div className="relative w-full aspect-video rounded-[2px] overflow-hidden bg-[#050608] border border-white/10">
-                  {(() => {
-                    const shotMediaMap = useStudioStore.getState().shotMediaMap;
-                    const vaultEntry = resolveShotMediaEntry(
-                      shotMediaMap,
-                      previewSlide as any,
-                      undefined,
-                      hoveredScrubMarker.slideIndex
-                    );
-                    const resolvedUrl = vaultEntry?.url || previewSlide.remoteUrl || '';
-                    const isVid = vaultEntry
-                      ? vaultEntry.type === 'video'
-                      : isVideoSourceUrl(resolvedUrl, { isVideo: previewSlide.isVideo });
-                    return resolvedUrl || previewSlide.thumbnailUrl ? (
-                      <ShotMediaThumbnail
-                        shotIndex={hoveredScrubMarker.slideIndex}
-                        shotId={previewSlide.id}
-                        mediaUrl={resolvedUrl}
-                        thumbnailUrl={previewSlide.thumbnailUrl}
-                        isVideo={isVid}
-                        mimeType={vaultEntry?.mimeType}
-                        name={vaultEntry?.name}
-                        title={previewSlide.titleEn}
-                        bengaliTitle={previewSlide.titleBn}
-                        disableLiveVideoElement
-                        alt={previewSlide.titleEn || `Frame ${shotNum}`}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-slate-500">
-                        <Film className="w-4 h-4 opacity-50" />
-                        <span className="text-[8px] font-mono">EMPTY FRAME</span>
-                      </div>
-                    );
-                  })()}
-                  <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/90 via-black/45 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8.5px] tabular-nums">
-                    <span className="font-bold text-[#FFE066]">
-                      #{String(shotNum).padStart(3, '0')}
-                    </span>
-                    <span className="text-slate-300">
-                      {hoveredScrubMarker.subLabel || `${getShotDurationSec(previewSlide, 12.0).toFixed(1)}s`}
-                    </span>
-                  </div>
-                </div>
-                <div className="pt-1 pt-1! px-0.5 px-0.5! flex items-center justify-between gap-1.5">
-                  <span className="text-[9.5px] font-semibold text-white truncate">
-                    {previewSlide.titleEn || `Shot ${shotNum}`}
-                  </span>
-                  <span className="text-[8px] font-mono text-amber-400 shrink-0">Click to jump</span>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Scrubber Shot Index Markers Strip */}
-          <div
-            onMouseLeave={() => setHoveredScrubMarker(null)}
-            className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1.5 mb-0.5"
-          >
-            {slides.map((s, idx) => {
-              const isAct = idx === safeIndex;
-              return (
+          {/* Right: Clip Speed Multiplier + Timeline Zoom */}
+          <div className="flex items-center gap-2 text-[10px]">
+            <div className="flex items-center gap-1 bg-black/60 border border-white/10 px-1.5 py-0.5">
+              <Gauge className="w-3 h-3 text-cyan-400" />
+              <span className="text-slate-400 hidden md:inline">CLIP SPEED:</span>
+              {SCRUB_SPEED_OPTIONS.map((spd) => (
                 <button
-                  key={s.id || idx}
+                  key={spd}
                   type="button"
-                  onClick={() => onSelectSlide(idx)}
-                  onMouseEnter={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredScrubMarker({
-                      slideIndex: idx,
-                      centerX: rect.left + rect.width / 2,
-                      topY: rect.top
-                    });
+                  onClick={() => {
+                    handleClipSpeedChange(spd);
+                    onChangePlaybackSpeed?.(spd);
                   }}
-                  onFocus={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHoveredScrubMarker({
-                      slideIndex: idx,
-                      centerX: rect.left + rect.width / 2,
-                      topY: rect.top
-                    });
-                  }}
-                  onBlur={() => setHoveredScrubMarker(null)}
-                  className={`shrink-0 px-1.5 py-0.5 px-1.5! py-0.5! rounded text-[9px] font-mono font-bold tabular-nums transition-colors cursor-pointer border ${
-                    isAct
-                      ? 'bg-[#F5A623] text-black border-[#FFE066]'
-                      : 'bg-white/5 hover:bg-white/15 text-slate-300 hover:text-[#FFE066] border-white/10'
+                  className={`px-1.5 py-0.5 font-bold cursor-pointer transition-colors ${
+                    Math.abs(currentWindow.speed - spd) < 0.05
+                      ? 'bg-cyan-500 text-black'
+                      : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  {String(idx + 1).padStart(2, '0')}
+                  {spd}x
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Timeline Time Indicators */}
-          <div className="flex justify-between text-[10px] text-slate-400 font-mono pb-1 px-1 tabular-nums">
-            <span>0.00s [F001]</span>
-            <span className="text-slate-500 hidden sm:inline">
-              {(activeSlideDurationSec * 0.25).toFixed(2)}s [F{Math.max(1, Math.round(activeSlideTotalFrames * 0.25))}]
-            </span>
-            <span className="text-amber-400/90 font-bold">
-              {(activeSlideDurationSec * 0.5).toFixed(2)}s [F{Math.max(1, Math.round(activeSlideTotalFrames * 0.5))}]
-            </span>
-            <span className="text-slate-500 hidden sm:inline">
-              {(activeSlideDurationSec * 0.75).toFixed(2)}s [F{Math.max(1, Math.round(activeSlideTotalFrames * 0.75))}]
-            </span>
-            <span>
-              {activeSlideDurationSec.toFixed(2)}s [F{activeSlideTotalFrames}]
-            </span>
-          </div>
-
-          {/* Interactive Scrub Track Box */}
-          <div
-            ref={scrubTrackRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            className="relative h-16 sm:h-20 w-full bg-[#0E1017] rounded-xl border border-white/15 overflow-hidden cursor-ew-resize select-none shadow-inner"
-          >
-            {/* Audio Waveform Background */}
-            <div className="absolute inset-0 flex items-center justify-between px-1.5 opacity-60 pointer-events-none">
-              {waveformBars.map((h, i) => {
-                const barRatio = i / waveformBars.length;
-                const isPlayed = barRatio <= (slideTimeSec / activeSlideDurationSec);
-                return (
-                  <div
-                    key={i}
-                    className={`w-[1px] sm:w-[2px] rounded-full transition-colors ${
-                      isPlayed ? 'bg-[#F5A623]' : 'bg-slate-600'
-                    }`}
-                    style={{ height: `${h * 85}%` }}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Adaptive Frame Tick Ruler */}
-            <div className="absolute inset-x-0 top-0 h-4 flex justify-between px-1 pointer-events-none tabular-nums">
-              {Array.from({ length: 13 }).map((_, idx) => {
-                const tickSec = (idx / 12) * activeSlideDurationSec;
-                return (
-                  <div key={idx} className="flex flex-col items-center">
-                    <div className="w-[1px] h-3 bg-white/40" />
-                    <span className="text-[8px] text-slate-400 font-mono -mt-0.5">
-                      {activeSlideDurationSec >= 60 ? `${Math.round(tickSec)}s` : `${tickSec.toFixed(1)}s`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Quarter-Interval Sub-Ticks */}
-            <div className="absolute inset-x-0 top-0 h-2 flex justify-between px-1 pointer-events-none opacity-40">
-              {Array.from({ length: 49 }).map((_, tick) => (
-                <div key={tick} className="w-[1px] h-1.5 bg-slate-500" />
               ))}
             </div>
 
-            {/* Active Playhead Needle with Floating Flag */}
+            <div className="flex items-center gap-1 bg-black/60 border border-white/10 px-1.5 py-0.5">
+              <button
+                type="button"
+                onClick={() => setTimelineZoom((z) => Math.max(0.5, Number((z - 0.5).toFixed(1))))}
+                className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
+                title="Zoom Out NLE Timeline"
+              >
+                <ZoomOut className="w-3 h-3" />
+              </button>
+              <span className="text-slate-300 font-bold tabular-nums w-8 text-center">{timelineZoom.toFixed(1)}x</span>
+              <button
+                type="button"
+                onClick={() => setTimelineZoom((z) => Math.min(4.0, Number((z + 0.5).toFixed(1))))}
+                className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
+                title="Zoom In NLE Timeline"
+              >
+                <ZoomIn className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Interactive Multi-Clip CapCut NLE Timeline Track */}
+        <div
+          ref={nleTimelineScrollRef}
+          data-testid="scrub-nle-timeline"
+          className="flex-1 min-h-0 mt-1.5 overflow-x-auto overflow-y-hidden bg-[#06070B] border border-white/15 relative"
+        >
+          <div style={{ width: `${totalTrackWidthPx}px` }} className="h-full relative flex flex-col">
+            {/* Timecode Tick Ruler (Click / Drag to scrub globally) */}
             <div
-              className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#F5A623] via-[#FFE066] to-[#F5A623] shadow-[0_0_12px_#F5A623] pointer-events-none transition-all duration-75"
-              style={{ left: `${Math.min(100, Math.max(0, (slideTimeSec / activeSlideDurationSec) * 100))}%` }}
+              onPointerDown={handleRulerPointerDown}
+              onPointerMove={handleRulerPointerMove}
+              onPointerUp={handleRulerPointerUp}
+              className="h-6 w-full bg-[#0E1017] border-b border-white/10 relative cursor-ew-resize shrink-0"
             >
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full px-1.5 py-0.5 rounded bg-black/95 border border-[#F5A623] text-[#F5A623] font-bold text-[9px] font-mono whitespace-nowrap shadow-lg tabular-nums">
-                F{String(currentFrameNum).padStart(3, '0')} · {slideTimeSec.toFixed(3)}s
+              {rulerTicks.map((sec) => (
+                <div
+                  key={sec}
+                  style={{ left: `${sec * pxPerSec}px` }}
+                  className="absolute top-0 bottom-0 flex flex-col justify-end pointer-events-none"
+                >
+                  <span className="text-[9px] text-slate-400 tabular-nums pl-1 leading-none">
+                    {sec.toFixed(0)}s
+                  </span>
+                  <div className="w-[1px] h-2 bg-white/30" />
+                </div>
+              ))}
+            </div>
+
+            {/* Proportional Draggable Clip Track with `[|` and `|]` Ripple Trim Handles */}
+            <div className="flex-1 min-h-0 flex flex-row items-stretch py-2 px-0 relative">
+              {activeSlides.map((slide, idx) => {
+                const win = getClipSourceWindow(slide);
+                const clipFrames = getShotFrameCount(win.timelineDurationSec, win.fps);
+                const widthPx = Math.max(46, Math.round(win.timelineDurationSec * pxPerSec));
+                const isActive = idx === safeIndex;
+                const vaultEntry = resolveShotMediaEntry(shotMediaMap, slide as any, undefined, idx);
+                const thumbUrl = vaultEntry?.url || slide.thumbnailUrl || slide.remoteUrl || '';
+
+                return (
+                  <div
+                    key={slide.id || idx}
+                    data-testid={`scrub-clip-block-${idx}`}
+                    onClick={() => onSelectSlide(idx)}
+                    style={{ width: `${widthPx}px` }}
+                    className={`relative h-full shrink-0 border-r border-black/80 overflow-hidden cursor-pointer group/clip transition-colors ${
+                      isActive
+                        ? 'bg-[#1D160B] ring-2 ring-inset ring-[#F5A623]'
+                        : 'bg-[#12151E] hover:bg-[#171B26] border-y border-white/10'
+                    }`}
+                  >
+                    {/* Filmstrip Background Preview */}
+                    {thumbUrl && (
+                      <div className="absolute inset-0 opacity-30 pointer-events-none overflow-hidden">
+                        <ShotMediaThumbnail
+                          shotIndex={idx}
+                          shotId={slide.id}
+                          mediaUrl={thumbUrl}
+                          thumbnailUrl={slide.thumbnailUrl}
+                          isVideo={vaultEntry ? vaultEntry.type === 'video' : Boolean(slide.isVideo)}
+                          mimeType={vaultEntry?.mimeType}
+                          disableLiveVideoElement
+                          alt={slide.titleEn || `SH${idx + 1}`}
+                        />
+                      </div>
+                    )}
+
+                    {/* Left Edge Trim Handle `[|` (adjusts inPoint & auto-ripples) */}
+                    <div
+                      role="separator"
+                      aria-label={`Trim in-point of shot ${idx + 1}`}
+                      data-testid={`scrub-trim-left-${idx}`}
+                      onPointerDown={(e) => handleTrimHandlePointerDown(e, idx, 'left')}
+                      onPointerMove={handleTrimHandlePointerMove}
+                      onPointerUp={handleTrimHandlePointerUp}
+                      title="Drag [| Left Edge to Trim In-Point (Ripple Auto-Close)"
+                      className={`absolute left-0 top-0 bottom-0 w-2.5 z-20 cursor-ew-resize flex items-center justify-center transition-colors ${
+                        isActive
+                          ? 'bg-[#F5A623] text-black'
+                          : 'bg-white/25 hover:bg-amber-400 text-black opacity-75 group-hover/clip:opacity-100'
+                      }`}
+                    >
+                      <span className="w-[2px] h-5 bg-black/80" />
+                    </div>
+
+                    {/* Clip Label & Duration Overlay */}
+                    <div className="relative z-10 h-full px-3.5 py-1 flex flex-col justify-between pointer-events-none">
+                      <div className="flex items-center justify-between gap-1 text-[10px]">
+                        <span className={`font-extrabold px-1 py-0.2 truncate ${
+                          isActive ? 'bg-[#F5A623] text-black' : 'bg-black/75 text-slate-200'
+                        }`}>
+                          SH{String(idx + 1).padStart(3, '0')}
+                        </span>
+                        <span className="px-1 bg-black/80 text-amber-300 font-bold tabular-nums shrink-0">
+                          {win.timelineDurationSec.toFixed(1)}s / {clipFrames}F
+                        </span>
+                      </div>
+
+                      <div className="truncate">
+                        {slide.titleBn && (
+                          <div className="text-[10px] font-serif font-bold text-[#FFE066] truncate leading-tight">
+                            {slide.titleBn}
+                          </div>
+                        )}
+                        <div className="text-[10px] font-bold text-white truncate">
+                          {slide.titleEn || `Shot ${idx + 1}`}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[9px] text-slate-300/80 tabular-nums">
+                        <span>IN {win.inSec.toFixed(1)}s</span>
+                        {win.speed !== 1.0 && <span className="text-cyan-300 font-bold">{win.speed}x</span>}
+                      </div>
+                    </div>
+
+                    {/* Right Edge Trim Handle `|]` (adjusts outPoint & auto-ripples) */}
+                    <div
+                      role="separator"
+                      aria-label={`Trim out-point of shot ${idx + 1}`}
+                      data-testid={`scrub-trim-right-${idx}`}
+                      onPointerDown={(e) => handleTrimHandlePointerDown(e, idx, 'right')}
+                      onPointerMove={handleTrimHandlePointerMove}
+                      onPointerUp={handleTrimHandlePointerUp}
+                      title="Drag |] Right Edge to Trim Out-Point (Ripple Auto-Close)"
+                      className={`absolute right-0 top-0 bottom-0 w-2.5 z-20 cursor-ew-resize flex items-center justify-center transition-colors ${
+                        isActive
+                          ? 'bg-[#F5A623] text-black'
+                          : 'bg-white/25 hover:bg-amber-400 text-black opacity-75 group-hover/clip:opacity-100'
+                      }`}
+                    >
+                      <span className="w-[2px] h-5 bg-black/80" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Magnetic Red Snapping Playhead Needle across Master Track */}
+            <div
+              data-testid="scrub-master-playhead"
+              style={{ left: `${masterNeedleLeftPx}px` }}
+              className="absolute top-0 bottom-0 w-[2px] bg-[#EF4444] shadow-[0_0_10px_rgba(239,68,68,0.85)] pointer-events-none z-30"
+            >
+              <div className="w-3 h-3 bg-[#EF4444] -ml-[5px] rotate-45 -mt-1 border border-white/60" />
+              <div className="absolute top-1 left-2 px-1.5 py-0.5 bg-[#EF4444] text-white font-extrabold text-[9px] whitespace-nowrap tabular-nums">
+                {globalCurrentSec.toFixed(2)}s · F{String(currentFrameNum).padStart(3, '0')}
               </div>
-              <div className="w-2.5 h-2.5 bg-[#F5A623] rotate-45 -ml-[4.5px] -mt-1 shadow-[0_0_8px_#F5A623]" />
             </div>
           </div>
         </div>

@@ -1128,7 +1128,7 @@ export function generateCapCutDraftJson(
       target_timerange: { start: startUs, duration: durUs },
       source_timerange: { start: sourceStartUs, duration: durUs },
       visible: true,
-      speed: 1.0
+      speed: typeof shot.speedMultiplier === 'number' && shot.speedMultiplier > 0 ? shot.speedMultiplier : 1.0
     });
 
     textSegments.push({

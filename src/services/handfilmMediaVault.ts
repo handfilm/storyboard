@@ -163,8 +163,8 @@ export function getShotMediaKey(
 }
 
 export function getCandidateShotMediaKeys(
-  primaryShot: { id?: string | number | null } | null | undefined,
-  secondaryShot: { id?: string | number | null } | null | undefined,
+  primaryShot: { id?: string | number | null; mediaVaultKey?: string | null } | null | undefined,
+  secondaryShot: { id?: string | number | null; mediaVaultKey?: string | null } | null | undefined,
   fallbackIndex: number = 0
 ): string[] {
   const keys: string[] = [];
@@ -174,8 +174,14 @@ export function getCandidateShotMediaKeys(
   if (primaryShot && primaryShot.id !== undefined && primaryShot.id !== null && String(primaryShot.id).trim() !== '') {
     pushUnique(String(primaryShot.id));
   }
+  if (primaryShot?.mediaVaultKey && String(primaryShot.mediaVaultKey).trim() !== '') {
+    pushUnique(String(primaryShot.mediaVaultKey));
+  }
   if (secondaryShot && secondaryShot.id !== undefined && secondaryShot.id !== null && String(secondaryShot.id).trim() !== '') {
     pushUnique(String(secondaryShot.id));
+  }
+  if (secondaryShot?.mediaVaultKey && String(secondaryShot.mediaVaultKey).trim() !== '') {
+    pushUnique(String(secondaryShot.mediaVaultKey));
   }
   pushUnique(String(Math.max(0, fallbackIndex)));
   return keys;

@@ -1,73 +1,35 @@
 /**
  * @file /src/components/multicam/MultiCamViewportGrid.tsx
- * @description Multi-Cam Viewport Grid Component with 2x2, 1x3, and 1x1 Configurations,
- * smooth layout morphing transition animations, and keyboard shortcuts ('1', '2', '3').
- * 
- * Capabilities:
- * 1. Visual Configuration Modes:
- *    - '1x1' Solo Monitor (Key '1'): Clean full-bleed single feed with tactile angle switcher & A/B comparison.
- *    - '1x3' Director Grid (Key '2'): Dominant hero master program feed with 3 synchronized secondary angle feeds.
- *    - '2x2' Quad Grid (Key '3'): 4-quadrant layout for synchronized side-by-side comparison of active camera feeds.
- * 2. Layout Transition Animations:
- *    - Smooth layout morphing: camera feeds smoothly morph and resize using GPU-accelerated CSS transitions
- *      (`transition: all 480ms cubic-bezier(0.25, 1, 0.5, 1)`).
- *    - Continuous video playback: video elements remain mounted without unmounting or restarting playback.
- * 3. Keyboard Shortcuts '1', '2', and '3':
- *    - '1': Instantly activates 1x1 Solo preset.
- *    - '2': Instantly activates 1x3 Director preset.
- *    - '3': Instantly activates 2x2 Quad preset.
- * 4. Visual Indicator of Active Preset:
- *    - Tactile key badges (`[1]`, `[2]`, `[3]`) and glowing active preset indicators.
- *    - Dedicated active preset telemetry badge with live pulsing status indicator.
- *    - Corner HUD badge showing current preset mode.
- * 5. Broadcast Tally & Live Cutting:
- *    - Glowing red tally border ("● PROGRAM ON AIR") on the active cut.
- *    - Click any camera feed to cut to that angle instantly at the current timestamp.
+ * @description Broadcast 9-Camera Live Preview Matrix (3x3, 2x2, 1x3) for the Director Switcher Deck.
+ * Supports live video/image feeds + procedural cinema canvas fallback, red live tally (`border-red-600`),
+ * amber cue tally (`border-amber-400`), live per-camera audio level meters, and 1-9 instant punch-in cuts.
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { 
-  Grid2X2, 
-  LayoutList, 
-  Square, 
-  Maximize2, 
-  Minimize2, 
-  Volume2, 
-  VolumeX, 
-  ArrowLeftRight,
-  Video,
-  Radio,
-  Sliders,
-  Sparkles,
-  Check,
-  ChevronDown,
-  Upload
-} from 'lucide-react';
+import { Volume2, Video, Upload } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
-import { MultiCamPresetThumbnail } from './MultiCamPresetThumbnail';
-import { MultiCamGridSelectionMenu } from './MultiCamGridSelectionMenu';
 import { ANGLE_CONFIGS, proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';
+import { isVideoSourceUrl } from '../../services/thumbnailEngine';
 
-export type MultiCamGridConfig = '1x1' | '1x3' | '2x2' | '3x3';
+export type MultiCamGridConfig = '3x3' | '2x2' | '1x3' | '1x1';
 
 export const ProceduralAngleCanvas: React.FC<{
   index: number;
   currentTimeMs: number;
   isActive: boolean;
-  label: string;
+  label?: string;
+  aspectClass?: string;
 }> = ({ index, currentTimeMs, isActive }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const lastDrawTimeMsRef = useRef<number>(0);
+  const lastDrawTimeMsRef = useRef<number>(-1000);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Mandate 3: Throttle inactive background cameras to 12-15 FPS (~70ms) to conserve GPU/decoding buffers
-    if (!isActive) {
-      if (Math.abs(currentTimeMs - lastDrawTimeMsRef.current) < 70) {
-        return;
-      }
+    // Throttle background cams slightly (~15fps) when not live on air to preserve GPU budget
+    if (!isActive && Math.abs(currentTimeMs - lastDrawTimeMsRef.current) < 66) {
+      return;
     }
     lastDrawTimeMsRef.current = currentTimeMs;
 
@@ -76,18 +38,25 @@ export const ProceduralAngleCanvas: React.FC<{
 
     const config = ANGLE_CONFIGS[index % ANGLE_CONFIGS.length];
     if (config) {
-      const timeSec = currentTimeMs / 1000;
+      const timeSec = (currentTimeMs || 0) / 1000;
       const frame = Math.floor(timeSec * 24);
       config.renderFrame(ctx, canvas.width, canvas.height, timeSec, frame);
-      proceduralMultiCamFeeds.drawCinemaTelemetryHUD(ctx, canvas.width, canvas.height, timeSec, config, isActive ? config.id : '');
+      proceduralMultiCamFeeds.drawCinemaTelemetryHUD(
+        ctx,
+        canvas.width,
+        canvas.height,
+        timeSec,
+        config,
+        isActive ? config.id : ''
+      );
     }
   }, [index, currentTimeMs, isActive]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={480}
-      height={854}
+      width={640}
+      height={360}
       style={{ willChange: 'transform', transform: 'translateZ(0)' }}
       className="w-full h-full object-cover pointer-events-none select-none"
     />
@@ -97,801 +66,337 @@ export const ProceduralAngleCanvas: React.FC<{
 export interface MultiCamViewportGridProps {
   group: MultiCamGroup;
   currentActiveAngleIdx: number;
-  previewAngleIdx?: number;
+  cuedAngleIdx?: number;
   currentTimeMs: number;
   isPlaying: boolean;
   isMuted?: boolean;
   masterAudioIndex?: number;
   onSelectAngle: (angleIndex: number) => void;
+  onCueAngle?: (angleIndex: number) => void;
   onSetMasterAudio?: (angleIndex: number) => void;
   onUploadAngleVideo?: (angleIndex: number, file: File) => void;
   videoRefs?: React.MutableRefObject<(HTMLVideoElement | null)[]>;
   config?: MultiCamGridConfig;
   onChangeConfig?: (config: MultiCamGridConfig) => void;
-  aspectRatio?: '9:16' | '16:9' | '2.39:1';
-  onChangeAspectRatio?: (ratio: '9:16' | '16:9' | '2.39:1') => void;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
+  lutCssFilter?: string;
   className?: string;
 }
 
 export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   group,
   currentActiveAngleIdx,
-  previewAngleIdx = 0,
+  cuedAngleIdx = 1,
   currentTimeMs,
   isPlaying,
-  isMuted = false,
   masterAudioIndex = 0,
   onSelectAngle,
-  onSetMasterAudio,
+  onCueAngle,
   onUploadAngleVideo,
   videoRefs: externalVideoRefs,
   config: controlledConfig,
   onChangeConfig,
-  aspectRatio = '9:16',
-  onChangeAspectRatio,
-  isExpanded: controlledExpanded,
-  onToggleExpand,
+  lutCssFilter = 'none',
   className = ''
 }) => {
-  // Video references fallback
   const internalVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const videoRefs = externalVideoRefs || internalVideoRefs;
-
   const [localConfig, setLocalConfig] = useState<MultiCamGridConfig>('3x3');
-  const [localExpanded, setLocalExpanded] = useState<boolean>(false);
-  const [isCompact, setIsCompact] = useState<boolean>(false);
-  const [recentlySwitchedPreset, setRecentlySwitchedPreset] = useState<MultiCamGridConfig | null>(null);
-  const [isGridMenuOpen, setIsGridMenuOpen] = useState<boolean>(false);
-
-  const activeConfig = controlledConfig !== undefined ? controlledConfig : localConfig;
-  const isCurrentlyExpanded = controlledExpanded !== undefined ? controlledExpanded : localExpanded;
-
-  const setConfig = useCallback((newConfig: MultiCamGridConfig) => {
-    if (onChangeConfig) {
-      onChangeConfig(newConfig);
-    } else {
-      setLocalConfig(newConfig);
-    }
-    setRecentlySwitchedPreset(newConfig);
-    setTimeout(() => setRecentlySwitchedPreset(null), 1800);
-  }, [onChangeConfig]);
-
-  const handleToggleExpand = () => {
-    if (onToggleExpand) {
-      onToggleExpand();
-    } else {
-      setLocalExpanded(prev => !prev);
-    }
-  };
-
-  // Detect compact responsive layout
-  useEffect(() => {
-    const checkWidth = () => {
-      setIsCompact(window.innerWidth < 768);
-    };
-    checkWidth();
-    window.addEventListener('resize', checkWidth);
-    return () => window.removeEventListener('resize', checkWidth);
-  }, []);
-
   const [flashingAngleIdx, setFlashingAngleIdx] = useState<number | null>(null);
 
-  // Wrap angle selection with tactical 60ms white flash feedback before locking into cyan tally
-  const handleSelectAngleWithFlash = useCallback((angleIdx: number) => {
-    setFlashingAngleIdx(angleIdx);
-    setTimeout(() => {
-      setFlashingAngleIdx(null);
-    }, 60);
-    onSelectAngle(angleIdx);
-  }, [onSelectAngle]);
+  const activeConfig = controlledConfig !== undefined ? controlledConfig : localConfig;
 
-  // Safe angles up to 9 for 3x3 Directors Grid (CAM 01 through CAM 09)
-  const displayAngles = useMemo(() => {
-    const existing = group.angles || [];
-    const maxAngles = 9;
-    const angles: MultiCamAngle[] = [];
-    for (let i = 0; i < maxAngles; i++) {
-      if (existing[i]) {
-        angles.push({
-          ...existing[i],
-          label: existing[i].label?.startsWith('CAM') ? existing[i].label : `CAM ${String(i + 1).padStart(2, '0')}`
-        });
+  const setConfig = useCallback(
+    (newConfig: MultiCamGridConfig) => {
+      if (onChangeConfig) {
+        onChangeConfig(newConfig);
       } else {
-        angles.push({
-          id: `ang-slot-${i + 1}`,
-          mediaId: `m-slot-${i + 1}`,
-          label: `CAM ${String(i + 1).padStart(2, '0')}`,
-          blobUrl: '',
-          aspectRatio: 9 / 16,
-          syncOffsetMs: 0,
-          name: `Standby Feed Angle ${i + 1}`
-        });
+        setLocalConfig(newConfig);
       }
-    }
-    return angles;
+    },
+    [onChangeConfig]
+  );
+
+  // Normalize strictly 9 broadcast feeds (CAM 01 through CAM 09)
+  const displayAngles = useMemo<MultiCamAngle[]>(() => {
+    const existing = group.angles || [];
+    return Array.from({ length: 9 }, (_, i) => {
+      const src = existing[i];
+      if (src) {
+        return {
+          ...src,
+          label: `CAM ${String(i + 1).padStart(2, '0')}`
+        };
+      }
+      return {
+        id: `ang-slot-${i + 1}`,
+        mediaId: `m-slot-${i + 1}`,
+        label: `CAM ${String(i + 1).padStart(2, '0')}`,
+        blobUrl: '',
+        aspectRatio: 16 / 9,
+        syncOffsetMs: 0,
+        name: `Camera ${i + 1} Live Feed`
+      };
+    });
   }, [group.angles]);
 
-  const heroIdx = currentActiveAngleIdx < displayAngles.length ? currentActiveAngleIdx : 0;
-  const secondaryIndices = useMemo(() => {
-    return [0, 1, 2, 3, 4, 5, 6, 7, 8].slice(0, displayAngles.length).filter(i => i !== heroIdx);
-  }, [displayAngles.length, heroIdx]);
+  const handlePunchCamera = useCallback(
+    (angleIdx: number) => {
+      setFlashingAngleIdx(angleIdx);
+      window.setTimeout(() => setFlashingAngleIdx(null), 65);
+      onSelectAngle(angleIdx);
+    },
+    [onSelectAngle]
+  );
 
-  // Keyboard shortcut listener: Numeric keys '1' through '9' for live punch-in cuts; Alt+1/2/3/4 or 'c' for layout presets
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input or textarea
-      const target = e.target as HTMLElement;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      // Alt + 1/2/3/4: Layout preset selection
-      if (e.altKey && e.key === '1') {
-        e.preventDefault();
-        setConfig('1x1');
-        return;
-      }
-      if (e.altKey && e.key === '2') {
-        e.preventDefault();
-        setConfig('1x3');
-        return;
-      }
-      if (e.altKey && e.key === '3') {
-        e.preventDefault();
-        setConfig('2x2');
-        return;
-      }
-      if (e.altKey && e.key === '4') {
-        e.preventDefault();
-        setConfig('3x3');
-        return;
-      }
-
-      // Hotkey 'c' cycles layout presets
-      if (e.key === 'c' || e.key === 'C') {
-        e.preventDefault();
-        const cycleOrder: MultiCamGridConfig[] = ['3x3', '2x2', '1x3', '1x1'];
-        const nextIdx = (cycleOrder.indexOf(activeConfig) + 1) % cycleOrder.length;
-        setConfig(cycleOrder[nextIdx]);
-        return;
-      }
-
-      // Direct punch-in camera switching: Number keys '1' through '9' for live punch-in cuts
-      if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const targetIndex = parseInt(e.key, 10) - 1;
-        if (targetIndex < displayAngles.length) {
-          e.preventDefault();
-          handleSelectAngleWithFlash(targetIndex);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setConfig, activeConfig, displayAngles.length, handleSelectAngleWithFlash]);
-
-  // Format timecode
-  const formatTimecode = (ms: number) => {
-    const totalSec = Math.floor(ms / 1000);
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    const frames = Math.floor(((ms % 1000) / 1000) * 30);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
-  };
-
-  // Compute smooth morphing layout coordinates for angle `idx`
-  const getCardLayoutStyle = (idx: number): React.CSSProperties => {
-    const baseTransition = 'top 480ms cubic-bezier(0.25, 1, 0.5, 1), left 480ms cubic-bezier(0.25, 1, 0.5, 1), width 480ms cubic-bezier(0.25, 1, 0.5, 1), height 480ms cubic-bezier(0.25, 1, 0.5, 1), opacity 400ms ease, transform 480ms cubic-bezier(0.25, 1, 0.5, 1), border-color 200ms ease, box-shadow 200ms ease';
-
-    // 0. CONFIGURATION: 3x3 DIRECTORS GRID (3 columns x 3 rows = 9 angles)
-    if (activeConfig === '3x3') {
-      const col = idx % 3;
-      const row = Math.floor(idx / 3);
-      const topCalc = `calc(${row * 33.333}% + ${row === 0 ? 0 : row === 1 ? 3 : 6}px)`;
-      const leftCalc = `calc(${col * 33.333}% + ${col === 0 ? 0 : col === 1 ? 3 : 6}px)`;
-      return {
-        position: 'absolute',
-        top: topCalc,
-        left: leftCalc,
-        width: 'calc(33.333% - 6px)',
-        height: 'calc(33.333% - 6px)',
-        opacity: 1,
-        transform: 'scale(1)',
-        pointerEvents: 'auto',
-        zIndex: idx === heroIdx ? 20 : 10,
-        willChange: 'top, left, width, height, transform, opacity',
-        transition: baseTransition
-      };
-    }
-
-    // 1. CONFIGURATION: 2x2 QUAD GRID
+  // Compute visible indices per matrix preset (always keeping CAM 01..CAM 09 ready)
+  const visibleIndices = useMemo(() => {
+    if (activeConfig === '3x3') return [0, 1, 2, 3, 4, 5, 6, 7, 8];
     if (activeConfig === '2x2') {
-      const isLeft = idx % 2 === 0;
-      const isTop = idx < 2;
-
-      return {
-        position: 'absolute',
-        top: isTop ? '0%' : 'calc(50% + 5px)',
-        left: isLeft ? '0%' : 'calc(50% + 5px)',
-        width: 'calc(50% - 5px)',
-        height: 'calc(50% - 5px)',
-        opacity: 1,
-        transform: 'scale(1)',
-        pointerEvents: 'auto',
-        zIndex: idx === heroIdx ? 15 : 10,
-        willChange: 'top, left, width, height, transform, opacity',
-        transition: baseTransition
-      };
+      const bankOffset = currentActiveAngleIdx >= 4 && currentActiveAngleIdx < 8 ? 4 : currentActiveAngleIdx === 8 ? 5 : 0;
+      return [bankOffset, bankOffset + 1, bankOffset + 2, bankOffset + 3];
     }
-
-    // 2. CONFIGURATION: 1x3 DIRECTOR SPLIT
     if (activeConfig === '1x3') {
-      if (idx === heroIdx) {
-        // Dominant Hero Monitor
-        if (isCompact) {
-          return {
-            position: 'absolute',
-            top: '0%',
-            left: '0%',
-            width: '100%',
-            height: 'calc(65% - 4px)',
-            opacity: 1,
-            transform: 'scale(1)',
-            pointerEvents: 'auto',
-            zIndex: 20,
-            willChange: 'top, left, width, height, transform, opacity',
-            transition: baseTransition
-          };
-        }
-        return {
-          position: 'absolute',
-          top: '0%',
-          left: '0%',
-          width: 'calc(68% - 6px)',
-          height: '100%',
-          opacity: 1,
-          transform: 'scale(1)',
-          pointerEvents: 'auto',
-          zIndex: 20,
-          willChange: 'top, left, width, height, transform, opacity',
-          transition: baseTransition
-        };
-      } else {
-        // Secondary 3 comparison monitors
-        const slot = secondaryIndices.indexOf(idx);
-        const safeSlot = slot >= 0 ? slot : 0;
-
-        if (isCompact) {
-          const widthPct = 'calc(33.333% - 4px)';
-          const leftCalc = `calc(${safeSlot * 33.333}% + ${safeSlot === 0 ? 0 : safeSlot === 1 ? 2 : 4}px)`;
-          return {
-            position: 'absolute',
-            top: 'calc(65% + 4px)',
-            left: leftCalc,
-            width: widthPct,
-            height: 'calc(35% - 4px)',
-            opacity: 1,
-            transform: 'scale(1)',
-            pointerEvents: 'auto',
-            zIndex: 10,
-            willChange: 'top, left, width, height, transform, opacity',
-            transition: baseTransition
-          };
-        }
-
-        const heightPct = 'calc(33.333% - 6px)';
-        const topCalc = `calc(${safeSlot * 33.333}% + ${safeSlot === 0 ? 0 : safeSlot === 1 ? 3 : 6}px)`;
-        return {
-          position: 'absolute',
-          top: topCalc,
-          left: 'calc(68% + 6px)',
-          width: 'calc(32% - 6px)',
-          height: heightPct,
-          opacity: 1,
-          transform: 'scale(1)',
-          pointerEvents: 'auto',
-          zIndex: 10,
-          willChange: 'top, left, width, height, transform, opacity',
-          transition: baseTransition
-        };
-      }
+      const others = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((i) => i !== currentActiveAngleIdx).slice(0, 3);
+      return [currentActiveAngleIdx, ...others];
     }
+    return [currentActiveAngleIdx];
+  }, [activeConfig, currentActiveAngleIdx]);
 
-    // 3. CONFIGURATION: 1x1 SOLO FEED
-    if (activeConfig === '1x1') {
-      if (idx === heroIdx) {
-        return {
-          position: 'absolute',
-          top: '0%',
-          left: '0%',
-          width: '100%',
-          height: '100%',
-          opacity: 1,
-          transform: 'scale(1)',
-          pointerEvents: 'auto',
-          zIndex: 25,
-          willChange: 'top, left, width, height, transform, opacity',
-          transition: baseTransition
-        };
-      } else {
-        return {
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          width: '25%',
-          height: '25%',
-          opacity: 0,
-          transform: 'translate(-50%, -50%) scale(0.75)',
-          pointerEvents: 'none',
-          zIndex: 1,
-          willChange: 'top, left, width, height, transform, opacity',
-          transition: baseTransition
-        };
-      }
-    }
+  const visibleSet = useMemo(() => new Set(visibleIndices), [visibleIndices]);
 
-    return { transition: baseTransition };
+  // Compute simulated live audio meter level per camera (4 segments)
+  const getAudioMeterBars = (camIdx: number, isLive: boolean, isMaster: boolean): number => {
+    if (!isPlaying && !isLive) return 1;
+    const phase = (currentTimeMs / 180) + camIdx * 1.7;
+    const wave = Math.abs(Math.sin(phase) * 0.65 + Math.cos(phase * 2.3) * 0.35);
+    const boost = isLive || isMaster ? 1 : 0.72;
+    return Math.max(1, Math.min(5, Math.round(wave * 5 * boost)));
   };
 
-  // Render video, image, or standby slate for a camera feed with Blank Media Safeguard
-  // All media elements properly muted and optimized for 60fps GPU compositing
-  const renderAngleMedia = (angle: MultiCamAngle, index: number) => {
-    const isVideo = Boolean(
-      angle.isVideo ||
-      (angle.blobUrl && (
-        /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(angle.blobUrl) ||
-        angle.blobUrl.startsWith('data:video')
-      ))
+  const renderCameraMedia = (angle: MultiCamAngle, idx: number, isLive: boolean) => {
+    const isVid = Boolean(
+      angle.blobUrl &&
+      (angle.isVideo || isVideoSourceUrl(angle.blobUrl, { isVideo: angle.isVideo }))
     );
-    const isImage = Boolean(angle.blobUrl && !isVideo);
+    const isImg = Boolean(angle.blobUrl && !isVid);
 
-    if (isVideo) {
+    if (isVid) {
       return (
         <video
-          ref={el => { videoRefs.current[index] = el; }}
+          ref={(el) => {
+            videoRefs.current[idx] = el;
+          }}
           src={angle.blobUrl}
           crossOrigin="anonymous"
           playsInline
           muted
-          autoPlay={isPlaying}
           preload="auto"
           disablePictureInPicture
-          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
-          className="w-full h-full object-cover pointer-events-none select-none transition-all duration-300"
+          style={{ filter: lutCssFilter !== 'none' ? lutCssFilter : undefined }}
+          className="w-full h-full object-cover pointer-events-none select-none"
         />
       );
     }
 
-    if (isImage) {
+    if (isImg) {
       return (
         <img
           src={angle.blobUrl}
           alt={angle.label}
           loading="eager"
           decoding="async"
-          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+          style={{ filter: lutCssFilter !== 'none' ? lutCssFilter : undefined }}
           className="w-full h-full object-cover pointer-events-none select-none"
         />
       );
     }
 
-    // Blank Media Safeguard:
-    // If any camera slot (CAM 01–CAM 09) lacks an assigned video stream, render a clean, non-blocking standby slate
     return (
-      <div className="cam-standby-slate w-full h-full flex flex-col items-center justify-center bg-[#07080c] border border-white/5 text-center p-3 select-none">
-        <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center mb-1.5 text-zinc-500">
-          <Video className="w-4 h-4 opacity-40" />
-        </div>
-        <span className="cam-id text-xs font-mono font-bold text-white/50 tracking-wider">
-          CAM {String(index + 1).padStart(2, '0')}
-        </span>
-        <span className="cam-status text-[10px] font-mono text-white/30 uppercase tracking-widest mt-1">
-          STANDBY / NO FEED
-        </span>
+      <div className="w-full h-full" style={{ filter: lutCssFilter !== 'none' ? lutCssFilter : undefined }}>
+        <ProceduralAngleCanvas
+          index={idx}
+          currentTimeMs={currentTimeMs}
+          isActive={isLive}
+          label={angle.label}
+        />
       </div>
     );
   };
 
+  const gridClass =
+    activeConfig === '3x3'
+      ? 'grid-cols-3 grid-rows-3'
+      : activeConfig === '2x2'
+      ? 'grid-cols-2 grid-rows-2'
+      : activeConfig === '1x3'
+      ? 'grid-cols-3 grid-rows-2'
+      : 'grid-cols-1 grid-rows-1';
+
   return (
-    <div className={`relative flex flex-col w-full h-full bg-[#070709] border border-white/10 rounded-2xl overflow-hidden font-sans select-none ${isCurrentlyExpanded ? 'fixed inset-3 z-[150] shadow-2xl ring-2 ring-amber-500/40' : ''} ${className}`}>
-      
-      {/* 1. Viewport Grid Control Header & Preset Switcher */}
-      <div className="h-12 px-4 bg-[#0D0E15] border-b border-white/10 flex items-center justify-between shrink-0 z-30">
-        
-        {/* Left: Configuration Switcher with Key Badges ('1', '2', '3') & Visual Thumbnail Previews */}
-        <div className="flex items-center gap-2">
-          {/* Preset Grid Selection Menu Trigger */}
-          <button
-            type="button"
-            onClick={() => setIsGridMenuOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#141520] hover:bg-amber-500/20 border border-[#FFE066]/40 hover:border-[#FFE066] text-[#FFE066] transition-all cursor-pointer shadow-sm group"
-            title="Open Grid Selection Menu with Visual Thumbnail Previews"
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#F5A623] animate-pulse" />
-            <span className="text-[11px] font-mono font-bold tracking-wider uppercase">
-              GRID MENU
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-amber-300 group-hover:translate-y-0.5 transition-transform" />
-          </button>
-
-          {/* Interactive Preset Buttons with Keyboard Shortcuts [1], [2], [3] & Visual Layout Thumbnails */}
-          <div className="flex items-center p-1 bg-black/75 rounded-xl border border-white/10 shadow-inner">
-            {/* 1x1 Solo Preset Button (Shortcut '1') */}
-            <button
-              type="button"
-              onClick={() => setConfig('1x1')}
-              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                activeConfig === '1x1'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-              title="Press '1' to activate 1x1 Solo Grid Preset"
-            >
-              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
-                activeConfig === '1x1' ? 'bg-black/40 text-amber-300' : 'bg-white/10 text-neutral-400'
-              }`}>
-                1
-              </kbd>
-              <MultiCamPresetThumbnail config="1x1" size="sm" isActive={activeConfig === '1x1'} angles={displayAngles} activeAngleIdx={heroIdx} />
-              <span>1x1 SOLO</span>
-            </button>
-
-            {/* 1x3 Director Preset Button (Shortcut '2') */}
-            <button
-              type="button"
-              onClick={() => setConfig('1x3')}
-              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                activeConfig === '1x3'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-              title="Press '2' to activate 1x3 Director Grid Preset"
-            >
-              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
-                activeConfig === '1x3' ? 'bg-black/40 text-amber-300' : 'bg-white/10 text-neutral-400'
-              }`}>
-                2
-              </kbd>
-              <MultiCamPresetThumbnail config="1x3" size="sm" isActive={activeConfig === '1x3'} angles={displayAngles} activeAngleIdx={heroIdx} />
-              <span>1x3 DIRECTOR</span>
-            </button>
-
-            {/* 2x2 Quad Preset Button (Shortcut '3') */}
-            <button
-              type="button"
-              onClick={() => setConfig('2x2')}
-              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                activeConfig === '2x2'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_12px_rgba(245,166,35,0.45)] ring-1 ring-amber-300'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-              title="Press '3' to activate 2x2 Quad Grid Preset"
-            >
-              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
-                activeConfig === '2x2' ? 'bg-black/40 text-amber-300' : 'bg-white/10 text-neutral-400'
-              }`}>
-                3
-              </kbd>
-              <MultiCamPresetThumbnail config="2x2" size="sm" isActive={activeConfig === '2x2'} angles={displayAngles} activeAngleIdx={heroIdx} />
-              <span>2x2 QUAD</span>
-            </button>
-
-            {/* 3x3 Directors Grid Preset Button (Shortcut '4') */}
-            <button
-              type="button"
-              onClick={() => setConfig('3x3')}
-              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                activeConfig === '3x3'
-                  ? 'bg-gradient-to-r from-cyan-400 to-sky-500 text-black shadow-[0_0_12px_rgba(0,240,255,0.45)] ring-1 ring-cyan-200'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-              title="Press '4' to activate 3x3 9-Camera Directors Grid Preset"
-            >
-              <kbd className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black ${
-                activeConfig === '3x3' ? 'bg-black/40 text-cyan-300' : 'bg-white/10 text-neutral-400'
-              }`}>
-                4
-              </kbd>
-              <span>3x3 DIRECTORS (9-CAM)</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Center: Prominent Visual Indicator of the Active Preset */}
-        <div className="hidden sm:flex items-center gap-2 font-mono text-[11px]">
-          <span className="text-neutral-500 text-[10px] tracking-wider uppercase font-semibold">
-            ACTIVE PRESET:
+    <div className={`flex flex-col w-full h-full min-h-0 bg-[#090A0F] border border-white/10 rounded-xl overflow-hidden select-none ${className}`}>
+      {/* Matrix Header Toolbar */}
+      <div className="h-9 px-3 bg-[#0E1017] border-b border-white/10 flex items-center justify-between shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Video className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span className="text-[11px] font-mono font-bold tracking-wider text-white uppercase truncate">
+            9-CAM LIVE MATRIX
           </span>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-black/60 border border-[#FFE066]/40 text-[#FFE066] shadow-[0_0_12px_rgba(255,224,102,0.15)] font-bold">
-            <span className="w-2 h-2 rounded-full bg-[#FFE066] animate-pulse shadow-[0_0_6px_#FFE066]" />
-            {activeConfig === '1x1' && <span>1x1 SOLO MONITOR [KEY 1]</span>}
-            {activeConfig === '1x3' && <span>1x3 DIRECTOR SPLIT [KEY 2]</span>}
-            {activeConfig === '2x2' && <span>2x2 QUAD GRID [KEY 3]</span>}
-            {activeConfig === '3x3' && <span>3x3 DIRECTORS GRID [9 CAMERAS]</span>}
-          </div>
+          <span className="text-[10px] font-mono text-neutral-400 hidden sm:inline tabular-nums">
+            · KEYS 1–9 PUNCH · RIGHT-CLICK CUE
+          </span>
         </div>
 
-        {/* Right: Aspect Ratio & Expand Controls */}
-        <div className="flex items-center gap-2">
-          {onChangeAspectRatio && (
-            <div className="flex items-center p-0.5 bg-black/60 rounded-xl border border-white/10 text-[10px] font-mono">
-              <button
-                type="button"
-                onClick={() => onChangeAspectRatio('9:16')}
-                className={`px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${
-                  aspectRatio === '9:16' ? 'bg-cyan-500 text-black font-bold' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                9:16
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeAspectRatio('16:9')}
-                className={`px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${
-                  aspectRatio === '16:9' ? 'bg-cyan-500 text-black font-bold' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                16:9
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeAspectRatio('2.39:1')}
-                className={`px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${
-                  aspectRatio === '2.39:1' ? 'bg-cyan-500 text-black font-bold' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                2.39:1
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={handleToggleExpand}
-            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
-            title={isCurrentlyExpanded ? "Dock Layout" : "Expand to Fullscreen Viewport"}
-          >
-            {isCurrentlyExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Main Animated Viewport Canvas (Camera feeds smoothly morph and resize here) */}
-      <div className="relative flex-1 w-full h-full bg-[#050608] p-3 overflow-hidden">
-        
-        {/* Unified morphing container holding all 4 camera feeds */}
-        <div className="relative w-full h-full overflow-hidden">
-          {displayAngles.map((angle, idx) => {
-            const isHero = idx === heroIdx;
-            const isMaster = idx === masterAudioIndex;
-            const layoutStyle = getCardLayoutStyle(idx);
-
-            const isFlashing = idx === flashingAngleIdx;
-
+        {/* Grid Mode Switcher: 3x3 / 2x2 / 1x3 */}
+        <div className="flex items-center gap-1 bg-black/70 border border-white/10 rounded-lg p-0.5 font-mono text-[10px] shrink-0">
+          {(['3x3', '2x2', '1x3'] as MultiCamGridConfig[]).map((preset) => {
+            const active = activeConfig === preset;
             return (
-              <div
-                key={angle.id}
-                style={{
-                  ...layoutStyle,
-                  ...(isHero && !isFlashing ? { 
-                    border: '2px solid #00f0ff', 
-                    boxShadow: '0 0 18px rgba(0,240,255,0.7), 0 0 36px rgba(0,240,255,0.35), inset 0 0 12px rgba(0,240,255,0.2)' 
-                  } : {})
-                }}
-                onClick={() => handleSelectAngleWithFlash(idx)}
-                className={`group rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between border-2 select-none shadow-2xl transition-all duration-75 ${
-                  isFlashing
-                    ? 'border-[4px] border-white shadow-[0_0_45px_#FFFFFF] ring-4 ring-white z-30 scale-[1.01]'
-                    : isHero
-                    ? 'border-[2px] border-[#00f0ff] shadow-[0_0_18px_rgba(0,240,255,0.7),0_0_36px_rgba(0,240,255,0.35)] ring-2 ring-cyan-400/60 z-20'
-                    : 'border-white/10 hover:border-[#00f0ff]/50 opacity-75 hover:opacity-100 z-10'
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setConfig(preset)}
+                className={`px-2 py-0.5 rounded font-bold uppercase transition-colors cursor-pointer ${
+                  active
+                    ? 'bg-amber-500 text-black'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                {/* Traveling Cyan Broadcast Border Beam for Active Camera Feed */}
-                {isHero && !isFlashing && (
-                  <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden z-20">
-                    <div 
-                      className="absolute -inset-[150%] animate-gold-beam"
-                      style={{
-                        background: 'conic-gradient(from 0deg, transparent 0 320deg, #00F0FF 345deg, #38BDF8 360deg)',
-                        opacity: 0.85
-                      }}
-                    />
-                    <div className="absolute inset-[2px] bg-transparent rounded-[14px]" />
-                  </div>
-                )}
-
-                {/* Optical Viewfinder Cyan Focus Reticles on Selected Feed */}
-                {isHero && (
-                  <div className="absolute inset-2.5 pointer-events-none z-20">
-                    <div className="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
-                    <div className="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
-                    <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-[#00F0FF] shadow-[0_0_8px_#00F0FF]" />
-                  </div>
-                )}
-
-                {/* Media element with smooth resize */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
-                  {renderAngleMedia(angle, idx)}
-                </div>
-
-                {/* Top Broadcast Tally & Cyan Focus Indicator Overlay */}
-                <div className="relative z-20 p-2.5 flex items-center justify-between pointer-events-none">
-                  <div className="flex items-center gap-1.5">
-                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
-                      isFlashing
-                        ? 'bg-white text-black shadow-[0_0_15px_#FFFFFF]'
-                        : isHero
-                        ? 'bg-[#00F0FF] text-black shadow-[0_0_10px_#00F0FF]'
-                        : 'bg-black/80 text-white border border-white/20'
-                    }`}>
-                      {idx + 1}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md border border-white/15 text-white font-mono font-bold text-xs tracking-wider">
-                      {angle.label}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 pointer-events-auto">
-                    {/* Mini Dynamic VU Meter */}
-                    <div className="flex items-end gap-0.5 h-3 px-1.5 py-0.5 rounded bg-black/80 border border-white/10" title="Audio Activity">
-                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-3 bg-emerald-400 animate-pulse' : 'h-1 bg-white/20'}`} />
-                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-2.5 bg-emerald-400' : 'h-1 bg-white/20'}`} />
-                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-2 bg-amber-400' : 'h-1 bg-white/20'}`} />
-                      <div className={`w-1 rounded-sm transition-all duration-75 ${isPlaying && (isHero || isMaster) ? 'h-1.5 bg-red-500' : 'h-1 bg-white/20'}`} />
-                    </div>
-
-                    {/* Video Upload input trigger */}
-                    <label
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1 rounded-md bg-black/80 hover:bg-white/15 border border-white/20 text-neutral-300 hover:text-white cursor-pointer transition-colors"
-                      title={`Upload custom video file for ${angle.label}`}
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <input
-                        type="file"
-                        accept="video/mp4,video/webm"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            onUploadAngleVideo?.(idx, file);
-                          }
-                        }}
-                      />
-                    </label>
-
-                    {isMaster && (
-                      <span className="p-1 rounded-md bg-black/80 border border-cyan-500/30 text-cyan-400" title="Master Audio Feed">
-                        <Volume2 className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-
-                    {isHero ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-cyan-400 via-cyan-500 to-sky-500 text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_16px_rgba(0,240,255,0.95)] border border-cyan-200 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
-                          CYANIDE TALLY
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#00F0FF] text-black font-black text-[10px] tracking-wider uppercase shadow-[0_0_16px_#00F0FF]">
-                          ● ON AIR
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <span className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 rounded bg-black/80 border border-white/20 text-neutral-300 font-mono text-[9px] transition-opacity">
-                          PRESS [{idx + 1}]
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-black/60 border border-white/10 text-neutral-400 font-mono text-[9px]">
-                          STANDBY
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Bottom Lens Specification Overlay */}
-                <div className="relative z-20 p-2.5 flex items-center justify-between text-[10px] font-mono bg-gradient-to-t from-black/95 via-black/70 to-transparent pointer-events-none">
-                  <span className="text-neutral-300 font-medium truncate max-w-[160px]">
-                    {angle.name || `Angle 0${idx + 1}`}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded text-[9px]">
-                      LOCKED 24FPS
-                    </span>
-                    <span className="text-[#FFE066] font-bold tabular-nums">
-                      {angle.syncOffsetMs !== 0 ? `${angle.syncOffsetMs > 0 ? '+' : ''}${angle.syncOffsetMs}ms` : '0ms SYNC'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                {preset.replace('x', '×')}
+              </button>
             );
           })}
         </div>
-
-        {/* Persistent Viewport Active Preset HUD Indicator */}
-        <div className="absolute top-5 left-5 z-30 pointer-events-none flex items-center gap-2 bg-black/85 backdrop-blur-md border border-[#FFE066]/35 px-3 py-1.5 rounded-xl font-mono text-[11px] shadow-2xl">
-          <span className="w-2 h-2 rounded-full bg-[#FFE066] animate-pulse shadow-[0_0_8px_#FFE066]" />
-          <span className="text-neutral-400 text-[10px] uppercase tracking-wider font-semibold">PRESET:</span>
-          <span className="text-[#FFE066] font-bold tracking-wider uppercase">
-            {activeConfig === '1x1' ? '1x1 SOLO' : activeConfig === '1x3' ? '1x3 DIRECTOR' : '2x2 QUAD'}
-          </span>
-          <span className="text-neutral-400 text-[10px] border-l border-white/20 pl-2 ml-0.5">
-            KEY <kbd className="px-1 py-0.2 bg-white/10 rounded text-[9px] text-amber-300 font-bold">{activeConfig === '1x1' ? '1' : activeConfig === '1x3' ? '2' : '3'}</kbd>
-          </span>
-        </div>
-
-        {/* Transient Morph Transition HUD Confirmation Badge */}
-        {recentlySwitchedPreset && (
-          <div className="absolute top-5 right-5 z-40 bg-black/95 border border-[#FFE066]/60 px-4 py-2 rounded-xl shadow-[0_0_24px_rgba(255,224,102,0.25)] backdrop-blur-md flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
-            <Sparkles className="w-4 h-4 text-[#FFE066] animate-spin" />
-            <span className="font-mono text-xs font-bold text-[#FFE066] tracking-wider uppercase">
-              MORPHED TO {recentlySwitchedPreset === '1x1' ? '1x1 SOLO' : recentlySwitchedPreset === '1x3' ? '1x3 DIRECTOR' : '2x2 QUAD'} GRID
-            </span>
-          </div>
-        )}
-
-        {/* Floating Quick Switcher Dock in 1x1 Solo Mode */}
-        {activeConfig === '1x1' && (
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 p-1.5 bg-[#0D0E15]/95 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {displayAngles.map((a, idx) => {
-              const isSelected = idx === heroIdx;
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => onSelectAngle(idx)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono text-xs transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-amber-400 text-black font-bold shadow-md'
-                      : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                  }`}
-                  title={`Switch solo view to ${a.label}`}
-                >
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-black/30">
-                    {idx + 1}
-                  </span>
-                  <span>{a.label}</span>
-                </button>
-              );
-            })}
-
-            <div className="h-4 w-px bg-white/10 mx-1" />
-
-            <button
-              type="button"
-              onClick={() => {
-                const nextIdx = (heroIdx + 1) % displayAngles.length;
-                onSelectAngle(nextIdx);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="A/B Flip to Next Angle"
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" />
-              <span>A/B Flip</span>
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Grid Selection Menu Popover / Modal with Visual Thumbnail Previews */}
-      <MultiCamGridSelectionMenu
-        isOpen={isGridMenuOpen}
-        activeConfig={activeConfig}
-        onSelectConfig={setConfig}
-        onClose={() => setIsGridMenuOpen(false)}
-        angles={displayAngles}
-        activeAngleIdx={heroIdx}
-      />
+      {/* Camera Cards Grid (Keep all video elements mounted for continuous sync) */}
+      <div className={`flex-1 min-h-0 p-2 grid gap-2 ${gridClass} bg-[#050608]`}>
+        {displayAngles.map((angle, idx) => {
+          const isVisible = visibleSet.has(idx);
+          const isLive = idx === currentActiveAngleIdx;
+          const isCued = !isLive && idx === cuedAngleIdx;
+          const isFlashing = idx === flashingAngleIdx;
+          const isMasterAudio = idx === masterAudioIndex;
+          const activeBars = getAudioMeterBars(idx, isLive, isMasterAudio);
+          const is1x3Hero = activeConfig === '1x3' && idx === visibleIndices[0];
+
+          return (
+            <div
+              key={angle.id}
+              onClick={() => handlePunchCamera(idx)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onCueAngle?.(idx);
+              }}
+              onMouseEnter={() => {
+                if (!isLive && onCueAngle) {
+                  // Lightly preview cue only on explicit click/right-click unless hovered; keep explicit cuedAngleIdx deterministic
+                }
+              }}
+              className={`group relative rounded-lg overflow-hidden cursor-pointer bg-black transition-all duration-100 ${
+                !isVisible ? 'hidden' : ''
+              } ${is1x3Hero ? 'col-span-3 row-span-1' : ''} ${
+                isFlashing
+                  ? 'border-2 border-white ring-2 ring-white/80'
+                  : isLive
+                  ? 'border-2 border-red-600 shadow-[0_0_16px_rgba(220,38,38,0.55)] z-10'
+                  : isCued
+                  ? 'border-2 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)] z-[5]'
+                  : 'border border-white/15 hover:border-amber-400/70'
+              }`}
+              title={`Click or press [${idx + 1}] to punch ${angle.label} live on air · Right-click to Cue`}
+            >
+              {/* Live Feed Canvas / Video / Image */}
+              <div className="absolute inset-0 bg-black overflow-hidden">
+                {renderCameraMedia(angle, idx, isLive)}
+              </div>
+
+              {/* Top Tally & Camera Badge Row */}
+              <div className="relative z-10 p-1.5 flex items-center justify-between gap-1 bg-gradient-to-b from-black/80 via-black/35 to-transparent">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tabular-nums leading-none ${
+                      isLive
+                        ? 'bg-red-600 text-white'
+                        : isCued
+                        ? 'bg-amber-400 text-black'
+                        : 'bg-black/80 text-white border border-white/20'
+                    }`}
+                  >
+                    {idx + 1}
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-white tracking-wide truncate drop-shadow">
+                    {angle.label}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Live Tally Label */}
+                  {isLive && (
+                    <span className="px-1.5 py-0.5 rounded bg-red-600 text-white font-mono font-black text-[9px] tracking-wider uppercase leading-none">
+                      ON AIR
+                    </span>
+                  )}
+                  {isCued && (
+                    <span className="px-1.5 py-0.5 rounded bg-amber-400 text-black font-mono font-black text-[9px] tracking-wider uppercase leading-none">
+                      CUED
+                    </span>
+                  )}
+
+                  {/* Per-Camera Audio Level Meter */}
+                  <div
+                    className="flex items-end gap-[2px] h-3.5 px-1 py-0.5 rounded bg-black/80 border border-white/10"
+                    title="Camera Audio Level"
+                  >
+                    {[1, 2, 3, 4, 5].map((seg) => {
+                      const lit = seg <= activeBars;
+                      const barColor =
+                        seg >= 5 ? 'bg-red-500' : seg >= 4 ? 'bg-amber-400' : 'bg-emerald-400';
+                      return (
+                        <div
+                          key={seg}
+                          className={`w-[2px] rounded-xs transition-all duration-75 ${
+                            lit ? barColor : 'bg-white/15'
+                          }`}
+                          style={{ height: `${seg * 2 + 2}px` }}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Quick Upload Trigger */}
+                  <label
+                    onClick={(e) => e.stopPropagation()}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded bg-black/85 hover:bg-amber-500 hover:text-black border border-white/20 text-neutral-300 cursor-pointer transition-all"
+                    title={`Assign video/image to ${angle.label}`}
+                  >
+                    <Upload className="w-2.5 h-2.5" />
+                    <input
+                      type="file"
+                      accept="video/*,image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) onUploadAngleVideo?.(idx, file);
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Bottom Shot/Lens Caption Strip */}
+              <div className="absolute inset-x-0 bottom-0 z-10 px-2 py-1 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex items-center justify-between gap-2 text-[9.5px] font-mono pointer-events-none">
+                <span className="text-neutral-200 truncate">
+                  {angle.name || `Camera ${idx + 1}`}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0 text-neutral-400 tabular-nums">
+                  {isMasterAudio && <Volume2 className="w-2.5 h-2.5 text-cyan-400" />}
+                  <span>24F</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

@@ -127,6 +127,8 @@ export interface AnthologyFrame {
   targetFps?: number;
   inPointMs?: number;
   outPointMs?: number;
+  playbackSpeed?: number;
+  mediaVaultKey?: string;
   beatSnapEnabled?: boolean;
   subclipInSec?: number;
   subclipOutSec?: number;

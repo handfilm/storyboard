@@ -852,8 +852,42 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   }
   const combinedMediaFilter = baseMediaFilter;
 
+  const clipSpeed =
+    typeof frame?.playbackSpeed === 'number' && Number.isFinite(frame.playbackSpeed) && frame.playbackSpeed > 0
+      ? Math.max(0.25, Math.min(4.0, frame.playbackSpeed))
+      : 1.0;
+  const clipInSec =
+    typeof frame?.inPointMs === 'number' && Number.isFinite(frame.inPointMs) && frame.inPointMs >= 0
+      ? frame.inPointMs / 1000
+      : 0;
+  const clipOutSec =
+    typeof frame?.outPointMs === 'number' &&
+    Number.isFinite(frame.outPointMs) &&
+    frame.outPointMs > clipInSec * 1000
+      ? frame.outPointMs / 1000
+      : null;
+  const hasExplicitTrimOrSpeed =
+    clipInSec > 0.001 || clipOutSec !== null || Math.abs(clipSpeed - 1.0) > 0.01;
+
   const effectiveShotDurationSec =
-    isVideoMedia && nativeVideoDuration > 0.25 ? nativeVideoDuration : activeShotDurationSec;
+    !hasExplicitTrimOrSpeed && isVideoMedia && nativeVideoDuration > 0.25
+      ? nativeVideoDuration
+      : activeShotDurationSec;
+
+  const localToSourceSec = useCallback(
+    (localSec: number) => {
+      const clampedLocal = Math.max(0, Math.min(effectiveShotDurationSec, localSec));
+      return Math.max(0, clipInSec + clampedLocal * clipSpeed);
+    },
+    [clipInSec, clipSpeed, effectiveShotDurationSec]
+  );
+
+  const sourceToLocalSec = useCallback(
+    (rawVideoSec: number) => {
+      return Math.max(0, Math.min(effectiveShotDurationSec, (rawVideoSec - clipInSec) / clipSpeed));
+    },
+    [clipInSec, clipSpeed, effectiveShotDurationSec]
+  );
 
   // Keep playbackClock updated for non-video shots and paused state
   useEffect(() => {
@@ -873,14 +907,18 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     const activeVideo = slotVideoRefs.current.get(currentIndex) ?? videoRef.current;
     videoRef.current = activeVideo ?? null;
 
-    // Pause neighbor pool slots & pre-cue nextShot cleanly at t=0 for instant 0ms hard cuts
+    // Pause neighbor pool slots & pre-cue nextShot cleanly at its clip inPoint for instant 0ms hard cuts
     const nextIdx = frames.length > 1 ? (currentIndex + 1) % frames.length : -1;
     for (const [idx, vid] of slotVideoRefs.current.entries()) {
       if (idx !== currentIndex) {
         if (!vid.paused) vid.pause();
-        if (idx === nextIdx && vid.readyState >= 1 && Math.abs(vid.currentTime) > 0.05 && !vid.seeking) {
+        const nextInSec =
+          idx === nextIdx && typeof frames[nextIdx]?.inPointMs === 'number' && (frames[nextIdx]?.inPointMs ?? 0) >= 0
+            ? (frames[nextIdx]!.inPointMs! / 1000)
+            : 0;
+        if (idx === nextIdx && vid.readyState >= 1 && Math.abs(vid.currentTime - nextInSec) > 0.05 && !vid.seeking) {
           try {
-            vid.currentTime = 0;
+            vid.currentTime = nextInSec;
           } catch {}
         }
       }
@@ -893,7 +931,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     }
 
     applyVlcMediaGain(activeVideo, effectiveVolume, effectiveMuted);
-    activeVideo.playbackRate = Math.max(0.25, Math.min(4.0, playbackSpeed || 1.0));
+    activeVideo.playbackRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * clipSpeed));
 
     if (isAutoplay && !isScrubbingRef.current) {
       if (!effectiveMuted) resumeVlcAudioContext();
@@ -902,7 +940,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       } else {
         accumulatedShotClockRef.current = Math.max(0, slideTimeSecRef.current);
       }
-      lastVideoClockTimeRef.current = activeVideo.currentTime || 0;
+
+      const expectedSourceSec = localToSourceSec(accumulatedShotClockRef.current);
+      if (
+        activeVideo.readyState >= 1 &&
+        (activeVideo.currentTime < clipInSec - 0.05 ||
+          Math.abs(activeVideo.currentTime - expectedSourceSec) > 0.25)
+      ) {
+        syncVideoCurrentTimeWithFastSeek(activeVideo, expectedSourceSec, 0.005);
+      }
+      lastVideoClockTimeRef.current = accumulatedShotClockRef.current;
 
       if (activeVideo.paused) {
         const playPromise = activeVideo.play();
@@ -916,7 +963,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     } else if (!activeVideo.paused) {
       activeVideo.pause();
     }
-  }, [currentIndex, frames.length, isAutoplay, isVideoMedia, effectiveMuted, effectiveVolume, playbackSpeed, activeMediaUrl, effectiveShotDurationSec]);
+  }, [currentIndex, frames, isAutoplay, isVideoMedia, effectiveMuted, effectiveVolume, playbackSpeed, clipSpeed, clipInSec, activeMediaUrl, effectiveShotDurationSec, localToSourceSec]);
 
   // External Seek Sync (Only executes on explicit user scrub / step frame when delta > 0.08s)
   useEffect(() => {
@@ -930,23 +977,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     lastHandledSeekVersionRef.current = seekVersion;
 
     if (versionChanged && !isDraggingScrubberRef.current) {
-      const targetSec = Math.max(0, slideTimeSecRef.current);
-      accumulatedShotClockRef.current = targetSec;
-      if (Math.abs((activeVideo.currentTime || 0) - targetSec) > 0.08) {
-        seekGuardRef.current.requestSeek(activeVideo, targetSec, {
+      const targetLocalSec = Math.max(0, Math.min(effectiveShotDurationSec, slideTimeSecRef.current));
+      const targetSourceSec = localToSourceSec(targetLocalSec);
+      accumulatedShotClockRef.current = targetLocalSec;
+      if (Math.abs((activeVideo.currentTime || 0) - targetSourceSec) > 0.04) {
+        seekGuardRef.current.requestSeek(activeVideo, targetSourceSec, {
           exact: true,
           pauseFirst: !isAutoplay
         });
       }
-      lastVideoClockTimeRef.current = targetSec;
+      lastVideoClockTimeRef.current = targetLocalSec;
       playbackClock.emit({
-        timeSec: targetSec,
+        timeSec: targetLocalSec,
         durationSec: effectiveShotDurationSec,
         shotIndex: currentIndex,
         fps: activeShotFps
       });
     }
-  }, [seekVersion, currentIndex, isVideoMedia, isAutoplay, effectiveShotDurationSec, activeShotFps]);
+  }, [seekVersion, currentIndex, isVideoMedia, isAutoplay, effectiveShotDurationSec, activeShotFps, localToSourceSec]);
 
   // Hardware Video Clock -> 60fps Direct-DOM PlaybackClock Bus (Zero React re-renders while playing)
   useEffect(() => {
@@ -958,14 +1006,17 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       const video = videoRef.current;
       if (video && !isScrubbingRef.current && !video.seeking && !video.paused && video.readyState >= 2) {
         const curRaw = video.currentTime || 0;
-        const clipDur =
-          Number.isFinite(video.duration) && video.duration > 0.25
-            ? video.duration
-            : effectiveShotDurationSec;
+        if (curRaw < clipInSec - 0.05) {
+          syncVideoCurrentTimeWithFastSeek(video, clipInSec, 0.002);
+          rafId = requestAnimationFrame(syncTick);
+          return;
+        }
+        const curLocal = sourceToLocalSec(curRaw);
+        const clipDur = effectiveShotDurationSec;
 
         let bufferedPct = 1;
-        if (video.buffered && video.buffered.length > 0 && clipDur > 0) {
-          bufferedPct = Math.min(1, video.buffered.end(video.buffered.length - 1) / clipDur);
+        if (video.buffered && video.buffered.length > 0 && Number.isFinite(video.duration) && video.duration > 0) {
+          bufferedPct = Math.min(1, video.buffered.end(video.buffered.length - 1) / video.duration);
         }
 
         // VLC A-B Loop enforcement with fastSeek precision
@@ -973,10 +1024,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           abLoop.a !== null &&
           abLoop.b !== null &&
           abLoop.b > abLoop.a + 0.08 &&
-          curRaw >= abLoop.b
+          curLocal >= abLoop.b
         ) {
-          if (!syncVideoCurrentTimeWithFastSeek(video, abLoop.a, 0.0005)) {
-            seekGuardRef.current.requestSeek(video, abLoop.a, { exact: false });
+          const abSourceA = localToSourceSec(abLoop.a);
+          if (!syncVideoCurrentTimeWithFastSeek(video, abSourceA, 0.0005)) {
+            seekGuardRef.current.requestSeek(video, abSourceA, { exact: false });
           }
           accumulatedShotClockRef.current = abLoop.a;
           lastVideoClockTimeRef.current = abLoop.a;
@@ -991,12 +1043,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           return;
         }
 
-        // Direct hardware time is the ground truth for VLC progress bar & timecode
-        accumulatedShotClockRef.current = curRaw;
-        lastVideoClockTimeRef.current = curRaw;
+        // Direct hardware time mapped to trimmed clip timeline is ground truth
+        accumulatedShotClockRef.current = curLocal;
+        lastVideoClockTimeRef.current = curLocal;
 
         playbackClock.emit({
-          timeSec: curRaw,
+          timeSec: curLocal,
           durationSec: clipDur,
           bufferedPct,
           shotIndex: currentIndexRef.current,
@@ -1004,12 +1056,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         });
 
         const endThreshold = Math.max(0.15, clipDur - 0.06);
-        if (curRaw >= endThreshold) {
+        if (curLocal >= endThreshold) {
           if (loopMode === 'sequence' && frames.length > 1) {
             const nextVid = nextIdx >= 0 ? slotVideoRefs.current.get(nextIdx) : null;
             if (nextVid && nextVid.paused) {
+              const nextFrame = frames[nextIdx];
+              const nextSpeed = typeof nextFrame?.playbackSpeed === 'number' && nextFrame.playbackSpeed > 0 ? nextFrame.playbackSpeed : 1.0;
               applyVlcMediaGain(nextVid, effectiveVolume, effectiveMuted);
-              nextVid.playbackRate = Math.max(0.25, Math.min(4.0, playbackSpeed || 1.0));
+              nextVid.playbackRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * nextSpeed));
               nextVid.play().catch(() => {});
             }
             onAdvanceFromVideoClock?.(currentIndexRef.current);
@@ -1017,13 +1071,17 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           }
           if (loopMode === 'once') {
             video.pause();
-            onSyncVideoTime?.(currentIndexRef.current, curRaw);
+            onSyncVideoTime?.(currentIndexRef.current, curLocal);
             if (isAutoplayRef.current && onTogglePlay) {
               onTogglePlay();
             }
             return;
           }
-          // repeat-one loops via onEnded/seek
+          if (loopMode === 'repeat-one' && hasExplicitTrimOrSpeed) {
+            syncVideoCurrentTimeWithFastSeek(video, clipInSec, 0.0005);
+            accumulatedShotClockRef.current = 0;
+            lastVideoClockTimeRef.current = 0;
+          }
         }
       }
       rafId = requestAnimationFrame(syncTick);
@@ -1034,20 +1092,25 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       if (rafId !== null) cancelAnimationFrame(rafId);
       // Sync final discrete timecode to React only when pausing/stopping hardware clock
       if (!isAutoplayRef.current && videoRef.current) {
-        onSyncVideoTime?.(currentIndexRef.current, videoRef.current.currentTime || lastVideoClockTimeRef.current);
+        onSyncVideoTime?.(currentIndexRef.current, sourceToLocalSec(videoRef.current.currentTime || clipInSec));
       }
     };
   }, [
     isAutoplay,
     isVideoMedia,
     currentIndex,
-    frames.length,
+    frames,
     effectiveShotDurationSec,
     activeShotFps,
     loopMode,
     abLoop.a,
     abLoop.b,
     playbackSpeed,
+    clipSpeed,
+    clipInSec,
+    hasExplicitTrimOrSpeed,
+    localToSourceSec,
+    sourceToLocalSec,
     effectiveMuted,
     effectiveVolume,
     onAdvanceFromVideoClock,
@@ -1206,12 +1269,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const targetSec = ratio * activeShotDurationSec;
+    const targetSec = ratio * effectiveShotDurationSec;
     slideTimeSecRef.current = targetSec;
     accumulatedShotClockRef.current = targetSec;
     lastScrubTimeRef.current = performance.now();
     if (onScrubSlideTime) onScrubSlideTime(targetSec);
-    seekGuardRef.current.requestSeek(videoRef.current, targetSec, {
+    seekGuardRef.current.requestSeek(videoRef.current, localToSourceSec(targetSec), {
       exact: false,
       pauseFirst: true
     });
@@ -1225,11 +1288,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const targetSec = ratio * activeShotDurationSec;
+    const targetSec = ratio * effectiveShotDurationSec;
     slideTimeSecRef.current = targetSec;
     accumulatedShotClockRef.current = targetSec;
     if (onScrubSlideTime) onScrubSlideTime(targetSec);
-    seekGuardRef.current.requestSeek(videoRef.current, targetSec, {
+    seekGuardRef.current.requestSeek(videoRef.current, localToSourceSec(targetSec), {
       exact: false,
       pauseFirst: true
     });
@@ -1245,7 +1308,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       isScrubbingRef.current = false;
 
       // Exact frame snap upon pointer release
-      seekGuardRef.current.requestSeek(videoRef.current, slideTimeSecRef.current, {
+      seekGuardRef.current.requestSeek(videoRef.current, localToSourceSec(slideTimeSecRef.current), {
         exact: true,
         pauseFirst: !isAutoplay
       });
@@ -1374,7 +1437,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       shotIndex: currentIndex
     });
     if (videoRef.current && isVideoMedia) {
-      seekGuardRef.current.requestSeek(videoRef.current, clamped, {
+      seekGuardRef.current.requestSeek(videoRef.current, localToSourceSec(clamped), {
         exact,
         pauseFirst: !isAutoplay
       });
@@ -1394,7 +1457,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     slideTimeSecRef.current = clamped;
     accumulatedShotClockRef.current = clamped;
     if (videoRef.current && isVideoMedia) {
-      seekGuardRef.current.requestSeek(videoRef.current, clamped, {
+      seekGuardRef.current.requestSeek(videoRef.current, localToSourceSec(clamped), {
         exact: true,
         pauseFirst: !isAutoplay
       });
@@ -1412,7 +1475,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     accumulatedShotClockRef.current = 0;
     if (videoRef.current && isVideoMedia) {
       videoRef.current.pause();
-      seekGuardRef.current.requestSeek(videoRef.current, 0, { exact: true, pauseFirst: true });
+      seekGuardRef.current.requestSeek(videoRef.current, clipInSec, { exact: true, pauseFirst: true });
     }
     playbackClock.emit({ timeSec: 0, durationSec: effectiveShotDurationSec, shotIndex: currentIndex });
     if (onScrubSlideTime) onScrubSlideTime(0);
@@ -1420,7 +1483,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   const handleVlcSkipSeconds = (deltaSec: number) => {
     const current = videoRef.current && isVideoMedia
-      ? videoRef.current.currentTime
+      ? sourceToLocalSec(videoRef.current.currentTime)
       : slideTimeSecRef.current;
     const next = Math.max(0, Math.min(effectiveShotDurationSec, current + deltaSec));
     handleVlcScrubTo(next, true);

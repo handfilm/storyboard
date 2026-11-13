@@ -31,6 +31,8 @@ export interface SlideDraft {
   targetFps?: number; // 24.0 or 60.0
   inPointMs?: number;
   outPointMs?: number;
+  playbackSpeed?: number;
+  mediaVaultKey?: string;
   beatSnapEnabled?: boolean;
   mediaBlobId?: string; // Key in media_blobs store
   remoteUrl?: string; // Pre-signed Cloudflare R2 URL or Edge CDN stream

@@ -19,6 +19,7 @@ export interface CockpitShotBridge {
   inPoint: number;
   outPoint: number;
   durationSec: number;
+  speedMultiplier?: number;
   mediaUrl?: string;
   thumbnailUrl?: string;
   lutFilter?: string;

@@ -249,9 +249,90 @@ export function getBitrateBps(profile: BitrateProfile, is4K: boolean): number {
 }
 
 /**
+ * Sanitizes WebCodecs EncodedVideoChunkMetadata before passing to `mp4-muxer`.
+ * Critical: `mp4-muxer` merges `meta.decoderConfig` via `Object.assign(track.info.decoderConfig, meta.decoderConfig)`.
+ * If a delta chunk omits `meta.decoderConfig` and we synthesize `{ description: undefined }`,
+ * `Object.assign` overwrites the saved `AVCDecoderConfigurationRecord`, producing an empty `avcC` atom
+ * and causing exported MP4s to decode as solid black frames.
+ */
+export function sanitizeMuxerChunkMetadata(
+  meta: EncodedVideoChunkMetadata | undefined,
+  state: { hasDecoderConfig: boolean; cachedDecoderConfig?: VideoDecoderConfig | null }
+): EncodedVideoChunkMetadata | undefined {
+  if (meta?.decoderConfig) {
+    const dc: VideoDecoderConfig = {
+      ...meta.decoderConfig,
+      colorSpace: meta.decoderConfig.colorSpace ?? {
+        primaries: 'bt709',
+        transfer: 'bt709',
+        matrix: 'bt709',
+        fullRange: false
+      }
+    };
+    state.hasDecoderConfig = true;
+    state.cachedDecoderConfig = dc;
+    return {
+      ...meta,
+      decoderConfig: dc
+    };
+  }
+
+  // Never attach `{ decoderConfig: { description: undefined } }` on delta chunks
+  if (!meta) return undefined;
+  const cleaned: Record<string, any> = { ...meta };
+  if ('decoderConfig' in cleaned) {
+    delete cleaned.decoderConfig;
+  }
+  return Object.keys(cleaned).length > 0 ? (cleaned as EncodedVideoChunkMetadata) : undefined;
+}
+
+/**
+ * Hidden offscreen DOM host so Chromium / WebView2 hardware video decoders and
+ * `canvas.captureStream()` actively present frames instead of outputting black textures.
+ */
+function getOrCreateOffscreenExportHost(): HTMLElement | null {
+  if (typeof document === 'undefined' || !document.body) return null;
+  let host = document.getElementById('handfilm-offscreen-export-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'handfilm-offscreen-export-host';
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText =
+      'position:fixed;left:-9999px;top:-9999px;width:4px;height:4px;opacity:0.001;pointer-events:none;overflow:hidden;z-index:-9999;';
+    document.body.appendChild(host);
+  }
+  return host;
+}
+
+function mountOffscreenExportElement(el: HTMLElement | null): void {
+  if (!el || typeof document === 'undefined') return;
+  try {
+    const host = getOrCreateOffscreenExportHost();
+    if (host && el.parentElement !== host) {
+      el.style.width = '2px';
+      el.style.height = '2px';
+      host.appendChild(el);
+    }
+  } catch {
+    // Non-fatal in headless test environments
+  }
+}
+
+function unmountOffscreenExportElement(el: HTMLElement | null): void {
+  if (!el) return;
+  try {
+    if (el.parentElement && el.parentElement.id === 'handfilm-offscreen-export-host') {
+      el.parentElement.removeChild(el);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/**
  * Awaits `onloadeddata` (readyState >= 2) on a dedicated offscreen <video> element.
  */
-async function waitForVideoLoadedData(video: HTMLVideoElement, timeoutMs: number = 2500): Promise<boolean> {
+async function waitForVideoLoadedData(video: HTMLVideoElement, timeoutMs: number = 3000): Promise<boolean> {
   if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) return true;
   return await new Promise<boolean>((resolve) => {
     let done = false;
@@ -260,6 +341,7 @@ async function waitForVideoLoadedData(video: HTMLVideoElement, timeoutMs: number
         done = true;
         clearTimeout(timer);
         video.onloadeddata = null;
+        video.oncanplay = null;
         video.onerror = null;
         resolve(ok);
       }
@@ -269,6 +351,11 @@ async function waitForVideoLoadedData(video: HTMLVideoElement, timeoutMs: number
       timeoutMs
     );
     video.onloadeddata = () => {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        finish(true);
+      }
+    };
+    video.oncanplay = () => {
       if (video.readyState >= 2 && video.videoWidth > 0) {
         finish(true);
       }
@@ -284,18 +371,20 @@ function shouldUseAnonymousCors(url: string): boolean {
   return Boolean(url) && !url.startsWith('blob:') && !url.startsWith('data:');
 }
 
-async function loadVideoElementWithOnLoadedData(
+async function attemptLoadVideo(
   url: string,
-  timeoutMs: number = 2500
+  useCors: boolean,
+  timeoutMs: number
 ): Promise<HTMLVideoElement | null> {
   if (!url || typeof document === 'undefined') return null;
   const vid = document.createElement('video');
   vid.muted = true;
   vid.playsInline = true;
   vid.preload = 'auto';
-  if (shouldUseAnonymousCors(url)) {
+  if (useCors) {
     vid.crossOrigin = 'anonymous';
   }
+  mountOffscreenExportElement(vid);
 
   const loadedPromise = new Promise<boolean>((resolve) => {
     let settled = false;
@@ -304,6 +393,7 @@ async function loadVideoElementWithOnLoadedData(
         settled = true;
         clearTimeout(timer);
         vid.onloadeddata = null;
+        vid.oncanplay = null;
         vid.onerror = null;
         resolve(ok);
       }
@@ -313,7 +403,14 @@ async function loadVideoElementWithOnLoadedData(
       timeoutMs
     );
     vid.onloadeddata = () => {
-      finish(vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0);
+      if (vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0) {
+        finish(true);
+      }
+    };
+    vid.oncanplay = () => {
+      if (vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0) {
+        finish(true);
+      }
     };
     vid.onerror = () => finish(false);
   });
@@ -327,22 +424,52 @@ async function loadVideoElementWithOnLoadedData(
 
   const ok = await loadedPromise;
   if (ok && vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0) {
+    // Prime GPU video surface so frame 0 is decoded & paintable immediately
+    try {
+      const playPromise = vid.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        await Promise.race([playPromise.catch(() => {}), new Promise((r) => setTimeout(r, 80))]);
+      }
+      vid.pause();
+      vid.currentTime = 0;
+    } catch {
+      // Non-fatal if autoplay blocked; video already loadeddata
+    }
     return vid;
   }
   try {
+    vid.pause();
     vid.src = '';
+    unmountOffscreenExportElement(vid);
   } catch {}
   return null;
 }
 
-async function loadDecodedImage(
+async function loadVideoElementWithOnLoadedData(
   url: string,
-  timeoutMs: number = 2000
+  timeoutMs: number = 4500
+): Promise<HTMLVideoElement | null> {
+  if (!url || typeof document === 'undefined') return null;
+  const preferCors = shouldUseAnonymousCors(url);
+  const firstAttempt = await attemptLoadVideo(url, preferCors, timeoutMs);
+  if (firstAttempt) return firstAttempt;
+
+  // Retry without CORS if remote/static host omits Access-Control-Allow-Origin
+  if (preferCors) {
+    const noCorsAttempt = await attemptLoadVideo(url, false, timeoutMs);
+    if (noCorsAttempt) return noCorsAttempt;
+  }
+  return null;
+}
+
+async function attemptDecodeImage(
+  url: string,
+  useCors: boolean,
+  timeoutMs: number
 ): Promise<HTMLImageElement | null> {
-  if (!url) return null;
   try {
     const img = new Image();
-    if (shouldUseAnonymousCors(url)) {
+    if (useCors) {
       img.crossOrigin = 'anonymous';
     }
     img.src = url;
@@ -370,17 +497,63 @@ async function loadDecodedImage(
       return img;
     }
   } catch {
-    // Fall through cleanly to null -> procedural color gradient fallback
+    // Fall through cleanly
+  }
+  return null;
+}
+
+async function loadDecodedImage(
+  url: string,
+  timeoutMs: number = 3000
+): Promise<HTMLImageElement | null> {
+  if (!url) return null;
+  const preferCors = shouldUseAnonymousCors(url);
+  const first = await attemptDecodeImage(url, preferCors, timeoutMs);
+  if (first) return first;
+  if (preferCors) {
+    return await attemptDecodeImage(url, false, timeoutMs);
   }
   return null;
 }
 
 /**
+ * Awaits a compositor/video frame presentation after seeking so GPU texture is ready for drawImage.
+ */
+async function waitForPresentedVideoFrame(video: HTMLVideoElement): Promise<void> {
+  const rvfc = (video as any).requestVideoFrameCallback;
+  if (typeof rvfc === 'function' && !video.paused) {
+    await new Promise<void>((res) => {
+      let done = false;
+      const t = setTimeout(() => {
+        if (!done) {
+          done = true;
+          res();
+        }
+      }, 60);
+      try {
+        rvfc.call(video, () => {
+          if (!done) {
+            done = true;
+            clearTimeout(t);
+            res();
+          }
+        });
+      } catch {
+        clearTimeout(t);
+        res();
+      }
+    });
+    return;
+  }
+  await new Promise<void>((res) => setTimeout(res, 0));
+}
+
+/**
  * Frame-by-frame offline seek helper:
- * Sets `video.currentTime` and awaits `video.onseeked` (with a safe 150ms timeout fallback)
+ * Sets `video.currentTime` and awaits `video.onseeked` + `readyState >= 2`
  * before calling `ctx.drawImage(video, ...)` to prevent blank/stale frame captures.
  */
-export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeoutMs: number = 150): Promise<void> {
+export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeoutMs: number = 1200): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
     const finish = () => {
@@ -388,27 +561,106 @@ export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeout
         settled = true;
         clearTimeout(timer);
         video.onseeked = null;
+        video.oncanplay = null;
         video.onerror = null;
-        resolve();
+        waitForPresentedVideoFrame(video).then(resolve);
       }
     };
 
     const timer = setTimeout(finish, timeoutMs);
 
-    if (Math.abs(video.currentTime - targetTime) < 0.001 && video.readyState >= 2) {
+    const safeTarget = Number.isFinite(video.duration) && video.duration > 0.04
+      ? Math.max(0, Math.min(video.duration - 0.02, targetTime))
+      : Math.max(0, targetTime);
+
+    if (Math.abs(video.currentTime - safeTarget) < 0.001 && !video.seeking && video.readyState >= 2) {
       finish();
       return;
     }
 
     video.onseeked = () => finish();
+    video.oncanplay = () => {
+      if (!video.seeking && video.readyState >= 2) {
+        finish();
+      }
+    };
     video.onerror = () => finish();
 
     try {
-      video.currentTime = targetTime;
+      video.currentTime = safeTarget;
     } catch {
       finish();
     }
   });
+}
+
+/**
+ * Captures a verified non-black frame snapshot from an HTMLVideoElement onto an offscreen canvas,
+ * returning either a verified snapshot canvas or the previous valid snapshot if decode yielded blank.
+ */
+function resolveVerifiedVideoSource(
+  video: HTMLVideoElement,
+  probeCanvasRef: { canvas: HTMLCanvasElement | null; ctx: CanvasRenderingContext2D | null; hasValid: boolean }
+): HTMLVideoElement | HTMLCanvasElement | null {
+  if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) {
+    return probeCanvasRef.hasValid ? probeCanvasRef.canvas : null;
+  }
+  if (video.readyState < 2) {
+    return probeCanvasRef.hasValid ? probeCanvasRef.canvas : null;
+  }
+  if (typeof document === 'undefined') {
+    return video;
+  }
+  try {
+    if (!probeCanvasRef.canvas) {
+      const c = document.createElement('canvas');
+      c.width = video.videoWidth;
+      c.height = video.videoHeight;
+      probeCanvasRef.canvas = c;
+      probeCanvasRef.ctx = c.getContext('2d', { willReadFrequently: true });
+    } else if (probeCanvasRef.canvas.width !== video.videoWidth || probeCanvasRef.canvas.height !== video.videoHeight) {
+      probeCanvasRef.canvas.width = video.videoWidth;
+      probeCanvasRef.canvas.height = video.videoHeight;
+    }
+    const pCtx = probeCanvasRef.ctx;
+    const pCanvas = probeCanvasRef.canvas;
+    if (!pCtx || !pCanvas) return video;
+
+    pCtx.drawImage(video, 0, 0, pCanvas.width, pCanvas.height);
+
+    // Fast 5-point sample to detect driver GPU-blank frames (all zero RGB)
+    const w = pCanvas.width;
+    const h = pCanvas.height;
+    const pts: Array<[number, number]> = [
+      [Math.floor(w * 0.5), Math.floor(h * 0.5)],
+      [Math.floor(w * 0.25), Math.floor(h * 0.25)],
+      [Math.floor(w * 0.75), Math.floor(h * 0.25)],
+      [Math.floor(w * 0.25), Math.floor(h * 0.75)],
+      [Math.floor(w * 0.75), Math.floor(h * 0.75)]
+    ];
+    let hasPixels = false;
+    for (const [pxX, pxY] of pts) {
+      const d = pCtx.getImageData(pxX, pxY, 1, 1).data;
+      if (d[0] + d[1] + d[2] > 4) {
+        hasPixels = true;
+        break;
+      }
+    }
+
+    if (hasPixels) {
+      probeCanvasRef.hasValid = true;
+      return pCanvas;
+    }
+
+    // If GPU returned pure black while we already have a previous valid frame, keep the valid frame
+    if (probeCanvasRef.hasValid) {
+      return pCanvas;
+    }
+    return video;
+  } catch {
+    // Tainted cross-origin video: drawImage directly to export canvas (which already runs clean)
+    return video;
+  }
 }
 
 /**
@@ -890,6 +1142,20 @@ async function loadShotRawBlob(shotIdx: number, slide: any, frame: any): Promise
     const dbBlob = await studioDraftDb.getSourceMediaBlob(mediaId);
     if (dbBlob) return dbBlob;
   }
+
+  // Check studioDraftDb timeline slot -> media_vault (matches TactileStage resolution)
+  try {
+    const slot = await studioDraftDb.getTimelineSlot(shotIdx);
+    if (slot?.mediaId) {
+      const vaultItem = await studioDraftDb.getVaultMediaItem(slot.mediaId);
+      if (vaultItem?.blob) return vaultItem.blob;
+      const sourceBlob = await studioDraftDb.getSourceMediaBlob(slot.mediaId);
+      if (sourceBlob) return sourceBlob;
+    }
+  } catch {
+    // non-fatal
+  }
+
   return await studioDraftDb.getSourceMediaBlobForShot(shotIdx);
 }
 
@@ -922,7 +1188,7 @@ async function loadShotSourceMedia(
   // 1. Primary: Resolve directly from `shotMediaMap` stored blob URL
   if (mediaEntry?.url) {
     if (mediaEntry.type === 'video') {
-      const vid = await loadVideoElementWithOnLoadedData(mediaEntry.url, 2500);
+      const vid = await loadVideoElementWithOnLoadedData(mediaEntry.url, 4500);
       if (vid) {
         return {
           activeVideoElement: vid,
@@ -932,7 +1198,7 @@ async function loadShotSourceMedia(
         };
       }
     } else {
-      const img = await loadDecodedImage(mediaEntry.url, 2000);
+      const img = await loadDecodedImage(mediaEntry.url, 3000);
       if (img) {
         return {
           activeVideoElement: null,
@@ -947,10 +1213,13 @@ async function loadShotSourceMedia(
   // 2. Secondary: Read binary Blob directly from IndexedDB (`handfilm_media_vault` / `studioDraftDb`)
   const rawBlob = await loadShotRawBlob(shotIdx, slide, frame);
   if (rawBlob) {
-    if (rawBlob.type.startsWith('video/')) {
+    const isBlobVideo =
+      rawBlob.type.startsWith('video/') ||
+      Boolean(!rawBlob.type && (frame?.isVideo || slide?.isVideo || mediaEntry?.type === 'video'));
+    if (isBlobVideo) {
       activeObjectUrl = URL.createObjectURL(rawBlob);
       ownsObjectUrl = true;
-      activeVideoElement = await loadVideoElementWithOnLoadedData(activeObjectUrl, 2500);
+      activeVideoElement = await loadVideoElementWithOnLoadedData(activeObjectUrl, 4500);
       if (!activeVideoElement) {
         URL.revokeObjectURL(activeObjectUrl);
         activeObjectUrl = null;
@@ -959,7 +1228,7 @@ async function loadShotSourceMedia(
     } else {
       activeObjectUrl = URL.createObjectURL(rawBlob);
       ownsObjectUrl = true;
-      activeBitmap = await loadDecodedImage(activeObjectUrl, 2000);
+      activeBitmap = await loadDecodedImage(activeObjectUrl, 3000);
       if (!activeBitmap) {
         try {
           activeBitmap = await createImageBitmap(rawBlob);
@@ -982,15 +1251,20 @@ async function loadShotSourceMedia(
     frame?.isVideo ||
       slide?.isVideo ||
       mediaUrl.startsWith('data:video') ||
-      /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
+      /\.(mp4|webm|mov|m4v|mkv)($|\?)/i.test(mediaUrl)
   );
 
   if (mediaUrl) {
     if (isVideoMedia) {
-      activeVideoElement = await loadVideoElementWithOnLoadedData(mediaUrl, 2500);
+      activeVideoElement = await loadVideoElementWithOnLoadedData(mediaUrl, 4500);
     } else {
-      activeBitmap = await loadDecodedImage(mediaUrl, 2000);
+      activeBitmap = await loadDecodedImage(mediaUrl, 3000);
     }
+  }
+
+  // 4. Quaternary fallback: If primary video failed, try raster poster thumbnailUrl if valid
+  if (!activeVideoElement && !activeBitmap && frame?.thumbnailUrl && !frame.thumbnailUrl.startsWith('data:image/svg+xml')) {
+    activeBitmap = await loadDecodedImage(frame.thumbnailUrl, 2500);
   }
 
   return { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl };
@@ -1134,8 +1408,13 @@ async function exportCinemaMasterWithMediaRecorder(
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
+  // Mount capture canvas invisibly in DOM so Chromium/WebView2 captureStream pushes real frames
+  mountOffscreenExportElement(canvas);
   const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('Could not instantiate 2D Canvas context for export.');
+  if (!ctx) {
+    unmountOffscreenExportElement(canvas);
+    throw new Error('Could not instantiate 2D Canvas context for export.');
+  }
 
   // Select optimal MediaRecorder MIME type
   const mimeCandidates = [
@@ -1202,7 +1481,12 @@ async function exportCinemaMasterWithMediaRecorder(
   const hasRequestFrame = typeof (videoTrack as any)?.requestFrame === 'function';
 
   return new Promise<{ blob: Blob; filename: string }>(async (resolve, reject) => {
+    const cleanupCaptureCanvas = () => {
+      unmountOffscreenExportElement(canvas);
+    };
+
     recorder.onstop = () => {
+      cleanupCaptureCanvas();
       try {
         if (audioContext && audioContext.state !== 'closed') {
           audioContext.close().catch(() => {});
@@ -1219,6 +1503,7 @@ async function exportCinemaMasterWithMediaRecorder(
     };
 
     recorder.onerror = (e) => {
+      cleanupCaptureCanvas();
       reject(new Error(`MediaRecorder error: ${e}`));
     };
 
@@ -1236,6 +1521,7 @@ async function exportCinemaMasterWithMediaRecorder(
       for (let shotListIdx = 0; shotListIdx < shotIndices.length; shotListIdx++) {
         if (abortSignal?.aborted) {
           recorder.stop();
+          cleanupCaptureCanvas();
           return reject(new Error('Export cancelled by user.'));
         }
 
@@ -1254,6 +1540,7 @@ async function exportCinemaMasterWithMediaRecorder(
         let activeVideoElement = loadedVid;
         let activeBitmap = loadedBmp;
         let activeObjectUrl = ownsObjectUrl ? loadedUrl : null;
+        const probeRef = { canvas: null as HTMLCanvasElement | null, ctx: null as CanvasRenderingContext2D | null, hasValid: false };
 
         const shotDurationSec = perShotDurationsSec[shotListIdx];
         const shotFramesCount = perShotFrameCounts[shotListIdx];
@@ -1263,17 +1550,24 @@ async function exportCinemaMasterWithMediaRecorder(
           if (abortSignal?.aborted) {
             if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
             if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
+            if (activeVideoElement) {
+              activeVideoElement.src = '';
+              unmountOffscreenExportElement(activeVideoElement);
+            }
             recorder.stop();
+            cleanupCaptureCanvas();
             return reject(new Error('Export cancelled by user.'));
           }
 
+          let verifiedSource: HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement | null = activeBitmap;
           if (activeVideoElement) {
-            await waitForVideoLoadedData(activeVideoElement, 400);
+            await waitForVideoLoadedData(activeVideoElement, 1200);
             const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
               ? activeVideoElement.duration
               : shotDurationSec;
             const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
-            await waitForSeek(activeVideoElement, targetVideoSec, 150);
+            await waitForSeek(activeVideoElement, targetVideoSec, 1000);
+            verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
           }
 
           const frameProps: FrameCompositeProps = {
@@ -1286,7 +1580,7 @@ async function exportCinemaMasterWithMediaRecorder(
             totalFramesInShot: shotFramesCount,
             shotStartTimeSec,
             fps,
-            sourceElement: activeVideoElement || activeBitmap,
+            sourceElement: verifiedSource as any,
             titleBn: bTitle,
             titleEn: eTitle,
             tagline: subTitle,
@@ -1349,7 +1643,7 @@ async function exportCinemaMasterWithMediaRecorder(
             onFrameRendered(canvas, globalFrameIndex, totalFrames);
           }
 
-          await new Promise((r) => setTimeout(r, hasRequestFrame ? 8 : 25));
+          await new Promise((r) => setTimeout(r, hasRequestFrame ? 12 : 28));
         }
 
         if (activeObjectUrl) {
@@ -1361,9 +1655,13 @@ async function exportCinemaMasterWithMediaRecorder(
           activeBitmap = null;
         }
         if (activeVideoElement) {
+          activeVideoElement.pause();
           activeVideoElement.src = '';
+          unmountOffscreenExportElement(activeVideoElement);
           activeVideoElement = null;
         }
+        probeRef.canvas = null;
+        probeRef.ctx = null;
       }
 
       if (onProgress) {
@@ -1394,7 +1692,8 @@ async function exportCinemaMasterWithMediaRecorder(
  */
 async function exportWithWebCodecs(
   options: CinemaExportPipelineOptions,
-  selectedCodec: string
+  selectedCodec: string,
+  hardwareAccel: HardwareAcceleration = 'no-preference'
 ): Promise<{ blob: Blob; filename: string }> {
   const {
     projectTitle,
@@ -1499,14 +1798,16 @@ async function exportWithWebCodecs(
         video: {
           codec: 'avc',
           width,
-          height
+          height,
+          frameRate: fps
         },
         audio: {
           codec: 'aac',
           numberOfChannels: 2,
           sampleRate: 48000
         },
-        fastStart: 'in-memory'
+        fastStart: 'in-memory',
+        firstTimestampBehavior: 'offset'
       });
 
       audioEncoder = new AudioEncoder({
@@ -1527,9 +1828,11 @@ async function exportWithWebCodecs(
         video: {
           codec: 'avc',
           width,
-          height
+          height,
+          frameRate: fps
         },
-        fastStart: 'in-memory'
+        fastStart: 'in-memory',
+        firstTimestampBehavior: 'offset'
       });
       audioEncoder = null;
     }
@@ -1539,41 +1842,23 @@ async function exportWithWebCodecs(
       video: {
         codec: 'avc',
         width,
-        height
+        height,
+        frameRate: fps
       },
-      fastStart: 'in-memory'
+      fastStart: 'in-memory',
+      firstTimestampBehavior: 'offset'
     });
   }
 
   let chunksEncoded = 0;
   let validChunksMuxed = 0;
   let encoderError: any = null;
+  const decoderConfigState = { hasDecoderConfig: false, cachedDecoderConfig: null as VideoDecoderConfig | null };
 
   const videoEncoder = new VideoEncoder({
     output: (chunk, meta) => {
       chunksEncoded++;
-
-      // Guard meta.decoderConfig to ensure mp4-muxer receives valid decoderConfig with colorSpace
-      const safeMeta: any = meta ? { ...meta } : {};
-      if (!safeMeta.decoderConfig) {
-        safeMeta.decoderConfig = {
-          codec: selectedCodec,
-          colorSpace: {
-            primaries: 'bt709',
-            transfer: 'bt709',
-            matrix: 'bt709',
-            fullRange: false
-          },
-          description: meta?.decoderConfig?.description
-        };
-      } else if (!safeMeta.decoderConfig.colorSpace) {
-        safeMeta.decoderConfig.colorSpace = {
-          primaries: 'bt709',
-          transfer: 'bt709',
-          matrix: 'bt709',
-          fullRange: false
-        };
-      }
+      const safeMeta = sanitizeMuxerChunkMetadata(meta, decoderConfigState);
 
       try {
         const data = new Uint8Array(chunk.byteLength);
@@ -1604,6 +1889,7 @@ async function exportWithWebCodecs(
     height,
     bitrate: bitrateBps,
     framerate: fps,
+    hardwareAcceleration: hardwareAccel,
     avc: { format: 'avc' }
   });
 
@@ -1613,6 +1899,9 @@ async function exportWithWebCodecs(
   for (let shotListIdx = 0; shotListIdx < shotIndices.length; shotListIdx++) {
     if (abortSignal?.aborted) {
       throw new Error('Export cancelled by user.');
+    }
+    if (encoderError) {
+      throw encoderError;
     }
 
     const shotIdx = shotIndices[shotListIdx];
@@ -1630,6 +1919,7 @@ async function exportWithWebCodecs(
     let activeVideoElement = loadedVid;
     let activeBitmap = loadedBmp;
     let activeObjectUrl = ownsObjectUrl ? loadedUrl : null;
+    const probeRef = { canvas: null as HTMLCanvasElement | null, ctx: null as CanvasRenderingContext2D | null, hasValid: false };
 
     const shotDurationSec = perShotDurationsSec[shotListIdx];
     const shotFramesCount = perShotFrameCounts[shotListIdx];
@@ -1639,16 +1929,36 @@ async function exportWithWebCodecs(
       if (abortSignal?.aborted) {
         if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
         if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
+        if (activeVideoElement) {
+          activeVideoElement.src = '';
+          unmountOffscreenExportElement(activeVideoElement);
+        }
         throw new Error('Export cancelled by user.');
       }
+      if (encoderError) {
+        if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+        if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
+        if (activeVideoElement) {
+          activeVideoElement.src = '';
+          unmountOffscreenExportElement(activeVideoElement);
+        }
+        throw encoderError;
+      }
 
+      // Backpressure guard so hardware/software VideoEncoder queues don't overflow on 4K renders
+      while (videoEncoder.encodeQueueSize > 8 && !encoderError && !abortSignal?.aborted) {
+        await new Promise((r) => setTimeout(r, 4));
+      }
+
+      let verifiedSource: HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement | null = activeBitmap;
       if (activeVideoElement) {
-        await waitForVideoLoadedData(activeVideoElement, 400);
+        await waitForVideoLoadedData(activeVideoElement, 1200);
         const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
           ? activeVideoElement.duration
           : shotDurationSec;
         const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
-        await waitForSeek(activeVideoElement, targetVideoSec, 150);
+        await waitForSeek(activeVideoElement, targetVideoSec, 1000);
+        verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
       }
 
       const frameProps: FrameCompositeProps = {
@@ -1661,7 +1971,7 @@ async function exportWithWebCodecs(
         totalFramesInShot: shotFramesCount,
         shotStartTimeSec,
         fps,
-        sourceElement: activeVideoElement || activeBitmap,
+        sourceElement: verifiedSource as any,
         titleBn: bTitle,
         titleEn: eTitle,
         tagline: subTitle,
@@ -1744,9 +2054,13 @@ async function exportWithWebCodecs(
       activeBitmap = null;
     }
     if (activeVideoElement) {
+      activeVideoElement.pause();
       activeVideoElement.src = '';
+      unmountOffscreenExportElement(activeVideoElement);
       activeVideoElement = null;
     }
+    probeRef.canvas = null;
+    probeRef.ctx = null;
   }
 
   // Encode Audio Track Chunks
@@ -1817,8 +2131,8 @@ async function exportWithWebCodecs(
   await videoEncoder.flush();
   videoEncoder.close();
 
-  if (chunksEncoded === 0 || encoderError || validChunksMuxed === 0) {
-    throw new Error(`WebCodecs encoder produced 0 valid chunks: ${encoderError?.message || 'Unsupported WebCodecs format or null decoderConfig'}`);
+  if (chunksEncoded === 0 || encoderError || validChunksMuxed === 0 || !decoderConfigState.hasDecoderConfig) {
+    throw new Error(`WebCodecs encoder produced 0 valid chunks: ${encoderError?.message || 'Unsupported WebCodecs format or missing decoderConfig'}`);
   }
 
   try {
@@ -1842,7 +2156,7 @@ async function exportWithWebCodecs(
 /**
  * MASTER OFFLINE EXPORT PIPELINE:
  * Dual-engine architecture:
- * 1. Primary: Ultra-fast frame-by-frame hardware WebCodecs pipeline with mp4-muxer.
+ * 1. Primary: Ultra-fast frame-by-frame hardware WebCodecs pipeline with mp4-muxer (with software fallback).
  * 2. Fallback: Universal MediaRecorder canvas-capture stream pipeline with synthesized audio
  *    guaranteeing successful export on Firefox, Safari, and platforms without AVC WebCodecs.
  */
@@ -1867,15 +2181,23 @@ export async function exportCinemaMasterMp4(
     return await exportCinemaMasterWithMediaRecorder(options);
   }
 
-  // 2. Execute WebCodecs pipeline with auto-recovery fallback
+  // 2. Execute WebCodecs pipeline with software retry then MediaRecorder recovery fallback
   try {
-    return await exportWithWebCodecs(options, supportedCodec);
+    return await exportWithWebCodecs(options, supportedCodec, 'no-preference');
   } catch (webCodecsErr: any) {
     if (options.abortSignal?.aborted || webCodecsErr?.message?.includes('cancelled')) {
       throw webCodecsErr;
     }
-    console.warn('[CinemaExport] WebCodecs pipeline failed, recovering via high-fidelity MediaRecorder fallback:', webCodecsErr);
-    return await exportCinemaMasterWithMediaRecorder(options);
+    console.warn('[CinemaExport] Primary WebCodecs attempt failed, retrying with software H.264 encoder:', webCodecsErr);
+    try {
+      return await exportWithWebCodecs(options, 'avc1.4d4028', 'prefer-software');
+    } catch (swErr: any) {
+      if (options.abortSignal?.aborted || swErr?.message?.includes('cancelled')) {
+        throw swErr;
+      }
+      console.warn('[CinemaExport] Software WebCodecs attempt failed, recovering via MediaRecorder fallback:', swErr);
+      return await exportCinemaMasterWithMediaRecorder(options);
+    }
   }
 }
 
@@ -2081,6 +2403,7 @@ export async function exportCinemaMasterVp9(
       const { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl } =
         await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
       const ownedUrl = ownsObjectUrl ? activeObjectUrl : null;
+      const probeRef = { canvas: null as HTMLCanvasElement | null, ctx: null as CanvasRenderingContext2D | null, hasValid: false };
       const shotDurationSec = perShotDurationsSec[shotListIdx];
       const shotFramesCount = perShotFrameCounts[shotListIdx];
       const shotStartTimeSec = shotBoundaryTimesSec[shotListIdx] ?? 0;
@@ -2089,16 +2412,26 @@ export async function exportCinemaMasterVp9(
         if (abortSignal?.aborted) {
           if (ownedUrl) URL.revokeObjectURL(ownedUrl);
           if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
+          if (activeVideoElement) {
+            activeVideoElement.src = '';
+            unmountOffscreenExportElement(activeVideoElement);
+          }
           throw new Error('Export cancelled by user.');
         }
 
+        while (videoEncoder.encodeQueueSize > 8 && !vp9Error && !abortSignal?.aborted) {
+          await new Promise((r) => setTimeout(r, 4));
+        }
+
+        let verifiedSource: HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement | null = activeBitmap;
         if (activeVideoElement) {
-          await waitForVideoLoadedData(activeVideoElement, 400);
+          await waitForVideoLoadedData(activeVideoElement, 1200);
           const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
             ? activeVideoElement.duration
             : shotDurationSec;
           const targetVideoSec = vidDuration > 0 ? (f / fps) % vidDuration : 0;
-          await waitForSeek(activeVideoElement, targetVideoSec, 150);
+          await waitForSeek(activeVideoElement, targetVideoSec, 1000);
+          verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
         }
 
         const frameProps: FrameCompositeProps = {
@@ -2111,7 +2444,7 @@ export async function exportCinemaMasterVp9(
           totalFramesInShot: shotFramesCount,
           shotStartTimeSec,
           fps,
-          sourceElement: activeVideoElement || activeBitmap,
+          sourceElement: verifiedSource as any,
           titleBn: bTitle,
           titleEn: eTitle,
           tagline: subTitle,
@@ -2154,7 +2487,11 @@ export async function exportCinemaMasterVp9(
 
       if (ownedUrl) URL.revokeObjectURL(ownedUrl);
       if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
-      if (activeVideoElement) activeVideoElement.src = '';
+      if (activeVideoElement) {
+        activeVideoElement.pause();
+        activeVideoElement.src = '';
+        unmountOffscreenExportElement(activeVideoElement);
+      }
     }
 
     if (audioEncoder && audioBuffer) {
@@ -2304,24 +2641,31 @@ export async function exportPngSequenceZip(
     const { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl } =
       await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
     const ownedUrl = ownsObjectUrl ? activeObjectUrl : null;
+    const probeRef = { canvas: null as HTMLCanvasElement | null, ctx: null as CanvasRenderingContext2D | null, hasValid: false };
 
     for (let s = 0; s < samplesPerShot; s++) {
       if (abortSignal?.aborted) {
         if (ownedUrl) URL.revokeObjectURL(ownedUrl);
         if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
+        if (activeVideoElement) {
+          activeVideoElement.src = '';
+          unmountOffscreenExportElement(activeVideoElement);
+        }
         throw new Error('Export cancelled by user.');
       }
 
       const sampleRatio = samplesPerShot === 1 ? 0.25 : s / samplesPerShot;
       const frameInShot = Math.min(totalShotFrames - 1, Math.round(sampleRatio * totalShotFrames));
 
+      let verifiedSource: HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement | null = activeBitmap;
       if (activeVideoElement) {
-        await waitForVideoLoadedData(activeVideoElement, 400);
+        await waitForVideoLoadedData(activeVideoElement, 1200);
         const vidDuration = Number.isFinite(activeVideoElement.duration) && activeVideoElement.duration > 0
           ? activeVideoElement.duration
           : shotDurSec;
         const targetSec = vidDuration > 0 ? (frameInShot / 24) % vidDuration : 0;
-        await waitForSeek(activeVideoElement, targetSec, 150);
+        await waitForSeek(activeVideoElement, targetSec, 1000);
+        verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
       }
 
       const frameProps: FrameCompositeProps = {
@@ -2334,7 +2678,7 @@ export async function exportPngSequenceZip(
         totalFramesInShot: totalShotFrames,
         shotStartTimeSec: runningStartSec,
         fps: 24,
-        sourceElement: activeVideoElement || activeBitmap,
+        sourceElement: verifiedSource as any,
         titleBn: bTitle,
         titleEn: eTitle,
         tagline: subTitle,
@@ -2377,7 +2721,11 @@ export async function exportPngSequenceZip(
     runningStartSec += shotDurSec;
     if (ownedUrl) URL.revokeObjectURL(ownedUrl);
     if (activeBitmap && 'close' in activeBitmap) activeBitmap.close();
-    if (activeVideoElement) activeVideoElement.src = '';
+    if (activeVideoElement) {
+      activeVideoElement.pause();
+      activeVideoElement.src = '';
+      unmountOffscreenExportElement(activeVideoElement);
+    }
   }
 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });

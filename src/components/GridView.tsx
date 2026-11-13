@@ -29,9 +29,10 @@ import {
 import { filterFrames, getLutFilterCSS } from '../utils/engine';
 import { downloadStoryboardPdf, StoryboardPdfOptions } from '../utils/pdfExport';
 import { handleFileUpload } from '../services/mediaIngestService';
-import { thumbnailMemoryCache } from '../services/thumbnailEngine';
+import { isSvgPlaceholderUrl, isVideoSourceUrl, thumbnailMemoryCache } from '../services/thumbnailEngine';
 import { useStudioStore } from '../core/store';
-import { getShotMediaKey, saveShotMediaBlob } from '../services/handfilmMediaVault';
+import { getShotMediaKey, resolveShotMediaEntry, saveShotMediaBlob } from '../services/handfilmMediaVault';
+import { ShotMediaThumbnail } from './ShotMediaThumbnail';
 
 const ALL_LUT_OPTIONS: { id: LutPreset; label: string; desc: string; color: string }[] = [
   { id: 'cinematic', label: 'RAWx Cinema 35', desc: 'Warm shadows, golden skin tones', color: '#D4AF37' },
@@ -932,9 +933,18 @@ export const GridView: React.FC<GridViewProps> = ({
           const isSelected = frame.id === currentFrameIndex;
           const actualIdx = frames.findIndex(f => f.id === frame.id);
           const resolvedIdx = actualIdx !== -1 ? actualIdx : index;
-          const vaultEntry = shotMediaMap?.[getShotMediaKey(frame, resolvedIdx)] ?? null;
+          const vaultEntry = resolveShotMediaEntry(shotMediaMap, frame, undefined, resolvedIdx);
           const cardImgUrl = vaultEntry?.url || frame.imageUrl || '';
-          const hasImage = Boolean(cardImgUrl);
+          const isVideoMedia = vaultEntry
+            ? vaultEntry.type === 'video'
+            : isVideoSourceUrl(cardImgUrl, { isVideo: frame.isVideo });
+          const cleanThumb =
+            frame.thumbnailUrl && !isSvgPlaceholderUrl(frame.thumbnailUrl)
+              ? frame.thumbnailUrl
+              : frame.thumbnail && !isSvgPlaceholderUrl(frame.thumbnail)
+                ? frame.thumbnail
+                : '';
+          const hasImage = Boolean(cardImgUrl || cleanThumb || isVideoMedia);
           const isBeingDragged = draggedFrameId === frame.id;
           const isDropTarget = dragOverFrameId === frame.id;
 
@@ -1002,14 +1012,23 @@ export const GridView: React.FC<GridViewProps> = ({
                   </span>
                 </div>
               )}
-              {/* Image thumbnail with active LUT */}
+              {/* Image/Video thumbnail with active LUT */}
               {hasImage ? (
-                <div
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  style={{ 
-                    backgroundImage: `url(${cardImgUrl})`,
-                    filter: getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)
-                  }}
+                <ShotMediaThumbnail
+                  shotIndex={resolvedIdx}
+                  shotId={frame.id}
+                  mediaUrl={cardImgUrl}
+                  thumbnailUrl={cleanThumb}
+                  isVideo={isVideoMedia}
+                  mimeType={vaultEntry?.mimeType}
+                  name={vaultEntry?.name}
+                  title={frame.title}
+                  bengaliTitle={frame.bengaliTitle}
+                  shotType={frame.shotType}
+                  lutFilterCss={getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)}
+                  className="absolute inset-0 w-full h-full overflow-hidden"
+                  mediaClassName="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  alt={frame.title || `Shot ${resolvedIdx + 1}`}
                 />
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center text-white/20 group-hover:text-white/40">

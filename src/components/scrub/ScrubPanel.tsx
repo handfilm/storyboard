@@ -36,7 +36,9 @@ import {
 import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
 import { audioEngine } from '../../utils/audioEngine';
 import { useStudioStore } from '../../core/store';
-import { getShotMediaKey } from '../../services/handfilmMediaVault';
+import { getShotMediaKey, resolveShotMediaEntry } from '../../services/handfilmMediaVault';
+import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
+import { isVideoSourceUrl } from '../../services/thumbnailEngine';
 import { 
   Play, 
   Pause, 
@@ -667,15 +669,13 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               const isEditing = editingCardIndex === originalIndex;
               const shotNumStr = String(originalIndex + 1).padStart(3, '0');
               const shotKey = getShotMediaKey(slide as any, originalIndex);
-              const vaultEntry = shotMediaMap?.[shotKey] ?? null;
+              const vaultEntry = resolveShotMediaEntry(shotMediaMap, slide as any, undefined, originalIndex);
               const cardMediaUrl = vaultEntry?.url || slide.remoteUrl || '';
               const isCardVideo = vaultEntry
                 ? vaultEntry.type === 'video'
-                : Boolean(
-                    slide.isVideo ||
-                    /\.(mp4|webm|mov|m4v|mkv)(\?|$)/i.test(cardMediaUrl) ||
-                    cardMediaUrl.startsWith('data:video')
-                  );
+                : isVideoSourceUrl(cardMediaUrl, {
+                    isVideo: Boolean(slide.isVideo)
+                  });
 
               return (
                 <div
@@ -770,20 +770,19 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
                   {/* Card Thumbnail Box with Scope Frame */}
                   <div className="relative aspect-[2.39/1] bg-black overflow-hidden flex items-center justify-center group/card-thumb">
-                    {cardMediaUrl ? (
-                      isCardVideo ? (
-                        <video
-                          src={cardMediaUrl}
-                          className="w-full h-full object-cover"
-                          muted
-                        />
-                      ) : (
-                        <img
-                          src={cardMediaUrl}
-                          alt={slide.titleEn || `Shot ${shotNumStr}`}
-                          className="w-full h-full object-cover"
-                        />
-                      )
+                    {cardMediaUrl || slide.thumbnailUrl ? (
+                      <ShotMediaThumbnail
+                        shotIndex={originalIndex}
+                        shotId={slide.id}
+                        mediaUrl={cardMediaUrl}
+                        thumbnailUrl={slide.thumbnailUrl}
+                        isVideo={isCardVideo}
+                        mimeType={vaultEntry?.mimeType}
+                        name={vaultEntry?.name}
+                        title={slide.titleEn}
+                        bengaliTitle={slide.titleBn}
+                        alt={slide.titleEn || `Shot ${shotNumStr}`}
+                      />
                     ) : (
                       <div className="flex flex-col items-center justify-center text-slate-600 gap-1">
                         <Camera className="w-5 h-5 opacity-40" />
@@ -1090,29 +1089,38 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                 className="w-48 bg-[#090A10]/95 backdrop-blur-xl border border-[#F5A623]/60 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in duration-150"
               >
                 <div className="relative w-full aspect-video rounded-[2px] overflow-hidden bg-[#050608] border border-white/10">
-                  {previewSlide.remoteUrl ? (
-                    previewSlide.isVideo ? (
-                      <video
-                        src={previewSlide.remoteUrl}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        className="w-full h-full object-cover"
+                  {(() => {
+                    const shotMediaMap = useStudioStore.getState().shotMediaMap;
+                    const vaultEntry = resolveShotMediaEntry(
+                      shotMediaMap,
+                      previewSlide as any,
+                      undefined,
+                      hoveredScrubMarker.slideIndex
+                    );
+                    const resolvedUrl = vaultEntry?.url || previewSlide.remoteUrl || '';
+                    const isVid = vaultEntry
+                      ? vaultEntry.type === 'video'
+                      : isVideoSourceUrl(resolvedUrl, { isVideo: previewSlide.isVideo });
+                    return resolvedUrl || previewSlide.thumbnailUrl ? (
+                      <ShotMediaThumbnail
+                        shotIndex={hoveredScrubMarker.slideIndex}
+                        shotId={previewSlide.id}
+                        mediaUrl={resolvedUrl}
+                        thumbnailUrl={previewSlide.thumbnailUrl}
+                        isVideo={isVid}
+                        mimeType={vaultEntry?.mimeType}
+                        name={vaultEntry?.name}
+                        title={previewSlide.titleEn}
+                        bengaliTitle={previewSlide.titleBn}
+                        alt={previewSlide.titleEn || `Frame ${shotNum}`}
                       />
                     ) : (
-                      <img
-                        src={previewSlide.remoteUrl}
-                        alt={previewSlide.titleEn || `Frame ${shotNum}`}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover"
-                      />
-                    )
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-slate-500">
-                      <Film className="w-4 h-4 opacity-50" />
-                      <span className="text-[8px] font-mono">EMPTY FRAME</span>
-                    </div>
-                  )}
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-slate-500">
+                        <Film className="w-4 h-4 opacity-50" />
+                        <span className="text-[8px] font-mono">EMPTY FRAME</span>
+                      </div>
+                    );
+                  })()}
                   <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/90 via-black/45 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8.5px] tabular-nums">
                     <span className="font-bold text-[#FFE066]">
                       #{String(shotNum).padStart(3, '0')}

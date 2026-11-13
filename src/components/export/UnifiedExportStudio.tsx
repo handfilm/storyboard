@@ -47,8 +47,10 @@ import {
 import { eventBus } from '../../core/eventBus';
 import { useStudioStore, resolveEffectiveTitleAlign } from '../../core/store';
 import { resolveShotMediaEntry, ShotMediaMap } from '../../services/handfilmMediaVault';
-import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
+import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
 import { renderAlignedCinemaTitleOverlay } from '../../utils/interchangeExport';
+import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
+import { isSvgPlaceholderUrl, isVideoSourceUrl } from '../../services/thumbnailEngine';
 import { 
   Film, 
   Video, 
@@ -277,7 +279,6 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
   // 9. Interactive Shot Preview Selection (for dedicated canvas monitor)
   const [previewShotIdx, setPreviewShotIdx] = useState<number>(currentSlideIndex || 0);
-  const [failedThumbUrls, setFailedThumbUrls] = useState<Record<string, boolean>>({});
 
   // Synchronize Tab when initialTab changes
   useEffect(() => {
@@ -645,78 +646,184 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
       const isVideo = mediaEntry
         ? mediaEntry.type === 'video'
-        : Boolean(
-            frame?.isVideo ||
-              slide?.isVideo ||
-              thumbUrl.startsWith('data:video') ||
-              /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumbUrl)
-          );
+        : isVideoSourceUrl(thumbUrl, {
+            isVideo: Boolean(frame?.isVideo || slide?.isVideo),
+            mimeType: (mediaEntry as any)?.mimeType,
+            name: (mediaEntry as any)?.name
+          });
 
-      const useCors = !thumbUrl.startsWith('blob:') && !thumbUrl.startsWith('data:');
+      const isExternalUrl = !thumbUrl.startsWith('blob:') && !thumbUrl.startsWith('data:');
+
+      const tryDrawFallbackPoster = async () => {
+        const posterFallback =
+          (frame?.thumbnailUrl && !isSvgPlaceholderUrl(frame.thumbnailUrl) && !isVideoSourceUrl(frame.thumbnailUrl)
+            ? frame.thumbnailUrl
+            : '') ||
+          (slide?.thumbnailUrl && !isSvgPlaceholderUrl(slide.thumbnailUrl) && !isVideoSourceUrl(slide.thumbnailUrl)
+            ? slide.thumbnailUrl
+            : '');
+        if (!posterFallback) return false;
+        const posterImg = new Image();
+        if (!posterFallback.startsWith('blob:') && !posterFallback.startsWith('data:')) {
+          posterImg.crossOrigin = 'anonymous';
+        }
+        posterImg.src = posterFallback;
+        try {
+          if (typeof posterImg.decode === 'function') {
+            await posterImg.decode();
+          } else {
+            await new Promise<void>((resolve, reject) => {
+              posterImg.onload = () => resolve();
+              posterImg.onerror = () => reject(new Error('Poster fallback failed'));
+            });
+          }
+          if (isCancelled || !dedicatedCanvasRef.current) return false;
+          return drawCoveredSource(posterImg, posterImg.naturalWidth, posterImg.naturalHeight);
+        } catch {
+          return false;
+        }
+      };
 
       if (isVideo) {
-        const vid = document.createElement('video');
-        activePreviewVideo = vid;
-        if (useCors) vid.crossOrigin = 'anonymous';
-        vid.muted = true;
-        vid.playsInline = true;
-        vid.preload = 'auto';
+        const loadVideoPreview = async (useCorsAttr: boolean): Promise<HTMLVideoElement | null> => {
+          const vid = document.createElement('video');
+          activePreviewVideo = vid;
+          if (useCorsAttr) vid.crossOrigin = 'anonymous';
+          vid.muted = true;
+          vid.playsInline = true;
+          vid.preload = 'auto';
+          vid.style.position = 'fixed';
+          vid.style.left = '-9999px';
+          vid.style.top = '0px';
+          vid.style.width = '4px';
+          vid.style.height = '4px';
+          vid.style.opacity = '0.001';
+          vid.style.pointerEvents = 'none';
+          if (document.body) document.body.appendChild(vid);
 
-        const loaded = await new Promise<boolean>((resolve) => {
-          let settled = false;
-          const finish = (ok: boolean) => {
-            if (!settled) {
-              settled = true;
-              clearTimeout(timer);
-              vid.onloadeddata = null;
-              vid.onerror = null;
-              resolve(ok);
-            }
-          };
-          const timer = setTimeout(
-            () => finish(vid.readyState >= 2 && vid.videoWidth > 0),
-            2500
-          );
-          vid.onloadeddata = () => finish(vid.readyState >= 2 && vid.videoWidth > 0);
-          vid.onerror = () => finish(false);
-          vid.src = thumbUrl;
+          const loaded = await new Promise<boolean>((resolve) => {
+            let settled = false;
+            const finish = (ok: boolean) => {
+              if (!settled) {
+                settled = true;
+                clearTimeout(timer);
+                vid.onloadeddata = null;
+                vid.onerror = null;
+                resolve(ok);
+              }
+            };
+            const timer = setTimeout(
+              () => finish(vid.readyState >= 2 && vid.videoWidth > 0),
+              3000
+            );
+            vid.onloadeddata = () => finish(vid.readyState >= 2 && vid.videoWidth > 0);
+            vid.onerror = () => finish(false);
+            vid.src = thumbUrl;
+            try {
+              vid.load();
+            } catch {}
+          });
+
+          if (!loaded || isCancelled) {
+            try {
+              if (vid.parentElement) vid.parentElement.removeChild(vid);
+            } catch {}
+            return null;
+          }
+
+          // Seek slightly past t=0 to avoid fade-in black frame on first frame
+          const dur = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : 1.0;
+          const seekTarget = Math.min(0.15, dur * 0.1);
+          if (dur > 0.25 && Math.abs(vid.currentTime - seekTarget) > 0.05) {
+            await new Promise<void>((resolve) => {
+              let done = false;
+              const finishSeek = () => {
+                if (!done) {
+                  done = true;
+                  clearTimeout(seekTimer);
+                  vid.onseeked = null;
+                  resolve();
+                }
+              };
+              const seekTimer = setTimeout(finishSeek, 800);
+              vid.onseeked = finishSeek;
+              try {
+                vid.currentTime = seekTarget;
+              } catch {
+                finishSeek();
+              }
+            });
+          }
+          await new Promise<void>((r) => requestAnimationFrame(() => r()));
+          return vid;
+        };
+
+        let previewVid = await loadVideoPreview(isExternalUrl);
+        if (!previewVid && isExternalUrl && !isCancelled) {
+          previewVid = await loadVideoPreview(false);
+        }
+
+        if (isCancelled || !dedicatedCanvasRef.current) {
+          if (previewVid?.parentElement) {
+            try { previewVid.parentElement.removeChild(previewVid); } catch {}
+          }
+          return;
+        }
+
+        const drew = previewVid
+          ? drawCoveredSource(previewVid, previewVid.videoWidth, previewVid.videoHeight)
+          : false;
+        if (previewVid) {
           try {
-            vid.load();
+            previewVid.pause();
+            previewVid.removeAttribute('src');
+            if (previewVid.parentElement) previewVid.parentElement.removeChild(previewVid);
           } catch {}
-        });
+        }
 
-        if (isCancelled || !dedicatedCanvasRef.current) return;
-
-        if (!loaded || !drawCoveredSource(vid, vid.videoWidth, vid.videoHeight)) {
-          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+        if (!drew) {
+          const drewPoster = await tryDrawFallbackPoster();
+          if (isCancelled || !dedicatedCanvasRef.current) return;
+          if (!drewPoster) {
+            renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+          }
         }
         drawCompositingOverlay();
         return;
       }
 
-      const img = new Image();
-      if (useCors) img.crossOrigin = 'anonymous';
-      img.src = thumbUrl;
-
-      let decoded = false;
-      try {
-        if (typeof img.decode === 'function') {
-          await img.decode();
-        } else {
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject(new Error('Preview image failed to load'));
-          });
+      const decodeImage = async (useCorsAttr: boolean): Promise<HTMLImageElement | null> => {
+        const img = new Image();
+        if (useCorsAttr) img.crossOrigin = 'anonymous';
+        img.src = thumbUrl;
+        try {
+          if (typeof img.decode === 'function') {
+            await img.decode();
+          } else {
+            await new Promise<void>((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = () => reject(new Error('Preview image failed to load'));
+            });
+          }
+          return img.naturalWidth > 0 && img.naturalHeight > 0 ? img : null;
+        } catch {
+          return img.complete && img.naturalWidth > 0 && img.naturalHeight > 0 ? img : null;
         }
-        decoded = img.naturalWidth > 0 && img.naturalHeight > 0;
-      } catch {
-        decoded = img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+      };
+
+      let decodedImg = await decodeImage(isExternalUrl);
+      if (!decodedImg && isExternalUrl && !isCancelled) {
+        decodedImg = await decodeImage(false);
       }
 
       if (isCancelled || !dedicatedCanvasRef.current) return;
 
-      if (!decoded || !drawCoveredSource(img, img.naturalWidth, img.naturalHeight)) {
-        renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+      if (!decodedImg || !drawCoveredSource(decodedImg, decodedImg.naturalWidth, decodedImg.naturalHeight)) {
+        const drewPoster = await tryDrawFallbackPoster();
+        if (isCancelled || !dedicatedCanvasRef.current) return;
+        if (!drewPoster) {
+          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+        }
       }
       drawCompositingOverlay();
     };
@@ -727,9 +834,14 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       isCancelled = true;
       if (activePreviewVideo) {
         activePreviewVideo.onloadeddata = null;
+        activePreviewVideo.onseeked = null;
         activePreviewVideo.onerror = null;
         try {
-          activePreviewVideo.src = '';
+          activePreviewVideo.pause();
+          activePreviewVideo.removeAttribute('src');
+          if (activePreviewVideo.parentElement) {
+            activePreviewVideo.parentElement.removeChild(activePreviewVideo);
+          }
         } catch {}
         activePreviewVideo = null;
       }
@@ -1618,12 +1730,14 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                   const shotLabel = `SH${String(shotNumber).padStart(3, '0')}`;
                   const title = slide?.titleEn || frame?.title || `Shot ${shotNumber}`;
                   const mediaEntry = resolveShotMediaEntry(activeShotMediaMap, frame, slide, shotIdx);
-                  const rawThumb = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
-                  const thumb = rawThumb && !failedThumbUrls[rawThumb] ? rawThumb : '';
+                  const rawMediaUrl = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
                   const isVideoThumb = mediaEntry
                     ? mediaEntry.type === 'video'
-                    : Boolean(frame?.isVideo || slide?.isVideo || /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumb));
-                  const procPalette = getShotProceduralSpec(shotIdx).palette;
+                    : isVideoSourceUrl(rawMediaUrl, {
+                        isVideo: Boolean(frame?.isVideo || slide?.isVideo),
+                        mimeType: (mediaEntry as any)?.mimeType,
+                        name: (mediaEntry as any)?.name
+                      });
 
                   return (
                     <div
@@ -1638,36 +1752,25 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       }`}
                       title={isExcluded ? 'Shot excluded from render' : 'Click to preview shot in monitor'}
                     >
-                      <div
-                        className="relative aspect-video w-full bg-black overflow-hidden"
-                        style={!thumb ? { background: procPalette.thumbCssBackdrop } : undefined}
-                      >
-                        {thumb ? (
-                          isVideoThumb ? (
-                            <video
-                              src={thumb}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              onError={() => setFailedThumbUrls((prev) => ({ ...prev, [thumb]: true }))}
-                              className={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
-                            />
-                          ) : (
-                            <img
-                              src={thumb}
-                              alt={shotLabel}
-                              onError={() => setFailedThumbUrls((prev) => ({ ...prev, [thumb]: true }))}
-                              className={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
-                            />
-                          )
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-white/75 text-[8px] font-mono">
-                            <Film className="w-3.5 h-3.5 mb-0.5 opacity-60" />
-                            <span>{procPalette.name.split(' ')[0]}</span>
-                          </div>
-                        )}
+                      <div className="relative aspect-video w-full bg-[#090a10] overflow-hidden">
+                        <ShotMediaThumbnail
+                          shotIndex={shotIdx}
+                          shotId={frame?.id ?? slide?.id}
+                          mediaUrl={rawMediaUrl}
+                          thumbnailUrl={frame?.thumbnailUrl || frame?.thumbnail || slide?.thumbnailUrl}
+                          isVideo={isVideoThumb}
+                          mimeType={mediaEntry?.mimeType}
+                          name={mediaEntry?.name}
+                          title={title}
+                          bengaliTitle={frame?.bengaliTitle || slide?.titleBn}
+                          shotType={frame?.shotType}
+                          titleAlign={titleAlign}
+                          mediaClassName={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
+                          alt={shotLabel}
+                          compactProcedural
+                        />
 
-                        <div className="absolute top-1 left-1 px-1 py-0.2 rounded bg-black/80 text-[8px] font-bold text-white">
+                        <div className="absolute top-1 left-1 px-1 py-0.2 rounded bg-black/80 text-[8px] font-bold text-white z-[2]">
                           {shotLabel}
                         </div>
 

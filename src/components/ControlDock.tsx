@@ -19,7 +19,8 @@ import {
   getShotTargetFps
 } from '../types/storyboard';
 import { audioEngine } from '../services/audioEngine';
-import { thumbnailMemoryCache } from '../services/thumbnailEngine';
+import { getCachedThumbnailUrl, isSvgPlaceholderUrl, isVideoSourceUrl } from '../services/thumbnailEngine';
+import { ShotMediaThumbnail } from './ShotMediaThumbnail';
 import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import {
   Play,
@@ -76,7 +77,7 @@ import {
 import { resolveEffectiveTitleAlign } from '../core/store';
 import { getLightingPresetById } from '../data/lightingPresets';
 import { getShotProceduralSpec } from '../data/proceduralCinemaEngine';
-import { getShotMediaKey, saveShotMediaBlob } from '../services/handfilmMediaVault';
+import { getShotMediaKey, resolveShotMediaEntry, saveShotMediaBlob } from '../services/handfilmMediaVault';
 
 export interface ControlDockProps {
   frames: AnthologyFrame[];
@@ -238,7 +239,6 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     clientX: number;
     clientY: number;
   } | null>(null);
-  const [failedThumbMap, setFailedThumbMap] = useState<Record<string, boolean>>({});
   const [hoveredMarker, setHoveredMarker] = useState<{
     index: number;
     centerX: number;
@@ -587,18 +587,17 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     const frame = safeFrames[hoveredMarker.index];
     if (!frame) return null;
     const idx = hoveredMarker.index;
+    const vaultEntry = resolveShotMediaEntry(shotMediaMap, frame, undefined, idx);
+    const resolvedUrl = vaultEntry?.url || frame.imageUrl || '';
     const cachedThumb =
-      frame.thumbnailUrl ||
-      frame.thumbnail ||
-      thumbnailMemoryCache.get(String(frame.id)) ||
-      thumbnailMemoryCache.get(`shot_${idx}`) ||
-      thumbnailMemoryCache.get(String(idx)) ||
+      getCachedThumbnailUrl([frame.id, `shot_${idx}`, idx, resolvedUrl]) ||
+      (frame.thumbnailUrl && !isSvgPlaceholderUrl(frame.thumbnailUrl) ? frame.thumbnailUrl : '') ||
+      (frame.thumbnail && !isSvgPlaceholderUrl(frame.thumbnail) ? frame.thumbnail : '') ||
       '';
-    const isVideoMedia = Boolean(
-      frame.isVideo ||
-      (frame.imageUrl && /\.(mp4|webm|mov|m4v)(\?|$)/i.test(frame.imageUrl))
-    );
-    const primaryImgSrc = cachedThumb || (!isVideoMedia ? frame.imageUrl || '' : '');
+    const isVideoMedia = vaultEntry
+      ? vaultEntry.type === 'video'
+      : isVideoSourceUrl(resolvedUrl, { isVideo: frame.isVideo });
+    const hasMedia = Boolean(cachedThumb || resolvedUrl || isVideoMedia);
     const holdSec = getShotDurationSec(frame, 12.0);
     const shotFps = getShotTargetFps(frame, 24);
     const startSec = shotOffsets[idx]?.startSec ?? idx * 12.0;
@@ -611,17 +610,19 @@ export const ControlDock: React.FC<ControlDockProps> = ({
       idx,
       shotNumber: idx + 1,
       frame,
-      primaryImgSrc,
+      vaultEntry,
+      resolvedUrl,
+      cachedThumb,
       isVideoMedia,
+      hasMedia,
       holdSec,
       startTimecode,
       clampedLeft,
       topY: Math.max(120, hoveredMarker.topY - 10),
       caretOffsetPx,
-      thumbKey: `${idx}_${primaryImgSrc}`,
       lutFilterCss: getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)
     };
-  }, [hoveredMarker, dragShotState, safeFrames, shotOffsets]);
+  }, [hoveredMarker, dragShotState, safeFrames, shotOffsets, shotMediaMap]);
 
   return (
     <div
@@ -660,26 +661,21 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         >
           {/* Frame Thumbnail Viewport */}
           <div className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-[#050508] border border-white/10">
-            {hoveredPreviewData.primaryImgSrc && !failedThumbMap[hoveredPreviewData.thumbKey] ? (
-              <img
-                src={hoveredPreviewData.primaryImgSrc}
+            {hoveredPreviewData.hasMedia ? (
+              <ShotMediaThumbnail
+                shotIndex={hoveredPreviewData.idx}
+                shotId={hoveredPreviewData.frame.id}
+                mediaUrl={hoveredPreviewData.resolvedUrl}
+                thumbnailUrl={hoveredPreviewData.cachedThumb || hoveredPreviewData.frame.thumbnailUrl}
+                isVideo={hoveredPreviewData.isVideoMedia}
+                mimeType={hoveredPreviewData.vaultEntry?.mimeType}
+                name={hoveredPreviewData.vaultEntry?.name}
+                title={hoveredPreviewData.frame.title}
+                bengaliTitle={hoveredPreviewData.frame.bengaliTitle}
+                shotType={hoveredPreviewData.frame.shotType}
+                titleAlign={titleAlign}
+                lutFilterCss={hoveredPreviewData.lutFilterCss}
                 alt={`Frame ${hoveredPreviewData.shotNumber} preview`}
-                referrerPolicy="no-referrer"
-                decoding="async"
-                onError={() =>
-                  setFailedThumbMap((prev) => ({ ...prev, [hoveredPreviewData.thumbKey]: true }))
-                }
-                style={{ filter: hoveredPreviewData.lutFilterCss }}
-                className="w-full h-full object-cover"
-              />
-            ) : hoveredPreviewData.isVideoMedia && hoveredPreviewData.frame.imageUrl ? (
-              <video
-                src={hoveredPreviewData.frame.imageUrl}
-                muted
-                playsInline
-                preload="metadata"
-                style={{ filter: hoveredPreviewData.lutFilterCss }}
-                className="w-full h-full object-cover"
               />
             ) : (() => {
               const proc = getShotProceduralSpec(hoveredPreviewData.idx);
@@ -792,23 +788,17 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
             const shotKey = getShotMediaKey(frame, idx);
-            const vaultEntry = shotMediaMap?.[shotKey] ?? null;
+            const vaultEntry = resolveShotMediaEntry(shotMediaMap, frame, undefined, idx);
             const resolvedUrl = vaultEntry?.url || frame?.imageUrl || '';
             const cachedThumb =
-              frame?.thumbnailUrl ||
-              frame?.thumbnail ||
-              thumbnailMemoryCache.get(String(frame?.id)) ||
-              thumbnailMemoryCache.get(`shot_${idx}`) ||
-              thumbnailMemoryCache.get(String(idx)) ||
+              getCachedThumbnailUrl([frame?.id, `shot_${idx}`, idx, resolvedUrl]) ||
+              (frame?.thumbnailUrl && !isSvgPlaceholderUrl(frame.thumbnailUrl) ? frame.thumbnailUrl : '') ||
+              (frame?.thumbnail && !isSvgPlaceholderUrl(frame.thumbnail) ? frame.thumbnail : '') ||
               '';
             const isVideoMedia = vaultEntry
               ? vaultEntry.type === 'video'
-              : Boolean(
-                  frame?.isVideo ||
-                  (resolvedUrl && /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolvedUrl))
-                );
-            const primaryImgSrc = !isVideoMedia ? (resolvedUrl || cachedThumb) : cachedThumb;
-            const hasMedia = Boolean(primaryImgSrc || resolvedUrl || isVideoMedia);
+              : isVideoSourceUrl(resolvedUrl, { isVideo: frame?.isVideo });
+            const hasMedia = Boolean(cachedThumb || resolvedUrl || isVideoMedia);
             const isThumbnailVisible = idx >= visibleStartShot && idx <= visibleEndShot;
             const shotNumber = idx + 1;
             const shotBadge = `#${String(shotNumber).padStart(2, '0')}`;
@@ -826,7 +816,6 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             const relFrames = Math.floor((relSec % 1) * shotFps);
             const relSecondsPart = Math.floor(relSec);
             const relativeTc = `+${String(relSecondsPart).padStart(2, '0')}:${String(relFrames).padStart(2, '0')}F`;
-            const thumbKey = `${idx}_${primaryImgSrc}`;
 
             return (
               <div
@@ -902,29 +891,25 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 }`}
               >
                 {/* Virtualized Persistent Media Thumbnail Preview */}
-                {hasMedia && isThumbnailVisible && primaryImgSrc && !failedThumbMap[thumbKey] ? (
-                  <img
-                    src={primaryImgSrc}
+                {hasMedia ? (
+                  <ShotMediaThumbnail
+                    shotIndex={idx}
+                    shotId={frame?.id}
+                    mediaUrl={resolvedUrl}
+                    thumbnailUrl={cachedThumb || frame?.thumbnailUrl}
+                    isVideo={isVideoMedia}
+                    mimeType={vaultEntry?.mimeType}
+                    name={vaultEntry?.name}
+                    title={title}
+                    bengaliTitle={bn}
+                    shotType={frame?.shotType}
+                    titleAlign={titleAlign}
+                    virtualized={isThumbnailVisible}
+                    compactProcedural
+                    className="absolute inset-0 w-full h-full overflow-hidden"
+                    mediaClassName="w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 transition-all duration-200 group-hover:scale-105"
                     alt={`Shot ${shotNumber}`}
-                    referrerPolicy="no-referrer"
-                    decoding="async"
-                    onError={() =>
-                      setFailedThumbMap((prev) => ({ ...prev, [thumbKey]: true }))
-                    }
-                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 transition-all duration-200 group-hover:scale-105"
                   />
-                ) : hasMedia && isThumbnailVisible && isVideoMedia && resolvedUrl ? (
-                  <video
-                    src={resolvedUrl}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="absolute inset-0 w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 pointer-events-none"
-                  />
-                ) : hasMedia ? (
-                  <div className="absolute inset-0 bg-[#12121a] flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-[#D4AF37]/40 pointer-events-none" />
-                  </div>
                 ) : (() => {
                   const proc = getShotProceduralSpec(idx);
                   const effAlign = resolveEffectiveTitleAlign(titleAlign, idx, frame?.shotType);

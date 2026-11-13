@@ -502,34 +502,53 @@ export async function exportFrameRangeToMp4(
   const hasWebCodecs = typeof window !== 'undefined' && typeof window.VideoEncoder !== 'undefined';
 
   if (hasWebCodecs) {
-    return await renderWithWebCodecs(
-      offscreenCanvas,
-      ctx as any,
-      width,
-      height,
-      range,
-      frames,
-      imageCache,
-      options,
-      fps,
-      onProgress,
-      abortSignal
-    );
-  } else {
-    return await renderWithMediaRecorder(
-      offscreenCanvas as any,
-      ctx as any,
-      width,
-      height,
-      range,
-      frames,
-      imageCache,
-      options,
-      fps,
-      onProgress,
-      abortSignal
-    );
+    try {
+      return await renderWithWebCodecs(
+        offscreenCanvas,
+        ctx as any,
+        width,
+        height,
+        range,
+        frames,
+        imageCache,
+        options,
+        fps,
+        onProgress,
+        abortSignal
+      );
+    } catch (webcodecsErr) {
+      if (abortSignal?.aborted) throw webcodecsErr;
+      console.warn('[exportEngine] WebCodecs failed, falling back to MediaRecorder:', webcodecsErr);
+    }
   }
+
+  let recorderCanvas: HTMLCanvasElement;
+  let recorderCtx: CanvasRenderingContext2D | null;
+  if (typeof HTMLCanvasElement !== 'undefined' && offscreenCanvas instanceof HTMLCanvasElement) {
+    recorderCanvas = offscreenCanvas;
+    recorderCtx = ctx as CanvasRenderingContext2D;
+  } else {
+    recorderCanvas = document.createElement('canvas');
+    recorderCanvas.width = width;
+    recorderCanvas.height = height;
+    recorderCtx = recorderCanvas.getContext('2d', { alpha: false });
+  }
+  if (!recorderCtx) {
+    throw new Error('Unable to create 2D canvas context for MediaRecorder fallback.');
+  }
+  return await renderWithMediaRecorder(
+    recorderCanvas,
+    recorderCtx,
+    width,
+    height,
+    range,
+    frames,
+    imageCache,
+    options,
+    fps,
+    onProgress,
+    abortSignal
+  );
 }
 
 /**
@@ -564,30 +583,32 @@ async function renderWithWebCodecs(
   });
 
   let encoderError: Error | null = null;
+  let hasDecoderConfig = false;
 
   // Initialize WebCodecs VideoEncoder
   const videoEncoder = new window.VideoEncoder({
     output: (chunk, meta) => {
-      const safeMeta: any = meta ? { ...meta } : {};
-      if (!safeMeta.decoderConfig) {
-        safeMeta.decoderConfig = {
-          codec: 'avc1.640028',
-          colorSpace: {
-            primaries: 'bt709',
-            transfer: 'bt709',
-            matrix: 'bt709',
-            fullRange: false
-          },
-          description: meta?.decoderConfig?.description
+      let safeMeta: EncodedVideoChunkMetadata | undefined = undefined;
+      if (meta?.decoderConfig) {
+        hasDecoderConfig = true;
+        safeMeta = {
+          ...meta,
+          decoderConfig: {
+            ...meta.decoderConfig,
+            colorSpace: meta.decoderConfig.colorSpace ?? {
+              primaries: 'bt709',
+              transfer: 'bt709',
+              matrix: 'bt709',
+              fullRange: false
+            }
+          }
         };
-      } else if (!safeMeta.decoderConfig.colorSpace) {
-        safeMeta.decoderConfig.colorSpace = {
-          primaries: 'bt709',
-          transfer: 'bt709',
-          matrix: 'bt709',
-          fullRange: false
-        };
+      } else if (meta) {
+        const cleaned: Record<string, any> = { ...meta };
+        if ('decoderConfig' in cleaned) delete cleaned.decoderConfig;
+        safeMeta = Object.keys(cleaned).length > 0 ? (cleaned as EncodedVideoChunkMetadata) : undefined;
       }
+
       try {
         const data = new Uint8Array(chunk.byteLength);
         chunk.copyTo(data);
@@ -616,7 +637,7 @@ async function renderWithWebCodecs(
     bitrate,
     framerate: fps,
     avc: { format: 'avc' },
-    hardwareAcceleration: 'prefer-hardware'
+    hardwareAcceleration: 'no-preference'
   });
 
   const framesPerShot = Math.round(SLIDE_DURATION_SEC * fps); // 288 frames
@@ -629,6 +650,10 @@ async function renderWithWebCodecs(
     if (encoderError) {
       videoEncoder.close();
       throw encoderError;
+    }
+
+    while (videoEncoder.encodeQueueSize > 8 && !encoderError && !abortSignal?.aborted) {
+      await new Promise((r) => setTimeout(r, 4));
     }
 
     const currentGlobalFrame = range.startFrame + f;
@@ -687,6 +712,10 @@ async function renderWithWebCodecs(
   // Flush remaining encoder frames
   await videoEncoder.flush();
   videoEncoder.close();
+
+  if (!hasDecoderConfig) {
+    throw new Error('WebCodecs H.264 encoder did not emit decoderConfig (avcC)');
+  }
 
   // Finalize MP4 muxer
   muxer.finalize();

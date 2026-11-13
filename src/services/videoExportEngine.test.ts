@@ -3,8 +3,15 @@ import assert from 'node:assert';
 import { 
   parseShotSelection, 
   getExportPresetDimensions, 
-  getBitrateBps 
+  getBitrateBps,
+  sanitizeMuxerChunkMetadata
 } from './videoExportEngine';
+import {
+  getCachedThumbnailUrl,
+  isSvgPlaceholderUrl,
+  isVideoSourceUrl,
+  thumbnailMemoryCache
+} from './thumbnailEngine';
 
 test('parseShotSelection parses single active shot', () => {
   const result = parseShotSelection('current', 1, 1, '', 100, 4, 288);
@@ -79,4 +86,58 @@ test('parseShotSelection supports per-shot variable durations', () => {
   assert.strictEqual(result.durationSec, 17.5);
 });
 
+test('sanitizeMuxerChunkMetadata preserves avcC description on delta chunks', () => {
+  const avcC = new Uint8Array([1, 100, 0, 40, 255, 225, 0, 10]);
+  const state = { hasDecoderConfig: false, cachedDecoderConfig: null as VideoDecoderConfig | null };
 
+  // Keyframe emits full decoderConfig with avcC description
+  const firstMeta = sanitizeMuxerChunkMetadata(
+    { decoderConfig: { codec: 'avc1.640028', description: avcC } },
+    state
+  );
+  assert.strictEqual(state.hasDecoderConfig, true);
+  assert.ok(firstMeta?.decoderConfig?.description);
+
+  // Simulate mp4-muxer storing track.info.decoderConfig via Object.assign
+  const trackDecoderConfig: Record<string, any> = {};
+  if (firstMeta?.decoderConfig) {
+    Object.assign(trackDecoderConfig, firstMeta.decoderConfig);
+  }
+
+  // Subsequent delta chunk has no decoderConfig (or undefined meta)
+  const deltaMeta: EncodedVideoChunkMetadata | undefined = sanitizeMuxerChunkMetadata(
+    {} as EncodedVideoChunkMetadata,
+    state
+  );
+  assert.strictEqual(deltaMeta, undefined);
+
+  const deltaMetaUndefined: EncodedVideoChunkMetadata | undefined = sanitizeMuxerChunkMetadata(undefined, state);
+  assert.strictEqual(deltaMetaUndefined, undefined);
+
+  const applyDelta = (meta: EncodedVideoChunkMetadata | undefined) => {
+    if (meta?.decoderConfig) {
+      Object.assign(trackDecoderConfig, meta.decoderConfig);
+    }
+  };
+  applyDelta(deltaMeta);
+  applyDelta(deltaMetaUndefined);
+  // avcC description must NOT be wiped out by delta chunks
+  assert.strictEqual(trackDecoderConfig.description, avcC);
+});
+
+test('thumbnailEngine distinguishes SVG placeholders, video sources, and raster cache entries', () => {
+  assert.strictEqual(isSvgPlaceholderUrl('data:image/svg+xml;utf8,<svg></svg>'), true);
+  assert.strictEqual(isSvgPlaceholderUrl('data:image/jpeg;base64,/9j/4AAQ'), false);
+
+  assert.strictEqual(isVideoSourceUrl('blob:http://localhost:3000/abc', { isVideo: true }), true);
+  assert.strictEqual(isVideoSourceUrl('https://cdn.example.com/clip.mp4'), true);
+  assert.strictEqual(isVideoSourceUrl('data:video/mp4;base64,AAAA'), true);
+  assert.strictEqual(isVideoSourceUrl('blob:http://localhost:3000/img', { mimeType: 'image/png' }), false);
+
+  thumbnailMemoryCache.clear();
+  thumbnailMemoryCache.set('shot_4', 'data:image/svg+xml;utf8,<svg/>');
+  assert.strictEqual(getCachedThumbnailUrl(['shot_4']), null);
+
+  thumbnailMemoryCache.set('shot_4', 'data:image/jpeg;base64,REALPOSTER');
+  assert.strictEqual(getCachedThumbnailUrl(['missing_key', 'shot_4']), 'data:image/jpeg;base64,REALPOSTER');
+});

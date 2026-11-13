@@ -127,9 +127,11 @@ export class StreamingDiskExporter {
       video: {
         codec: 'avc',
         width,
-        height
+        height,
+        frameRate: fps
       },
-      fastStart: isStreamedDirectToDisk ? false : 'in-memory'
+      fastStart: isStreamedDirectToDisk ? false : 'in-memory',
+      firstTimestampBehavior: 'offset'
     });
 
     // 3. Configure Hardware VideoEncoder
@@ -142,17 +144,24 @@ export class StreamingDiskExporter {
         try {
           const data = new Uint8Array(chunk.byteLength);
           chunk.copyTo(data);
-          const safeMeta: any = meta ? { ...meta } : {};
-          if (!safeMeta.decoderConfig) {
-            safeMeta.decoderConfig = {
-              codec: selectedCodec,
-              colorSpace: {
-                primaries: 'bt709',
-                transfer: 'bt709',
-                matrix: 'bt709',
-                fullRange: false
+          let safeMeta: EncodedVideoChunkMetadata | undefined = undefined;
+          if (meta?.decoderConfig) {
+            safeMeta = {
+              ...meta,
+              decoderConfig: {
+                ...meta.decoderConfig,
+                colorSpace: meta.decoderConfig.colorSpace ?? {
+                  primaries: 'bt709',
+                  transfer: 'bt709',
+                  matrix: 'bt709',
+                  fullRange: false
+                }
               }
             };
+          } else if (meta) {
+            const cleaned: Record<string, any> = { ...meta };
+            if ('decoderConfig' in cleaned) delete cleaned.decoderConfig;
+            safeMeta = Object.keys(cleaned).length > 0 ? (cleaned as EncodedVideoChunkMetadata) : undefined;
           }
           muxer.addVideoChunkRaw(data, chunk.type, chunk.timestamp, chunk.duration || Math.round(1_000_000 / fps), safeMeta);
           chunksMuxed++;

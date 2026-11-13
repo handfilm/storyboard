@@ -29,11 +29,13 @@ import {
 } from '../types/storyboard';
 import { audioEngine } from '../services/audioEngine';
 import { useStudioStore } from '../core/store';
-import { getShotMediaKey } from '../services/handfilmMediaVault';
+import { getShotMediaKey, resolveShotMediaEntry } from '../services/handfilmMediaVault';
 import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
+import { ShotMediaThumbnail } from './ShotMediaThumbnail';
 import {
   formatSMPTETimecode,
   cleanupVideoElement,
+  isVideoSourceUrl,
   thumbnailMemoryCache
 } from '../services/thumbnailEngine';
 import {
@@ -130,19 +132,15 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
   const liveFrameCount = getShotFrameCount(liveDurationSec, targetFps);
 
   const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
-  const vaultEntry = shotMediaMap?.[getShotMediaKey(slide as any, index)] ?? null;
+  const vaultEntry = resolveShotMediaEntry(shotMediaMap, slide as any, undefined, index);
   const resolvedMediaUrl = vaultEntry?.url || slide.remoteUrl || '';
 
   // Determine media type (never assume generic blob: URLs are videos)
   const isVideo = vaultEntry
     ? vaultEntry.type === 'video'
-    : Boolean(
-        slide.isVideo ||
-          resolvedMediaUrl.includes('.mp4') ||
-          resolvedMediaUrl.includes('.webm') ||
-          resolvedMediaUrl.includes('.mov') ||
-          resolvedMediaUrl.startsWith('data:video')
-      );
+    : isVideoSourceUrl(resolvedMediaUrl, {
+        isVideo: Boolean(slide.isVideo)
+      });
 
   // Cached fallback thumbnail (never pure black)
   const fallbackThumbnail = useMemo(() => {
@@ -335,24 +333,35 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
             : 'border-white/10 z-0 overflow-hidden'
         }`}
       >
-        {/* RAM Virtualization: Mount Video ONLY if card is within active viewport buffer */}
-        {isWithinBuffer && isVideo && resolvedMediaUrl ? (
-          <video
-            ref={videoRef}
-            src={resolvedMediaUrl}
-            muted
-            playsInline
-            preload="metadata"
-            className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
-          />
-        ) : fallbackThumbnail ? (
-          <img
-            src={fallbackThumbnail}
-            alt={slide.titleEn || `Shot ${epNum}`}
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover opacity-50"
-            loading="lazy"
-          />
+        {/* Persistent Poster Base + Hover-Scrubbing Video Layer (Never Solid Black) */}
+        {(resolvedMediaUrl || fallbackThumbnail) ? (
+          <>
+            <ShotMediaThumbnail
+              shotIndex={index}
+              shotId={slide.id}
+              mediaUrl={resolvedMediaUrl}
+              thumbnailUrl={fallbackThumbnail}
+              isVideo={isVideo}
+              mimeType={vaultEntry?.mimeType}
+              name={vaultEntry?.name}
+              title={slide.titleEn}
+              bengaliTitle={slide.titleBn}
+              virtualized={isWithinBuffer}
+              className="w-full h-full overflow-hidden"
+              mediaClassName="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity"
+              alt={slide.titleEn || `Shot ${epNum}`}
+            />
+            {isWithinBuffer && isVideo && resolvedMediaUrl && isHovered && (
+              <video
+                ref={videoRef}
+                src={resolvedMediaUrl}
+                muted
+                playsInline
+                preload="auto"
+                className="absolute inset-0 w-full h-full object-cover opacity-95 pointer-events-none"
+              />
+            )}
+          </>
         ) : (
           <div className="w-full h-full bg-[#0D0D14] flex flex-col items-center justify-center text-zinc-700">
             {isVideo ? (

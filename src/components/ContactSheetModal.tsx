@@ -49,7 +49,10 @@ import { filterFrames, getLutFilterCSS } from '../utils/engine';
 import { eventBus } from '../core/eventBus';
 import { downloadStoryboardPdf, StoryboardPdfOptions, exportFrameAsJpeg, exportFramesAsJpegZip } from '../utils/pdfExport';
 import { handleFileUpload } from '../services/mediaIngestService';
-import { thumbnailMemoryCache } from '../services/thumbnailEngine';
+import { isSvgPlaceholderUrl, isVideoSourceUrl, thumbnailMemoryCache } from '../services/thumbnailEngine';
+import { useStudioStore } from '../core/store';
+import { resolveShotMediaEntry } from '../services/handfilmMediaVault';
+import { ShotMediaThumbnail } from './ShotMediaThumbnail';
 
 function formatCompactShotRange(oneBasedNumbers: number[]): string {
   if (oneBasedNumbers.length === 0) return '';
@@ -117,6 +120,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
   directorName = 'Directorial Team',
   aspectRatio = '2.39:1'
 }) => {
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | undefined>();
   
@@ -1733,7 +1737,6 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
             >
               {filtered.map((frame, index) => {
                 const isSelected = frames[currentIndex]?.id === frame.id || frame.id === currentIndex;
-                const hasImage = Boolean(frame.imageUrl);
                 const isBeingDragged = draggedFrameId === frame.id;
                 const isDropTarget = dragOverFrameId === frame.id;
 
@@ -1742,8 +1745,21 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 const isMultiChecked = selectedFrameIds.has(frame.id);
                 const isRangeAnchor =
                   (isMultiSelectMode || selectedFrameIds.size > 0) && anchorFrameId === frame.id;
-                const displayThumbUrl = frame.thumbnailUrl || frame.thumbnail || frame.imageUrl || '';
-                const hasVisualMedia = Boolean(displayThumbUrl);
+                const actualIdx = frames.findIndex((f) => f.id === frame.id);
+                const resolvedIdx = actualIdx >= 0 ? actualIdx : index;
+                const vaultEntry = resolveShotMediaEntry(shotMediaMap, frame, undefined, resolvedIdx);
+                const resolvedMediaUrl = vaultEntry?.url || frame.imageUrl || '';
+                const isVideoMedia = vaultEntry
+                  ? vaultEntry.type === 'video'
+                  : isVideoSourceUrl(resolvedMediaUrl, { isVideo: frame.isVideo });
+                const cleanThumb =
+                  frame.thumbnailUrl && !isSvgPlaceholderUrl(frame.thumbnailUrl)
+                    ? frame.thumbnailUrl
+                    : frame.thumbnail && !isSvgPlaceholderUrl(frame.thumbnail)
+                      ? frame.thumbnail
+                      : '';
+                const hasVisualMedia = Boolean(resolvedMediaUrl || cleanThumb || isVideoMedia);
+                const hasImage = Boolean(resolvedMediaUrl || cleanThumb);
 
                 return (
                   <div
@@ -1847,14 +1863,23 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                     />
                   )}
 
-                  {/* Thumbnail Image with Active LUT Filter CSS */}
+                  {/* Thumbnail Image/Video with Active LUT Filter CSS */}
                   {hasVisualMedia ? (
-                    <div
-                      className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                      style={{ 
-                        backgroundImage: `url(${displayThumbUrl})`,
-                        filter: getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)
-                      }}
+                    <ShotMediaThumbnail
+                      shotIndex={resolvedIdx}
+                      shotId={frame.id}
+                      mediaUrl={resolvedMediaUrl}
+                      thumbnailUrl={cleanThumb}
+                      isVideo={isVideoMedia}
+                      mimeType={vaultEntry?.mimeType}
+                      name={vaultEntry?.name}
+                      title={frame.title}
+                      bengaliTitle={frame.bengaliTitle}
+                      shotType={frame.shotType}
+                      lutFilterCss={getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)}
+                      className="absolute inset-0 w-full h-full overflow-hidden"
+                      mediaClassName="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      alt={frame.title || `Shot ${resolvedIdx + 1}`}
                     />
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center text-white/20 group-hover:text-white/40">

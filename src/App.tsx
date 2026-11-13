@@ -60,11 +60,17 @@ import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';
 import {
   loadAllShotMedia,
+  resolveShotMediaEntry,
   saveShotMediaBlob,
   deleteShotMedia,
   getShotMediaKey
 } from './services/handfilmMediaVault';
-import { thumbnailMemoryCache } from './services/thumbnailEngine';
+import {
+  ensureVideoThumbnailUrl,
+  isSvgPlaceholderUrl,
+  isVideoSourceUrl,
+  thumbnailMemoryCache
+} from './services/thumbnailEngine';
 import { opfsMediaStorage } from './services/media/opfsMediaStorage';
 import { handleFileUpload } from './services/mediaIngestService';
 import { PlaybackMode } from './types/editor';
@@ -628,10 +634,34 @@ export default function App() {
           console.warn('[App] handfilm_media_vault save warning:', err);
         }
 
-        const resolvedThumb = thumbnailUrl || (!isVid ? resolvedUrl : undefined);
+        const validThumb =
+          thumbnailUrl && !isSvgPlaceholderUrl(thumbnailUrl) && !isVideoSourceUrl(thumbnailUrl)
+            ? thumbnailUrl
+            : undefined;
+        const resolvedThumb = validThumb || (!isVid ? resolvedUrl : undefined);
         if (resolvedThumb) {
+          if (targetFrame?.id !== undefined && targetFrame?.id !== null) {
+            thumbnailMemoryCache.set(String(targetFrame.id), resolvedThumb);
+          }
+          thumbnailMemoryCache.set(String(shotIndex), resolvedThumb);
           thumbnailMemoryCache.set(String(shotIndex + 1), resolvedThumb);
           thumbnailMemoryCache.set(`shot_${shotIndex}`, resolvedThumb);
+          if (resolvedUrl) thumbnailMemoryCache.set(resolvedUrl, resolvedThumb);
+        } else if (isVid && resolvedUrl) {
+          void ensureVideoThumbnailUrl(
+            [targetFrame?.id, `shot_${shotIndex}`, shotIndex],
+            resolvedUrl,
+            0.15
+          ).then((poster) => {
+            if (!poster) return;
+            setProject(prev => {
+              const nextFrames = [...prev.frames];
+              if (nextFrames[shotIndex]) {
+                nextFrames[shotIndex] = { ...nextFrames[shotIndex], thumbnailUrl: poster };
+              }
+              return { ...prev, frames: nextFrames };
+            });
+          });
         }
         setProject(prev => {
           const nextFrames = [...prev.frames];
@@ -639,7 +669,7 @@ export default function App() {
             nextFrames[shotIndex] = {
               ...nextFrames[shotIndex],
               imageUrl: resolvedUrl,
-              thumbnailUrl: resolvedThumb || nextFrames[shotIndex].thumbnailUrl,
+              thumbnailUrl: resolvedThumb || (isVid ? undefined : nextFrames[shotIndex].thumbnailUrl),
               isVideo: isVid
             };
           }
@@ -906,23 +936,43 @@ export default function App() {
         const vaultItems = await studioDraftDb.getAllVaultMedia();
         const slots = await studioDraftDb.getAllTimelineSlots();
 
+        const pendingVideoPosters: Array<{ keys: Array<string | number | undefined>; url: string }> = [];
+
         setProject(prev => {
           const nextFrames = [...prev.frames];
+          const hydratedIndices = new Set<number>();
+
           // Hydrate timeline_slots only for explicitly mapped slots
           for (const slot of slots) {
             const item = vaultItems.find(v => v.id === slot.mediaId);
             if (item && item.blob && nextFrames[slot.slotIndex]) {
+              const targetFrame = nextFrames[slot.slotIndex];
               const url = studioDraftDb.getActiveMediaUrl(item.id, item.blob);
               const isVid = item.mimeType.startsWith('video');
-              const thumb = item.thumbnailUrl || (!isVid ? url : undefined);
+              const validVaultThumb =
+                item.thumbnailUrl && !isSvgPlaceholderUrl(item.thumbnailUrl) && !isVideoSourceUrl(item.thumbnailUrl)
+                  ? item.thumbnailUrl
+                  : undefined;
+              const thumb = validVaultThumb || (!isVid ? url : undefined);
               if (thumb) {
+                if (targetFrame?.id !== undefined && targetFrame?.id !== null) {
+                  thumbnailMemoryCache.set(String(targetFrame.id), thumb);
+                }
+                thumbnailMemoryCache.set(String(slot.slotIndex), thumb);
                 thumbnailMemoryCache.set(String(slot.slotIndex + 1), thumb);
                 thumbnailMemoryCache.set(`shot_${slot.slotIndex}`, thumb);
+                thumbnailMemoryCache.set(url, thumb);
+              } else if (isVid && url) {
+                pendingVideoPosters.push({
+                  keys: [targetFrame?.id, `shot_${slot.slotIndex}`, slot.slotIndex],
+                  url
+                });
               }
+              hydratedIndices.add(slot.slotIndex);
               nextFrames[slot.slotIndex] = {
-                ...nextFrames[slot.slotIndex],
+                ...targetFrame,
                 imageUrl: url,
-                thumbnailUrl: thumb || nextFrames[slot.slotIndex].thumbnailUrl,
+                thumbnailUrl: thumb,
                 isVideo: isVid
               };
               useStudioStore.getState().updateShot(slot.slotIndex, {
@@ -932,13 +982,32 @@ export default function App() {
               });
             }
           }
+
           // Hydrate per-shot isolated blobs from handfilm_media_vault (authoritative per-shot store)
           nextFrames.forEach((f, idx) => {
-            const shotKey = getShotMediaKey(f, idx);
-            const entry = restoredMap[shotKey];
+            const entry = resolveShotMediaEntry(restoredMap, f, undefined, idx);
             if (entry) {
+              hydratedIndices.add(idx);
               const isVid = entry.type === 'video';
-              const thumb = !isVid ? entry.url : f.thumbnailUrl;
+              const existingCleanThumb =
+                f.thumbnailUrl &&
+                !f.thumbnailUrl.startsWith('blob:') &&
+                !isSvgPlaceholderUrl(f.thumbnailUrl) &&
+                !isVideoSourceUrl(f.thumbnailUrl)
+                  ? f.thumbnailUrl
+                  : undefined;
+              const thumb = !isVid ? entry.url : existingCleanThumb;
+              if (thumb) {
+                if (f.id !== undefined && f.id !== null) thumbnailMemoryCache.set(String(f.id), thumb);
+                thumbnailMemoryCache.set(String(idx), thumb);
+                thumbnailMemoryCache.set(`shot_${idx}`, thumb);
+                thumbnailMemoryCache.set(entry.url, thumb);
+              } else if (isVid && entry.url) {
+                pendingVideoPosters.push({
+                  keys: [f.id, `shot_${idx}`, idx],
+                  url: entry.url
+                });
+              }
               nextFrames[idx] = {
                 ...f,
                 imageUrl: entry.url,
@@ -950,10 +1019,27 @@ export default function App() {
                 thumbnailUrl: thumb,
                 isVideo: isVid
               });
+            } else if (!hydratedIndices.has(idx)) {
+              // Scrub expired blob: URLs left over from previous browser sessions
+              const hasDeadBlobImg = typeof f.imageUrl === 'string' && f.imageUrl.startsWith('blob:');
+              const hasDeadBlobThumb = typeof f.thumbnailUrl === 'string' && f.thumbnailUrl.startsWith('blob:');
+              if (hasDeadBlobImg || hasDeadBlobThumb) {
+                nextFrames[idx] = {
+                  ...f,
+                  imageUrl: hasDeadBlobImg ? undefined : f.imageUrl,
+                  thumbnailUrl: hasDeadBlobThumb ? undefined : f.thumbnailUrl,
+                  isVideo: hasDeadBlobImg ? false : f.isVideo
+                };
+              }
             }
           });
           return { ...prev, frames: nextFrames };
         });
+
+        // Pre-warm video posters for hydrated video shots cleanly under concurrency cap
+        for (const job of pendingVideoPosters.slice(0, 24)) {
+          void ensureVideoThumbnailUrl(job.keys, job.url, 0.15);
+        }
       } catch (err) {
         console.warn('[App] Vault hydration error on mount:', err);
       }
@@ -1910,24 +1996,43 @@ export default function App() {
       });
 
       // Non-blocking poster extraction & vault backup without overwriting the authoritative per-shot blob URL
+      if (isVid) {
+        void ensureVideoThumbnailUrl(
+          [targetFrame?.id, `shot_${targetIndex}`, targetIndex],
+          vaultEntry.url,
+          0.15
+        );
+      }
+
       await handleFileUpload(file, {
         shotIndex: targetIndex,
         onMetadataReady: (item) => {
-          if (item.thumbnailUrl) {
-            thumbnailMemoryCache.set(String(targetFrame?.id ?? targetIndex + 1), item.thumbnailUrl);
-            thumbnailMemoryCache.set(`shot_${targetIndex}`, item.thumbnailUrl);
+          const validPoster =
+            item.thumbnailUrl &&
+            !isSvgPlaceholderUrl(item.thumbnailUrl) &&
+            !isVideoSourceUrl(item.thumbnailUrl)
+              ? item.thumbnailUrl
+              : '';
+          if (validPoster) {
+            if (targetFrame?.id !== undefined && targetFrame?.id !== null) {
+              thumbnailMemoryCache.set(String(targetFrame.id), validPoster);
+            }
+            thumbnailMemoryCache.set(String(targetIndex), validPoster);
+            thumbnailMemoryCache.set(String(targetIndex + 1), validPoster);
+            thumbnailMemoryCache.set(`shot_${targetIndex}`, validPoster);
+            thumbnailMemoryCache.set(vaultEntry.url, validPoster);
             setProject(prev => {
               const nextFrames = [...prev.frames];
               if (nextFrames[targetIndex]) {
                 nextFrames[targetIndex] = {
                   ...nextFrames[targetIndex],
-                  thumbnailUrl: item.thumbnailUrl
+                  thumbnailUrl: validPoster
                 };
               }
               return { ...prev, frames: nextFrames };
             });
             useStudioStore.getState().updateShot(targetIndex, {
-              thumbnailUrl: item.thumbnailUrl
+              thumbnailUrl: validPoster
             });
           }
         }

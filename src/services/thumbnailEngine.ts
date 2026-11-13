@@ -11,11 +11,13 @@
  */
 
 import { studioDraftDb } from './db';
+import { eventBus } from '../core/eventBus';
 
 export const THUMB_WIDTH = 160;
 export const THUMB_HEIGHT = 90;
-export const THUMB_JPEG_QUALITY = 0.7;
+export const THUMB_JPEG_QUALITY = 0.78;
 export const DEFAULT_KEYFRAME_TIMESTAMP_SEC = 0.5;
+const THUMB_OFFSCREEN_HOST_ID = 'handfilm-offscreen-thumb-host';
 
 export interface ExtractedPosterResult {
   base64: string;
@@ -42,10 +44,28 @@ export interface HoverScrubState {
   thumbnailSource?: string;
 }
 
-// In-Memory Fast LRU Cache (Up to 150 items)
+export function isSvgPlaceholderUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  return url.trim().toLowerCase().startsWith('data:image/svg+xml');
+}
+
+export function isVideoSourceUrl(
+  url?: string | null,
+  flags?: { isVideo?: boolean; mimeType?: string | null; name?: string | null }
+): boolean {
+  if (flags?.isVideo) return true;
+  if (flags?.mimeType && flags.mimeType.toLowerCase().startsWith('video/')) return true;
+  if (flags?.name && /\.(mp4|webm|mov|m4v|mkv|avi|ogv)(\?|$)/i.test(flags.name)) return true;
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim().toLowerCase();
+  if (trimmed.startsWith('data:video')) return true;
+  return /\.(mp4|webm|mov|m4v|mkv|avi|ogv)(\?|#|$)/i.test(trimmed);
+}
+
+// In-Memory Fast LRU Cache (Up to 250 items)
 class ThumbnailMemoryCache {
   private cache = new Map<string, string>();
-  private maxEntries = 150;
+  private maxEntries = 250;
 
   get(key: string): string | undefined {
     const val = this.cache.get(key);
@@ -57,6 +77,7 @@ class ThumbnailMemoryCache {
   }
 
   set(key: string, val: string): void {
+    if (!key || !val || isSvgPlaceholderUrl(val)) return;
     if (this.cache.size >= this.maxEntries) {
       const oldestKey = this.cache.keys().next().value;
       if (oldestKey) this.cache.delete(oldestKey);
@@ -79,6 +100,61 @@ class ThumbnailMemoryCache {
 
 export const thumbnailMemoryCache = new ThumbnailMemoryCache();
 
+export function getCachedThumbnailUrl(
+  keys: Array<string | number | undefined | null>
+): string | null {
+  for (const rawKey of keys) {
+    if (rawKey === undefined || rawKey === null) continue;
+    const key = String(rawKey).trim();
+    if (!key) continue;
+    const hit = thumbnailMemoryCache.get(key);
+    if (hit && !isSvgPlaceholderUrl(hit)) {
+      return hit;
+    }
+  }
+  return null;
+}
+
+function getOffscreenThumbHost(): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  let host = document.getElementById(THUMB_OFFSCREEN_HOST_ID);
+  if (!host && document.body) {
+    host = document.createElement('div');
+    host.id = THUMB_OFFSCREEN_HOST_ID;
+    host.setAttribute('aria-hidden', 'true');
+    host.style.position = 'fixed';
+    host.style.left = '-9999px';
+    host.style.top = '0px';
+    host.style.width = '4px';
+    host.style.height = '4px';
+    host.style.overflow = 'hidden';
+    host.style.opacity = '0.001';
+    host.style.pointerEvents = 'none';
+    host.style.zIndex = '-1';
+    document.body.appendChild(host);
+  }
+  return host;
+}
+
+function mountOffscreenThumbVideo(video: HTMLVideoElement): void {
+  const host = getOffscreenThumbHost();
+  if (host && video.parentElement !== host) {
+    video.style.width = '4px';
+    video.style.height = '4px';
+    host.appendChild(video);
+  }
+}
+
+function unmountOffscreenThumbVideo(video: HTMLVideoElement): void {
+  try {
+    if (video.parentElement) {
+      video.parentElement.removeChild(video);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Formats seconds into broadcast SMPTE timecode (TC HH:MM:SS:FF) locked at 24fps.
  */
@@ -98,7 +174,8 @@ export function formatSMPTETimecode(seconds: number, fps: number = 24): string {
 }
 
 /**
- * Generates an instant procedural SVG fallback poster so shot cards are NEVER blank.
+ * Generates an instant procedural SVG fallback poster.
+ * Not stored in thumbnailMemoryCache so real raster extraction can overwrite it anytime.
  */
 function createProceduralSvgPoster(width = THUMB_WIDTH, height = THUMB_HEIGHT, label = 'VIDEO POSTER'): ExtractedPosterResult {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#0A0A0F"/><rect x="1" y="1" width="${width - 2}" height="${height - 2}" fill="none" stroke="#23232E" stroke-width="1"/><circle cx="${width / 2}" cy="${height / 2 - 6}" r="12" fill="#14141B"/><polygon points="${width / 2 - 4},${height / 2 - 11} ${width / 2 + 6},${height / 2 - 6} ${width / 2 - 4},${height / 2 - 1}" fill="#F5A623"/><text x="50%" y="${height / 2 + 18}" text-anchor="middle" fill="#A1A1AA" font-family="monospace" font-size="8" letter-spacing="1">${label}</text></svg>`;
@@ -149,6 +226,7 @@ export async function extractVideoMetadata(
         video.removeAttribute('src');
         video.load();
       } catch { /* ignore */ }
+      unmountOffscreenThumbVideo(video);
     };
 
     const finish = (result: VideoMetadata) => {
@@ -161,7 +239,7 @@ export async function extractVideoMetadata(
     const timer = setTimeout(() => {
       console.warn('[RECOVERY FALLBACK] Metadata extraction timed out, returning fallback defaults.');
       finish(fallbackMeta);
-    }, 2000);
+    }, 2500);
 
     video.onloadedmetadata = () => {
       clearTimeout(timer);
@@ -188,12 +266,14 @@ export async function extractVideoMetadata(
     };
 
     try {
+      mountOffscreenThumbVideo(video);
       if (typeof source === 'string') {
         video.src = source;
       } else {
         tempBlobUrl = URL.createObjectURL(source);
         video.src = tempBlobUrl;
       }
+      video.load();
     } catch (err) {
       clearTimeout(timer);
       console.warn('[RECOVERY FALLBACK] Failed to assign video src for metadata:', err);
@@ -202,10 +282,29 @@ export async function extractVideoMetadata(
   });
 }
 
+function isCanvasFrameUniformBlack(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  try {
+    const pts: Array<[number, number]> = [
+      [Math.floor(w * 0.5), Math.floor(h * 0.5)],
+      [Math.floor(w * 0.25), Math.floor(h * 0.25)],
+      [Math.floor(w * 0.75), Math.floor(h * 0.75)],
+      [Math.floor(w * 0.25), Math.floor(h * 0.75)],
+      [Math.floor(w * 0.75), Math.floor(h * 0.25)]
+    ];
+    for (const [x, y] of pts) {
+      const px = ctx.getImageData(x, y, 1, 1).data;
+      if (px[0] + px[1] + px[2] > 6) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Tier 1 Primary: Fast DOM Video Seek Frame Extraction.
- * Off-DOM lightweight <video preload="metadata" muted playsInline>, seeks to 0.1s (or 10% duration),
- * draws to 160x90 canvas, and extracts JPEG 0.7 data URL.
+ * Tier 1 Primary: DOM Video Seek Frame Extraction attached to offscreen host for active GPU decode.
  */
 export async function extractVideoPosterTier1DOM(
   source: Blob | File | string,
@@ -217,16 +316,25 @@ export async function extractVideoPosterTier1DOM(
 
   return new Promise<ExtractedPosterResult>((resolve, reject) => {
     const video = document.createElement('video');
-    video.preload = 'metadata';
+    video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
+    if (typeof source === 'string' && !source.startsWith('blob:') && !source.startsWith('data:')) {
+      video.crossOrigin = 'anonymous';
+    }
 
     let tempBlobUrl = '';
     let isCleanedUp = false;
+    let seekTriggered = false;
+    let retriedNonBlackSeek = false;
 
     const cleanup = () => {
       if (isCleanedUp) return;
       isCleanedUp = true;
+      video.onloadedmetadata = null;
+      video.onloadeddata = null;
+      video.onseeked = null;
+      video.onerror = null;
       if (tempBlobUrl) {
         try { URL.revokeObjectURL(tempBlobUrl); } catch { /* ignore */ }
       }
@@ -235,40 +343,41 @@ export async function extractVideoPosterTier1DOM(
         video.removeAttribute('src');
         video.load();
       } catch { /* ignore */ }
+      unmountOffscreenThumbVideo(video);
     };
 
-    // 1800ms fast resilience timeout guard
     const timeoutTimer = setTimeout(() => {
       cleanup();
       reject(new Error('Tier 1 DOM seek timed out'));
-    }, 1800);
+    }, 4500);
 
-    video.onloadedmetadata = () => {
-      const dur = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 12.0;
-      // Seek to 0.1s or 10% duration to bypass black intro
-      let targetTime = 0.1;
-      if (preferredTimestampSec !== undefined && preferredTimestampSec > 0) {
-        targetTime = Math.min(Math.max(dur - 0.05, 0.05), preferredTimestampSec);
-      } else {
-        targetTime = Math.min(Math.max(dur - 0.05, 0.05), Math.max(0.1, dur * 0.1));
-      }
-      video.currentTime = targetTime;
-    };
-
-    video.onseeked = async () => {
-      clearTimeout(timeoutTimer);
+    const captureCurrentFrame = async () => {
+      if (isCleanedUp) return;
       try {
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+        if (isCleanedUp) return;
+
         const vw = video.videoWidth || THUMB_WIDTH;
         const vh = video.videoHeight || THUMB_HEIGHT;
         const targetW = THUMB_WIDTH;
-        const targetH = Math.round(targetW * (vh / vw)) || THUMB_HEIGHT;
+        const targetH = Math.max(45, Math.round(targetW * (vh / vw)) || THUMB_HEIGHT);
 
         const canvas = document.createElement('canvas');
         canvas.width = targetW;
         canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) throw new Error('2D Canvas context unavailable');
         ctx.drawImage(video, 0, 0, targetW, targetH);
+
+        const dur = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 12.0;
+        if (!retriedNonBlackSeek && dur > 0.8 && isCanvasFrameUniformBlack(ctx, targetW, targetH)) {
+          retriedNonBlackSeek = true;
+          const retryTime = Math.min(Math.max(0.2, dur - 0.1), Math.max(0.4, Math.min(dur * 0.35, 1.5)));
+          if (Math.abs(video.currentTime - retryTime) > 0.08) {
+            video.currentTime = retryTime;
+            return;
+          }
+        }
 
         const base64 = canvas.toDataURL('image/jpeg', THUMB_JPEG_QUALITY);
         const blobResult = await new Promise<Blob>((res) => {
@@ -279,7 +388,8 @@ export async function extractVideoPosterTier1DOM(
           );
         });
 
-        const dur = video.duration || 12.0;
+        clearTimeout(timeoutTimer);
+        const tc = formatSMPTETimecode(video.currentTime, 24);
         cleanup();
         resolve({
           base64,
@@ -287,12 +397,48 @@ export async function extractVideoPosterTier1DOM(
           width: targetW,
           height: targetH,
           duration: dur,
-          timecode: formatSMPTETimecode(video.currentTime, 24)
+          timecode: tc
         });
       } catch (err) {
+        clearTimeout(timeoutTimer);
         cleanup();
         reject(err);
       }
+    };
+
+    const triggerSeek = () => {
+      if (seekTriggered || isCleanedUp) return;
+      seekTriggered = true;
+      const dur = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 12.0;
+      let targetTime = 0.15;
+      if (preferredTimestampSec !== undefined && preferredTimestampSec > 0) {
+        targetTime = Math.min(Math.max(dur - 0.05, 0.05), preferredTimestampSec);
+      } else {
+        targetTime = Math.min(Math.max(dur - 0.05, 0.05), Math.max(0.15, dur * 0.1));
+      }
+      if (dur <= 0.15 && video.readyState >= 2) {
+        void captureCurrentFrame();
+        return;
+      }
+      try {
+        video.currentTime = targetTime;
+      } catch {
+        if (video.readyState >= 2) {
+          void captureCurrentFrame();
+        }
+      }
+    };
+
+    video.onloadedmetadata = triggerSeek;
+    video.onloadeddata = () => {
+      if (!seekTriggered) {
+        triggerSeek();
+      } else if (video.readyState >= 2 && Math.abs(video.currentTime - (preferredTimestampSec || 0.15)) < 0.05) {
+        void captureCurrentFrame();
+      }
+    };
+    video.onseeked = () => {
+      void captureCurrentFrame();
     };
 
     video.onerror = () => {
@@ -302,12 +448,14 @@ export async function extractVideoPosterTier1DOM(
     };
 
     try {
+      mountOffscreenThumbVideo(video);
       if (typeof source === 'string') {
         video.src = source;
       } else {
         tempBlobUrl = URL.createObjectURL(source);
         video.src = tempBlobUrl;
       }
+      video.load();
     } catch (err) {
       clearTimeout(timeoutTimer);
       cleanup();
@@ -317,8 +465,7 @@ export async function extractVideoPosterTier1DOM(
 }
 
 /**
- * Tier 2 Secondary: WebCodecs or ImageBitmap frame extraction fallback.
- * Decodes the first VideoFrame, renders to canvas, and explicitly calls frame.close() immediately.
+ * Tier 2 Secondary: ImageBitmap extraction fallback for still image sources.
  */
 export async function extractVideoPosterTier2WebCodecs(
   source: Blob | File | string
@@ -327,7 +474,6 @@ export async function extractVideoPosterTier2WebCodecs(
     return createProceduralSvgPoster(THUMB_WIDTH, THUMB_HEIGHT, 'WEBCODECS POSTER');
   }
 
-  // Attempt ImageBitmap extraction or standard canvas draw
   try {
     let sourceBlob: Blob;
     if (typeof source === 'string') {
@@ -335,6 +481,10 @@ export async function extractVideoPosterTier2WebCodecs(
       sourceBlob = await res.blob();
     } else {
       sourceBlob = source;
+    }
+
+    if (sourceBlob.type.startsWith('video/')) {
+      throw new Error('ImageBitmap cannot decode video containers directly');
     }
 
     if (typeof createImageBitmap === 'function') {
@@ -347,10 +497,13 @@ export async function extractVideoPosterTier2WebCodecs(
         if (ctx) {
           ctx.drawImage(bmp, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
           const base64 = canvas.toDataURL('image/jpeg', THUMB_JPEG_QUALITY);
-          bmp.close(); // Immediate cleanup
+          const blob = await new Promise<Blob>((res) =>
+            canvas.toBlob((b) => res(b || new Blob([], { type: 'image/jpeg' })), 'image/jpeg', THUMB_JPEG_QUALITY)
+          );
+          bmp.close();
           return {
             base64,
-            blob: new Blob([base64], { type: 'image/jpeg' }),
+            blob,
             width: THUMB_WIDTH,
             height: THUMB_HEIGHT,
             duration: 12.0,
@@ -363,7 +516,7 @@ export async function extractVideoPosterTier2WebCodecs(
       }
     }
   } catch (err) {
-    console.warn('[RECOVERY FALLBACK] Tier 2 WebCodecs fallback encountered error:', err);
+    console.warn('[RECOVERY FALLBACK] Tier 2 extraction skipped:', err);
   }
 
   throw new Error('Tier 2 WebCodecs extraction unavailable');
@@ -371,46 +524,39 @@ export async function extractVideoPosterTier2WebCodecs(
 
 /**
  * High-Reliability Video Poster Extraction Pipeline (2-Tier Guard).
- * Tier 1: Fast DOM Video Seek to 0.1s / 10% duration -> 160x90 Canvas -> JPEG 0.7.
- * Tier 2: WebCodecs VideoFrame decode with immediate frame.close().
- * Final Fallback: Procedural SVG with zero-black-frame guarantee.
+ * Only stores real raster thumbnails in thumbnailMemoryCache / IndexedDB (never SVG placeholders).
  */
 export async function extractVideoPoster(
   source: Blob | File | string,
   preferredTimestampSec?: number,
   assetId?: string
 ): Promise<ExtractedPosterResult> {
-  // If in Node.js / test environment
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    const fallback = createProceduralSvgPoster(THUMB_WIDTH, THUMB_HEIGHT, 'RAWx POSTER');
-    return fallback;
+    return createProceduralSvgPoster(THUMB_WIDTH, THUMB_HEIGHT, 'RAWx POSTER');
   }
 
   let result: ExtractedPosterResult | null = null;
 
-  // 1. Try Tier 1: Fast DOM Video Seek
   try {
     result = await extractVideoPosterTier1DOM(source, preferredTimestampSec);
   } catch (tier1Err) {
     console.warn('[RECOVERY FALLBACK] Tier 1 DOM video seek failed, trying Tier 2:', tier1Err);
   }
 
-  // 2. Try Tier 2: WebCodecs / ImageBitmap
   if (!result) {
     try {
       result = await extractVideoPosterTier2WebCodecs(source);
     } catch (tier2Err) {
-      console.warn('[RECOVERY FALLBACK] Tier 2 WebCodecs extraction failed, engaging procedural SVG:', tier2Err);
+      console.warn('[RECOVERY FALLBACK] Tier 2 extraction skipped:', tier2Err);
     }
   }
 
-  // 3. Guaranteed Procedural Fallback
   if (!result) {
     result = createProceduralSvgPoster(THUMB_WIDTH, THUMB_HEIGHT, 'CINEMA POSTER');
   }
 
-  // Cache in memory and IndexedDB
-  if (assetId && result.base64) {
+  // Only cache real raster thumbnails (never poison cache with procedural SVG fallbacks)
+  if (assetId && result.base64 && !isSvgPlaceholderUrl(result.base64)) {
     thumbnailMemoryCache.set(assetId, result.base64);
     try {
       studioDraftDb.putMediaThumbnail(assetId, result.blob).catch(() => {});
@@ -420,6 +566,102 @@ export async function extractVideoPoster(
   }
 
   return result;
+}
+
+// Concurrency-limited video thumbnail extractor (4GB Guard: max 3 active decoders at once)
+const MAX_CONCURRENT_THUMB_DECODERS = 3;
+let activeThumbDecodes = 0;
+const thumbQueue: Array<() => void> = [];
+const inFlightVideoThumbExtractions = new Map<string, Promise<string | null>>();
+
+function runWithThumbSlot<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const start = () => {
+      activeThumbDecodes++;
+      task()
+        .then(resolve)
+        .catch(reject)
+        .finally(() => {
+          activeThumbDecodes = Math.max(0, activeThumbDecodes - 1);
+          const next = thumbQueue.shift();
+          if (next) next();
+        });
+    };
+
+    if (activeThumbDecodes < MAX_CONCURRENT_THUMB_DECODERS) {
+      start();
+    } else {
+      thumbQueue.push(start);
+    }
+  });
+}
+
+/**
+ * Extracts and caches a crisp JPEG poster for any video URL (deduplicated & concurrency-limited).
+ * Stores the resulting JPEG data URL under all provided cacheKeys + videoUrl and emits `thumbnails_updated`.
+ */
+export function ensureVideoThumbnailUrl(
+  cacheKeys: Array<string | number | undefined | null>,
+  videoUrl: string,
+  preferredTimestampSec: number = 0.15
+): Promise<string | null> {
+  const normalizedKeys = Array.from(
+    new Set(
+      [...cacheKeys, videoUrl]
+        .filter((k) => k !== undefined && k !== null && String(k).trim() !== '')
+        .map((k) => String(k).trim())
+    )
+  );
+
+  const existing = getCachedThumbnailUrl(normalizedKeys);
+  if (existing) {
+    for (const key of normalizedKeys) {
+      thumbnailMemoryCache.set(key, existing);
+    }
+    return Promise.resolve(existing);
+  }
+
+  if (!videoUrl || typeof window === 'undefined' || typeof document === 'undefined') {
+    return Promise.resolve(null);
+  }
+
+  const dedupeKey = videoUrl;
+  const existingFlight = inFlightVideoThumbExtractions.get(dedupeKey);
+  if (existingFlight) {
+    return existingFlight.then((url) => {
+      if (url && !isSvgPlaceholderUrl(url)) {
+        for (const key of normalizedKeys) {
+          thumbnailMemoryCache.set(key, url);
+        }
+      }
+      return url;
+    });
+  }
+
+  const flight = runWithThumbSlot(async (): Promise<string | null> => {
+    try {
+      const res = await extractVideoPosterTier1DOM(videoUrl, preferredTimestampSec);
+      if (res?.base64 && !isSvgPlaceholderUrl(res.base64)) {
+        for (const key of normalizedKeys) {
+          thumbnailMemoryCache.set(key, res.base64);
+        }
+        eventBus.emit('thumbnails_updated', {
+          keys: normalizedKeys,
+          url: res.base64,
+          timestamp: Date.now()
+        });
+        return res.base64;
+      }
+    } catch (err) {
+      console.warn('[thumbnailEngine] ensureVideoThumbnailUrl fallback:', err);
+    }
+    return null;
+  }).finally(() => {
+    inFlightVideoThumbExtractions.delete(dedupeKey);
+  });
+
+  inFlightVideoThumbExtractions.set(dedupeKey, flight);
+  return flight;
 }
 
 /**
@@ -454,6 +696,7 @@ export async function cacheVideoThumbnail(
   base64OrBlob: string | Blob
 ): Promise<void> {
   if (typeof base64OrBlob === 'string') {
+    if (isSvgPlaceholderUrl(base64OrBlob)) return;
     thumbnailMemoryCache.set(assetId, base64OrBlob);
   }
   try {

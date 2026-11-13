@@ -46,22 +46,42 @@ export async function generate240pWebPVideoThumbnail(
 
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
-    video.preload = 'metadata';
+    video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
-
-    let tempUrl = '';
-    if (typeof source === 'string') {
-      video.src = source;
-    } else {
-      tempUrl = URL.createObjectURL(source);
-      video.src = tempUrl;
+    if (typeof source === 'string' && !source.startsWith('blob:') && !source.startsWith('data:')) {
+      video.crossOrigin = 'anonymous';
     }
 
+    let host = document.getElementById('handfilm-offscreen-thumb-host');
+    if (!host && document.body) {
+      host = document.createElement('div');
+      host.id = 'handfilm-offscreen-thumb-host';
+      host.setAttribute('aria-hidden', 'true');
+      host.style.position = 'fixed';
+      host.style.left = '-9999px';
+      host.style.top = '0px';
+      host.style.width = '4px';
+      host.style.height = '4px';
+      host.style.overflow = 'hidden';
+      host.style.opacity = '0.001';
+      host.style.pointerEvents = 'none';
+      document.body.appendChild(host);
+    }
+    if (host) {
+      video.style.width = '4px';
+      video.style.height = '4px';
+      host.appendChild(video);
+    }
+
+    let tempUrl = '';
     let isCleanedUp = false;
     const cleanUp = () => {
       if (isCleanedUp) return;
       isCleanedUp = true;
+      video.onloadedmetadata = null;
+      video.onseeked = null;
+      video.onerror = null;
       if (tempUrl) {
         try {
           URL.revokeObjectURL(tempUrl);
@@ -69,12 +89,21 @@ export async function generate240pWebPVideoThumbnail(
           // Ignore revocation errors
         }
       }
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        // Ignore cleanup errors
+      }
+      try {
+        if (video.parentElement) video.parentElement.removeChild(video);
+      } catch {
+        // Ignore DOM detach errors
+      }
     };
 
-    // Timeout guard: 8 seconds maximum before failing or creating fallback
+    // Timeout guard: 5 seconds maximum before failing or creating fallback
     const timeoutId = setTimeout(() => {
       cleanUp();
       const fallbackBlob = new Blob([''], { type: THUMBNAIL_TARGET_MIME });
@@ -85,17 +114,18 @@ export async function generate240pWebPVideoThumbnail(
         duration: 12.0,
         usedOffscreenCanvas: false
       });
-    }, 8000);
+    }, 5000);
 
     video.onloadedmetadata = () => {
-      const dur = video.duration || 12.0;
-      const targetTime = Math.min(targetTimestampSec, Math.max(0, dur / 2));
+      const dur = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 12.0;
+      const targetTime = Math.min(targetTimestampSec, Math.max(0.05, dur / 2));
       video.currentTime = targetTime;
     };
 
     video.onseeked = async () => {
       clearTimeout(timeoutId);
       try {
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
         const vw = video.videoWidth || 1920;
         const vh = video.videoHeight || 1080;
         const targetW = THUMBNAIL_TARGET_WIDTH;
@@ -160,6 +190,18 @@ export async function generate240pWebPVideoThumbnail(
         usedOffscreenCanvas: false
       });
     };
+
+    if (typeof source === 'string') {
+      video.src = source;
+    } else {
+      tempUrl = URL.createObjectURL(source);
+      video.src = tempUrl;
+    }
+    try {
+      video.load();
+    } catch {
+      // ignore
+    }
   });
 }
 

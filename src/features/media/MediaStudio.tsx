@@ -99,7 +99,7 @@ export const MediaStudio: React.FC<MediaStudioProps> = ({
             }`}
           >
             <Sparkles className="w-3 h-3" />
-            <span>GEMINI &amp; FLOW AI</span>
+            <span>✨ GEMINI &amp; GOOGLE FLOW AI</span>
           </button>
         </div>
       </div>

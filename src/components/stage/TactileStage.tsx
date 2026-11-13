@@ -2144,7 +2144,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           className={`w-full shrink-0 transition-all duration-200 overflow-hidden ${
             isAutoplay && !isStageChromeHovered
               ? 'max-h-0 opacity-0 pointer-events-none'
-              : 'max-h-8 opacity-100'
+              : 'max-h-[20px] opacity-100'
           }`}
         >
           <StageCaptionStrip

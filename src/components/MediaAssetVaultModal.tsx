@@ -439,7 +439,7 @@ export const MediaAssetVaultModal: React.FC<MediaAssetVaultModalProps> = ({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>GEMINI &amp; GOOGLE FLOW AI</span>
+              <span>✨ GEMINI &amp; GOOGLE FLOW AI</span>
             </button>
           </div>
           <span className="hidden sm:inline text-[9.5px] text-[#8E8E93] tabular-nums">

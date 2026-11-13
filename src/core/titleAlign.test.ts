@@ -91,6 +91,6 @@ test('Stage typography inside stage box, top bar wiring, duplicate 70%/100% clea
     path.resolve(process.cwd(), 'src/components/ControlDock.tsx'),
     'utf8'
   );
-  assert.match(controlDockSrc, /min-w-\[88px\] w-\[88px\] h-\[48px\]/);
-  assert.match(controlDockSrc, /h-\[32px\] min-h-\[32px\]/);
+  assert.match(controlDockSrc, /min-w-\[84px\] w-\[84px\] h-\[40px\]/);
+  assert.match(controlDockSrc, /h-\[26px\] min-h-\[26px\]/);
 });

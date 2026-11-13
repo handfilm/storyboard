@@ -710,7 +710,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     <div
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       onMouseLeave={() => scheduleHoverLeaveClear()}
-      className="relative w-full shrink-0 z-40 flex flex-col items-center pointer-events-auto px-1 sm:px-2 pb-0.5 pt-0.5 bg-[#0B0B0D]/95 border-t border-white/[0.07] transition-all duration-200 ease-out opacity-100"
+      className="relative w-full shrink-0 z-40 flex flex-col items-center pointer-events-auto px-1 sm:px-2 pb-0 pt-0 bg-[#0B0B0D]/95 border-t border-white/[0.07] transition-all duration-200 ease-out opacity-100"
     >
       {/* Hidden File Input for Hover Card Replace Shot Action */}
       <input
@@ -922,12 +922,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
       {/* Shot Strip + Editorial Transport Wrapper (Full-Color Sharpness Preserved) */}
       <div className="w-full flex flex-col items-center">
-      {/* 100-Frame Strip Navigation with Compact 88x48 Cards & Collapsible Strip Container */}
+      {/* 100-Frame Strip Navigation with Compact 84x40 Cards & Collapsible Strip Container */}
       <div
-        className={`w-full flex items-center gap-1.5 transition-all duration-200 ease-out ${
+        className={`w-full flex items-center gap-1 transition-all duration-200 ease-out ${
           isStripCollapsed
             ? 'max-h-0 opacity-0 pointer-events-none overflow-hidden mb-0'
-            : 'max-h-[58px] opacity-100 pointer-events-auto mb-0.5'
+            : 'max-h-[46px] opacity-100 pointer-events-auto mb-0'
         }`}
       >
         <ToolTooltip
@@ -939,9 +939,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             type="button"
             onClick={onPrev}
             aria-label="Previous Shot (J)"
-            className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
+            className="w-5 h-5 p-0 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
           >
-            <ChevronLeft className="w-3 h-3" />
+            <ChevronLeft className="w-[11px] h-[11px]" />
           </button>
         </ToolTooltip>
 
@@ -953,7 +953,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               e.currentTarget.scrollLeft += e.deltaY;
             }
           }}
-          className="flex-1 flex items-center gap-1.5 px-2 py-0.5 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar bg-[#0B0B0D]/90 backdrop-blur-2xl border border-white/[0.07] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.85)]"
+          className="flex-1 flex items-center gap-1.5 px-1.5 py-[2px] overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar bg-[#0B0B0D]/90 backdrop-blur-2xl border border-white/[0.07] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.85)]"
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
@@ -1060,7 +1060,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
-                className={`group relative min-w-[88px] w-[88px] h-[48px] flex-shrink-0 snap-start rounded-md overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-[240ms] ease-out will-change-transform ${
+                className={`group relative min-w-[84px] w-[84px] h-[40px] flex-shrink-0 snap-start rounded-md overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-[240ms] ease-out will-change-transform ${
                   dropTargetIndex === idx
                     ? 'border-2 border-dashed border-[#F59E0B] shadow-[0_0_16px_rgba(245,158,11,0.4)] scale-[1.04] z-30 bg-[#141417]'
                     : isActive
@@ -1143,9 +1143,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/55 pointer-events-none" />
 
                 {/* Top Metadata Bar: #01 + Duration / Relative TC (leaves room for top-right dispatch button) */}
-                <div className="relative z-10 pl-1 pr-6 pt-0.5 flex items-center justify-between gap-1 font-mono pointer-events-none">
+                <div className="relative z-10 pl-1 pr-4 pt-[2px] flex items-center justify-between gap-0.5 font-mono pointer-events-none">
                   <span
-                    className={`px-1 py-0.5 rounded text-[8.5px] font-black leading-none tabular-nums inline-flex items-center gap-1 ${
+                    className={`px-1 py-[1px] rounded text-[7.5px] font-black leading-none tabular-nums inline-flex items-center gap-0.5 ${
                       isActive ? 'bg-[#F59E0B] text-[#0B0B0D]' : 'bg-[#0B0B0D]/85 text-[#8E8E93] group-hover:text-[#F4F4F5]'
                     }`}
                   >
@@ -1154,7 +1154,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   </span>
                   <span
                     ref={isActive ? activeShotRelTcDomRef : undefined}
-                    className={`px-1 py-0.5 rounded text-[8px] font-bold leading-none tabular-nums ${
+                    className={`px-1 py-[1px] rounded text-[7px] font-bold leading-none tabular-nums ${
                       isActive
                         ? 'bg-[#0B0B0D]/90 border border-[#F59E0B]/60 text-[#F59E0B]'
                         : 'bg-[#0B0B0D]/80 text-[#8E8E93]'
@@ -1187,18 +1187,18 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }}
                   title={`Dispatch Shot ${shotBadge} to Photoshop / Premiere / CapCut`}
                   aria-label={`Dispatch Shot ${shotNumber} to External Studio`}
-                  className="absolute top-0.5 right-0.5 z-30 bg-[#141417]/90 border border-white/[0.12] text-[#8E8E93] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] font-bold w-3.5 h-3.5 rounded-sm flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer"
+                  className="absolute top-0.5 right-0.5 z-30 bg-[#141417]/90 border border-white/[0.12] text-[#8E8E93] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] font-bold w-3 h-3 rounded-sm flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer"
                 >
-                  <Zap className="w-2.5 h-2.5" />
+                  <Zap className="w-2 h-2" />
                 </button>
 
                 {/* Bottom Metadata Bar: Title/Bangla Label + Active LUT Badge */}
-                <div className="relative z-10 px-1 pb-0.5 flex items-center justify-between gap-1 font-mono pointer-events-none">
-                  <span className="text-[8.5px] font-semibold text-[#F4F4F5] truncate leading-none drop-shadow">
+                <div className="relative z-10 px-1 pb-[2px] flex items-center justify-between gap-0.5 font-mono pointer-events-none">
+                  <span className="text-[7.5px] font-semibold text-[#F4F4F5] truncate leading-none drop-shadow">
                     {bn || title}
                   </span>
                   {frame?.lutFilter && (
-                    <span className="px-1 py-0.5 rounded bg-[#0B0B0D]/80 border border-white/[0.07] text-[7px] text-[#8E8E93] font-bold uppercase leading-none shrink-0">
+                    <span className="px-0.5 py-0 rounded bg-[#0B0B0D]/80 border border-white/[0.07] text-[6.5px] text-[#8E8E93] font-bold uppercase leading-tight shrink-0">
                       {frame.lutFilter.slice(0, 3)}
                     </span>
                   )}
@@ -1206,7 +1206,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
                 {/* Real-Time Slide Progress Baseline */}
                 {isActive && (
-                  <div className="absolute bottom-0 inset-x-0 h-[2px] bg-[#0B0B0D]/80 overflow-hidden pointer-events-none z-20">
+                  <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-[#0B0B0D]/80 overflow-hidden pointer-events-none z-20">
                     <div
                       ref={activeShotProgressDomRef}
                       className="h-full bg-[#F59E0B]"
@@ -1244,9 +1244,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             type="button"
             onClick={onNext}
             aria-label="Next Shot (L)"
-            className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
+            className="w-5 h-5 p-0 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] backdrop-blur-md cursor-pointer transition-all shadow shrink-0 active:scale-95 flex items-center justify-center"
           >
-            <ChevronRight className="w-3 h-3" />
+            <ChevronRight className="w-[11px] h-[11px]" />
           </button>
         </ToolTooltip>
 
@@ -1261,9 +1261,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               type="button"
               onClick={() => onApplyDurationToAll(currentDurationSec)}
               aria-label="Ripple Apply Duration to All Shots"
-              className="hidden md:flex p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0"
+              className="hidden md:flex w-5 h-5 p-0 items-center justify-center rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0"
             >
-              <Repeat className="w-3 h-3" />
+              <Repeat className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
         )}
@@ -1278,9 +1278,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               type="button"
               onClick={onMatchAudioBeats}
               aria-label="Match Audio Beats"
-              className="hidden lg:flex p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0"
+              className="hidden lg:flex w-5 h-5 p-0 items-center justify-center rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0"
             >
-              <Music className="w-3 h-3" />
+              <Music className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
         )}
@@ -1293,7 +1293,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onBlur={() => handleJumpSubmit()}
             placeholder={`#${currentIndex + 1}`}
             aria-label="Jump to Shot Number"
-            className="w-9 h-6 bg-[#141417] border border-white/[0.07] focus:border-[#F59E0B] text-[#F4F4F5] placeholder-[#8E8E93] text-[9.5px] font-mono px-1 rounded text-center outline-none transition-colors tabular-nums"
+            className="w-8 h-5 bg-[#141417] border border-white/[0.07] focus:border-[#F59E0B] text-[#F4F4F5] placeholder-[#8E8E93] text-[8.5px] font-mono px-1 rounded text-center outline-none transition-colors tabular-nums"
             title="Type shot number and press Enter to jump"
           />
         </form>
@@ -1321,11 +1321,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         document.body
       )}
 
-      {/* Main Single-Row Sleek 32px Iconic Transport & Optics Toolbar */}
+      {/* Main Single-Row Sleek 26px Iconic Transport & Optics Toolbar */}
       <div
         data-testid="control-dock-toolbar"
         data-playing={isPlaying ? 'true' : 'false'}
-        className="nle-focus-bar relative w-full h-[32px] min-h-[32px] py-0.5 pointer-events-auto bg-[#0B0B0D]/95 backdrop-blur-2xl border border-white/[0.07] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-1.5 flex flex-row items-center justify-between flex-nowrap gap-1 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono-tech select-none"
+        className="nle-focus-bar relative w-full h-[26px] min-h-[26px] max-h-[26px] py-[2px] pointer-events-auto bg-[#0B0B0D]/95 backdrop-blur-2xl border border-white/[0.07] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.95)] px-1.5 flex flex-row items-center justify-between flex-nowrap gap-1 overflow-x-auto overflow-y-hidden no-scrollbar text-xs font-mono-tech select-none"
       >
         {/* Subtle 1px Top Hairline Divider */}
         <div className="absolute top-0 inset-x-0 h-[1px] bg-white/[0.07] pointer-events-none" />
@@ -1347,22 +1347,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
               onClick={onTogglePlay}
               aria-label={isPlaying ? 'Pause Loop' : 'Play Loop'}
-              className={`nle-editorial-btn w-6 h-6 rounded-full flex items-center justify-center cursor-pointer active:scale-95 shrink-0 ${
+              className={`nle-editorial-btn w-5 h-5 rounded-full flex items-center justify-center cursor-pointer active:scale-95 shrink-0 ${
                 isPlaying
                   ? 'bg-[#F59E0B] text-[#0B0B0D] ring-1 ring-[#F59E0B]/60 shadow-[0_0_10px_rgba(245,158,11,0.45)]'
                   : 'bg-[#141417] border border-amber-500/35 hover:border-[#F59E0B] text-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.16)]'
               }`}
             >
               {isPlaying ? (
-                <Pause className="w-3 h-3 fill-current" />
+                <Pause className="w-2.5 h-2.5 fill-current" />
               ) : (
-                <Play className="w-3 h-3 fill-current ml-0.5" />
+                <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
               )}
             </button>
           </ToolTooltip>
 
           {/* Frame Step Controls (-1F / +1F) (Always Razor-Sharp During Playback) */}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-0.5 shrink-0">
             <ToolTooltip
               title="STEP BACK 1 FRAME"
               why="Moves playhead backward one exact frame or shot"
@@ -1377,9 +1377,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   else onPrev();
                 }}
                 aria-label="Step Backward 1 Frame"
-                className="nle-editorial-btn p-1 rounded bg-[#141417] border border-sky-400/20 hover:border-sky-400/60 text-sky-300/80 hover:text-sky-200 cursor-pointer"
+                className="nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded bg-[#141417] border border-sky-400/20 hover:border-sky-400/60 text-sky-300/80 hover:text-sky-200 cursor-pointer"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-[11px] h-[11px]" />
               </button>
             </ToolTooltip>
 
@@ -1397,9 +1397,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   else onNext();
                 }}
                 aria-label="Step Forward 1 Frame"
-                className="nle-editorial-btn p-1 rounded bg-[#141417] border border-sky-400/20 hover:border-sky-400/60 text-sky-300/80 hover:text-sky-200 cursor-pointer"
+                className="nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded bg-[#141417] border border-sky-400/20 hover:border-sky-400/60 text-sky-300/80 hover:text-sky-200 cursor-pointer"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-[11px] h-[11px]" />
               </button>
             </ToolTooltip>
           </div>
@@ -1412,12 +1412,12 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           >
             <div
               data-transport-sharp="true"
-              className="flex items-center gap-1 h-6 px-1.5 rounded bg-[#141417] border border-amber-500/25 text-[9px] font-mono shrink-0 whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] tabular-nums"
+              className="flex items-center gap-1 h-5 px-1.5 rounded bg-[#141417] border border-amber-500/25 text-[8.5px] font-mono shrink-0 whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] tabular-nums"
             >
               <Clock className="w-2.5 h-2.5 text-[#F59E0B]/85" />
-              <span ref={tcDomRef} className="text-[#F59E0B] font-bold tracking-wider text-[9.5px] tabular-nums">{tcString}</span>
-              <span className="text-[#8E8E93]/50 text-[8.5px]">/</span>
-              <span className="text-[#F4F4F5] font-bold text-[9px] tabular-nums">{currentDurationSec.toFixed(1)}s</span>
+              <span ref={tcDomRef} className="text-[#F59E0B] font-bold tracking-wider text-[8.5px] tabular-nums">{tcString}</span>
+              <span className="text-[#8E8E93]/50 text-[8px]">/</span>
+              <span className="text-[#F4F4F5] font-bold text-[8.5px] tabular-nums">{currentDurationSec.toFixed(1)}s</span>
             </div>
           </ToolTooltip>
 
@@ -1460,13 +1460,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               onClick={() => setIsMediaVaultOpen(true)}
               aria-label="Open Media Asset Vault"
               aria-expanded={isMediaVaultOpen}
-              className={`nle-editorial-btn h-6 px-2 rounded border flex items-center gap-1 font-mono text-[9px] font-black tracking-[0.08em] uppercase cursor-pointer shrink-0 ${
+              className={`nle-editorial-btn h-5 px-1.5 rounded border flex items-center gap-1 font-mono text-[8.5px] font-black tracking-[0.08em] uppercase cursor-pointer shrink-0 ${
                 isMediaVaultOpen
                   ? 'bg-sky-500/20 border-sky-400 text-sky-200 shadow-[0_0_12px_rgba(56,189,248,0.35)]'
                   : 'bg-[#141417] border-sky-400/30 hover:border-sky-400/75 text-sky-300 hover:text-white shadow-[0_0_8px_rgba(56,189,248,0.12)]'
               }`}
             >
-              <HardDrive className="w-3 h-3 text-sky-400 shrink-0" />
+              <HardDrive className="w-[11px] h-[11px] text-sky-400 shrink-0" />
               <span>MEDIA</span>
             </button>
           </ToolTooltip>
@@ -1484,14 +1484,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           >
             <div
               data-active="true"
-              className="flex items-center h-6 p-[2px] bg-[#0B0B0D] rounded border border-white/[0.09] shadow-inner"
+              className="flex items-center h-5 p-[1.5px] bg-[#0B0B0D] rounded border border-white/[0.09] shadow-inner"
             >
               <button
                 type="button"
                 data-active={playbackMode === 'solo' ? 'true' : 'false'}
                 style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
                 onClick={() => onSelectPlaybackMode?.('solo')}
-                className={`nle-editorial-btn h-[18px] px-1.5 rounded font-mono text-[9px] uppercase flex items-center gap-1 cursor-pointer ${
+                className={`nle-editorial-btn h-[15px] px-1.5 rounded font-mono text-[8.5px] uppercase flex items-center gap-1 cursor-pointer ${
                   playbackMode === 'solo'
                     ? 'bg-[#F59E0B]/15 border border-[#F59E0B]/65 text-[#F4F4F5] font-bold shadow-[0_0_8px_rgba(245,158,11,0.22)]'
                     : 'border border-transparent text-[#8E8E93] hover:text-[#F4F4F5]'
@@ -1506,7 +1506,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 data-active={playbackMode !== 'solo' ? 'true' : 'false'}
                 style={{ '--item-accent': '#10B981' } as React.CSSProperties}
                 onClick={() => onSelectPlaybackMode?.('sequence')}
-                className={`nle-editorial-btn h-[18px] px-1.5 rounded font-mono text-[9px] uppercase flex items-center gap-1 cursor-pointer ${
+                className={`nle-editorial-btn h-[15px] px-1.5 rounded font-mono text-[8.5px] uppercase flex items-center gap-1 cursor-pointer ${
                   playbackMode !== 'solo'
                     ? 'bg-emerald-500/15 border border-emerald-400/60 text-[#F4F4F5] font-bold shadow-[0_0_8px_rgba(16,185,129,0.22)]'
                     : 'border border-transparent text-[#8E8E93] hover:text-[#F4F4F5]'
@@ -1532,13 +1532,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               aria-pressed={effectiveSnapToBeat}
               aria-label="Toggle Snap to Beat"
               onClick={handleSnapToBeatToggle}
-              className={`nle-editorial-btn p-1 rounded border cursor-pointer shrink-0 ${
+              className={`nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded border cursor-pointer shrink-0 ${
                 effectiveSnapToBeat
                   ? 'bg-emerald-500/15 border-emerald-400/70 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
                   : 'bg-[#141417] border-emerald-500/20 hover:border-emerald-400/60 text-emerald-300/70 hover:text-emerald-200'
               }`}
             >
-              <Music className="w-3 h-3" />
+              <Music className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -1548,7 +1548,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             why="Controls slideshow interval and transition tempo"
             how="Drag slider to tune shot hold cadence in seconds"
           >
-            <div className="hidden xl:flex items-center gap-1 h-6 bg-[#141417] px-1.5 rounded border border-white/[0.08] hover:border-[#F59E0B]/60 font-mono text-[9px] text-[#8E8E93] shrink-0 transition-colors tabular-nums">
+            <div className="hidden xl:flex items-center gap-1 h-5 bg-[#141417] px-1.5 rounded border border-white/[0.08] hover:border-[#F59E0B]/60 font-mono text-[8.5px] text-[#8E8E93] shrink-0 transition-colors tabular-nums">
               <input
                 type="range"
                 min="1"
@@ -1558,7 +1558,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 aria-label="Playback Tempo"
                 className="w-9 accent-[#F59E0B] cursor-pointer h-1 bg-white/15 rounded shrink-0"
               />
-              <span className="text-[#F4F4F5] font-bold tabular-nums text-[9px]">{intervalSeconds}s</span>
+              <span className="text-[#F4F4F5] font-bold tabular-nums text-[8.5px]">{intervalSeconds}s</span>
             </div>
           </ToolTooltip>
 
@@ -1576,14 +1576,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onClick={onTogglePan}
                 aria-label="Toggle Frame Pan Tool"
                 aria-pressed={isPanActive}
-                className={`nle-editorial-btn h-6 px-1.5 rounded border flex items-center gap-1 font-mono text-[9px] font-bold cursor-pointer shrink-0 tabular-nums ${
+                className={`nle-editorial-btn h-5 px-1.5 rounded border flex items-center gap-1 font-mono text-[8.5px] font-bold cursor-pointer shrink-0 tabular-nums ${
                   isPanActive
                     ? 'bg-purple-500/20 border-purple-400/75 text-[#F4F4F5] shadow-[0_0_10px_rgba(168,85,247,0.28)]'
                     : 'bg-[#141417] border-purple-500/20 hover:border-purple-400/60 text-purple-300/75 hover:text-purple-200'
                 }`}
               >
-                <Move className={`w-3 h-3 ${isPanActive ? 'text-purple-300' : 'text-current'}`} />
-                <span className="tabular-nums text-[8.5px]">{panOffsetPercent}%</span>
+                <Move className={`w-[11px] h-[11px] ${isPanActive ? 'text-purple-300' : 'text-current'}`} />
+                <span className="tabular-nums text-[8px]">{panOffsetPercent}%</span>
               </button>
             </ToolTooltip>
           )}
@@ -1600,9 +1600,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 style={{ '--item-accent': '#FB7185' } as React.CSSProperties}
                 onClick={onOpenLiquify}
                 aria-label="Open Liquify Warp Studio"
-                className="nle-editorial-btn p-1 rounded bg-[#141417] border border-rose-500/20 hover:border-rose-400/65 text-rose-300/75 hover:text-rose-200 cursor-pointer shrink-0"
+                className="nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded bg-[#141417] border border-rose-500/20 hover:border-rose-400/65 text-rose-300/75 hover:text-rose-200 cursor-pointer shrink-0"
               >
-                <Wand2 className="w-3 h-3" />
+                <Wand2 className="w-[11px] h-[11px]" />
               </button>
             </ToolTooltip>
           )}
@@ -1619,7 +1619,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
               onClick={() => eventBus.emit('cockpit:action', { type: 'open_modal' })}
               aria-label="Open Director Cockpit Hub"
-              className="nle-editorial-btn h-6 px-2 rounded border border-amber-400/45 hover:border-amber-300 bg-gradient-to-b from-[#1E1C18] to-[#121215] text-amber-300 hover:text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_10px_rgba(245,158,11,0.18)] font-mono text-[9px] font-black tracking-[0.08em] uppercase flex items-center gap-1 cursor-pointer shrink-0"
+              className="nle-editorial-btn h-5 px-1.5 rounded border border-amber-400/45 hover:border-amber-300 bg-gradient-to-b from-[#1E1C18] to-[#121215] text-amber-300 hover:text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_10px_rgba(245,158,11,0.18)] font-mono text-[8.5px] font-black tracking-[0.08em] uppercase flex items-center gap-1 cursor-pointer shrink-0"
             >
               <Zap className="w-2.5 h-2.5 text-[#F59E0B] fill-current shrink-0" />
               <span>COCKPIT</span>
@@ -1646,13 +1646,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   onClick={onToggleTitles}
                   aria-label="Toggle Titles Layer"
                   aria-pressed={showTitles}
-                  className={`nle-editorial-btn p-1 rounded border cursor-pointer shrink-0 ${
+                  className={`nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded border cursor-pointer shrink-0 ${
                     showTitles
                       ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.22)]'
                       : 'bg-[#141417] border-amber-500/20 hover:border-[#F59E0B]/60 text-amber-200/70 hover:text-amber-200'
                   }`}
                 >
-                  <Type className="w-3.5 h-3.5" />
+                  <Type className="w-[11px] h-[11px]" />
                 </button>
               </ToolTooltip>
             )}
@@ -1668,13 +1668,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
                 onClick={() => setIsEditingTitle(prev => !prev)}
                 aria-label="Edit Shot Title"
-                className={`nle-editorial-btn p-1 rounded border cursor-pointer shrink-0 ${
+                className={`nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded border cursor-pointer shrink-0 ${
                   isEditingTitle
                     ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
                     : 'bg-[#141417] border-amber-500/20 hover:border-[#F59E0B]/60 text-amber-200/70 hover:text-amber-200'
                 }`}
               >
-                <Pencil className="w-3.5 h-3.5" />
+                <Pencil className="w-[11px] h-[11px]" />
               </button>
             </ToolTooltip>
 
@@ -1753,7 +1753,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               value={aspectRatio}
               onChange={(e) => onChangeAspectRatio(e.target.value)}
               aria-label="Aspect Ratio"
-              className="h-6 px-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 focus:border-[#F59E0B] text-[#F4F4F5] font-mono text-[9px] font-bold outline-none cursor-pointer transition-colors shrink-0 tabular-nums"
+              className="h-5 px-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 focus:border-[#F59E0B] text-[#F4F4F5] font-mono text-[8.5px] font-bold outline-none cursor-pointer transition-colors shrink-0 tabular-nums"
             >
               <option value="2.39:1">2.39:1</option>
               <option value="16:9">16:9</option>
@@ -1773,7 +1773,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               value={currentFrame?.lutFilter || 'cinematic'}
               onChange={(e) => onChangeLut(e.target.value as LutPreset)}
               aria-label="LUT Preset"
-              className="hidden sm:block h-6 px-1 bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 focus:border-[#F59E0B] rounded text-[9px] text-[#F4F4F5] font-mono font-bold outline-none cursor-pointer shrink-0 max-w-[78px] truncate"
+              className="hidden sm:block h-5 px-1 bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 focus:border-[#F59E0B] rounded text-[8.5px] text-[#F4F4F5] font-mono font-bold outline-none cursor-pointer shrink-0 max-w-[74px] truncate"
             >
               {LUT_PRESETS.map((p) => (
                 <option key={p.id} value={p.id} className="bg-[#0B0B0D] text-[#F4F4F5]">
@@ -1795,9 +1795,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={{ '--item-accent': '#31A8FF' } as React.CSSProperties}
               onClick={() => handleDispatchToTool('photoshop', currentIndex)}
               aria-label="Freeze Master Frame"
-              className="nle-editorial-btn bg-[#141417] border border-sky-400/20 hover:border-sky-400/65 text-sky-300/75 hover:text-sky-200 p-1 rounded cursor-pointer shrink-0 flex items-center justify-center"
+              className="nle-editorial-btn bg-[#141417] border border-sky-400/20 hover:border-sky-400/65 text-sky-300/75 hover:text-sky-200 w-5 h-5 p-0 rounded cursor-pointer shrink-0 flex items-center justify-center"
             >
-              <Camera className="w-3 h-3" />
+              <Camera className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -1813,9 +1813,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={{ '--item-accent': '#9999FF' } as React.CSSProperties}
               onClick={() => eventBus.emit('cockpit:action', { type: 'open_modal' })}
               aria-label="Open Ecosystem Bridge"
-              className="nle-editorial-btn bg-[#141417] border border-indigo-400/20 hover:border-indigo-400/65 text-indigo-300/75 hover:text-indigo-200 p-1 rounded cursor-pointer shrink-0 flex items-center justify-center"
+              className="nle-editorial-btn bg-[#141417] border border-indigo-400/20 hover:border-indigo-400/65 text-indigo-300/75 hover:text-indigo-200 w-5 h-5 p-0 rounded cursor-pointer shrink-0 flex items-center justify-center"
             >
-              <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -1836,13 +1836,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 if (onToggleTelemetryRack) onToggleTelemetryRack();
                 else eventBus.emit('cockpit:toggle_telemetry');
               }}
-              className={`nle-editorial-btn w-6 h-6 rounded border flex items-center justify-center cursor-pointer shrink-0 ${
+              className={`nle-editorial-btn w-5 h-5 rounded border flex items-center justify-center cursor-pointer shrink-0 ${
                 isTelemetryRackOpen
                   ? 'bg-emerald-500 text-[#0B0B0D] border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.35)]'
                   : 'bg-[#141417] border-emerald-500/20 hover:border-emerald-400/60 text-emerald-300/75 hover:text-emerald-200'
               }`}
             >
-              <SlidersHorizontal className="w-3 h-3" />
+              <SlidersHorizontal className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -1860,13 +1860,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               aria-label="All Tools Master Menu"
               aria-expanded={isAllToolsOpen}
               onClick={() => setIsAllToolsOpen((prev) => !prev)}
-              className={`nle-editorial-btn w-6 h-6 rounded border flex items-center justify-center cursor-pointer shrink-0 ${
+              className={`nle-editorial-btn w-5 h-5 rounded border flex items-center justify-center cursor-pointer shrink-0 ${
                 isAllToolsOpen
                   ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_10px_rgba(245,158,11,0.35)]'
                   : 'bg-[#141417] border-amber-500/20 hover:border-[#F59E0B]/60 text-amber-300/75 hover:text-amber-200'
               }`}
             >
-              <LayoutGrid className="w-3 h-3" />
+              <LayoutGrid className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -1884,13 +1884,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onClick={onToggleZen}
                 aria-label="Toggle Zen Focus Mode"
                 aria-pressed={isZenMode}
-                className={`nle-editorial-btn p-1 rounded border cursor-pointer shrink-0 ${
+                className={`nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded border cursor-pointer shrink-0 ${
                   isZenMode
                     ? 'bg-purple-500/20 border-purple-400/70 text-purple-300'
                     : 'bg-[#141417] border-purple-500/20 hover:border-purple-400/60 text-purple-300/75 hover:text-purple-200'
                 }`}
               >
-                <Focus className="w-3.5 h-3.5" />
+                <Focus className="w-[11px] h-[11px]" />
               </button>
             </ToolTooltip>
           )}
@@ -1909,13 +1909,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               aria-pressed={showHud}
               aria-label="Toggle Stage HUD (H)"
               onClick={onToggleHud}
-              className={`nle-editorial-btn p-1 rounded border cursor-pointer shrink-0 flex items-center justify-center ${
+              className={`nle-editorial-btn w-5 h-5 p-0 rounded border cursor-pointer shrink-0 flex items-center justify-center ${
                 showHud
                   ? 'bg-sky-500/15 border-sky-400/65 text-sky-300'
                   : 'bg-[#141417] border-sky-500/20 hover:border-sky-400/60 text-sky-300/70 hover:text-sky-200'
               }`}
             >
-              <Eye className="w-3.5 h-3.5" />
+              <Eye className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -1933,13 +1933,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onClick={onToggleGuides}
                 aria-label="Toggle Composition Guides"
                 aria-pressed={showGuides}
-                className={`nle-editorial-btn p-1 rounded border cursor-pointer shrink-0 flex items-center justify-center ${
+                className={`nle-editorial-btn w-5 h-5 p-0 rounded border cursor-pointer shrink-0 flex items-center justify-center ${
                   showGuides
                     ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
                     : 'bg-[#141417] border-amber-500/20 hover:border-[#F59E0B]/60 text-amber-200/70 hover:text-amber-200'
                 }`}
               >
-                <Crosshair className="w-3.5 h-3.5" />
+                <Crosshair className="w-[11px] h-[11px]" />
               </button>
             </ToolTooltip>
           )}
@@ -1956,9 +1956,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 style={{ '--item-accent': '#10B981' } as React.CSSProperties}
                 onClick={onCaptureStill}
                 aria-label="Capture High-Res Still"
-                className="nle-editorial-btn p-1 rounded bg-[#141417] border border-emerald-500/20 hover:border-emerald-400/60 text-emerald-300/75 hover:text-emerald-200 cursor-pointer shrink-0 flex items-center justify-center"
+                className="nle-editorial-btn w-5 h-5 p-0 rounded bg-[#141417] border border-emerald-500/20 hover:border-emerald-400/60 text-emerald-300/75 hover:text-emerald-200 cursor-pointer shrink-0 flex items-center justify-center"
               >
-                <Camera className="w-3.5 h-3.5" />
+                <Camera className="w-[11px] h-[11px]" />
               </button>
             </ToolTooltip>
           )}
@@ -1986,10 +1986,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 type="button"
                 onClick={handleResetAllZoom}
                 aria-label="Reset Zoom"
-                className="p-1 rounded border flex items-center gap-1 font-mono text-[9.5px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5] tabular-nums"
+                className="h-5 px-1 rounded border flex items-center gap-1 font-mono text-[8.5px] font-bold cursor-pointer transition-all active:scale-95 shrink-0 bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5] tabular-nums"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-[#F59E0B]" />
-                <span className="tabular-nums text-[9px]">
+                <RotateCcw className="w-[11px] h-[11px] text-[#F59E0B]" />
+                <span className="tabular-nums text-[8.5px]">
                   {digitalZoom?.isZoomed ? `${digitalZoom.scale.toFixed(1)}x` : `${fgZoom.toFixed(1)}x`}
                 </span>
               </button>
@@ -2008,13 +2008,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
               onClick={onToggleViewMode}
               aria-label="Toggle Contact Sheet Grid (G)"
-              className={`nle-editorial-btn p-1 rounded border cursor-pointer shrink-0 ${
+              className={`nle-editorial-btn w-5 h-5 p-0 flex items-center justify-center rounded border cursor-pointer shrink-0 ${
                 viewMode === 'grid'
                   ? 'bg-[#F59E0B] text-[#0B0B0D] border-[#F59E0B]'
                   : 'bg-[#141417] border-amber-500/20 hover:border-[#F59E0B]/60 text-amber-200/70 hover:text-amber-200'
               }`}
             >
-              <Grid className="w-3.5 h-3.5" />
+              <Grid className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -2029,9 +2029,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               style={{ '--item-accent': '#38BDF8' } as React.CSSProperties}
               onClick={onOpenInspector}
               aria-label="Open Director Optical Inspector (E)"
-              className="nle-editorial-btn p-1 rounded bg-[#141417] border border-sky-500/20 hover:border-sky-400/60 text-sky-300/75 hover:text-sky-200 cursor-pointer shrink-0 flex items-center justify-center"
+              className="nle-editorial-btn w-5 h-5 p-0 rounded bg-[#141417] border border-sky-500/20 hover:border-sky-400/60 text-sky-300/75 hover:text-sky-200 cursor-pointer shrink-0 flex items-center justify-center"
             >
-              <Sliders className="w-3.5 h-3.5" />
+              <Sliders className="w-[11px] h-[11px]" />
             </button>
           </ToolTooltip>
 
@@ -2050,13 +2050,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 setHoveredMarker(null);
                 setIsStripCollapsed((c) => !c);
               }}
-              className={`p-1 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
+              className={`w-5 h-5 p-0 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
                 isStripCollapsed
                   ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
                   : 'bg-[#141417] border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
             >
-              {isStripCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {isStripCollapsed ? <ChevronUp className="w-[11px] h-[11px]" /> : <ChevronDown className="w-[11px] h-[11px]" />}
             </button>
           </ToolTooltip>
 
@@ -2070,9 +2070,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               type="button"
               onClick={onToggleFullscreen}
               aria-label="Toggle Cinema Fullscreen (F)"
-              className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
+              className="w-5 h-5 p-0 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center"
             >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              {isFullscreen ? <Minimize2 className="w-[11px] h-[11px]" /> : <Maximize2 className="w-[11px] h-[11px]" />}
             </button>
           </ToolTooltip>
         </div>

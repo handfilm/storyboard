@@ -151,15 +151,15 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
           setIsOpen((prev) => !prev);
         }}
         title={`Elastic Shot Cadence: ${formatDurationPillValue(safeDuration)} (${activeFrames} frames @ ${safeFps}fps)`}
-        className={`inline-flex items-center gap-1.5 rounded-full border font-mono tabular-nums whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150 ${
-          compact ? 'px-2.5 py-0.5 text-[9.5px]' : 'px-3 py-1 text-[10px]'
+        className={`inline-flex items-center gap-1 rounded-full border font-mono tabular-nums whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150 ${
+          compact ? 'h-5 px-2 py-0 text-[9px] leading-none' : 'px-3 py-1 text-[10px]'
         } ${
           isOpen
             ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
             : 'bg-[#141417] hover:border-[#F59E0B]/60 border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
         } ${className}`}
       >
-        <Clock className={`w-3 h-3 shrink-0 ${isOpen ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
+        <Clock className={`${compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} shrink-0 ${isOpen ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
         <span className="text-[#8E8E93] font-semibold">DURATION:</span>
         <span className="text-[#F4F4F5] font-bold tabular-nums">{formatDurationPillValue(safeDuration)}</span>
         <ChevronDown

@@ -79,12 +79,34 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
 }) => {
   const [subTab, setSubTab] = useState<StudioSubTab>('IMAGE');
 
-  // Server Engine Config & Status (Zero browser API key inputs)
+  // Server Engine Config & Status (Zero browser API key inputs; non-secret preferences persisted in localStorage)
   const [engineStatus, setEngineStatus] = useState<AiEngineStatusResponse | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [selectedImageModel, setSelectedImageModel] = useState<GeminiImageModelId>('gemini-3.1-flash-lite-image');
-  const [selectedImageSize, setSelectedImageSize] = useState<'1K' | '2K' | '4K'>('1K');
+  const [selectedImageModel, setSelectedImageModel] = useState<GeminiImageModelId>(() => {
+    try {
+      const raw = window.localStorage.getItem('handfilm_ai_engine_config');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.selectedImageModel === 'gemini-nano-banana-2.1' || parsed?.selectedImageModel === 'gemini-3.1-flash-lite-image') {
+          return parsed.selectedImageModel;
+        }
+      }
+    } catch {}
+    return 'gemini-3.1-flash-lite-image';
+  });
+  const [selectedImageSize, setSelectedImageSize] = useState<'1K' | '2K' | '4K'>(() => {
+    try {
+      const raw = window.localStorage.getItem('handfilm_ai_engine_config');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.selectedImageSize === '1K' || parsed?.selectedImageSize === '2K' || parsed?.selectedImageSize === '4K') {
+          return parsed.selectedImageSize;
+        }
+      }
+    } catch {}
+    return '1K';
+  });
 
   // Toast / Error Feedback
   const [notice, setNotice] = useState<{ type: 'info' | 'error'; text: string } | null>(null);
@@ -158,6 +180,15 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
       if (activeElapsedTimerRef.current !== null) window.clearInterval(activeElapsedTimerRef.current);
     };
   }, [refreshEngineStatus]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        'handfilm_ai_engine_config',
+        JSON.stringify({ selectedImageModel, selectedImageSize })
+      );
+    } catch {}
+  }, [selectedImageModel, selectedImageSize]);
 
   const handlePullFromActiveShot = (target: StudioSubTab) => {
     const crafted = buildPromptFromShot(currentFrame, activeShotIndex);
@@ -509,8 +540,9 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
             type="button"
             onClick={() => setIsConfigOpen((v) => !v)}
             className="h-7 px-2.5 rounded bg-[#141417] hover:bg-[#1A1B21] border border-white/[0.09] text-[9.5px] font-bold tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors"
-            title="Engine Config & Server Key Readiness"
+            title="API Key Status & Engine Config"
           >
+            <span className="text-[#8E8E93]">API KEY &amp; ENGINE CONFIG</span>
             <span
               className={`w-1.5 h-1.5 rounded-full ${
                 engineStatus?.connected ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-[#F59E0B]'

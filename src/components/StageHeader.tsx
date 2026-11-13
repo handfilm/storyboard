@@ -40,7 +40,10 @@ import {
   Maximize2,
   Minimize2,
   Download,
-  Home
+  Home,
+  PlaySquare,
+  Scissors,
+  Monitor
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
@@ -1097,13 +1100,62 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     label: string;
     shortcut: string;
     title: string;
+    accentHex: string;
+    icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   }> = [
-    { id: 'stage', panel: 'TACTILE_STAGE', label: 'STAGE', shortcut: '1', title: 'Primary Cinema Stage (Alt+1)' },
-    { id: 'reels', panel: 'SPLIT', label: 'REELS', shortcut: '2', title: '9:16 Reels & Hyper-Reel Engine (Alt+2)' },
-    { id: 'scrub', panel: 'SEQUENCER', label: 'SCRUB', shortcut: '3', title: 'Sub-Frame Precision Scrub (Alt+3)' },
-    { id: 'multicam', panel: 'MULTICAM', label: 'MULTI-CAM', shortcut: '4', title: 'Multi-Camera Cutting Grid (Alt+4)' },
-    { id: 'monitor', panel: 'OPTICAL', label: 'MONITOR', shortcut: '5', title: 'Optical Cinema Monitor (Alt+5)' },
-    { id: 'cockpit', label: '⚡ COCKPIT', shortcut: '6', title: "Director's Cockpit Telemetry Hub (Alt+6)" }
+    {
+      id: 'stage',
+      panel: 'TACTILE_STAGE',
+      label: 'STAGE',
+      shortcut: '1',
+      title: 'Primary Cinema Stage (Alt+1)',
+      accentHex: '#F5A623',
+      icon: PlaySquare
+    },
+    {
+      id: 'reels',
+      panel: 'SPLIT',
+      label: 'REELS',
+      shortcut: '2',
+      title: '9:16 Reels & Hyper-Reel Engine (Alt+2)',
+      accentHex: '#FB7185',
+      icon: Flame
+    },
+    {
+      id: 'scrub',
+      panel: 'SEQUENCER',
+      label: 'SCRUB',
+      shortcut: '3',
+      title: 'Sub-Frame Precision Scrub (Alt+3)',
+      accentHex: '#00F0FF',
+      icon: Scissors
+    },
+    {
+      id: 'multicam',
+      panel: 'MULTICAM',
+      label: 'MULTI-CAM',
+      shortcut: '4',
+      title: 'Multi-Camera Cutting Grid (Alt+4)',
+      accentHex: '#A855F7',
+      icon: LayoutGrid
+    },
+    {
+      id: 'monitor',
+      panel: 'OPTICAL',
+      label: 'MONITOR',
+      shortcut: '5',
+      title: 'Optical Cinema Monitor (Alt+5)',
+      accentHex: '#10B981',
+      icon: Monitor
+    },
+    {
+      id: 'cockpit',
+      label: 'COCKPIT',
+      shortcut: '6',
+      title: "Director's Cockpit Telemetry Hub (Alt+6)",
+      accentHex: '#FBBF24',
+      icon: Zap
+    }
   ];
 
   const flyoutPanelStyle: React.CSSProperties = {
@@ -1114,7 +1166,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   return (
     <>
       <header
-        className={`relative w-full h-12 bg-[#08080A]/95 backdrop-blur-xl border-b border-white/[0.08] px-2.5 xl:px-4 flex md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center justify-between gap-2 xl:gap-3 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
+        className={`relative w-full h-12 bg-[#08080A]/95 backdrop-blur-xl border-b border-white/[0.08] px-2.5 xl:px-4 flex items-center justify-between gap-2 xl:gap-3 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
       >
         {/* ================================================================
             LEFT ZONE: Brand Wordmark, Live Status & Mega-Dropdown Menus
@@ -1615,63 +1667,126 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
 
         {/* ================================================================
-            CENTER ZONE: Tactile 6-Tab Workspace Mode Switcher
+            CENTER ZONE: Next-Level Chromatic Workspace Hardware Switcher
             ================================================================ */}
         <div
           role="tablist"
           aria-label="Workspace Switcher"
-          className="hidden md:flex justify-self-center items-center bg-[#0E0E12] border border-white/[0.08] rounded-[4px] p-0.5 gap-0.5 shrink-0"
+          className="hidden md:flex items-center bg-[#06070B]/95 border border-white/[0.09] rounded-[7px] p-[3px] gap-1 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_20px_rgba(0,0,0,0.6)]"
         >
           {WORKSPACE_TABS.map((tab) => {
             const isCockpitTab = tab.id === 'cockpit';
             const isActive = isCockpitTab
               ? isCockpitHudOpen
               : currentView === 'STUDIO' && currentPanel === tab.panel;
+            const TabIcon = tab.icon;
 
             return (
-              <div
-                key={tab.id}
-                ref={isCockpitTab ? cockpitContainerRef : undefined}
-                className="relative"
-              >
-                <button
-                  ref={isCockpitTab ? cockpitBtnRef : undefined}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => {
-                    if (isCockpitTab) {
-                      toggleCockpitDrawer();
-                    } else if (tab.panel) {
-                      handleWorkspacePanelSelect(tab.panel);
-                    }
-                  }}
-                  title={tab.title}
-                  className={`relative group/tab h-7 px-2 2xl:px-2.5 rounded-[3px] font-mono text-[10px] 2xl:text-[10.5px] tracking-[0.08em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
-                    isActive
-                      ? 'bg-[#16161A] text-white font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                      : isCockpitTab
-                      ? 'text-[#FBBF24]/85 hover:text-[#FBBF24] hover:bg-white/[0.04] font-semibold'
-                      : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] font-medium'
-                  }`}
+              <React.Fragment key={tab.id}>
+                {isCockpitTab && (
+                  <span aria-hidden="true" className="w-px h-5 bg-white/[0.1] mx-0.5 shrink-0" />
+                )}
+                <div
+                  ref={isCockpitTab ? cockpitContainerRef : undefined}
+                  className="relative"
                 >
-                  <span>{tab.label}</span>
-                  {/* Active Molten-Gold Bottom Indicator Bar */}
-                  {isActive && (
+                  <button
+                    ref={isCockpitTab ? cockpitBtnRef : undefined}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    style={{ '--tab-accent': tab.accentHex } as React.CSSProperties}
+                    onClick={() => {
+                      if (isCockpitTab) {
+                        toggleCockpitDrawer();
+                      } else if (tab.panel) {
+                        handleWorkspacePanelSelect(tab.panel);
+                      }
+                    }}
+                    title={tab.title}
+                    className={`studio-workspace-tab relative group/tab h-[32px] px-2 xl:px-2.5 2xl:px-3 rounded-[5px] border font-mono text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] tracking-[0.09em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out hover:-translate-y-[0.5px] active:translate-y-0 active:scale-[0.97] motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                      isActive
+                        ? 'text-white font-black'
+                        : 'text-zinc-300 hover:text-white font-bold'
+                    }`}
+                  >
+                    {/* Inner clipped ambient glow & sheen sweep layer */}
                     <span
                       aria-hidden="true"
-                      className="absolute bottom-0 inset-x-1.5 h-[2px] bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.85)] rounded-full pointer-events-none"
+                      className="absolute inset-0 rounded-[4px] overflow-hidden pointer-events-none"
+                    >
+                      <span
+                        style={{
+                          background: `radial-gradient(circle at 30% 50%, ${tab.accentHex}38 0%, transparent 72%)`
+                        }}
+                        className={`absolute inset-0 transition-opacity duration-150 ${
+                          isActive ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-90'
+                        }`}
+                      />
+                      <span
+                        style={{
+                          background: `linear-gradient(90deg, transparent 0%, ${tab.accentHex}40 50%, transparent 100%)`
+                        }}
+                        className="studio-tab-sheen absolute inset-y-0 w-1/2 opacity-0 pointer-events-none"
+                      />
+                    </span>
+
+                    {/* Left-Rail-Inspired Chromatic Icon with Dynamic Glow */}
+                    <TabIcon
+                      style={{
+                        color: tab.accentHex,
+                        filter: isActive
+                          ? `drop-shadow(0 0 7px ${tab.accentHex})`
+                          : undefined
+                      }}
+                      className={`relative z-10 w-3.5 h-3.5 shrink-0 transition-transform duration-150 ease-out ${
+                        isActive ? 'scale-110' : 'group-hover/tab:scale-115'
+                      }`}
                     />
-                  )}
-                  {/* Micro Hover Shortcut Hint [1]..[6] (zero layout shift) */}
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150 absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-[2px] bg-[#0B0B0E] border border-[#27272A] text-[9px] font-mono text-[#FBBF24] whitespace-nowrap z-[9999] shadow-lg"
-                  >
-                    [{tab.shortcut}] · Alt+{tab.shortcut}
-                  </span>
-                </button>
-              </div>
+
+                    {/* Crisp Label */}
+                    <span
+                      style={{
+                        color: isActive ? '#FFFFFF' : undefined,
+                        textShadow: isActive ? `0 0 12px ${tab.accentHex}99` : undefined
+                      }}
+                      className="relative z-10 leading-none"
+                    >
+                      {tab.label}
+                    </span>
+
+                    {/* Luminous Bottom Category Edge Bar (Idle subtle, Hover/Active vibrant) */}
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        backgroundColor: tab.accentHex,
+                        boxShadow: isActive ? `0 0 10px ${tab.accentHex}` : undefined
+                      }}
+                      className={`absolute bottom-0 inset-x-1.5 h-[2.5px] rounded-t-full pointer-events-none transition-opacity duration-150 ${
+                        isActive ? 'opacity-100' : 'opacity-35 group-hover/tab:opacity-90'
+                      }`}
+                    />
+
+                    {/* Top Specular Edge Highlight when Active */}
+                    {isActive && (
+                      <span
+                        aria-hidden="true"
+                        style={{ backgroundColor: tab.accentHex }}
+                        className="absolute top-0 inset-x-3 h-[1px] opacity-80 rounded-full pointer-events-none"
+                      />
+                    )}
+
+                    {/* Micro Hover Shortcut Hint [1]..[6] */}
+                    <span
+                      aria-hidden="true"
+                      style={{ borderColor: `${tab.accentHex}55`, color: tab.accentHex }}
+                      className="pointer-events-none opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150 absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-[3px] bg-[#090A0F]/95 border text-[9px] font-mono font-bold whitespace-nowrap z-[9999] shadow-xl"
+                    >
+                      [{tab.shortcut}] · Alt+{tab.shortcut}
+                    </span>
+                  </button>
+                </div>
+              </React.Fragment>
             );
           })}
 
@@ -2205,7 +2320,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         {/* ================================================================
             RIGHT ZONE: Command Search, Engine Telemetry, Focus & Export CTA
             ================================================================ */}
-        <div className="flex items-center gap-1.5 xl:gap-2 min-w-0 justify-self-end">
+        <div className="flex items-center gap-1.5 xl:gap-2 min-w-0">
           {/* Brief inline feedback notice when snapshot/cache action completes */}
           {headerNotice && (
             <span className="hidden 2xl:inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 whitespace-nowrap shrink-0">
@@ -2216,7 +2331,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 1. Compact Command Search (Cmd+K / /) */}
           <div ref={searchContainerRef} className="relative shrink-0">
-            <div className="relative flex items-center h-7 w-28 sm:w-36 xl:w-40 2xl:w-52 bg-[#111114] border border-white/[0.09] hover:border-white/20 focus-within:border-[#F59E0B]/70 rounded-[4px] px-2 gap-1.5 transition-colors">
+            <div className="relative flex items-center h-7 w-24 sm:w-28 xl:w-32 2xl:w-48 bg-[#111114] border border-white/[0.09] hover:border-white/20 focus-within:border-[#F59E0B]/70 rounded-[4px] px-2 gap-1.5 transition-colors">
               <Search className="w-3 h-3 text-zinc-400 shrink-0" />
               <input
                 ref={searchInputRef}
@@ -2391,7 +2506,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 2. Live Engine Telemetry Badge (FPS · Aspect Ratio · OPFS Vault Count) */}
           <div
-            className="hidden lg:flex h-7 px-2 rounded-[4px] bg-[#111114] border border-white/[0.08] items-center gap-1.5 font-mono text-[9.5px] 2xl:text-[10px] tabular-nums whitespace-nowrap shrink-0"
+            className="hidden xl:flex h-7 px-1.5 2xl:px-2 rounded-[4px] bg-[#111114] border border-white/[0.08] items-center gap-1.5 font-mono text-[9px] 2xl:text-[10px] tabular-nums whitespace-nowrap shrink-0"
             title={`Engine Telemetry: ${resolvedFps} FPS · ${resolvedAspectRatio} · ${vaultClipCount} Clips in Vault/OPFS`}
           >
             <span className="text-zinc-200 font-semibold">{resolvedFps} FPS</span>

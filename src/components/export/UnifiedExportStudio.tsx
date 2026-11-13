@@ -27,7 +27,9 @@ import {
   RenderTelemetry,
   parseShotSelection,
   getExportPresetDimensions,
-  exportCinemaMasterMp4 
+  exportCinemaMasterMp4,
+  resolveShotVideoOrImageCandidate,
+  verifySequenceMediaReadiness
 } from '../../services/videoExportEngine';
 import { 
   generatePremiereCapCutXml, 
@@ -46,9 +48,12 @@ import {
 } from '../../utils/pdfExport';
 import { eventBus } from '../../core/eventBus';
 import { useStudioStore, resolveEffectiveTitleAlign } from '../../core/store';
-import { resolveShotMediaEntry, ShotMediaMap } from '../../services/handfilmMediaVault';
+import { getCandidateShotMediaKeys, getShotMediaBlob, resolveShotMediaEntry, ShotMediaMap } from '../../services/handfilmMediaVault';
+import { studioDraftDb } from '../../services/db';
+import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
 import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
-import { renderAlignedCinemaTitleOverlay } from '../../utils/interchangeExport';
+import { resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
+import { renderTitlePresetToCanvas } from '../../services/titleCanvasRenderer';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from '../../services/thumbnailEngine';
 import { EditInAppStrip } from '../bridge/EditInAppStrip';
@@ -156,6 +161,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 }) => {
   const currentSlideIndex = typeof currentIndex === 'number' ? currentIndex : (rawSlideIndex ?? 0);
   const storeShotMediaMap = useStudioStore((s) => s.shotMediaMap);
+  const projectShots = useStudioStore((s) => s.project?.shots);
   const titleAlign = useStudioStore((s) => s.titleAlign);
   const titleConfig = useStudioStore((s) => s.titleConfig);
   const activeShotMediaMap = propShotMediaMap ?? storeShotMediaMap;
@@ -418,6 +424,11 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     return getExportPresetDimensions(resolutionPreset);
   }, [resolutionPreset]);
 
+  // Pre-Export Sequence Media Readiness & Active Title Preset Summary
+  const mediaReadiness = useMemo(() => {
+    return verifySequenceMediaReadiness(activeSelection.indices, slides, frames, activeShotMediaMap);
+  }, [activeSelection.indices, slides, frames, activeShotMediaMap, projectShots, titleConfig]);
+
   // Dynamic runtime display mm:ss.ff (or hh:mm:ss.ff for long sequences)
   const dynamicRuntime = useMemo(() => {
     const totalSec = activeSelection.durationSec;
@@ -511,9 +522,27 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     }
   }, []);
 
-  // Idle Frame Preview Effect: Resolves per-shot media from shotMediaMap (stored blob URLs) and
-  // explicitly awaits `onloadeddata` / `img.decode()` before drawing onto the capture canvas,
-  // falling back to the shot's procedural color gradient when missing or failed.
+  // 9b. Active Monitor Shot Title Preset (shared 1:1 with canvas compositor & label)
+  const activeMonitorShotIdx = activeSelection.indices.includes(previewShotIdx)
+    ? previewShotIdx
+    : (activeSelection.indices[0] ?? currentSlideIndex ?? 0);
+
+  const activeMonitorPresetConfig = useMemo(() => {
+    const f = frames[activeMonitorShotIdx] as any;
+    const s = slides[activeMonitorShotIdx] as any;
+    const st = projectShots?.[activeMonitorShotIdx] as any;
+    return resolveShotTitlePresetConfig(
+      {
+        titleStyleConfig: f?.titleStyleConfig ?? s?.titleStyleConfig ?? st?.titleStyleConfig,
+        activeTitlePreset: f?.activeTitlePreset ?? st?.activeTitlePreset,
+        dopamineConfig: f?.dopamineConfig ?? st?.dopamineConfig
+      },
+      titleConfig
+    );
+  }, [activeMonitorShotIdx, frames, slides, projectShots, titleConfig]);
+
+  // Idle Frame Preview Effect: Resolves per-shot media via unified video/image candidate resolver,
+  // IndexedDB vaults, and OPFS — explicitly awaiting `onloadeddata` / `img.decode()` before compositing.
   useEffect(() => {
     if (!isOpen || isExporting) return;
     const canvas = dedicatedCanvasRef.current;
@@ -524,21 +553,19 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     const w = canvas.width || 640;
     const h = canvas.height || 360;
 
-    const validShotIdx = activeSelection.indices.includes(previewShotIdx)
-      ? previewShotIdx
-      : (activeSelection.indices[0] ?? currentSlideIndex ?? 0);
-
-    const slide = slides[validShotIdx];
-    const frame = frames[validShotIdx];
+    const validShotIdx = activeMonitorShotIdx;
+    const slide = slides[validShotIdx] as any;
+    const frame = frames[validShotIdx] as any;
+    const storeShot = projectShots?.[validShotIdx] as any;
     const shotNum = validShotIdx + 1;
-    const titleEn = slide?.titleEn || frame?.title || `SHOT ${String(shotNum).padStart(3, '0')}`;
-    const titleBn = slide?.titleBn || frame?.bengaliTitle || 'আলোর স্মৃতি';
-    const tagline = slide?.tagline || frame?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION';
-    const mediaEntry = resolveShotMediaEntry(activeShotMediaMap, frame, slide, validShotIdx);
-    const thumbUrl = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
+    const titleEn = slide?.titleEn || frame?.title || storeShot?.title || `SHOT ${String(shotNum).padStart(3, '0')}`;
+    const titleBn = slide?.titleBn || frame?.bengaliTitle || storeShot?.titleBn || 'আলোর স্মৃতি';
+    const tagline = slide?.tagline || frame?.tagline || storeShot?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION';
+    const resolvedCandidate = resolveShotVideoOrImageCandidate(storeShot, frame, slide, validShotIdx, activeShotMediaMap);
 
     let isCancelled = false;
     let activePreviewVideo: HTMLVideoElement | null = null;
+    const ownedObjectUrls: string[] = [];
 
     const drawCompositingOverlay = () => {
       if (isCancelled) return;
@@ -586,23 +613,33 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         ctx.fillRect(0, flareY - 12, w, 24);
       }
 
-      // Aligned Hero Title Burn-in Preview matching exact exported MP4 alignment
+      // 1:1 WYSIWYG Preset Title Burn-in Preview matching exact exported MP4 canvas compositor
       if (burnInTitles) {
         const resolvedAlign = resolveEffectiveTitleAlign(
           titleAlign ?? 'AUTO',
           validShotIdx,
-          frame?.cameraSpec?.focalLength
+          frame?.cameraSpec?.focalLength ?? storeShot?.cameraSpec?.focalLength
         );
-        renderAlignedCinemaTitleOverlay(ctx, w, h, {
-          banglaTitle: titleBn,
-          englishTitle: titleEn,
-          dialogue: tagline,
-          effectiveAlign: resolvedAlign,
-          preset: titleConfig?.preset ?? 'molten-gold',
-          titleSize: titleConfig?.titleSize ?? 72,
-          verticalOffset: titleConfig?.verticalOffset ?? 0,
-          opacity: 1.0
-        });
+        const camSpecs = frame?.cameraSpecs ?? frame?.cameraSpec;
+        const camInfo = camSpecs
+          ? `${camSpecs.focalLength || '35mm'} · ${camSpecs.aperture || 'T1.5'}`
+          : undefined;
+
+        renderTitlePresetToCanvas(
+          ctx,
+          w,
+          h,
+          {
+            banglaTitle: titleBn,
+            englishTitle: titleEn,
+            dialogue: tagline,
+            cameraInfo: camInfo,
+            effectiveAlign: resolvedAlign,
+            opacity: 1.0
+          },
+          activeMonitorPresetConfig,
+          1.0
+        );
       }
 
       // Corner Crosshairs & Framing Reticles
@@ -675,18 +712,65 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       // Always initialize monitor with shot's exact procedural color gradient backdrop
       renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
 
+      let thumbUrl = resolvedCandidate.url || '';
+      let isVideo = resolvedCandidate.isVideo;
+
+      // Fallback check to IndexedDB vault / timeline slot / OPFS when no direct URL resolved
+      if (!thumbUrl) {
+        try {
+          const candidateKeys = getCandidateShotMediaKeys(frame || storeShot, slide, validShotIdx);
+          for (const k of candidateKeys) {
+            const b = await getShotMediaBlob(k);
+            if (b) {
+              const objUrl = URL.createObjectURL(b);
+              ownedObjectUrls.push(objUrl);
+              thumbUrl = objUrl;
+              isVideo = b.type.startsWith('video/') || Boolean(frame?.isVideo || slide?.isVideo || storeShot?.isVideo);
+              break;
+            }
+          }
+          if (!thumbUrl) {
+            const slot = await studioDraftDb.getTimelineSlot(validShotIdx);
+            if (slot?.mediaId) {
+              const item = await studioDraftDb.getVaultMediaItem(slot.mediaId);
+              const blob = item?.blob || (await studioDraftDb.getSourceMediaBlob(slot.mediaId));
+              if (blob) {
+                const objUrl = URL.createObjectURL(blob);
+                ownedObjectUrls.push(objUrl);
+                thumbUrl = objUrl;
+                isVideo = blob.type.startsWith('video/') || Boolean((slot as any)?.isVideo || frame?.isVideo || slide?.isVideo || storeShot?.isVideo);
+              } else if (opfsMediaStorage.checkSupport()) {
+                const opfsUrl = await opfsMediaStorage.getMasterMediaUrl(slot.mediaId);
+                if (opfsUrl) {
+                  ownedObjectUrls.push(opfsUrl);
+                  thumbUrl = opfsUrl;
+                  isVideo = Boolean((slot as any)?.isVideo || frame?.isVideo || slide?.isVideo || storeShot?.isVideo);
+                }
+              }
+            }
+          }
+        } catch {
+          // non-fatal preview lookup
+        }
+      }
+
+      if (isCancelled || !dedicatedCanvasRef.current) return;
+
       if (!thumbUrl) {
         drawCompositingOverlay();
         return;
       }
 
-      const isVideo = mediaEntry
-        ? mediaEntry.type === 'video'
-        : isVideoSourceUrl(thumbUrl, {
-            isVideo: Boolean(frame?.isVideo || slide?.isVideo),
+      const mediaEntry = resolveShotMediaEntry(activeShotMediaMap, frame || storeShot, slide, validShotIdx);
+      if (!isVideo && mediaEntry) {
+        isVideo =
+          mediaEntry.type === 'video' ||
+          isVideoSourceUrl(thumbUrl, {
+            isVideo: Boolean(frame?.isVideo || slide?.isVideo || storeShot?.isVideo),
             mimeType: (mediaEntry as any)?.mimeType,
             name: (mediaEntry as any)?.name
           });
+      }
 
       const isExternalUrl = !thumbUrl.startsWith('blob:') && !thumbUrl.startsWith('data:');
 
@@ -868,6 +952,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
     return () => {
       isCancelled = true;
+      for (const objUrl of ownedObjectUrls) {
+        try { URL.revokeObjectURL(objUrl); } catch {}
+      }
       if (activePreviewVideo) {
         activePreviewVideo.onloadeddata = null;
         activePreviewVideo.onseeked = null;
@@ -885,11 +972,11 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   }, [
     isOpen,
     isExporting,
-    previewShotIdx,
-    activeSelection.indices,
-    currentSlideIndex,
+    activeMonitorShotIdx,
+    activeMonitorPresetConfig,
     slides,
     frames,
+    projectShots,
     activeShotMediaMap,
     resolutionPreset,
     burnInTitles,
@@ -1992,6 +2079,65 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                 </div>
               </div>
 
+              {/* Pre-Export Asset & Title Verification Summary */}
+              <div className="p-3 rounded-xl bg-[#090a0f] border border-white/10 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className={`w-3.5 h-3.5 ${mediaReadiness.proceduralSlateCount === 0 ? 'text-emerald-400' : 'text-amber-400'}`} />
+                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-zinc-200">
+                      Pre-Export Verification Summary
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono tabular-nums">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">
+                      {mediaReadiness.videoReadyCount}/{mediaReadiness.totalShots} VIDEO CLIPS
+                    </span>
+                    {mediaReadiness.imageOnlyCount > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 font-bold">
+                        {mediaReadiness.imageOnlyCount} STILL PLATES
+                      </span>
+                    )}
+                    {mediaReadiness.proceduralSlateCount > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold">
+                        {mediaReadiness.proceduralSlateCount} PROCEDURAL SLATES
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/15 text-[#F5A623] font-bold uppercase">
+                      TITLE: {activeMonitorPresetConfig.presetName} // {activeMonitorPresetConfig.layoutMode}
+                    </span>
+                  </div>
+                </div>
+                {mediaReadiness.perShot.length > 0 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    {mediaReadiness.perShot.slice(0, 24).map((item) => (
+                      <button
+                        key={item.shotIndex}
+                        type="button"
+                        onClick={() => setPreviewShotIdx(item.shotIndex)}
+                        title={`SH${String(item.shotIndex + 1).padStart(3, '0')}: ${item.title} (${item.mediaKind.toUpperCase()} • ${item.presetName})`}
+                        className={`shrink-0 px-2 py-1 rounded border text-[9px] font-mono tabular-nums transition-colors cursor-pointer ${
+                          activeMonitorShotIdx === item.shotIndex
+                            ? 'bg-[#181926] border-[#F5A623] text-white'
+                            : 'bg-[#101118] border-white/10 text-zinc-400 hover:border-white/25'
+                        }`}
+                      >
+                        <span className="font-bold">SH{String(item.shotIndex + 1).padStart(2, '0')}</span>
+                        <span className="mx-1 text-zinc-600">·</span>
+                        <span className={
+                          item.mediaKind === 'video'
+                            ? 'text-emerald-400 font-bold'
+                            : item.mediaKind === 'image'
+                              ? 'text-sky-400 font-bold'
+                              : 'text-amber-400'
+                        }>
+                          {item.mediaKind === 'video' ? 'VID' : item.mediaKind === 'image' ? 'IMG' : 'SLATE'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* Resolution & Aspect */}
                 <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-1.5">
@@ -2143,7 +2289,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
                       <div>
                         <div className="font-bold text-white text-[11px]">Burn-in Cinematic Titles (Bangla + English)</div>
-                        <div className="text-[9px] text-[#F5A623]">Molten Gold bloom + tracked monospace subtitle</div>
+                        <div className="text-[9px] text-[#F5A623] font-mono">
+                          {activeMonitorPresetConfig.presetName} • {activeMonitorPresetConfig.layoutMode}
+                        </div>
                       </div>
                       <button
                         type="button"

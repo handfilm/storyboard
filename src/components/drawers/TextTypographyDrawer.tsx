@@ -13,7 +13,11 @@ import { eventBus } from '../../core/eventBus';
 import { 
   CINEMATIC_TITLE_PRESETS, 
   TitleTemplatePreset, 
-  applyTitleTemplateToFrame 
+  applyTitleTemplateToFrame,
+  buildTitlePresetConfig,
+  buildDopamineTitlePresetConfig,
+  stripDopamineDirectorNote,
+  resolveShotTitlePresetConfig
 } from '../../constants/titleTemplates';
 import { 
   COMPILATION_PRESETS, 
@@ -53,6 +57,8 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   hideAutonomousStrip = false
 }) => {
   const activeShotIndex = useStudioStore((s) => s.activeShotIndex);
+  const storeTitleConfig = useStudioStore((s) => s.titleConfig);
+  const storeShot = useStudioStore((s) => s.project.shots?.[s.activeShotIndex]);
   const titleSize = useStudioStore((s) => s.titleConfig?.titleSize ?? 72);
   const glowIntensity = useStudioStore((s) => s.titleConfig?.glowIntensity ?? 1.0);
   const tracking = useStudioStore((s) => s.titleConfig?.tracking ?? 0.15);
@@ -61,6 +67,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
   const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
   const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
+
+  const activePresetConfig = resolveShotTitlePresetConfig(currentFrame || storeShot, storeTitleConfig);
+  const activePresetId = activePresetConfig.presetId;
 
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'dopamine' | 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate'>('all');
   const [hoveredPresetId, setHoveredPresetId] = useState<string | null>(null);
@@ -125,6 +134,12 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
     // 2. Also sync via prop callback if parent passed currentFrame & onUpdateFrame
     if (currentFrame && onUpdateFrame) {
+      const dopamineStyleConfig = buildDopamineTitlePresetConfig({
+        presetId: activeDopamineId,
+        presetName: preset.name,
+        accentColor: dopamineAccent,
+        glitchIntensity: dopamineGlitch
+      });
       const updated: AnthologyFrame = {
         ...currentFrame,
         imageUrl: currentFrame.imageUrl,
@@ -138,6 +153,8 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         colorAccent: dopamineAccent,
         tags: Array.from(new Set([...(currentFrame.tags || []), 'dopamine', preset.id])),
         directorNotes: `[🌪️ DOPAMINE: ${preset.name}] Glitch: ${dopamineGlitch}%, Strobe: ${dopamineStrobe}ms, Speed: ${dopamineSpeed}x`,
+        activeTitlePreset: activeDopamineId,
+        titleStyleConfig: dopamineStyleConfig,
         dopamineConfig: {
           presetId: activeDopamineId,
           presetName: preset.name,
@@ -177,21 +194,46 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       onApplyPreset(preset);
     }
 
+    // Build complete, self-contained TitlePresetConfig for this preset
+    const styleConfig = buildTitlePresetConfig(preset);
+
     // Sync store & eventBus without overwriting existing shot media or duration
     const store = useStudioStore.getState();
     const existingShot = store.project.shots[targetShotIndex];
+    const baseNotes = currentFrame?.directorNotes ?? existingShot?.directorNotes;
+    const cleanedNotes = stripDopamineDirectorNote(baseNotes);
+    const nextNotes = preset.callToAction
+      ? `[CTA: ${preset.callToAction}] ${cleanedNotes}`.trim()
+      : cleanedNotes;
+    const cleanedTags = (currentFrame?.tags || existingShot?.tags || []).filter(
+      (t) => t !== 'dopamine'
+    );
+
+    store.setTitleConfig({
+      activePresetConfig: styleConfig,
+      titleSize: styleConfig.fontScale,
+      glowIntensity: styleConfig.glowIntensity,
+      tracking: styleConfig.letterTracking,
+      verticalOffset: styleConfig.verticalOffset,
+      showTitles: true
+    });
+
     store.updateShot(targetShotIndex, {
       title: preset.primaryText,
-      bengaliTitle: preset.bengaliText || existingShot?.bengaliTitle,
-      tagline: preset.secondaryText || existingShot?.tagline,
+      bengaliTitle: preset.bengaliText || currentFrame?.bengaliTitle || existingShot?.bengaliTitle,
+      tagline: preset.secondaryText || currentFrame?.tagline || existingShot?.tagline,
+      directorNotes: nextNotes,
+      tags: cleanedTags,
       colorAccent: preset.color,
       titleAnimation: preset.animationStyle,
-      dopamineConfig: undefined
+      dopamineConfig: undefined,
+      activeTitlePreset: preset.id,
+      titleStyleConfig: styleConfig
     });
     eventBus.emit('titles:toggle', true);
 
     if (currentFrame && onUpdateFrame) {
-      const updated = applyTitleTemplateToFrame(currentFrame, preset);
+      const updated = applyTitleTemplateToFrame(currentFrame, preset, styleConfig);
       onUpdateFrame(updated);
     } else {
       eventBus.emit('shot:updated', {
@@ -200,9 +242,13 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
           title: preset.primaryText,
           bengaliTitle: preset.bengaliText,
           tagline: preset.secondaryText,
+          directorNotes: nextNotes,
+          tags: cleanedTags,
           colorAccent: preset.color,
           titleAnimation: preset.animationStyle,
           dopamineConfig: undefined,
+          activeTitlePreset: preset.id,
+          titleStyleConfig: styleConfig,
           caption: {
             text: preset.primaryText,
             bengaliText: preset.bengaliText,
@@ -289,16 +335,28 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     // (b) Update local studio store shot
     const store = useStudioStore.getState();
     const currentShot = store.project.shots[activeShotIndex] || {};
+    const styleConfig = buildTitlePresetConfig(preset);
     const updatedShotPartial: any = {
       title: preset.primaryText,
       bengaliTitle: preset.bengaliText || currentShot.bengaliTitle || 'দৃষ্টির সীমানা',
       tagline: preset.secondaryText || currentShot.tagline,
-      titleAnimation: preset.animationStyle
+      titleAnimation: preset.animationStyle,
+      dopamineConfig: undefined,
+      activeTitlePreset: preset.id,
+      titleStyleConfig: styleConfig
     };
     if (mediaUrl) {
       updatedShotPartial.imageUrl = mediaUrl;
       updatedShotPartial.isVideo = isVideo;
     }
+    store.setTitleConfig({
+      activePresetConfig: styleConfig,
+      titleSize: styleConfig.fontScale,
+      glowIntensity: styleConfig.glowIntensity,
+      tracking: styleConfig.letterTracking,
+      verticalOffset: styleConfig.verticalOffset,
+      showTitles: true
+    });
     store.updateShot(activeShotIndex, updatedShotPartial);
 
     // (c) Apply preset typography & styles to active frame
@@ -593,8 +651,10 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
           {filteredPresets.map((preset) => {
           const isHovered = hoveredPresetId === preset.id;
           const isApplied = appliedPresetId === preset.id;
+          const isSelectedOnStage = activePresetId === preset.id;
           const isDragOver = dragOverPresetId === preset.id;
           const isBoundSuccess = boundSuccessPresetId === preset.id;
+          const cardConfig = buildTitlePresetConfig(preset);
 
           return (
             <div
@@ -610,8 +670,8 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                   ? 'bg-emerald-950/60 border-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.45)] ring-2 ring-emerald-400/50'
                   : isDragOver
                   ? 'border-amber-400 border-dashed bg-amber-500/10 scale-[1.02] shadow-[0_0_15px_rgba(245,166,35,0.3)] transition-all duration-150'
-                  : isApplied
-                  ? 'bg-emerald-950/40 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-[0.99]'
+                  : isApplied || isSelectedOnStage
+                  ? 'bg-[#12131B] border-[#F59E0B] shadow-[0_0_20px_rgba(245,158,11,0.28)] ring-1 ring-[#F59E0B]/40'
                   : isHovered
                   ? 'bg-[#151620] border-[#F5A623] shadow-[0_0_24px_rgba(245,166,35,0.25)] translate-y-[-1px]'
                   : 'bg-black/60 border-white/10 hover:border-white/20'
@@ -642,14 +702,14 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 </div>
               )}
 
-              {/* Header: Name + Badge */}
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold tracking-wider text-white group-hover:text-[#FFE066] transition-colors">
+              {/* Header: Name + Layout & Category Badges */}
+              <div className="flex items-center justify-between mb-2 gap-1">
+                <span className="text-[11px] font-bold tracking-wider text-white group-hover:text-[#FFE066] transition-colors truncate">
                   {preset.name}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 font-mono">
-                    {preset.position}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 font-mono uppercase">
+                    {cardConfig.layoutMode}
                   </span>
                   <span 
                     className="text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border"
@@ -664,26 +724,13 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Live Kinetic Typography Hover Preview Box */}
+              {/* Live Layout-Accurate Typography Hover Preview Box */}
               <div 
                 className="relative h-20 w-full rounded-lg bg-black/80 border border-white/5 flex flex-col items-center justify-center p-2 overflow-hidden transition-all duration-200 group-hover:bg-[#08080c]"
                 style={{
-                  boxShadow: isHovered ? `inset 0 0 20px ${preset.glowColor || 'rgba(245,166,35,0.2)'}` : 'none'
+                  boxShadow: isHovered ? `inset 0 0 20px ${cardConfig.glowColor}` : 'none'
                 }}
               >
-                {/* Visual Position Bracket Indicators */}
-                {preset.position === 'top' && (
-                  <div className="absolute top-1 left-2 text-[8px] text-zinc-500 font-mono tracking-widest z-10">
-                    ▲ TOP_ALIGN
-                  </div>
-                )}
-                {preset.position === 'lower-third' && (
-                  <div className="absolute bottom-1 left-2 text-[8px] text-zinc-500 font-mono tracking-widest z-10">
-                    ▼ LOWER_THIRD
-                  </div>
-                )}
-
-                {/* Optional Mock Background Image for Corporate Suites */}
                 {preset.mockImage && (
                   <img
                     src={preset.mockImage}
@@ -693,49 +740,71 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                   />
                 )}
 
-                {/* Primary Title with Live Style */}
                 <div
-                  className={`relative z-10 text-center font-bold transition-all duration-200 leading-tight ${
-                    isHovered ? 'scale-105' : 'scale-100'
-                  }`}
+                  className={`relative z-10 flex flex-col ${
+                    cardConfig.layoutMode === 'lower-third-bar'
+                      ? 'self-start items-start text-left pl-2.5 border-l-2'
+                      : 'items-center text-center'
+                  } ${cardConfig.backdropPlate.enabled ? 'px-2.5 py-1 rounded-xs' : ''}`}
                   style={{
-                    fontFamily: preset.fontFamily,
-                    color: preset.color,
-                    letterSpacing: preset.letterSpacing || 'normal',
-                    textShadow: isHovered && preset.glowColor ? `0 0 16px ${preset.glowColor}` : '0 1px 4px rgba(0,0,0,0.8)'
+                    background: cardConfig.backdropPlate.enabled ? cardConfig.backdropPlate.background : 'transparent',
+                    borderColor:
+                      cardConfig.layoutMode === 'lower-third-bar'
+                        ? cardConfig.backdropPlate.accentBarColor || cardConfig.primaryColor
+                        : undefined,
+                    border:
+                      cardConfig.layoutMode !== 'lower-third-bar' && cardConfig.backdropPlate.enabled
+                        ? cardConfig.backdropPlate.border
+                        : undefined
                   }}
                 >
-                  {preset.primaryText}
+                  <div
+                    className={`font-bold transition-all duration-200 leading-tight ${
+                      isHovered ? 'scale-105' : 'scale-100'
+                    }`}
+                    style={{
+                      fontFamily: cardConfig.englishFontFamily,
+                      color: cardConfig.primaryColor,
+                      letterSpacing: `${cardConfig.letterTracking}em`,
+                      WebkitTextStroke:
+                        cardConfig.strokeWidth > 0 ? `0.5px ${cardConfig.strokeColor}` : undefined,
+                      textShadow: isHovered ? `0 0 14px ${cardConfig.glowColor}` : '0 1px 4px rgba(0,0,0,0.85)'
+                    }}
+                  >
+                    {preset.primaryText}
+                  </div>
+
+                  {preset.secondaryText && (
+                    <div
+                      className="text-[9px] mt-0.5 tracking-widest uppercase opacity-85"
+                      style={{
+                        fontFamily: cardConfig.englishFontFamily,
+                        color: cardConfig.secondaryColor
+                      }}
+                    >
+                      {preset.secondaryText}
+                    </div>
+                  )}
                 </div>
 
-                {/* Secondary Title / Subtitle */}
-                {preset.secondaryText && (
-                  <div
-                    className="relative z-10 text-[9px] mt-1 text-center font-mono opacity-80 tracking-widest uppercase transition-opacity"
-                    style={{ color: '#E4E4E7' }}
-                  >
-                    {preset.secondaryText}
-                  </div>
-                )}
-
-                {/* Corporate Call To Action Badge */}
                 {preset.callToAction && (
                   <div className="relative z-10 text-[8px] mt-0.5 text-center font-mono text-emerald-400 font-bold tracking-wider uppercase">
                     [ CTA: {preset.callToAction} ]
                   </div>
                 )}
 
-                {/* Live Animation Indicator Badge */}
                 <div className="absolute bottom-1 right-2 text-[8px] text-zinc-500 font-mono z-10">
-                  {preset.animationStyle}
+                  {cardConfig.motionAnimation}
                 </div>
               </div>
 
               {/* Hover Quick Action Footer */}
               <div className="mt-2.5 flex items-center justify-between text-[9px] text-zinc-400">
-                <span className="font-mono text-zinc-500">{preset.fontFamily.split(',')[0]}</span>
-                <span className={`font-bold transition-colors ${isBoundSuccess ? 'text-emerald-400' : isApplied ? 'text-emerald-400' : 'group-hover:text-[#F5A623]'}`}>
-                  {isBoundSuccess ? '✓ BOUND TO SHOT' : isApplied ? '✓ APPLIED TO SHOT' : 'Click to Apply or Drop Media →'}
+                <span className="font-mono text-zinc-500 truncate max-w-[140px]">
+                  {cardConfig.englishFontFamily.split(',')[0].replace(/"/g, '')}
+                </span>
+                <span className={`font-bold transition-colors ${isBoundSuccess ? 'text-emerald-400' : isApplied || isSelectedOnStage ? 'text-[#F59E0B]' : 'group-hover:text-[#F5A623]'}`}>
+                  {isBoundSuccess ? '✓ BOUND TO SHOT' : isApplied ? '✓ APPLIED TO SHOT' : isSelectedOnStage ? '● ACTIVE ON STAGE' : 'Click to Apply or Drop Media →'}
                 </span>
               </div>
             </div>

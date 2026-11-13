@@ -23,6 +23,7 @@ import { TextTypographyDrawer } from '../../components/drawers/TextTypographyDra
 import { BrutalistKineticHudStrip } from '../../components/drawers/BrutalistKineticHudStrip';
 import { KineticTributeSequence } from '../../components/stage/templates/KineticTributeSequence';
 import { TributeProfile, TRIBUTE_PROFILES } from '../../constants/tributeData';
+import { resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
 import { 
   Type, 
   Sliders, 
@@ -134,7 +135,9 @@ export const TextStudio: React.FC<TextStudioProps> = ({
       tagline: updatedFrame.tagline,
       directorNotes: updatedFrame.directorNotes,
       soundCue: updatedFrame.soundCue,
-      titleAnimation: updatedFrame.titleAnimation
+      titleAnimation: updatedFrame.titleAnimation,
+      ...(updatedFrame.activeTitlePreset ? { activeTitlePreset: updatedFrame.activeTitlePreset } : {}),
+      ...(updatedFrame.titleStyleConfig ? { titleStyleConfig: updatedFrame.titleStyleConfig } : {})
     });
   };
 
@@ -176,38 +179,32 @@ export const TextStudio: React.FC<TextStudioProps> = ({
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
   };
 
-  // Preview styling based on active preset
+  const resolvedSimulatorConfig = resolveShotTitlePresetConfig(
+    currentFrame || currentShot,
+    titleConfig
+  );
+
+  // Preview styling based on resolved TitlePresetConfig
   const getPreviewPresetInfo = () => {
-    switch (titleConfig.preset) {
-      case 'titanium-silver':
-        return {
-          titleClass: 'bg-gradient-to-r from-slate-100 via-slate-300 to-cyan-200 bg-clip-text text-transparent',
-          glowStyle: {
-            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px rgba(56,189,248,0.85)) drop-shadow(0 0 ${Math.round(35 * titleConfig.glowIntensity)}px rgba(14,165,233,0.4))`
-          },
-          streakClass: 'bg-gradient-to-r from-transparent via-[#38BDF8] to-transparent shadow-[0_0_15px_#38BDF8]',
-          capsuleClass: 'border-cyan-400/30 text-cyan-200'
-        };
-      case 'neon-crimson':
-        return {
-          titleClass: 'bg-gradient-to-r from-rose-200 via-red-500 to-rose-700 bg-clip-text text-transparent',
-          glowStyle: {
-            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px rgba(239,68,68,0.9)) drop-shadow(0 0 ${Math.round(35 * titleConfig.glowIntensity)}px rgba(220,38,38,0.5))`
-          },
-          streakClass: 'bg-gradient-to-r from-transparent via-[#EF4444] to-transparent shadow-[0_0_15px_#EF4444]',
-          capsuleClass: 'border-rose-500/30 text-rose-300'
-        };
-      case 'molten-gold':
-      default:
-        return {
-          titleClass: 'bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600 bg-clip-text text-transparent',
-          glowStyle: {
-            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px rgba(245,166,35,0.85)) drop-shadow(0 0 ${Math.round(35 * titleConfig.glowIntensity)}px rgba(245,166,35,0.4))`
-          },
-          streakClass: 'bg-gradient-to-r from-transparent via-[#F5A623] to-transparent shadow-[0_0_15px_#F5A623]',
-          capsuleClass: 'border-[#F5A623]/25 text-[#F5A623]'
-        };
-    }
+    const c = resolvedSimulatorConfig;
+    const hasGrad = Array.isArray(c.primaryGradient) && c.primaryGradient.length >= 2;
+    return {
+      config: c,
+      hasGrad,
+      glowStyle: hasGrad
+        ? {
+            backgroundImage: `linear-gradient(90deg, ${c.primaryGradient!.join(', ')})`,
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px ${c.glowColor})`
+          }
+        : {
+            color: c.primaryColor,
+            WebkitTextStroke: c.strokeWidth > 0 ? `1px ${c.strokeColor}` : undefined,
+            textShadow: `0 0 ${Math.round(18 * titleConfig.glowIntensity)}px ${c.glowColor}`
+          }
+    };
   };
 
   const previewInfo = getPreviewPresetInfo();
@@ -383,15 +380,24 @@ export const TextStudio: React.FC<TextStudioProps> = ({
       ) : (
       <div className="p-3.5 sm:p-4 flex flex-col gap-4">
         {/* Dynamic Hero Title Live Stage Simulator Card */}
-        <div className="p-4 rounded-[3px] bg-[#020204] border border-[#F5A623]/30 relative overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[140px] text-center">
+        <div
+          className="p-4 rounded-[3px] bg-[#020204] border relative overflow-hidden shadow-2xl flex flex-col items-center justify-center min-h-[140px] text-center"
+          style={{ borderColor: `${previewInfo.config.primaryColor}45` }}
+        >
           {/* Anamorphic Reflection Streak */}
-          <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 h-[1px] bg-gradient-to-r from-transparent via-[#FFE066]/30 to-transparent blur-[0.5px]" />
-          <div className={`absolute top-1/2 left-1/4 right-1/4 -translate-y-1/2 h-2 rounded-full ${previewInfo.streakClass} opacity-80 blur-xs`} />
+          <div
+            className="absolute top-1/2 left-1/4 right-1/4 -translate-y-1/2 h-[2px] rounded-full opacity-70 blur-[0.5px]"
+            style={{
+              background: `linear-gradient(90deg, transparent, ${previewInfo.config.primaryColor}, transparent)`,
+              boxShadow: `0 0 15px ${previewInfo.config.glowColor}`
+            }}
+          />
 
-          {/* Bengali Hero Headline with 3-Layer Bloom */}
+          {/* Primary Hero Headline with Unified Preset Styling */}
           <span 
-            className={`font-bangla font-black ${previewInfo.titleClass} select-none leading-none transition-all drop-shadow-2xl`}
+            className="font-black select-none leading-none transition-all drop-shadow-2xl relative z-10"
             style={{ 
+              fontFamily: previewInfo.config.banglaFontFamily,
               fontSize: `${Math.round(titleConfig.titleSize * 0.42)}px`,
               letterSpacing: `${titleConfig.tracking}em`,
               transform: `translateY(${titleConfig.verticalOffset * 0.15}px)`,
@@ -401,24 +407,35 @@ export const TextStudio: React.FC<TextStudioProps> = ({
             {titleBn || 'দৃষ্টির সীমানা'}
           </span>
 
-          {/* Ultra-Wide Tracked English Subtitle */}
+          {/* Secondary Subtitle */}
           <span 
-            className="font-mono font-bold text-slate-200 uppercase drop-shadow-md text-center mt-2.5 select-none"
+            className="font-bold uppercase drop-shadow-md text-center mt-2.5 select-none relative z-10"
             style={{ 
+              fontFamily: previewInfo.config.englishFontFamily,
+              color: previewInfo.config.secondaryColor,
               fontSize: `${Math.max(9, Math.round(titleConfig.titleSize * 0.16))}px`,
-              letterSpacing: `${(titleConfig.tracking + 0.25).toFixed(2)}em`
+              letterSpacing: `${(titleConfig.tracking + 0.15).toFixed(2)}em`
             }}
           >
             {titleEn || 'THE SINGULARITY'}
           </span>
 
-          {/* Dialogue / Tagline Subtitle in Floating Obsidian Capsule */}
+          {/* Dialogue / Tagline Subtitle */}
           {(caption || dialogue) && (
-            <div className={`mt-3 px-3.5 py-1 rounded-full bg-black/70 backdrop-blur-md border ${previewInfo.capsuleClass} text-[8.5px] italic max-w-[85%] truncate shadow-lg`}>
+            <div
+              className="mt-3 px-3.5 py-1 rounded-full bg-black/70 backdrop-blur-md border text-[8.5px] italic max-w-[85%] truncate shadow-lg relative z-10"
+              style={{
+                borderColor: `${previewInfo.config.primaryColor}45`,
+                color: previewInfo.config.secondaryColor
+              }}
+            >
               "{dialogue || caption}"
             </div>
           )}
 
+          <div className="absolute top-2 left-2 text-[8px] font-mono text-zinc-400 uppercase">
+            {previewInfo.config.presetName} • {previewInfo.config.layoutMode}
+          </div>
           <div className="absolute top-2 right-2 flex items-center gap-1.5 text-[8px] text-zinc-500 font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
             <span>0ms LIVE STAGE COMPOSITED</span>

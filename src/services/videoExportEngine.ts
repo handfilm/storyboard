@@ -36,13 +36,19 @@ import { studioDraftDb } from './db';
 import {
   getCandidateShotMediaKeys,
   getShotMediaBlob,
+  loadAllShotNativePaths,
   resolveShotMediaEntry,
+  resolveTauriAssetUrl,
   ShotMediaMap
 } from './handfilmMediaVault';
 import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
-import { renderAlignedCinemaTitleOverlay } from '../utils/interchangeExport';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
-import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption, SmartCropMode, SpeedRampPreset } from '../types/anthology';
+import { AnthologyFrame, DopamineShotConfig, FrameAdjustments, LutPreset, ShotCaption, SmartCropMode, SpeedRampPreset } from '../types/anthology';
+import type { TitlePresetConfig } from '../types/titlePreset';
+import { buildTitlePresetConfigById, resolveShotTitlePresetConfig } from '../constants/titleTemplates';
+import { renderTitlePresetToCanvas } from './titleCanvasRenderer';
+import { renderCanvasBurnInCaption } from './captionEngine';
+import { isSvgPlaceholderUrl, isVideoSourceUrl } from './thumbnailEngine';
 import {
   diagnoseWebCodecsOutputFormat,
   FullResVideoEncoder,
@@ -54,13 +60,178 @@ import {
 export { sanitizeMuxerChunkMetadata };
 import { SlideDraft } from '../types/project';
 import { buildFilmStockCssFilter, applyCinematicPostProcess } from './cinematicFilterEngine';
-import { renderCanvasBurnInCaption } from './captionEngine';
 import { opfsMediaStorage } from './media/opfsMediaStorage';
 import {
   computeSmartCropRect,
   evaluateBeatDropFx,
   evaluateSpeedRampSourceTime
 } from '../utils/speedReelsEngine';
+
+export interface ResolvedShotMediaCandidate {
+  url: string | null;
+  isVideo: boolean;
+  sourceKind: 'video' | 'image' | 'none';
+  hasVaultEntry: boolean;
+}
+
+/**
+ * Resolves the highest-priority playable media URL for a shot across `shotMediaMap`,
+ * native Tauri paths, and all video/image fields on `shot`, `frame`, and `slide`
+ * (prioritizing real video streams ahead of static poster thumbnails).
+ */
+export function resolveShotVideoOrImageCandidate(
+  shot: Record<string, any> | null | undefined,
+  frame: Record<string, any> | null | undefined,
+  slide: Record<string, any> | null | undefined,
+  shotIdx: number,
+  shotMediaMap?: ShotMediaMap
+): ResolvedShotMediaCandidate {
+  const storeMediaMap = useStudioStore.getState().shotMediaMap;
+  const mediaEntry =
+    resolveShotMediaEntry(shotMediaMap, frame || shot, slide, shotIdx) ??
+    resolveShotMediaEntry(storeMediaMap, frame || shot, slide, shotIdx);
+
+  if (mediaEntry?.url && !isSvgPlaceholderUrl(mediaEntry.url)) {
+    const isVid =
+      mediaEntry.type === 'video' ||
+      isVideoSourceUrl(mediaEntry.url, { mimeType: mediaEntry.mimeType });
+    if (isVid) {
+      return { url: mediaEntry.url, isVideo: true, sourceKind: 'video', hasVaultEntry: true };
+    }
+  }
+
+  // Native file paths persisted for Tauri / desktop
+  const nativePaths = loadAllShotNativePaths();
+  const candidateKeys = getCandidateShotMediaKeys(frame || shot, slide, shotIdx);
+  for (const key of candidateKeys) {
+    const rec = nativePaths[key];
+    if (rec?.nativePath) {
+      const resolvedUrl = resolveTauriAssetUrl(rec.nativePath);
+      const isVid =
+        rec.type === 'video' ||
+        isVideoSourceUrl(resolvedUrl, { mimeType: rec.mimeType });
+      if (isVid) {
+        return { url: resolvedUrl, isVideo: true, sourceKind: 'video', hasVaultEntry: true };
+      }
+    }
+  }
+
+  const rawCandidates: Array<{ url?: string; hintedVideo?: boolean }> = [
+    { url: shot?.videoUrl, hintedVideo: true },
+    { url: frame?.videoUrl, hintedVideo: true },
+    { url: slide?.videoUrl, hintedVideo: true },
+    { url: shot?.videoSrc, hintedVideo: true },
+    { url: frame?.videoSrc, hintedVideo: true },
+    { url: slide?.videoSrc, hintedVideo: true },
+    { url: shot?.mediaUrl, hintedVideo: Boolean(shot?.isVideo) },
+    { url: frame?.mediaUrl, hintedVideo: Boolean(frame?.isVideo) },
+    { url: slide?.mediaUrl, hintedVideo: Boolean(slide?.isVideo) },
+    { url: shot?.assetUrl, hintedVideo: Boolean(shot?.isVideo) },
+    { url: frame?.assetUrl, hintedVideo: Boolean(frame?.isVideo) },
+    { url: slide?.assetUrl, hintedVideo: Boolean(slide?.isVideo) },
+    { url: shot?.blobUrl, hintedVideo: Boolean(shot?.isVideo) },
+    { url: frame?.blobUrl, hintedVideo: Boolean(frame?.isVideo) },
+    { url: slide?.blobUrl, hintedVideo: Boolean(slide?.isVideo) },
+    { url: shot?.previewUrl, hintedVideo: Boolean(shot?.isVideo) },
+    { url: frame?.previewUrl, hintedVideo: Boolean(frame?.isVideo) },
+    { url: slide?.previewUrl, hintedVideo: Boolean(slide?.isVideo) },
+    { url: slide?.remoteUrl, hintedVideo: Boolean(slide?.isVideo) },
+    { url: frame?.imageUrl, hintedVideo: Boolean(frame?.isVideo) },
+    { url: shot?.imageUrl, hintedVideo: Boolean(shot?.isVideo) }
+  ];
+
+  let firstValidImage: string | null = null;
+  for (const item of rawCandidates) {
+    const u = typeof item.url === 'string' ? item.url.trim() : '';
+    if (!u || isSvgPlaceholderUrl(u)) continue;
+    const isVid = isVideoSourceUrl(u, { isVideo: item.hintedVideo });
+    if (isVid) {
+      return { url: u, isVideo: true, sourceKind: 'video', hasVaultEntry: Boolean(mediaEntry) };
+    }
+    if (!firstValidImage) {
+      firstValidImage = u;
+    }
+  }
+
+  if (mediaEntry?.url && !isSvgPlaceholderUrl(mediaEntry.url)) {
+    return { url: mediaEntry.url, isVideo: false, sourceKind: 'image', hasVaultEntry: true };
+  }
+
+  if (firstValidImage) {
+    return { url: firstValidImage, isVideo: false, sourceKind: 'image', hasVaultEntry: Boolean(mediaEntry) };
+  }
+
+  const posterCandidates = [frame?.thumbnailUrl, shot?.thumbnailUrl, slide?.thumbnail];
+  for (const p of posterCandidates) {
+    if (typeof p === 'string' && p.trim() && !isSvgPlaceholderUrl(p)) {
+      return { url: p.trim(), isVideo: false, sourceKind: 'image', hasVaultEntry: false };
+    }
+  }
+
+  return { url: null, isVideo: false, sourceKind: 'none', hasVaultEntry: false };
+}
+
+export interface SequenceMediaReadinessSummary {
+  totalShots: number;
+  videoReadyCount: number;
+  imageOnlyCount: number;
+  proceduralSlateCount: number;
+  perShot: Array<{
+    shotIndex: number;
+    title: string;
+    mediaKind: 'video' | 'image' | 'none';
+    presetName: string;
+    layoutMode: string;
+  }>;
+}
+
+export function verifySequenceMediaReadiness(
+  shotIndices: number[],
+  slides: any[] = [],
+  frames: any[] = [],
+  shotMediaMap?: ShotMediaMap
+): SequenceMediaReadinessSummary {
+  const storeState = useStudioStore.getState();
+  const shots = storeState.project?.shots || [];
+  let videoReadyCount = 0;
+  let imageOnlyCount = 0;
+  let proceduralSlateCount = 0;
+
+  const perShot = shotIndices.map((idx) => {
+    const shot = shots[idx];
+    const frame = frames[idx];
+    const slide = slides[idx];
+    const resolved = resolveShotVideoOrImageCandidate(shot, frame, slide, idx, shotMediaMap);
+    if (resolved.sourceKind === 'video') videoReadyCount++;
+    else if (resolved.sourceKind === 'image') imageOnlyCount++;
+    else proceduralSlateCount++;
+
+    const presetCfg = resolveShotTitlePresetConfig(
+      {
+        titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? shot?.titleStyleConfig,
+        activeTitlePreset: frame?.activeTitlePreset ?? shot?.activeTitlePreset,
+        dopamineConfig: frame?.dopamineConfig ?? shot?.dopamineConfig
+      },
+      storeState.titleConfig
+    );
+
+    return {
+      shotIndex: idx,
+      title: slide?.titleEn || frame?.title || shot?.title || `SH${String(idx + 1).padStart(3, '0')}`,
+      mediaKind: resolved.sourceKind,
+      presetName: presetCfg.presetName,
+      layoutMode: presetCfg.layoutMode
+    };
+  });
+
+  return {
+    totalShots: shotIndices.length,
+    videoReadyCount,
+    imageOnlyCount,
+    proceduralSlateCount,
+    perShot
+  };
+}
 
 export type ShotSelectionMode = 'all' | 'range' | 'custom' | 'current';
 
@@ -404,14 +575,14 @@ async function attemptLoadVideo(
 
   const ok = await loadedPromise;
   if (ok && vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0) {
-    // Prime GPU video surface so frame 0 is decoded & paintable immediately
+    // Prime GPU video surface and await frame-0 seek settle so export never reads stale state
     try {
       const playPromise = vid.play();
       if (playPromise && typeof playPromise.then === 'function') {
         await Promise.race([playPromise.catch(() => {}), new Promise((r) => setTimeout(r, 80))]);
       }
       vid.pause();
-      vid.currentTime = 0;
+      await waitForSeek(vid, 0, 450);
     } catch {
       // Non-fatal if autoplay blocked; video already loadeddata
     }
@@ -720,7 +891,10 @@ export interface FrameCompositeProps {
   caption?: ShotCaption;
   shotType?: string;
   titleAlign?: TitleAlign;
-  titlePreset?: HeroTitlePreset;
+  titlePreset?: HeroTitlePreset | string;
+  titleStyleConfig?: TitlePresetConfig;
+  dopamineConfig?: DopamineShotConfig;
+  cameraInfo?: string;
   titleSize?: number;
   verticalOffset?: number;
   panX?: number;
@@ -756,6 +930,9 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     shotType,
     titleAlign,
     titlePreset,
+    titleStyleConfig,
+    dopamineConfig,
+    cameraInfo,
     titleSize,
     verticalOffset,
     panX,
@@ -775,13 +952,20 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   ctx.fillStyle = '#050505';
   ctx.fillRect(0, 0, width, height);
 
+  const isVideoEl = typeof HTMLVideoElement !== 'undefined' && sourceElement instanceof HTMLVideoElement;
+  const isImageEl = typeof HTMLImageElement !== 'undefined' && sourceElement instanceof HTMLImageElement;
+
   const hasReadySource = Boolean(
     sourceElement &&
-      (sourceElement instanceof HTMLVideoElement
-        ? sourceElement.readyState >= 2 && sourceElement.videoWidth > 0 && sourceElement.videoHeight > 0
-        : sourceElement instanceof HTMLImageElement
-          ? sourceElement.complete && sourceElement.naturalWidth > 0 && sourceElement.naturalHeight > 0
-          : sourceElement.width > 0 && sourceElement.height > 0)
+      (isVideoEl
+        ? (sourceElement as HTMLVideoElement).readyState >= 2 &&
+          (sourceElement as HTMLVideoElement).videoWidth > 0 &&
+          (sourceElement as HTMLVideoElement).videoHeight > 0
+        : isImageEl
+          ? (sourceElement as HTMLImageElement).complete &&
+            (sourceElement as HTMLImageElement).naturalWidth > 0 &&
+            (sourceElement as HTMLImageElement).naturalHeight > 0
+          : (sourceElement as any).width > 0 && (sourceElement as any).height > 0)
   );
 
   if (!hasReadySource) {
@@ -792,15 +976,15 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
   if (hasReadySource && sourceElement) {
     let srcW = 1920;
     let srcH = 1080;
-    if (sourceElement instanceof HTMLVideoElement) {
-      srcW = sourceElement.videoWidth || 1920;
-      srcH = sourceElement.videoHeight || 1080;
-    } else if (sourceElement instanceof ImageBitmap || sourceElement instanceof HTMLCanvasElement) {
-      srcW = sourceElement.width;
-      srcH = sourceElement.height;
-    } else if (sourceElement instanceof HTMLImageElement) {
-      srcW = sourceElement.naturalWidth || 1920;
-      srcH = sourceElement.naturalHeight || 1080;
+    if (isVideoEl) {
+      srcW = (sourceElement as HTMLVideoElement).videoWidth || 1920;
+      srcH = (sourceElement as HTMLVideoElement).videoHeight || 1080;
+    } else if (isImageEl) {
+      srcW = (sourceElement as HTMLImageElement).naturalWidth || 1920;
+      srcH = (sourceElement as HTMLImageElement).naturalHeight || 1080;
+    } else {
+      srcW = (sourceElement as any).width || 1920;
+      srcH = (sourceElement as any).height || 1080;
     }
 
     const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
@@ -982,7 +1166,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
 
-  // 5. Aligned Dopamine & Kinetics Title Overlay (LEFT | MID | RIGHT | AUTO)
+  // 5. Unified 1:1 WYSIWYG Preset Title Compositor (Supports all 15 Presets + Dopamine)
   if (burnInTitles) {
     const rampFrames = Math.min(16, Math.max(3, Math.floor(totalFramesInShot * 0.25)));
     const fadeIn = Math.min(1.0, Math.max(0.08, (frameInShot + 1) / rampFrames));
@@ -991,26 +1175,45 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     const fadeOut = remainingFrames <= fadeOutFrames ? Math.max(0.15, remainingFrames / fadeOutFrames) : 1.0;
     const titleFade = Math.min(fadeIn, fadeOut);
     const storeState = useStudioStore.getState();
+    const storeShot = storeState.project?.shots?.[shotIndex];
     const resolvedAlign = resolveEffectiveTitleAlign(
       titleAlign ?? storeState.titleAlign ?? 'AUTO',
       shotIndex,
-      shotType
+      shotType ?? storeShot?.shotType
     );
-    const resolvedPreset = titlePreset ?? storeState.titleConfig?.preset ?? 'molten-gold';
-    const baseSize = titleSize ?? storeState.titleConfig?.titleSize ?? 72;
-    const resolvedSize = Math.round(baseSize * beatFx.beatSlamScale);
-    const resolvedVerticalOffset = verticalOffset ?? storeState.titleConfig?.verticalOffset ?? 0;
 
-    renderAlignedCinemaTitleOverlay(ctx, width, height, {
-      banglaTitle: titleBn,
-      englishTitle: titleEn,
-      dialogue: tagline || '24.0 FPS RAW • MASTER CINE PROJECTION',
-      effectiveAlign: resolvedAlign,
-      preset: resolvedPreset,
-      titleSize: resolvedSize,
-      verticalOffset: resolvedVerticalOffset,
-      opacity: titleFade
-    });
+    const basePresetConfig = resolveShotTitlePresetConfig(
+      {
+        titleStyleConfig: titleStyleConfig ?? storeShot?.titleStyleConfig,
+        activeTitlePreset:
+          typeof titlePreset === 'string' ? titlePreset : storeShot?.activeTitlePreset,
+        dopamineConfig: dopamineConfig ?? storeShot?.dopamineConfig
+      },
+      storeState.titleConfig
+    );
+
+    const finalPresetConfig: TitlePresetConfig = {
+      ...basePresetConfig,
+      ...(typeof titleSize === 'number' ? { fontScale: titleSize } : {}),
+      ...(typeof verticalOffset === 'number' ? { verticalOffset } : {})
+    };
+
+    renderTitlePresetToCanvas(
+      ctx,
+      width,
+      height,
+      {
+        banglaTitle: titleBn,
+        englishTitle: titleEn,
+        dialogue: tagline || '24.0 FPS RAW • MASTER CINE PROJECTION',
+        cameraInfo,
+        effectiveAlign: resolvedAlign,
+        opacity: titleFade,
+        beatSlamScale: beatFx.beatSlamScale
+      },
+      finalPresetConfig,
+      currentLocalSec
+    );
   }
 
   // 6. Top Telemetry Slates & Corner Reticles (Variable-Duration SMPTE Sync)
@@ -1126,21 +1329,39 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
       applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
       if (burnInTitles && !cleanPlates) {
         const storeState = useStudioStore.getState();
+        const storeShot = storeState.project?.shots?.[shotIndex];
         const resolvedAlign = resolveEffectiveTitleAlign(
           titleAlign ?? storeState.titleAlign ?? 'AUTO',
           shotIndex,
-          shotType
+          shotType ?? storeShot?.shotType
         );
-        renderAlignedCinemaTitleOverlay(ctx, width, height, {
-          banglaTitle: titleBn,
-          englishTitle: titleEn,
-          dialogue: tagline,
-          effectiveAlign: resolvedAlign,
-          preset: titlePreset ?? storeState.titleConfig?.preset ?? 'molten-gold',
-          titleSize: titleSize ?? storeState.titleConfig?.titleSize ?? 72,
-          verticalOffset: verticalOffset ?? storeState.titleConfig?.verticalOffset ?? 0,
-          opacity: 1.0
-        });
+        const baseCfg = resolveShotTitlePresetConfig(
+          {
+            titleStyleConfig: props.titleStyleConfig ?? storeShot?.titleStyleConfig,
+            activeTitlePreset: typeof titlePreset === 'string' ? titlePreset : storeShot?.activeTitlePreset,
+            dopamineConfig: props.dopamineConfig ?? storeShot?.dopamineConfig
+          },
+          storeState.titleConfig
+        );
+        renderTitlePresetToCanvas(
+          ctx,
+          width,
+          height,
+          {
+            banglaTitle: titleBn,
+            englishTitle: titleEn,
+            dialogue: tagline,
+            cameraInfo: props.cameraInfo,
+            effectiveAlign: resolvedAlign,
+            opacity: 1.0
+          },
+          {
+            ...baseCfg,
+            ...(typeof titleSize === 'number' ? { fontScale: titleSize } : {}),
+            ...(typeof verticalOffset === 'number' ? { verticalOffset } : {})
+          },
+          currentLocalSec
+        );
       }
     }
   } catch {
@@ -1302,12 +1523,14 @@ async function warmAndVerifySequenceAssets(
 ): Promise<Map<number, string>> {
   const rehydratedUrls = new Map<number, string>();
   const opfsAvailable = opfsMediaStorage.checkSupport();
+  const shots = useStudioStore.getState().project?.shots || [];
 
   for (const shotIdx of shotIndices) {
     const slide = slides[shotIdx];
     const frame = frames[shotIdx];
-    const entry = resolveShotMediaEntry(shotMediaMap, frame, slide, shotIdx);
-    const url = entry?.url || frame?.imageUrl || slide?.remoteUrl || '';
+    const shot = shots[shotIdx];
+    const candidate = resolveShotVideoOrImageCandidate(shot, frame, slide, shotIdx, shotMediaMap);
+    const url = candidate.url || '';
 
     if (url.startsWith('blob:') && opfsAvailable) {
       let alive = false;
@@ -1320,9 +1543,18 @@ async function warmAndVerifySequenceAssets(
       if (!alive) {
         try {
           const slot = await studioDraftDb.getTimelineSlot(shotIdx);
-          if (slot?.mediaId) {
-            const opfsUrl = await opfsMediaStorage.getMasterMediaUrl(slot.mediaId);
-            if (opfsUrl) rehydratedUrls.set(shotIdx, opfsUrl);
+          const opfsLookupIds = [
+            slot?.mediaId,
+            slide?.mediaBlobId,
+            shot?.id !== undefined ? String(shot.id) : '',
+            frame?.id !== undefined ? String(frame.id) : ''
+          ].filter(Boolean) as string[];
+          for (const lookupId of opfsLookupIds) {
+            const opfsUrl = await opfsMediaStorage.getMasterMediaUrl(lookupId);
+            if (opfsUrl) {
+              rehydratedUrls.set(shotIdx, opfsUrl);
+              break;
+            }
           }
         } catch {}
       }
@@ -1333,9 +1565,9 @@ async function warmAndVerifySequenceAssets(
 }
 
 /**
- * Decodes per-shot media from `shotMediaMap` (stored blob URLs), OPFS, or `handfilm_media_vault`,
- * explicitly awaiting `onloadeddata` for videos or `img.decode()` for images before capture.
- * Returns null sources when missing or failed so `compositeCinemaFrame` falls back cleanly.
+ * Decodes per-shot media from `shotMediaMap` (stored blob URLs), direct video/image URLs on
+ * `shot` / `frame` / `slide`, IndexedDB (`handfilm_media_vault` / `studioDraftDb`), or OPFS,
+ * prioritizing real video streams ahead of static poster thumbnails.
  */
 async function loadShotSourceMedia(
   shotIdx: number,
@@ -1349,10 +1581,13 @@ async function loadShotSourceMedia(
   activeObjectUrl: string | null;
   ownsObjectUrl: boolean;
 }> {
-  const storeMediaMap = useStudioStore.getState().shotMediaMap;
+  const storeState = useStudioStore.getState();
+  const storeMediaMap = storeState.shotMediaMap;
+  const shot = storeState.project?.shots?.[shotIdx];
   const mediaEntry =
-    resolveShotMediaEntry(shotMediaMap, frame, slide, shotIdx) ??
-    resolveShotMediaEntry(storeMediaMap, frame, slide, shotIdx);
+    resolveShotMediaEntry(shotMediaMap, frame || shot, slide, shotIdx) ??
+    resolveShotMediaEntry(storeMediaMap, frame || shot, slide, shotIdx);
+  const candidate = resolveShotVideoOrImageCandidate(shot, frame, slide, shotIdx, shotMediaMap);
 
   let activeVideoElement: HTMLVideoElement | null = null;
   let activeBitmap: ImageBitmap | HTMLImageElement | null = null;
@@ -1361,7 +1596,7 @@ async function loadShotSourceMedia(
 
   // 0. Check rehydrated OPFS object URL if prior blob: expired
   if (rehydratedUrlOverride) {
-    const isVid = mediaEntry ? mediaEntry.type === 'video' : Boolean(frame?.isVideo || slide?.isVideo);
+    const isVid = mediaEntry ? mediaEntry.type === 'video' : candidate.isVideo || Boolean(frame?.isVideo || slide?.isVideo || shot?.isVideo);
     if (isVid) {
       const vid = await loadVideoElementWithOnLoadedData(rehydratedUrlOverride, 4500);
       if (vid) {
@@ -1375,8 +1610,8 @@ async function loadShotSourceMedia(
     }
   }
 
-  // 1. Primary: Resolve directly from `shotMediaMap` stored blob URL
-  if (mediaEntry?.url) {
+  // 1. Primary: Resolve directly from `shotMediaMap` stored blob/native URL
+  if (mediaEntry?.url && !isSvgPlaceholderUrl(mediaEntry.url)) {
     if (mediaEntry.type === 'video') {
       const vid = await loadVideoElementWithOnLoadedData(mediaEntry.url, 4500);
       if (vid) {
@@ -1400,12 +1635,25 @@ async function loadShotSourceMedia(
     }
   }
 
-  // 2. Secondary: Read binary Blob directly from IndexedDB (`handfilm_media_vault` / `studioDraftDb`)
-  const rawBlob = await loadShotRawBlob(shotIdx, slide, frame);
+  // 2. Explicit video candidate URL on `shot`, `frame`, `slide`, or native path (strictly before poster fallbacks)
+  if (candidate.url && candidate.isVideo) {
+    const vid = await loadVideoElementWithOnLoadedData(candidate.url, 4500);
+    if (vid) {
+      return {
+        activeVideoElement: vid,
+        activeBitmap: null,
+        activeObjectUrl: null,
+        ownsObjectUrl: false
+      };
+    }
+  }
+
+  // 3. Read binary Blob directly from IndexedDB (`handfilm_media_vault` / `studioDraftDb`)
+  const rawBlob = await loadShotRawBlob(shotIdx, slide, frame || shot);
   if (rawBlob) {
     const isBlobVideo =
       rawBlob.type.startsWith('video/') ||
-      Boolean(!rawBlob.type && (frame?.isVideo || slide?.isVideo || mediaEntry?.type === 'video'));
+      Boolean(!rawBlob.type && (frame?.isVideo || slide?.isVideo || shot?.isVideo || mediaEntry?.type === 'video'));
     if (isBlobVideo) {
       activeObjectUrl = URL.createObjectURL(rawBlob);
       ownsObjectUrl = true;
@@ -1435,25 +1683,45 @@ async function loadShotSourceMedia(
     }
   }
 
-  // 3. Tertiary: Check frame/slide remote or data URL
-  const mediaUrl = frame?.videoSrc || frame?.imageUrl || slide?.remoteUrl || '';
-  const isVideoMedia = Boolean(
-    frame?.isVideo ||
-      slide?.isVideo ||
-      mediaUrl.startsWith('data:video') ||
-      /\.(mp4|webm|mov|m4v|mkv)($|\?)/i.test(mediaUrl)
-  );
-
-  if (mediaUrl) {
-    if (isVideoMedia) {
-      activeVideoElement = await loadVideoElementWithOnLoadedData(mediaUrl, 4500);
-    } else {
-      activeBitmap = await loadDecodedImage(mediaUrl, 3000);
+  // 4. Direct OPFS Media Vault lookup by slot / mediaId / shot id
+  if (opfsMediaStorage.checkSupport()) {
+    try {
+      const slot = await studioDraftDb.getTimelineSlot(shotIdx);
+      const opfsIds = [
+        slot?.mediaId,
+        slide?.mediaBlobId,
+        shot?.id !== undefined ? String(shot.id) : '',
+        frame?.id !== undefined ? String(frame.id) : ''
+      ].filter(Boolean) as string[];
+      for (const opfsId of opfsIds) {
+        const opfsUrl = await opfsMediaStorage.getMasterMediaUrl(opfsId);
+        if (!opfsUrl) continue;
+        const isVid = Boolean((slot as any)?.isVideo || frame?.isVideo || slide?.isVideo || shot?.isVideo);
+        if (isVid) {
+          const vid = await loadVideoElementWithOnLoadedData(opfsUrl, 4500);
+          if (vid) {
+            return { activeVideoElement: vid, activeBitmap: null, activeObjectUrl: opfsUrl, ownsObjectUrl: true };
+          }
+        } else {
+          const img = await loadDecodedImage(opfsUrl, 3000);
+          if (img) {
+            return { activeVideoElement: null, activeBitmap: img, activeObjectUrl: opfsUrl, ownsObjectUrl: true };
+          }
+        }
+        URL.revokeObjectURL(opfsUrl);
+      }
+    } catch {
+      // non-fatal
     }
   }
 
-  // 4. Quaternary fallback: If primary video failed, try raster poster thumbnailUrl if valid
-  if (!activeVideoElement && !activeBitmap && frame?.thumbnailUrl && !frame.thumbnailUrl.startsWith('data:image/svg+xml')) {
+  // 5. Fallback to still image candidate (non-SVG)
+  if (candidate.url && !candidate.isVideo) {
+    activeBitmap = await loadDecodedImage(candidate.url, 3000);
+  }
+
+  // 6. Final poster fallback if video failed to decode
+  if (!activeVideoElement && !activeBitmap && frame?.thumbnailUrl && !isSvgPlaceholderUrl(frame.thumbnailUrl)) {
     activeBitmap = await loadDecodedImage(frame.thumbnailUrl, 2500);
   }
 
@@ -1735,6 +2003,7 @@ async function exportCinemaMasterWithMediaRecorder(
             verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
           }
 
+          const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
           const frameProps: FrameCompositeProps = {
             ctx,
             width,
@@ -1756,6 +2025,11 @@ async function exportCinemaMasterWithMediaRecorder(
             lutFilter: frame?.lutFilter,
             adjustments: frame?.adjustments,
             caption: frame?.caption,
+            shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
+            titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
+            titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+            dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
+            cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
             panX: slide?.panX ?? frame?.panX,
             panY: slide?.panY ?? frame?.panY,
             reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
@@ -2110,6 +2384,7 @@ async function exportWithWebCodecs(
         verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
       }
 
+      const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
       const frameProps: FrameCompositeProps = {
         ctx,
         width,
@@ -2131,6 +2406,11 @@ async function exportWithWebCodecs(
         lutFilter: frame?.lutFilter,
         adjustments: frame?.adjustments,
         caption: frame?.caption,
+        shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
+        titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
+        titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+        dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
+        cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
         panX: slide?.panX ?? frame?.panX,
         panY: slide?.panY ?? frame?.panY,
         reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
@@ -2606,6 +2886,7 @@ export async function exportCinemaMasterVp9(
           verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
         }
 
+        const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
         const frameProps: FrameCompositeProps = {
           ctx,
           width,
@@ -2627,6 +2908,11 @@ export async function exportCinemaMasterVp9(
           lutFilter: frame?.lutFilter,
           adjustments: frame?.adjustments,
           caption: frame?.caption,
+          shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
+          titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
+          titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+          dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
+          cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
           panX: slide?.panX ?? frame?.panX,
           panY: slide?.panY ?? frame?.panY,
           reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
@@ -2846,6 +3132,7 @@ export async function exportPngSequenceZip(
         verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetSec, probeRef, 1200)) || activeBitmap;
       }
 
+      const storeShot = useStudioStore.getState().project?.shots?.[shotIdx];
       const frameProps: FrameCompositeProps = {
         ctx,
         width,
@@ -2867,6 +3154,11 @@ export async function exportPngSequenceZip(
         lutFilter: frame?.lutFilter,
         adjustments: frame?.adjustments,
         caption: frame?.caption,
+        shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
+        titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
+        titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+        dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
+        cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
         panX: slide?.panX ?? frame?.panX,
         panY: slide?.panY ?? frame?.panY,
         reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,

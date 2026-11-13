@@ -24,6 +24,7 @@ export interface SlideTextLayer {
 }
 
 import type { SpeedRampPreset, SmartCropMode, SpeedRampKeyframe, OpticalFlowMode } from './anthology';
+import type { TitlePresetConfig } from '../types/titlePreset';
 
 export interface SlideDraft {
   id: string; // e.g. "slide_001" or "sh_001"
@@ -38,9 +39,17 @@ export interface SlideDraft {
   beatSnapEnabled?: boolean;
   mediaBlobId?: string; // Key in media_blobs store
   remoteUrl?: string; // Pre-signed Cloudflare R2 URL or Edge CDN stream
+  videoUrl?: string;
+  videoSrc?: string;
+  mediaUrl?: string;
+  assetUrl?: string;
+  blobUrl?: string;
+  previewUrl?: string;
   thumbnailUrl?: string;
   imageUrl?: string;
   dopamineConfig?: any;
+  activeTitlePreset?: string;
+  titleStyleConfig?: TitlePresetConfig;
   titleBn?: string;
   titleEn?: string;
   tagline?: string;

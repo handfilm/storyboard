@@ -14,6 +14,8 @@ import { depthOcclusionService, DepthLayerMode } from '../services/depthOcclusio
 import { AudioPunchMode } from '../services/transientPunchEngine';
 import { AutonomousKineticPreset } from '../services/kineticTypographyStyles';
 import type { ShotMediaEntry, ShotMediaMap } from '../services/handfilmMediaVault';
+import type { TitlePresetConfig } from '../types/titlePreset';
+import { buildTitlePresetConfigById, stripDopamineDirectorNote } from '../constants/titleTemplates';
 
 export type StudioModule =
   | 'STORY'
@@ -131,6 +133,8 @@ export function resolveEffectiveTitleAlign(
 
 export interface HeroTitleConfig {
   preset: HeroTitlePreset;
+  activePresetConfig?: TitlePresetConfig;
+  heroGlobal?: boolean;
   titleSize: number; // 36 to 120 (default 72)
   glowIntensity: number; // 0.0 to 2.0 (default 1.0 = 100%)
   verticalOffset: number; // -150 to 150px (default 0)
@@ -168,6 +172,7 @@ export interface StudioState {
   setTitleOpacity: (opacity: number) => void;
   toggleTitles: () => void;
   setTitleConfig: (partial: Partial<HeroTitleConfig>) => void;
+  setShotTitlePresetConfig: (shotIndex: number, config: TitlePresetConfig, syncGlobal?: boolean) => void;
 
   // Autonomous Kinetic Typography & 3D Depth Occlusion Engine
   kineticOcclusion: {
@@ -473,6 +478,8 @@ export const useStudioStore = create<StudioState>()(
     // Kinetic Hero Title Typography Engine
     titleConfig: {
       preset: 'molten-gold',
+      activePresetConfig: buildTitlePresetConfigById('molten-gold'),
+      heroGlobal: true,
       titleSize: 72,
       glowIntensity: 1.0,
       verticalOffset: 0,
@@ -486,6 +493,7 @@ export const useStudioStore = create<StudioState>()(
         state.titleAlign = align;
         state.titlePosition = titleAlignToPosition(align);
       });
+      eventBus.emit('title:align', align);
     },
     titlePosition: 'mid-bottom',
     setTitlePosition: (position: TitlePosition) => {
@@ -493,32 +501,150 @@ export const useStudioStore = create<StudioState>()(
         state.titlePosition = position;
         state.titleAlign = positionToTitleAlign(position);
       });
+      eventBus.emit('title:align', get().titleAlign);
     },
     setTitlePreset: (preset: HeroTitlePreset) => {
+      let updatedShotIdx = 0;
+      let builtConfig: TitlePresetConfig | undefined;
+      let cleanedNotes = '';
+      let cleanedTags: string[] = [];
       set((state) => {
         state.titleConfig.preset = preset;
+        builtConfig = buildTitlePresetConfigById(preset, {
+          fontScale: state.titleConfig.titleSize,
+          glowIntensity: state.titleConfig.glowIntensity,
+          letterTracking: state.titleConfig.tracking,
+          verticalOffset: state.titleConfig.verticalOffset
+        });
+        state.titleConfig.activePresetConfig = builtConfig;
+        updatedShotIdx = state.activeShotIndex;
+        const shot = state.project.shots?.[updatedShotIdx];
+        if (shot) {
+          cleanedNotes = stripDopamineDirectorNote(shot.directorNotes);
+          cleanedTags = (shot.tags || []).filter((t) => t !== 'dopamine');
+          shot.activeTitlePreset = builtConfig.presetId;
+          shot.titleStyleConfig = builtConfig;
+          shot.dopamineConfig = undefined;
+          shot.directorNotes = cleanedNotes;
+          shot.tags = cleanedTags;
+          shot.colorAccent = builtConfig.primaryColor;
+          shot.updatedAt = Date.now();
+        }
       });
       eventBus.emit('title:preset', preset);
+      if (builtConfig) {
+        eventBus.emit('shot:updated', {
+          index: updatedShotIdx,
+          partial: {
+            activeTitlePreset: builtConfig.presetId,
+            titleStyleConfig: builtConfig,
+            dopamineConfig: undefined,
+            directorNotes: cleanedNotes,
+            tags: cleanedTags,
+            colorAccent: builtConfig.primaryColor
+          }
+        });
+      }
     },
     setTitleSize: (size: number) => {
+      const nextSize = Math.max(28, Math.min(140, Math.round(size)));
+      let targetIdx = 0;
+      let nextShotConfig: TitlePresetConfig | undefined;
       set((state) => {
-        state.titleConfig.titleSize = Math.max(28, Math.min(140, Math.round(size)));
+        state.titleConfig.titleSize = nextSize;
+        if (state.titleConfig.activePresetConfig) {
+          state.titleConfig.activePresetConfig.fontScale = nextSize;
+        }
+        targetIdx = state.activeShotIndex;
+        const shot = state.project.shots?.[targetIdx];
+        if (shot) {
+          const baseConfig =
+            shot.titleStyleConfig ||
+            state.titleConfig.activePresetConfig ||
+            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+          nextShotConfig = { ...baseConfig, fontScale: nextSize };
+          shot.titleStyleConfig = nextShotConfig;
+          shot.updatedAt = Date.now();
+        }
       });
+      if (nextShotConfig) {
+        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+      }
     },
     setTitleGlowIntensity: (intensity: number) => {
+      const nextGlow = Math.max(0, Math.min(2.0, intensity));
+      let targetIdx = 0;
+      let nextShotConfig: TitlePresetConfig | undefined;
       set((state) => {
-        state.titleConfig.glowIntensity = Math.max(0, Math.min(2.0, intensity));
+        state.titleConfig.glowIntensity = nextGlow;
+        if (state.titleConfig.activePresetConfig) {
+          state.titleConfig.activePresetConfig.glowIntensity = nextGlow;
+        }
+        targetIdx = state.activeShotIndex;
+        const shot = state.project.shots?.[targetIdx];
+        if (shot) {
+          const baseConfig =
+            shot.titleStyleConfig ||
+            state.titleConfig.activePresetConfig ||
+            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+          nextShotConfig = { ...baseConfig, glowIntensity: nextGlow };
+          shot.titleStyleConfig = nextShotConfig;
+          shot.updatedAt = Date.now();
+        }
       });
+      if (nextShotConfig) {
+        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+      }
     },
     setTitleVerticalOffset: (offset: number) => {
+      const nextOffset = Math.max(-200, Math.min(200, Math.round(offset)));
+      let targetIdx = 0;
+      let nextShotConfig: TitlePresetConfig | undefined;
       set((state) => {
-        state.titleConfig.verticalOffset = Math.max(-200, Math.min(200, Math.round(offset)));
+        state.titleConfig.verticalOffset = nextOffset;
+        if (state.titleConfig.activePresetConfig) {
+          state.titleConfig.activePresetConfig.verticalOffset = nextOffset;
+        }
+        targetIdx = state.activeShotIndex;
+        const shot = state.project.shots?.[targetIdx];
+        if (shot) {
+          const baseConfig =
+            shot.titleStyleConfig ||
+            state.titleConfig.activePresetConfig ||
+            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+          nextShotConfig = { ...baseConfig, verticalOffset: nextOffset };
+          shot.titleStyleConfig = nextShotConfig;
+          shot.updatedAt = Date.now();
+        }
       });
+      if (nextShotConfig) {
+        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+      }
     },
     setTitleTracking: (tracking: number) => {
+      const nextTracking = Math.max(0.02, Math.min(0.6, tracking));
+      let targetIdx = 0;
+      let nextShotConfig: TitlePresetConfig | undefined;
       set((state) => {
-        state.titleConfig.tracking = Math.max(0.02, Math.min(0.6, tracking));
+        state.titleConfig.tracking = nextTracking;
+        if (state.titleConfig.activePresetConfig) {
+          state.titleConfig.activePresetConfig.letterTracking = nextTracking;
+        }
+        targetIdx = state.activeShotIndex;
+        const shot = state.project.shots?.[targetIdx];
+        if (shot) {
+          const baseConfig =
+            shot.titleStyleConfig ||
+            state.titleConfig.activePresetConfig ||
+            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+          nextShotConfig = { ...baseConfig, letterTracking: nextTracking };
+          shot.titleStyleConfig = nextShotConfig;
+          shot.updatedAt = Date.now();
+        }
       });
+      if (nextShotConfig) {
+        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+      }
     },
     setTitleOpacity: (opacity: number) => {
       const clamped = Math.max(0, Math.min(1, Math.round(opacity * 100) / 100));
@@ -551,6 +677,45 @@ export const useStudioStore = create<StudioState>()(
             0,
             Math.min(1, Math.round(partial.titleOpacity * 100) / 100)
           );
+        }
+      });
+    },
+    setShotTitlePresetConfig: (shotIndex: number, config: TitlePresetConfig, syncGlobal: boolean = true) => {
+      set((state) => {
+        const shot = state.project.shots?.[shotIndex];
+        if (shot) {
+          shot.activeTitlePreset = config.presetId;
+          shot.titleStyleConfig = config;
+          if (config.category !== 'DOPAMINE') {
+            shot.dopamineConfig = undefined;
+            shot.directorNotes = stripDopamineDirectorNote(shot.directorNotes);
+            shot.tags = (shot.tags || []).filter((t) => t !== 'dopamine');
+          }
+          shot.colorAccent = config.primaryColor;
+          shot.updatedAt = Date.now();
+        }
+        if (syncGlobal) {
+          state.titleConfig.activePresetConfig = config;
+          state.titleConfig.titleSize = config.fontScale;
+          state.titleConfig.glowIntensity = config.glowIntensity;
+          state.titleConfig.tracking = config.letterTracking;
+          state.titleConfig.verticalOffset = config.verticalOffset;
+          if (
+            config.presetId === 'molten-gold' ||
+            config.presetId === 'titanium-silver' ||
+            config.presetId === 'neon-crimson'
+          ) {
+            state.titleConfig.preset = config.presetId;
+          }
+        }
+      });
+      eventBus.emit('shot:updated', {
+        index: shotIndex,
+        partial: {
+          activeTitlePreset: config.presetId,
+          titleStyleConfig: config,
+          ...(config.category !== 'DOPAMINE' ? { dopamineConfig: undefined } : {}),
+          colorAccent: config.primaryColor
         }
       });
     },

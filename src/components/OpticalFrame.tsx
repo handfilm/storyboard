@@ -199,6 +199,8 @@ export const OpticalFrame: React.FC<OpticalFrameProps> = ({
           subtitle={frame?.tagline}
           directorNotes={frame?.directorNotes}
           shotType={frame?.shotType}
+          activeTitlePreset={frame?.activeTitlePreset}
+          titlePresetConfig={frame?.titleStyleConfig}
           isVisible={componentsVisibility?.titlesAll !== false}
           componentsVisibility={componentsVisibility}
           className="z-20 pointer-events-none select-none"

@@ -1,3 +1,19 @@
+import type {
+  TitlePresetCategory,
+  TitleLayoutMode,
+  TitleMotionAnimation,
+  TitleBackdropPlate,
+  TitlePresetConfig
+} from './titlePreset';
+
+export type {
+  TitlePresetCategory,
+  TitleLayoutMode,
+  TitleMotionAnimation,
+  TitleBackdropPlate,
+  TitlePresetConfig
+};
+
 export type LutPreset = 
   | 'cinematic' 
   | 'bleach'
@@ -112,8 +128,12 @@ export interface AnthologyFrame {
   imageUrl?: string;
   thumbnailUrl?: string;
   thumbnail?: string;
+  videoUrl?: string;
   videoSrc?: string;
+  mediaUrl?: string;
+  assetUrl?: string;
   blobUrl?: string;
+  previewUrl?: string;
   isVideo?: boolean;
   colorAccent: string;
   hoverStyle: number;
@@ -123,6 +143,8 @@ export interface AnthologyFrame {
   adjustments: FrameAdjustments;
   caption?: ShotCaption;
   dopamineConfig?: DopamineShotConfig;
+  activeTitlePreset?: string;
+  titleStyleConfig?: TitlePresetConfig;
   kineticArchetype?: KineticTypographyArchetype;
   tags: string[];
   panX?: number;

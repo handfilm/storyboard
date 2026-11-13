@@ -27,6 +27,7 @@ import { eventBus } from '../../core/eventBus';
 import { playbackClock, formatSmpteTimecode } from '../../utils/playbackClock';
 import { AnthologyFrame } from '../../types/anthology';
 import { EditInAppStrip } from '../bridge/EditInAppStrip';
+import { resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
 
 export interface StageMetadataFxBarProps {
   sceneCode?: string;
@@ -107,11 +108,13 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   const [zoomAnchor, setZoomAnchor] = useState<{ right: number; top: number } | null>(null);
   const [titleFxAnchor, setTitleFxAnchor] = useState<{ right: number; top: number } | null>(null);
 
+  const storeShot = useStudioStore((s) => s.project.shots?.[shotIndex]);
+  const resolvedPresetConfig = resolveShotTitlePresetConfig(frame || storeShot, storeTitleConfig);
   const activePreset: HeroTitlePreset = storeTitleConfig?.preset || 'molten-gold';
-  const glow = storeTitleConfig?.glowIntensity ?? 1.0;
-  const tracking = storeTitleConfig?.tracking ?? 0.15;
-  const verticalOffset = storeTitleConfig?.verticalOffset ?? 0;
-  const titleSizePx = storeTitleConfig?.titleSize ?? 72;
+  const glow = resolvedPresetConfig.glowIntensity ?? storeTitleConfig?.glowIntensity ?? 1.0;
+  const tracking = resolvedPresetConfig.letterTracking ?? storeTitleConfig?.tracking ?? 0.15;
+  const verticalOffset = resolvedPresetConfig.verticalOffset ?? storeTitleConfig?.verticalOffset ?? 0;
+  const titleSizePx = resolvedPresetConfig.fontScale ?? storeTitleConfig?.titleSize ?? 72;
 
   useEffect(() => {
     const closeAll = () => {
@@ -468,8 +471,8 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
             onClick={(e) => e.stopPropagation()}
             className="w-72 bg-[#0B0B0D]/96 border border-white/[0.07] rounded-lg p-3 font-mono text-[10px] text-[#F4F4F5] space-y-2.5 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.95)] animate-in fade-in duration-150 tabular-nums"
           >
-            <div className="flex items-center justify-between text-[#F59E0B] font-bold text-[9.5px] border-b border-white/[0.07] pb-1.5">
-              <span>HERO TITLE FX ENGINE</span>
+            <div className="flex items-center justify-between text-[#F59E0B] font-bold text-[9.5px] border-b border-white/[0.07] pb-1.5 gap-1">
+              <span className="truncate">{resolvedPresetConfig.presetName}</span>
               {onToggleTitles && (
                 <button
                   type="button"

@@ -59,6 +59,52 @@ export const FrameAdjustmentsSchema = z.object({
   anamorphicStreak: z.number().min(0).max(100).default(0)
 });
 
+export const TitleBackdropPlateSchema = z.object({
+  enabled: z.boolean().default(false),
+  background: z.string().default('transparent'),
+  border: z.string().default('none'),
+  backdropBlur: z.number().default(0),
+  padding: z.string().default('0px'),
+  accentBarColor: z.string().optional()
+});
+
+export const TitlePresetConfigSchema = z.object({
+  presetId: z.string(),
+  presetName: z.string(),
+  category: z.enum(['DOPAMINE', 'CORPORATE', 'CINEMATIC', 'RAP', 'DOCU', 'RETRO']),
+  layoutMode: z.enum([
+    'center-hero',
+    'lower-third-bar',
+    'editorial-split',
+    'hud-bracket',
+    'brutalist-box',
+    'minimal-whisper'
+  ]),
+  banglaFontFamily: z.string(),
+  englishFontFamily: z.string(),
+  primaryColor: z.string(),
+  primaryGradient: z.tuple([z.string(), z.string(), z.string()]).optional(),
+  secondaryColor: z.string(),
+  strokeColor: z.string(),
+  strokeWidth: z.number(),
+  glowColor: z.string(),
+  glowIntensity: z.number(),
+  backdropPlate: TitleBackdropPlateSchema,
+  motionAnimation: z.enum([
+    'kinetic-slam',
+    'typewriter-hud',
+    'neon-glitch-rgb',
+    'slow-cinema-fade',
+    'chopper-staccato',
+    'lower-third-slide'
+  ]),
+  chromaticAberration: z.number(),
+  letterTracking: z.number(),
+  fontScale: z.number(),
+  verticalOffset: z.number(),
+  uppercase: z.boolean().optional()
+});
+
 export const ShotSchema = z.object({
   id: z.number(),
   epNumber: z.string(),
@@ -72,8 +118,12 @@ export const ShotSchema = z.object({
   cameraSpec: CameraSpecSchema.default(() => CameraSpecSchema.parse({})),
   imageUrl: z.string().optional(),
   thumbnailUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
   videoSrc: z.string().optional(),
+  mediaUrl: z.string().optional(),
+  assetUrl: z.string().optional(),
   blobUrl: z.string().optional(),
+  previewUrl: z.string().optional(),
   isVideo: z.boolean().default(false),
   panY: z.number().min(0).max(100).default(50),
   colorAccent: z.string().default('#d4af37'),
@@ -88,6 +138,8 @@ export const ShotSchema = z.object({
   activeLens: z.string().default('50mm f/1.4 Human Eye'),
   dof: z.string().default('1.8cm'),
   titleAnimation: z.string().optional(),
+  activeTitlePreset: z.string().optional(),
+  titleStyleConfig: TitlePresetConfigSchema.optional(),
   dopamineConfig: z
     .object({
       presetId: z.string().optional(),

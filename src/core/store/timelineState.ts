@@ -10,6 +10,7 @@ import { Shot } from '../schemas';
 import { AnthologyFrame } from '../../types/anthology';
 import { useStudioStore, createDefaultStoreShots } from '../store';
 import { eventBus } from '../eventBus';
+import { buildDopamineTitlePresetConfig } from '../../constants/titleTemplates';
 
 export const DEFAULT_SHOT_DURATION = 12.0;
 export const MIN_SHOT_DURATION = 0.5;
@@ -341,6 +342,13 @@ export function applyTemplateToShot(
   );
   const directorNote = `[🌪️ DOPAMINE: ${dopamineConfig.presetName}] Glitch: ${dopamineConfig.glitchIntensity}%, Strobe: ${dopamineConfig.strobeRate}ms, Speed: ${dopamineConfig.motionSpeed}x`;
 
+  const dopamineStyleConfig = buildDopamineTitlePresetConfig({
+    presetId: dopamineConfig.presetId,
+    presetName: dopamineConfig.presetName,
+    accentColor,
+    glitchIntensity: dopamineConfig.glitchIntensity
+  });
+
   // Mutate ONLY typography & template fields on the single target shot; preserve media & duration!
   useStudioStore.setState((state) => {
     const target = state.project.shots[targetIndex];
@@ -352,8 +360,11 @@ export function applyTemplateToShot(
       target.colorAccent = accentColor;
       target.tags = mergedTags;
       target.dopamineConfig = dopamineConfig;
+      target.activeTitlePreset = dopamineConfig.presetId;
+      target.titleStyleConfig = dopamineStyleConfig;
       target.updatedAt = Date.now();
     }
+    state.titleConfig.activePresetConfig = dopamineStyleConfig;
     state.titleConfig.showTitles = true;
     state.visibility.titlesAll = true;
   });
@@ -366,6 +377,8 @@ export function applyTemplateToShot(
     colorAccent: accentColor,
     tags: mergedTags,
     dopamineConfig,
+    activeTitlePreset: dopamineConfig.presetId,
+    titleStyleConfig: dopamineStyleConfig,
     caption: {
       text: dopamineConfig.subText,
       style: 'rap_pop',

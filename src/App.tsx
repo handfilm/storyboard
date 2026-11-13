@@ -3093,7 +3093,7 @@ export default function App() {
 
     const unsubAppendMedia = eventBus.on(
       'media:append_to_timeline',
-      async (payload: { name: string; mimeType: string; blob: Blob; durationSec?: number }) => {
+      async (payload: { name: string; mimeType: string; blob: Blob; durationSec?: number; title?: string; notes?: string }) => {
         if (!payload?.blob) return;
         const currentFrames = projectFramesRef.current;
         const nextIdx = currentFrames.length;
@@ -3110,14 +3110,14 @@ export default function App() {
         useStudioStore.getState().setShotMediaEntry(shotKey, entry);
 
         const isVid = entry.type === 'video';
-        const cleanTitle = (payload.name || `Shot ${nextIdx + 1}`).replace(/\.[^/.]+$/, '');
+        const cleanTitle = (payload.title || payload.name || `Shot ${nextIdx + 1}`).replace(/\.[^/.]+$/, '');
         const newFrame: AnthologyFrame = {
           id: nextId,
           epNumber: `#${String(nextIdx + 1).padStart(3, '0')}`,
           title: cleanTitle,
           bengaliTitle: cleanTitle,
-          tagline: 'VAULT INGEST',
-          directorNotes: 'Appended from Media Asset Vault',
+          tagline: payload.notes ? 'AI CINEMA GEN' : 'VAULT INGEST',
+          directorNotes: payload.notes || 'Appended from Media Asset Vault',
           soundCue: '',
           cameraSpec: {
             focalLength: '35mm Anamorphic Master',
@@ -3145,13 +3145,46 @@ export default function App() {
           },
           slideHoldSec: holdDur,
           durationSec: holdDur,
-          tags: ['VAULT']
+          tags: [payload.notes ? 'AI_STUDIO' : 'VAULT']
         };
 
         const nextFrames = [...currentFrames, newFrame];
         setProject(prev => ({ ...prev, frames: nextFrames }));
         setCurrentIndex(nextIdx);
+        setSlideTimeSec(0);
+        setSeekVersion((v) => v + 1);
+        useStudioStore.getState().setSlideTimeSec(0);
         syncFramesToStoreAndSession(nextFrames, nextIdx);
+      }
+    );
+
+    const unsubPushActiveShot = eventBus.on(
+      'media:push_to_active_shot',
+      async (payload: {
+        shotIndex?: number;
+        blob?: Blob;
+        file?: File;
+        name?: string;
+        mimeType?: string;
+        seekToStart?: boolean;
+        alreadyBound?: boolean;
+      }) => {
+        const targetIdx = typeof payload?.shotIndex === 'number' ? payload.shotIndex : currentIndexRef.current;
+        if (!payload?.alreadyBound && (payload?.file || payload?.blob)) {
+          const file =
+            payload.file instanceof File
+              ? payload.file
+              : new File([payload.blob as Blob], payload.name || `gemini_shot_${targetIdx + 1}.png`, {
+                  type: payload.mimeType || (payload.blob as Blob).type || 'image/png'
+                });
+          await handleUploadMediaForIndex(targetIdx, file);
+        }
+        if (payload?.seekToStart !== false) {
+          setCurrentIndex(targetIdx);
+          setSlideTimeSec(0);
+          setSeekVersion((v) => v + 1);
+          useStudioStore.getState().setSlideTimeSec(0);
+        }
       }
     );
 
@@ -3159,12 +3192,13 @@ export default function App() {
       unsubEditInStatus();
       unsubEditInSynced();
       unsubAppendMedia();
+      unsubPushActiveShot();
       stopAllEditInWatchers();
       if (editInToastTimerRef.current !== null) {
         window.clearTimeout(editInToastTimerRef.current);
       }
     };
-  }, [aspectRatio, handleUpdateFrameAtIndex, showEditInToast, syncFramesToStoreAndSession]);
+  }, [aspectRatio, handleUpdateFrameAtIndex, handleUploadMediaForIndex, showEditInToast, syncFramesToStoreAndSession]);
 
   const handleReorderFrames = useCallback((newFrames: AnthologyFrame[]) => {
     const safeFrames = ensureUniqueFrameIds(newFrames);

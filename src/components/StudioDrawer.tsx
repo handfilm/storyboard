@@ -319,7 +319,9 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
       {/* Drawer Body Container */}
       <div className="flex-1 overflow-y-auto no-scrollbar relative">
         {activeModule === 'STORY' && <StoryNotebook />}
-        {activeModule === 'MEDIA' && <MediaStudio />}
+        {activeModule === 'MEDIA' && (
+          <MediaStudio activeShotIndex={currentIndex} currentFrame={currentFrame} />
+        )}
         {activeModule === 'TEXT' && <TextStudio currentFrame={currentFrame} onUpdateFrame={onUpdateFrame} />}
         {activeModule === 'SOUND' && <SoundStudio />}
         {activeModule === 'PLAYER' && <PrevisStudio />}

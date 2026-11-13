@@ -27,10 +27,18 @@ app.use(express.json({ limit: '120mb' }));
 
 // Lazy-initialize Google GenAI only when an /api/* AI route is invoked
 let cachedAiClient: GoogleGenAI | null = null;
+let cachedApiKey: string = '';
+
+function getConfiguredGeminiKey(): string {
+  return (process.env.GEMINI_API_KEY || '').trim();
+}
+
 function getAiClient(): GoogleGenAI {
-  if (!cachedAiClient) {
+  const apiKey = getConfiguredGeminiKey();
+  if (!cachedAiClient || cachedApiKey !== apiKey) {
+    cachedApiKey = apiKey;
     cachedAiClient = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY || '',
+      apiKey,
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
@@ -39,6 +47,44 @@ function getAiClient(): GoogleGenAI {
     });
   }
   return cachedAiClient;
+}
+
+function parseGeminiHttpError(error: any, fallbackMessage: string): { status: number; code: string; error: string } {
+  if (!getConfiguredGeminiKey()) {
+    return {
+      status: 401,
+      code: 'KEY_REQUIRED',
+      error: 'Server GEMINI_API_KEY is missing. Configure GEMINI_API_KEY in AI Studio Settings > Secrets.'
+    };
+  }
+  const rawMessage = String(error?.message || fallbackMessage || 'AI request failed');
+  const rawStatus = Number(error?.status || error?.statusCode || error?.response?.status);
+  if (rawStatus === 401 || rawStatus === 403 || /API_KEY_INVALID|permission denied|unauthenticated|forbidden/i.test(rawMessage)) {
+    return {
+      status: rawStatus === 401 ? 401 : 403,
+      code: 'AUTH_ERROR',
+      error: `Gemini API key rejected or lacks model access (${rawStatus || 403}). Check GEMINI_API_KEY in Settings > Secrets.`
+    };
+  }
+  if (rawStatus === 429 || /RESOURCE_EXHAUSTED|quota|rate limit/i.test(rawMessage)) {
+    return {
+      status: 429,
+      code: 'QUOTA_EXCEEDED',
+      error: 'Gemini API quota or rate limit reached (429). Retry shortly or verify billing on GEMINI_API_KEY.'
+    };
+  }
+  if (rawStatus === 400 || /INVALID_ARGUMENT/i.test(rawMessage)) {
+    return {
+      status: 400,
+      code: 'INVALID_ARGUMENT',
+      error: rawMessage
+    };
+  }
+  return {
+    status: Number.isFinite(rawStatus) && rawStatus >= 400 && rawStatus < 600 ? rawStatus : 500,
+    code: 'ENGINE_ERROR',
+    error: rawMessage
+  };
 }
 
 // Safe Config Endpoint for Client-Side Initialization
@@ -243,108 +289,414 @@ Add high-contrast visual juxtaposition and specify exact camera tilt or lighting
   }
 });
 
-// 1. Image Creation (gemini-nano-banana-2.1)
+// 0. Server-Side Gemini Engine Readiness Status (Never exposes key material)
+app.get('/api/ai/status', (_req, res) => {
+  const connected = getConfiguredGeminiKey().length > 0;
+  res.json({
+    success: true,
+    connected,
+    models: {
+      imageFast: 'gemini-3.1-flash-lite-image',
+      imagePro: 'gemini-nano-banana-2.1',
+      videoFlow: 'gemini-omni-1.2-flash'
+    }
+  });
+});
+
+function resolveImageAspectRatio(aspectRatio: string | undefined, allowExtended: boolean): { aspect: string; isAnamorphicScope: boolean } {
+  const raw = String(aspectRatio || '16:9').trim();
+  if (raw === '9:16') return { aspect: '9:16', isAnamorphicScope: false };
+  if (raw === '1:1') return { aspect: '1:1', isAnamorphicScope: false };
+  if (raw === '4:3') return { aspect: '4:3', isAnamorphicScope: false };
+  if (raw === '3:4') return { aspect: '3:4', isAnamorphicScope: false };
+  if (raw === '2.39:1' || raw === '21:9') {
+    return { aspect: allowExtended ? '21:9' : '16:9', isAnamorphicScope: true };
+  }
+  return { aspect: '16:9', isAnamorphicScope: false };
+}
+
+function extractImageFromGenerateContentResponse(response: any): string {
+  const parts = response?.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    if (part?.inlineData?.data) {
+      const mimeType = part.inlineData.mimeType || 'image/png';
+      return `data:${mimeType};base64,${part.inlineData.data}`;
+    }
+  }
+  return '';
+}
+
+// 1. Image Creation & Img2Img Reference Conditioning (gemini-3.1-flash-lite-image / gemini-nano-banana-2.1)
 app.post('/api/ai/image/generate', async (req, res) => {
   try {
-    const { prompt, aspectRatio = '16:9' } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ success: false, error: 'Prompt is required' });
+    if (!getConfiguredGeminiKey()) {
+      return res.status(401).json({
+        success: false,
+        code: 'KEY_REQUIRED',
+        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+      });
     }
 
-    let validAspect = '16:9';
-    if (aspectRatio === '9:16') validAspect = '9:16';
-    else if (aspectRatio === '1:1') validAspect = '1:1';
-    else if (aspectRatio === '4:3') validAspect = '4:3';
-    else if (aspectRatio === '3:4') validAspect = '3:4';
-    else if (aspectRatio === '2.39:1' || aspectRatio === '21:9') validAspect = '16:9';
+    const {
+      prompt,
+      aspectRatio = '16:9',
+      model = 'gemini-3.1-flash-lite-image',
+      imageSize = '1K',
+      referenceImageBase64,
+      referenceMimeType = 'image/png'
+    } = req.body || {};
 
-    const interaction = await getAiClient().interactions.create({
-      model: 'gemini-nano-banana-2.1',
-      input: prompt,
-      response_modalities: ['image', 'text'],
-      generation_config: {
-        image_config: {
-          aspect_ratio: validAspect,
-          image_size: '1K'
-        }
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      return res.status(400).json({ success: false, code: 'INVALID_ARGUMENT', error: 'Prompt is required' });
+    }
+
+    const selectedModel = model === 'gemini-nano-banana-2.1'
+      ? 'gemini-nano-banana-2.1'
+      : 'gemini-3.1-flash-lite-image';
+    const isPro = selectedModel === 'gemini-nano-banana-2.1';
+    const { aspect, isAnamorphicScope } = resolveImageAspectRatio(aspectRatio, isPro);
+    const validSize = isPro && ['512', '1K', '2K', '4K'].includes(String(imageSize)) ? String(imageSize) : '1K';
+
+    const enhancedPrompt = isAnamorphicScope && aspect !== '21:9'
+      ? `${prompt.trim()}. Frame composition for 2.39:1 anamorphic cinema scope widescreen.`
+      : prompt.trim();
+
+    const parts: any[] = [];
+    if (referenceImageBase64 && typeof referenceImageBase64 === 'string') {
+      const cleanRef = referenceImageBase64.replace(/^data:[^;]+;base64,/, '');
+      if (cleanRef.length > 0) {
+        parts.push({
+          inlineData: {
+            data: cleanRef,
+            mimeType: referenceMimeType || 'image/png'
+          }
+        });
       }
-    });
+    }
+    parts.push({ text: enhancedPrompt });
 
-    let imageUrl = '';
-    for (const step of interaction.steps || []) {
-      if (step.type === 'model_output') {
-        const imageContent: any = step.content?.find((c: any) => c.type === 'image');
-        if (imageContent && imageContent.data) {
-          const mimeType = imageContent.mime_type || 'image/png';
-          imageUrl = `data:${mimeType};base64,${imageContent.data}`;
-          break;
+    const imageConfig: Record<string, string> = { aspectRatio: aspect };
+    if (isPro) {
+      imageConfig.imageSize = validSize;
+    }
+
+    const ai = getAiClient();
+    let response: any;
+    try {
+      response = await ai.models.generateContent({
+        model: selectedModel,
+        contents: { parts },
+        config: {
+          imageConfig
         }
+      });
+    } catch (err: any) {
+      // Fallback to 16:9 if extended 21:9 ratio is rejected by backend validation
+      if (aspect === '21:9' && /aspect|INVALID_ARGUMENT/i.test(String(err?.message || ''))) {
+        imageConfig.aspectRatio = '16:9';
+        response = await ai.models.generateContent({
+          model: selectedModel,
+          contents: { parts },
+          config: { imageConfig }
+        });
+      } else {
+        throw err;
       }
     }
 
+    const imageUrl = extractImageFromGenerateContentResponse(response);
     if (!imageUrl) {
-      return res.status(500).json({ success: false, error: 'Model did not produce an image. Please refine your prompt.' });
+      return res.status(500).json({
+        success: false,
+        code: 'EMPTY_OUTPUT',
+        error: 'Model did not return an image frame. Try refining the cinematic prompt.'
+      });
     }
 
-    res.json({ success: true, imageUrl });
+    res.json({
+      success: true,
+      imageUrl,
+      model: selectedModel,
+      aspectRatio: imageConfig.aspectRatio
+    });
   } catch (error: any) {
     console.error('Image generation error:', error);
-    res.status(500).json({ success: false, error: error.message || 'Image generation failed' });
+    const parsed = parseGeminiHttpError(error, 'Image generation failed');
+    res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
 });
 
-// 2. Image Editing (gemini-nano-banana-2.1)
+// 2. Image Editing / Continuation (gemini-3.1-flash-lite-image / gemini-nano-banana-2.1)
 app.post('/api/ai/image/edit', async (req, res) => {
   try {
-    const { imageBase64, mimeType = 'image/png', editPrompt } = req.body;
-    if (!imageBase64 || !editPrompt) {
-      return res.status(400).json({ success: false, error: 'Both imageBase64 and editPrompt are required' });
+    if (!getConfiguredGeminiKey()) {
+      return res.status(401).json({
+        success: false,
+        code: 'KEY_REQUIRED',
+        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+      });
     }
 
-    const cleanData = imageBase64.replace(/^data:[^;]+;base64,/, '');
+    const {
+      imageBase64,
+      mimeType = 'image/png',
+      editPrompt,
+      model = 'gemini-3.1-flash-lite-image',
+      aspectRatio = '16:9'
+    } = req.body || {};
 
-    const interaction = await getAiClient().interactions.create({
-      model: 'gemini-nano-banana-2.1',
-      input: [
-        {
-          type: 'image',
-          data: cleanData,
-          mime_type: mimeType
-        },
-        {
-          type: 'text',
-          text: editPrompt
-        }
-      ],
-      response_modalities: ['image', 'text']
-    });
+    if (!imageBase64 || !editPrompt) {
+      return res.status(400).json({ success: false, code: 'INVALID_ARGUMENT', error: 'Both imageBase64 and editPrompt are required' });
+    }
 
-    let imageUrl = '';
-    for (const step of interaction.steps || []) {
-      if (step.type === 'model_output') {
-        const imageContent: any = step.content?.find((c: any) => c.type === 'image');
-        if (imageContent && imageContent.data) {
-          const outMime = imageContent.mime_type || 'image/png';
-          imageUrl = `data:${outMime};base64,${imageContent.data}`;
-          break;
+    const cleanData = String(imageBase64).replace(/^data:[^;]+;base64,/, '');
+    const selectedModel = model === 'gemini-nano-banana-2.1'
+      ? 'gemini-nano-banana-2.1'
+      : 'gemini-3.1-flash-lite-image';
+    const { aspect } = resolveImageAspectRatio(aspectRatio, selectedModel === 'gemini-nano-banana-2.1');
+
+    const response = await getAiClient().models.generateContent({
+      model: selectedModel,
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: cleanData,
+              mimeType
+            }
+          },
+          {
+            text: String(editPrompt)
+          }
+        ]
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: aspect
         }
       }
-    }
+    });
 
+    const imageUrl = extractImageFromGenerateContentResponse(response);
     if (!imageUrl) {
-      return res.status(500).json({ success: false, error: 'Model did not return an edited image.' });
+      return res.status(500).json({ success: false, code: 'EMPTY_OUTPUT', error: 'Model did not return an edited image.' });
     }
 
-    res.json({ success: true, imageUrl });
+    res.json({ success: true, imageUrl, model: selectedModel });
   } catch (error: any) {
     console.error('Image edit error:', error);
-    res.status(500).json({ success: false, error: error.message || 'Image edit failed' });
+    const parsed = parseGeminiHttpError(error, 'Image edit failed');
+    res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
 });
 
-// 3. Animate Photo to Video (gemini-omni-1.1-flash via Interactions API)
+function extractVideoFromInteraction(interaction: any): { videoUrl: string; mimeType: string } {
+  const videoPart = interaction?.output_video;
+  if (videoPart?.data) {
+    const mimeType = videoPart.mime_type || 'video/mp4';
+    return { videoUrl: `data:${mimeType};base64,${videoPart.data}`, mimeType };
+  }
+  if (videoPart?.uri) {
+    return { videoUrl: String(videoPart.uri), mimeType: videoPart.mime_type || 'video/mp4' };
+  }
+  for (const step of interaction?.steps || []) {
+    if (step?.type === 'model_output') {
+      const contentVideo = step.content?.find((c: any) => c.type === 'video');
+      if (contentVideo?.data) {
+        const mimeType = contentVideo.mime_type || 'video/mp4';
+        return { videoUrl: `data:${mimeType};base64,${contentVideo.data}`, mimeType };
+      }
+      if (contentVideo?.uri) {
+        return { videoUrl: String(contentVideo.uri), mimeType: contentVideo.mime_type || 'video/mp4' };
+      }
+    }
+  }
+  return { videoUrl: '', mimeType: 'video/mp4' };
+}
+
+// 3A. Google Flow / Veo Motion Async Start (gemini-omni-1.2-flash via Interactions API)
+app.post('/api/ai/video/generate', async (req, res) => {
+  try {
+    if (!getConfiguredGeminiKey()) {
+      return res.status(401).json({
+        success: false,
+        code: 'KEY_REQUIRED',
+        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+      });
+    }
+
+    const {
+      prompt = '',
+      startFrameBase64,
+      startFrameMimeType = 'image/png',
+      endFrameBase64,
+      endFrameMimeType = 'image/png',
+      aspectRatio = '16:9',
+      durationSec = 5,
+      cameraMovement = 'Dolly Push-In',
+      motionIntensity = 'Cinematic',
+      seed
+    } = req.body || {};
+
+    if (!String(prompt).trim() && !startFrameBase64) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_ARGUMENT',
+        error: 'Provide a motion prompt or a start frame image.'
+      });
+    }
+
+    const validAspect = aspectRatio === '9:16' ? '9:16' : '16:9';
+    const validDuration = Number(durationSec) >= 8 ? '8s' : '5s';
+    const isScope = aspectRatio === '21:9' || aspectRatio === '2.39:1';
+
+    const motionDirectives = [
+      String(prompt).trim() || 'Subtle cinematic camera choreography and atmospheric film lighting.',
+      `Camera Movement: ${cameraMovement}.`,
+      `Motion Intensity: ${motionIntensity}.`,
+      '24fps cinema cadence, rich anamorphic depth of field, temporal coherence.',
+      isScope ? '2.39:1 widescreen anamorphic letterbox cinema framing.' : '',
+      seed !== undefined && seed !== null && String(seed).trim() !== '' ? `Deterministic visual seed: ${seed}.` : ''
+    ].filter(Boolean).join(' ');
+
+    const inputParts: any[] = [];
+    if (startFrameBase64 && typeof startFrameBase64 === 'string') {
+      const cleanStart = startFrameBase64.replace(/^data:[^;]+;base64,/, '');
+      if (cleanStart.length > 0) {
+        inputParts.push({
+          type: 'image',
+          mime_type: startFrameMimeType || 'image/png',
+          data: cleanStart
+        });
+      }
+    }
+    if (endFrameBase64 && typeof endFrameBase64 === 'string') {
+      const cleanEnd = endFrameBase64.replace(/^data:[^;]+;base64,/, '');
+      if (cleanEnd.length > 0) {
+        inputParts.push({
+          type: 'image',
+          mime_type: endFrameMimeType || 'image/png',
+          data: cleanEnd
+        });
+      }
+    }
+    inputParts.push({
+      type: 'text',
+      text: motionDirectives
+    });
+
+    const interaction = await getAiClient().interactions.create({
+      model: 'gemini-omni-1.2-flash',
+      input: inputParts,
+      background: true,
+      store: true,
+      response_format: {
+        type: 'video',
+        aspect_ratio: validAspect,
+        duration: validDuration
+      }
+    });
+
+    res.json({
+      success: true,
+      interactionId: interaction.id,
+      status: interaction.status || 'queued',
+      model: 'gemini-omni-1.2-flash'
+    });
+  } catch (error: any) {
+    console.error('Google Flow video generation start error:', error);
+    const parsed = parseGeminiHttpError(error, 'Failed to start Flow video generation');
+    res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
+  }
+});
+
+// 3B. Google Flow / Veo Motion Async Polling Endpoint
+app.get('/api/ai/video/status/:id', async (req, res) => {
+  try {
+    if (!getConfiguredGeminiKey()) {
+      return res.status(401).json({
+        success: false,
+        code: 'KEY_REQUIRED',
+        error: 'GEMINI_API_KEY is not configured on the server.'
+      });
+    }
+
+    const interactionId = String(req.params.id || '').trim();
+    if (!interactionId) {
+      return res.status(400).json({ success: false, code: 'INVALID_ARGUMENT', error: 'interactionId is required' });
+    }
+
+    const interaction = await getAiClient().interactions.get(interactionId);
+    const status = String(interaction?.status || 'in_progress');
+
+    if (status === 'completed') {
+      const { videoUrl, mimeType } = extractVideoFromInteraction(interaction);
+      if (!videoUrl) {
+        return res.status(500).json({
+          success: false,
+          status: 'failed',
+          done: true,
+          code: 'EMPTY_OUTPUT',
+          error: 'Flow interaction completed without returning video frames.'
+        });
+      }
+      return res.json({
+        success: true,
+        status: 'completed',
+        done: true,
+        videoUrl,
+        mimeType
+      });
+    }
+
+    if (status === 'failed' || status === 'cancelled' || status === 'incomplete' || status === 'budget_exceeded') {
+      return res.status(500).json({
+        success: false,
+        status,
+        done: true,
+        code: 'FLOW_FAILED',
+        error: `Google Flow video job ended with status: ${status}`
+      });
+    }
+
+    res.json({
+      success: true,
+      status,
+      done: false
+    });
+  } catch (error: any) {
+    console.error('Google Flow video status polling error:', error);
+    const parsed = parseGeminiHttpError(error, 'Failed to poll Flow video status');
+    res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
+  }
+});
+
+// 3C. Cancel In-Flight Flow Video Job
+app.post('/api/ai/video/cancel/:id', async (req, res) => {
+  try {
+    const interactionId = String(req.params.id || '').trim();
+    if (!interactionId) {
+      return res.status(400).json({ success: false, error: 'interactionId is required' });
+    }
+    if (getConfiguredGeminiKey()) {
+      await getAiClient().interactions.cancel(interactionId).catch(() => null);
+    }
+    res.json({ success: true, status: 'cancelled' });
+  } catch (error: any) {
+    res.json({ success: true, status: 'cancelled', warning: error?.message });
+  }
+});
+
+// 3D. Legacy Synchronous Photo Animate Hook (upgraded to gemini-omni-1.2-flash)
 app.post('/api/ai/video/animate', async (req, res) => {
   try {
+    if (!getConfiguredGeminiKey()) {
+      return res.status(401).json({
+        success: false,
+        code: 'KEY_REQUIRED',
+        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+      });
+    }
     const { imageBase64, mimeType = 'image/png', motionPrompt, aspectRatio = '16:9' } = req.body;
     if (!imageBase64) {
       return res.status(400).json({ success: false, error: 'Photo is required for animation' });
@@ -354,7 +706,7 @@ app.post('/api/ai/video/animate', async (req, res) => {
     const validAspect = aspectRatio === '9:16' ? '9:16' : '16:9';
 
     const interaction = await getAiClient().interactions.create({
-      model: 'gemini-omni-1.1-flash',
+      model: 'gemini-omni-1.2-flash',
       input: [
         {
           type: 'image',
@@ -372,27 +724,20 @@ app.post('/api/ai/video/animate', async (req, res) => {
       response_format: {
         type: 'video',
         aspect_ratio: validAspect,
-        duration: '10s'
+        duration: '5s'
       }
     }, { timeout: 517300 });
 
-    const videoPart = interaction.output_video;
-    if (!videoPart || (!videoPart.data && !(videoPart as any).uri)) {
+    const { videoUrl } = extractVideoFromInteraction(interaction);
+    if (!videoUrl) {
       return res.status(500).json({ success: false, error: 'Video generation failed or timed out.' });
-    }
-
-    let videoUrl = '';
-    if (videoPart.data) {
-      const vMime = videoPart.mime_type || 'video/mp4';
-      videoUrl = `data:${vMime};base64,${videoPart.data}`;
-    } else if ((videoPart as any).uri) {
-      videoUrl = (videoPart as any).uri;
     }
 
     res.json({ success: true, videoUrl });
   } catch (error: any) {
     console.error('Video animation error:', error);
-    res.status(500).json({ success: false, error: error.message || 'Video animation failed' });
+    const parsed = parseGeminiHttpError(error, 'Video animation failed');
+    res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
 });
 

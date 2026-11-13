@@ -57,9 +57,7 @@ import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
 import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
 import { useLicenseStore } from './services/licenseService';
-import { DownloadHubModal } from './components/modals/DownloadHubModal';
-import { AuthTrialModal } from './components/modals/AuthTrialModal';
-import { ProPaywallModal } from './components/modals/ProPaywallModal';
+import { OnboardingDownloadModal } from './components/modals/OnboardingDownloadModal';
 import { eventBus } from './core/eventBus';
 import { playbackClock } from './utils/playbackClock';
 import { studioDraftDb } from './services/db';
@@ -1852,6 +1850,8 @@ export default function App() {
     }
   }, [isCinemaPlayerOpen]);
 
+  const isOnboardingModalOpen = useLicenseStore((s) => s.isOnboardingModalOpen);
+
   const isBlockingOverlayOpen =
     isShortcutsOpen ||
     isCommandPaletteOpen ||
@@ -1860,6 +1860,7 @@ export default function App() {
     isPublishModalOpen ||
     isProjectManagerOpen ||
     isLiquifyOpen ||
+    isOnboardingModalOpen ||
     showWalkthrough;
 
   useEffect(() => {
@@ -4360,10 +4361,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Commercial Cross-Platform Download Hub, Auth Trial & Pro Paywall Modals */}
-      <DownloadHubModal />
-      <AuthTrialModal />
-      <ProPaywallModal />
+      {/* Unified 3-Step Onboarding, 4-Tier Plan & Cross-Platform Download Hub */}
+      <OnboardingDownloadModal onLaunchWebStudio={() => setCurrentView('STUDIO')} />
 
       {/* Offline Status Toast (only rendered when browser loses connectivity) */}
       <OfflineIndicator />

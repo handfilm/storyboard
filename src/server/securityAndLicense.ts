@@ -4,6 +4,7 @@ import path from 'path';
 import type express from 'express';
 
 export type LicenseTier = 'trial' | 'pro' | 'free';
+export type ProTierName = 'pro' | 'ultra' | 'teams';
 export type SubscriptionPlan = 'monthly' | 'annual';
 export type PaymentProvider = 'stripe' | 'lemonsqueezy' | 'sslcommerz';
 
@@ -26,6 +27,7 @@ export interface StoredUserAccount {
   trialStartedAt: number;
   trialEndsAt: number;
   proPlan: SubscriptionPlan | null;
+  proTier?: ProTierName | null;
   proStatus: 'none' | 'active' | 'canceled';
   proExpiresAt: number | null;
   activeDevices: ActiveDeviceRecord[];
@@ -40,6 +42,7 @@ export interface SignedLicenseResponse {
   trialStartedAt: number | null;
   trialEndsAt: number | null;
   proPlan: SubscriptionPlan | null;
+  proTier: ProTierName | null;
   proExpiresAt: number | null;
   daysRemaining: number;
   maxDevices: number;
@@ -208,6 +211,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
       payload.tier,
       String(payload.trialEndsAt ?? 0),
       String(payload.proPlan || ''),
+      String(payload.proTier || ''),
       String(payload.proExpiresAt ?? 0),
       String(payload.daysRemaining),
       payload.deviceId || '',
@@ -301,6 +305,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
         trialStartedAt: null,
         trialEndsAt: null,
         proPlan: null,
+        proTier: null,
         proExpiresAt: null,
         daysRemaining: 0,
         maxDevices: MAX_ACTIVE_DEVICES,
@@ -313,6 +318,8 @@ export function createLicenseSecurityModule(appRootDir: string) {
     }
 
     const { tier, daysRemaining } = evaluateTierFromServerClock(user, serverNow);
+    const activeProTier: ProTierName | null =
+      tier === 'pro' ? (user.proTier === 'ultra' || user.proTier === 'teams' ? user.proTier : 'pro') : null;
     const base: Omit<SignedLicenseResponse, 'signature'> = {
       authenticated: true,
       userId: user.id,
@@ -322,6 +329,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
       trialStartedAt: user.trialStartedAt,
       trialEndsAt: user.trialEndsAt,
       proPlan: user.proPlan,
+      proTier: activeProTier,
       proExpiresAt: user.proExpiresAt,
       daysRemaining,
       maxDevices: MAX_ACTIVE_DEVICES,
@@ -859,6 +867,35 @@ export function createLicenseSecurityModule(appRootDir: string) {
       res.json({ success: true, valid: true, serverNow: Date.now() });
     });
 
+    // 7b. Activate / Confirm 30-Day Server-Timestamped Trial without extending expired trials
+    app.post('/api/billing/activate-trial', billingLimiter, (req, res) => {
+      const resolved = resolveSessionFromRequest(req);
+      if (!resolved) {
+        return res.status(401).json({
+          success: false,
+          code: 'AUTH_REQUIRED',
+          error: 'Sign in first to start your 30-day studio trial.'
+        });
+      }
+      const serverNow = Date.now();
+      const db = loadDb();
+      const user = db.users[resolved.user.id];
+      const license = buildSignedLicenseResponse(user, resolved.deviceId);
+      if (license.tier === 'free' && serverNow >= user.trialEndsAt) {
+        return res.status(402).json({
+          success: false,
+          code: 'PRO_LICENSE_REQUIRED',
+          error: 'Your 30-day free trial has already concluded. Upgrade to Pro, Ultra, or Teams to continue.',
+          license
+        });
+      }
+      res.json({
+        success: true,
+        mode: 'trial_active',
+        license
+      });
+    });
+
     // 8. Checkout Initiation & Sandbox Instant Activation (Stripe / Lemon Squeezy / SSLCommerz)
     app.post('/api/billing/checkout', billingLimiter, (req, res) => {
       try {
@@ -873,6 +910,9 @@ export function createLicenseSecurityModule(appRootDir: string) {
 
         const planRaw = String(req.body?.plan || 'annual').toLowerCase();
         const plan: SubscriptionPlan = planRaw === 'monthly' ? 'monthly' : 'annual';
+        const tierRaw = String(req.body?.planTier || 'pro').toLowerCase();
+        const proTier: ProTierName =
+          tierRaw === 'ultra' || tierRaw === 'teams' ? tierRaw : 'pro';
         const providerRaw = String(req.body?.provider || 'stripe').toLowerCase();
         const provider: PaymentProvider =
           providerRaw === 'lemonsqueezy' || providerRaw === 'sslcommerz' ? providerRaw : 'stripe';
@@ -893,6 +933,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
             mode: 'external_checkout',
             checkoutUrl: configuredUrl,
             plan,
+            proTier,
             provider
           });
         }
@@ -903,6 +944,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
         const db = loadDb();
         const user = db.users[resolved.user.id];
         user.proPlan = plan;
+        user.proTier = proTier;
         user.proStatus = 'active';
         user.proExpiresAt = now + durationDays * 24 * 60 * 60 * 1000;
         saveDb(db);
@@ -912,11 +954,8 @@ export function createLicenseSecurityModule(appRootDir: string) {
           success: true,
           mode: 'activated',
           plan,
+          proTier,
           provider,
-          pricing:
-            plan === 'monthly'
-              ? { usd: '$9.99', bdt: '৳990', interval: 'month' }
-              : { usd: '$79', bdt: '৳7,900', interval: 'year' },
           license
         });
       } catch (err: any) {
@@ -992,8 +1031,12 @@ export function createLicenseSecurityModule(appRootDir: string) {
         } else {
           const planRaw = String(req.body?.plan || 'annual').toLowerCase();
           const plan: SubscriptionPlan = planRaw === 'monthly' ? 'monthly' : 'annual';
+          const tierRaw = String(req.body?.planTier || 'pro').toLowerCase();
+          const proTier: ProTierName =
+            tierRaw === 'ultra' || tierRaw === 'teams' ? tierRaw : 'pro';
           const durationDays = plan === 'annual' ? 365 : 30;
           user.proPlan = plan;
+          user.proTier = proTier;
           user.proStatus = 'active';
           user.proExpiresAt = now + durationDays * 24 * 60 * 60 * 1000;
         }

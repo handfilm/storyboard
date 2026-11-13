@@ -45,9 +45,7 @@ import {
   Monitor,
   Cloud,
   BarChart2,
-  Cpu,
-  Crown,
-  Lock
+  Cpu
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
@@ -194,9 +192,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const storeIsPlaying = useStudioStore((s) => s.isPlaying);
   const effectiveIsPlaying = typeof isPlaying === 'boolean' ? isPlaying : storeIsPlaying;
   const license = useLicenseStore((s) => s.license);
-  const openDownloadModal = useLicenseStore((s) => s.openDownloadModal);
-  const openAuthModal = useLicenseStore((s) => s.openAuthModal);
-  const openPaywallModal = useLicenseStore((s) => s.openPaywallModal);
+  const openOnboardingFlow = useLicenseStore((s) => s.openOnboardingFlow);
   // Interactive Mega-Dropdown State (Hover + Click, auto-closing on Escape, outside click, or route switch)
   const [activeDropdown, setActiveDropdown] = useState<MegaMenuKey | null>(null);
   const closeHoverTimerRef = useRef<number | null>(null);
@@ -2608,71 +2604,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             <span>STUDIO</span>
           </button>
 
-          {/* 3b. Top Bar DOWNLOAD Hub Button (Windows EXE + Android APK) */}
+          {/* 3b. Unified CapCut-Style Primary CTA: TRY FREE / DOWNLOAD */}
           <button
             type="button"
-            data-testid="header-download-btn"
+            data-testid="header-try-download-btn"
             data-transport-sharp="true"
-            onClick={() => openDownloadModal()}
-            title="Download HandFilm Studio for Windows (.exe) & Android (.apk)"
-            style={{ '--item-accent': '#F4F4F5' } as React.CSSProperties}
-            className="nle-editorial-btn h-[22px] px-2 rounded-[4px] bg-[#141417] hover:bg-white hover:text-[#0B0B0D] border border-white/[0.16] text-[#F4F4F5] font-mono text-[9.5px] font-black tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] transition-colors"
-          >
-            <Download className="w-2.5 h-2.5 shrink-0" />
-            <span>DOWNLOAD</span>
-          </button>
-
-          {/* 3c. Commercial SaaS License / 30-Day Free Trial Status Pill */}
-          <button
-            type="button"
-            data-testid="header-license-pill"
-            data-transport-sharp="true"
-            onClick={() => {
-              if (license?.authenticated && license.tier === 'free') {
-                openPaywallModal('PRO STUDIO');
-              } else {
-                openAuthModal();
-              }
-            }}
+            onClick={() => openOnboardingFlow()}
             title={
               license?.authenticated
-                ? `Account: ${license.email} (${license.tier.toUpperCase()})`
-                : 'Sign In or Start Server-Verified 30-Day Pro Trial'
+                ? `Account: ${license.email} (${license.tier === 'pro' ? (license.proTier || 'pro').toUpperCase() : license.tier === 'trial' ? `TRIAL · ${license.daysRemaining}D LEFT` : 'FREE'}) — Manage Plan or Download Desktop/Android`
+                : 'Try Free for 30 Days & Download HandFilm Studio (Windows .EXE / Android .APK / Web)'
             }
-            className={`h-[22px] px-2 rounded-full border font-mono text-[9px] font-black tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] transition-all tabular-nums ${
-              license?.authenticated && license.tier === 'pro'
-                ? 'bg-[#F59E0B] border-[#FCD34D] text-[#0B0B0D] shadow-[0_0_12px_rgba(245,158,11,0.45)]'
-                : license?.authenticated && license.tier === 'trial'
-                ? 'bg-[#18150D] border-[#F59E0B]/60 text-[#F59E0B] hover:bg-[#F59E0B]/15'
-                : license?.authenticated && license.tier === 'free'
-                ? 'bg-red-950/50 border-red-500/60 text-red-300 hover:bg-red-900/50'
-                : 'bg-[#141417] border-[#F59E0B]/40 text-[#F59E0B] hover:border-[#F59E0B]'
-            }`}
+            className="h-[22px] px-2.5 rounded-full bg-gradient-to-r from-[#22D3EE] via-[#38BDF8] to-[#F59E0B] hover:brightness-110 text-[#0B0B0D] font-space-grotesk text-[9.5px] font-black tracking-[0.06em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.98] transition-all shadow-[0_0_14px_rgba(34,211,238,0.28)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300"
           >
-            {license?.authenticated && license.tier === 'pro' ? (
-              <>
-                <Crown className="w-2.5 h-2.5 shrink-0" />
-                <span>PRO STUDIO</span>
-              </>
-            ) : license?.authenticated && license.tier === 'trial' ? (
-              <>
-                <Zap className="w-2.5 h-2.5 shrink-0" />
-                <span className="hidden xl:inline">PRO TRIAL: {license.daysRemaining}D LEFT</span>
-                <span className="xl:hidden">{license.daysRemaining}D TRIAL</span>
-              </>
-            ) : license?.authenticated && license.tier === 'free' ? (
-              <>
-                <Lock className="w-2.5 h-2.5 shrink-0" />
-                <span className="hidden xl:inline">FREE TIER · UPGRADE</span>
-                <span className="xl:hidden">UPGRADE</span>
-              </>
-            ) : (
-              <>
-                <Zap className="w-2.5 h-2.5 shrink-0" />
-                <span className="hidden xl:inline">START 30D TRIAL</span>
-                <span className="xl:hidden">30D TRIAL</span>
-              </>
-            )}
+            <Download className="w-2.5 h-2.5 shrink-0 stroke-[2.5]" />
+            <span>TRY FREE / DOWNLOAD</span>
           </button>
 
           {/* 4. Circular Golden Export Action Button */}

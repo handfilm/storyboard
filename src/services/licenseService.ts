@@ -8,8 +8,10 @@ import { create } from 'zustand';
 import { getSupabaseClient, hasSupabaseConfig } from './supabaseClient';
 
 export type LicenseTier = 'trial' | 'pro' | 'free' | 'unauthenticated';
+export type ProTierName = 'pro' | 'ultra' | 'teams';
 export type SubscriptionPlan = 'monthly' | 'annual';
 export type PaymentProvider = 'stripe' | 'lemonsqueezy' | 'sslcommerz';
+export type OnboardingStep = 1 | 2 | 3;
 
 export interface ActiveDeviceRecord {
   deviceId: string;
@@ -28,6 +30,7 @@ export interface SignedLicenseResponse {
   trialStartedAt: number | null;
   trialEndsAt: number | null;
   proPlan: SubscriptionPlan | null;
+  proTier: ProTierName | null;
   proExpiresAt: number | null;
   daysRemaining: number;
   maxDevices: number;
@@ -155,17 +158,49 @@ export function getLicenseAuthHeaders(extra?: Record<string, string>): Record<st
   return headers;
 }
 
+async function syncSupabaseProfilePlan(plan: 'trial' | 'pro' | 'ultra' | 'teams', extra?: { trialStartedAt?: number | null; trialEndsAt?: number | null }) {
+  try {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const { data } = await sb.auth.getUser();
+    const user = data?.user;
+    if (!user?.id) return;
+    await sb
+      .from('profiles')
+      .upsert(
+        {
+          id: user.id,
+          email: user.email,
+          plan,
+          ...(extra?.trialStartedAt ? { trial_started_at: new Date(extra.trialStartedAt).toISOString() } : {}),
+          ...(extra?.trialEndsAt ? { trial_ends_at: new Date(extra.trialEndsAt).toISOString() } : {}),
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'id' }
+      );
+  } catch {
+    // Supabase profiles table may not be provisioned yet; server license store remains authoritative
+  }
+}
+
 interface LicenseStoreState {
   license: SignedLicenseResponse | null;
   sessionToken: string;
   isLoading: boolean;
+  isOnboardingModalOpen: boolean;
+  onboardingStep: OnboardingStep;
+  selectedPlanLabel: string | null;
   isAuthModalOpen: boolean;
   isPaywallModalOpen: boolean;
   isDownloadModalOpen: boolean;
   paywallFeatureName: string;
   deviceLimitConflict: DeviceLimitConflict | null;
   error: string | null;
+  magicLinkSentTo: string | null;
 
+  openOnboardingFlow: (preferredStep?: OnboardingStep, featureContext?: string) => void;
+  setOnboardingStep: (step: OnboardingStep) => void;
+  closeOnboardingFlow: () => void;
   openAuthModal: (featureContext?: string) => void;
   closeAuthModal: () => void;
   openPaywallModal: (featureName?: string) => void;
@@ -177,10 +212,16 @@ interface LicenseStoreState {
   syncLicenseStatus: () => Promise<SignedLicenseResponse | null>;
   registerTrial: (params: { email: string; password: string; name?: string }) => Promise<boolean>;
   loginWithPassword: (params: { email: string; password: string }) => Promise<boolean>;
+  sendMagicLink: (email: string) => Promise<boolean>;
   signInWithGoogle: (fallbackProfile?: { email: string; name?: string }) => Promise<boolean>;
   revokeDevice: (targetDeviceId: string) => Promise<boolean>;
   signOut: () => Promise<void>;
-  checkoutPro: (params: { plan: SubscriptionPlan; provider: PaymentProvider }) => Promise<{
+  activateTrialPlan: () => Promise<{ ok: boolean; error?: string }>;
+  checkoutPro: (params: {
+    plan: SubscriptionPlan;
+    planTier?: ProTierName;
+    provider: PaymentProvider;
+  }) => Promise<{
     ok: boolean;
     checkoutUrl?: string;
     message?: string;
@@ -194,35 +235,85 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
   license: null,
   sessionToken: readStoredToken(),
   isLoading: false,
+  isOnboardingModalOpen: false,
+  onboardingStep: 1,
+  selectedPlanLabel: null,
   isAuthModalOpen: false,
   isPaywallModalOpen: false,
   isDownloadModalOpen: false,
   paywallFeatureName: 'Pro Studio Feature',
   deviceLimitConflict: null,
   error: null,
+  magicLinkSentTo: null,
 
-  openAuthModal: (featureContext) =>
+  openOnboardingFlow: (preferredStep, featureContext) => {
+    const lic = get().license;
+    const isSignedIn = Boolean(lic?.authenticated && get().sessionToken);
+    const resolvedStep: OnboardingStep =
+      preferredStep || (isSignedIn ? 2 : 1);
     set({
-      isAuthModalOpen: true,
+      isOnboardingModalOpen: true,
+      onboardingStep: resolvedStep,
       error: null,
+      magicLinkSentTo: null,
       ...(featureContext ? { paywallFeatureName: featureContext } : {})
-    }),
-  closeAuthModal: () => set({ isAuthModalOpen: false, deviceLimitConflict: null, error: null }),
-  openPaywallModal: (featureName) =>
+    });
+
+    // Double-check live Supabase session asynchronously if state isn't authenticated yet
+    if (!isSignedIn) {
+      void get().syncLicenseStatus().then((synced) => {
+        if (synced?.authenticated && get().isOnboardingModalOpen && get().onboardingStep === 1) {
+          set({ onboardingStep: 2 });
+        }
+      });
+    }
+  },
+  setOnboardingStep: (step) => set({ onboardingStep: step, error: null }),
+  closeOnboardingFlow: () =>
     set({
-      isPaywallModalOpen: true,
-      paywallFeatureName: featureName || 'Pro Studio Feature',
+      isOnboardingModalOpen: false,
+      isAuthModalOpen: false,
+      isPaywallModalOpen: false,
+      isDownloadModalOpen: false,
+      deviceLimitConflict: null,
       error: null
     }),
-  closePaywallModal: () => set({ isPaywallModalOpen: false, error: null }),
-  openDownloadModal: () => set({ isDownloadModalOpen: true }),
-  closeDownloadModal: () => set({ isDownloadModalOpen: false }),
+
+  openAuthModal: (featureContext) => {
+    const isSignedIn = Boolean(get().license?.authenticated && get().sessionToken);
+    set({
+      isOnboardingModalOpen: true,
+      onboardingStep: isSignedIn ? 2 : 1,
+      error: null,
+      ...(featureContext ? { paywallFeatureName: featureContext } : {})
+    });
+  },
+  closeAuthModal: () => set({ isOnboardingModalOpen: false, isAuthModalOpen: false, deviceLimitConflict: null, error: null }),
+  openPaywallModal: (featureName) => {
+    const isSignedIn = Boolean(get().license?.authenticated && get().sessionToken);
+    set({
+      isOnboardingModalOpen: true,
+      onboardingStep: isSignedIn ? 2 : 1,
+      paywallFeatureName: featureName || 'Pro Studio Feature',
+      error: null
+    });
+  },
+  closePaywallModal: () => set({ isOnboardingModalOpen: false, isPaywallModalOpen: false, error: null }),
+  openDownloadModal: () => {
+    const isSignedIn = Boolean(get().license?.authenticated && get().sessionToken);
+    set({
+      isOnboardingModalOpen: true,
+      onboardingStep: isSignedIn ? 3 : 1,
+      error: null
+    });
+  },
+  closeDownloadModal: () => set({ isOnboardingModalOpen: false, isDownloadModalOpen: false }),
   clearError: () => set({ error: null }),
 
   syncLicenseStatus: async () => {
     const { deviceId } = getOrCreateDeviceFingerprint();
     try {
-      // If Supabase OAuth session exists, bridge it automatically on load
+      // If Supabase OAuth/Magic-Link session exists, bridge it automatically on load
       const sb = getSupabaseClient();
       if (sb && !get().sessionToken) {
         const { data } = await sb.auth.getSession();
@@ -285,7 +376,7 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
-        set({ isLoading: false, error: data?.error || 'Could not start 30-day free trial.' });
+        set({ isLoading: false, error: data?.error || 'Could not create account.' });
         return false;
       }
       writeStoredToken(data.sessionToken);
@@ -293,13 +384,13 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
         isLoading: false,
         sessionToken: data.sessionToken,
         license: data.license,
-        isAuthModalOpen: false,
+        onboardingStep: 2,
         deviceLimitConflict: null,
         error: null
       });
       return true;
     } catch (err: any) {
-      set({ isLoading: false, error: err?.message || 'Network error activating trial.' });
+      set({ isLoading: false, error: err?.message || 'Network error creating account.' });
       return false;
     }
   },
@@ -342,13 +433,46 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
         isLoading: false,
         sessionToken: data.sessionToken,
         license: data.license,
-        isAuthModalOpen: false,
+        onboardingStep: 2,
         deviceLimitConflict: null,
         error: null
       });
       return true;
     } catch (err: any) {
       set({ isLoading: false, error: err?.message || 'Network error during sign in.' });
+      return false;
+    }
+  },
+
+  sendMagicLink: async (email) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      set({ error: 'Enter a valid email address for magic link sign-in.' });
+      return false;
+    }
+    set({ isLoading: true, error: null, magicLinkSentTo: null });
+    try {
+      const sb = getSupabaseClient();
+      if (sb && hasSupabaseConfig()) {
+        const { error } = await sb.auth.signInWithOtp({
+          email: cleanEmail,
+          options: { emailRedirectTo: window.location.href }
+        });
+        if (error) {
+          set({ isLoading: false, error: error.message });
+          return false;
+        }
+        set({ isLoading: false, magicLinkSentTo: cleanEmail });
+        return true;
+      }
+      // When Supabase env vars aren't bound yet, bridge directly as magic-link instant session
+      const ok = await get().signInWithGoogle({ email: cleanEmail });
+      if (ok) {
+        set({ magicLinkSentTo: cleanEmail });
+      }
+      return ok;
+    } catch (err: any) {
+      set({ isLoading: false, error: err?.message || 'Could not send magic link.' });
       return false;
     }
   },
@@ -415,7 +539,7 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
         isLoading: false,
         sessionToken: data.sessionToken,
         license: data.license,
-        isAuthModalOpen: false,
+        onboardingStep: 2,
         deviceLimitConflict: null,
         error: null
       });
@@ -448,7 +572,6 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
         return false;
       }
 
-      // Retry pending sign-in immediately if triggered from device-limit dialog
       if (conflict?.pendingEmail && conflict?.pendingPassword) {
         return await get().loginWithPassword({
           email: conflict.pendingEmail,
@@ -482,15 +605,55 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
       if (sb) await sb.auth.signOut().catch(() => null);
     } finally {
       writeStoredToken('');
-      set({ sessionToken: '' });
+      set({ sessionToken: '', onboardingStep: 1, selectedPlanLabel: null });
       await get().syncLicenseStatus();
     }
   },
 
-  checkoutPro: async ({ plan, provider }) => {
+  activateTrialPlan: async () => {
     const lic = get().license;
     if (!lic?.authenticated || !get().sessionToken) {
-      set({ isPaywallModalOpen: false, isAuthModalOpen: true });
+      set({ onboardingStep: 1, error: 'Sign in first to start your 30-day studio trial.' });
+      return { ok: false, error: 'Sign in first.' };
+    }
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch('/api/billing/activate-trial', {
+        method: 'POST',
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        set({
+          isLoading: false,
+          error: data?.error || 'Could not activate 30-day trial.',
+          ...(data?.license ? { license: data.license } : {})
+        });
+        return { ok: false, error: data?.error };
+      }
+      const nextLicense = data.license as SignedLicenseResponse;
+      await syncSupabaseProfilePlan('trial', {
+        trialStartedAt: nextLicense.trialStartedAt,
+        trialEndsAt: nextLicense.trialEndsAt
+      });
+      set({
+        isLoading: false,
+        license: nextLicense,
+        selectedPlanLabel: '30-DAY PRO TRIAL',
+        onboardingStep: 3,
+        error: null
+      });
+      return { ok: true };
+    } catch (err: any) {
+      set({ isLoading: false, error: err?.message || 'Could not activate trial.' });
+      return { ok: false, error: err?.message };
+    }
+  },
+
+  checkoutPro: async ({ plan, planTier = 'pro', provider }) => {
+    const lic = get().license;
+    if (!lic?.authenticated || !get().sessionToken) {
+      set({ onboardingStep: 1, isOnboardingModalOpen: true });
       return { ok: false, message: 'Sign in first to upgrade your account.' };
     }
 
@@ -499,7 +662,7 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ plan, provider })
+        body: JSON.stringify({ plan, planTier, provider })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
@@ -512,18 +675,21 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
         return { ok: true, checkoutUrl: data.checkoutUrl };
       }
 
+      await syncSupabaseProfilePlan(planTier);
+
       if (data.license) {
         set({
           isLoading: false,
           license: data.license,
-          isPaywallModalOpen: false,
+          selectedPlanLabel: `${planTier.toUpperCase()} STUDIO`,
+          onboardingStep: 3,
           error: null
         });
       } else {
-        set({ isLoading: false, isPaywallModalOpen: false });
+        set({ isLoading: false, selectedPlanLabel: `${planTier.toUpperCase()} STUDIO`, onboardingStep: 3 });
         await get().syncLicenseStatus();
       }
-      return { ok: true, message: 'PRO STUDIO subscription activated.' };
+      return { ok: true, message: `${planTier.toUpperCase()} STUDIO subscription activated.` };
     } catch (err: any) {
       set({ isLoading: false, error: err?.message || 'Checkout failed.' });
       return { ok: false, message: err?.message };
@@ -544,14 +710,16 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
     if (!lic?.authenticated || !get().sessionToken) {
       set({
         paywallFeatureName: featureName,
-        isAuthModalOpen: true,
+        isOnboardingModalOpen: true,
+        onboardingStep: 1,
         error: null
       });
       return false;
     }
     set({
       paywallFeatureName: featureName,
-      isPaywallModalOpen: true,
+      isOnboardingModalOpen: true,
+      onboardingStep: 2,
       error: null
     });
     return false;
@@ -561,7 +729,8 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
     const code = payload?.code;
     if (status === 401 && code === 'AUTH_REQUIRED') {
       set({
-        isAuthModalOpen: true,
+        isOnboardingModalOpen: true,
+        onboardingStep: 1,
         paywallFeatureName: featureName || 'Pro Studio AI Engine',
         error: payload?.error || 'Sign in to activate your 30-day free trial.'
       });
@@ -572,9 +741,10 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
         set({ license: payload.license });
       }
       set({
-        isPaywallModalOpen: true,
+        isOnboardingModalOpen: true,
+        onboardingStep: 2,
         paywallFeatureName: featureName || 'Pro Studio AI Engine',
-        error: payload?.error || 'Upgrade to PRO STUDIO to continue.'
+        error: payload?.error || 'Choose a plan to continue using Studio AI engines.'
       });
       return true;
     }

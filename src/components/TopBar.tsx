@@ -51,9 +51,7 @@ import {
   LogOut,
   Package,
   Zap,
-  BarChart2,
-  Crown,
-  Lock
+  BarChart2
 } from 'lucide-react';
 import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/firebase';
 import { useLicenseStore } from '../services/licenseService';
@@ -171,9 +169,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isEcosystemMenuOpen, setIsEcosystemMenuOpen] = useState(false);
   const license = useLicenseStore((s) => s.license);
-  const openDownloadModal = useLicenseStore((s) => s.openDownloadModal);
-  const openAuthModal = useLicenseStore((s) => s.openAuthModal);
-  const openPaywallModal = useLicenseStore((s) => s.openPaywallModal);
+  const openOnboardingFlow = useLicenseStore((s) => s.openOnboardingFlow);
 
   const activeFrame = frames && frames.length > 0
     ? frames[Math.max(0, Math.min(frames.length - 1, currentShotIndex))]
@@ -675,60 +671,20 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          {/* Top Bar DOWNLOAD Hub Button */}
+          {/* Unified CapCut-Style Primary CTA: TRY FREE / DOWNLOAD */}
           <button
             type="button"
-            data-testid="topbar-download-btn"
-            onClick={() => openDownloadModal()}
-            className="px-3.5 py-2 rounded-xl bg-[#141417] hover:bg-white text-white hover:text-[#0B0B0D] border-2 border-white/20 font-mono font-black text-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
-            title="Download HandFilm Studio for Windows (.exe) & Android (.apk)"
+            data-testid="topbar-try-download-btn"
+            onClick={() => openOnboardingFlow()}
+            title={
+              license?.authenticated
+                ? `Signed in: ${license.email} (${license.tier === 'pro' ? (license.proTier || 'pro').toUpperCase() : license.tier === 'trial' ? `TRIAL · ${license.daysRemaining}D LEFT` : 'FREE'}) — Manage Plan or Download Apps`
+                : 'Create Free Account, Choose Plan & Download Windows / Android / Web Studio'
+            }
+            className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-gradient-to-r from-[#22D3EE] via-[#38BDF8] to-[#F59E0B] hover:brightness-110 text-[#0B0B0D] font-space-grotesk font-black text-xs sm:text-sm tracking-wide uppercase flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer transition-all shadow-[0_0_22px_rgba(34,211,238,0.3)] active:scale-[0.98]"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>DOWNLOAD</span>
-          </button>
-
-          {/* Live License / Trial Status Pill */}
-          <button
-            type="button"
-            data-testid="topbar-license-pill"
-            onClick={() => {
-              if (license?.authenticated && license.tier === 'free') {
-                openPaywallModal('PRO STUDIO');
-              } else {
-                openAuthModal();
-              }
-            }}
-            className={`px-3 py-2 rounded-xl border-2 font-mono font-black text-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.98] tabular-nums ${
-              license?.authenticated && license.tier === 'pro'
-                ? 'bg-[#F59E0B] border-[#FCD34D] text-[#0B0B0D]'
-                : license?.authenticated && license.tier === 'trial'
-                ? 'bg-[#18150D] border-[#F59E0B]/70 text-[#F59E0B]'
-                : license?.authenticated && license.tier === 'free'
-                ? 'bg-red-950/60 border-red-500/70 text-red-300'
-                : 'bg-[#141417] border-[#F59E0B]/50 text-[#F59E0B]'
-            }`}
-          >
-            {license?.authenticated && license.tier === 'pro' ? (
-              <>
-                <Crown className="w-3.5 h-3.5" />
-                <span>PRO STUDIO</span>
-              </>
-            ) : license?.authenticated && license.tier === 'trial' ? (
-              <>
-                <Zap className="w-3.5 h-3.5" />
-                <span>PRO TRIAL: {license.daysRemaining}D LEFT</span>
-              </>
-            ) : license?.authenticated && license.tier === 'free' ? (
-              <>
-                <Lock className="w-3.5 h-3.5" />
-                <span>FREE TIER · UPGRADE</span>
-              </>
-            ) : (
-              <>
-                <Zap className="w-3.5 h-3.5" />
-                <span>START 30D TRIAL</span>
-              </>
-            )}
+            <Download className="w-4 h-4 shrink-0 stroke-[2.5]" />
+            <span>TRY FREE / DOWNLOAD</span>
           </button>
 
           {/* Kinetic Hero Titles Toggle: Symbol "T" ONLY */}

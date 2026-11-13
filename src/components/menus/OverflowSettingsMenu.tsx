@@ -44,6 +44,7 @@ export interface OverflowSettingsMenuProps {
   onOpenExportFcpxml?: () => void;
   onOpenProjectStats?: () => void;
   onOpenShortcuts?: () => void;
+  closeTriggerKey?: string;
   className?: string;
 }
 
@@ -58,9 +59,14 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
   onOpenExportFcpxml,
   onOpenProjectStats,
   onOpenShortcuts,
+  closeTriggerKey,
   className = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [closeTriggerKey]);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
   const [isPurging, setIsPurging] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -170,10 +176,10 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
         <button
           type="button"
           onClick={() => setIsOpen(prev => !prev)}
-          className={`h-9 px-3 rounded-lg border text-white/60 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center cursor-pointer ${
+          className={`w-8 h-8 rounded-full border text-zinc-300 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center cursor-pointer ${
             isOpen
-              ? 'border-amber-500/70 bg-amber-500/10 text-amber-400 shadow-[0_0_12px_rgba(245,166,35,0.25)]'
-              : 'border-white/10 hover:border-white/30'
+              ? 'border-amber-500/80 bg-amber-500/15 text-amber-300 shadow-[0_0_12px_rgba(245,166,35,0.35)]'
+              : 'border-white/15 bg-[#111216] hover:border-white/35'
           }`}
           aria-label="More Workspace Actions"
           title="More Workspace Actions"
@@ -184,7 +190,7 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
 
       {/* Glassmorphic Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-[#0E1015]/95 border border-white/10 rounded-xl shadow-2xl backdrop-blur-xl p-2 z-50 text-xs font-mono text-white/90 animate-in fade-in zoom-in-95 duration-150 space-y-1">
+        <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-[#0E1015]/96 border border-white/15 rounded-xl shadow-[0_24px_60px_rgba(0,0,0,0.95)] backdrop-blur-xl p-2 z-[9999] text-xs font-mono text-white/90 animate-in fade-in zoom-in-95 duration-150 space-y-1">
           {/* Header */}
           <div className="px-2.5 py-1 text-[8.5px] font-bold text-amber-400 border-b border-white/10 uppercase tracking-wider flex items-center justify-between">
             <span>WORKSPACE SUITE // TOOLS</span>

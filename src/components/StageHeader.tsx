@@ -1,12 +1,12 @@
 /**
  * @file /src/components/StageHeader.tsx
  * @description Compact, High-Density 3-Zone Obsidian Studio Header (48px) for HANDFILM STUDIO:
- * - Left Zone: HANDFILM industrial wordmark + molten-amber accent bar + live project sync dot,
+ * - Left Zone: HANDFILM industrial wordmark + RAW. RAPID. CINEMA. tagline,
  *   plus interactive Brutalist mega-dropdowns (HOME | FEATURES | APPS) with keyboard badges.
- * - Center Zone: Tactile 6-tab Workspace Switcher (STAGE, REELS, SCRUB, MULTI-CAM, MONITOR, ⚡ COCKPIT)
- *   with molten-gold active indicator bar and [1]–[6] hover hints (Alt+1..Alt+6).
+ * - Center Zone: Chromatic 6-tab Hardware Workspace Switcher (STAGE, REELS, SCRUB, MULTI-CAM, MONITOR, COCKPIT)
+ *   with luminous category edge bars and [1]–[6] hover hints (Alt+1..Alt+6).
  * - Right Zone: Command Search (Cmd+K / /), Live Engine Telemetry (FPS · Aspect Ratio · OPFS Clips),
- *   STUDIO / Focus Mode chrome toggle, and prominent molten-amber EXPORT primary CTA.
+ *   red STUDIO Focus Mode pill, circular golden Export CTA, Record dot button, and 3-dot Overflow menu.
  */
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
@@ -37,13 +37,15 @@ import {
   Sparkles,
   Palette,
   AudioWaveform,
-  Maximize2,
   Minimize2,
   Download,
   Home,
   PlaySquare,
   Scissors,
-  Monitor
+  Monitor,
+  Cloud,
+  BarChart2,
+  Cpu
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
@@ -61,6 +63,7 @@ import { OmniAIForge } from './modules/OmniAIForge';
 import { B2BCommandCenter } from './modules/B2BCommandCenter';
 import { UnifiedExportStudio } from './modules/UnifiedExportStudio';
 import { EcosystemGridModal } from './menus/EcosystemGridModal';
+import { OverflowSettingsMenu } from './menus/OverflowSettingsMenu';
 import { TextTypographyDrawer } from './drawers/TextTypographyDrawer';
 import { ecosystemSearchEngine } from '../services/ecosystemSearchIndex';
 import { CockpitManifestStats, CockpitShotBridge } from '../types/cockpit';
@@ -158,8 +161,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   onLaunchStudio,
   onOpenManifesto,
   onOpenProjectManager,
+  onOpenR2Automation,
+  onOpenBloomSequencer,
+  onOpenVideoScopes,
   onOpenAiStudio,
+  onOpenSettings,
   onOpenShortcuts,
+  onOpenDiagnostics,
   onOpenInspector,
   onOpenRapSync,
   onOpenCacheManager,
@@ -1169,43 +1177,26 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         className={`relative w-full h-12 bg-[#08080A]/95 backdrop-blur-xl border-b border-white/[0.08] px-2.5 xl:px-4 flex items-center justify-between gap-2 xl:gap-3 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
       >
         {/* ================================================================
-            LEFT ZONE: Brand Wordmark, Live Status & Mega-Dropdown Menus
+            LEFT ZONE: Brand Wordmark + Tagline & Mega-Dropdown Menus
             ================================================================ */}
         <div ref={navZoneRef} className="flex items-center gap-2 xl:gap-3 min-w-0 justify-self-start">
-          {/* HANDFILM Industrial Wordmark + Molten-Amber Accent Bar + Live Sync Status */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleHomeClick}
-              className="group flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-1 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0"
-              title="HANDFILM STUDIO — Return to Director Home"
-            >
-              <span
-                aria-hidden="true"
-                className="w-[2.5px] h-4 bg-gradient-to-b from-[#FBBF24] via-[#F59E0B] to-[#D97706] shrink-0"
-              />
-              <span className="font-space-grotesk font-black tracking-[0.13em] text-[13px] 2xl:text-[14px] leading-none">
-                <span className="text-[#E50914]">HAND</span>
-                <span className="text-white">FILM</span>
-              </span>
-            </button>
-
-            <span
-              className={`inline-flex items-center gap-1.5 font-mono text-[9.5px] font-semibold tracking-[0.09em] uppercase whitespace-nowrap shrink-0 tabular-nums ${
-                isUnsavedOrSaving ? 'text-amber-400' : 'text-emerald-400'
-              }`}
-              title={`Project persistence status: ${saveState}`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  isUnsavedOrSaving ? 'bg-amber-400' : 'bg-emerald-400'
-                }`}
-              />
-              <span>{saveState === 'SAVING...' ? 'SAVING' : isUnsavedOrSaving ? 'UNSAVED' : 'SYNCED'}</span>
+          {/* HANDFILM Wordmark + RAW. RAPID. CINEMA. Tagline (no SYNCED badge) */}
+          <button
+            type="button"
+            onClick={handleHomeClick}
+            className="group flex flex-col items-start justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-0.5 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 text-left"
+            title="HANDFILM STUDIO — Return to Director Home"
+          >
+            <span className="font-space-grotesk font-black tracking-[0.14em] text-[15px] xl:text-[16px] leading-none">
+              <span className="text-[#E50914]">HAND</span>
+              <span className="text-white">FILM</span>
             </span>
-          </div>
+            <span className="mt-[3px] font-mono text-[7px] xl:text-[7.5px] font-semibold tracking-[0.2em] uppercase text-zinc-400 group-hover:text-zinc-300 leading-none">
+              RAW. RAPID. CINEMA.
+            </span>
+          </button>
 
-          <span aria-hidden="true" className="hidden sm:block w-px h-4 bg-white/[0.08] shrink-0" />
+          <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-white/[0.08] shrink-0" />
 
           {/* Interactive Mega-Dropdown Menus: HOME | FEATURES | APPS */}
           <nav aria-label="Studio Menus" className="flex items-center gap-0.5 xl:gap-1 shrink-0">
@@ -1240,11 +1231,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   style={flyoutPanelStyle}
                   onMouseEnter={() => openDropdown('HOME')}
                   onMouseLeave={scheduleCloseDropdown}
-                  className="absolute left-0 top-full mt-1.5 w-[304px] bg-[#0B0B0E]/96 border border-[#27272A] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
+                  className="absolute left-0 top-full mt-1.5 w-[312px] bg-[#0B0B0E]/96 border border-[#27272A] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
                 >
                   <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-zinc-400">
                     <span>PROJECT &amp; VAULT</span>
-                    <span className="text-[#F59E0B]">LOCAL OPFS</span>
+                    <span className="text-[#F59E0B]">
+                      {saveState === 'SAVING...' ? 'SAVING...' : isUnsavedOrSaving ? 'UNSAVED' : 'LOCAL OPFS'}
+                    </span>
                   </div>
 
                   <button
@@ -1299,6 +1292,25 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     role="menuitem"
                     onClick={() => {
                       setActiveDropdown(null);
+                      if (onOpenProjectManager) onOpenProjectManager();
+                      else eventBus.emit('studio:open_project_manager');
+                    }}
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Database className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="text-[11px] font-semibold truncate">Project Vault Manager</span>
+                    </span>
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                      IDB
+                    </kbd>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActiveDropdown(null);
                       if (onSaveSnapshot) {
                         onSaveSnapshot();
                       } else {
@@ -1336,6 +1348,25 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     </span>
                     <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
                       BATCH
+                    </kbd>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      if (onOpenR2Automation) onOpenR2Automation();
+                      else eventBus.emit('studio:open_module', { module: 'R2_STORAGE' });
+                    }}
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Cloud className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <span className="text-[11px] font-semibold truncate">Cloudflare R2 Edge Sync</span>
+                    </span>
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                      R2
                     </kbd>
                   </button>
 
@@ -1490,6 +1521,44 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      if (onOpenBloomSequencer) onOpenBloomSequencer();
+                      else eventBus.emit('studio:open_bloom');
+                    }}
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span className="text-[11px] font-semibold truncate">Bloom Interactive Sequencer</span>
+                    </span>
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                      BLOOM
+                    </kbd>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      if (onOpenVideoScopes) onOpenVideoScopes();
+                      else eventBus.emit('studio:open_scopes');
+                    }}
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <BarChart2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <span className="text-[11px] font-semibold truncate">Live IRE &amp; RGB Video Scopes</span>
+                    </span>
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                      SCOPES
+                    </kbd>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={handleTriggerExport}
                     className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
                   >
@@ -1535,12 +1604,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 aria-expanded={activeDropdown === 'APPS'}
                 aria-haspopup="menu"
                 onClick={() => toggleDropdown('APPS')}
-                className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                   activeDropdown === 'APPS'
                     ? 'bg-[#16161A] text-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                    : 'text-zinc-300 hover:text-white hover:bg-white/[0.04]'
                 }`}
               >
+                <LayoutGrid className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
                 <span>APPS</span>
                 <ChevronDown
                   className={`w-3 h-3 transition-transform duration-150 ${
@@ -1643,6 +1713,25 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     </span>
                     <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
                       DSP
+                    </kbd>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      if (onOpenDiagnostics) onOpenDiagnostics();
+                      else eventBus.emit('diagnostics:open');
+                    }}
+                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#16161A] text-zinc-200 hover:text-white flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span className="text-[11px] font-semibold truncate">Hardware Diagnostics Self-Test</span>
+                    </span>
+                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#16161A] border border-[#27272A] text-[9px] text-zinc-400 shrink-0">
+                      TEST
                     </kbd>
                   </button>
 
@@ -2318,7 +2407,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
 
         {/* ================================================================
-            RIGHT ZONE: Command Search, Engine Telemetry, Focus & Export CTA
+            RIGHT ZONE: Search, Telemetry, Red STUDIO, Export, Record & 3-Dots Menu
             ================================================================ */}
         <div className="flex items-center gap-1.5 xl:gap-2 min-w-0">
           {/* Brief inline feedback notice when snapshot/cache action completes */}
@@ -2331,8 +2420,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 1. Compact Command Search (Cmd+K / /) */}
           <div ref={searchContainerRef} className="relative shrink-0">
-            <div className="relative flex items-center h-7 w-24 sm:w-28 xl:w-32 2xl:w-48 bg-[#111114] border border-white/[0.09] hover:border-white/20 focus-within:border-[#F59E0B]/70 rounded-[4px] px-2 gap-1.5 transition-colors">
-              <Search className="w-3 h-3 text-zinc-400 shrink-0" />
+            <div className="relative flex items-center h-8 w-28 sm:w-32 xl:w-36 2xl:w-48 bg-[#111114] border border-white/[0.1] hover:border-white/25 focus-within:border-[#F59E0B]/70 rounded-full px-2.5 gap-1.5 transition-colors">
+              <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -2348,7 +2437,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   setIsGlobalSearchOpen(true);
                 }}
                 onKeyDown={handleSearchKeyDown}
-                placeholder="Search #01, lens..."
+                placeholder="Search shots, tools..."
                 className="w-full min-w-0 bg-transparent text-[10.5px] font-mono text-white placeholder:text-zinc-500 focus:outline-none"
               />
               {globalSearchQuery ? (
@@ -2365,7 +2454,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   <X className="w-3 h-3" />
                 </button>
               ) : (
-                <kbd className="hidden xl:inline-flex items-center text-[9px] font-mono text-zinc-500 border border-[#27272A] bg-[#16161A] rounded-[2px] px-1 py-0 pointer-events-none shrink-0">
+                <kbd className="hidden xl:inline-flex items-center text-[9px] font-mono text-zinc-500 border border-[#27272A] bg-[#16161A] rounded-[3px] px-1 py-0 pointer-events-none shrink-0">
                   ⌘K
                 </kbd>
               )}
@@ -2504,9 +2593,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             )}
           </div>
 
-          {/* 2. Live Engine Telemetry Badge (FPS · Aspect Ratio · OPFS Vault Count) */}
+          {/* 2. Live Engine Telemetry (visible on wider desktops 2xl+) */}
           <div
-            className="hidden xl:flex h-7 px-1.5 2xl:px-2 rounded-[4px] bg-[#111114] border border-white/[0.08] items-center gap-1.5 font-mono text-[9px] 2xl:text-[10px] tabular-nums whitespace-nowrap shrink-0"
+            className="hidden 2xl:flex h-7 px-2 rounded-full bg-[#111114] border border-white/[0.08] items-center gap-1.5 font-mono text-[9.5px] tabular-nums whitespace-nowrap shrink-0"
             title={`Engine Telemetry: ${resolvedFps} FPS · ${resolvedAspectRatio} · ${vaultClipCount} Clips in Vault/OPFS`}
           >
             <span className="text-zinc-200 font-semibold">{resolvedFps} FPS</span>
@@ -2518,7 +2607,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </span>
           </div>
 
-          {/* 3. STUDIO / Focus Mode Toggle (Collapses secondary chrome for pure cinema review) */}
+          {/* 3. STUDIO Red Pill Button (Enters Studio from Home; toggles Focus Mode in Studio) */}
           <button
             type="button"
             aria-pressed={currentView === 'STUDIO' ? isZenMode : false}
@@ -2527,33 +2616,82 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               currentView === 'HOME'
                 ? 'Enter Active Cinema Studio'
                 : isZenMode
-                ? 'Exit Focus Mode — Restore Side Rail & Dock (Z)'
-                : 'Focus Mode — Collapse Secondary Chrome for Pure Cinema Review (Z)'
+                ? 'Focus Mode Active — Click to Restore Side Rail & Dock (Z)'
+                : 'STUDIO — Click to Toggle Focus Mode (Z)'
             }
-            className={`h-7 px-2 xl:px-2.5 rounded-[4px] border font-mono text-[10px] 2xl:text-[10.5px] font-bold tracking-[0.09em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+            className={`h-8 px-3.5 rounded-full bg-[#E50914] hover:bg-[#F40612] text-white font-mono text-[10.5px] font-black tracking-[0.12em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
               currentView === 'STUDIO' && isZenMode
-                ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#FBBF24]'
-                : 'bg-[#16161A] hover:bg-[#1E1E24] border-white/[0.12] hover:border-white/25 text-zinc-200 hover:text-white'
+                ? 'ring-2 ring-[#FBBF24] shadow-[0_0_20px_rgba(229,9,20,0.75)]'
+                : 'shadow-[0_0_16px_rgba(229,9,20,0.5)] hover:shadow-[0_0_22px_rgba(229,9,20,0.7)]'
             }`}
           >
-            {currentView === 'STUDIO' && isZenMode ? (
+            {currentView === 'STUDIO' && isZenMode && (
               <Minimize2 className="w-3 h-3 shrink-0" />
-            ) : (
-              <Maximize2 className="w-3 h-3 shrink-0" />
             )}
-            <span>{currentView === 'STUDIO' && isZenMode ? 'FOCUS' : 'STUDIO'}</span>
+            <span>STUDIO</span>
           </button>
 
-          {/* 4. High-Contrast EXPORT Primary CTA */}
+          {/* 4. Circular Golden Export Action Button */}
           <button
             type="button"
             onClick={handleTriggerExport}
+            aria-label="Export Master Render"
             title="Open Unified Render & Export Studio (⌘E)"
-            className="h-7 px-2.5 xl:px-3 rounded-[4px] bg-gradient-to-b from-[#FBBF24] to-[#D97706] hover:from-[#FDE68A] hover:to-[#F59E0B] text-[#08080A] font-mono font-black text-[10px] 2xl:text-[10.5px] tracking-[0.12em] uppercase flex items-center gap-1.5 shadow-[0_0_16px_rgba(245,158,11,0.35)] hover:shadow-[0_0_22px_rgba(245,158,11,0.55)] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FBBF24]"
+            className="w-8 h-8 rounded-full bg-[#13100A] hover:bg-[#F59E0B]/20 border border-[#F59E0B]/55 hover:border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shadow-[0_0_12px_rgba(245,158,11,0.2)] hover:shadow-[0_0_18px_rgba(245,158,11,0.45)] transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FBBF24]"
           >
-            <Download className="w-3 h-3 shrink-0" />
-            <span>EXPORT</span>
+            <Download className="w-3.5 h-3.5 shrink-0" />
           </button>
+
+          {/* 5. Circular Screen & Audio Record Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveDropdown(null);
+              if (onOpenRecorder) onOpenRecorder();
+              else eventBus.emit('recorder:open');
+            }}
+            aria-label="Screen and Audio Recorder"
+            title="Screen & Audio Recorder Studio (Alt+R)"
+            className="w-8 h-8 rounded-full bg-[#111216] hover:bg-[#E50914]/15 border border-white/15 hover:border-[#E50914]/70 flex items-center justify-center transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
+          >
+            <span
+              aria-hidden="true"
+              className="w-2.5 h-2.5 rounded-full bg-[#E50914] shadow-[0_0_8px_rgba(229,9,20,0.9)]"
+            />
+          </button>
+
+          {/* 6. Three-Dots Whole Overflow Workspace Dropdown Menu */}
+          <OverflowSettingsMenu
+            onOpenCompile={() => setIsCompileModalOpen(true)}
+            onOpenRapSync={() => {
+              if (onOpenRapSync) onOpenRapSync();
+              else setIsRapSyncModalOpen(true);
+            }}
+            onOpenSettings={() => {
+              if (onOpenSettings) onOpenSettings();
+              else eventBus.emit('settings:open');
+            }}
+            onOpenInspector={() => {
+              if (onOpenInspector) onOpenInspector();
+              else setIsInspectorDrawerOpen((prev) => !prev);
+            }}
+            onOpenCacheManager={() => {
+              if (onOpenCacheManager) onOpenCacheManager();
+              else setIsCacheManagerOpen(true);
+            }}
+            onOpenExport={handleTriggerExport}
+            onOpenExportXml={() => eventBus.emit('export:xml')}
+            onOpenExportFcpxml={() => eventBus.emit('export:fcpxml')}
+            onOpenProjectStats={() => {
+              if (onOpenProjectStats) onOpenProjectStats();
+              else eventBus.emit('stats:open');
+            }}
+            onOpenShortcuts={() => {
+              if (onOpenShortcuts) onOpenShortcuts();
+              else eventBus.emit('shortcuts:open');
+            }}
+            closeTriggerKey={`${currentView}-${currentPanel}`}
+          />
         </div>
       </header>
 

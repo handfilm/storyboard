@@ -64,7 +64,21 @@ export default defineConfig({
         type: 'module',
         navigateFallback: 'index.html'
       }
-    })
+    }),
+    {
+      name: 'disable-vite-client-ws-when-hmr-off',
+      apply: 'serve',
+      enforce: 'post',
+      transform(code, id) {
+        if (!id.includes('vite/dist/client/client')) return null;
+        const transportPattern = /const transport = normalizeModuleRunnerTransport\(\(\(\) => \{[\s\S]*?\}\)\(\)\);/;
+        if (!transportPattern.test(code)) return null;
+        return code.replace(
+          transportPattern,
+          'const transport = normalizeModuleRunnerTransport({ connect() {}, disconnect() {}, send() {} });'
+        );
+      }
+    }
   ],
   build: {
     outDir: 'dist',
@@ -88,6 +102,7 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: true,
     hmr: false,
+    ws: false,
     watch: null,
   },
 });

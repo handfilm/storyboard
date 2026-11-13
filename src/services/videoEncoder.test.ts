@@ -1,10 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import {
+  diagnoseWebCodecsOutputFormat,
   FullResVideoEncoder,
+  inspectFrameLuminance,
   sanitizeMuxerChunkMetadata,
   selectSupportedAvcCodec,
   verifyNonBlankCanvasFrame,
+  type EncoderTraceEvent,
   type MuxerDecoderConfigState
 } from './videoEncoder';
 
@@ -245,7 +248,7 @@ test('FullResVideoEncoder enforces backpressure, closes VideoFrames in finally, 
       }
     });
 
-    const fakeCanvas = {} as HTMLCanvasElement;
+    const fakeCanvas = { width: 3840, height: 1608 } as unknown as HTMLCanvasElement;
     await encoder.encodeFrame(fakeCanvas, 0);
     await encoder.encodeFrame(fakeCanvas, 1);
     await encoder.encodeFrame(fakeCanvas, 2);
@@ -259,11 +262,200 @@ test('FullResVideoEncoder enforces backpressure, closes VideoFrames in finally, 
     assert.strictEqual(encodeCalls[1].keyFrame, false);
     assert.strictEqual(encodeCalls[2].keyFrame, true);
 
+    assert.strictEqual(summary.submittedFrames, 3);
     assert.strictEqual(summary.chunksEncoded, 3);
     assert.strictEqual(summary.validChunksMuxed, 3);
+    assert.strictEqual(summary.droppedFrames, 0);
     assert.strictEqual(summary.hasDecoderConfig, true);
     assert.strictEqual(muxedChunks[0].hasDecoderConfig, true);
     assert.strictEqual(muxedChunks[1].hasDecoderConfig, false);
+  } finally {
+    (globalThis as Record<string, unknown>).VideoEncoder = originalVideoEncoder;
+    (globalThis as Record<string, unknown>).VideoFrame = originalVideoFrame;
+  }
+});
+
+test('diagnoseWebCodecsOutputFormat checks isTypeSupported and emits user alert on hardware fallback or unsupported format', async () => {
+  const originalVideoEncoder = (globalThis as Record<string, unknown>).VideoEncoder;
+  const originalNavigator = (globalThis as Record<string, unknown>).navigator;
+
+  try {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { userAgent: 'Mozilla/5.0 Chrome/130.0.0.0' },
+      configurable: true
+    });
+
+    // Case 1: isTypeSupported true, hardware unavailable -> falls back to prefer-software with user alert
+    const alerts1: string[] = [];
+    (globalThis as Record<string, unknown>).VideoEncoder = {
+      isTypeSupported: (mime: string) => mime.startsWith('video/mp4'),
+      isConfigSupported: async (cfg: VideoEncoderConfig) => ({
+        supported: cfg.hardwareAcceleration === 'prefer-software' && cfg.codec === 'avc1.640033',
+        config: cfg
+      })
+    };
+
+    const diagSw = await diagnoseWebCodecsOutputFormat({
+      width: 3840,
+      height: 1608,
+      bitrateBps: 80_000_000,
+      fps: 24,
+      onWarning: (msg) => alerts1.push(msg)
+    });
+
+    assert.strictEqual(diagSw.isTypeSupportedChecked, true);
+    assert.strictEqual(diagSw.isTypeSupportedResult, true);
+    assert.strictEqual(diagSw.hardwareAvailable, false);
+    assert.strictEqual(diagSw.usedHardwareFallback, true);
+    assert.strictEqual(diagSw.fallbackEngine, 'webcodecs-software');
+    assert.strictEqual(diagSw.selectedAcceleration, 'prefer-software');
+    assert.ok(diagSw.userAlertMessage?.includes('Hardware acceleration is unavailable'));
+    assert.strictEqual(alerts1.length, 1);
+
+    // Case 2: isTypeSupported returns false -> immediate fallback to MediaRecorder with user alert
+    const alerts2: string[] = [];
+    (globalThis as Record<string, unknown>).VideoEncoder = {
+      isTypeSupported: () => false,
+      isConfigSupported: async () => ({ supported: true })
+    };
+
+    const diagBlocked = await diagnoseWebCodecsOutputFormat({
+      width: 1920,
+      height: 804,
+      bitrateBps: 28_000_000,
+      fps: 24,
+      onWarning: (msg) => alerts2.push(msg)
+    });
+
+    assert.strictEqual(diagBlocked.isTypeSupportedChecked, true);
+    assert.strictEqual(diagBlocked.isTypeSupportedResult, false);
+    assert.strictEqual(diagBlocked.fallbackEngine, 'mediarecorder');
+    assert.strictEqual(diagBlocked.selectedCodec, null);
+    assert.ok(diagBlocked.userAlertMessage?.includes('isTypeSupported returned false'));
+    assert.strictEqual(alerts2.length, 1);
+  } finally {
+    (globalThis as Record<string, unknown>).VideoEncoder = originalVideoEncoder;
+    if (originalNavigator !== undefined) {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: originalNavigator,
+        configurable: true
+      });
+    }
+  }
+});
+
+test('FullResVideoEncoder traces black frames, dropped zero-byte chunks, and invalid source frames', async () => {
+  const originalVideoEncoder = (globalThis as Record<string, unknown>).VideoEncoder;
+  const originalVideoFrame = (globalThis as Record<string, unknown>).VideoFrame;
+
+  try {
+    class MockVideoFrame {
+      public readonly timestamp: number;
+      public readonly duration: number;
+      constructor(_src: unknown, init: { timestamp: number; duration?: number }) {
+        this.timestamp = init.timestamp;
+        this.duration = init.duration ?? 41667;
+      }
+      close() {}
+    }
+
+    let emitEmptySecondChunk = true;
+    class MockVideoEncoder {
+      public state: CodecState = 'configured';
+      public encodeQueueSize = 0;
+      private readonly outputCb: EncodedVideoChunkOutputCallback;
+      private idx = 0;
+
+      constructor(init: VideoEncoderInit) {
+        this.outputCb = init.output;
+      }
+      configure() {}
+      encode(frame: MockVideoFrame, opts?: { keyFrame?: boolean }) {
+        const myIdx = this.idx++;
+        const isZeroChunk = myIdx === 1 && emitEmptySecondChunk;
+        const payload = isZeroChunk ? new Uint8Array(0) : new Uint8Array([0, 0, 0, 2, 101, 136]);
+        const chunk = {
+          type: (opts?.keyFrame ? 'key' : 'delta') as EncodedVideoChunkType,
+          byteLength: payload.byteLength,
+          timestamp: frame.timestamp,
+          duration: frame.duration,
+          copyTo: (dest: Uint8Array) => dest.set(payload)
+        } as unknown as EncodedVideoChunk;
+
+        this.outputCb(
+          chunk,
+          opts?.keyFrame
+            ? {
+                decoderConfig: {
+                  codec: 'avc1.640028',
+                  description: new Uint8Array([1, 100, 0, 40])
+                }
+              }
+            : {}
+        );
+      }
+      async flush() {}
+      close() {
+        this.state = 'closed';
+      }
+    }
+
+    (globalThis as Record<string, unknown>).VideoFrame = MockVideoFrame;
+    (globalThis as Record<string, unknown>).VideoEncoder = MockVideoEncoder;
+
+    const traces: EncoderTraceEvent[] = [];
+    const warnings: string[] = [];
+
+    const encoder = new FullResVideoEncoder({
+      width: 1920,
+      height: 804,
+      fps: 24,
+      bitrateBps: 28_000_000,
+      codec: 'avc1.640028',
+      onEncodedChunk: () => {},
+      onTrace: (e) => traces.push(e),
+      onWarning: (msg) => warnings.push(msg)
+    });
+
+    // Zero-dimension canvas must reject cleanly and count as dropped frame
+    await assert.rejects(
+      () => encoder.encodeFrame({ width: 0, height: 0 } as unknown as HTMLCanvasElement, 0),
+      /Invalid zero-dimension source/
+    );
+
+    // Pure-black canvas should trigger black-frame guard warning & trace
+    const blackCanvas = {
+      width: 1920,
+      height: 804,
+      getContext: () => ({
+        getImageData: () => ({ data: new Uint8ClampedArray([0, 0, 0, 255]) })
+      })
+    } as unknown as HTMLCanvasElement;
+
+    const lum = inspectFrameLuminance(blackCanvas);
+    assert.strictEqual(lum.isNonBlank, false);
+
+    await encoder.encodeFrame(blackCanvas, 0);
+    // Second encoded frame produces 0-byte chunk -> counted as dropped frame
+    const validCanvas = {
+      width: 1920,
+      height: 804,
+      getContext: () => ({
+        getImageData: () => ({ data: new Uint8ClampedArray([120, 80, 40, 255]) })
+      })
+    } as unknown as HTMLCanvasElement;
+    await encoder.encodeFrame(validCanvas, 1);
+
+    const summary = await encoder.flushAndClose();
+    const diag = encoder.getDiagnostics();
+
+    assert.strictEqual(summary.blackFramesDetected, 1);
+    assert.ok(summary.droppedFrames >= 2, 'Zero-dimension reject + 0-byte output chunk must be tracked in droppedFrames');
+    assert.ok(traces.some((t) => t.stage === 'black-frame' && t.level === 'warn'));
+    assert.ok(traces.some((t) => t.stage === 'output' && t.level === 'error'));
+    assert.ok(warnings.some((w) => w.includes('Black/blank frame')));
+    assert.ok(warnings.some((w) => w.includes('byteLength=0')));
+    assert.strictEqual(diag.hasDecoderConfig, true);
   } finally {
     (globalThis as Record<string, unknown>).VideoEncoder = originalVideoEncoder;
     (globalThis as Record<string, unknown>).VideoFrame = originalVideoFrame;

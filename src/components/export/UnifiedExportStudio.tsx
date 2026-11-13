@@ -263,6 +263,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     statusText: 'IDLE // READY'
   });
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportWarning, setExportWarning] = useState<string | null>(null);
   const [isFinished, setIsFinished] = useState<boolean>(false);
   const [downloadedFileName, setDownloadedFileName] = useState<string>('');
 
@@ -872,6 +873,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     setIsExporting(true);
     setIsFinished(false);
     setExportError(null);
+    setExportWarning(null);
 
     const abortCtrl = new AbortController();
     abortControllerRef.current = abortCtrl;
@@ -897,6 +899,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         simulateFlare,
         includeAudio,
         onProgress: (tel) => setTelemetry(tel),
+        onWarning: (msg) => setExportWarning(msg),
         onFrameRendered: (canvas) => handleFrameRendered(canvas),
         abortSignal: abortCtrl.signal
       });
@@ -972,6 +975,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     setIsExporting(true);
     setIsFinished(false);
     setExportError(null);
+    setExportWarning(null);
 
     const abortCtrl = new AbortController();
     abortControllerRef.current = abortCtrl;
@@ -997,6 +1001,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         simulateFlare: true,
         includeAudio: true,
         onProgress: (tel) => setTelemetry(tel),
+        onWarning: (msg) => setExportWarning(msg),
         onFrameRendered: (canvas) => handleFrameRendered(canvas),
         abortSignal: abortCtrl.signal
       });
@@ -2816,7 +2821,24 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             </div>
           )}
 
-          {/* Feedback & Error Banner */}
+          {/* Feedback, Hardware Fallback Alert & Error Banner */}
+          {exportWarning && (
+            <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-bold">Encoder Acceleration / Pipeline Alert</p>
+                <p className="text-amber-200/80 font-sans text-[11px]">{exportWarning}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExportWarning(null)}
+                className="text-amber-300/70 hover:text-amber-100 text-[10px] font-bold uppercase cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {exportError && (
             <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />

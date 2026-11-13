@@ -1392,6 +1392,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       simulateFlare: true,
                       includeAudio: true,
                       onProgress: (t: RenderTelemetry) => setRenderTelemetry(t),
+                      onWarning: (msg: string) => setCockpitFeedback(msg),
                       abortSignal: controller.signal
                     };
                     if (format === 'mp4') {

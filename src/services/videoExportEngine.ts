@@ -44,10 +44,11 @@ import { renderAlignedCinemaTitleOverlay } from '../utils/interchangeExport';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
 import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption } from '../types/anthology';
 import {
+  diagnoseWebCodecsOutputFormat,
   FullResVideoEncoder,
   sanitizeMuxerChunkMetadata,
-  selectSupportedAvcCodec,
-  verifyNonBlankCanvasFrame
+  verifyNonBlankCanvasFrame,
+  type WebCodecsFormatDiagnostic
 } from './videoEncoder';
 
 export { sanitizeMuxerChunkMetadata };
@@ -94,6 +95,7 @@ export interface CinemaExportPipelineOptions {
 
   // Callback Hooks
   onProgress?: (telemetry: RenderTelemetry) => void;
+  onWarning?: (message: string, diagnostic?: WebCodecsFormatDiagnostic | Record<string, unknown>) => void;
   onFrameRendered?: (canvas: HTMLCanvasElement, frameNum: number, totalFrames: number) => void;
   previewCanvas?: HTMLCanvasElement | null;
   abortSignal?: AbortSignal;
@@ -1244,21 +1246,24 @@ async function loadShotSourceMedia(
 
 /**
  * Check if WebCodecs VideoEncoder is available and supports AVC encoding.
- * Returns the highest supported codec string, or null if unsupported.
+ * Runs `isTypeSupported` / `isConfigSupported` diagnostics across hardware -> software tiers.
  */
 async function checkWebCodecsSupport(
   _is4K: boolean,
   width: number,
   height: number,
   bitrateBps: number,
-  fps: number
-): Promise<{ codec: string; hardwareAcceleration: HardwareAcceleration } | null> {
-  return await selectSupportedAvcCodec({
+  fps: number,
+  onWarning?: (message: string, diagnostic?: WebCodecsFormatDiagnostic) => void
+): Promise<WebCodecsFormatDiagnostic> {
+  return await diagnoseWebCodecsOutputFormat({
     width,
     height,
     bitrateBps,
     fps,
-    preferHardware: true
+    desiredFormat: 'mp4-avc',
+    preferHardware: true,
+    onWarning
   });
 }
 
@@ -1659,6 +1664,7 @@ async function exportWithWebCodecs(
     includeAudio,
     shotMediaMap,
     onProgress,
+    onWarning,
     onFrameRendered,
     previewCanvas,
     abortSignal
@@ -1806,6 +1812,9 @@ async function exportWithWebCodecs(
     keyFrameInterval: fps,
     onEncodedChunk: (data, type, safeTimestamp, safeDuration, safeMeta) => {
       muxer.addVideoChunkRaw(data, type, safeTimestamp, safeDuration, safeMeta);
+    },
+    onWarning: (msg, details) => {
+      onWarning?.(msg, details);
     },
     onError: (e) => {
       encoderError = e;
@@ -2080,17 +2089,18 @@ export async function exportCinemaMasterMp4(
   const is4K = dimensions.width >= 3840 || dimensions.height >= 2160;
   const bitrateBps = getBitrateBps(options.bitrateProfile, is4K);
 
-  // 1. Detect if WebCodecs VideoEncoder is available and supports AVC
-  const supportedSelection = await checkWebCodecsSupport(
+  // 1. Run diagnostic capability check (isTypeSupported + isConfigSupported hardware -> software)
+  const diag = await checkWebCodecsSupport(
     is4K,
     dimensions.width,
     dimensions.height,
     bitrateBps,
-    24
+    24,
+    options.onWarning
   );
 
-  if (!supportedSelection) {
-    console.info('[CinemaExport] WebCodecs AVC not supported on this platform/browser. Seamlessly routing to MediaRecorder fallback.');
+  if (!diag.selectedCodec || !diag.selectedAcceleration) {
+    console.info('[CinemaExport] WebCodecs AVC unavailable for requested format. Seamlessly routing to MediaRecorder fallback.', diag);
     return await exportCinemaMasterWithMediaRecorder(options);
   }
 
@@ -2098,21 +2108,25 @@ export async function exportCinemaMasterMp4(
   try {
     return await exportWithWebCodecs(
       options,
-      supportedSelection.codec,
-      supportedSelection.hardwareAcceleration
+      diag.selectedCodec,
+      diag.selectedAcceleration
     );
   } catch (webCodecsErr: any) {
     if (options.abortSignal?.aborted || webCodecsErr?.message?.includes('cancelled')) {
       throw webCodecsErr;
     }
-    console.warn('[CinemaExport] Primary WebCodecs attempt failed, retrying with software H.264 encoder:', webCodecsErr);
+    const swAlert = `Hardware WebCodecs encode failed (${webCodecsErr?.message || 'unknown error'}); retrying with software H.264 encoder.`;
+    console.warn(`[CinemaExport] ${swAlert}`, webCodecsErr);
+    options.onWarning?.(swAlert, { reason: webCodecsErr?.message });
     try {
       return await exportWithWebCodecs(options, 'avc1.4d4028', 'prefer-software');
     } catch (swErr: any) {
       if (options.abortSignal?.aborted || swErr?.message?.includes('cancelled')) {
         throw swErr;
       }
-      console.warn('[CinemaExport] Software WebCodecs attempt failed, recovering via MediaRecorder fallback:', swErr);
+      const fallbackAlert = `Software WebCodecs attempt failed (${swErr?.message || 'unknown error'}); recovering via MediaRecorder stream fallback.`;
+      console.warn(`[CinemaExport] ${fallbackAlert}`, swErr);
+      options.onWarning?.(fallbackAlert, { reason: swErr?.message });
       return await exportCinemaMasterWithMediaRecorder(options);
     }
   }

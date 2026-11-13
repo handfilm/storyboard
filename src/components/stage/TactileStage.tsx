@@ -8,7 +8,7 @@
  * - Zero-cloud bulk ingest via Drag & Drop directly into IndexedDB media_vault.
  */
 
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { AnthologyFrame, AspectRatio } from '../../types/anthology';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { PlaybackMode } from '../../types/editor';
@@ -16,7 +16,12 @@ import { StageTextOverlay } from '../StageTextOverlay';
 import { studioDraftDb } from '../../services/db';
 import { getLutFilterCSS, calculateMultiLayerZoom } from '../../utils/engine';
 import { useStudioStore } from '../../core/store';
-import { getShotMediaKey } from '../../services/handfilmMediaVault';
+import { getShotMediaKey, resolveShotMediaEntry } from '../../services/handfilmMediaVault';
+import {
+  clampGpuPanZoom,
+  computeThreeSlotIndices,
+  createSeekGuardController
+} from '../../utils/stagePlaybackMath';
 import {
   Play,
   Pause,
@@ -42,10 +47,13 @@ import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
 import { StudioModuleId } from '../StudioNavRail';
 import { ReviewMarkupCanvas } from './ReviewMarkupCanvas';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
-import { 
-  extractVideoPoster, 
-  thumbnailMemoryCache, 
-  cleanupVideoElement 
+import {
+  extractVideoPoster,
+  thumbnailMemoryCache,
+  cleanupVideoElement,
+  isVideoSourceUrl,
+  isSvgPlaceholderUrl,
+  getCachedThumbnailUrl
 } from '../../services/thumbnailEngine';
 import { handleFileUpload } from '../../services/mediaIngestService';
 import { useTitleContainerRepaint } from '../../hooks/useTitleContainerRepaint';
@@ -122,6 +130,12 @@ export interface TactileStageProps {
   isAudioMuted?: boolean;
   activeModule?: StudioModuleId;
   fitMode?: 'cover' | 'contain' | 'fill';
+  seekVersion?: number;
+  onSyncVideoTime?: (shotIndex: number, timeSec: number) => void;
+  onAdvanceFromVideoClock?: (shotIndex: number) => void;
+  isBorderlessFullscreen?: boolean;
+  isCursorAwake?: boolean;
+  onToggleBorderlessFullscreen?: () => void;
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({
@@ -148,6 +162,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onTogglePlay,
   onStepFrame,
   slideTimeSec = 0,
+  playbackSpeed = 1.0,
   onPurgeMedia,
   activeModule,
   onScrubSlideTime,
@@ -156,12 +171,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onReorderFrames,
   detectedBpm = 120,
   isAudioMuted = true,
-  fitMode = 'cover'
+  fitMode = 'cover',
+  seekVersion = 0,
+  onSyncVideoTime,
+  onAdvanceFromVideoClock,
+  isBorderlessFullscreen,
+  isCursorAwake = true,
+  onToggleBorderlessFullscreen
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const slotVideoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+  const seekGuardRef = useRef(createSeekGuardController());
+  const lastVideoClockTimeRef = useRef<number>(0);
+  const accumulatedShotClockRef = useRef<number>(0);
+  const lastHandledSeekVersionRef = useRef<number>(seekVersion);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageElementRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageViewportRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageTitleContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -175,13 +202,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const currentIndexRef = useRef<number>(currentIndex);
   currentIndexRef.current = currentIndex;
 
-  const frameBitmapCacheRef = useRef<Map<number, ImageBitmap>>(new Map());
   const cachedPosterImgRef = useRef<HTMLImageElement | null>(null);
 
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [cachedPosterUrl, setCachedPosterUrl] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [localFullscreen, setLocalFullscreen] = useState(false);
+  const effectiveFullscreen = isBorderlessFullscreen ?? localFullscreen;
+  const hideFullscreenStageBars = Boolean(effectiveFullscreen && !isCursorAwake);
   const [isIngesting, setIsIngesting] = useState(false);
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
   const [isFilterTrayOpen, setIsFilterTrayOpen] = useState(false);
@@ -193,21 +221,6 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       setIsFilterTrayOpen(true);
     }
   }, [activeModule]);
-
-  // Subtle Cross-Dissolve Transition State
-  const [outgoingMedia, setOutgoingMedia] = useState<{
-    url: string;
-    isVideo: boolean;
-    filter: string;
-    title?: string;
-  } | null>(null);
-  const [isCrossDissolving, setIsCrossDissolving] = useState(false);
-  const dissolveTimerRef = useRef<number | null>(null);
-  const prevIndexRef = useRef<number>(currentIndex);
-  const prevMediaUrlRef = useRef<string | null>(null);
-  const prevFilterRef = useRef<string>('');
-  const prevIsVideoRef = useRef<boolean>(false);
-  const prevTitleRef = useRef<string>('');
 
   const fgZoom = useStudioStore((s) => s.foregroundZoom);
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
@@ -233,7 +246,81 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     componentsVisibility?.barrelDistortion ?? storeBarrelDistortion ?? 0
   );
 
-  // 16:9 Marquee Selection Drag State
+  // 60fps Direct-DOM GPU Pan & Zoom (`1.0x` - `4.0x`) + 16:9 Marquee Fallback when zoom === 1.0x
+  const gpuZoomRef = useRef<{ zoom: number; panX: number; panY: number }>({ zoom: 1.0, panX: 0, panY: 0 });
+  const zoomSyncTimerRef = useRef<number | null>(null);
+  const gpuPanDragRef = useRef<{
+    isDown: boolean;
+    startClientX: number;
+    startClientY: number;
+    startPanX: number;
+    startPanY: number;
+  }>({ isDown: false, startClientX: 0, startClientY: 0, startPanX: 0, startPanY: 0 });
+
+  const applyGpuTransformImmediate = useCallback((rawZoom: number, rawPanX: number, rawPanY: number, syncStoreDebounced = true) => {
+    const rect = stageMediaContainerRef.current?.getBoundingClientRect();
+    const w = rect?.width || 1280;
+    const h = rect?.height || 536;
+    const clamped = clampGpuPanZoom(rawZoom, rawPanX, rawPanY, w, h);
+    gpuZoomRef.current = { zoom: clamped.zoom, panX: clamped.panX, panY: clamped.panY };
+
+    if (stageViewportRef.current) {
+      stageViewportRef.current.style.transition = 'none';
+      stageViewportRef.current.style.transform = clamped.cssTransform;
+    }
+
+    if (syncStoreDebounced) {
+      if (zoomSyncTimerRef.current !== null) {
+        window.clearTimeout(zoomSyncTimerRef.current);
+      }
+      zoomSyncTimerRef.current = window.setTimeout(() => {
+        const cur = gpuZoomRef.current;
+        const pctX = w > 0 ? Math.round((cur.panX / w) * 1000) / 10 : 0;
+        const pctY = h > 0 ? Math.round((cur.panY / h) * 1000) / 10 : 0;
+        if (cur.zoom <= 1.005) {
+          resetDigitalZoom();
+        } else {
+          setDigitalZoom({
+            scale: Math.round(cur.zoom * 100) / 100,
+            translateX: pctX,
+            translateY: pctY,
+            isZoomed: true
+          });
+        }
+      }, 120);
+    }
+  }, [resetDigitalZoom, setDigitalZoom]);
+
+  // Sync external Reset Zoom button cleanly back into direct-DOM transform ref
+  useEffect(() => {
+    if (!digitalZoom.isZoomed && gpuZoomRef.current.zoom > 1.001) {
+      gpuZoomRef.current = { zoom: 1.0, panX: 0, panY: 0 };
+      if (stageViewportRef.current) {
+        stageViewportRef.current.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+        stageViewportRef.current.style.transform = 'none';
+      }
+    }
+  }, [digitalZoom.isZoomed]);
+
+  useEffect(() => {
+    return () => {
+      if (zoomSyncTimerRef.current !== null) {
+        window.clearTimeout(zoomSyncTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleStageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(e.deltaY) < 0.5) return;
+    e.preventDefault();
+    const cur = gpuZoomRef.current;
+    const factor = 1 - e.deltaY * 0.0018;
+    const nextZoom = Math.max(1.0, Math.min(4.0, cur.zoom * factor));
+    const ratio = cur.zoom > 0 ? nextZoom / cur.zoom : 1;
+    applyGpuTransformImmediate(nextZoom, cur.panX * ratio, cur.panY * ratio, true);
+  };
+
+  // 16:9 Marquee Selection Drag State (Active when zoom === 1.0x)
   const [selectionBox, setSelectionBox] = useState<{
     isSelecting: boolean;
     left: number;
@@ -264,12 +351,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     const target = e.target as HTMLElement;
     if (target.closest('button, input, select, a, [data-interactive="true"]')) return;
 
-    const rect = stageMediaContainerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
+
+    // When zoomed in (>1.01x), click-drag pans at locked 60fps via direct GPU transform mutation
+    if (gpuZoomRef.current.zoom > 1.01) {
+      gpuPanDragRef.current = {
+        isDown: true,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startPanX: gpuZoomRef.current.panX,
+        startPanY: gpuZoomRef.current.panY
+      };
+      return;
+    }
+
+    const rect = stageMediaContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
     const startX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
     const startY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
@@ -285,6 +384,18 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   const handleStagePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (gpuPanDragRef.current.isDown) {
+      const dx = e.clientX - gpuPanDragRef.current.startClientX;
+      const dy = e.clientY - gpuPanDragRef.current.startClientY;
+      applyGpuTransformImmediate(
+        gpuZoomRef.current.zoom,
+        gpuPanDragRef.current.startPanX + dx,
+        gpuPanDragRef.current.startPanY + dy,
+        false
+      );
+      return;
+    }
+
     if (!selectionDragRef.current.isDown) return;
     const { startX, startY, rectWidth, rectHeight } = selectionDragRef.current;
     const rect = stageMediaContainerRef.current?.getBoundingClientRect();
@@ -334,7 +445,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
     const left = dirX > 0 ? startX : (startX - boxWidth);
     const top = dirY > 0 ? startY : (startY - boxHeight);
-    const scale = boxWidth > 0 ? Math.min(10.0, currentW / boxWidth) : 1.0;
+    const scale = boxWidth > 0 ? Math.min(4.0, currentW / boxWidth) : 1.0;
 
     setSelectionBox({
       isSelecting: true,
@@ -347,6 +458,20 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   const handleStagePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (gpuPanDragRef.current.isDown) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      gpuPanDragRef.current.isDown = false;
+      applyGpuTransformImmediate(
+        gpuZoomRef.current.zoom,
+        gpuZoomRef.current.panX,
+        gpuZoomRef.current.panY,
+        true
+      );
+      return;
+    }
+
     if (selectionDragRef.current.isDown) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
@@ -361,16 +486,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         const cy = selectionBox.top + selectionBox.height / 2;
         const ncx = cx / currentW;
         const ncy = cy / currentH;
-        const scale = Math.min(10.0, Math.max(1.05, currentW / selectionBox.width));
-        const translateX = (0.5 - ncx) * 100;
-        const translateY = (0.5 - ncy) * 100;
-
-        setDigitalZoom({
-          scale: Math.round(scale * 100) / 100,
-          translateX: Math.round(translateX * 10) / 10,
-          translateY: Math.round(translateY * 10) / 10,
-          isZoomed: true
-        });
+        const scale = Math.min(4.0, Math.max(1.05, currentW / selectionBox.width));
+        const panX = (0.5 - ncx) * currentW * scale;
+        const panY = (0.5 - ncy) * currentH * scale;
+        applyGpuTransformImmediate(scale, panX, panY, true);
       }
 
       selectionDragRef.current.isDown = false;
@@ -380,6 +499,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   const handleStagePointerCancel = () => {
+    gpuPanDragRef.current.isDown = false;
     selectionDragRef.current.isDown = false;
     selectionDragRef.current.hasDragged = false;
     setSelectionBox(null);
@@ -587,12 +707,72 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     };
   }, [currentIndex, frame?.imageUrl, frame?.thumbnailUrl, frame?.id, vaultEntry?.url]);
 
+  // 3-Slot Pre-Warmed Video Pool descriptors (`prevShot`, `activeShot`, `nextShot`)
+  const poolSlots = useMemo(() => {
+    const descriptors = computeThreeSlotIndices(currentIndex, frames.length);
+    return descriptors.map((desc) => {
+      const f = frames[desc.shotIdx];
+      const shotKey = getShotMediaKey(f, desc.shotIdx);
+      const entry = resolveShotMediaEntry(shotMediaMap, f, undefined, desc.shotIdx);
+      const rawUrl = entry?.url || (f?.imageUrl ? f.imageUrl : '') || (desc.role === 'active' ? (sourceUrl || '') : '');
+      const url = rawUrl && !isSvgPlaceholderUrl(rawUrl) ? rawUrl : '';
+      const isVid = entry
+        ? entry.type === 'video'
+        : isVideoSourceUrl(url, { isVideo: f?.isVideo, mimeType: (f as any)?.mimeType });
+      const poster =
+        getCachedThumbnailUrl([f?.id, `shot_${desc.shotIdx}`, desc.shotIdx, url]) ||
+        (f?.thumbnailUrl && !isSvgPlaceholderUrl(f.thumbnailUrl) && !isVideoSourceUrl(f.thumbnailUrl) ? f.thumbnailUrl : '') ||
+        (desc.role === 'active' && cachedPosterUrl ? cachedPosterUrl : '');
+      const slotLut = getLutFilterCSS(f?.lutFilter, f?.adjustments);
+      let slotFilter = zoomTransforms.bgDepthBlur !== 'none'
+        ? `${slotLut} ${zoomTransforms.bgDepthBlur}`
+        : slotLut;
+      if (barrelDistortion > 0) {
+        slotFilter = `${slotFilter} url(#stage-barrel-distortion-filter)`.trim();
+      }
+      return {
+        shotIdx: desc.shotIdx,
+        role: desc.role,
+        shotKey,
+        frame: f,
+        url,
+        isVideo: isVid,
+        poster,
+        filter: slotFilter
+      };
+    });
+  }, [currentIndex, frames, shotMediaMap, sourceUrl, cachedPosterUrl, zoomTransforms.bgDepthBlur, barrelDistortion]);
+
+  // Keep videoRef synced to active slot and release unmounted decoder handles
+  const registerSlotVideoRef = useCallback(
+    (shotIdx: number, role: 'prev' | 'active' | 'next', el: HTMLVideoElement | null) => {
+      if (el) {
+        slotVideoRefs.current.set(shotIdx, el);
+        if (role === 'active') {
+          videoRef.current = el;
+        }
+      } else {
+        const existing = slotVideoRefs.current.get(shotIdx);
+        if (existing) {
+          cleanupVideoElement(existing);
+          slotVideoRefs.current.delete(shotIdx);
+        }
+        if (role === 'active') {
+          videoRef.current = null;
+        }
+      }
+    },
+    []
+  );
+
   // Video decoder teardown on unmount (4GB Guard)
   useEffect(() => {
     return () => {
-      if (videoRef.current) {
-        cleanupVideoElement(videoRef.current);
+      for (const vid of slotVideoRefs.current.values()) {
+        cleanupVideoElement(vid);
       }
+      slotVideoRefs.current.clear();
+      seekGuardRef.current.reset();
     };
   }, []);
 
@@ -622,80 +802,121 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   }
   const combinedMediaFilter = baseMediaFilter;
 
-  // Synchronous Media Pass-Through: Smooth native video playback without micro-stuttering seek loops
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !isVideoMedia) return;
+  // 0ms Hard Cut Pool Promotion & Pure Hardware <video> Transport Control (Zero rAF currentTime overrides)
+  useLayoutEffect(() => {
+    const activeVideo = slotVideoRefs.current.get(currentIndex) ?? videoRef.current;
+    videoRef.current = activeVideo ?? null;
 
-    if (isAutoplay) {
-      video.muted = isAudioMuted ?? true;
-      if (video.paused) {
-        const playPromise = video.play();
+    // Pause neighbor pool slots & pre-cue nextShot cleanly at t=0 for instant 0ms hard cuts
+    const nextIdx = frames.length > 1 ? (currentIndex + 1) % frames.length : -1;
+    for (const [idx, vid] of slotVideoRefs.current.entries()) {
+      if (idx !== currentIndex) {
+        if (!vid.paused) vid.pause();
+        if (idx === nextIdx && vid.readyState >= 1 && Math.abs(vid.currentTime) > 0.05 && !vid.seeking) {
+          try {
+            vid.currentTime = 0;
+          } catch {}
+        }
+      }
+    }
+
+    if (!activeVideo || !isVideoMedia) return;
+
+    activeVideo.muted = isAudioMuted ?? true;
+    activeVideo.playbackRate = playbackSpeed || 1.0;
+
+    if (isAutoplay && !isScrubbingRef.current) {
+      if (slideTimeSecRef.current >= activeShotDurationSec - 0.04) {
+        accumulatedShotClockRef.current = 0;
+      } else {
+        accumulatedShotClockRef.current = Math.max(0, slideTimeSecRef.current);
+      }
+      lastVideoClockTimeRef.current = activeVideo.currentTime || 0;
+
+      if (activeVideo.paused) {
+        const playPromise = activeVideo.play();
         if (playPromise !== undefined) {
           playPromise.catch(() => {
-            // Autoplay with audio was prevented, fallback to muted playback
-            video.muted = true;
-            video.play().catch(() => {});
+            activeVideo.muted = true;
+            activeVideo.play().catch(() => {});
           });
         }
       }
-      // ONLY seek during active scrubbing or severe playback drift (>0.75s)
-      if (isScrubbing || Math.abs(video.currentTime - slideTimeSec) > 0.75) {
-        if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-          try { (video as any).fastSeek(slideTimeSec); } catch { video.currentTime = slideTimeSec; }
-        } else {
-          try { video.currentTime = slideTimeSec; } catch {}
-        }
-      }
-    } else {
-      if (!video.paused) {
-        video.pause();
-      }
-      // Precision frame seek when paused / stepping
-      if (Math.abs(video.currentTime - slideTimeSec) > 0.04) {
-        try { video.currentTime = slideTimeSec; } catch {}
-      }
+    } else if (!activeVideo.paused) {
+      activeVideo.pause();
     }
-  }, [slideTimeSec, isAutoplay, isScrubbing, isVideoMedia, isAudioMuted]);
+  }, [currentIndex, frames.length, isAutoplay, isVideoMedia, isAudioMuted, playbackSpeed, activeMediaUrl, activeShotDurationSec]);
 
-  // Track Shot Changes for Subtle Filmic Cross-Dissolve Animation
+  // External Seek Sync (Only executes on explicit user scrub / step frame / shot jump via seekVersion)
   useEffect(() => {
-    if (prevIndexRef.current !== currentIndex) {
-      if (prevMediaUrlRef.current && prevMediaUrlRef.current !== activeMediaUrl && !isScrubbing) {
-        if (dissolveTimerRef.current) {
-          window.clearTimeout(dissolveTimerRef.current);
-        }
-        setOutgoingMedia({
-          url: prevMediaUrlRef.current,
-          isVideo: prevIsVideoRef.current,
-          filter: prevFilterRef.current,
-          title: prevTitleRef.current
-        });
-        setIsCrossDissolving(true);
-
-        dissolveTimerRef.current = window.setTimeout(() => {
-          setIsCrossDissolving(false);
-          setOutgoingMedia(null);
-        }, 340);
-      }
-      prevIndexRef.current = currentIndex;
+    const activeVideo = videoRef.current;
+    if (!activeVideo || !isVideoMedia) {
+      lastHandledSeekVersionRef.current = seekVersion;
+      return;
     }
 
-    if (activeMediaUrl) {
-      prevMediaUrlRef.current = activeMediaUrl;
-      prevFilterRef.current = combinedMediaFilter;
-      prevIsVideoRef.current = Boolean(frame?.isVideo || activeMediaUrl.includes('video') || activeMediaUrl.endsWith('.mp4'));
-      prevTitleRef.current = frame?.title || '';
-    }
-  }, [currentIndex, activeMediaUrl, isScrubbing, combinedMediaFilter, frame]);
+    const versionChanged = seekVersion !== lastHandledSeekVersionRef.current;
+    lastHandledSeekVersionRef.current = seekVersion;
 
+    if (versionChanged && !isDraggingScrubberRef.current) {
+      accumulatedShotClockRef.current = slideTimeSecRef.current;
+      seekGuardRef.current.requestSeek(activeVideo, slideTimeSecRef.current, {
+        exact: true,
+        pauseFirst: !isAutoplay
+      });
+      lastVideoClockTimeRef.current = activeVideo.currentTime || slideTimeSecRef.current;
+    }
+  }, [seekVersion, currentIndex, isVideoMedia, isAutoplay]);
+
+  // Hardware Video Clock -> Timeline Sync Reader (NEVER writes video.currentTime inside rAF)
   useEffect(() => {
-    return () => {
-      if (dissolveTimerRef.current) {
-        window.clearTimeout(dissolveTimerRef.current);
+    if (!isAutoplay || !isVideoMedia) return;
+    let rafId: number | null = null;
+    const nextIdx = frames.length > 1 ? (currentIndex + 1) % frames.length : -1;
+
+    const syncTick = () => {
+      const video = videoRef.current;
+      if (video && !isScrubbingRef.current && !video.seeking && !video.paused && video.readyState >= 2) {
+        const curRaw = video.currentTime || 0;
+        const prevRaw = lastVideoClockTimeRef.current;
+        const clipDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : activeShotDurationSec;
+        let dt = curRaw - prevRaw;
+        if (dt < -0.25 && clipDur > 0.25) {
+          // Video looped past clip boundary cleanly
+          dt = (clipDur - prevRaw) + curRaw;
+        }
+        if (dt > 0 && dt < 0.5) {
+          accumulatedShotClockRef.current += dt;
+        }
+        lastVideoClockTimeRef.current = curRaw;
+
+        const elapsed = accumulatedShotClockRef.current;
+        if (playbackMode === 'sequence' && elapsed >= activeShotDurationSec) {
+          // 0ms Hard Cut: promote pre-warmed nextSlot play before React commit if available
+          const nextVid = nextIdx >= 0 ? slotVideoRefs.current.get(nextIdx) : null;
+          if (nextVid && nextVid.paused) {
+            nextVid.muted = isAudioMuted ?? true;
+            nextVid.playbackRate = playbackSpeed || 1.0;
+            nextVid.play().catch(() => {});
+          }
+          onAdvanceFromVideoClock?.(currentIndexRef.current);
+          return;
+        }
+
+        if (playbackMode === 'solo' && elapsed >= activeShotDurationSec && activeShotDurationSec > 0) {
+          accumulatedShotClockRef.current = elapsed % activeShotDurationSec;
+        }
+
+        onSyncVideoTime?.(currentIndexRef.current, accumulatedShotClockRef.current);
       }
+      rafId = requestAnimationFrame(syncTick);
     };
-  }, []);
+
+    rafId = requestAnimationFrame(syncTick);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [isAutoplay, isVideoMedia, currentIndex, frames.length, activeShotDurationSec, playbackMode, playbackSpeed, isAudioMuted, onAdvanceFromVideoClock, onSyncVideoTime]);
 
   // Sync cached poster element for instant fallback
   useEffect(() => {
@@ -711,8 +932,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   // Sync still image plate
   useEffect(() => {
-    const isVideo = Boolean(frame?.isVideo || activeMediaUrl?.includes('video') || activeMediaUrl?.endsWith('.mp4') || activeMediaUrl?.endsWith('.webm'));
-    if (activeMediaUrl && !isVideo) {
+    if (activeMediaUrl && !isVideoMedia) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = activeMediaUrl;
@@ -722,27 +942,25 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     } else {
       imageElementRef.current = null;
     }
-  }, [activeMediaUrl, frame?.isVideo]);
+  }, [activeMediaUrl, isVideoMedia]);
 
-  // Clear bitmap cache on shot change
+  // Canvas Renderer: STRICTLY for non-video still plates & procedural cinema backdrops (Zero <video> drawImage / createImageBitmap)
   useEffect(() => {
-    for (const bmp of frameBitmapCacheRef.current.values()) {
-      try { bmp.close(); } catch {}
+    if (activeMediaUrl && isVideoMedia) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      return;
     }
-    frameBitmapCacheRef.current.clear();
-  }, [currentIndex]);
 
-  // Canvas-Accelerated Blit: Draw active video frames or cached bitmaps to <canvas> via requestAnimationFrame
-  useEffect(() => {
     let animId: number;
 
     const drawCover = (ctx: CanvasRenderingContext2D, source: CanvasImageSource, targetW: number, targetH: number) => {
       let sw = 1920;
       let sh = 1080;
-      if (source instanceof HTMLVideoElement) {
-        sw = source.videoWidth || 1920;
-        sh = source.videoHeight || 1080;
-      } else if (source instanceof HTMLImageElement) {
+      if (source instanceof HTMLImageElement) {
         sw = source.naturalWidth || 1920;
         sh = source.naturalHeight || 1080;
       } else if (source instanceof ImageBitmap) {
@@ -772,141 +990,75 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     const render = () => {
       const canvas = canvasRef.current;
       if (canvas) {
-          const ctx = canvas.getContext('2d', { alpha: true });
-          if (ctx) {
-            const rect = canvas.getBoundingClientRect();
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
-            const targetW = Math.max(320, Math.round((rect.width || 1280) * dpr));
-            const targetH = Math.max(180, Math.round((rect.height || 536) * dpr));
-            if (canvas.width !== targetW || canvas.height !== targetH) {
-              canvas.width = targetW;
-              canvas.height = targetH;
+        const ctx = canvas.getContext('2d', { alpha: true });
+        if (ctx) {
+          const rect = canvas.getBoundingClientRect();
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const targetW = Math.max(320, Math.round((rect.width || 1280) * dpr));
+          const targetH = Math.max(180, Math.round((rect.height || 536) * dpr));
+          if (canvas.width !== targetW || canvas.height !== targetH) {
+            canvas.width = targetW;
+            canvas.height = targetH;
+          }
+
+          const curFrame = frameRef.current;
+          const filmFilter = buildFilmStockCssFilter(curFrame?.lutFilter || 'kodak_vision3', curFrame?.adjustments);
+
+          let activeSource: CanvasImageSource | null = null;
+          if (imageElementRef.current && imageElementRef.current.complete && imageElementRef.current.naturalWidth > 0) {
+            activeSource = imageElementRef.current;
+          } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
+            activeSource = cachedPosterImgRef.current;
+          }
+
+          ctx.clearRect(0, 0, targetW, targetH);
+          const activeLight = curFrame?.lightId ? getLightingPresetById(curFrame.lightId) : null;
+          const combinedCanvasFilter = [
+            filmFilter && filmFilter !== 'none' ? filmFilter : '',
+            activeLight?.filter || ''
+          ].filter(Boolean).join(' ');
+
+          if (activeSource) {
+            if (combinedCanvasFilter) {
+              ctx.filter = combinedCanvasFilter;
             }
-
-            const curFrame = frameRef.current;
-            const ko = kineticOcclusionRef.current;
-            const isVideo = isVideoMedia;
-            const video = videoRef.current;
-
-            const filmFilter = buildFilmStockCssFilter(curFrame?.lutFilter || 'kodak_vision3', curFrame?.adjustments);
-
-            // Resolve active media source for both Base Pass and scrubbing bitmap cache
-            let activeSource: CanvasImageSource | null = null;
-            if (isVideo && video) {
-              if (isScrubbingRef.current && (video.seeking || video.readyState < 2)) {
-                const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
-                let closestBmp: ImageBitmap | null = null;
-                let minDiff = Infinity;
-                for (const [fn, bmp] of frameBitmapCacheRef.current.entries()) {
-                  const diff = Math.abs(fn - currentF);
-                  if (diff < minDiff) {
-                    minDiff = diff;
-                    closestBmp = bmp;
-                  }
-                }
-                if (closestBmp) {
-                  activeSource = closestBmp;
-                } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
-                  activeSource = cachedPosterImgRef.current;
-                }
-              } else if (video.readyState >= 2 && video.videoWidth > 0) {
-                activeSource = video;
-
-                const currentF = Math.round(slideTimeSecRef.current * activeShotFps);
-                if (!frameBitmapCacheRef.current.has(currentF) && frameBitmapCacheRef.current.size < 60) {
-                  createImageBitmap(video).then(bmp => {
-                    if (frameBitmapCacheRef.current.size >= 60) {
-                      const oldest = frameBitmapCacheRef.current.keys().next().value;
-                      if (oldest !== undefined) {
-                        frameBitmapCacheRef.current.get(oldest)?.close();
-                        frameBitmapCacheRef.current.delete(oldest);
-                      }
-                    }
-                    frameBitmapCacheRef.current.set(currentF, bmp);
-                  }).catch(() => {});
-                }
-              } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
-                activeSource = cachedPosterImgRef.current;
-              }
-            } else if (imageElementRef.current && imageElementRef.current.complete && imageElementRef.current.naturalWidth > 0) {
-              activeSource = imageElementRef.current;
-            } else if (cachedPosterImgRef.current && cachedPosterImgRef.current.complete) {
-              activeSource = cachedPosterImgRef.current;
-            }
-
-            // Zero-overlay pure cinema frame: never burn text onto the stage canvas
-            const useAutonomousCanvas = false;
-
-            if (useAutonomousCanvas) {
-              ctx.filter = 'none';
-              depthOcclusionService.compositeFrame({
-                ctx,
-                width: targetW,
-                height: targetH,
-                sourceElement: activeSource as any,
-                timeSec: slideTimeSecRef.current,
-                durationSec: getShotDurationSec(curFrame, 12.0),
-                fps: getShotTargetFps(curFrame, 24),
-                isLivePlaying: isAutoplayRef.current,
-                titleBn: '',
-                titleEn: '',
-                lyricText: '',
-                filmFilter,
-                zoomScale: 1.0,
-                titleSize: storeTitleConfigRef.current?.titleSize ?? 72,
-                verticalOffset: storeTitleConfigRef.current?.verticalOffset ?? 0
-              });
-            } else {
-              ctx.clearRect(0, 0, targetW, targetH);
-              const activeLight = curFrame?.lightId ? getLightingPresetById(curFrame.lightId) : null;
-              const combinedCanvasFilter = [
-                filmFilter && filmFilter !== 'none' ? filmFilter : '',
-                activeLight?.filter || ''
-              ].filter(Boolean).join(' ');
-
-              if (activeSource && (!isVideo || isScrubbingRef.current)) {
-                if (combinedCanvasFilter) {
-                  ctx.filter = combinedCanvasFilter;
-                }
-                drawCover(ctx, activeSource, targetW, targetH);
-                ctx.filter = 'none';
-              } else if (!activeMediaUrl && !cachedPosterUrl) {
-                // Pure Procedural Cinema Color & Light Backdrop (Zero Mockup Photos)
-                renderProceduralBackdropToCanvas(
-                  ctx,
-                  targetW,
-                  targetH,
-                  currentIndexRef.current,
-                  slideTimeSecRef.current
-                );
-              }
-              ctx.filter = 'none';
-              applyCinematicPostProcess(
-                ctx,
-                targetW,
-                targetH,
-                curFrame?.lutFilter || 'kodak_vision3',
-                curFrame?.adjustments,
-                slideTimeSecRef.current
-              );
-              if (activeLight && (activeSource || (!activeMediaUrl && !cachedPosterUrl))) {
-                ctx.save();
-                ctx.globalCompositeOperation = activeLight.blendMode;
-                activeLight.renderOverlay(ctx, targetW, targetH, slideTimeSecRef.current);
-                ctx.restore();
-              }
-            }
+            drawCover(ctx, activeSource, targetW, targetH);
+            ctx.filter = 'none';
+          } else if (!activeMediaUrl && !cachedPosterUrl) {
+            renderProceduralBackdropToCanvas(
+              ctx,
+              targetW,
+              targetH,
+              currentIndexRef.current,
+              slideTimeSecRef.current
+            );
+          }
+          ctx.filter = 'none';
+          applyCinematicPostProcess(
+            ctx,
+            targetW,
+            targetH,
+            curFrame?.lutFilter || 'kodak_vision3',
+            curFrame?.adjustments,
+            slideTimeSecRef.current
+          );
+          if (activeLight && (activeSource || (!activeMediaUrl && !cachedPosterUrl))) {
+            ctx.save();
+            ctx.globalCompositeOperation = activeLight.blendMode;
+            activeLight.renderOverlay(ctx, targetW, targetH, slideTimeSecRef.current);
+            ctx.restore();
           }
         }
-
-        animId = requestAnimationFrame(render);
-      };
+      }
 
       animId = requestAnimationFrame(render);
-      return () => cancelAnimationFrame(animId);
-    }, [activeMediaUrl, activeShotFps, frame?.isVideo, frame?.lutFilter, frame?.adjustments]);
+    };
 
-  // Frictionless Scrubbing: 16ms Throttled Pointer Drag Handlers with Audio Mute & Restore
+    animId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animId);
+  }, [activeMediaUrl, isVideoMedia, cachedPosterUrl, frame?.lutFilter, frame?.adjustments]);
+
+  // Seek-Locked Scrubbing: Single-in-flight seek guard (`isSeeking` + `pendingSeekTimeRef` flushed in `onSeeked`)
   const handleScrubPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     isDraggingScrubberRef.current = true;
@@ -919,37 +1071,31 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const targetSec = ratio * activeShotDurationSec;
     slideTimeSecRef.current = targetSec;
+    accumulatedShotClockRef.current = targetSec;
     lastScrubTimeRef.current = performance.now();
     if (onScrubSlideTime) onScrubSlideTime(targetSec);
-    const video = videoRef.current;
-    if (video) {
-      if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-        try { (video as any).fastSeek(targetSec); } catch { video.currentTime = targetSec; }
-      } else {
-        video.currentTime = targetSec;
-      }
-    }
+    seekGuardRef.current.requestSeek(videoRef.current, targetSec, {
+      exact: false,
+      pauseFirst: true
+    });
   };
 
   const handleScrubPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingScrubberRef.current) return;
     const now = performance.now();
-    if (now - lastScrubTimeRef.current < 16) return; // Strict 16ms throttle
+    if (now - lastScrubTimeRef.current < 16) return;
     lastScrubTimeRef.current = now;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const targetSec = ratio * activeShotDurationSec;
     slideTimeSecRef.current = targetSec;
+    accumulatedShotClockRef.current = targetSec;
     if (onScrubSlideTime) onScrubSlideTime(targetSec);
-    const video = videoRef.current;
-    if (video) {
-      if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-        try { (video as any).fastSeek(targetSec); } catch { video.currentTime = targetSec; }
-      } else {
-        video.currentTime = targetSec;
-      }
-    }
+    seekGuardRef.current.requestSeek(videoRef.current, targetSec, {
+      exact: false,
+      pauseFirst: true
+    });
   };
 
   const handleScrubPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -960,7 +1106,13 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       isDraggingScrubberRef.current = false;
       setIsScrubbing(false);
       isScrubbingRef.current = false;
-      // Restore audio playback instantly as soon as scrubbing ceases
+
+      // Exact frame snap upon pointer release
+      seekGuardRef.current.requestSeek(videoRef.current, slideTimeSecRef.current, {
+        exact: true,
+        pauseFirst: !isAutoplay
+      });
+
       if (!wasAudioMutedBeforeScrubRef.current) {
         audioEngine.setMuted(false);
         if (isAutoplay) {
@@ -1027,11 +1179,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   };
 
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
+    if (onToggleBorderlessFullscreen) {
+      onToggleBorderlessFullscreen();
+      return;
+    }
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      document.documentElement.requestFullscreen().then(() => setLocalFullscreen(true)).catch(() => {});
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      document.exitFullscreen().then(() => setLocalFullscreen(false)).catch(() => {});
     }
   };
 
@@ -1119,32 +1274,40 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* 1. SLEEK 28px EXTERNAL STAGE METADATA & FX BAR (STRICTLY ABOVE THE VIDEO BOX) */}
-      <StageMetadataFxBar
-        className="animate-hud-fade-in"
-        sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '01'}
-        shotIndex={currentIndex}
-        frameNum={activeFrameNum}
-        totalFrames={activeTotalFrames}
-        smpte={activeSmpte}
-        fps={activeShotFps}
-        streamLabel={isScrubbing ? '540p PROXY' : 'RAW 4K'}
-        aspectRatio={aspectRatio || '2.39:1'}
-        playbackMode={playbackMode}
-        showHud={showHud}
-        isTitlesActive={isTitlesActive}
-        onToggleTitles={onToggleTitles}
-        lightName={activeLightPreset?.name}
-        onUploadMedia={() => fileInputRef.current?.click()}
-        onOpenInspector={onOpenInspector}
-        onToggleFullscreen={toggleFullscreen}
-      />
+      {/* 1. SLEEK 28px EXTERNAL STAGE METADATA & FX BAR (Hidden during Borderless Fullscreen idle) */}
+      {!hideFullscreenStageBars && (
+        <StageMetadataFxBar
+          className="animate-hud-fade-in"
+          sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '01'}
+          shotIndex={currentIndex}
+          frameNum={activeFrameNum}
+          totalFrames={activeTotalFrames}
+          smpte={activeSmpte}
+          fps={activeShotFps}
+          streamLabel={isScrubbing ? '540p PROXY' : 'RAW 4K'}
+          aspectRatio={aspectRatio || '2.39:1'}
+          playbackMode={playbackMode}
+          showHud={showHud}
+          isTitlesActive={isTitlesActive}
+          onToggleTitles={onToggleTitles}
+          lightName={activeLightPreset?.name}
+          onUploadMedia={() => fileInputRef.current?.click()}
+          onOpenInspector={onOpenInspector}
+          onToggleFullscreen={toggleFullscreen}
+        />
+      )}
 
       {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (TIGHT EDGE-TO-EDGE FIT) */}
       <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden p-0">
         <div
           id="stage-media-container"
           ref={stageMediaContainerRef}
+          onWheel={handleStageWheel}
+          onDoubleClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest('button, input, select, a, [data-interactive="true"]')) return;
+            toggleFullscreen();
+          }}
           onPointerDown={handleStagePointerDown}
           onPointerMove={handleStagePointerMove}
           onPointerUp={handleStagePointerUp}
@@ -1186,56 +1349,67 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </defs>
         </svg>
 
-        {/* DIGITAL ZOOM TRANSFORM LAYER (Smooth GPU-accelerated 16:9 view) */}
+        {/* DIGITAL ZOOM TRANSFORM LAYER (60fps Direct-DOM translate3d + scale) */}
         <div
           id="stage-media-viewport"
+          ref={stageViewportRef}
           className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none select-none"
           style={{
-            transform: digitalZoom.isZoomed
-              ? `scale(${digitalZoom.scale}) translate(${digitalZoom.translateX}%, ${digitalZoom.translateY}%)`
-              : 'none',
             transformOrigin: '50% 50%',
-            transition: selectionBox?.isSelecting ? 'none' : 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
             willChange: 'transform'
           }}
         >
-          {/* SAFE INSTANT FALLBACK LAYER: Synchronous media pass-through mirroring active media so stage NEVER renders blank */}
-          {activeMediaUrl && (
-            isVideoMedia ? (
+          {/* 3-SLOT PRE-WARMED HARDWARE VIDEO POOL (prevShot, activeShot, nextShot -> 0ms hard cuts) */}
+          {poolSlots.map((slot) => {
+            if (!slot.url || !slot.isVideo) return null;
+            const isSlotActive = slot.role === 'active';
+            return (
               <video
-                id="stage-fallback-video"
-                ref={videoRef}
-                src={activeMediaUrl}
+                key={`stage-pool-video-${slot.shotIdx}-${slot.shotKey}-${slot.url}`}
+                id={isSlotActive ? 'stage-fallback-video' : `stage-pool-${slot.role}-${slot.shotIdx}`}
+                data-pool-role={slot.role}
+                ref={(el) => registerSlotVideoRef(slot.shotIdx, slot.role, el)}
+                src={slot.url}
                 crossOrigin="anonymous"
-                poster={cachedPosterUrl || undefined}
-                autoPlay={isAutoplay}
+                poster={slot.poster || undefined}
                 loop
-                muted={isAudioMuted ?? true}
+                muted={isSlotActive ? (isAudioMuted ?? true) : true}
                 playsInline
                 preload="auto"
-                onCanPlay={(e) => {
-                  if (isAutoplay && e.currentTarget.paused) {
-                    e.currentTarget.play().catch(() => {});
+                onSeeked={(e) => {
+                  if (isSlotActive) {
+                    seekGuardRef.current.handleSeeked(e.currentTarget);
                   }
                 }}
                 onLoadedData={(e) => {
-                  if (isAutoplay && e.currentTarget.paused) {
+                  if (isSlotActive && isAutoplay && !isScrubbingRef.current && e.currentTarget.paused) {
+                    e.currentTarget.playbackRate = playbackSpeed || 1.0;
                     e.currentTarget.play().catch(() => {});
+                  } else if (slot.role === 'next' && Math.abs(e.currentTarget.currentTime) > 0.05) {
+                    try { e.currentTarget.currentTime = 0; } catch {}
                   }
                 }}
-                className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
-                style={{ filter: combinedMediaFilter }}
+                className={`absolute inset-0 w-full h-full ${fitModeClass} will-change-transform`}
+                style={{
+                  filter: slot.filter,
+                  opacity: isSlotActive ? 1 : 0,
+                  zIndex: isSlotActive ? 2 : 0,
+                  pointerEvents: isSlotActive ? 'auto' : 'none'
+                }}
               />
-            ) : (
-              <img
-                id="stage-fallback-img"
-                src={activeMediaUrl}
-                crossOrigin="anonymous"
-                alt="Active Shot Plate"
-                className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
-                style={{ filter: combinedMediaFilter }}
-              />
-            )
+            );
+          })}
+
+          {/* STILL IMAGE / CACHED POSTER INSTANT LAYER */}
+          {activeMediaUrl && !isVideoMedia && (
+            <img
+              id="stage-fallback-img"
+              src={activeMediaUrl}
+              crossOrigin="anonymous"
+              alt="Active Shot Plate"
+              className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-[1]`}
+              style={{ filter: combinedMediaFilter }}
+            />
           )}
           {!activeMediaUrl && cachedPosterUrl && (
             <img
@@ -1243,7 +1417,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               src={cachedPosterUrl}
               crossOrigin="anonymous"
               alt="Cached Shot Poster"
-              className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-0`}
+              className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-[1]`}
               style={{ filter: combinedMediaFilter }}
             />
           )}
@@ -1300,11 +1474,13 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             </div>
           )}
 
-          {/* PRIMARY RENDERER: Hardware / 2D Canvas Synchronous Media Pass-Through */}
+          {/* STILL-ONLY CANVAS LAYER (Hidden during hardware video playback so GPU decoder runs uncontested) */}
           <canvas
             id="stage-canvas"
             ref={canvasRef}
-            className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-1`}
+            className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none ${
+              activeMediaUrl && isVideoMedia ? 'opacity-0 z-0' : 'z-[1]'
+            }`}
             style={{ filter: combinedMediaFilter }}
           />
         </div>
@@ -1398,31 +1574,33 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       </div>
 
-      {/* 3. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR (STRICTLY BELOW THE VIDEO BOX) */}
-      <StageCaptionStrip
-        shotIndex={currentIndex}
-        sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
-        aspectRatio={aspectRatio || '2.39:1'}
-        shotType={frame?.shotType}
-        cameraSpec={
-          frame?.cameraSpec
-            ? `${frame.cameraSpec.focalLength || '35mm'} ${frame.cameraSpec.aperture || 'f/1.4'}`
-            : undefined
-        }
-        lutFilter={frame?.lutFilter}
-        dopamineConfig={frame?.dopamineConfig}
-        slideTimeSec={slideTimeSec}
-        durationSec={activeShotDurationSec}
-        isTitlesActive={isTitlesActive}
-        onToggleTitles={onToggleTitles}
-        componentsVisibility={componentsVisibility}
-        isWebCodecsEngineActive={isWebCodecsEngineActive}
-        onToggleWebCodecs={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
-        totalRuntimeTimecode={totalRuntimeTimecode}
-        totalShotsCount={frames.length}
-        onUploadMedia={() => fileInputRef.current?.click()}
-        onToggleFullscreen={toggleFullscreen}
-      />
+      {/* 3. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR (Hidden during Borderless Fullscreen idle) */}
+      {!hideFullscreenStageBars && (
+        <StageCaptionStrip
+          shotIndex={currentIndex}
+          sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
+          aspectRatio={aspectRatio || '2.39:1'}
+          shotType={frame?.shotType}
+          cameraSpec={
+            frame?.cameraSpec
+              ? `${frame.cameraSpec.focalLength || '35mm'} ${frame.cameraSpec.aperture || 'f/1.4'}`
+              : undefined
+          }
+          lutFilter={frame?.lutFilter}
+          dopamineConfig={frame?.dopamineConfig}
+          slideTimeSec={slideTimeSec}
+          durationSec={activeShotDurationSec}
+          isTitlesActive={isTitlesActive}
+          onToggleTitles={onToggleTitles}
+          componentsVisibility={componentsVisibility}
+          isWebCodecsEngineActive={isWebCodecsEngineActive}
+          onToggleWebCodecs={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
+          totalRuntimeTimecode={totalRuntimeTimecode}
+          totalShotsCount={frames.length}
+          onUploadMedia={() => fileInputRef.current?.click()}
+          onToggleFullscreen={toggleFullscreen}
+        />
+      )}
 
       {/* Floating 35mm Film Stock & Color Grading Tray */}
       <FilterGradingTray

@@ -5,9 +5,12 @@
  * any individual shot updates ONLY that shot across reloads.
  */
 
+import { convertFileSrc } from '@tauri-apps/api/core';
+
 export const HANDFILM_MEDIA_VAULT_DB = 'handfilm_media_vault';
 export const HANDFILM_MEDIA_VAULT_VERSION = 1;
 export const HANDFILM_MEDIA_VAULT_STORE = 'shot_media';
+export const HANDFILM_SHOT_PATHS_KEY = 'handfilm_shot_paths';
 
 export type ShotMediaType = 'image' | 'video';
 
@@ -16,9 +19,20 @@ export interface ShotMediaEntry {
   type: ShotMediaType;
   name: string;
   mimeType?: string;
+  nativePath?: string;
+  isTauriAsset?: boolean;
 }
 
 export type ShotMediaMap = Record<string, ShotMediaEntry>;
+
+export interface StoredShotNativePathRecord {
+  shotId: string;
+  nativePath: string;
+  type: ShotMediaType;
+  name: string;
+  mimeType: string;
+  updatedAt: number;
+}
 
 interface StoredShotMediaRecord {
   shotId: string;
@@ -27,6 +41,115 @@ interface StoredShotMediaRecord {
   name: string;
   mimeType: string;
   updatedAt: number;
+}
+
+export function isTauriNativeRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+export function extractFileNameFromPath(filePath: string): string {
+  const parts = filePath.split(/[\\/]/);
+  return parts[parts.length - 1] || filePath;
+}
+
+export function inferMimeTypeFromFileName(name: string, type: ShotMediaType): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return 'video/mp4';
+  if (lower.endsWith('.webm')) return 'video/webm';
+  if (lower.endsWith('.mov')) return 'video/quicktime';
+  if (lower.endsWith('.mkv')) return 'video/x-matroska';
+  if (lower.endsWith('.avi')) return 'video/x-msvideo';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  return type === 'video' ? 'video/mp4' : 'image/jpeg';
+}
+
+export function resolveTauriAssetUrl(nativePath: string): string {
+  if (!nativePath) return '';
+  if (!isTauriNativeRuntime()) return nativePath;
+  try {
+    return convertFileSrc(nativePath);
+  } catch {
+    return nativePath;
+  }
+}
+
+export function loadAllShotNativePaths(): Record<string, StoredShotNativePathRecord> {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(HANDFILM_SHOT_PATHS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as Record<string, StoredShotNativePathRecord>;
+  } catch {
+    return {};
+  }
+}
+
+export function saveShotNativePath(
+  shotId: string,
+  nativePath: string,
+  name?: string,
+  mimeType?: string
+): ShotMediaEntry {
+  const normalizedId = String(shotId);
+  const resolvedName = name || extractFileNameFromPath(nativePath);
+  const fakeBlob = new Blob([], { type: mimeType || '' });
+  const mediaType = inferShotMediaType(fakeBlob, resolvedName);
+  const resolvedMime = mimeType || inferMimeTypeFromFileName(resolvedName, mediaType);
+
+  const records = loadAllShotNativePaths();
+  records[normalizedId] = {
+    shotId: normalizedId,
+    nativePath,
+    type: mediaType,
+    name: resolvedName,
+    mimeType: resolvedMime,
+    updatedAt: Date.now()
+  };
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(HANDFILM_SHOT_PATHS_KEY, JSON.stringify(records));
+    } catch {
+      // Ignore quota errors cleanly
+    }
+  }
+
+  return {
+    url: resolveTauriAssetUrl(nativePath),
+    type: mediaType,
+    name: resolvedName,
+    mimeType: resolvedMime,
+    nativePath,
+    isTauriAsset: true
+  };
+}
+
+export function deleteShotNativePath(shotId: string): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const records = loadAllShotNativePaths();
+    const key = String(shotId);
+    if (key in records) {
+      delete records[key];
+      localStorage.setItem(HANDFILM_SHOT_PATHS_KEY, JSON.stringify(records));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function clearAllShotNativePaths(): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.removeItem(HANDFILM_SHOT_PATHS_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 export function getShotMediaKey(
@@ -109,6 +232,7 @@ function openMediaVaultDb(): Promise<IDBDatabase | null> {
 
 /**
  * Persists a binary image/video Blob for a single `shotId` and returns a fresh object URL entry.
+ * Clears any stale nativePath on that shot so newly dropped browser blobs take precedence.
  */
 export async function saveShotMediaBlob(
   shotId: string,
@@ -123,6 +247,8 @@ export async function saveShotMediaBlob(
   const url = typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
     ? URL.createObjectURL(blob)
     : '';
+
+  deleteShotNativePath(normalizedId);
 
   const db = await openMediaVaultDb();
   if (db) {
@@ -158,52 +284,78 @@ export async function saveShotMediaBlob(
     url,
     type: mediaType,
     name: resolvedName,
-    mimeType: resolvedMime
+    mimeType: resolvedMime,
+    isTauriAsset: false
   };
 }
 
 /**
- * Hydrates all stored shot media Blobs from `handfilm_media_vault` with fresh `URL.createObjectURL(blob)` URLs.
+ * Hydrates all stored shot media entries:
+ * 1. Tauri native paths from `localStorage` (`handfilm_shot_paths`) resolved zero-copy via `convertFileSrc`
+ * 2. IndexedDB Blobs from `handfilm_media_vault` hydrated with `URL.createObjectURL`
  */
 export async function loadAllShotMedia(): Promise<ShotMediaMap> {
   const result: ShotMediaMap = {};
+
+  // 1. Hydrate IndexedDB Blobs first (browser mode & non-path uploads)
   const db = await openMediaVaultDb();
-  if (!db) return result;
+  if (db) {
+    await new Promise<void>((resolve) => {
+      try {
+        const tx = db.transaction(HANDFILM_MEDIA_VAULT_STORE, 'readonly');
+        const store = tx.objectStore(HANDFILM_MEDIA_VAULT_STORE);
+        const req = store.getAll();
 
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction(HANDFILM_MEDIA_VAULT_STORE, 'readonly');
-      const store = tx.objectStore(HANDFILM_MEDIA_VAULT_STORE);
-      const req = store.getAll();
+        req.onsuccess = () => {
+          const rows = Array.isArray(req.result) ? (req.result as StoredShotMediaRecord[]) : [];
+          for (const row of rows) {
+            if (!row?.shotId || !row?.blob) continue;
+            const url = typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
+              ? URL.createObjectURL(row.blob)
+              : '';
+            if (!url) continue;
+            result[String(row.shotId)] = {
+              url,
+              type: row.type || inferShotMediaType(row.blob, row.name),
+              name: row.name || `shot_${row.shotId}`,
+              mimeType: row.mimeType || row.blob.type,
+              isTauriAsset: false
+            };
+          }
+          db.close();
+          resolve();
+        };
 
-      req.onsuccess = () => {
-        const rows = Array.isArray(req.result) ? (req.result as StoredShotMediaRecord[]) : [];
-        for (const row of rows) {
-          if (!row?.shotId || !row?.blob) continue;
-          const url = typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
-            ? URL.createObjectURL(row.blob)
-            : '';
-          if (!url) continue;
-          result[String(row.shotId)] = {
-            url,
-            type: row.type || inferShotMediaType(row.blob, row.name),
-            name: row.name || `shot_${row.shotId}`,
-            mimeType: row.mimeType || row.blob.type
-          };
-        }
+        req.onerror = () => {
+          db.close();
+          resolve();
+        };
+      } catch {
         db.close();
-        resolve(result);
-      };
+        resolve();
+      }
+    });
+  }
 
-      req.onerror = () => {
-        db.close();
-        resolve(result);
+  // 2. Overlay VLC-style zero-copy native OS paths in Tauri runtime (zero RAM copy on startup)
+  if (isTauriNativeRuntime()) {
+    const nativePaths = loadAllShotNativePaths();
+    for (const [shotId, rec] of Object.entries(nativePaths)) {
+      if (!rec?.nativePath) continue;
+      const resolvedUrl = resolveTauriAssetUrl(rec.nativePath);
+      if (!resolvedUrl) continue;
+      result[String(shotId)] = {
+        url: resolvedUrl,
+        type: rec.type || inferShotMediaType(new Blob([], { type: rec.mimeType }), rec.name),
+        name: rec.name || extractFileNameFromPath(rec.nativePath),
+        mimeType: rec.mimeType || inferMimeTypeFromFileName(rec.nativePath, rec.type || 'video'),
+        nativePath: rec.nativePath,
+        isTauriAsset: true
       };
-    } catch {
-      db.close();
-      resolve(result);
     }
-  });
+  }
+
+  return result;
 }
 
 /**
@@ -237,9 +389,10 @@ export async function getShotMediaBlob(shotId: string): Promise<Blob | null> {
 }
 
 /**
- * Deletes stored media for a single `shotId` without touching any other shots.
+ * Deletes stored media (both IndexedDB Blob and Tauri nativePath) for a single `shotId`.
  */
 export async function deleteShotMedia(shotId: string): Promise<void> {
+  deleteShotNativePath(shotId);
   const db = await openMediaVaultDb();
   if (!db) return;
 
@@ -264,9 +417,10 @@ export async function deleteShotMedia(shotId: string): Promise<void> {
 }
 
 /**
- * Clears all stored shot media entries from `handfilm_media_vault`.
+ * Clears all stored shot media entries from `handfilm_media_vault` and `handfilm_shot_paths`.
  */
 export async function clearAllShotMedia(): Promise<void> {
+  clearAllShotNativePaths();
   const db = await openMediaVaultDb();
   if (!db) return;
 

@@ -19,6 +19,7 @@ export interface StageShortcutHandlers {
   onStepFrame: (forward: boolean) => void;
   onToggleGrid: () => void;
   onOpenCinema: () => void;
+  onToggleFullscreen?: () => void;
   onToggleMute?: () => void;
   onToggleComponentsMatrix?: () => void;
 }
@@ -207,11 +208,15 @@ class KeyScopeManager {
       }
     }
 
-    // F: Open Cinema Player
+    // F: Borderless Fullscreen Stage (falls back to Cinema Player if not registered)
     if (e.key === 'f' || e.key === 'F') {
       if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
-        this.stageHandlers.onOpenCinema();
+        if (this.stageHandlers.onToggleFullscreen) {
+          this.stageHandlers.onToggleFullscreen();
+        } else {
+          this.stageHandlers.onOpenCinema();
+        }
         return;
       }
     }

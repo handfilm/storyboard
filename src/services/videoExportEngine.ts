@@ -43,6 +43,14 @@ import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine
 import { renderAlignedCinemaTitleOverlay } from '../utils/interchangeExport';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
 import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption } from '../types/anthology';
+import {
+  FullResVideoEncoder,
+  sanitizeMuxerChunkMetadata,
+  selectSupportedAvcCodec,
+  verifyNonBlankCanvasFrame
+} from './videoEncoder';
+
+export { sanitizeMuxerChunkMetadata };
 import { SlideDraft } from '../types/project';
 import { buildFilmStockCssFilter, applyCinematicPostProcess } from './cinematicFilterEngine';
 import { renderCanvasBurnInCaption } from './captionEngine';
@@ -248,43 +256,7 @@ export function getBitrateBps(profile: BitrateProfile, is4K: boolean): number {
   }
 }
 
-/**
- * Sanitizes WebCodecs EncodedVideoChunkMetadata before passing to `mp4-muxer`.
- * Critical: `mp4-muxer` merges `meta.decoderConfig` via `Object.assign(track.info.decoderConfig, meta.decoderConfig)`.
- * If a delta chunk omits `meta.decoderConfig` and we synthesize `{ description: undefined }`,
- * `Object.assign` overwrites the saved `AVCDecoderConfigurationRecord`, producing an empty `avcC` atom
- * and causing exported MP4s to decode as solid black frames.
- */
-export function sanitizeMuxerChunkMetadata(
-  meta: EncodedVideoChunkMetadata | undefined,
-  state: { hasDecoderConfig: boolean; cachedDecoderConfig?: VideoDecoderConfig | null }
-): EncodedVideoChunkMetadata | undefined {
-  if (meta?.decoderConfig) {
-    const dc: VideoDecoderConfig = {
-      ...meta.decoderConfig,
-      colorSpace: meta.decoderConfig.colorSpace ?? {
-        primaries: 'bt709',
-        transfer: 'bt709',
-        matrix: 'bt709',
-        fullRange: false
-      }
-    };
-    state.hasDecoderConfig = true;
-    state.cachedDecoderConfig = dc;
-    return {
-      ...meta,
-      decoderConfig: dc
-    };
-  }
-
-  // Never attach `{ decoderConfig: { description: undefined } }` on delta chunks
-  if (!meta) return undefined;
-  const cleaned: Record<string, any> = { ...meta };
-  if ('decoderConfig' in cleaned) {
-    delete cleaned.decoderConfig;
-  }
-  return Object.keys(cleaned).length > 0 ? (cleaned as EncodedVideoChunkMetadata) : undefined;
-}
+// sanitizeMuxerChunkMetadata is imported from ./videoEncoder and re-exported above.
 
 /**
  * Hidden offscreen DOM host so Chromium / WebView2 hardware video decoders and
@@ -1275,47 +1247,19 @@ async function loadShotSourceMedia(
  * Returns the highest supported codec string, or null if unsupported.
  */
 async function checkWebCodecsSupport(
-  is4K: boolean,
+  _is4K: boolean,
   width: number,
   height: number,
   bitrateBps: number,
   fps: number
-): Promise<string | null> {
-  if (typeof VideoEncoder === 'undefined') return null;
-
-  // Firefox currently lacks AVC description record generation in WebCodecs VideoEncoder metadata,
-  // causing mp4-muxer track.info.decoderConfig to remain null. Route Firefox directly to MediaRecorder.
-  const isFirefox = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent || '');
-  if (isFirefox) {
-    return null;
-  }
-
-  const candidates = is4K
-    ? ['avc1.640033', 'avc1.4d4028', 'avc1.42001f']
-    : ['avc1.640028', 'avc1.4d4028', 'avc1.42001f'];
-
-  for (const codec of candidates) {
-    try {
-      if (typeof VideoEncoder.isConfigSupported === 'function') {
-        const support = await VideoEncoder.isConfigSupported({
-          codec,
-          width,
-          height,
-          bitrate: bitrateBps,
-          framerate: fps,
-          avc: { format: 'avc' }
-        });
-        if (support && support.supported) {
-          return codec;
-        }
-      } else {
-        return codec;
-      }
-    } catch {
-      // Continue to next candidate
-    }
-  }
-  return null;
+): Promise<{ codec: string; hardwareAcceleration: HardwareAcceleration } | null> {
+  return await selectSupportedAvcCodec({
+    width,
+    height,
+    bitrateBps,
+    fps,
+    preferHardware: true
+  });
 }
 
 /**
@@ -1850,47 +1794,23 @@ async function exportWithWebCodecs(
     });
   }
 
-  let chunksEncoded = 0;
-  let validChunksMuxed = 0;
   let encoderError: any = null;
-  const decoderConfigState = { hasDecoderConfig: false, cachedDecoderConfig: null as VideoDecoderConfig | null };
-
-  const videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => {
-      chunksEncoded++;
-      const safeMeta = sanitizeMuxerChunkMetadata(meta, decoderConfigState);
-
-      try {
-        const data = new Uint8Array(chunk.byteLength);
-        chunk.copyTo(data);
-        const frameDurationMicros = Math.round((1 / fps) * 1_000_000);
-        const safeTimestamp = typeof chunk.timestamp === 'number' && !isNaN(chunk.timestamp) && chunk.timestamp >= 0
-          ? chunk.timestamp
-          : Math.round(((chunksEncoded - 1) / fps) * 1_000_000);
-        const safeDuration = typeof chunk.duration === 'number' && !isNaN(chunk.duration) && chunk.duration > 0
-          ? chunk.duration
-          : frameDurationMicros;
-
-        muxer.addVideoChunkRaw(data, chunk.type, safeTimestamp, safeDuration, safeMeta);
-        validChunksMuxed++;
-      } catch (chunkErr) {
-        console.warn('[WebCodecs addVideoChunk error]', chunkErr);
-      }
+  const fullResEncoder = new FullResVideoEncoder({
+    width,
+    height,
+    fps,
+    bitrateBps,
+    codec: selectedCodec,
+    hardwareAcceleration: hardwareAccel,
+    maxQueueSize: 6,
+    keyFrameInterval: fps,
+    onEncodedChunk: (data, type, safeTimestamp, safeDuration, safeMeta) => {
+      muxer.addVideoChunkRaw(data, type, safeTimestamp, safeDuration, safeMeta);
     },
-    error: (e) => {
+    onError: (e) => {
       encoderError = e;
       console.error('[WebCodecs VideoEncoder Error]', e);
     }
-  });
-
-  videoEncoder.configure({
-    codec: selectedCodec,
-    width,
-    height,
-    bitrate: bitrateBps,
-    framerate: fps,
-    hardwareAcceleration: hardwareAccel,
-    avc: { format: 'avc' }
   });
 
   let globalFrameIndex = 0;
@@ -1933,6 +1853,7 @@ async function exportWithWebCodecs(
           activeVideoElement.src = '';
           unmountOffscreenExportElement(activeVideoElement);
         }
+        fullResEncoder.abortClose();
         throw new Error('Export cancelled by user.');
       }
       if (encoderError) {
@@ -1942,12 +1863,8 @@ async function exportWithWebCodecs(
           activeVideoElement.src = '';
           unmountOffscreenExportElement(activeVideoElement);
         }
+        fullResEncoder.abortClose();
         throw encoderError;
-      }
-
-      // Backpressure guard so hardware/software VideoEncoder queues don't overflow on 4K renders
-      while (videoEncoder.encodeQueueSize > 8 && !encoderError && !abortSignal?.aborted) {
-        await new Promise((r) => setTimeout(r, 4));
       }
 
       let verifiedSource: HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement | null = activeBitmap;
@@ -1985,18 +1902,19 @@ async function exportWithWebCodecs(
       };
       compositeCinemaFrame(frameProps);
       ensureNonBlankCanvasFrame(frameProps);
+      if (!verifyNonBlankCanvasFrame(canvas, ctx)) {
+        // Guarantee non-blank procedural backdrop + film title composite on edge decode stalls
+        renderProceduralBackdropToCanvas(ctx, width, height, shotIdx, shotStartTimeSec + f / fps);
+      }
 
       const timestampMicros = Math.round((globalFrameIndex / fps) * 1_000_000);
       const durationMicros = Math.round((1 / fps) * 1_000_000);
 
-      const videoFrame = new VideoFrame(canvas, {
-        timestamp: timestampMicros,
-        duration: durationMicros
+      await fullResEncoder.encodeFrame(canvas, globalFrameIndex, {
+        abortSignal,
+        timestampMicros,
+        durationMicros
       });
-
-      const isKeyFrame = globalFrameIndex % 24 === 0;
-      videoEncoder.encode(videoFrame, { keyFrame: isKeyFrame });
-      videoFrame.close();
 
       globalFrameIndex++;
 
@@ -2128,12 +2046,7 @@ async function exportWithWebCodecs(
     });
   }
 
-  await videoEncoder.flush();
-  videoEncoder.close();
-
-  if (chunksEncoded === 0 || encoderError || validChunksMuxed === 0 || !decoderConfigState.hasDecoderConfig) {
-    throw new Error(`WebCodecs encoder produced 0 valid chunks: ${encoderError?.message || 'Unsupported WebCodecs format or missing decoderConfig'}`);
-  }
+  await fullResEncoder.flushAndClose();
 
   try {
     muxer.finalize();
@@ -2168,7 +2081,7 @@ export async function exportCinemaMasterMp4(
   const bitrateBps = getBitrateBps(options.bitrateProfile, is4K);
 
   // 1. Detect if WebCodecs VideoEncoder is available and supports AVC
-  const supportedCodec = await checkWebCodecsSupport(
+  const supportedSelection = await checkWebCodecsSupport(
     is4K,
     dimensions.width,
     dimensions.height,
@@ -2176,14 +2089,18 @@ export async function exportCinemaMasterMp4(
     24
   );
 
-  if (!supportedCodec) {
+  if (!supportedSelection) {
     console.info('[CinemaExport] WebCodecs AVC not supported on this platform/browser. Seamlessly routing to MediaRecorder fallback.');
     return await exportCinemaMasterWithMediaRecorder(options);
   }
 
   // 2. Execute WebCodecs pipeline with software retry then MediaRecorder recovery fallback
   try {
-    return await exportWithWebCodecs(options, supportedCodec, 'no-preference');
+    return await exportWithWebCodecs(
+      options,
+      supportedSelection.codec,
+      supportedSelection.hardwareAcceleration
+    );
   } catch (webCodecsErr: any) {
     if (options.abortSignal?.aborted || webCodecsErr?.message?.includes('cancelled')) {
       throw webCodecsErr;

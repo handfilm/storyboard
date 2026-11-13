@@ -681,6 +681,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                 <div
                   key={slide.id || `slide_${originalIndex}`}
                   data-shot-card={originalIndex}
+                  data-shot-drop-index={originalIndex}
                   onClick={() => onSelectSlide(originalIndex)}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -781,6 +782,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                         name={vaultEntry?.name}
                         title={slide.titleEn}
                         bengaliTitle={slide.titleBn}
+                        disableLiveVideoElement
                         alt={slide.titleEn || `Shot ${shotNumStr}`}
                       />
                     ) : (
@@ -1112,6 +1114,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                         name={vaultEntry?.name}
                         title={previewSlide.titleEn}
                         bengaliTitle={previewSlide.titleBn}
+                        disableLiveVideoElement
                         alt={previewSlide.titleEn || `Frame ${shotNum}`}
                       />
                     ) : (

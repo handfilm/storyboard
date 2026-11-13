@@ -30,6 +30,7 @@ export interface ShotMediaThumbnailProps {
   virtualized?: boolean;
   showProceduralText?: boolean;
   compactProcedural?: boolean;
+  disableLiveVideoElement?: boolean;
 }
 
 /**
@@ -58,7 +59,8 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
   eagerVideoExtract = true,
   virtualized = true,
   showProceduralText = true,
-  compactProcedural = false
+  compactProcedural = false,
+  disableLiveVideoElement = false
 }) => {
   const [thumbTick, setThumbTick] = useState(0);
   const [imgFailedUrl, setImgFailedUrl] = useState<string | null>(null);
@@ -153,6 +155,7 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
         : 'items-center text-center px-1.5';
 
   const shouldMountLiveVideo =
+    !disableLiveVideoElement &&
     virtualized &&
     isVideoMedia &&
     Boolean(safeMediaUrl) &&

@@ -675,6 +675,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 shotType={hoveredPreviewData.frame.shotType}
                 titleAlign={titleAlign}
                 lutFilterCss={hoveredPreviewData.lutFilterCss}
+                disableLiveVideoElement
                 alt={`Frame ${hoveredPreviewData.shotNumber} preview`}
               />
             ) : (() => {
@@ -821,6 +822,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <div
                 key={`shot-strip-${idx}-${frame?.id ?? 'none'}`}
                 data-testid={`scrubber-index-marker-${idx}`}
+                data-shot-drop-index={idx}
                 onClick={() => onSelectFrame(idx)}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -906,6 +908,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     titleAlign={titleAlign}
                     virtualized={isThumbnailVisible}
                     compactProcedural
+                    disableLiveVideoElement
                     className="absolute inset-0 w-full h-full overflow-hidden"
                     mediaClassName="w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 transition-all duration-200 group-hover:scale-105"
                     alt={`Shot ${shotNumber}`}

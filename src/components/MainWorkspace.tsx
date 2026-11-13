@@ -112,6 +112,12 @@ interface MainWorkspaceProps {
   onChangeMultiCamLayoutConfig?: (config: MultiCamGridConfig) => void;
   onOpenRecorder?: () => void;
   onOpenExport?: () => void;
+  seekVersion?: number;
+  onSyncVideoTime?: (shotIndex: number, timeSec: number) => void;
+  onAdvanceFromVideoClock?: (shotIndex: number) => void;
+  isBorderlessFullscreen?: boolean;
+  isCursorAwake?: boolean;
+  onToggleBorderlessFullscreen?: () => void;
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
@@ -185,7 +191,13 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   multiCamLayoutConfig,
   onChangeMultiCamLayoutConfig,
   onOpenRecorder,
-  onOpenExport
+  onOpenExport,
+  seekVersion,
+  onSyncVideoTime,
+  onAdvanceFromVideoClock,
+  isBorderlessFullscreen,
+  isCursorAwake,
+  onToggleBorderlessFullscreen
 }) => {
   // Local dual-panel view selection if not externally controlled (TACTILE STAGE is the default primary stage)
   const [localDualPanel, setLocalDualPanel] = useState<StagePanelType>(activeDualPanel || 'TACTILE_STAGE');
@@ -366,6 +378,12 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           detectedBpm={detectedBpm}
           isAudioMuted={isAudioMuted}
           onToggleMute={onToggleMute}
+          seekVersion={seekVersion}
+          onSyncVideoTime={onSyncVideoTime}
+          onAdvanceFromVideoClock={onAdvanceFromVideoClock}
+          isBorderlessFullscreen={isBorderlessFullscreen}
+          isCursorAwake={isCursorAwake}
+          onToggleBorderlessFullscreen={onToggleBorderlessFullscreen}
         />
       </main>
     );
@@ -461,6 +479,12 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onToggleMute={onToggleMute}
               onOpenCinemaPlayer={onOpenCinemaPlayer}
               activeModule={activeModule}
+              seekVersion={seekVersion}
+              onSyncVideoTime={onSyncVideoTime}
+              onAdvanceFromVideoClock={onAdvanceFromVideoClock}
+              isBorderlessFullscreen={isBorderlessFullscreen}
+              isCursorAwake={isCursorAwake}
+              onToggleBorderlessFullscreen={onToggleBorderlessFullscreen}
             />
           </div>
         )}

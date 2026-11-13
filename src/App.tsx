@@ -62,9 +62,12 @@ import {
   loadAllShotMedia,
   resolveShotMediaEntry,
   saveShotMediaBlob,
+  saveShotNativePath,
+  isTauriNativeRuntime,
   deleteShotMedia,
   getShotMediaKey
 } from './services/handfilmMediaVault';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import {
   ensureVideoThumbnailUrl,
   isSvgPlaceholderUrl,
@@ -134,6 +137,10 @@ export default function App() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('2.39:1');
   const [fitMode, setFitMode] = useState<'cover' | 'contain' | 'fill'>('cover');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCursorAwake, setIsCursorAwake] = useState(true);
+  const [seekVersion, setSeekVersion] = useState(0);
+  const currentIndexRef = useRef<number>(0);
+  currentIndexRef.current = currentIndex;
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [audioVolume, setAudioVolume] = useState(0.4);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('sequence');
@@ -1234,8 +1241,10 @@ export default function App() {
   const goToFrame = useCallback((index: number) => {
     const total = project.frames.length;
     const nextIndex = ((index % total) + total) % total;
+    slideTimeSecRef.current = 0;
     setCurrentIndex(nextIndex);
     setSlideTimeSec(0);
+    setSeekVersion((v) => v + 1);
     try {
       useStudioStore.getState().setActiveShotIndex(nextIndex);
       useStudioStore.getState().setSlideTimeSec(0);
@@ -1307,6 +1316,7 @@ export default function App() {
         } catch {}
       }
     }
+    setSeekVersion((v) => v + 1);
     audioEngine.playShutterClick();
   }, [playbackMode, project.frames, project.defaultSlideHoldSec, currentIndex, activeReelIndex, reelLoopActive]);
 
@@ -1315,7 +1325,9 @@ export default function App() {
     const activeShot = project.frames[currentIndex] || project.frames[0];
     const maxDur = getShotDurationSec(activeShot, project.defaultSlideHoldSec ?? 12.0);
     const clamped = Math.max(0, Math.min(maxDur, timeSec));
+    slideTimeSecRef.current = clamped;
     setSlideTimeSec(clamped);
+    setSeekVersion((v) => v + 1);
     try {
       useStudioStore.getState().setSlideTimeSec(clamped);
     } catch {}
@@ -1328,13 +1340,57 @@ export default function App() {
       globalSec,
       project.defaultSlideHoldSec ?? 12.0
     );
+    slideTimeSecRef.current = resolved.localTimeSec;
     setCurrentIndex(resolved.shotIndex);
     setSlideTimeSec(resolved.localTimeSec);
+    setSeekVersion((v) => v + 1);
     try {
       useStudioStore.getState().setActiveShotIndex(resolved.shotIndex);
       useStudioStore.getState().setSlideTimeSec(resolved.localTimeSec);
     } catch {}
   }, [project.frames, project.defaultSlideHoldSec]);
+
+  // Hardware <video> clock sync callback (never increments seekVersion so stage never fights video.currentTime)
+  const handleHardwareVideoTimeSync = useCallback((shotIdx: number, timeSec: number) => {
+    if (shotIdx !== currentIndexRef.current) return;
+    const clamped = Math.max(0, timeSec);
+    slideTimeSecRef.current = clamped;
+    setSlideTimeSec(clamped);
+    try {
+      useStudioStore.getState().setSlideTimeSec(clamped);
+    } catch {}
+  }, []);
+
+  const handleAdvanceFromVideoClock = useCallback((shotIdx: number) => {
+    if (shotIdx !== currentIndexRef.current) return;
+    const framesLength = Math.max(1, projectFramesRef.current.length);
+    const reelStart = reelLoopActive ? Math.min(framesLength - 1, activeReelIndex * 10) : 0;
+    const reelEnd = reelLoopActive ? Math.min(framesLength - 1, reelStart + 9) : framesLength - 1;
+    const reelLen = Math.max(1, reelEnd - reelStart + 1);
+    const nextIdx =
+      shotIdx >= reelStart && shotIdx <= reelEnd
+        ? reelStart + ((shotIdx - reelStart + 1) % reelLen)
+        : reelStart;
+
+    slideTimeSecRef.current = 0;
+    setCurrentIndex(nextIdx);
+    setSlideTimeSec(0);
+    try {
+      useStudioStore.getState().setActiveShotIndex(nextIdx);
+      useStudioStore.getState().setSlideTimeSec(0);
+    } catch {}
+  }, [activeReelIndex, reelLoopActive]);
+
+  const activeStageShot = project.frames[currentIndex];
+  const activeStageVaultEntry = resolveShotMediaEntry(shotMediaMap, activeStageShot, undefined, currentIndex);
+  const activeStageResolvedUrl = activeStageVaultEntry?.url || activeStageShot?.imageUrl || '';
+  const activeStageIsHardwareVideo = Boolean(
+    currentView === 'STUDIO' &&
+    workspaceMode === 'STAGE' &&
+    activeDualPanel === 'TACTILE_STAGE' &&
+    activeStageResolvedUrl &&
+    (activeStageVaultEntry?.type === 'video' || isVideoSourceUrl(activeStageResolvedUrl, { isVideo: activeStageShot?.isVideo }))
+  );
 
   // Elastic Multi-Cadence Dual-Mode Playback Engine (0.5s rap cuts up to 30m holds)
   const animFrameRef = useRef<number | null>(null);
@@ -1347,6 +1403,19 @@ export default function App() {
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
+      }
+      return;
+    }
+
+    // Yield clock ownership to pure hardware <video> decoder during Stage video playback
+    if (activeStageIsHardwareVideo) {
+      lastTimestampRef.current = null;
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+      if (!isAudioMuted) {
+        audioEngine.playAudio();
       }
       return;
     }
@@ -1430,7 +1499,7 @@ export default function App() {
         animFrameRef.current = null;
       }
     };
-  }, [isPlaying, playbackMode, project.frames, project.defaultSlideHoldSec, playbackSpeed, isAudioMuted, currentIndex, isSnapToBeat, activeReelIndex, reelLoopActive]);
+  }, [isPlaying, playbackMode, project.frames, project.defaultSlideHoldSec, playbackSpeed, isAudioMuted, currentIndex, isSnapToBeat, activeReelIndex, reelLoopActive, activeStageIsHardwareVideo]);
 
   // Milestone D1: Single Source of Truth Key Scope Manager Initialization & Sync
   useEffect(() => {
@@ -1484,6 +1553,13 @@ export default function App() {
       onOpenCinema: () => {
         if (!isBlockingOverlayOpen) setIsCinemaPlayerOpen(true);
       },
+      onToggleFullscreen: () => {
+        if (!isBlockingOverlayOpen && currentView === 'STUDIO') {
+          toggleFullscreen();
+        } else if (!isBlockingOverlayOpen) {
+          setIsCinemaPlayerOpen(true);
+        }
+      },
       onToggleMute: () => {
         if (!isBlockingOverlayOpen) toggleAudio();
       },
@@ -1493,13 +1569,45 @@ export default function App() {
     });
   }, [nextFrame, prevFrame, handleStepFrame, toggleAudio, isBlockingOverlayOpen, currentView, isContactSheetOpen]);
 
-  // Fullscreen event listener
+  // Borderless Fullscreen state & 2000ms idle cursor-wake auto-hide
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+    let wakeTimer: number | null = null;
+
+    const armIdleHide = () => {
+      if (wakeTimer !== null) window.clearTimeout(wakeTimer);
+      if (document.fullscreenElement) {
+        wakeTimer = window.setTimeout(() => {
+          setIsCursorAwake(false);
+        }, 2000);
+      }
     };
+
+    const handleFullscreenChange = () => {
+      const fs = Boolean(document.fullscreenElement);
+      setIsFullscreen(fs);
+      if (fs) {
+        setIsCursorAwake(false);
+      } else {
+        if (wakeTimer !== null) window.clearTimeout(wakeTimer);
+        setIsCursorAwake(true);
+      }
+    };
+
+    const handleCursorActivity = () => {
+      if (!document.fullscreenElement) return;
+      setIsCursorAwake(true);
+      armIdleHide();
+    };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('mousemove', handleCursorActivity, { passive: true });
+    window.addEventListener('pointerdown', handleCursorActivity, { passive: true });
+    return () => {
+      if (wakeTimer !== null) window.clearTimeout(wakeTimer);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('mousemove', handleCursorActivity);
+      window.removeEventListener('pointerdown', handleCursorActivity);
+    };
   }, []);
 
   // Global Alt+R / Shift+R Screen Recorder Shortcut Listener
@@ -1955,9 +2063,80 @@ export default function App() {
     }
   }, []);
 
-  // Universal Per-Shot Isolated Ingestion Pipeline: Saves binary Blob into handfilm_media_vault keyed by shot.id & updates ONLY targetIndex
+  // Zero-Copy Tauri v2 Native OS Path Ingestion (`convertFileSrc` -> instant SSD direct stream, zero RAM copy)
+  const handleNativePathForIndex = useCallback(async (targetIndex: number, nativePath: string) => {
+    try {
+      const targetFrame = projectFramesRef.current[targetIndex];
+      if (!targetFrame || !nativePath) return;
+      const shotKey = getShotMediaKey(targetFrame, targetIndex);
+      const vaultEntry = saveShotNativePath(shotKey, nativePath);
+      useStudioStore.getState().setShotMediaEntry(shotKey, vaultEntry);
+
+      const shotNum = String(targetIndex + 1).padStart(3, '0');
+      const isVid = vaultEntry.type === 'video';
+
+      setProject(prev => {
+        const nextFrames = [...prev.frames];
+        const current = nextFrames[targetIndex];
+        if (!current) return prev;
+        const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
+          ? `SH${shotNum} // KINETIC FLOW`
+          : current.title;
+        const titleBn = (!current.bengaliTitle || current.bengaliTitle.includes('নতুন ফ্রেম'))
+          ? `দৃশ্য ${shotNum} // গতিশীল দৃষ্টিভঙ্গি`
+          : current.bengaliTitle;
+        const soundCue = current.soundCue || 'Cinematic Tension Bass // 24fps Stem';
+        nextFrames[targetIndex] = {
+          ...current,
+          imageUrl: vaultEntry.url,
+          thumbnailUrl: !isVid ? vaultEntry.url : current.thumbnailUrl,
+          isVideo: isVid,
+          title: titleEn,
+          bengaliTitle: titleBn,
+          soundCue
+        };
+        return { ...prev, frames: nextFrames };
+      });
+
+      useStudioStore.getState().updateShot(targetIndex, {
+        imageUrl: vaultEntry.url,
+        thumbnailUrl: !isVid ? vaultEntry.url : targetFrame?.thumbnailUrl,
+        isVideo: isVid
+      });
+
+      // Extract lightweight 160x90 JPEG poster once in background so filmstrip stays 100% static <img>
+      if (isVid) {
+        void ensureVideoThumbnailUrl(
+          [targetFrame?.id, `shot_${targetIndex}`, targetIndex],
+          vaultEntry.url,
+          0.15
+        ).then((poster) => {
+          if (poster && !isSvgPlaceholderUrl(poster) && !isVideoSourceUrl(poster)) {
+            setProject(prev => {
+              const nextFrames = [...prev.frames];
+              if (nextFrames[targetIndex]) {
+                nextFrames[targetIndex] = { ...nextFrames[targetIndex], thumbnailUrl: poster };
+              }
+              return { ...prev, frames: nextFrames };
+            });
+            useStudioStore.getState().updateShot(targetIndex, { thumbnailUrl: poster });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('[RECOVERY FALLBACK] handleNativePathForIndex error:', err);
+    }
+  }, []);
+
+  // Universal Per-Shot Isolated Ingestion Pipeline: uses zero-copy Tauri path if native OS path is exposed, else IDB Blob
   const handleUploadMediaForIndex = useCallback(async (targetIndex: number, file: File) => {
     try {
+      const nativePath = (file as any)?.path;
+      if (isTauriNativeRuntime() && typeof nativePath === 'string' && nativePath.length > 0) {
+        await handleNativePathForIndex(targetIndex, nativePath);
+        return;
+      }
+
       const targetFrame = projectFramesRef.current[targetIndex];
       const shotKey = getShotMediaKey(targetFrame, targetIndex);
       const vaultEntry = await saveShotMediaBlob(shotKey, file, file.name);
@@ -2040,7 +2219,75 @@ export default function App() {
     } catch (err) {
       console.warn('[RECOVERY FALLBACK] handleUploadMediaForIndex error:', err);
     }
-  }, []);
+  }, [handleNativePathForIndex]);
+
+  // Tauri v2 Native OS Drag-and-Drop Listener (`tauri://drag-drop` -> instant zero-copy convertFileSrc streaming)
+  useEffect(() => {
+    if (!isTauriNativeRuntime()) return;
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+
+    const findShotDropTarget = (x: number, y: number): number | null => {
+      if (typeof document === 'undefined') return null;
+      const dpr = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+      const candidatePoints: Array<[number, number]> = [[x, y]];
+      if (dpr !== 1) {
+        candidatePoints.push([x / dpr, y / dpr]);
+      }
+      for (const [px, py] of candidatePoints) {
+        if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+        try {
+          const els = document.elementsFromPoint(px, py);
+          for (const el of els) {
+            const dropEl = (el as HTMLElement).closest?.('[data-shot-drop-index], [data-shot-card]');
+            if (dropEl) {
+              const attr = dropEl.getAttribute('data-shot-drop-index') ?? dropEl.getAttribute('data-shot-card');
+              const parsed = attr !== null ? Number(attr) : NaN;
+              if (Number.isInteger(parsed) && parsed >= 0) {
+                return parsed;
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      return null;
+    };
+
+    void getCurrentWebview()
+      .onDragDropEvent(async (event) => {
+        if (cancelled) return;
+        const payload = event.payload;
+        if (payload.type === 'drop') {
+          const paths = payload.paths || [];
+          if (paths.length === 0) return;
+          const pos = payload.position;
+          const hitIndex = pos ? findShotDropTarget(pos.x, pos.y) : null;
+          const baseIndex = hitIndex !== null ? hitIndex : currentIndexRef.current;
+          const totalShots = Math.max(1, projectFramesRef.current.length);
+          for (let offset = 0; offset < paths.length; offset++) {
+            const targetIdx = (baseIndex + offset) % totalShots;
+            await handleNativePathForIndex(targetIdx, paths[offset]);
+          }
+        }
+      })
+      .then((fn) => {
+        if (cancelled) {
+          fn();
+        } else {
+          unlisten = fn;
+        }
+      })
+      .catch(() => {
+        // Non-Tauri or webview listener fallback
+      });
+
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+  }, [handleNativePathForIndex]);
 
   // Rapid Ingestion Pipeline: Direct Synchronous Preview + Background Persistence
   const handleUploadImage = useCallback(async (file: File) => {
@@ -2472,6 +2719,8 @@ export default function App() {
     useStudioStore.getState().setActiveModule('PLAYER');
   };
 
+  const hideFullscreenChrome = isFullscreen && !isCursorAwake && currentView === 'STUDIO';
+
   return (
     <div
       className={`relative w-screen h-screen bg-[#000000] text-zinc-200 overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
@@ -2487,7 +2736,8 @@ export default function App() {
         />
       )}
 
-      {/* Sleek Single-Tier Master Header */}
+      {/* Sleek Single-Tier Master Header (Hidden in Borderless Fullscreen until cursor wake) */}
+      <div className={hideFullscreenChrome ? 'hidden' : 'contents'}>
       <StageHeader
         isZenMode={isZenMode}
         onToggleZen={() => setIsZenMode(z => !z)}
@@ -2538,6 +2788,7 @@ export default function App() {
           setIsInspectorOpen(o => !o);
         }}
       />
+      </div>
 
       {/* Hidden Sovereign Session JSON Restore File Input */}
       <input
@@ -2581,7 +2832,7 @@ export default function App() {
         <>
           {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
           <div className="flex-1 min-h-0 w-full flex overflow-hidden relative">
-        <div className="zen-rail-container h-full flex shrink-0">
+        <div className={`zen-rail-container h-full flex shrink-0 ${hideFullscreenChrome ? 'hidden' : ''}`}>
           <LeftRail
             activeModule={activeModule}
             onSelectModule={(mod) => {
@@ -2839,6 +3090,12 @@ export default function App() {
           onChangeMultiCamLayoutConfig={setMultiCamLayoutConfig}
           onOpenRecorder={() => setIsScreenRecorderOpen(true)}
           onOpenExport={() => handleOpenExportStudio('mp4')}
+          seekVersion={seekVersion}
+          onSyncVideoTime={handleHardwareVideoTimeSync}
+          onAdvanceFromVideoClock={handleAdvanceFromVideoClock}
+          isBorderlessFullscreen={isFullscreen}
+          isCursorAwake={isCursorAwake}
+          onToggleBorderlessFullscreen={toggleFullscreen}
         />
 
         {/* Director Inspector Sidebar Drawer */}
@@ -2865,7 +3122,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Resizable Bottom Control Dock */}
+      {/* Resizable Bottom Control Dock (Hidden in Borderless Fullscreen until cursor wake) */}
+      <div className={hideFullscreenChrome ? 'hidden' : 'contents'}>
       <ControlDock
         frames={project.frames}
         currentIndex={currentIndex}
@@ -2896,7 +3154,7 @@ export default function App() {
         onTogglePlay={() => setIsPlaying(p => !p)}
         onSpeedChange={setSpeed}
         onToggleHud={() => setShowHud(h => !h)}
-        onToggleFullscreen={() => setIsCinemaPlayerOpen(true)}
+        onToggleFullscreen={toggleFullscreen}
         onToggleAudio={toggleAudio}
         onVolumeChange={setAudioVolume}
         onToggleViewMode={() => setIsContactSheetOpen(o => !o)}
@@ -2920,6 +3178,7 @@ export default function App() {
         isTelemetryRackOpen={isTelemetryRackOpen}
         onToggleTelemetryRack={() => setIsTelemetryRackOpen(o => !o)}
       />
+      </div>
       </>
       )}
 

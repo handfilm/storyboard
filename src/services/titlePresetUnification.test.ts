@@ -364,13 +364,13 @@ test('Per-shot ShotTitleData isolation & Copy Style To All preserve unique shot 
   assert.strictEqual(resolvedShot2.enabled, false);
 });
 
-test('StudioNavRail has exact 9 ordered tools (STORY..SYSTEM with MEDIA) and ControlDock applies active-only color', () => {
+test('StudioNavRail has exact 10 ordered tools (STORY..SYSTEM with LIGHT above FX) and ControlDock applies active-only color', () => {
   const railSource = readFileSync(new URL('../components/StudioNavRail.tsx', import.meta.url), 'utf8');
   const keys = Array.from(railSource.matchAll(/key:\s*'([A-Z]+)'/g)).map((m) => m[1]);
-  assert.deepStrictEqual(keys, ['STORY', 'MEDIA', 'TEXT', 'AUDIO', 'CUT', 'CROP', 'FX', 'BRIDGE', 'SYSTEM']);
-  assert.ok(railSource.includes('w-6 h-6'), 'StudioNavRail must render 24px (w-6 h-6) icons');
+  assert.deepStrictEqual(keys, ['STORY', 'MEDIA', 'TEXT', 'AUDIO', 'CUT', 'CROP', 'LIGHT', 'FX', 'BRIDGE', 'SYSTEM']);
+  assert.ok(railSource.includes('w-[18px] h-[18px]'), 'StudioNavRail must render compact 18px icons');
+  assert.ok(railSource.includes('w-[50px]'), 'StudioNavRail must use compact 50px collapsed width');
   assert.strictEqual(keys.includes('CLOUD'), false);
-  assert.strictEqual(keys.includes('LIGHT'), false);
 
   const dockSource = readFileSync(new URL('../components/ControlDock.tsx', import.meta.url), 'utf8');
   assert.ok(dockSource.includes('scale-[1.04]'), 'Active thumbnail card must lift with scale-[1.04]');
@@ -378,4 +378,45 @@ test('StudioNavRail has exact 9 ordered tools (STORY..SYSTEM with MEDIA) and Con
   assert.ok(dockSource.includes('blur(1.5px)'), 'Inactive thumbnail cards must render subtle blur(1.5px)');
   assert.ok(dockSource.includes('opacity-50'), 'Inactive thumbnail cards must dim to opacity-50');
 });
+
+test('Compact chrome proportions and HandfilmHome 10 permanent manifesto slides', () => {
+  const headerSource = readFileSync(new URL('../components/StageHeader.tsx', import.meta.url), 'utf8');
+  assert.ok(headerSource.includes('h-[38px]'), 'StageHeader must render at compact 38px height');
+
+  const overlaySource = readFileSync(new URL('../components/StageTextOverlay.tsx', import.meta.url), 'utf8');
+  assert.ok(overlaySource.includes('clamp('), 'StageTextOverlay must clamp hero font size responsively');
+
+  const homeSource = readFileSync(new URL('../components/home/HandfilmHome.tsx', import.meta.url), 'utf8');
+  const expectedSlides = [
+    'দৃষ্টির সীমানা',
+    'BEYOND THE FRAME // RAW 4K ANAMORPHIC ARCHITECTURE',
+    'সময়ের গতি',
+    'VELOCITY WITHOUT COMPROMISE // LIGHT-SPEED NLE ENGINE',
+    'আলোর কাব্য',
+    'SCULPTED IN TUNGSTEN & SHADOW // 35MM HALATION SCIENCE',
+    'নিখুঁত ছন্দ',
+    'FRAME-ACCURATE PRECISION // EVERY CUT IS A PULSE',
+    'কল্পনার যন্ত্র',
+    'WHERE AI MEETS AUTEUR CINEMA // ZERO LATENCY CREATION',
+    'বারো সেকেন্ডের ঝড়',
+    '12S HYPER-REEL ENGINE // ENGINEERED FOR INSTANT IMPACT',
+    'অদম্য শিল্প',
+    'BRUTALIST INDUSTRIAL AESTHETIC // BUILT FOR STORYTELLERS',
+    'প্রতিটি ফ্রেমে প্রাণ',
+    'TRUE 16-BIT COLOR & MOTION // UNCOMPRESSED VISION',
+    'শব্দের প্রতিধ্বনি',
+    'SUB-HARMONIC AUDIO SYNC // FEEL THE TRANSIENT BEAT',
+    'নতুন যুগের সিনেমা',
+    'HANDFILM STUDIO // ARCHITECT THE FUTURE OF FILM',
+  ];
+  for (const text of expectedSlides) {
+    assert.ok(homeSource.includes(text), `Missing manifesto slide string: ${text}`);
+  }
+  for (const label of ['STAGE', '12s REELS', 'SCRUB', 'COCKPIT', 'ENTER STUDIO WORKSPACE']) {
+    assert.ok(homeSource.includes(label), `Missing showcase deck label: ${label}`);
+  }
+  assert.strictEqual(homeSource.includes('CHOPPER 140 BPM'), false);
+  assert.strictEqual(homeSource.includes('DROP 4K MEDIA HERE'), false);
+});
+
 

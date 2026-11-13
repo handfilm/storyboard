@@ -1,6 +1,6 @@
 /**
  * @file /src/components/StudioNavRail.tsx
- * @description 9-Button Full-Height Colorful Tactical Left Rail
+ * @description 10-Button Full-Height Tactical Left Rail
  * for HANDFILM Creative Suite with Advanced Glassmorphic Brutalist Flyout Menus.
  */
 
@@ -121,6 +121,7 @@ type RailButtonKey =
   | 'AUDIO'
   | 'CUT'
   | 'CROP'
+  | 'LIGHT'
   | 'FX'
   | 'BRIDGE'
   | 'SYSTEM';
@@ -458,10 +459,38 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       ]
     },
     {
+      key: 'LIGHT',
+      label: 'LIGHT',
+      title: 'TUNGSTEN, EXPOSURE & 34-PRESET LIGHTING RIG',
+      why: '34-preset cinematic lighting rig, exposure, rim lights & volumetric haze',
+      accentHex: '#FACC15',
+      icon: Lightbulb,
+      activeModules: [],
+      onPrimaryClick: () => eventBus.emit('lighting:open'),
+      subTools: [
+        {
+          id: 'light-rig-34',
+          label: '34-Preset Lighting Rig',
+          sub: 'Anamorphic flares, rim lights & volumetric haze',
+          icon: Lightbulb,
+          badge: '34 RIGS',
+          onSelect: () => eventBus.emit('lighting:open')
+        },
+        {
+          id: 'light-optics-exposure',
+          label: 'Exposure & Lens Calibration',
+          sub: 'Tune optical crop, aperture & camera exposure profile',
+          icon: SlidersHorizontal,
+          isActive: activeModule === 'OPTICS',
+          onSelect: () => onSelectModule('OPTICS')
+        }
+      ]
+    },
+    {
       key: 'FX',
       label: 'FX',
       title: 'COLOR LUT, HALATION & OPTICAL FX',
-      why: 'Color LUTs, 34-preset lighting rig, halation/bloom, warp & AI prompts',
+      why: 'Color LUTs, halation/bloom, liquify mesh warp, AI prompts & frame markup',
       accentHex: '#A855F7',
       icon: Wand2,
       activeModules: ['LIQUIFY', 'LIBRARY', 'BLOOM', 'AI', 'REVIEW'],
@@ -474,14 +503,6 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           icon: Library,
           isActive: activeModule === 'LIBRARY',
           onSelect: () => onSelectModule('LIBRARY')
-        },
-        {
-          id: 'light-rig-34',
-          label: '34-Preset Lighting Rig',
-          sub: 'Anamorphic flares, rim lights & volumetric haze',
-          icon: Lightbulb,
-          badge: '34 RIGS',
-          onSelect: () => eventBus.emit('lighting:open')
         },
         {
           id: 'bloom-stage',
@@ -676,13 +697,13 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       aria-label="Director Left Tool Rail"
       data-playing={effectiveIsPlaying ? 'true' : 'false'}
       className={`nle-focus-bar h-full select-none z-30 shrink-0 bg-[#0B0B0D]/95 backdrop-blur-2xl border-r border-white/[0.07] flex flex-col font-mono-tech transition-all duration-200 relative ${
-        isCollapsed ? 'w-[72px]' : 'w-56'
+        isCollapsed ? 'w-[50px]' : 'w-48'
       }`}
     >
-      {/* Full-Height 9-Button Evenly Distributed Vertical Spine */}
+      {/* Full-Height 10-Button Evenly Distributed Vertical Spine */}
       <nav
-        aria-label="9 Studio Tools"
-        className="flex-1 min-h-0 py-1.5 px-1.5 flex flex-col justify-between gap-1 overflow-hidden"
+        aria-label="10 Studio Tools"
+        className="flex-1 min-h-0 py-1 px-1 flex flex-col justify-between gap-0.5 overflow-hidden"
       >
         {railButtons.map((btn) => {
           const Icon = btn.icon;
@@ -702,8 +723,8 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 '--item-accent': btn.accentHex,
                 borderColor: isActive ? btn.accentHex : `${btn.accentHex}33`,
                 boxShadow: isActive
-                  ? `0 0 14px ${btn.accentHex}40, inset 0 1px 0 rgba(255,255,255,0.12)`
-                  : `0 0 8px ${btn.accentHex}14`
+                  ? `0 0 12px ${btn.accentHex}40, inset 0 1px 0 rgba(255,255,255,0.12)`
+                  : `0 0 6px ${btn.accentHex}14`
               } as React.CSSProperties}
               onMouseEnter={(e) => openButtonFlyout(btn.key, e.currentTarget)}
               onMouseLeave={scheduleFlyoutClose}
@@ -711,20 +732,20 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 openButtonFlyout(btn.key, e.currentTarget);
                 btn.onPrimaryClick();
               }}
-              className={`nle-editorial-btn group relative flex-1 min-h-0 rounded-md cursor-pointer select-none active:scale-95 border ${
+              className={`nle-editorial-btn group relative flex-1 min-h-0 rounded cursor-pointer select-none active:scale-95 border ${
                 isActive
                   ? 'bg-[#181820] text-[#F4F4F5]'
                   : 'bg-[#121216] hover:bg-[#191920] text-[#E4E4E7]'
               } ${
                 isCollapsed
-                  ? 'w-full px-1 py-0.5 flex flex-col items-center justify-center gap-0.5'
-                  : 'w-full px-2.5 py-0.5 flex items-center gap-2.5'
+                  ? 'w-full px-0.5 py-0.5 flex flex-col items-center justify-center gap-0.5'
+                  : 'w-full px-2 py-0.5 flex items-center gap-2'
               }`}
             >
               {/* Luminous Editorial Accent Indicator Bar */}
               <span
                 style={{ backgroundColor: btn.accentHex }}
-                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r transition-opacity duration-200 ${
+                className={`absolute left-0 top-1 bottom-1 w-[2.5px] rounded-r transition-opacity duration-200 ${
                   isActive
                     ? 'opacity-100'
                     : 'opacity-45 group-hover:opacity-100'
@@ -733,12 +754,12 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 
               <Icon
                 style={{ color: btn.accentHex }}
-                className="w-6 h-6 shrink-0 transition-transform duration-200 group-hover:scale-110"
+                className="w-[18px] h-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110"
               />
 
               {isCollapsed ? (
                 <span
-                  className={`text-[9.5px] leading-none font-black uppercase tracking-wider whitespace-nowrap transition-colors ${
+                  className={`text-[9px] leading-none font-black uppercase tracking-tight whitespace-nowrap transition-colors ${
                     isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                   }`}
                 >
@@ -748,7 +769,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 <div className="min-w-0 flex-1 text-left">
                   <div className="flex items-center justify-between gap-1">
                     <span
-                      className={`text-[11px] font-black tracking-wider uppercase truncate transition-colors ${
+                      className={`text-[10.5px] font-black tracking-wider uppercase truncate transition-colors ${
                         isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                       }`}
                     >
@@ -756,10 +777,10 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                     </span>
                     <ChevronRight
                       style={{ color: isActive ? btn.accentHex : undefined }}
-                      className="w-3.5 h-3.5 shrink-0 text-zinc-400 group-hover:text-white transition-colors"
+                      className="w-3 h-3 shrink-0 text-zinc-400 group-hover:text-white transition-colors"
                     />
                   </div>
-                  <div className="text-[8.5px] text-zinc-400 truncate leading-tight">
+                  <div className="text-[8px] text-zinc-400 truncate leading-tight">
                     {btn.why}
                   </div>
                 </div>

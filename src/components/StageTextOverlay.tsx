@@ -350,8 +350,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   // Use preset's own fontScale directly, tempered gently by architecture multiplier only for default hero
   const isCustomPreset = presetConfig.presetId !== 'molten-gold' && presetConfig.presetId !== 'titanium-silver' && presetConfig.presetId !== 'neon-crimson';
   const effectiveFontSizePx = isCustomPreset
-    ? Math.max(24, Math.round(presetConfig.fontScale))
-    : Math.round(titleSizePx * scale * procArch.scaleMultiplier);
+    ? Math.max(22, Math.min(62, Math.round(presetConfig.fontScale)))
+    : Math.max(22, Math.min(68, Math.round(titleSizePx * scale * procArch.scaleMultiplier)));
+  const clampedFontSizeCss = `clamp(18px, 3.8vw, ${effectiveFontSizePx}px)`;
   const effectiveTrackingEm = isCustomPreset
     ? Math.max(0.01, tracking)
     : Math.max(0.02, tracking + procArch.trackingBoostEm);
@@ -367,7 +368,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   const primaryTitleStyle: React.CSSProperties = {
     fontFamily: presetConfig.banglaFontFamily,
-    fontSize: `${effectiveFontSizePx}px`,
+    fontSize: clampedFontSizeCss,
     letterSpacing: `${effectiveTrackingEm}em`,
     textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
     ...(hasGradientFill
@@ -727,10 +728,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                             <>
                               <span
                                 aria-hidden="true"
-                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60"
+                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full break-words [text-wrap:balance]"
                                 style={{
                                   fontFamily: presetConfig.banglaFontFamily,
-                                  fontSize: `${effectiveFontSizePx}px`,
+                                  fontSize: clampedFontSizeCss,
                                   letterSpacing: `${effectiveTrackingEm}em`,
                                   textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
                                   color: '#00F0FF',
@@ -741,10 +742,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                               </span>
                               <span
                                 aria-hidden="true"
-                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60"
+                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full break-words [text-wrap:balance]"
                                 style={{
                                   fontFamily: presetConfig.banglaFontFamily,
-                                  fontSize: `${effectiveFontSizePx}px`,
+                                  fontSize: clampedFontSizeCss,
                                   letterSpacing: `${effectiveTrackingEm}em`,
                                   textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
                                   color: '#FF0055',
@@ -771,7 +772,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                               if (e.detail >= 2) e.stopPropagation();
                             }}
                             title="Double-click to edit Bangla title directly on Stage"
-                            className={`relative font-black leading-tight select-none pointer-events-auto cursor-text title-morph-smooth ${
+                            className={`relative font-black leading-tight select-none pointer-events-auto cursor-text title-morph-smooth max-w-full break-words [text-wrap:balance] ${
                               procFx.hasStrobePulse || presetConfig.category === 'DOPAMINE'
                                 ? 'animate-pulse'
                                 : ''
@@ -833,7 +834,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                             if (e.detail >= 2) e.stopPropagation();
                           }}
                           title="Double-click to edit English subtitle directly on Stage"
-                          className="text-xs sm:text-sm md:text-base font-bold pointer-events-auto cursor-text title-morph-smooth"
+                          className="text-xs sm:text-sm font-bold pointer-events-auto cursor-text title-morph-smooth max-w-full break-words [text-wrap:balance]"
                           style={englishSubtitleStyle}
                         >
                           {displayEnglish}

@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Volume2, Video, Upload } from 'lucide-react';
+import { Volume2, Video, Upload, Link2, Unlink2 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
 import { ANGLE_CONFIGS, proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';
 import { isVideoSourceUrl } from '../../services/thumbnailEngine';
@@ -75,6 +75,7 @@ export interface MultiCamViewportGridProps {
   onCueAngle?: (angleIndex: number) => void;
   onSetMasterAudio?: (angleIndex: number) => void;
   onUploadAngleVideo?: (angleIndex: number, file: File) => void;
+  onToggleAngleSync?: (angleIndex: number) => void;
   videoRefs?: React.MutableRefObject<(HTMLVideoElement | null)[]>;
   config?: MultiCamGridConfig;
   onChangeConfig?: (config: MultiCamGridConfig) => void;
@@ -92,6 +93,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   onSelectAngle,
   onCueAngle,
   onUploadAngleVideo,
+  onToggleAngleSync,
   videoRefs: externalVideoRefs,
   config: controlledConfig,
   onChangeConfig,
@@ -102,6 +104,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
   const videoRefs = externalVideoRefs || internalVideoRefs;
   const [localConfig, setLocalConfig] = useState<MultiCamGridConfig>('3x3');
   const [flashingAngleIdx, setFlashingAngleIdx] = useState<number | null>(null);
+  const [unsyncedTimesMs, setUnsyncedTimesMs] = useState<Record<number, number>>({});
 
   const activeConfig = controlledConfig !== undefined ? controlledConfig : localConfig;
 
@@ -173,7 +176,24 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     return Math.max(1, Math.min(5, Math.round(wave * 5 * boost)));
   };
 
-  const renderCameraMedia = (angle: MultiCamAngle, idx: number, isLive: boolean) => {
+  const handleToggleCardSync = useCallback(
+    (e: React.MouseEvent, angleIdx: number, currentlySynced: boolean) => {
+      e.stopPropagation();
+      setUnsyncedTimesMs((prev) => {
+        const next = { ...prev };
+        if (currentlySynced) {
+          next[angleIdx] = currentTimeMs;
+        } else {
+          delete next[angleIdx];
+        }
+        return next;
+      });
+      onToggleAngleSync?.(angleIdx);
+    },
+    [currentTimeMs, onToggleAngleSync]
+  );
+
+  const renderCameraMedia = (angle: MultiCamAngle, idx: number, isLive: boolean, cardTimeMs: number) => {
     const isVid = Boolean(
       angle.blobUrl &&
       (angle.isVideo || isVideoSourceUrl(angle.blobUrl, { isVideo: angle.isVideo }))
@@ -215,7 +235,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
       <div className="w-full h-full" style={{ filter: lutCssFilter !== 'none' ? lutCssFilter : undefined }}>
         <ProceduralAngleCanvas
           index={idx}
-          currentTimeMs={currentTimeMs}
+          currentTimeMs={cardTimeMs}
           isActive={isLive}
           label={angle.label}
         />
@@ -269,13 +289,15 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
       </div>
 
       {/* Camera Cards Grid (Keep all video elements mounted for continuous sync) */}
-      <div className={`flex-1 min-h-0 p-2 grid gap-2 ${gridClass} bg-[#050608]`}>
+      <div className={`multi-cam-monitor-grid flex-1 min-h-0 p-2 grid gap-2 ${gridClass} bg-[#050608]`}>
         {displayAngles.map((angle, idx) => {
           const isVisible = visibleSet.has(idx);
           const isLive = idx === currentActiveAngleIdx;
           const isCued = !isLive && idx === cuedAngleIdx;
           const isFlashing = idx === flashingAngleIdx;
           const isMasterAudio = idx === masterAudioIndex;
+          const isTimeSynced = angle.isTimeSynced !== false;
+          const cardTimeMs = isTimeSynced ? currentTimeMs : (unsyncedTimesMs[idx] ?? currentTimeMs);
           const activeBars = getAudioMeterBars(idx, isLive, isMasterAudio);
           const is1x3Hero = activeConfig === '1x3' && idx === visibleIndices[0];
 
@@ -307,7 +329,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
             >
               {/* Live Feed Canvas / Video / Image */}
               <div className="absolute inset-0 bg-black overflow-hidden">
-                {renderCameraMedia(angle, idx, isLive)}
+                {renderCameraMedia(angle, idx, isLive, cardTimeMs)}
               </div>
 
               {/* Top Tally & Camera Badge Row */}
@@ -329,7 +351,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 shrink-0">
                   {/* Live Tally Label */}
                   {isLive && (
                     <span className="px-1.5 py-0.5 rounded bg-red-600 text-white font-mono font-black text-[9px] tracking-wider uppercase leading-none">
@@ -341,6 +363,28 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                       CUED
                     </span>
                   )}
+
+                  {/* Frame-Accurate Master Program Time-Sync Toggle */}
+                  <button
+                    type="button"
+                    data-testid={`multicam-sync-toggle-${idx}`}
+                    aria-pressed={isTimeSynced}
+                    aria-label={`Toggle frame-accurate time-sync for ${angle.label}`}
+                    onClick={(e) => handleToggleCardSync(e, idx, isTimeSynced)}
+                    title={
+                      isTimeSynced
+                        ? `${angle.label} frame-accurate time-sync with Master Program ON (click to disable)`
+                        : `${angle.label} time-sync with Master Program OFF (click to enable)`
+                    }
+                    className={`px-1.5 py-0.5 rounded border text-[9px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors ${
+                      isTimeSynced
+                        ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-300 hover:bg-cyan-500/35'
+                        : 'bg-black/85 border-white/20 text-neutral-400 hover:text-white hover:border-white/40'
+                    }`}
+                  >
+                    {isTimeSynced ? <Link2 className="w-2.5 h-2.5" /> : <Unlink2 className="w-2.5 h-2.5" />}
+                    <span>{isTimeSynced ? 'SYNC' : 'ASYNC'}</span>
+                  </button>
 
                   {/* Per-Camera Audio Level Meter */}
                   <div
@@ -390,6 +434,10 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0 text-neutral-400 tabular-nums">
                   {isMasterAudio && <Volume2 className="w-2.5 h-2.5 text-cyan-400" />}
+                  <span className={isTimeSynced ? 'text-cyan-300/90' : 'text-neutral-500'}>
+                    {isTimeSynced ? 'LOCKED' : 'FREE'}
+                  </span>
+                  <span>·</span>
                   <span>24F</span>
                 </div>
               </div>

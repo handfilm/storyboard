@@ -139,26 +139,37 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
   useEffect(() => {
     const base = initialGroup || DEFAULT_SAMPLE_MULTICAM_GROUP;
     if (!projectFrames || projectFrames.length === 0) {
-      setGroup(base);
+      setGroup((prev) => ({
+        ...base,
+        angles: base.angles.map((angle, idx) => ({
+          ...angle,
+          isTimeSynced: angle.isTimeSynced ?? prev.angles[idx]?.isTimeSynced
+        }))
+      }));
       return;
     }
 
-    setGroup({
+    setGroup((prev) => ({
       ...base,
       angles: base.angles.map((angle, idx) => {
         const frame = projectFrames[idx];
         const hasUserUpload = angle.mediaId?.startsWith('user-') || angle.blobUrl?.startsWith('blob:');
+        const preservedSync = angle.isTimeSynced ?? prev.angles[idx]?.isTimeSynced;
         if (!hasUserUpload && frame?.imageUrl) {
           return {
             ...angle,
             blobUrl: frame.imageUrl,
             isVideo: Boolean(frame.isVideo),
-            name: frame.title || angle.name
+            name: frame.title || angle.name,
+            isTimeSynced: preservedSync
           };
         }
-        return angle;
+        return {
+          ...angle,
+          isTimeSynced: preservedSync
+        };
       })
-    });
+    }));
   }, [initialGroup, projectFrames]);
 
   useEffect(() => {
@@ -229,6 +240,44 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
       }
     },
     [onSaveGroup]
+  );
+
+  const handleToggleAngleSync = useCallback(
+    (angleIndex: number) => {
+      const currentAngle = group.angles[angleIndex];
+      if (!currentAngle) return;
+
+      const nextSynced = currentAngle.isTimeSynced === false;
+      const updatedAngles = group.angles.map((ang, idx) =>
+        idx === angleIndex ? { ...ang, isTimeSynced: nextSynced } : ang
+      );
+      const nextGroup: MultiCamGroup = { ...group, angles: updatedAngles };
+
+      setGroup(nextGroup);
+      onSaveGroup?.(nextGroup);
+
+      const vid = videoRefs.current[angleIndex];
+      if (vid) {
+        if (nextSynced) {
+          const targetSec = Math.max(0, (currentTimeMs - (currentAngle.syncOffsetMs || 0)) / 1000);
+          if (typeof vid.fastSeek === 'function') {
+            try {
+              vid.fastSeek(targetSec);
+            } catch {
+              vid.currentTime = targetSec;
+            }
+          } else {
+            vid.currentTime = targetSec;
+          }
+          if (isPlaying && vid.paused) {
+            vid.play().catch(() => {});
+          }
+        } else if (!vid.paused) {
+          vid.pause();
+        }
+      }
+    },
+    [group, currentTimeMs, isPlaying, onSaveGroup]
   );
 
   const masterAudioIndex = Math.max(0, Math.min(group.angles.length - 1, group.masterAudioAngleIndex || 0));
@@ -438,7 +487,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, group.angles.length, switchAngle, handleSplitAtPlayhead, undoLastCut, redoCut, durationMs, onChangeLayoutConfig]);
 
-  // Synchronized Master Clock & Video Element Sync
+  // Synchronized Master Clock & Frame-Accurate Video Element Sync
   useEffect(() => {
     if (!isOpen) return;
 
@@ -448,16 +497,19 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         const angle = group.angles[idx];
         if (!angle) return;
 
-        const targetSec = Math.max(0, (timeMs - (angle.syncOffsetMs || 0)) / 1000);
-        if (Math.abs(video.currentTime - targetSec) > 0.16) {
-          if (typeof video.fastSeek === 'function') {
-            try {
-              video.fastSeek(targetSec);
-            } catch {
+        // Only frame-sync preview cards that have Master Program time-sync enabled
+        if (angle.isTimeSynced !== false) {
+          const targetSec = Math.max(0, (timeMs - (angle.syncOffsetMs || 0)) / 1000);
+          if (Math.abs(video.currentTime - targetSec) > 0.033) {
+            if (typeof video.fastSeek === 'function') {
+              try {
+                video.fastSeek(targetSec);
+              } catch {
+                video.currentTime = targetSec;
+              }
+            } else {
               video.currentTime = targetSec;
             }
-          } else {
-            video.currentTime = targetSec;
           }
         }
 
@@ -472,7 +524,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
       if (programVideoRef.current && activeAngle) {
         const targetSec = Math.max(0, (timeMs - (activeAngle.syncOffsetMs || 0)) / 1000);
-        if (Math.abs(programVideoRef.current.currentTime - targetSec) > 0.14) {
+        if (Math.abs(programVideoRef.current.currentTime - targetSec) > 0.033) {
           if (typeof programVideoRef.current.fastSeek === 'function') {
             try {
               programVideoRef.current.fastSeek(targetSec);
@@ -488,8 +540,14 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
     if (isPlaying) {
       lastTimeRef.current = performance.now();
-      videoRefs.current.forEach((v) => {
-        if (v && v.paused) v.play().catch(() => {});
+      videoRefs.current.forEach((v, idx) => {
+        if (!v) return;
+        const isSynced = group.angles[idx]?.isTimeSynced !== false;
+        if (isSynced && v.paused) {
+          v.play().catch(() => {});
+        } else if (!isSynced && !v.paused) {
+          v.pause();
+        }
       });
       if (programVideoRef.current && programVideoRef.current.paused) {
         programVideoRef.current.play().catch(() => {});
@@ -538,7 +596,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
     videoRefs.current.forEach((video, idx) => {
       if (!video) return;
       const angle = group.angles[idx];
-      if (angle) {
+      if (angle && angle.isTimeSynced !== false) {
         const sec = Math.max(0, (targetMs - (angle.syncOffsetMs || 0)) / 1000);
         if (typeof video.fastSeek === 'function') {
           try { video.fastSeek(sec); } catch { video.currentTime = sec; }
@@ -690,6 +748,7 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
             onSelectAngle={switchAngle}
             onCueAngle={setCuedAngleIdx}
             onUploadAngleVideo={handleUploadAngleVideo}
+            onToggleAngleSync={handleToggleAngleSync}
             videoRefs={videoRefs}
             config={activeConfig}
             onChangeConfig={(cfg) => {

@@ -14,6 +14,7 @@ export interface MultiCamAngle {
   isMuted?: boolean;
   name?: string;
   isVideo?: boolean;
+  isTimeSynced?: boolean; // Frame-accurate time-sync with Master Program monitor (default: true)
 }
 
 export interface CutEvent {

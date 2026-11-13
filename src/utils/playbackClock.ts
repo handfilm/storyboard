@@ -107,11 +107,21 @@ export function isVideoMediaUrl(url?: string | null, explicitIsVideo?: boolean, 
   if (explicitIsVideo) return true;
   if (mimeType && mimeType.toLowerCase().startsWith('video/')) return true;
   if (!url) return false;
-  return (
-    url.startsWith('data:video') ||
-    /#video\b/i.test(url) ||
-    /\.(mp4|webm|mov|ogg|m4v|mkv|avi)($|\?)/i.test(url)
-  );
+  if (url.startsWith('data:video') || /#video\b/i.test(url)) return true;
+  if (/\.(mp4|webm|mov|ogg|m4v|mkv|avi)($|\?)/i.test(url)) return true;
+  if (url.includes('/api/local-video')) {
+    try {
+      const qIdx = url.indexOf('?');
+      if (qIdx !== -1) {
+        const params = new URLSearchParams(url.slice(qIdx + 1));
+        const nativePath = params.get('path') || '';
+        if (/\.(mp4|webm|mov|ogg|m4v|mkv|avi)$/i.test(nativePath)) return true;
+      }
+    } catch {
+      // ignore malformed query
+    }
+  }
+  return false;
 }
 
 export class PlaybackClockBus {

@@ -59,7 +59,20 @@ export function isVideoSourceUrl(
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim().toLowerCase();
   if (trimmed.startsWith('data:video')) return true;
-  return /\.(mp4|webm|mov|m4v|mkv|avi|ogv)(\?|#|$)/i.test(trimmed);
+  if (/\.(mp4|webm|mov|m4v|mkv|avi|ogv)(\?|#|$)/i.test(trimmed)) return true;
+  if (trimmed.includes('/api/local-video')) {
+    try {
+      const qIdx = url.indexOf('?');
+      if (qIdx !== -1) {
+        const params = new URLSearchParams(url.slice(qIdx + 1));
+        const nativePath = params.get('path') || '';
+        if (/\.(mp4|webm|mov|m4v|mkv|avi|ogv)$/i.test(nativePath)) return true;
+      }
+    } catch {
+      // ignore malformed query
+    }
+  }
+  return false;
 }
 
 // In-Memory Fast LRU Cache (Up to 250 items)

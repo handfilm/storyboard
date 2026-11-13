@@ -582,7 +582,13 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         flushDirectPlayerDom(activeFrame.subclipInSec);
       }
       if (isPlaying && videoRef.current.paused) {
-        videoRef.current.play().catch(() => {});
+        videoRef.current.play().catch(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            setIsMuted(true);
+            videoRef.current.play().catch(() => {});
+          }
+        });
       }
     }
   };

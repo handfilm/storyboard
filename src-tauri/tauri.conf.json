@@ -18,7 +18,8 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+        "additionalBrowserArgs": "--enable-features=PlatformHEVCDecoderSupport,HardwareMediaKeyHandling --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --disable-background-media-suspend"
       }
     ],
     "security": {

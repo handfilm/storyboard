@@ -68,7 +68,7 @@ import {
   deleteShotMedia,
   getShotMediaKey
 } from './services/handfilmMediaVault';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   ensureVideoThumbnailUrl,
   isSvgPlaceholderUrl,
@@ -2302,11 +2302,34 @@ export default function App() {
     }
   }, [handleNativePathForIndex]);
 
-  // Tauri v2 Native OS Drag-and-Drop Listener (`tauri://drag-drop` -> instant zero-copy convertFileSrc streaming)
+  // Tauri v2 Native OS Drag-and-Drop Listener (`getCurrentWindow().onDragDropEvent` -> real Windows file path + HTTP 206 streaming)
   useEffect(() => {
     if (!isTauriNativeRuntime()) return;
     let unlisten: (() => void) | null = null;
     let cancelled = false;
+
+    const resolveDropTargetToIndex = (dropEl: Element | null): number | null => {
+      if (!dropEl) return null;
+      const shotIdAttr = dropEl.getAttribute('data-shot-id');
+      if (shotIdAttr !== null && shotIdAttr.trim() !== '') {
+        const frames = projectFramesRef.current;
+        const byKeyIdx = frames.findIndex(
+          (f, idx) => getShotMediaKey(f, idx) === shotIdAttr || String(f.id) === shotIdAttr
+        );
+        if (byKeyIdx !== -1) return byKeyIdx;
+      }
+      const indexAttr =
+        dropEl.getAttribute('data-shot-drop-index') ??
+        dropEl.getAttribute('data-card-index') ??
+        dropEl.getAttribute('data-shot-card');
+      if (indexAttr !== null && indexAttr !== 'true') {
+        const parsed = Number(indexAttr);
+        if (Number.isInteger(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+      return null;
+    };
 
     const findShotDropTarget = (x: number, y: number): number | null => {
       if (typeof document === 'undefined') return null;
@@ -2315,19 +2338,19 @@ export default function App() {
       if (dpr !== 1) {
         candidatePoints.push([x / dpr, y / dpr]);
       }
+      const selector = '[data-shot-id], [data-shot-drop-index], [data-card-index], [data-shot-card]';
       for (const [px, py] of candidatePoints) {
         if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
         try {
+          const directHit = document.elementFromPoint(px, py)?.closest?.(selector) ?? null;
+          const directResolved = resolveDropTargetToIndex(directHit);
+          if (directResolved !== null) return directResolved;
+
           const els = document.elementsFromPoint(px, py);
           for (const el of els) {
-            const dropEl = (el as HTMLElement).closest?.('[data-shot-drop-index], [data-shot-card]');
-            if (dropEl) {
-              const attr = dropEl.getAttribute('data-shot-drop-index') ?? dropEl.getAttribute('data-shot-card');
-              const parsed = attr !== null ? Number(attr) : NaN;
-              if (Number.isInteger(parsed) && parsed >= 0) {
-                return parsed;
-              }
-            }
+            const dropEl = (el as HTMLElement).closest?.(selector) ?? null;
+            const resolved = resolveDropTargetToIndex(dropEl);
+            if (resolved !== null) return resolved;
           }
         } catch {
           // ignore
@@ -2336,7 +2359,7 @@ export default function App() {
       return null;
     };
 
-    void getCurrentWebview()
+    void getCurrentWindow()
       .onDragDropEvent(async (event) => {
         if (cancelled) return;
         const payload = event.payload;
@@ -2361,7 +2384,7 @@ export default function App() {
         }
       })
       .catch(() => {
-        // Non-Tauri or webview listener fallback
+        // Non-Tauri or window listener fallback
       });
 
     return () => {

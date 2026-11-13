@@ -372,6 +372,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
                   key={mediaUrl}
                   ref={videoRef}
                   src={mediaUrl}
+                  crossOrigin="anonymous"
                   playsInline
                   muted={isMuted}
                   autoPlay={isPlaying}

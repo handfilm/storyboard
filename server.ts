@@ -441,6 +441,129 @@ app.post('/api/ai/music/generate', async (req, res) => {
   }
 });
 
+// Local File HTTP 206 Partial Content Byte-Range Streamer (VLC-grade 4K seeking for WebView2 / Media Foundation)
+const LOCAL_MEDIA_MIME_MAP: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.m4v': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.webm': 'video/webm',
+  '.mkv': 'video/x-matroska',
+  '.avi': 'video/x-msvideo',
+  '.ogv': 'video/ogg',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.aac': 'audio/aac',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg'
+};
+
+function setLocalVideoCorsHeaders(res: express.Response) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+}
+
+app.options('/api/local-video', (_req, res) => {
+  setLocalVideoCorsHeaders(res);
+  res.status(204).end();
+});
+
+app.use('/api/local-video', (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  setLocalVideoCorsHeaders(res);
+
+  const rawPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+  if (!rawPath) {
+    return res.status(400).json({ success: false, error: 'Missing path query parameter' });
+  }
+
+  let fileStat: fs.Stats;
+  try {
+    fileStat = fs.statSync(rawPath);
+    if (!fileStat.isFile()) {
+      return res.status(404).json({ success: false, error: 'Target is not a file' });
+    }
+  } catch {
+    return res.status(404).json({ success: false, error: 'Local media file not found' });
+  }
+
+  const fileSize = fileStat.size;
+  const ext = path.extname(rawPath).toLowerCase();
+  const contentType = LOCAL_MEDIA_MIME_MAP[ext] || 'application/octet-stream';
+  const rangeHeader = req.headers.range;
+
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cache-Control', 'no-store');
+
+  if (rangeHeader) {
+    const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+    if (!match) {
+      res.setHeader('Content-Range', `bytes */${fileSize}`);
+      return res.status(416).end();
+    }
+
+    let start = match[1] ? parseInt(match[1], 10) : 0;
+    let end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+
+    if (!match[1] && match[2]) {
+      const suffixLen = parseInt(match[2], 10);
+      start = Math.max(0, fileSize - suffixLen);
+      end = fileSize - 1;
+    }
+
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      start < 0 ||
+      end >= fileSize ||
+      start > end
+    ) {
+      res.setHeader('Content-Range', `bytes */${fileSize}`);
+      return res.status(416).end();
+    }
+
+    const chunkSize = end - start + 1;
+    res.status(206);
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+    res.setHeader('Content-Length', String(chunkSize));
+
+    if (req.method === 'HEAD') {
+      return res.end();
+    }
+
+    const stream = fs.createReadStream(rawPath, { start, end, highWaterMark: 256 * 1024 });
+    res.on('close', () => stream.destroy());
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+      else res.end();
+    });
+    stream.pipe(res);
+    return;
+  }
+
+  res.status(200);
+  res.setHeader('Content-Length', String(fileSize));
+
+  if (req.method === 'HEAD') {
+    return res.end();
+  }
+
+  const stream = fs.createReadStream(rawPath, { highWaterMark: 256 * 1024 });
+  res.on('close', () => stream.destroy());
+  stream.on('error', () => {
+    if (!res.headersSent) res.status(500).end();
+    else res.end();
+  });
+  stream.pipe(res);
+});
+
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', engine: 'RAWx Storyboard Engine Enterprise', time: new Date().toISOString() });

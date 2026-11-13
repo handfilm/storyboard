@@ -164,7 +164,7 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
         angle.blobUrl.startsWith('data:video')
       ))
     );
-    if (isVideo && index === activeAngleIndex) {
+    if (isVideo && index === currentActiveAngleIdx) {
       return (
         <video
           ref={el => { videoRefs.current[index] = el; }}

@@ -262,6 +262,8 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
   return (
     <div
       ref={cardRef}
+      data-shot-id={getShotMediaKey(slide as any, index)}
+      data-shot-drop-index={index}
       data-card-index={index}
       onClick={onSelect}
       onDragOver={(e) => {

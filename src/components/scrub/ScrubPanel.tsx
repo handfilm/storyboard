@@ -44,7 +44,7 @@ import { syncVideoCurrentTimeWithFastSeek } from '../../utils/playbackClock';
 import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
 import { audioEngine } from '../../utils/audioEngine';
 import { useStudioStore } from '../../core/store';
-import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
+import { getShotMediaKey, resolveShotMediaEntry } from '../../services/handfilmMediaVault';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isVideoSourceUrl } from '../../services/thumbnailEngine';
 import {
@@ -961,6 +961,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               return (
                 <div
                   key={slide.id || `slide_${resolvedIndex}`}
+                  data-shot-id={getShotMediaKey(slide as any, resolvedIndex)}
                   data-shot-card={resolvedIndex}
                   data-shot-drop-index={resolvedIndex}
                   onClick={() => onSelectSlide(resolvedIndex)}

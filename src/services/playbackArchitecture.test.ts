@@ -117,7 +117,10 @@ test('clampGpuPanZoom clamps zoom within 1.0x-4.0x, zeros pan at 1.0x, and forma
   assert.strictEqual(zoomed.cssTransform, 'translate3d(1500.0px, -750.0px, 0) scale(4.0000)');
 });
 
-test('handfilmMediaVault persists per-shot Tauri native paths without cross-shot bleed and hydrates via convertFileSrc', async () => {
+import { isVideoSourceUrl } from './thumbnailEngine';
+import { isVideoMediaUrl } from '../utils/playbackClock';
+
+test('handfilmMediaVault persists per-shot Tauri native paths without cross-shot bleed and hydrates via HTTP 206 local-video endpoint', async () => {
   const originalWindow = (globalThis as Record<string, unknown>).window;
   const originalLocalStorage = (globalThis as Record<string, unknown>).localStorage;
 
@@ -135,9 +138,7 @@ test('handfilmMediaVault persists per-shot Tauri native paths without cross-shot
   try {
     (globalThis as Record<string, unknown>).localStorage = mockLocalStorage;
     (globalThis as Record<string, unknown>).window = {
-      __TAURI_INTERNALS__: {
-        convertFileSrc: (filePath: string) => `http://asset.localhost/${encodeURIComponent(filePath)}`
-      }
+      __TAURI_INTERNALS__: {}
     };
 
     clearAllShotNativePaths();
@@ -148,10 +149,21 @@ test('handfilmMediaVault persists per-shot Tauri native paths without cross-shot
     assert.strictEqual(entryShot3.type, 'video');
     assert.strictEqual(entryShot3.isTauriAsset, true);
     assert.strictEqual(entryShot3.nativePath, 'C:\\Movies\\Shot003_4K.mp4');
-    assert.ok(entryShot3.url.startsWith('http://asset.localhost/'));
+    assert.strictEqual(
+      entryShot3.url,
+      `http://127.0.0.1:5173/api/local-video?path=${encodeURIComponent('C:\\Movies\\Shot003_4K.mp4')}`
+    );
+    assert.strictEqual(isVideoSourceUrl(entryShot3.url), true);
+    assert.strictEqual(isVideoMediaUrl(entryShot3.url), true);
 
     assert.strictEqual(entryShot17.type, 'image');
     assert.strictEqual(entryShot17.nativePath, 'D:\\Stills\\Shot017.png');
+    assert.strictEqual(
+      entryShot17.url,
+      `http://127.0.0.1:5173/api/local-video?path=${encodeURIComponent('D:\\Stills\\Shot017.png')}`
+    );
+    assert.strictEqual(isVideoSourceUrl(entryShot17.url), false);
+    assert.strictEqual(isVideoMediaUrl(entryShot17.url), false);
 
     const rawPaths = loadAllShotNativePaths();
     assert.strictEqual(Object.keys(rawPaths).length, 2);
@@ -180,17 +192,24 @@ test('handfilmMediaVault persists per-shot Tauri native paths without cross-shot
   }
 });
 
-test('tauri.conf.json enables assetProtocol wildcard scope and dragDropEnabled', () => {
+test('tauri.conf.json enables dragDropEnabled and Windows WebView2 GPU hardware decoding flags', () => {
   const confPath = path.resolve(process.cwd(), 'src-tauri/tauri.conf.json');
   const raw = fs.readFileSync(confPath, 'utf8');
   const conf = JSON.parse(raw) as {
     app?: {
-      windows?: Array<{ dragDropEnabled?: boolean }>;
+      windows?: Array<{ dragDropEnabled?: boolean; additionalBrowserArgs?: string }>;
       security?: { assetProtocol?: { enable?: boolean; scope?: string[] } };
     };
   };
 
   assert.strictEqual(conf.app?.windows?.[0]?.dragDropEnabled, true);
+  const args = conf.app?.windows?.[0]?.additionalBrowserArgs || '';
+  assert.ok(args.includes('PlatformHEVCDecoderSupport'));
+  assert.ok(args.includes('HardwareMediaKeyHandling'));
+  assert.ok(args.includes('--ignore-gpu-blocklist'));
+  assert.ok(args.includes('--enable-gpu-rasterization'));
+  assert.ok(args.includes('--enable-zero-copy'));
+  assert.ok(args.includes('--disable-background-media-suspend'));
   assert.strictEqual(conf.app?.security?.assetProtocol?.enable, true);
   assert.deepStrictEqual(conf.app?.security?.assetProtocol?.scope, ['**']);
 });
@@ -202,6 +221,8 @@ test('single hardware video decoder & GPU layer promotion invariants hold across
   );
   assert.ok(tactileStage.includes("slot.role === 'active' || slot.role === 'next'"));
   assert.ok(tactileStage.includes("preload={isSlotActive ? 'auto' : 'metadata'}"));
+  assert.ok(tactileStage.includes('crossOrigin="anonymous"'));
+  assert.ok(tactileStage.includes('playsInline'));
   assert.ok(tactileStage.includes("transform: 'translateZ(0)'"));
   assert.ok(tactileStage.includes("backfaceVisibility: 'hidden'"));
 
@@ -209,6 +230,9 @@ test('single hardware video decoder & GPU layer promotion invariants hold across
     path.resolve(process.cwd(), 'src/components/player/CinemaPlayer.tsx'),
     'utf8'
   );
+  assert.ok(cinemaPlayer.includes('crossOrigin="anonymous"'));
+  assert.ok(cinemaPlayer.includes('preload="auto"'));
+  assert.ok(cinemaPlayer.includes('playsInline'));
   assert.ok(cinemaPlayer.includes("transform: 'translateZ(0)'"));
   assert.ok(cinemaPlayer.includes("backfaceVisibility: 'hidden'"));
 
@@ -216,5 +240,6 @@ test('single hardware video decoder & GPU layer promotion invariants hold across
     path.resolve(process.cwd(), 'src/components/ShotMediaThumbnail.tsx'),
     'utf8'
   );
-  assert.ok(!thumb.includes('<video'), 'ShotMediaThumbnail must never mount <video> decoders');
+  const thumbCodeOnly = thumb.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  assert.ok(!/<video[\s>]/i.test(thumbCodeOnly), 'ShotMediaThumbnail must never mount <video> decoders');
 });

@@ -5,12 +5,11 @@
  * any individual shot updates ONLY that shot across reloads.
  */
 
-import { convertFileSrc } from '@tauri-apps/api/core';
-
 export const HANDFILM_MEDIA_VAULT_DB = 'handfilm_media_vault';
 export const HANDFILM_MEDIA_VAULT_VERSION = 1;
 export const HANDFILM_MEDIA_VAULT_STORE = 'shot_media';
 export const HANDFILM_SHOT_PATHS_KEY = 'handfilm_shot_paths';
+export const LOCAL_VIDEO_STREAM_ORIGIN = 'http://127.0.0.1:5173';
 
 export type ShotMediaType = 'image' | 'video';
 
@@ -66,14 +65,16 @@ export function inferMimeTypeFromFileName(name: string, type: ShotMediaType): st
   return type === 'video' ? 'video/mp4' : 'image/jpeg';
 }
 
+export function resolveLocalVideoUrl(nativePath: string): string {
+  if (!nativePath) return '';
+  if (/^(https?:|blob:|data:)/i.test(nativePath)) return nativePath;
+  return `${LOCAL_VIDEO_STREAM_ORIGIN}/api/local-video?path=${encodeURIComponent(nativePath)}`;
+}
+
 export function resolveTauriAssetUrl(nativePath: string): string {
   if (!nativePath) return '';
   if (!isTauriNativeRuntime()) return nativePath;
-  try {
-    return convertFileSrc(nativePath);
-  } catch {
-    return nativePath;
-  }
+  return resolveLocalVideoUrl(nativePath);
 }
 
 export function loadAllShotNativePaths(): Record<string, StoredShotNativePathRecord> {
@@ -297,7 +298,7 @@ export async function saveShotMediaBlob(
 
 /**
  * Hydrates all stored shot media entries:
- * 1. Tauri native paths from `localStorage` (`handfilm_shot_paths`) resolved zero-copy via `convertFileSrc`
+ * 1. Tauri native paths from `localStorage` (`handfilm_shot_paths`) resolved via HTTP 206 byte-range stream
  * 2. IndexedDB Blobs from `handfilm_media_vault` hydrated with `URL.createObjectURL`
  */
 export async function loadAllShotMedia(): Promise<ShotMediaMap> {

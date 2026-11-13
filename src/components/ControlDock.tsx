@@ -865,6 +865,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <div
                 key={`shot-strip-${idx}-${frame?.id ?? 'none'}`}
                 data-testid={`scrubber-index-marker-${idx}`}
+                data-shot-id={shotKey}
                 data-shot-drop-index={idx}
                 onClick={() => onSelectFrame(idx)}
                 onDragOver={(e) => {

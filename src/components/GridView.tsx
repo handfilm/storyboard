@@ -955,6 +955,8 @@ export const GridView: React.FC<GridViewProps> = ({
           return (
             <div
               key={`grid-frame-${index}-${frame?.id ?? 'none'}`}
+              data-shot-id={getShotMediaKey(frame, resolvedIdx)}
+              data-shot-drop-index={resolvedIdx}
               draggable={!isMultiSelectMode && !isCompareMode}
               onDragStart={(e) => handleDragStart(e, frame.id)}
               onDragOver={(e) => handleDragOver(e, frame.id)}

@@ -474,17 +474,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                       decoding="async"
                       className="w-full h-full object-cover"
                     />
-                  ) : pSlide.isVideo && pSlide.remoteUrl ? (
-                    <video
-                      src={pSlide.remoteUrl}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="w-full h-full object-cover"
-                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-[#0B0C12] text-[8px] text-zinc-500">
-                      EMPTY FRAME
+                      {pSlide.isVideo ? `VIDEO · SH${pNum}` : 'EMPTY FRAME'}
                     </div>
                   )}
                   <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8px] tabular-nums">

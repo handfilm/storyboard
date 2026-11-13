@@ -433,7 +433,7 @@ export const WebCodecsStageCompositor: React.FC<WebCodecsStageCompositorProps> =
         crossOrigin="anonymous"
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
         className="hidden"
       />
 

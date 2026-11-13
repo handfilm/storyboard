@@ -28,6 +28,7 @@ export type ClockListener = (snapshot: PlaybackClockSnapshot) => void;
 export interface FastSeekableVideo {
   currentTime: number;
   duration: number;
+  paused?: boolean;
   seeking?: boolean;
   readyState?: number;
   fastSeek?: (time: number) => void;
@@ -36,13 +37,18 @@ export interface FastSeekableVideo {
 /**
  * Directly synchronizes an HTMLMediaElement's currentTime to `targetSec` using `video.fastSeek()`
  * when available for sub-millisecond scrub precision, with safe `.currentTime` fallback.
+ *
+ * Pure Native Clock Rule: When `video.paused === false` (actively playing), seeking inside rAF
+ * or effect ticks is strictly forbidden unless `allowWhilePlaying` is explicitly true.
  */
 export function syncVideoCurrentTimeWithFastSeek(
   video: FastSeekableVideo | null | undefined,
   targetSec: number,
-  driftThresholdSec: number = 0.0005
+  driftThresholdSec: number = 0.0005,
+  allowWhilePlaying: boolean = false
 ): boolean {
   if (!video) return false;
+  if (video.paused === false && !allowWhilePlaying) return false;
   if (video.seeking) return false;
 
   const rawTarget = Number.isFinite(targetSec) ? Math.max(0, targetSec) : 0;

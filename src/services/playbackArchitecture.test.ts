@@ -194,3 +194,27 @@ test('tauri.conf.json enables assetProtocol wildcard scope and dragDropEnabled',
   assert.strictEqual(conf.app?.security?.assetProtocol?.enable, true);
   assert.deepStrictEqual(conf.app?.security?.assetProtocol?.scope, ['**']);
 });
+
+test('single hardware video decoder & GPU layer promotion invariants hold across Stage & Thumbnails', () => {
+  const tactileStage = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/stage/TactileStage.tsx'),
+    'utf8'
+  );
+  assert.ok(tactileStage.includes("slot.role === 'active' || slot.role === 'next'"));
+  assert.ok(tactileStage.includes("preload={isSlotActive ? 'auto' : 'metadata'}"));
+  assert.ok(tactileStage.includes("transform: 'translateZ(0)'"));
+  assert.ok(tactileStage.includes("backfaceVisibility: 'hidden'"));
+
+  const cinemaPlayer = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/player/CinemaPlayer.tsx'),
+    'utf8'
+  );
+  assert.ok(cinemaPlayer.includes("transform: 'translateZ(0)'"));
+  assert.ok(cinemaPlayer.includes("backfaceVisibility: 'hidden'"));
+
+  const thumb = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/ShotMediaThumbnail.tsx'),
+    'utf8'
+  );
+  assert.ok(!thumb.includes('<video'), 'ShotMediaThumbnail must never mount <video> decoders');
+});

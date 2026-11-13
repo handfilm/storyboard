@@ -34,7 +34,6 @@ import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import { ShotMediaThumbnail } from './ShotMediaThumbnail';
 import {
   formatSMPTETimecode,
-  cleanupVideoElement,
   isVideoSourceUrl,
   thumbnailMemoryCache
 } from '../services/thumbnailEngine';
@@ -121,7 +120,6 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const latestMouseXRef = useRef<number>(0);
 
@@ -184,17 +182,6 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
 
         setCursorX(x);
         setSmpteTimecode(formatSMPTETimecode(targetSec, targetFps));
-
-        if (videoRef.current && videoRef.current.readyState >= 1) {
-          try {
-            videoRef.current.muted = true;
-            const mediaDur = videoRef.current.duration;
-            videoRef.current.currentTime =
-              Number.isFinite(mediaDur) && mediaDur > 0 ? targetSec % mediaDur : targetSec;
-          } catch {
-            // ignore
-          }
-        }
       });
     }
   };
@@ -211,13 +198,6 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
-    }
-    if (videoRef.current) {
-      try {
-        videoRef.current.pause();
-      } catch {
-        // ignore
-      }
     }
   };
 
@@ -273,9 +253,6 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
     return () => {
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
-      }
-      if (videoRef.current) {
-        cleanupVideoElement(videoRef.current);
       }
     };
   }, []);
@@ -347,20 +324,11 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
               title={slide.titleEn}
               bengaliTitle={slide.titleBn}
               virtualized={isWithinBuffer}
+              disableLiveVideoElement
               className="w-full h-full overflow-hidden"
               mediaClassName="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity"
               alt={slide.titleEn || `Shot ${epNum}`}
             />
-            {isWithinBuffer && isVideo && resolvedMediaUrl && isHovered && (
-              <video
-                ref={videoRef}
-                src={resolvedMediaUrl}
-                muted
-                playsInline
-                preload="auto"
-                className="absolute inset-0 w-full h-full object-cover opacity-95 pointer-events-none"
-              />
-            )}
           </>
         ) : (
           <div className="w-full h-full bg-[#0D0D14] flex flex-col items-center justify-center text-zinc-700">

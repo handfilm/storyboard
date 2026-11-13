@@ -540,6 +540,9 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
 
     if (isPlaying) {
       lastTimeRef.current = performance.now();
+      // Seek ONCE before calling play() (never write currentTime inside rAF while playing)
+      syncVideosToTime(currentTimeMs);
+
       videoRefs.current.forEach((v, idx) => {
         if (!v) return;
         const isSynced = group.angles[idx]?.isTimeSynced !== false;
@@ -557,17 +560,25 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
         const deltaMs = now - lastTimeRef.current;
         lastTimeRef.current = now;
 
+        const pVid = programVideoRef.current;
         setCurrentTimeMs((prev) => {
-          let next = prev + deltaMs;
+          let next =
+            pVid && !pVid.paused && pVid.readyState >= 2 && Number.isFinite(pVid.currentTime)
+              ? pVid.currentTime * 1000 + (activeAngle?.syncOffsetMs || 0)
+              : prev + deltaMs;
           if (next >= durationMs) {
             if (isLooping) {
               next = 0;
+              if (pVid) {
+                pVid.pause();
+                try { pVid.currentTime = 0; } catch {}
+                pVid.play().catch(() => {});
+              }
             } else {
               setIsPlaying(false);
               return durationMs;
             }
           }
-          syncVideosToTime(next);
           return next;
         });
 
@@ -805,7 +816,11 @@ export const MultiCamGridMonitor: React.FC<MultiCamGridMonitorProps> = ({
                     playsInline
                     muted
                     autoPlay={isPlaying}
-                    preload="auto"
+                    preload="metadata"
+                    style={{
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }}
                     className="w-full h-full object-cover"
                   />
                 ) : activeAngleIsImage ? (

@@ -495,10 +495,21 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
       const isFrozen = Boolean(clip.speed?.isFrozen);
       const isReversed = Boolean(clip.speed?.isReversed);
 
-      // Sub-millisecond fastSeek precision when paused, frozen, reversed, or scrubbing; loose guard while hardware plays
-      const driftTolerance = playing && !isFrozen && !isReversed ? 0.16 : 0.0005;
-      if (Number.isFinite(targetMediaTime) && el.readyState >= 1) {
-        syncVideoCurrentTimeWithFastSeek(el, targetMediaTime, driftTolerance);
+      const isInitialClipEntry = el.dataset.activeClipId !== clip.id;
+      if (!playing || isFrozen || isReversed) {
+        if (!el.paused) el.pause();
+        el.dataset.activeClipId = clip.id;
+        if (Number.isFinite(targetMediaTime) && el.readyState >= 1) {
+          syncVideoCurrentTimeWithFastSeek(el, targetMediaTime, 0.0005);
+        }
+      } else if (isInitialClipEntry && el.readyState >= 1) {
+        el.dataset.activeClipId = clip.id;
+        if (Number.isFinite(targetMediaTime) && Math.abs(el.currentTime - targetMediaTime) > 0.08) {
+          if (!el.paused) el.pause();
+          try {
+            el.currentTime = targetMediaTime;
+          } catch {}
+        }
       }
 
       if (Math.abs(el.playbackRate - speedMult) > 0.02) {
@@ -1774,6 +1785,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       playsInline
                       preload="auto"
                       onLoadedMetadata={() => syncVideoElement(v1VideoRef.current, activeMonitorV1Clip)}
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                       className="w-full h-full object-cover"
                     />
                   ) : activeMonitorV1Clip.url ? (
@@ -1870,8 +1882,9 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       ref={v2VideoRef}
                       src={activeMonitorV2Clip.url}
                       playsInline
-                      preload="auto"
+                      preload="metadata"
                       onLoadedMetadata={() => syncVideoElement(v2VideoRef.current, activeMonitorV2Clip)}
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                       className="w-full h-full object-cover rounded shadow-2xl border border-cyan-400/30"
                     />
                   ) : activeMonitorV2Clip.url ? (

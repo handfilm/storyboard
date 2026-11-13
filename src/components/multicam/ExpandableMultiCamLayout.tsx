@@ -164,18 +164,32 @@ export const ExpandableMultiCamLayout: React.FC<ExpandableMultiCamLayoutProps> =
         angle.blobUrl.startsWith('data:video')
       ))
     );
-    if (isVideo) {
+    if (isVideo && index === activeAngleIndex) {
       return (
         <video
           ref={el => { videoRefs.current[index] = el; }}
           src={angle.blobUrl}
           playsInline
           muted
-          preload="auto"
+          preload="metadata"
           disablePictureInPicture
-          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+          style={{ willChange: 'transform', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
           className={`w-full h-full ${isFill ? 'object-cover' : 'object-contain'} pointer-events-none select-none transition-all duration-300`}
         />
+      );
+    }
+
+    if (isVideo) {
+      const proc = getShotProceduralSpec(index * 10);
+      return (
+        <div
+          className="w-full h-full flex flex-col items-center justify-center pointer-events-none select-none"
+          style={{ background: proc.palette.cssBackdrop }}
+        >
+          <span className="font-mono text-[10px] font-bold tracking-widest text-white/75 uppercase">
+            {angle.label || `CAM ${index + 1}`} · STANDBY
+          </span>
+        </div>
       );
     }
 

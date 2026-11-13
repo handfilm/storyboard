@@ -10,6 +10,7 @@ import { Volume2, Video, Upload, Link2, Unlink2 } from 'lucide-react';
 import { MultiCamGroup, MultiCamAngle } from '../../types/multicam';
 import { ANGLE_CONFIGS, proceduralMultiCamFeeds } from '../../services/media/proceduralMultiCamFeeds';
 import { isVideoSourceUrl } from '../../services/thumbnailEngine';
+import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 
 export type MultiCamGridConfig = '3x3' | '2x2' | '1x3' | '1x1';
 
@@ -200,7 +201,7 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
     );
     const isImg = Boolean(angle.blobUrl && !isVid);
 
-    if (isVid) {
+    if (isVid && isLive) {
       return (
         <video
           ref={(el) => {
@@ -210,10 +211,32 @@ export const MultiCamViewportGrid: React.FC<MultiCamViewportGridProps> = ({
           crossOrigin="anonymous"
           playsInline
           muted
-          preload="auto"
+          preload="metadata"
           disablePictureInPicture
-          style={{ filter: lutCssFilter !== 'none' ? lutCssFilter : undefined }}
+          style={{
+            filter: lutCssFilter !== 'none' ? lutCssFilter : undefined,
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden'
+          }}
           className="w-full h-full object-cover pointer-events-none select-none"
+        />
+      );
+    }
+
+    if (isVid) {
+      return (
+        <ShotMediaThumbnail
+          shotIndex={idx}
+          shotId={angle.id}
+          mediaUrl={angle.blobUrl}
+          isVideo
+          name={angle.name}
+          title={angle.label}
+          lutFilterCss={lutCssFilter}
+          disableLiveVideoElement
+          className="w-full h-full overflow-hidden pointer-events-none select-none"
+          mediaClassName="w-full h-full object-cover pointer-events-none select-none"
+          alt={angle.label}
         />
       );
     }

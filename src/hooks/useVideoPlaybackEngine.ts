@@ -704,7 +704,7 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
   }, [isScrubbing, totalDurationSec, slides, totalSlides, activeDurationSec, currentIndex, shotOffsets, onSlideChange, seekVideoToTime, onTimeUpdate, blitActiveFrameToCanvas, isPlaying, flushDirectDomClock]);
 
   // =========================================================================
-  // 60 FPS MASTER rAF LOOP: DIRECT video.fastSeek() + DOM REFS (ZERO useState RE-RENDERS)
+  // 60 FPS PASSIVE MASTER rAF LOOP: PURE NATIVE CLOCK READ-ONLY (ZERO MID-PLAY SEEKS)
   // =========================================================================
   useEffect(() => {
     if (!isPlaying || jklVelocity <= 0) return;
@@ -715,13 +715,20 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
       const deltaSec = Math.min(0.25, (now - lastWallTimeRef.current) / 1000);
       lastWallTimeRef.current = now;
 
-      let next = slideTimeSecRef.current + deltaSec * jklVelocity;
       const video = videoElementRef.current;
+      // When hardware <video> is attached, treat video.currentTime as single source of truth (never write in rAF)
+      let next = video
+        ? (Number.isFinite(video.currentTime) ? video.currentTime : slideTimeSecRef.current)
+        : slideTimeSecRef.current + deltaSec * jklVelocity;
 
       if (inOutRange.isActive && inOutRange.outSec !== null && inOutRange.inSec !== null) {
         if (next >= inOutRange.outSec) {
+          if (video) {
+            video.pause();
+            syncVideoCurrentTimeWithFastSeek(video, inOutRange.inSec, 0.0005);
+            video.play().catch(() => {});
+          }
           next = inOutRange.inSec;
-          syncVideoCurrentTimeWithFastSeek(video, next, 0.0005);
         }
         flushDirectDomClock(next);
         animId = requestAnimationFrame(tick);
@@ -735,7 +742,8 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
         setShouldPrehydrate(nextPrehydrate);
       }
 
-      if (next >= activeDurationSec) {
+      const videoFinished = Boolean(video && video.ended);
+      if (next >= activeDurationSec || videoFinished) {
         if (playbackMode === 'sequence') {
           const nextIdx = (currentIndex + 1) % totalSlides;
           next = 0;
@@ -743,21 +751,26 @@ export function useVideoPlaybackEngine(options: UseVideoPlaybackEngineOptions) {
           setCurrentIndex(nextIdx);
           setSlideTimeSec(0);
           onSlideChange?.(nextIdx);
-          syncVideoCurrentTimeWithFastSeek(video, 0, 0.0005);
+          if (video && video.paused) {
+            syncVideoCurrentTimeWithFastSeek(video, 0, 0.0005);
+          }
           animId = requestAnimationFrame(tick);
           return;
         } else {
           next = isLooping ? 0 : activeDurationSec;
-          syncVideoCurrentTimeWithFastSeek(video, next, 0.0005);
+          if (video) {
+            video.pause();
+            syncVideoCurrentTimeWithFastSeek(video, next, 0.0005);
+            if (isLooping) {
+              video.play().catch(() => {});
+            }
+          }
           if (!isLooping) {
             flushDirectDomClock(next);
             applyVelocity(0);
             return;
           }
         }
-      } else if (video && video.readyState >= 2) {
-        // Sub-millisecond drift guard using video.fastSeek()
-        syncVideoCurrentTimeWithFastSeek(video, next, video.paused ? 0.0005 : 0.035);
       }
 
       flushDirectDomClock(next);

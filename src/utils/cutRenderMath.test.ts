@@ -224,6 +224,22 @@ test('syncVideoCurrentTimeWithFastSeek uses fastSeek for sub-millisecond drift a
   };
   assert.equal(syncVideoCurrentTimeWithFastSeek(videoFallback, 3.125), true);
   assert.equal(videoFallback.currentTime, 3.125);
+
+  // Actively playing video (paused === false) MUST refuse competing seeks by default
+  let activePlaySeekCalls = 0;
+  const playingVideo: FastSeekableVideo = {
+    currentTime: 2.0,
+    duration: 12.0,
+    paused: false,
+    seeking: false,
+    fastSeek() {
+      activePlaySeekCalls++;
+    }
+  };
+  assert.equal(syncVideoCurrentTimeWithFastSeek(playingVideo, 5.0), false);
+  assert.equal(activePlaySeekCalls, 0);
+  assert.equal(syncVideoCurrentTimeWithFastSeek(playingVideo, 5.0, 0.0005, true), true);
+  assert.equal(activePlaySeekCalls, 1);
 });
 
 test('PlaybackClockBus bindDomElement updates DOM refs directly without React state', () => {

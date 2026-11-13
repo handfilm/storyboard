@@ -245,14 +245,14 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     };
   }, []);
 
-  // Sync video currentTime with slideTimeSec without unmounting or restarting
+  // Sync video currentTime with slideTimeSec ONLY when paused (never override native clock during play)
   useEffect(() => {
-    if (videoRef.current && Math.abs(videoRef.current.currentTime - slideTimeSec) > 0.15) {
+    if (!isPlaying && videoRef.current && Math.abs(videoRef.current.currentTime - slideTimeSec) > 0.15) {
       try {
         videoRef.current.currentTime = Math.min(slideTimeSec, videoRef.current.duration || slideTimeSec);
       } catch {}
     }
-  }, [slideTimeSec]);
+  }, [slideTimeSec, isPlaying]);
 
   // Handle play/pause sync with video element
   useEffect(() => {
@@ -347,18 +347,10 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           className="relative bg-[#0B0B0F] border-y border-[#1C1C24] overflow-hidden flex items-center justify-center transition-[width,height] duration-200 ease-out"
         >
           
-          {/* Outgoing Visual Plate for Cinematic Cross-Dissolve */}
+          {/* Outgoing Visual Plate for Cinematic Cross-Dissolve (static plate only, zero extra decoder) */}
           {outgoingPlate && isCrossDissolving && (
-            <div className="absolute inset-0 w-full h-full pointer-events-none z-0 animate-cross-dissolve-out overflow-hidden">
-              {outgoingPlate.isVideo ? (
-                <video
-                  src={outgoingPlate.url}
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover pointer-events-none"
-                  style={{ objectPosition: `center ${outgoingPlate.panY ?? 50}%` }}
-                />
-              ) : (
+            <div className="absolute inset-0 w-full h-full pointer-events-none z-0 animate-cross-dissolve-out overflow-hidden bg-black">
+              {!outgoingPlate.isVideo && outgoingPlate.url && (
                 <img
                   src={outgoingPlate.url}
                   alt={outgoingPlate.title || 'Outgoing'}
@@ -386,7 +378,11 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
                   loop={isLooping}
                   preload="auto"
                   className="w-full h-full object-cover pointer-events-none"
-                  style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
+                  style={{
+                    objectPosition: `center ${currentSlide?.panY ?? 50}%`,
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden'
+                  }}
                 />
               ) : (
                 <img

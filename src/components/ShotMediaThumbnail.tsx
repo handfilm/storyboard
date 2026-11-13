@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Film } from 'lucide-react';
 import {
   ensureVideoThumbnailUrl,
@@ -60,13 +60,11 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
   virtualized = true,
   showProceduralText = true,
   compactProcedural = false,
-  disableLiveVideoElement = false
+  disableLiveVideoElement = true
 }) => {
   const [thumbTick, setThumbTick] = useState(0);
   const [imgFailedUrl, setImgFailedUrl] = useState<string | null>(null);
-  const [videoFailedUrl, setVideoFailedUrl] = useState<string | null>(null);
-  const [liveVideoPainted, setLiveVideoPainted] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const liveVideoPainted = false;
 
   const safeMediaUrl = mediaUrl && !isSvgPlaceholderUrl(mediaUrl) ? mediaUrl : '';
   const isVideoMedia = useMemo(
@@ -100,8 +98,6 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
   // Reset failure states whenever underlying media URL changes
   useEffect(() => {
     setImgFailedUrl(null);
-    setVideoFailedUrl(null);
-    setLiveVideoPainted(false);
   }, [safeMediaUrl, thumbnailUrl]);
 
   const rasterUrl = useMemo(() => {
@@ -154,13 +150,8 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
         ? 'items-end text-right pl-3 pr-1.5'
         : 'items-center text-center px-1.5';
 
-  const shouldMountLiveVideo =
-    !disableLiveVideoElement &&
-    virtualized &&
-    isVideoMedia &&
-    Boolean(safeMediaUrl) &&
-    !rasterUrl &&
-    videoFailedUrl !== safeMediaUrl;
+  // Never spawn background <video> decoders inside thumbnail tiles; always use static <img> poster or procedural gradient.
+  void disableLiveVideoElement;
 
   const filterStyle = lutFilterCss && lutFilterCss !== 'none' ? { filter: lutFilterCss } : undefined;
 
@@ -220,39 +211,7 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
         </div>
       )}
 
-      {/* Instant live video frame preview while JPEG poster extraction completes */}
-      {shouldMountLiveVideo && (
-        <video
-          ref={videoRef}
-          src={safeMediaUrl}
-          muted
-          playsInline
-          preload="auto"
-          onLoadedData={(e) => {
-            const vid = e.currentTarget;
-            try {
-              const dur = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : 1.0;
-              const seekTarget = Math.min(0.15, dur * 0.1);
-              if (dur > 0.2 && Math.abs(vid.currentTime - seekTarget) > 0.05) {
-                vid.currentTime = seekTarget;
-              } else {
-                setLiveVideoPainted(true);
-              }
-            } catch {
-              setLiveVideoPainted(true);
-            }
-          }}
-          onSeeked={() => setLiveVideoPainted(true)}
-          onError={() => {
-            setLiveVideoPainted(false);
-            setVideoFailedUrl(safeMediaUrl);
-          }}
-          style={filterStyle}
-          className={`absolute inset-0 ${mediaClassName} pointer-events-none transition-opacity duration-200 ${
-            liveVideoPainted ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-      )}
+      {/* Static <img> posters & procedural gradients only (zero background <video> decoders) */}
 
       {/* Authoritative raster thumbnail */}
       {virtualized && rasterUrl && (

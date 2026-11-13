@@ -230,7 +230,9 @@ export const CinemaStage: React.FC = () => {
               className="w-full h-full object-cover"
               style={{
                 objectPosition: `center ${panY}%`,
-                objectFit: fitMode === 'contain' ? 'contain' : 'cover'
+                objectFit: fitMode === 'contain' ? 'contain' : 'cover',
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden'
               }}
             />
           ) : (

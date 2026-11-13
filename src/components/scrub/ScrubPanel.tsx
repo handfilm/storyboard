@@ -215,7 +215,9 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     [onCommitNleEdit, onReorderSlides, onSelectSlide, onScrubSlideTime, showToastFeedback]
   );
 
-  // Synchronize Monitor <video> with trim inPoint, clip playbackSpeed, and fastSeek
+  const lastMonitorEntryKeyRef = useRef<string>('');
+
+  // Synchronize Monitor <video>: seek when paused/scrubbing or ONCE on initial clip entry (never mid-play)
   useEffect(() => {
     const vid = monitorVideoRef.current;
     if (!vid || !isMonitorVideo || !monitorMediaUrl) return;
@@ -224,15 +226,25 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
       vid.playbackRate = effectiveRate;
     }
 
+    const entryKey = `${currentSlide?.id || safeIndex}:${monitorMediaUrl}:${currentWindow.inSec.toFixed(3)}`;
+    const isInitialEntry = lastMonitorEntryKeyRef.current !== entryKey;
     const targetSourceSec = getClipSourceMediaTimeSec(currentSlide, slideTimeSec);
+
     if (!isPlaying || activeTrimDragRef.current || isDraggingMasterNeedleRef.current) {
       if (!vid.paused) vid.pause();
+      lastMonitorEntryKeyRef.current = entryKey;
       if (vid.readyState >= 1) {
         syncVideoCurrentTimeWithFastSeek(vid, targetSourceSec, 0.002);
       }
     } else {
-      if (Math.abs((vid.currentTime || 0) - targetSourceSec) > 0.14 && vid.readyState >= 1) {
-        syncVideoCurrentTimeWithFastSeek(vid, targetSourceSec, 0.01);
+      if (isInitialEntry && vid.readyState >= 1) {
+        lastMonitorEntryKeyRef.current = entryKey;
+        if (Math.abs((vid.currentTime || 0) - targetSourceSec) > 0.08) {
+          if (!vid.paused) vid.pause();
+          try {
+            vid.currentTime = targetSourceSec;
+          } catch {}
+        }
       }
       if (vid.paused) {
         vid.play().catch(() => {});
@@ -246,7 +258,8 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     playbackSpeed,
     currentWindow.speed,
     currentWindow.inSec,
-    currentSlide
+    currentSlide,
+    safeIndex
   ]);
 
   // Auto-scroll active card into view in filmstrip mode
@@ -780,7 +793,11 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                     className="w-full h-full object-cover"
                     muted
                     playsInline
-                    preload="auto"
+                    preload="metadata"
+                    style={{
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }}
                   />
                 ) : (
                   <img

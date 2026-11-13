@@ -552,13 +552,13 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Invisible Secondary Pre-Buffer Video Element for Double-Buffering & Zero-Flicker Playback */}
+      {/* Invisible Secondary Pre-Buffer Video Element (metadata-only so primary decoder never starves) */}
       <video
         ref={prebufferVideoRef}
         src={sourceUrl || undefined}
         crossOrigin="anonymous"
         className="hidden"
-        preload="auto"
+        preload="metadata"
         muted
         playsInline
       />
@@ -596,29 +596,18 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
         >
           
           {/* Active Media Display - Ultra Clean Display with Multi-Layer Zoom & Cross-Dissolve */}
-          {outgoingPlate && isCrossDissolving && (
+          {outgoingPlate && isCrossDissolving && !outgoingPlate.isVideo && (
             <div
               className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pointer-events-none z-0 animate-cross-dissolve-out"
               style={{ transform: zoomTransforms.bgTransform }}
             >
-              {outgoingPlate.isVideo ? (
-                <video
-                  src={outgoingPlate.url}
-                  crossOrigin="anonymous"
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover pointer-events-none"
-                  style={{ objectPosition: `center ${outgoingPlate.panY ?? 50}%` }}
-                />
-              ) : (
-                <div
-                  className="w-full h-full bg-cover bg-no-repeat"
-                  style={{
-                    backgroundImage: `url(${outgoingPlate.url})`,
-                    backgroundPosition: `center ${outgoingPlate.panY ?? 50}%`
-                  }}
-                />
-              )}
+              <div
+                className="w-full h-full bg-cover bg-no-repeat"
+                style={{
+                  backgroundImage: `url(${outgoingPlate.url})`,
+                  backgroundPosition: `center ${outgoingPlate.panY ?? 50}%`
+                }}
+              />
             </div>
           )}
 
@@ -642,7 +631,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
                   preload="auto"
                   className="w-full h-full object-cover cursor-pointer"
                   onClick={onTogglePlay}
-                  style={{ objectPosition: `center ${currentSlide?.panY ?? 50}%` }}
+                  style={{
+                    objectPosition: `center ${currentSlide?.panY ?? 50}%`,
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden'
+                  }}
                   onLoadedMetadata={(e) => {
                     const vid = e.currentTarget;
                     vid.muted = isMuted;

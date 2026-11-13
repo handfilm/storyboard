@@ -146,6 +146,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   playSubclipOnlyRef.current = playSubclipOnly;
   const activeFrameRef = useRef(activeFrame);
   activeFrameRef.current = activeFrame;
+  const wasPlayingBeforeScrubRef = useRef(false);
   durationRef.current = duration;
 
   const isVideo = activeVaultEntry
@@ -288,9 +289,13 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   // Skip 10s Backward
   const skipBackward = useCallback(() => {
     if (videoRef.current) {
-      const next = Math.max(0, videoRef.current.currentTime - 10);
-      syncVideoCurrentTimeWithFastSeek(videoRef.current, next, 0.0005);
+      const vid = videoRef.current;
+      const wasPlaying = !vid.paused;
+      if (wasPlaying) vid.pause();
+      const next = Math.max(0, vid.currentTime - 10);
+      syncVideoCurrentTimeWithFastSeek(vid, next, 0.0005);
       flushDirectPlayerDom(next);
+      if (wasPlaying) vid.play().catch(() => {});
     } else {
       flushDirectPlayerDom(Math.max(0, currentTimeRef.current - 10));
     }
@@ -301,9 +306,13 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   // Skip 10s Forward
   const skipForward = useCallback(() => {
     if (videoRef.current) {
-      const next = Math.min(durationRef.current, videoRef.current.currentTime + 10);
-      syncVideoCurrentTimeWithFastSeek(videoRef.current, next, 0.0005);
+      const vid = videoRef.current;
+      const wasPlaying = !vid.paused;
+      if (wasPlaying) vid.pause();
+      const next = Math.min(durationRef.current, vid.currentTime + 10);
+      syncVideoCurrentTimeWithFastSeek(vid, next, 0.0005);
       flushDirectPlayerDom(next);
+      if (wasPlaying) vid.play().catch(() => {});
     } else {
       flushDirectPlayerDom(Math.min(durationRef.current, currentTimeRef.current + 10));
     }
@@ -487,7 +496,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     showControlsTemporarily();
   }, [showControlsTemporarily]);
 
-  // High-performance 60 FPS rAF clock sync (bypasses React useState re-renders completely)
+  // High-performance 60 FPS passive rAF clock sync (strictly read-only; zero currentTime/fastSeek writes)
   useEffect(() => {
     if (!isOpen || !isPlaying || !isVideo) return;
     let rafId: number | null = null;
@@ -499,26 +508,6 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
         const dur = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : durationRef.current;
         if (Math.abs(dur - durationRef.current) > 0.05) {
           durationRef.current = dur;
-        }
-
-        // Handle VLC A-B Loop Enforcement with fastSeek
-        const loop = abLoopRef.current;
-        if (loop.a !== null && loop.b !== null && loop.b > loop.a + 0.08 && cur >= loop.b) {
-          syncVideoCurrentTimeWithFastSeek(vid, loop.a, 0.0005);
-          flushDirectPlayerDom(loop.a, dur);
-          rafId = requestAnimationFrame(tick);
-          return;
-        }
-
-        // Handle Subclip Loop Enforcement with fastSeek
-        const af = activeFrameRef.current;
-        if (playSubclipOnlyRef.current && af?.subclipInSec !== undefined && af?.subclipOutSec !== undefined) {
-          if (cur >= af.subclipOutSec) {
-            syncVideoCurrentTimeWithFastSeek(vid, af.subclipInSec, 0.0005);
-            flushDirectPlayerDom(af.subclipInSec, dur);
-            rafId = requestAnimationFrame(tick);
-            return;
-          }
         }
 
         // Buffer ranges
@@ -545,10 +534,35 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     };
   }, [isOpen, isPlaying, isVideo, flushDirectPlayerDom]);
 
-  // Fallback low-frequency sync when paused/buffering
+  // Discrete timeUpdate handler: enforces A-B / subclip boundaries cleanly & syncs paused clock
   const handleTimeUpdate = () => {
-    if (!videoRef.current || isPlaying) return;
-    const cur = videoRef.current.currentTime;
+    const vid = videoRef.current;
+    if (!vid) return;
+    const cur = vid.currentTime;
+
+    if (!vid.paused) {
+      const loop = abLoopRef.current;
+      if (loop.a !== null && loop.b !== null && loop.b > loop.a + 0.08 && cur >= loop.b) {
+        vid.pause();
+        try { vid.currentTime = loop.a; } catch {}
+        flushDirectPlayerDom(loop.a);
+        vid.play().catch(() => {});
+        return;
+      }
+
+      const af = activeFrameRef.current;
+      if (playSubclipOnlyRef.current && af?.subclipInSec !== undefined && af?.subclipOutSec !== undefined) {
+        if (cur >= af.subclipOutSec) {
+          vid.pause();
+          try { vid.currentTime = af.subclipInSec; } catch {}
+          flushDirectPlayerDom(af.subclipInSec);
+          vid.play().catch(() => {});
+          return;
+        }
+      }
+      return;
+    }
+
     flushDirectPlayerDom(cur);
   };
 
@@ -563,18 +577,25 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       videoRef.current.playbackRate = playbackSpeed;
       applyVlcMediaGain(videoRef.current, volume, isMuted);
       if (playSubclipOnly && activeFrame.subclipInSec !== undefined) {
+        if (!videoRef.current.paused) videoRef.current.pause();
         syncVideoCurrentTimeWithFastSeek(videoRef.current, activeFrame.subclipInSec, 0.0005);
         flushDirectPlayerDom(activeFrame.subclipInSec);
       }
-      if (isPlaying) {
+      if (isPlaying && videoRef.current.paused) {
         videoRef.current.play().catch(() => {});
       }
     }
   };
 
-  // Scrubber scrubbing via video.fastSeek() + direct DOM update (zero React state re-renders)
+  // Scrubber scrubbing: pauses playback cleanly during drag, uses fastSeek while paused, and resumes on release
   const handleScrubberMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!scrubberRef.current) return;
+    if (videoRef.current) {
+      wasPlayingBeforeScrubRef.current = !videoRef.current.paused;
+      if (!videoRef.current.paused) videoRef.current.pause();
+    } else {
+      wasPlayingBeforeScrubRef.current = false;
+    }
     setIsDraggingScrubber(true);
     const rect = scrubberRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -599,6 +620,12 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
 
   const handleScrubberTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!scrubberRef.current) return;
+    if (videoRef.current) {
+      wasPlayingBeforeScrubRef.current = !videoRef.current.paused;
+      if (!videoRef.current.paused) videoRef.current.pause();
+    } else {
+      wasPlayingBeforeScrubRef.current = false;
+    }
     setIsDraggingScrubber(true);
     const touch = e.touches[0];
     const rect = scrubberRef.current.getBoundingClientRect();
@@ -677,16 +704,24 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     });
   }, [isOpen, togglePlay, skipBackward, skipForward, stepFrame, toggleMute, toggleFullscreen, onClose]);
 
-  // Window mouseup listener for scrubber drag
+  // Window mouseup/touchend listener for scrubber drag
   useEffect(() => {
-    const handleGlobalMouseUp = () => {
+    const handleGlobalRelease = () => {
       if (isDraggingScrubber) {
         setIsDraggingScrubber(false);
+        if (wasPlayingBeforeScrubRef.current && videoRef.current?.paused) {
+          videoRef.current.play().catch(() => {});
+        }
+        wasPlayingBeforeScrubRef.current = false;
         showControlsTemporarily();
       }
     };
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('mouseup', handleGlobalRelease);
+    window.addEventListener('touchend', handleGlobalRelease);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalRelease);
+      window.removeEventListener('touchend', handleGlobalRelease);
+    };
   }, [isDraggingScrubber, showControlsTemporarily]);
 
   // Fullscreen change listener
@@ -880,7 +915,9 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
                 className={`w-full h-full ${fitMode === 'contain' ? 'object-contain' : fitMode === 'fill' ? 'object-fill' : 'object-cover'} pointer-events-none transition-transform duration-700 ease-out`}
                 style={{
                   objectPosition: `center ${activeFrame?.panY ?? 50}%`,
-                  filter: filterCSS
+                  filter: filterCSS,
+                  transform: 'translateZ(0)',
+                  backfaceVisibility: 'hidden'
                 }}
               />
             ) : (

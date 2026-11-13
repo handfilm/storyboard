@@ -408,6 +408,17 @@ class VideoCacheService {
       this.activeQueue.push({ url, priority, promote, generation: gen });
     });
 
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller && targetUrls.length > 0) {
+      try {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'PREFETCH_VIDEO_FRAGMENTS',
+          payload: { urls: targetUrls }
+        });
+      } catch {
+        // Non-fatal SW notification fallback
+      }
+    }
+
     this.drainQueue();
     return targetUrls;
   }

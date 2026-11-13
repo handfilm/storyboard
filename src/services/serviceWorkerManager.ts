@@ -16,6 +16,7 @@ export interface ServiceWorkerMetrics {
 }
 
 const CACHE_NAME = 'rawx-media-vault-v1';
+const VIDEO_FRAGMENTS_CACHE = 'rawx-video-fragments-v1';
 
 class ServiceWorkerManager {
   private registration: ServiceWorkerRegistration | null = null;
@@ -152,6 +153,25 @@ class ServiceWorkerManager {
   }
 
   /**
+   * Dispatches proactive byte-range fragment prefetching (head + tail moov 2MB blocks)
+   * to the Service Worker Cache API without downloading full multi-GB 4K files.
+   */
+  public prefetchVideoFragments(urls: string[]): void {
+    if (!urls || urls.length === 0) return;
+    const cleanUrls = Array.from(
+      new Set(urls.filter((u) => u && !u.startsWith('blob:') && !u.startsWith('data:')))
+    );
+    if (cleanUrls.length === 0) return;
+
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'PREFETCH_VIDEO_FRAGMENTS',
+        payload: { urls: cleanUrls }
+      });
+    }
+  }
+
+  /**
    * Caches a single shot's media asset
    */
   public async cacheShotMedia(url: string): Promise<void> {
@@ -183,19 +203,26 @@ class ServiceWorkerManager {
 
     if (typeof window !== 'undefined' && 'caches' in window) {
       try {
-        const cache = await caches.open(CACHE_NAME);
-        const keys = await cache.keys();
-        itemCount = keys.length;
+        for (const name of [CACHE_NAME, VIDEO_FRAGMENTS_CACHE]) {
+          const cache = await caches.open(name);
+          const keys = await cache.keys();
+          itemCount += keys.length;
 
-        for (const key of keys) {
-          try {
-            const resp = await cache.match(key);
-            if (resp) {
-              const blob = await resp.clone().blob();
-              totalBytes += blob.size;
+          for (const key of keys) {
+            try {
+              const resp = await cache.match(key);
+              if (resp) {
+                const lenHdr = Number(resp.headers.get('Content-Length') || 0);
+                if (lenHdr > 0) {
+                  totalBytes += lenHdr;
+                } else {
+                  const blob = await resp.clone().blob();
+                  totalBytes += blob.size;
+                }
+              }
+            } catch {
+              // ignore opaque/unreadable entry
             }
-          } catch {
-            // ignore opaque/unreadable entry
           }
         }
       } catch (err) {
@@ -216,13 +243,14 @@ class ServiceWorkerManager {
   }
 
   /**
-   * Purges all media assets from the Service Worker Vault cache
+   * Purges all media assets from the Service Worker Vault & Fragment caches
    */
   public async purgeCache(): Promise<void> {
     if (typeof window !== 'undefined' && 'caches' in window) {
       try {
         await caches.delete(CACHE_NAME);
         await caches.open(CACHE_NAME);
+        await caches.delete(VIDEO_FRAGMENTS_CACHE);
       } catch (err) {
         console.warn('[ServiceWorkerManager] Purge cache error:', err);
       }

@@ -26,6 +26,11 @@ import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
 import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
 import { videoCacheService } from '../../services/videoCacheService';
 import {
+  computeBufferedSummary,
+  isTimeInBufferedSegments,
+  type BufferedRangeSegment
+} from '../../utils/bufferRanges';
+import {
   isVideoMediaUrl,
   syncVideoCurrentTimeWithFastSeek,
   type VlcAbLoop,
@@ -87,7 +92,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
+  const bufferedSegmentsDomRef = useRef<HTMLDivElement>(null);
   const bufferedBarDomRef = useRef<HTMLDivElement>(null);
+  const bufferReadoutDomRef = useRef<HTMLSpanElement>(null);
+  const bufferedSegmentsRef = useRef<BufferedRangeSegment[]>([]);
   const progressBarDomRef = useRef<HTMLDivElement>(null);
   const scrubKnobDomRef = useRef<HTMLDivElement>(null);
   const timecodeDomRef = useRef<HTMLButtonElement>(null);
@@ -286,33 +294,101 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     showControlsTemporarily();
   }, [showControlsTemporarily, triggerBeacon]);
 
-  // Direct DOM flush for 60 FPS scrubber + timecode (zero React re-renders)
-  const flushDirectPlayerDom = useCallback((curSec: number, durSec?: number, bufSec?: number) => {
-    currentTimeRef.current = curSec;
-    const dur = durSec && durSec > 0 ? durSec : durationRef.current;
-    const buf = bufSec !== undefined ? bufSec : bufferedTimeRef.current;
-    const pct = dur > 0 ? Math.min(100, Math.max(0, (curSec / dur) * 100)) : 0;
-    const bufPct = dur > 0 ? Math.min(100, Math.max(pct, (buf / dur) * 100)) : 0;
+  // Direct DOM sync for exact multi-segment `buffered` TimeRanges (works paused, seeking, & playing)
+  const syncBufferedRangesFromVideo = useCallback(
+    (curSecOverride?: number, durSecOverride?: number) => {
+      const vid = videoRef.current;
+      const cur = curSecOverride !== undefined ? curSecOverride : (vid?.currentTime ?? currentTimeRef.current);
+      const dur =
+        durSecOverride !== undefined && durSecOverride > 0
+          ? durSecOverride
+          : (vid && Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : durationRef.current);
 
-    if (progressBarDomRef.current) {
-      progressBarDomRef.current.style.width = `${pct.toFixed(3)}%`;
-    }
-    if (bufferedBarDomRef.current) {
-      bufferedBarDomRef.current.style.width = `${bufPct.toFixed(3)}%`;
-    }
-    if (scrubKnobDomRef.current) {
-      scrubKnobDomRef.current.style.left = `${pct.toFixed(3)}%`;
-    }
-    if (timecodeDomRef.current) {
-      timecodeDomRef.current.textContent = showRemainingTimeRef.current
-        ? formatTime(Math.max(0, dur - curSec), true)
-        : `${formatTime(curSec)} / ${formatTime(dur)}`;
-    }
-  }, [formatTime]);
+      const summary = computeBufferedSummary(vid?.buffered, cur, dur);
+      bufferedSegmentsRef.current = summary.segments;
+      bufferedTimeRef.current = summary.contiguousEndSec;
+
+      if (bufferedBarDomRef.current) {
+        bufferedBarDomRef.current.style.width = `${summary.contiguousEndPct.toFixed(3)}%`;
+      }
+
+      const segContainer = bufferedSegmentsDomRef.current;
+      if (segContainer) {
+        const segCount = summary.segments.length;
+        // Recycle child segment nodes without allocations during 60fps playback
+        while (segContainer.children.length > segCount) {
+          segContainer.lastElementChild?.remove();
+        }
+        while (segContainer.children.length < segCount) {
+          const el = document.createElement('div');
+          el.className = 'absolute top-0 bottom-0 bg-white/35 border-r border-white/25 transition-[left,width] duration-75';
+          segContainer.appendChild(el);
+        }
+        for (let i = 0; i < segCount; i++) {
+          const seg = summary.segments[i];
+          const child = segContainer.children[i] as HTMLElement;
+          child.style.left = `${seg.leftPct.toFixed(3)}%`;
+          child.style.width = `${seg.widthPct.toFixed(3)}%`;
+        }
+      }
+
+      if (bufferReadoutDomRef.current) {
+        const pctInt = Math.round(summary.totalBufferedPct);
+        const aheadLabel =
+          summary.totalBufferedPct >= 99.5
+            ? 'READY 100%'
+            : summary.contiguousAheadSec > 0.05
+              ? `BUF ${pctInt}% · +${summary.contiguousAheadSec.toFixed(1)}s`
+              : `BUF ${pctInt}%`;
+        bufferReadoutDomRef.current.textContent = aheadLabel;
+      }
+
+      return summary;
+    },
+    []
+  );
+
+  // Direct DOM flush for 60 FPS scrubber + timecode + buffered TimeRanges (zero React re-renders)
+  const flushDirectPlayerDom = useCallback(
+    (curSec: number, durSec?: number, bufSec?: number) => {
+      currentTimeRef.current = curSec;
+      const dur = durSec && durSec > 0 ? durSec : durationRef.current;
+      const pct = dur > 0 ? Math.min(100, Math.max(0, (curSec / dur) * 100)) : 0;
+
+      if (progressBarDomRef.current) {
+        progressBarDomRef.current.style.width = `${pct.toFixed(3)}%`;
+      }
+      if (scrubKnobDomRef.current) {
+        scrubKnobDomRef.current.style.left = `${pct.toFixed(3)}%`;
+      }
+      if (timecodeDomRef.current) {
+        timecodeDomRef.current.textContent = showRemainingTimeRef.current
+          ? formatTime(Math.max(0, dur - curSec), true)
+          : `${formatTime(curSec)} / ${formatTime(dur)}`;
+      }
+
+      if (videoRef.current) {
+        syncBufferedRangesFromVideo(curSec, dur);
+      } else {
+        if (bufferedSegmentsDomRef.current) {
+          bufferedSegmentsDomRef.current.replaceChildren();
+        }
+        if (bufferReadoutDomRef.current) {
+          bufferReadoutDomRef.current.textContent = 'BUF 0%';
+        }
+        if (bufferedBarDomRef.current) {
+          const bufPct = bufSec !== undefined && dur > 0 ? Math.min(100, Math.max(pct, (bufSec / dur) * 100)) : 0;
+          bufferedBarDomRef.current.style.width = `${bufPct.toFixed(3)}%`;
+        }
+      }
+    },
+    [formatTime, syncBufferedRangesFromVideo]
+  );
 
   useEffect(() => {
+    bufferedSegmentsRef.current = [];
     flushDirectPlayerDom(currentTimeRef.current, duration, bufferedTimeRef.current);
-  }, [duration, showRemainingTime, currentIndex, flushDirectPlayerDom]);
+  }, [duration, showRemainingTime, currentIndex, resolvedMediaUrl, flushDirectPlayerDom]);
 
   // Skip 10s Backward
   const skipBackward = useCallback(() => {
@@ -604,6 +680,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       }
       videoRef.current.playbackRate = playbackSpeed;
       applyVlcMediaGain(videoRef.current, volume, isMuted);
+      syncBufferedRangesFromVideo(videoRef.current.currentTime, dur);
       if (playSubclipOnly && activeFrame.subclipInSec !== undefined) {
         if (!videoRef.current.paused) videoRef.current.pause();
         syncVideoCurrentTimeWithFastSeek(videoRef.current, activeFrame.subclipInSec, 0.0005);
@@ -947,6 +1024,12 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
                 preload="auto"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                onProgress={() => syncBufferedRangesFromVideo()}
+                onLoadedData={() => syncBufferedRangesFromVideo()}
+                onCanPlay={() => syncBufferedRangesFromVideo()}
+                onWaiting={() => syncBufferedRangesFromVideo()}
+                onSeeking={() => syncBufferedRangesFromVideo()}
+                onSeeked={() => syncBufferedRangesFromVideo()}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onEnded={() => {
@@ -1061,23 +1144,35 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           onTouchEnd={() => setIsDraggingScrubber(false)}
           className="relative w-full h-5 flex items-center cursor-pointer group py-1"
         >
-          {/* Hover Time Tooltip */}
+          {/* Hover Time Tooltip + Buffer Readiness Indicator */}
           {hoverTime !== null && (
             <div 
               style={{ left: `${hoverPosition}%` }}
-              className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 border border-[#D4AF37] text-[10px] font-mono text-[#FFE066] font-bold pointer-events-none z-30 whitespace-nowrap shadow-lg"
+              className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-black/95 border border-[#D4AF37] text-[10px] font-mono text-[#FFE066] font-bold pointer-events-none z-30 whitespace-nowrap shadow-lg flex items-center gap-1.5"
             >
-              {formatTime(hoverTime)}
+              <span>{formatTime(hoverTime)}</span>
+              {isVideo && isTimeInBufferedSegments(bufferedSegmentsRef.current, hoverTime) && (
+                <span className="text-[9px] text-emerald-300">● READY</span>
+              )}
             </div>
           )}
 
           {/* Scrubber Background Bar */}
-          <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden relative group-hover:h-2 transition-all">
-            {/* Buffered progress */}
+          <div
+            aria-label="Timeline and buffer progress bar"
+            className="w-full h-1.5 bg-white/15 rounded-full overflow-hidden relative group-hover:h-2 transition-all"
+          >
+            {/* Exact Multi-Segment Buffered TimeRanges Layer */}
+            <div
+              ref={bufferedSegmentsDomRef}
+              aria-label="Buffered video TimeRanges"
+              className="absolute inset-0 pointer-events-none"
+            />
+            {/* Contiguous Ahead-of-Playhead Buffer Runway */}
             <div 
               ref={bufferedBarDomRef}
               style={{ width: `${bufferPct}%` }}
-              className="absolute left-0 top-0 bottom-0 bg-white/30"
+              className="absolute left-0 top-0 bottom-0 bg-emerald-400/35 pointer-events-none"
             />
             {/* A-B Loop Highlight */}
             {abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a && duration > 0 && (
@@ -1086,14 +1181,14 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
                   left: `${(abLoop.a / duration) * 100}%`,
                   width: `${((abLoop.b - abLoop.a) / duration) * 100}%`
                 }}
-                className="absolute top-0 bottom-0 bg-cyan-400/50"
+                className="absolute top-0 bottom-0 bg-cyan-400/50 pointer-events-none"
               />
             )}
             {/* Playhead progress */}
             <div 
               ref={progressBarDomRef}
               style={{ width: `${progressPct}%` }}
-              className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#D4AF37] to-[#FFE066]"
+              className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#D4AF37] to-[#FFE066] pointer-events-none"
             />
           </div>
 
@@ -1211,6 +1306,17 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
                 ? formatTime(duration - currentTimeRef.current, true)
                 : `${formatTime(currentTimeRef.current)} / ${formatTime(duration)}`}
             </button>
+
+            {/* Video Buffer Readiness Readout (Direct DOM updates from TimeRanges) */}
+            {isVideo && (
+              <span
+                ref={bufferReadoutDomRef}
+                className="hidden sm:inline-block px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono text-emerald-300/90 tabular-nums"
+                title="Buffered TimeRanges readiness for smooth playback"
+              >
+                BUF 0%
+              </span>
+            )}
           </div>
 
           {/* Right Transport Utilities */}

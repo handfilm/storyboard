@@ -176,7 +176,7 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
         <button
           type="button"
           onClick={() => setIsOpen(prev => !prev)}
-          className={`w-[26px] h-[26px] rounded-full border transition-all flex items-center justify-center cursor-pointer ${
+          className={`w-[22px] h-[22px] rounded-full border transition-all flex items-center justify-center cursor-pointer ${
             isOpen
               ? 'border-[#F59E0B]/70 bg-[#F59E0B]/15 text-[#F59E0B]'
               : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-white/[0.16]'
@@ -184,7 +184,7 @@ export const OverflowSettingsMenu: React.FC<OverflowSettingsMenuProps> = ({
           aria-label="More Workspace Actions"
           title="More Workspace Actions"
         >
-          <MoreHorizontal className="w-3.5 h-3.5" />
+          <MoreHorizontal className="w-3 h-3" />
         </button>
       </SmartHoverCard>
 

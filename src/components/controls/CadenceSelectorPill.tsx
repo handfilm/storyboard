@@ -152,7 +152,7 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
         }}
         title={`Elastic Shot Cadence: ${formatDurationPillValue(safeDuration)} (${activeFrames} frames @ ${safeFps}fps)`}
         className={`inline-flex items-center gap-1 rounded-full border font-mono tabular-nums whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150 ${
-          compact ? 'h-5 px-2 py-0 text-[9px] leading-none' : 'px-3 py-1 text-[10px]'
+          compact ? 'h-[18px] px-1.5 py-0 text-[9px] leading-none' : 'px-3 py-1 text-[10px]'
         } ${
           isOpen
             ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'

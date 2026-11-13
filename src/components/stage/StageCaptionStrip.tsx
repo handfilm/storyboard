@@ -99,7 +99,7 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
   return (
     <div
       data-testid="stage-caption-strip"
-      className={`group relative w-full h-5 min-h-[20px] max-h-[20px] px-2.5 py-0.5 bg-[#0B0B0D]/95 border-t border-b border-white/[0.07] text-neutral-500 group-hover:text-neutral-200 !text-[#8E8E93] group-hover:!text-[#F4F4F5] transition-colors duration-200 flex items-center justify-between gap-2 shrink-0 select-none overflow-hidden font-mono text-[9.5px] leading-none tracking-wider tabular-nums ${className}`}
+      className={`group relative w-full h-4 min-h-[16px] max-h-[16px] px-2.5 py-0 bg-[#0B0B0D]/95 border-t border-b border-white/[0.07] text-neutral-500 group-hover:text-neutral-200 !text-[#8E8E93] group-hover:!text-[#F4F4F5] transition-colors duration-200 flex items-center justify-between gap-2 shrink-0 select-none overflow-hidden font-mono text-[8.5px] leading-none tracking-wider tabular-nums ${className}`}
     >
       {/* Subtle 1px Progress Baseline (Stealth grey at rest -> Molten Amber on hover) */}
       <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-white/[0.07] pointer-events-none">
@@ -158,12 +158,12 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
       </div>
 
       {/* Right: Merged Hardware Pipeline, Calibration, Runtime, Preset & Quick Triggers */}
-      <div className="flex items-center gap-1.5 shrink-0 uppercase text-[9px] tabular-nums">
+      <div className="flex items-center gap-1.5 shrink-0 uppercase text-[8.5px] leading-none tabular-nums">
         {onToggleWebCodecs && (
           <button
             type="button"
             onClick={onToggleWebCodecs}
-            className={`px-1 py-0 rounded border text-[8.5px] font-bold flex items-center gap-0.5 transition-colors duration-200 cursor-pointer leading-tight ${
+            className={`px-1 py-0 rounded border text-[8px] font-bold flex items-center gap-0.5 transition-colors duration-200 cursor-pointer leading-none ${
               isWebCodecsEngineActive
                 ? 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:bg-[#F59E0B] group-hover:text-[#0B0B0D] group-hover:border-[#F59E0B]'
                 : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-[#F59E0B]/40'

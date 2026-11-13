@@ -381,7 +381,7 @@ test('StudioNavRail has exact 10 ordered tools (STORY..SYSTEM with LIGHT above F
 
 test('Compact chrome proportions and HandfilmHome 10 permanent manifesto slides', () => {
   const headerSource = readFileSync(new URL('../components/StageHeader.tsx', import.meta.url), 'utf8');
-  assert.ok(headerSource.includes('h-[38px]'), 'StageHeader must render at compact 38px height');
+  assert.ok(headerSource.includes('h-[32px]'), 'StageHeader must render at ultra-slim 32px height');
 
   const overlaySource = readFileSync(new URL('../components/StageTextOverlay.tsx', import.meta.url), 'utf8');
   assert.ok(overlaySource.includes('clamp('), 'StageTextOverlay must clamp hero font size responsively');

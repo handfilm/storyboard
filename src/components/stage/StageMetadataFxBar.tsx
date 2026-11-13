@@ -188,7 +188,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   return (
     <div
       data-testid="stage-metadata-fx-bar"
-      className={`group animate-hud-fade-in w-full h-6 min-h-[24px] px-2 bg-[#0B0B0D]/95 border-b border-neutral-900 text-neutral-500 group-hover:text-neutral-200 [border-bottom-color:rgba(255,255,255,0.07)] !text-[#8E8E93] group-hover:!text-[#F4F4F5] transition-colors duration-200 flex items-center justify-between gap-1.5 text-[9.5px] font-mono tabular-nums select-none shrink-0 z-30 ${className}`}
+      className={`group animate-hud-fade-in w-full h-[20px] min-h-[20px] max-h-[20px] py-0 px-2 bg-[#0B0B0D]/95 border-b border-neutral-900 text-neutral-500 group-hover:text-neutral-200 [border-bottom-color:rgba(255,255,255,0.07)] !text-[#8E8E93] group-hover:!text-[#F4F4F5] transition-colors duration-200 flex items-center justify-between gap-1.5 text-[9px] leading-none font-mono tabular-nums select-none shrink-0 z-30 ${className}`}
     >
       {/* LEFT: SCENE // SHOT • F001/144 • FPS • STREAM QUALITY */}
       <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto no-scrollbar">
@@ -222,7 +222,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
             </span>
             <span className="text-white/20 hidden lg:inline shrink-0 transition-colors duration-200">•</span>
             <span
-              className="px-1.5 py-[1px] rounded text-[8px] font-bold whitespace-nowrap hidden lg:inline shrink-0 border transition-colors duration-200 bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:border-[#F59E0B]/40 group-hover:text-[#F59E0B]"
+              className="px-1 py-0 rounded text-[8px] leading-tight font-bold whitespace-nowrap hidden lg:inline shrink-0 border transition-colors duration-200 bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:border-[#F59E0B]/40 group-hover:text-[#F59E0B]"
             >
               {streamLabel}
             </span>
@@ -230,26 +230,26 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         )}
 
         {velocityBadge && (
-          <span className="px-1.5 py-[1px] rounded border text-[8px] font-bold whitespace-nowrap hidden xl:inline shrink-0 bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F59E0B] group-hover:border-[#F59E0B]/40 transition-colors duration-200">
+          <span className="px-1 py-0 rounded border text-[8px] leading-tight font-bold whitespace-nowrap hidden xl:inline shrink-0 bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F59E0B] group-hover:border-[#F59E0B]/40 transition-colors duration-200">
             {velocityBadge.label}
           </span>
         )}
 
         {inOutBadge && (
-          <span className="px-1.5 py-[1px] rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:border-[#F59E0B]/40 group-hover:text-[#F59E0B] text-[8px] font-bold tabular-nums whitespace-nowrap hidden xl:inline shrink-0 transition-colors duration-200">
+          <span className="px-1 py-0 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:border-[#F59E0B]/40 group-hover:text-[#F59E0B] text-[8px] leading-tight font-bold tabular-nums whitespace-nowrap hidden xl:inline shrink-0 transition-colors duration-200">
             {inOutBadge}
           </span>
         )}
 
         {lightName && (
-          <span className="px-1.5 py-[1px] rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:border-[#F59E0B]/40 group-hover:text-[#F59E0B] text-[8px] font-bold whitespace-nowrap hidden xl:inline-flex items-center gap-1 shrink-0 transition-colors duration-200">
+          <span className="px-1 py-0 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:border-[#F59E0B]/40 group-hover:text-[#F59E0B] text-[8px] leading-tight font-bold whitespace-nowrap hidden xl:inline-flex items-center gap-1 shrink-0 transition-colors duration-200">
             <Lightbulb className="w-2.5 h-2.5" />
             <span>{lightName}</span>
           </span>
         )}
 
         {digitalZoom.isZoomed && (
-          <div className="flex items-center gap-1 px-1.5 py-[1px] rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:bg-[#F59E0B]/15 group-hover:border-[#F59E0B]/60 group-hover:text-[#F59E0B] text-[8px] font-bold tabular-nums shrink-0 transition-colors duration-200">
+          <div className="flex items-center gap-1 px-1 py-0 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:bg-[#F59E0B]/15 group-hover:border-[#F59E0B]/60 group-hover:text-[#F59E0B] text-[8px] leading-tight font-bold tabular-nums shrink-0 transition-colors duration-200">
             <span>DIGITAL {digitalZoom.scale.toFixed(1)}x</span>
             <button
               type="button"
@@ -267,7 +267,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
       {/* RIGHT: TITLE: LEFT|MID|RIGHT|AUTO • ZOOM • ASPECT • MODE • [ TITLE FX ] */}
       <div className="flex items-center gap-1 shrink-0">
         {safeZone && onChangeSafeZone && (
-          <div className="hidden md:flex items-center gap-0.5 px-1 py-[1px] rounded bg-[#141417] border border-white/[0.07] text-[8px] transition-colors duration-200">
+          <div className="hidden md:flex items-center gap-0.5 px-1 py-0 h-[16px] rounded bg-[#141417] border border-white/[0.07] text-[8px] transition-colors duration-200">
             <Compass className="w-2.5 h-2.5 text-[#8E8E93] group-hover:text-[#F59E0B] mr-0.5 transition-colors duration-200" />
             {(['top', 'center', 'bottom'] as const).map((zone) => (
               <button
@@ -288,7 +288,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
 
         {/* TITLE Alignment Selector (LEFT | MID | RIGHT | AUTO) */}
         <div
-          className="flex items-center gap-0.5 px-1 py-[1px] rounded bg-[#141417] border border-white/[0.07] text-[8px] transition-colors duration-200 shrink-0"
+          className="flex items-center gap-0.5 px-1 py-0 h-[16px] rounded bg-[#141417] border border-white/[0.07] text-[8px] transition-colors duration-200 shrink-0"
           role="group"
           aria-label="Title Alignment"
         >
@@ -317,7 +317,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           ref={zoomBtnRef}
           type="button"
           onClick={openZoomPopover}
-          className={`px-1.5 py-[1px] rounded border text-[8.5px] font-bold tabular-nums flex items-center gap-1 cursor-pointer transition-colors duration-200 ${
+          className={`px-1.5 py-0 h-[16px] rounded border text-[8.5px] font-bold tabular-nums flex items-center gap-1 cursor-pointer transition-colors duration-200 ${
             isZoomOpen || fgZoom !== 1.0 || bgZoom !== 1.0
               ? 'bg-[#141417] border-[#F59E0B]/60 text-[#F4F4F5] group-hover:bg-[#F59E0B]/20 group-hover:border-[#F59E0B] group-hover:text-[#F59E0B]'
               : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-[#F59E0B]/50'
@@ -334,7 +334,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
 
         {/* Stage Scale 70% / 100% Toggle Pills */}
         <div
-          className="flex items-center gap-0.5 p-[1px] rounded bg-[#141417] border border-white/[0.07] text-[8.5px] font-bold tabular-nums shrink-0 transition-colors duration-200"
+          className="flex items-center gap-0.5 px-0.5 py-0 h-[16px] rounded bg-[#141417] border border-white/[0.07] text-[8.5px] font-bold tabular-nums shrink-0 transition-colors duration-200"
           role="group"
           aria-label="Stage Scale"
         >
@@ -343,7 +343,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
             data-testid="stage-scale-70"
             onClick={() => setStageScale(0.7)}
             aria-pressed={stageScale === 0.7}
-            className={`px-1.5 py-[1px] rounded cursor-pointer transition-colors duration-200 ${
+            className={`px-1 py-0 rounded cursor-pointer transition-colors duration-200 ${
               stageScale === 0.7
                 ? 'bg-[#1D1D22] text-[#F4F4F5] font-bold group-hover:bg-amber-400 group-hover:text-black'
                 : 'text-[#8E8E93] hover:!text-[#F4F4F5]'
@@ -357,7 +357,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
             data-testid="stage-scale-100"
             onClick={() => setStageScale(1.0)}
             aria-pressed={stageScale === 1.0}
-            className={`px-1.5 py-[1px] rounded cursor-pointer transition-colors duration-200 ${
+            className={`px-1 py-0 rounded cursor-pointer transition-colors duration-200 ${
               stageScale === 1.0
                 ? 'bg-[#1D1D22] text-[#F4F4F5] font-bold group-hover:bg-amber-400 group-hover:text-black'
                 : 'text-[#8E8E93] hover:!text-[#F4F4F5]'
@@ -369,7 +369,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         </div>
 
         {/* Aspect + Inspector/Master Mode */}
-        <div className="hidden md:flex items-center gap-1 px-1.5 py-[1px] rounded bg-[#141417] border border-white/[0.07] text-[8.5px] font-bold tabular-nums transition-colors duration-200">
+        <div className="hidden md:flex items-center gap-1 px-1.5 py-0 h-[16px] rounded bg-[#141417] border border-white/[0.07] text-[8.5px] font-bold tabular-nums transition-colors duration-200">
           <span className="text-[#8E8E93] group-hover:text-[#F59E0B] transition-colors duration-200">{aspectRatio}</span>
           <span className="text-white/20">|</span>
           <span className="text-[#8E8E93] group-hover:text-[#F4F4F5] transition-colors duration-200">
@@ -383,7 +383,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           type="button"
           data-testid="stage-title-fx-button"
           onClick={openTitleFxPopover}
-          className={`px-1.5 py-[1px] rounded border text-[8.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-200 ${
+          className={`px-1.5 py-0 h-[16px] rounded border text-[8.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors duration-200 ${
             isTitleFxOpen
               ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D]'
               : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:border-[#F59E0B]/50 group-hover:text-[#F59E0B] group-hover:bg-[#F59E0B]/10'
@@ -402,7 +402,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <button
             type="button"
             onClick={onToggleMute}
-            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
+            className="w-4 h-4 p-0 flex items-center justify-center rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
             title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
             {isMuted ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5 text-[#8E8E93] group-hover:text-[#F59E0B]" />}
@@ -412,7 +412,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <button
             type="button"
             onClick={onUploadMedia}
-            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
+            className="w-4 h-4 p-0 flex items-center justify-center rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
             title="Upload / Replace Shot Media"
           >
             <Upload className="w-2.5 h-2.5" />
@@ -422,7 +422,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <button
             type="button"
             onClick={onOpenInspector}
-            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
+            className="w-4 h-4 p-0 flex items-center justify-center rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
             title="Open Optical Inspector"
           >
             <Sparkles className="w-2.5 h-2.5" />
@@ -432,7 +432,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <button
             type="button"
             onClick={onOpenCinemaPlayer || onToggleFullscreen}
-            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
+            className="w-4 h-4 p-0 flex items-center justify-center rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] cursor-pointer transition-colors duration-200"
             title="Fullscreen Cinema View"
           >
             <Maximize2 className="w-2.5 h-2.5" />

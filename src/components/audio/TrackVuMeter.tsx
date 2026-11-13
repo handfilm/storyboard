@@ -243,7 +243,7 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
   // Standard Dock & Compact variant: High-contrast VU ladder + Optional Visual Audio Wave Gain Editor
   return (
     <div 
-      className={`flex items-center gap-1.5 bg-[#141417] border border-white/[0.07] px-1.5 py-0 h-5 rounded-md select-none text-[9px] font-mono shrink-0 shadow-inner group tabular-nums ${className}`}
+      className={`flex items-center gap-1.5 bg-[#141417] border border-white/[0.07] px-1.5 py-0 h-[18px] rounded-md select-none text-[8.5px] font-mono shrink-0 shadow-inner group tabular-nums ${className}`}
       title={`Stereo Master Output: L ${levels.leftDb}dBFS | R ${levels.rightDb}dBFS | Gain: ${gainPercent}% (${gainDb}dB)`}
     >
       {/* Compact Mute Speaker Toggle */}
@@ -253,7 +253,7 @@ export const TrackVuMeter: React.FC<TrackVuMeterProps> = ({
         disabled={!onToggleMute}
         aria-label={isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)'}
         aria-pressed={isMuted}
-        className={`flex items-center justify-center gap-1 shrink-0 ${showLabels ? 'px-1.5 py-0.5' : 'w-4 h-4'} rounded bg-[#0B0B0D] border transition-colors cursor-pointer ${
+        className={`flex items-center justify-center gap-1 shrink-0 ${showLabels ? 'px-1.5 py-0' : 'w-3.5 h-3.5'} rounded bg-[#0B0B0D] border transition-colors cursor-pointer ${
           isMuted
             ? 'border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
             : 'border-[#F59E0B]/60 text-[#F59E0B] hover:border-[#F59E0B]'

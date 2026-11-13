@@ -84,13 +84,13 @@ test('Stage typography inside stage box, top bar wiring, duplicate 70%/100% clea
   );
   assert.doesNotMatch(captionStripSrc, /DEFAULT_BANGLA_HEADLINES/);
   assert.doesNotMatch(captionStripSrc, /hookText/);
-  assert.match(captionStripSrc, /h-5 min-h-\[20px\]/);
+  assert.match(captionStripSrc, /h-4 min-h-\[16px\]/);
   assert.match(captionStripSrc, /text-neutral-500 group-hover:text-neutral-200/);
 
   const controlDockSrc = fs.readFileSync(
     path.resolve(process.cwd(), 'src/components/ControlDock.tsx'),
     'utf8'
   );
-  assert.match(controlDockSrc, /min-w-\[84px\] w-\[84px\] h-\[40px\]/);
-  assert.match(controlDockSrc, /h-\[26px\] min-h-\[26px\]/);
+  assert.match(controlDockSrc, /min-w-\[80px\] w-\[80px\] h-\[34px\]/);
+  assert.match(controlDockSrc, /h-\[22px\] min-h-\[22px\]/);
 });

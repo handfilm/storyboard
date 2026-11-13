@@ -1171,7 +1171,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     <>
       <header
         data-playing={effectiveIsPlaying ? 'true' : 'false'}
-        className={`nle-focus-bar relative w-full h-[38px] min-h-[38px] bg-[#0B0B0D]/95 backdrop-blur-xl border-b border-white/[0.08] px-2 xl:px-3 flex items-center justify-between gap-1.5 xl:gap-2.5 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
+        className={`nle-focus-bar relative w-full h-[32px] min-h-[32px] max-h-[32px] py-0.5 bg-[#0B0B0D]/95 backdrop-blur-xl border-b border-white/[0.08] px-2 xl:px-3 flex items-center justify-between gap-1.5 xl:gap-2.5 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
       >
         {/* ================================================================
             LEFT ZONE: Brand Wordmark + Tagline & Mega-Dropdown Menus
@@ -1182,13 +1182,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             type="button"
             data-transport-sharp="true"
             onClick={handleHomeClick}
-            className="group flex flex-col items-start justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-0.5 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 text-left"
+            className="group flex flex-col items-start justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-0 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 text-left"
             title="HANDFILM STUDIO — Return to Director Home"
           >
-            <span className="font-space-grotesk font-black tracking-[0.13em] text-[13px] xl:text-[14px] leading-none text-[#F4F4F5]">
+            <span className="font-space-grotesk font-black tracking-[0.13em] text-[12px] xl:text-[13px] leading-none text-[#F4F4F5]">
               HAND<span className="text-[#F59E0B]">FILM</span>
             </span>
-            <span className="mt-[2px] font-mono text-[6.5px] xl:text-[7px] font-semibold tracking-[0.18em] uppercase text-[#8E8E93] group-hover:text-[#F4F4F5] leading-none transition-colors">
+            <span className="mt-[1px] font-mono text-[6px] xl:text-[6.5px] font-semibold tracking-[0.18em] uppercase text-[#8E8E93] group-hover:text-[#F4F4F5] leading-none transition-colors">
               RAW. RAPID. CINEMA.
             </span>
           </button>
@@ -1216,7 +1216,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     toggleDropdown('HOME');
                   }
                 }}
-                className={`nle-editorial-btn h-[26px] px-2 rounded-[4px] border font-mono text-[10px] xl:text-[11px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                   activeDropdown === 'HOME' || currentView === 'HOME'
                     ? 'bg-[#171820] border-[#F59E0B]/60 text-[#F4F4F5]'
                     : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
@@ -1429,7 +1429,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 aria-expanded={activeDropdown === 'FEATURES'}
                 aria-haspopup="menu"
                 onClick={() => toggleDropdown('FEATURES')}
-                className={`nle-editorial-btn h-[26px] px-2 rounded-[4px] border font-mono text-[10px] xl:text-[11px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#38BDF8] ${
+                className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#38BDF8] ${
                   activeDropdown === 'FEATURES'
                     ? 'bg-[#171820] border-[#38BDF8]/60 text-[#F4F4F5]'
                     : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
@@ -1614,7 +1614,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 aria-expanded={activeDropdown === 'APPS'}
                 aria-haspopup="menu"
                 onClick={() => toggleDropdown('APPS')}
-                className={`nle-editorial-btn h-[26px] px-2 rounded-[4px] border font-mono text-[10px] xl:text-[11px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#A855F7] ${
+                className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#A855F7] ${
                   activeDropdown === 'APPS'
                     ? 'bg-[#171820] border-[#A855F7]/60 text-[#F4F4F5]'
                     : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
@@ -1771,7 +1771,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         <div
           role="tablist"
           aria-label="Workspace Switcher"
-          className="hidden md:flex items-center bg-[#0B0B0D] border border-white/[0.08] rounded-[6px] p-[2px] gap-0.5 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+          className="hidden md:flex items-center bg-[#0B0B0D] border border-white/[0.08] rounded-[5px] p-[1.5px] gap-0.5 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
         >
           {WORKSPACE_TABS.map((tab) => {
             const isActive = currentView === 'STUDIO' && currentPanel === tab.panel;
@@ -1793,7 +1793,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   } as React.CSSProperties}
                   onClick={() => handleWorkspacePanelSelect(tab.panel)}
                   title={tab.title}
-                  className={`nle-editorial-btn studio-workspace-tab relative group/tab h-[26px] px-[8px] xl:px-[10px] rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] tracking-[0.08em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                  className={`nle-editorial-btn studio-workspace-tab relative group/tab h-[22px] px-[7px] xl:px-[9px] rounded-[3px] border font-mono text-[9.5px] xl:text-[10px] tracking-[0.08em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                     isActive
                       ? 'bg-[#191A22] text-white font-bold'
                       : 'bg-[#121318] text-zinc-300 hover:text-white font-semibold'
@@ -2383,7 +2383,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 1. Compact Command Search (Cmd+K / /) */}
           <div ref={searchContainerRef} className="relative shrink-0">
-            <div className="relative flex items-center h-[26px] w-24 sm:w-28 xl:w-32 2xl:w-44 bg-[#141417] border border-white/[0.07] hover:border-white/20 focus-within:border-[#F59E0B]/70 rounded-full px-2 gap-1 transition-colors">
+            <div className="relative flex items-center h-[22px] w-24 sm:w-28 xl:w-32 2xl:w-44 bg-[#141417] border border-white/[0.07] hover:border-white/20 focus-within:border-[#F59E0B]/70 rounded-full px-2 gap-1 transition-colors">
               <Search className="w-3 h-3 text-[#8E8E93] shrink-0" />
               <input
                 ref={searchInputRef}
@@ -2558,7 +2558,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 2. Live Engine Telemetry (visible on wider desktops 2xl+) */}
           <div
-            className="hidden 2xl:flex h-[26px] px-2 rounded-full bg-[#141417] border border-white/[0.07] items-center gap-1.5 font-mono text-[9px] tabular-nums whitespace-nowrap shrink-0"
+            className="hidden 2xl:flex h-[22px] px-2 rounded-full bg-[#141417] border border-white/[0.07] items-center gap-1.5 font-mono text-[9px] tabular-nums whitespace-nowrap shrink-0"
             title={`Engine Telemetry: ${resolvedFps} FPS · ${resolvedAspectRatio} · ${vaultClipCount} Clips in Vault/OPFS`}
           >
             <span className="text-[#F4F4F5] font-semibold">{resolvedFps} FPS</span>
@@ -2584,7 +2584,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 ? 'Focus Mode Active — Click to Restore Side Rail & Dock (Z)'
                 : 'STUDIO — Click to Toggle Focus Mode (Z)'
             }
-            className={`nle-editorial-btn h-[26px] px-2.5 rounded-full font-mono text-[10px] font-black tracking-[0.11em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914] ${
+            className={`nle-editorial-btn h-[22px] px-2 rounded-full font-mono text-[9.5px] font-black tracking-[0.11em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914] ${
               currentView === 'STUDIO' && isZenMode
                 ? 'bg-[#E50914] border border-red-400 text-white shadow-[0_0_16px_rgba(229,9,20,0.65)]'
                 : 'bg-[#E50914]/90 hover:bg-[#E50914] border border-red-500/70 text-white shadow-[0_0_10px_rgba(229,9,20,0.4)]'
@@ -2604,9 +2604,9 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             aria-label="Export Master Render"
             title="Open Unified Render & Export Studio (⌘E)"
             style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
-            className="nle-editorial-btn w-[26px] h-[26px] rounded-full bg-[#18150D] hover:bg-[#F59E0B] border border-[#F59E0B]/55 text-[#F59E0B] hover:text-[#0B0B0D] flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.25)]"
+            className="nle-editorial-btn w-[22px] h-[22px] rounded-full bg-[#18150D] hover:bg-[#F59E0B] border border-[#F59E0B]/55 text-[#F59E0B] hover:text-[#0B0B0D] flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.25)]"
           >
-            <Download className="w-3 h-3 shrink-0" />
+            <Download className="w-2.5 h-2.5 shrink-0" />
           </button>
 
           {/* 5. Circular Screen & Audio Record Button (Crimson Red reserved strictly for Record trigger) */}
@@ -2621,7 +2621,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             aria-label="Screen and Audio Recorder"
             title="Screen & Audio Recorder Studio (Alt+R)"
             style={{ '--item-accent': '#E50914' } as React.CSSProperties}
-            className="nle-editorial-btn w-[26px] h-[26px] rounded-full bg-[#141417] hover:bg-[#E50914]/15 border border-white/[0.1] hover:border-[#E50914]/75 flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
+            className="nle-editorial-btn w-[22px] h-[22px] rounded-full bg-[#141417] hover:bg-[#E50914]/15 border border-white/[0.1] hover:border-[#E50914]/75 flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
           >
             <span
               aria-hidden="true"
@@ -2668,7 +2668,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       {dissolvePulseId > 0 && (
         <div
           key={dissolvePulseId}
-          className="fixed top-[38px] inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-[#F59E0B]/[0.06] via-[#0B0B0D]/60 to-[#0B0B0D]/80 flex items-start justify-center pt-5 animate-workspace-dissolve-veil transition-opacity duration-200 transform-gpu will-change-[opacity,transform] motion-reduce:hidden"
+          className="fixed top-[32px] inset-x-0 bottom-0 z-40 pointer-events-none bg-gradient-to-b from-[#F59E0B]/[0.06] via-[#0B0B0D]/60 to-[#0B0B0D]/80 flex items-start justify-center pt-5 animate-workspace-dissolve-veil transition-opacity duration-200 transform-gpu will-change-[opacity,transform] motion-reduce:hidden"
           aria-hidden="true"
         >
           {dissolveModeLabel && (

@@ -220,11 +220,11 @@ export const EditInAppStrip: React.FC<EditInAppStripProps> = ({
     <div
       data-testid="edit-in-app-strip-hud"
       data-active="true"
-      className={`hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] shrink-0 ${className}`}
+      className={`hidden lg:inline-flex items-center gap-1 px-1.5 py-0 h-[16px] rounded bg-[#141417] border border-white/[0.08] shrink-0 ${className}`}
       role="group"
       aria-label="Edit In External App"
     >
-      <span className="text-[8px] font-mono font-bold tracking-wider uppercase text-[#8E8E93] mr-0.5">
+      <span className="text-[7.5px] font-mono font-bold tracking-wider uppercase text-[#8E8E93] mr-0.5 leading-none">
         EDIT IN
       </span>
       {EDIT_IN_APPS.map((app) => {
@@ -237,11 +237,11 @@ export const EditInAppStrip: React.FC<EditInAppStripProps> = ({
             onClick={(e) => handleClick(e, app.id)}
             title={app.title}
             style={{ '--item-accent': app.accent } as React.CSSProperties}
-            className={`nle-editorial-btn rounded-[4px] p-[1px] cursor-pointer flex items-center justify-center ${
+            className={`nle-editorial-btn rounded-[3px] p-0 cursor-pointer flex items-center justify-center ${
               isBusy ? 'ring-1 ring-[#F59E0B] scale-95' : ''
             }`}
           >
-            <AppBrandBadgeSvg app={app} size={16} />
+            <AppBrandBadgeSvg app={app} size={13} />
           </button>
         );
       })}

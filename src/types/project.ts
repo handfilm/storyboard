@@ -23,7 +23,7 @@ export interface SlideTextLayer {
   color?: string;
 }
 
-import type { SpeedRampPreset, SmartCropMode } from './anthology';
+import type { SpeedRampPreset, SmartCropMode, SpeedRampKeyframe, OpticalFlowMode } from './anthology';
 
 export interface SlideDraft {
   id: string; // e.g. "slide_001" or "sh_001"
@@ -57,6 +57,8 @@ export interface SlideDraft {
   reframeZoom?: number;
   smartCropMode?: SmartCropMode;
   speedRampPreset?: SpeedRampPreset;
+  speedRampKeyframes?: SpeedRampKeyframe[];
+  opticalFlowMode?: OpticalFlowMode;
   flashCutEnabled?: boolean;
   flashCutIntervalSec?: number;
   beatDropEnabled?: boolean;

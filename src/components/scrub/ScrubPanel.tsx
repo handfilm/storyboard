@@ -1,23 +1,23 @@
 /**
  * @file /src/components/scrub/ScrubPanel.tsx
- * @description Brutalist CapCut-Grade Real-Time NLE Cutting, Trimming & Precision Canvas Scrubber.
+ * @description Brutalist CapCut-Grade Real-Time NLE Cutting, Light-Speed Scrub Accelerator & Velocity Curve Studio.
  *
  * Architecture:
- * 1. HERO SCRUB VIEWPORT (Top ~64%):
- *    - Maximized aspect-ratio-locked active video/image preview with seamless readyState<2 poster fallback.
- *    - Live SMPTE timecode HUD, frame counter (`F001/total`), In/Out range bar, and direct
- *      hover/drag scrub-by-mouse across the preview canvas with magnetic hairline needle.
- * 2. COMPACT PRECISION RAZOR BAR (Middle ~8%):
- *    - Single-row floating Brutalist toolbar: `SPLIT [S]`, `TRIM IN [Q]`, `TRIM OUT [W]`,
- *      `RIPPLE DEL`, `SLIP -/+`, `-1F`/`+1F` frame-steppers, `CLIP SPEED` (`0.5x`–`2x`), and `SPEED RAMP`.
- * 3. UNIFIED FILMSTRIP & COLLAPSIBLE SHOT DRAWER (Bottom ~28%):
- *    - Single high-density horizontal filmstrip track with waveform bars, `[|` `|]` trim handles,
- *      wheel-zoom & scrub, drag-drop ingest (`data-shot-card`), plus collapsible `CARDS / EDIT` drawer.
+ * 1. MAXIMIZED HERO SCRUB VIEWPORT (>=75% Stage Height, auto-collapses secondary header on play):
+ *    - Frame-Cache Scrub Accelerator (<canvas> ImageBitmap ring-buffer blitting for 120fps-feel drag scrub).
+ *    - J / K / L Shuttle Engine (-4x, -2x, -1x, Freeze, +1x, +2x, +4x) with live HUD shuttle badge.
+ *    - Direct Hover-Skim + `Alt + Hover` 2x Pixel-Peep Focus Loupe over Hero Canvas.
+ * 2. COMPACT PRECISION RAZOR & SHUTTLE BAR:
+ *    - Tool Modes: `SELECT [V]`, `SLIP [Y]`, `ROLL [N]`.
+ *    - Razor ops: `SPLIT [S]`, `TRIM IN [Q]`, `TRIM OUT [W]`, `RIPPLE DEL`, `SNAP BEAT` (transient snap).
+ *    - Velocity Curve Bezier Editor (`0.25x`–`4.0x` 3-point interactive SVG curve) + `OPTICAL FLOW / FRAME-BLEND` toggle.
+ * 3. COLLAPSIBLE FILMSTRIP & WAVEFORM TRACK + CARDS DRAWER:
+ *    - High-density horizontal clips with gold/amber audio waveforms + transient beat diamonds + `[|` `|]` trim/roll handles.
  */
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { SlideDraft, AspectRatioType } from '../../types/project';
-import { SpeedRampPreset } from '../../types/anthology';
+import { OpticalFlowMode, SpeedRampKeyframe, SpeedRampPreset } from '../../types/anthology';
 import { PlaybackMode } from '../../types/editor';
 import {
   calculateMasterSequenceDuration,
@@ -35,7 +35,10 @@ import {
   trimEndToPlayheadW,
   rippleDeleteClip,
   applyClipSpeed,
-  slipClipWindow
+  slipClipWindow,
+  rollClipCutPoint,
+  generateClipWaveformProfile,
+  findNearestTransientSec
 } from '../../utils/scrubNleMath';
 import {
   SPEED_RAMP_PRESETS,
@@ -75,8 +78,22 @@ import {
   PanelBottomOpen,
   PanelBottomClose,
   MoveHorizontal,
-  Zap
+  Zap,
+  Sparkles,
+  Crosshair,
+  Activity,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+
+export type ScrubEditToolMode = 'SELECT' | 'SLIP' | 'ROLL';
+export type ShuttleRate = -4 | -2 | -1 | 0 | 1 | 2 | 4;
+
+const DEFAULT_RAMP_KEYFRAMES: SpeedRampKeyframe[] = [
+  { u: 0, rate: 1.0 },
+  { u: 0.5, rate: 2.2 },
+  { u: 1, rate: 1.0 }
+];
 
 export interface ScrubPanelProps {
   slides: SlideDraft[];
@@ -135,25 +152,53 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   className = ''
 }) => {
   const [isCardDrawerOpen, setIsCardDrawerOpen] = useState(false);
+  const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
+  const [isRampCurveOpen, setIsRampCurveOpen] = useState(false);
+  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMagneticSnap, setIsMagneticSnap] = useState(true);
   const [isHoverScrubEnabled, setIsHoverScrubEnabled] = useState(true);
+  const [editToolMode, setEditToolMode] = useState<ScrubEditToolMode>('SELECT');
+  const [shuttleRate, setShuttleRate] = useState<ShuttleRate>(0);
   const [dropCardIndex, setDropCardIndex] = useState<number | null>(null);
   const [timelineZoom, setTimelineZoom] = useState<number>(1.2);
   const [nleFeedback, setNleFeedback] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [canvasHoverPct, setCanvasHoverPct] = useState<number | null>(null);
+  const [ringCacheCount, setRingCacheCount] = useState(0);
+  const [isCanvasCacheVisible, setIsCanvasCacheVisible] = useState(false);
+
+  // Alt+Hover 2x Focus Loupe on Hero Canvas
+  const [loupeState, setLoupeState] = useState<{
+    active: boolean;
+    x: number;
+    y: number;
+    pctX: number;
+    pctY: number;
+  } | null>(null);
+
+  // Timeline Hover-Skim Tooltip (skims without moving primary playhead)
+  const [hoverSkim, setHoverSkim] = useState<{
+    clipIndex: number;
+    localTimeSec: number;
+    frameNum: number;
+    title: string;
+    thumbUrl: string;
+    clientX: number;
+  } | null>(null);
 
   const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
 
-  // Optimistic NLE preview state while dragging edge trim handles `[|` or `|]`
+  // Optimistic NLE preview state during Edge Trim / Roll / Slip drags
   const [trimPreviewSlides, setTrimPreviewSlides] = useState<SlideDraft[] | null>(null);
   const activeTrimDragRef = useRef<{
+    kind: 'edge' | 'roll' | 'slip';
     clipIndex: number;
-    edge: 'left' | 'right';
+    edge?: 'left' | 'right';
     startClientX: number;
     baseSlides: SlideDraft[];
     latestSlides: SlideDraft[];
+    latestTargetTimeSec?: number;
   } | null>(null);
 
   const activeSlides = trimPreviewSlides ?? slides;
@@ -180,12 +225,15 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
   // DOM Refs
   const monitorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const scrubCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const loupeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const heroViewportRef = useRef<HTMLDivElement | null>(null);
   const isDraggingCanvasScrubRef = useRef(false);
   const nleTimelineScrollRef = useRef<HTMLDivElement>(null);
   const isDraggingMasterNeedleRef = useRef(false);
   const fileUploadInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetIdx, setUploadTargetIdx] = useState<number | null>(null);
+  const lastCacheCaptureMsRef = useRef<number>(0);
 
   // Resolve current slide media for live Hero Monitor
   const currentVaultEntry = useMemo(
@@ -206,6 +254,8 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
   useEffect(() => {
     setIsVideoReady(false);
+    setIsCanvasCacheVisible(false);
+    setRingCacheCount(monitorMediaUrl ? videoCacheService.getRingBufferCount(monitorMediaUrl) : 0);
   }, [monitorMediaUrl, safeIndex]);
 
   useEffect(() => {
@@ -235,13 +285,51 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     [onCommitNleEdit, onReorderSlides, onSelectSlide, onScrubSlideTime, showToastFeedback]
   );
 
+  // Helper to blit nearest keyframe bitmap into Scrub GPU Canvas for 0ms drag feel
+  const blitCachedBitmapAtTime = useCallback(
+    (sourceSec: number): boolean => {
+      if (!monitorMediaUrl || !scrubCanvasRef.current) return false;
+      const hit = videoCacheService.getNearestKeyframeBitmap(monitorMediaUrl, sourceSec, 0.75);
+      if (!hit) return false;
+      const canvas = scrubCanvasRef.current;
+      if (canvas.width !== hit.bitmap.width || canvas.height !== hit.bitmap.height) {
+        canvas.width = hit.bitmap.width;
+        canvas.height = hit.bitmap.height;
+      }
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) return false;
+      ctx.drawImage(hit.bitmap, 0, 0, canvas.width, canvas.height);
+      setIsCanvasCacheVisible(true);
+      return true;
+    },
+    [monitorMediaUrl]
+  );
+
+  // Capture decoded frames into ImageBitmap ring buffer cleanly during playback / seeked
+  const captureCurrentVideoFrameToRing = useCallback(async () => {
+    const vid = monitorVideoRef.current;
+    if (!vid || !monitorMediaUrl || !isMonitorVideo || vid.readyState < 2) return;
+    const now = performance.now();
+    if (now - lastCacheCaptureMsRef.current < 120) return;
+    lastCacheCaptureMsRef.current = now;
+    const bmp = await videoCacheService.captureKeyframeBitmap(vid, monitorMediaUrl, vid.currentTime || 0);
+    if (bmp) {
+      setRingCacheCount(videoCacheService.getRingBufferCount(monitorMediaUrl));
+    }
+  }, [monitorMediaUrl, isMonitorVideo]);
+
   const lastMonitorEntryKeyRef = useRef<string>('');
 
-  // Synchronize Hero Monitor <video>: obeys speed ramp + inPointMs + playbackSpeed cleanly
+  // Synchronize Hero Monitor <video>: obeys speed ramp + custom keyframes + inPointMs + playbackSpeed
   useEffect(() => {
     const vid = monitorVideoRef.current;
     if (!vid || !isMonitorVideo || !monitorMediaUrl) return;
-    const rampMult = getSpeedRampInstantRate(currentSlide?.speedRampPreset, slideTimeSec, activeSlideDurationSec);
+    const rampMult = getSpeedRampInstantRate(
+      currentSlide?.speedRampPreset,
+      slideTimeSec,
+      activeSlideDurationSec,
+      currentSlide?.speedRampKeyframes
+    );
     const effectiveRate = Math.max(0.25, Math.min(4.0, currentWindow.speed * (playbackSpeed || 1.0) * rampMult));
     if (Math.abs(vid.playbackRate - effectiveRate) > 0.02) {
       vid.playbackRate = effectiveRate;
@@ -251,13 +339,23 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     const isInitialEntry = lastMonitorEntryKeyRef.current !== entryKey;
     const targetSourceSec = evaluateSpeedRampSourceTime(currentSlide, slideTimeSec);
 
-    if (!isPlaying || activeTrimDragRef.current || isDraggingMasterNeedleRef.current || isDraggingCanvasScrubRef.current) {
+    if (
+      !isPlaying ||
+      shuttleRate !== 0 ||
+      activeTrimDragRef.current ||
+      isDraggingMasterNeedleRef.current ||
+      isDraggingCanvasScrubRef.current
+    ) {
       if (!vid.paused) vid.pause();
       lastMonitorEntryKeyRef.current = entryKey;
+      if (isDraggingCanvasScrubRef.current || isDraggingMasterNeedleRef.current || activeTrimDragRef.current) {
+        blitCachedBitmapAtTime(targetSourceSec);
+      }
       if (vid.readyState >= 1) {
         syncVideoCurrentTimeWithFastSeek(vid, targetSourceSec, 0.002);
       }
     } else {
+      setIsCanvasCacheVisible(false);
       if (isInitialEntry && vid.readyState >= 1) {
         lastMonitorEntryKeyRef.current = entryKey;
         if (Math.abs((vid.currentTime || 0) - targetSourceSec) > 0.08) {
@@ -276,13 +374,55 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     isMonitorVideo,
     slideTimeSec,
     isPlaying,
+    shuttleRate,
     playbackSpeed,
     currentWindow.speed,
     currentWindow.inSec,
     activeSlideDurationSec,
     currentSlide,
-    safeIndex
+    safeIndex,
+    blitCachedBitmapAtTime
   ]);
+
+  // J / K / L Shuttle Engine rAF Driver
+  const globalCurrentSecRef = useRef(globalCurrentSec);
+  globalCurrentSecRef.current = globalCurrentSec;
+
+  useEffect(() => {
+    if (shuttleRate === 0) return;
+    let rafId = 0;
+    let lastTs = performance.now();
+
+    const stepShuttle = (now: number) => {
+      const dt = Math.min(0.06, Math.max(0.004, (now - lastTs) / 1000));
+      lastTs = now;
+      const nextGlobal = Math.max(0, Math.min(totalDurationSec, globalCurrentSecRef.current + dt * shuttleRate));
+      globalCurrentSecRef.current = nextGlobal;
+
+      if (onScrubGlobalTime) {
+        onScrubGlobalTime(nextGlobal);
+      } else {
+        const nextLocal = Math.max(0, Math.min(activeSlideDurationSec, slideTimeSec + dt * shuttleRate));
+        onScrubSlideTime(nextLocal);
+      }
+
+      if ((shuttleRate < 0 && nextGlobal <= 0.001) || (shuttleRate > 0 && nextGlobal >= totalDurationSec - 0.001)) {
+        setShuttleRate(0);
+        return;
+      }
+      rafId = requestAnimationFrame(stepShuttle);
+    };
+
+    rafId = requestAnimationFrame(stepShuttle);
+    return () => cancelAnimationFrame(rafId);
+  }, [shuttleRate, totalDurationSec, onScrubGlobalTime, activeSlideDurationSec, slideTimeSec, onScrubSlideTime]);
+
+  // Reset shuttle when normal playback starts
+  useEffect(() => {
+    if (isPlaying && shuttleRate !== 0) {
+      setShuttleRate(0);
+    }
+  }, [isPlaying, shuttleRate]);
 
   // Auto-scroll active clip block into view on the filmstrip track
   useEffect(() => {
@@ -354,6 +494,13 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     [slides, safeIndex, activeSlideFps, isMagneticSnap, slideTimeSec, commitNleResult, showToastFeedback]
   );
 
+  const handleSnapToTransient = useCallback(() => {
+    const targetSec = findNearestTransientSec(currentSlide, safeIndex, slideTimeSec);
+    try { audioEngine.playShutterClick(); } catch {}
+    onScrubSlideTime(targetSec);
+    showToastFeedback(`SNAPPED TO TRANSIENT @ ${targetSec.toFixed(2)}s`);
+  }, [currentSlide, safeIndex, slideTimeSec, onScrubSlideTime, showToastFeedback]);
+
   const handleClipSpeedChange = useCallback(
     (speed: number) => {
       const res = applyClipSpeed(slides, safeIndex, speed);
@@ -365,13 +512,49 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
   const handleSpeedRampChange = useCallback(
     (preset: SpeedRampPreset) => {
-      onUpdateSlide(safeIndex, { speedRampPreset: preset });
+      onUpdateSlide(safeIndex, { speedRampPreset: preset, speedRampKeyframes: undefined });
       showToastFeedback(`VELOCITY CURVE: ${preset.replace('_', ' ')}`);
     },
     [safeIndex, onUpdateSlide, showToastFeedback]
   );
 
-  // Scoped CapCut NLE Keyboard Hotkeys (`S` / `Ctrl+B`, `Q`, `W`, `Delete/Backspace`)
+  const handleCycleOpticalFlow = useCallback(() => {
+    const modes: OpticalFlowMode[] = ['NONE', 'FRAME_BLEND', 'OPTICAL_FLOW'];
+    const cur = currentSlide?.opticalFlowMode || 'NONE';
+    const next = modes[(modes.indexOf(cur) + 1) % modes.length];
+    onUpdateSlide(safeIndex, { opticalFlowMode: next });
+    showToastFeedback(`INTERPOLATION: ${next.replace('_', ' ')}`);
+  }, [currentSlide?.opticalFlowMode, safeIndex, onUpdateSlide, showToastFeedback]);
+
+  const handleShuttleReverse = useCallback(() => {
+    if (isPlaying) onTogglePlay();
+    setShuttleRate((prev) => {
+      if (prev > 1) return 1;
+      if (prev === 1) return -1;
+      if (prev === 0) return -1;
+      if (prev === -1) return -2;
+      return -4;
+    });
+  }, [isPlaying, onTogglePlay]);
+
+  const handleShuttleFreeze = useCallback(() => {
+    setShuttleRate(0);
+    if (isPlaying) onTogglePlay();
+    showToastFeedback('SHUTTLE FREEZE [K]');
+  }, [isPlaying, onTogglePlay, showToastFeedback]);
+
+  const handleShuttleForward = useCallback(() => {
+    if (isPlaying) onTogglePlay();
+    setShuttleRate((prev) => {
+      if (prev < -1) return -1;
+      if (prev === -1) return 1;
+      if (prev === 0) return 1;
+      if (prev === 1) return 2;
+      return 4;
+    });
+  }, [isPlaying, onTogglePlay]);
+
+  // Scoped CapCut NLE + J/K/L + V/Y/N Hotkeys
   useEffect(() => {
     const handleNleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -407,6 +590,33 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         e.preventDefault();
         e.stopPropagation();
         handleTrimEndW();
+      } else if (lower === 'j') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleShuttleReverse();
+      } else if (lower === 'k') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleShuttleFreeze();
+      } else if (lower === 'l') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleShuttleForward();
+      } else if (lower === 'v') {
+        e.preventDefault();
+        e.stopPropagation();
+        setEditToolMode('SELECT');
+        showToastFeedback('TOOL: SELECT [V]');
+      } else if (lower === 'y') {
+        e.preventDefault();
+        e.stopPropagation();
+        setEditToolMode('SLIP');
+        showToastFeedback('TOOL: SLIP [Y]');
+      } else if (lower === 'n') {
+        e.preventDefault();
+        e.stopPropagation();
+        setEditToolMode('ROLL');
+        showToastFeedback('TOOL: ROLL [N]');
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         e.stopPropagation();
@@ -416,7 +626,16 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
     window.addEventListener('keydown', handleNleKeyDown, true);
     return () => window.removeEventListener('keydown', handleNleKeyDown, true);
-  }, [handleSplitAtPlayhead, handleTrimStartQ, handleTrimEndW, handleRippleDelete]);
+  }, [
+    handleSplitAtPlayhead,
+    handleTrimStartQ,
+    handleTrimEndW,
+    handleRippleDelete,
+    handleShuttleReverse,
+    handleShuttleFreeze,
+    handleShuttleForward,
+    showToastFeedback
+  ]);
 
   const formatSMPTE = (sec: number, fps = activeSlideFps) => {
     const totalFrames = Math.max(0, Math.floor(sec * fps));
@@ -435,52 +654,119 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
   const totalTrackWidthPx = Math.max(720, Math.round(totalDurationSec * pxPerSec));
 
-  // Direct Canvas Hover / Drag Scrubbing
+  // Draw 2x Pixel-Peep Focus Loupe when Alt+Hovering Hero Canvas
+  const drawLoupeMagnifier = useCallback(
+    (pctX: number, pctY: number) => {
+      const loupeCanvas = loupeCanvasRef.current;
+      if (!loupeCanvas) return;
+      const ctx = loupeCanvas.getContext('2d');
+      if (!ctx) return;
+
+      const w = loupeCanvas.width;
+      const h = loupeCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      let sourceEl: CanvasImageSource | null = null;
+      let srcW = 0;
+      let srcH = 0;
+
+      const vid = monitorVideoRef.current;
+      const scrubCvs = scrubCanvasRef.current;
+      if (isCanvasCacheVisible && scrubCvs && scrubCvs.width > 0) {
+        sourceEl = scrubCvs;
+        srcW = scrubCvs.width;
+        srcH = scrubCvs.height;
+      } else if (vid && vid.readyState >= 2 && vid.videoWidth > 0) {
+        sourceEl = vid;
+        srcW = vid.videoWidth;
+        srcH = vid.videoHeight;
+      }
+
+      if (sourceEl && srcW > 0 && srcH > 0) {
+        const cropW = srcW * 0.28;
+        const cropH = srcH * 0.28;
+        const sx = Math.max(0, Math.min(srcW - cropW, pctX * srcW - cropW / 2));
+        const sy = Math.max(0, Math.min(srcH - cropH, pctY * srcH - cropH / 2));
+        ctx.drawImage(sourceEl, sx, sy, cropW, cropH, 0, 0, w, h);
+      } else {
+        ctx.fillStyle = '#0B0C10';
+        ctx.fillRect(0, 0, w, h);
+      }
+    },
+    [isCanvasCacheVisible]
+  );
+
+  // Direct Canvas Hover / Drag Scrubbing + 2x Focus Loupe
   const scrubHeroCanvasFromPointer = useCallback(
-    (clientX: number, commitSeek: boolean) => {
+    (clientX: number, clientY: number, altHeld: boolean, commitSeek: boolean) => {
       const el = heroViewportRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      setCanvasHoverPct(ratio * 100);
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const ratioX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const ratioY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      setCanvasHoverPct(ratioX * 100);
+
+      if (altHeld) {
+        setLoupeState({
+          active: true,
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+          pctX: ratioX,
+          pctY: ratioY
+        });
+        drawLoupeMagnifier(ratioX, ratioY);
+      } else if (loupeState?.active) {
+        setLoupeState(null);
+      }
+
       if (commitSeek) {
-        const targetLocalSec = ratio * activeSlideDurationSec;
+        const targetLocalSec = ratioX * activeSlideDurationSec;
+        const targetSourceSec = evaluateSpeedRampSourceTime(currentSlide, targetLocalSec);
+        blitCachedBitmapAtTime(targetSourceSec);
         onScrubSlideTime(targetLocalSec);
         if (monitorVideoRef.current && isMonitorVideo && monitorVideoRef.current.readyState >= 1) {
-          syncVideoCurrentTimeWithFastSeek(
-            monitorVideoRef.current,
-            evaluateSpeedRampSourceTime(currentSlide, targetLocalSec),
-            0.002
-          );
+          syncVideoCurrentTimeWithFastSeek(monitorVideoRef.current, targetSourceSec, 0.002);
         }
       }
     },
-    [activeSlideDurationSec, onScrubSlideTime, isMonitorVideo, currentSlide]
+    [
+      activeSlideDurationSec,
+      onScrubSlideTime,
+      isMonitorVideo,
+      currentSlide,
+      blitCachedBitmapAtTime,
+      drawLoupeMagnifier,
+      loupeState?.active
+    ]
   );
 
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (target.closest('button, input, select')) return;
+    setShuttleRate(0);
     isDraggingCanvasScrubRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
-    scrubHeroCanvasFromPointer(e.clientX, true);
+    scrubHeroCanvasFromPointer(e.clientX, e.clientY, e.altKey, true);
   };
 
   const handleCanvasPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const shouldScrub = isDraggingCanvasScrubRef.current || (isHoverScrubEnabled && !isPlaying);
-    scrubHeroCanvasFromPointer(e.clientX, shouldScrub);
+    const shouldScrub = isDraggingCanvasScrubRef.current || (isHoverScrubEnabled && !isPlaying && shuttleRate === 0);
+    scrubHeroCanvasFromPointer(e.clientX, e.clientY, e.altKey, shouldScrub);
   };
 
   const handleCanvasPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isDraggingCanvasScrubRef.current) {
       isDraggingCanvasScrubRef.current = false;
+      setIsCanvasCacheVisible(false);
       try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
     }
   };
 
   const handleCanvasPointerLeave = () => {
     setCanvasHoverPct(null);
+    setLoupeState(null);
+    setIsCanvasCacheVisible(false);
     isDraggingCanvasScrubRef.current = false;
   };
 
@@ -518,6 +804,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   );
 
   const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    setShuttleRate(0);
     isDraggingMasterNeedleRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     scrubAtTrackClientX(e.clientX);
@@ -531,11 +818,12 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   const handleRulerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isDraggingMasterNeedleRef.current) {
       isDraggingMasterNeedleRef.current = false;
+      setIsCanvasCacheVisible(false);
       try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
     }
   };
 
-  // Smooth mouse-wheel zoom (`Ctrl`/`Meta`/vertical) or timeline horizontal scrub across filmstrip
+  // Smooth mouse-wheel zoom (`Ctrl`/`Meta`/`Alt`) or timeline horizontal scrub
   const handleFilmstripWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey) {
       e.preventDefault();
@@ -549,7 +837,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     }
   };
 
-  // Real-Time Edge Drag Trim Handles (`[|` left `inPoint` and `|]` right `outPoint`)
+  // Edge / Roll Handle Pointer Handlers
   const handleTrimHandlePointerDown = (
     e: React.PointerEvent<HTMLDivElement>,
     clipIndex: number,
@@ -560,8 +848,13 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     e.currentTarget.setPointerCapture(e.pointerId);
     onSelectSlide(clipIndex);
 
+    const canRoll =
+      editToolMode === 'ROLL' &&
+      ((edge === 'right' && clipIndex < slides.length - 1) || (edge === 'left' && clipIndex > 0));
+
     activeTrimDragRef.current = {
-      clipIndex,
+      kind: canRoll ? 'roll' : 'edge',
+      clipIndex: canRoll ? (edge === 'right' ? clipIndex : clipIndex - 1) : clipIndex,
       edge,
       startClientX: e.clientX,
       baseSlides: slides,
@@ -569,19 +862,67 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     };
   };
 
-  const handleTrimHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  // Slip Interior Drag Handlers when Tool === 'SLIP'
+  const handleClipBodyPointerDown = (
+    e: React.PointerEvent<HTMLDivElement>,
+    clipIndex: number
+  ) => {
+    if (editToolMode !== 'SLIP') return;
+    if ((e.target as HTMLElement).closest('[role="separator"]')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    onSelectSlide(clipIndex);
+    activeTrimDragRef.current = {
+      kind: 'slip',
+      clipIndex,
+      startClientX: e.clientX,
+      baseSlides: slides,
+      latestSlides: slides
+    };
+  };
+
+  const handleClipDragPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = activeTrimDragRef.current;
     if (!drag) return;
     e.stopPropagation();
 
     const deltaPx = e.clientX - drag.startClientX;
     const deltaSec = deltaPx / pxPerSec;
-    const res = trimClipEdge(drag.baseSlides, drag.clipIndex, drag.edge, deltaSec, isMagneticSnap);
+
+    if (drag.kind === 'roll') {
+      const res = rollClipCutPoint(drag.baseSlides, drag.clipIndex, deltaSec, isMagneticSnap);
+      drag.latestSlides = res.slides;
+      setTrimPreviewSlides(res.slides);
+      const vid = monitorVideoRef.current;
+      if (vid && isMonitorVideo && vid.readyState >= 1) {
+        blitCachedBitmapAtTime(res.scrubPreviewSourceSec);
+        syncVideoCurrentTimeWithFastSeek(vid, res.scrubPreviewSourceSec, 0.002);
+      }
+      return;
+    }
+
+    if (drag.kind === 'slip') {
+      const res = slipClipWindow(drag.baseSlides, drag.clipIndex, -deltaSec, isMagneticSnap);
+      drag.latestSlides = res.slides;
+      setTrimPreviewSlides(res.slides);
+      const slipWin = getClipSourceWindow(res.slides[drag.clipIndex]);
+      const vid = monitorVideoRef.current;
+      if (vid && isMonitorVideo && vid.readyState >= 1) {
+        blitCachedBitmapAtTime(slipWin.inSec);
+        syncVideoCurrentTimeWithFastSeek(vid, slipWin.inSec, 0.002);
+      }
+      return;
+    }
+
+    // Standard Edge Trim (`[|` / `|]`)
+    const res = trimClipEdge(drag.baseSlides, drag.clipIndex, drag.edge || 'right', deltaSec, isMagneticSnap);
     drag.latestSlides = res.slides;
     setTrimPreviewSlides(res.slides);
 
     const vid = monitorVideoRef.current;
     if (vid && isMonitorVideo && vid.readyState >= 1) {
+      blitCachedBitmapAtTime(res.scrubPreviewSourceSec);
       syncVideoCurrentTimeWithFastSeek(vid, res.scrubPreviewSourceSec, 0.002);
     }
 
@@ -589,7 +930,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     onScrubSlideTime(drag.edge === 'left' ? 0 : Math.max(0, updatedWin.timelineDurationSec - 1 / updatedWin.fps));
   };
 
-  const handleTrimHandlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleClipDragPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = activeTrimDragRef.current;
     if (!drag) return;
     e.stopPropagation();
@@ -598,17 +939,43 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
     const finalSlides = drag.latestSlides;
     const finalWin = getClipSourceWindow(finalSlides[drag.clipIndex]);
     const finalLocalSec =
-      drag.edge === 'left' ? 0 : Math.max(0, finalWin.timelineDurationSec - 1 / finalWin.fps);
+      drag.kind === 'slip'
+        ? slideTimeSec
+        : drag.kind === 'roll'
+          ? Math.max(0, finalWin.timelineDurationSec - 1 / finalWin.fps)
+          : drag.edge === 'left'
+            ? 0
+            : Math.max(0, finalWin.timelineDurationSec - 1 / finalWin.fps);
+
+    const toastLabel =
+      drag.kind === 'roll'
+        ? `ROLLED SEAM (${finalWin.timelineDurationSec.toFixed(2)}S)`
+        : drag.kind === 'slip'
+          ? `SLIPPED IN ${finalWin.inSec.toFixed(2)}S`
+          : `${drag.edge === 'left' ? 'IN' : 'OUT'} TRIMMED (${finalWin.timelineDurationSec.toFixed(2)}S)`;
 
     activeTrimDragRef.current = null;
     setTrimPreviewSlides(null);
+    setIsCanvasCacheVisible(false);
 
-    commitNleResult(
-      finalSlides,
-      drag.clipIndex,
-      finalLocalSec,
-      `${drag.edge === 'left' ? 'IN' : 'OUT'} TRIMMED (${finalWin.timelineDurationSec.toFixed(2)}S)`
-    );
+    commitNleResult(finalSlides, drag.clipIndex, finalLocalSec, toastLabel);
+  };
+
+  // Bezier Velocity Ramp Keyframe Manipulation
+  const activeKeyframes: SpeedRampKeyframe[] = useMemo(() => {
+    if (currentSlide?.speedRampKeyframes && currentSlide.speedRampKeyframes.length >= 2) {
+      return currentSlide.speedRampKeyframes;
+    }
+    return DEFAULT_RAMP_KEYFRAMES;
+  }, [currentSlide?.speedRampKeyframes]);
+
+  const updateKeyframeSpeed = (kfIdx: number, nextSpeed: number) => {
+    const clamped = Number(Math.max(0.25, Math.min(4.0, nextSpeed)).toFixed(2));
+    const nextKfs = activeKeyframes.map((kf, i) => (i === kfIdx ? { ...kf, rate: clamped } : kf));
+    onUpdateSlide(safeIndex, {
+      speedRampKeyframes: nextKfs,
+      speedRampPreset: currentSlide?.speedRampPreset === 'NONE' || !currentSlide?.speedRampPreset ? 'WHIP_CUT' : currentSlide.speedRampPreset
+    });
   };
 
   // Card Reordering
@@ -684,6 +1051,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   const masterNeedleLeftPx = Math.max(0, Math.min(totalTrackWidthPx, globalCurrentSec * pxPerSec));
   const localProgressPct = Math.max(0, Math.min(100, (slideTimeSec / Math.max(0.01, activeSlideDurationSec)) * 100));
   const beatFx = evaluateBeatDropFx(currentSlide, slideTimeSec, activeSlideFps);
+  const opticalFlowMode = currentSlide?.opticalFlowMode || 'NONE';
 
   const viewportAspectClass =
     aspectRatio === '9:16'
@@ -691,6 +1059,8 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
       : aspectRatio === '16:9'
         ? 'aspect-video max-h-full max-w-full w-auto h-full'
         : 'aspect-[2.39/1] max-h-full max-w-full w-full';
+
+  const hideTopStrip = isPlaying && !isHeaderHovered;
 
   return (
     <div className={`w-full h-full bg-[#050505] text-zinc-200 flex flex-col overflow-hidden select-none font-mono ${className}`}>
@@ -702,10 +1072,18 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         onChange={handleFileChange}
       />
 
-      {/* 1. HERO SCRUB VIEWPORT (Top ~64% Height) */}
-      <section className="relative flex-[1_1_64%] min-h-[260px] w-full bg-[#050505] flex flex-col overflow-hidden">
-        {/* Top Compact Brutalist Telemetry Strip */}
-        <div className="h-9 px-3 bg-[#08090C] border-b border-white/10 flex items-center justify-between gap-2 shrink-0 text-[10px]">
+      {/* 1. MAXIMIZED HERO SCRUB VIEWPORT (>=76% Height, auto-collapses secondary header on play) */}
+      <section
+        onMouseEnter={() => setIsHeaderHovered(true)}
+        onMouseLeave={() => setIsHeaderHovered(false)}
+        className="relative flex-1 min-h-0 w-full bg-[#050505] flex flex-col overflow-hidden"
+      >
+        {/* Auto-Collapsible Telemetry Header */}
+        <div
+          className={`px-3 bg-[#08090C] border-b border-white/10 flex items-center justify-between gap-2 shrink-0 text-[10px] transition-all duration-200 ${
+            hideTopStrip ? 'h-0 opacity-0 border-b-0 overflow-hidden py-0' : 'h-8 opacity-100'
+          }`}
+        >
           <div className="flex items-center gap-2 min-w-0">
             <span className="px-1.5 py-0.5 bg-[#F5A623] text-black font-black tracking-wider shrink-0">
               SCRUB
@@ -714,10 +1092,15 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               SH{String(safeIndex + 1).padStart(3, '0')}/{activeSlides.length}
             </span>
             <span className="text-zinc-500">·</span>
-            <span className="text-zinc-300 truncate max-w-[240px] sm:max-w-[380px]">
+            <span className="text-zinc-300 truncate max-w-[200px] sm:max-w-[340px]">
               {currentSlide?.titleBn ? `${currentSlide.titleBn} · ` : ''}
               {currentSlide?.titleEn || `Shot ${String(safeIndex + 1).padStart(3, '0')}`}
             </span>
+            {ringCacheCount > 0 && (
+              <span className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-[9px] font-bold">
+                CACHE {ringCacheCount}F
+              </span>
+            )}
           </div>
 
           <div className="hidden md:flex items-center gap-3 tabular-nums">
@@ -779,8 +1162,8 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
           </div>
         </div>
 
-        {/* Interactive Maximized Canvas Stage (Direct Hover/Drag Scrub-By-Mouse) */}
-        <div className="flex-1 min-h-0 w-full flex items-center justify-center p-2 sm:p-3 overflow-hidden bg-[#050505]">
+        {/* Interactive Maximized Canvas Stage (Direct Hover/Drag Scrub + Ring-Buffer GPU Blitting + Alt 2x Loupe) */}
+        <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1.5 sm:p-2 overflow-hidden bg-[#050505]">
           <div
             ref={heroViewportRef}
             data-testid="scrub-hero-viewport"
@@ -807,17 +1190,40 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                     src={monitorMediaUrl}
                     crossOrigin="anonymous"
                     poster={fallbackPosterUrl || undefined}
-                    className="w-full h-full object-cover pointer-events-none z-[2]"
+                    className={`w-full h-full object-cover pointer-events-none z-[2] ${
+                      opticalFlowMode === 'OPTICAL_FLOW'
+                        ? 'transition-[filter] duration-150 saturate-[1.06]'
+                        : opticalFlowMode === 'FRAME_BLEND'
+                          ? 'transition-opacity duration-75'
+                          : ''
+                    }`}
                     muted
                     playsInline
                     preload="auto"
-                    onLoadedData={() => setIsVideoReady(true)}
+                    onLoadedData={() => {
+                      setIsVideoReady(true);
+                      void captureCurrentVideoFrameToRing();
+                    }}
                     onCanPlay={() => setIsVideoReady(true)}
+                    onSeeked={() => {
+                      setIsCanvasCacheVisible(false);
+                      void captureCurrentVideoFrameToRing();
+                    }}
+                    onTimeUpdate={() => {
+                      if (isPlaying) void captureCurrentVideoFrameToRing();
+                    }}
                     style={{
                       opacity: isVideoReady || !fallbackPosterUrl ? 1 : 0,
                       transform: 'translateZ(0)',
                       backfaceVisibility: 'hidden'
                     }}
+                  />
+                  {/* GPU Keyframe Ring-Buffer Scrub Accelerator Canvas */}
+                  <canvas
+                    ref={scrubCanvasRef}
+                    className={`absolute inset-0 w-full h-full object-cover pointer-events-none z-[3] transition-opacity duration-75 ${
+                      isCanvasCacheVisible ? 'opacity-100' : 'opacity-0'
+                    }`}
                   />
                 </>
               ) : (
@@ -841,29 +1247,125 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               </div>
             )}
 
-            {/* Beat-Drop 2F Flash / Chromatic Pulse Preview */}
+            {/* Beat-Drop 2F Flash Preview */}
             {beatFx.isFlashCutFrame && (
               <div className="absolute inset-0 bg-[#050505] pointer-events-none z-[15]" />
             )}
 
-            {/* Top-Left Live SMPTE & Frame Counter HUD */}
-            <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/85 border border-white/15 text-[10px] font-bold text-[#F5A623] pointer-events-none z-20 tabular-nums">
-              F{String(currentFrameNum).padStart(3, '0')}/{activeSlideTotalFrames} · {formatSMPTE(slideTimeSec)} · SRC {evaluateSpeedRampSourceTime(currentSlide, slideTimeSec).toFixed(2)}s
+            {/* Top-Left Live SMPTE, Frame Counter & Shuttle Speed HUD */}
+            <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none z-20">
+              <div className="px-2 py-0.5 bg-black/85 border border-white/15 text-[10px] font-bold text-[#F5A623] tabular-nums">
+                F{String(currentFrameNum).padStart(3, '0')}/{activeSlideTotalFrames} · {formatSMPTE(slideTimeSec)} · SRC {evaluateSpeedRampSourceTime(currentSlide, slideTimeSec).toFixed(2)}s
+              </div>
+              {shuttleRate !== 0 && (
+                <div
+                  data-testid="scrub-shuttle-badge"
+                  className={`px-2 py-0.5 border text-[10px] font-black tracking-wider uppercase tabular-nums ${
+                    shuttleRate < 0
+                      ? 'bg-rose-950/95 border-rose-500 text-rose-200'
+                      : 'bg-cyan-950/95 border-cyan-400 text-cyan-200'
+                  }`}
+                >
+                  SHUTTLE {shuttleRate > 0 ? `+${shuttleRate}x FWD` : `${shuttleRate}x REV`}
+                </div>
+              )}
+              {opticalFlowMode !== 'NONE' && (
+                <div className="px-1.5 py-0.5 bg-purple-950/90 border border-purple-400/50 text-purple-200 text-[9px] font-bold uppercase">
+                  {opticalFlowMode === 'OPTICAL_FLOW' ? 'OPTICAL FLOW' : 'FRAME BLEND'}
+                </div>
+              )}
             </div>
 
-            {/* Top-Right Upload Replace Action */}
-            <button
-              type="button"
-              onClick={(e) => handleTriggerUpload(safeIndex, e)}
-              className="absolute top-2 right-2 px-2 py-0.5 bg-black/85 border border-white/20 text-[10px] text-zinc-200 hover:text-[#F5A623] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-30"
-            >
-              <Upload className="w-3 h-3" />
-              <span>REPLACE</span>
-            </button>
+            {/* Top-Right Alt+Hover Hint & Upload Replace */}
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 z-30">
+              <span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 bg-black/75 border border-white/10 text-[9px] text-zinc-400 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                <Crosshair className="w-2.5 h-2.5 text-cyan-400" />
+                ALT+HOVER 2X LOUPE
+              </span>
+              <button
+                type="button"
+                onClick={(e) => handleTriggerUpload(safeIndex, e)}
+                className="px-2 py-0.5 bg-black/85 border border-white/20 text-[10px] text-zinc-200 hover:text-[#F5A623] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <Upload className="w-3 h-3" />
+                <span>REPLACE</span>
+              </button>
+            </div>
+
+            {/* Interactive Bezier Velocity Ramp Overlay Drawer */}
+            {isRampCurveOpen && (
+              <div
+                data-testid="scrub-bezier-ramp-editor"
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerMove={(e) => e.stopPropagation()}
+                className="absolute right-3 bottom-12 w-72 bg-[#08090D]/95 border border-[#F5A623]/60 backdrop-blur-xl p-2.5 z-40 shadow-2xl"
+              >
+                <div className="flex items-center justify-between text-[9px] font-black text-[#F5A623] uppercase tracking-wider mb-1.5">
+                  <span>BEZIER SPEED RAMP (0.25x–4.0x)</span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSlide(safeIndex, { speedRampKeyframes: DEFAULT_RAMP_KEYFRAMES, speedRampPreset: 'WHIP_CUT' })}
+                    className="text-zinc-400 hover:text-white cursor-pointer"
+                  >
+                    RESET
+                  </button>
+                </div>
+
+                {/* Live Smooth Bezier Curve SVG */}
+                <svg viewBox="0 0 240 72" className="w-full h-16 bg-black/80 border border-white/10 mb-2">
+                  <line x1="0" y1="54" x2="240" y2="54" stroke="rgba(255,255,255,0.12)" strokeDasharray="3 3" />
+                  <path
+                    d={(() => {
+                      const toY = (spd: number) => 66 - ((spd - 0.25) / 3.75) * 56;
+                      const p0 = toY(activeKeyframes[0]?.rate ?? 1);
+                      const p1 = toY(activeKeyframes[1]?.rate ?? 2);
+                      const p2 = toY(activeKeyframes[2]?.rate ?? 1);
+                      return `M 12 ${p0} C 70 ${p0}, 70 ${p1}, 120 ${p1} S 170 ${p2}, 228 ${p2}`;
+                    })()}
+                    fill="none"
+                    stroke="#F5A623"
+                    strokeWidth="2.5"
+                  />
+                  {activeKeyframes.map((kf, kIdx) => {
+                    const cx = kIdx === 0 ? 12 : kIdx === 1 ? 120 : 228;
+                    const cy = 66 - ((kf.rate - 0.25) / 3.75) * 56;
+                    return (
+                      <g key={kIdx}>
+                        <circle cx={cx} cy={cy} r="5" fill="#00F0FF" stroke="#000" strokeWidth="1.5" />
+                        <text x={cx} y={Math.max(10, cy - 8)} textAnchor="middle" fill="#FFE066" fontSize="8" fontWeight="bold">
+                          {kf.rate.toFixed(1)}x
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* 3 Keyframe Sliders */}
+                <div className="grid grid-cols-3 gap-2 text-[9px]">
+                  {(['IN', 'MID', 'OUT'] as const).map((label, kIdx) => (
+                    <label key={label} className="flex flex-col gap-0.5 text-zinc-300">
+                      <div className="flex justify-between">
+                        <span>{label}</span>
+                        <span className="text-cyan-300 font-bold">{(activeKeyframes[kIdx]?.rate ?? 1).toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.25}
+                        max={4.0}
+                        step={0.05}
+                        value={activeKeyframes[kIdx]?.rate ?? 1}
+                        onChange={(e) => updateKeyframeSpeed(kIdx, Number(e.target.value))}
+                        className="w-full accent-[#F5A623] cursor-pointer"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Title Overlay Preview at Bottom of Hero Stage */}
-            <div className="absolute inset-x-0 bottom-3 px-3 pointer-events-none z-20 flex items-end justify-between">
-              <div className="bg-black/75 border border-white/10 px-2.5 py-1 max-w-[70%]">
+            <div className="absolute inset-x-0 bottom-2.5 px-3 pointer-events-none z-20 flex items-end justify-between">
+              <div className="bg-black/75 border border-white/10 px-2.5 py-1 max-w-[68%]">
                 {currentSlide?.titleBn && (
                   <div className="text-[#FFE066] font-serif font-bold text-sm leading-tight truncate">
                     {currentSlide.titleBn}
@@ -878,6 +1380,27 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               </div>
             </div>
 
+            {/* 2x Pixel-Peep Focus Loupe (`Alt + Hover`) */}
+            {loupeState?.active && (
+              <div
+                data-testid="scrub-focus-loupe"
+                style={{
+                  left: `${Math.max(70, Math.min((heroViewportRef.current?.clientWidth || 600) - 70, loupeState.x))}px`,
+                  top: `${Math.max(70, Math.min((heroViewportRef.current?.clientHeight || 400) - 70, loupeState.y))}px`
+                }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 w-[132px] h-[132px] rounded-full border-2 border-cyan-400 shadow-[0_0_24px_rgba(0,240,255,0.6)] overflow-hidden pointer-events-none z-40 bg-black"
+              >
+                <canvas ref={loupeCanvasRef} width={132} height={132} className="w-full h-full" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-4 h-px bg-cyan-400/80" />
+                  <div className="h-4 w-px bg-cyan-400/80 absolute" />
+                </div>
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-black/85 text-cyan-300 text-[8px] font-black">
+                  2.0× LOUPE
+                </span>
+              </div>
+            )}
+
             {/* Direct-Canvas Hover Hairline Scrub Needle */}
             {canvasHoverPct !== null && (
               <div
@@ -891,7 +1414,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             )}
 
             {/* Bottom Edge In/Out Playhead Progress Bar */}
-            <div className="absolute inset-x-0 bottom-0 h-1.5 bg-black/80 pointer-events-none z-20">
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-black/80 pointer-events-none z-20">
               <div
                 className="h-full bg-[#E50914]"
                 style={{ width: `${localProgressPct}%` }}
@@ -901,15 +1424,38 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
         </div>
       </section>
 
-      {/* 2. COMPACT PRECISION RAZOR BAR (Middle ~8% Height) */}
-      <div className="min-h-[44px] px-3 py-1 bg-[#0B0C10] border-y border-white/15 flex flex-wrap items-center justify-between gap-1.5 shrink-0 z-30">
-        {/* Cutting Tools */}
+      {/* 2. COMPACT PRECISION RAZOR, SHUTTLE & NLE MODE BAR */}
+      <div className="min-h-[40px] px-2.5 py-1 bg-[#0B0C10] border-y border-white/15 flex flex-wrap items-center justify-between gap-1 shrink-0 z-30">
+        {/* Left: Edit Modes (`SELECT [V]`, `SLIP [Y]`, `ROLL [N]`) + Cutting Ops */}
         <div className="flex items-center gap-1">
+          <div className="flex items-center bg-black/70 border border-white/10 p-0.5 mr-1">
+            {([
+              { id: 'SELECT', label: 'V', title: 'Select & Edge Trim [V]' },
+              { id: 'SLIP', label: 'Y SLIP', title: 'Slip Interior Source Window [Y]' },
+              { id: 'ROLL', label: 'N ROLL', title: 'Roll Adjacent Cut Seam [N]' }
+            ] as const).map((tool) => (
+              <button
+                key={tool.id}
+                type="button"
+                data-testid={`scrub-tool-${tool.id.toLowerCase()}`}
+                onClick={() => setEditToolMode(tool.id)}
+                title={tool.title}
+                className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer whitespace-nowrap ${
+                  editToolMode === tool.id
+                    ? 'bg-cyan-400 text-black'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {tool.label}
+              </button>
+            ))}
+          </div>
+
           <button
             type="button"
             data-testid="scrub-split-btn"
             onClick={handleSplitAtPlayhead}
-            className="px-2.5 py-1 bg-[#F5A623] hover:bg-amber-400 text-black text-[10px] font-black tracking-wider flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            className="px-2 py-1 bg-[#F5A623] hover:bg-amber-400 text-black text-[10px] font-black tracking-wider flex items-center gap-1 cursor-pointer whitespace-nowrap"
             title="Razor Split at Playhead (S / Ctrl+B)"
           >
             <Scissors className="w-3 h-3" />
@@ -924,7 +1470,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             title="Trim Start to Playhead (Q)"
           >
             <ArrowLeftToLine className="w-3 h-3 text-[#F5A623]" />
-            <span>TRIM IN [Q]</span>
+            <span>IN [Q]</span>
           </button>
 
           <button
@@ -934,7 +1480,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             className="px-2 py-1 bg-white/5 hover:bg-white/15 border border-white/15 text-zinc-200 hover:text-[#F5A623] text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
             title="Trim End to Playhead (W)"
           >
-            <span>TRIM OUT [W]</span>
+            <span>OUT [W]</span>
             <ArrowRightToLine className="w-3 h-3 text-[#F5A623]" />
           </button>
 
@@ -943,52 +1489,65 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             data-testid="scrub-ripple-delete-btn"
             onClick={handleRippleDelete}
             disabled={slides.length <= 1}
-            className="px-2 py-1 bg-[#E50914]/15 hover:bg-[#E50914]/35 border border-[#E50914]/45 text-rose-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-35 whitespace-nowrap"
+            className="px-1.5 py-1 bg-[#E50914]/15 hover:bg-[#E50914]/35 border border-[#E50914]/45 text-rose-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-35 whitespace-nowrap"
             title="Ripple Delete Active Shot (Del)"
           >
             <Trash2 className="w-3 h-3" />
-            <span>RIPPLE DEL</span>
+            <span className="hidden xl:inline">DEL</span>
           </button>
 
-          {/* Slip / Slide In-Out Source Window */}
-          <div className="hidden sm:flex items-center bg-black/60 border border-white/10 ml-1">
-            <span className="px-1.5 text-[9px] text-zinc-400 flex items-center gap-0.5">
-              <MoveHorizontal className="w-2.5 h-2.5 text-cyan-400" />
-              SLIP
-            </span>
-            <button
-              type="button"
-              onClick={() => handleSlipFrames(-4)}
-              className="px-1.5 py-1 text-[10px] font-bold text-zinc-300 hover:text-white hover:bg-white/10 cursor-pointer"
-              title="Slip Source Window -4 Frames"
-            >
-              -4F
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSlipFrames(4)}
-              className="px-1.5 py-1 text-[10px] font-bold text-zinc-300 hover:text-white hover:bg-white/10 cursor-pointer"
-              title="Slip Source Window +4 Frames"
-            >
-              +4F
-            </button>
-          </div>
-        </div>
-
-        {/* Center Frame-Steppers & Transport */}
-        <div className="flex items-center gap-1">
+          {/* 1-Click Snap Playhead to Nearest Audio Beat Transient */}
           <button
             type="button"
-            onClick={() => onScrubSlideTime(0)}
-            className="p-1 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 cursor-pointer"
-            title="Jump to Start of Shot"
+            data-testid="scrub-snap-transient-btn"
+            onClick={handleSnapToTransient}
+            className="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            title="Snap Playhead to Nearest Audio Transient Beat"
           >
-            <SkipBack className="w-3.5 h-3.5" />
+            <Activity className="w-3 h-3 text-amber-400" />
+            <span>SNAP BEAT</span>
           </button>
+        </div>
+
+        {/* Center: J/K/L Shuttle, Frame-Steppers & Transport */}
+        <div className="flex items-center gap-1">
+          <div className="hidden sm:flex items-center bg-black/70 border border-white/10 p-0.5 mr-0.5">
+            <button
+              type="button"
+              onClick={handleShuttleReverse}
+              className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer ${
+                shuttleRate < 0 ? 'bg-rose-600 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Shuttle Reverse (-1x / -2x / -4x) [J]"
+            >
+              J {shuttleRate < 0 ? `${shuttleRate}x` : '◀'}
+            </button>
+            <button
+              type="button"
+              onClick={handleShuttleFreeze}
+              className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer ${
+                shuttleRate === 0 && !isPlaying ? 'bg-white/15 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Freeze Shuttle [K]"
+            >
+              K
+            </button>
+            <button
+              type="button"
+              onClick={handleShuttleForward}
+              className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer ${
+                shuttleRate > 0 ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Shuttle Forward (+1x / +2x / +4x) [L]"
+            >
+              L {shuttleRate > 0 ? `+${shuttleRate}x` : '▶'}
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => onStepFrame(false)}
-            className="px-2 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-[#F5A623] cursor-pointer whitespace-nowrap"
+            className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-[#F5A623] cursor-pointer whitespace-nowrap"
             title="Step Back 1 Frame"
           >
             -1F
@@ -996,7 +1555,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
           <button
             type="button"
             onClick={onTogglePlay}
-            className={`px-3 py-1 font-black text-[10px] flex items-center gap-1 border cursor-pointer whitespace-nowrap ${
+            className={`px-2.5 py-1 font-black text-[10px] flex items-center gap-1 border cursor-pointer whitespace-nowrap ${
               isPlaying
                 ? 'bg-[#E50914] border-[#E50914] text-white'
                 : 'bg-[#1a1308] border-[#F5A623] text-[#F5A623]'
@@ -1008,18 +1567,10 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
           <button
             type="button"
             onClick={() => onStepFrame(true)}
-            className="px-2 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-[#F5A623] cursor-pointer whitespace-nowrap"
+            className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-[#F5A623] cursor-pointer whitespace-nowrap"
             title="Step Forward 1 Frame"
           >
             +1F
-          </button>
-          <button
-            type="button"
-            onClick={() => onScrubSlideTime(activeSlideDurationSec)}
-            className="p-1 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 cursor-pointer"
-            title="Jump to End of Shot"
-          >
-            <SkipForward className="w-3.5 h-3.5" />
           </button>
 
           <CadenceSelectorPill
@@ -1034,9 +1585,9 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
           />
         </div>
 
-        {/* Right: Speed Multipliers, Velocity Speed-Ramp, Zoom & Collapsible Cards Drawer Toggle */}
-        <div className="flex items-center gap-1.5 text-[10px]">
-          <div className="flex items-center gap-0.5 bg-black/60 border border-white/10 px-1 py-0.5">
+        {/* Right: Speed Multipliers, Bezier Ramp, Optical Flow, Zoom & Timeline/Cards Collapse */}
+        <div className="flex items-center gap-1 text-[10px]">
+          <div className="hidden xl:flex items-center gap-0.5 bg-black/60 border border-white/10 px-1 py-0.5">
             <Gauge className="w-3 h-3 text-cyan-400 mr-0.5" />
             {SCRUB_SPEED_OPTIONS.map((spd) => (
               <button
@@ -1046,7 +1597,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                   handleClipSpeedChange(spd);
                   onChangePlaybackSpeed?.(spd);
                 }}
-                className={`px-1.5 py-0.5 font-bold cursor-pointer whitespace-nowrap ${
+                className={`px-1 py-0.5 font-bold cursor-pointer whitespace-nowrap ${
                   Math.abs(currentWindow.speed - spd) < 0.05
                     ? 'bg-cyan-400 text-black'
                     : 'text-zinc-400 hover:text-white'
@@ -1057,21 +1608,34 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             ))}
           </div>
 
-          <div className="hidden lg:flex items-center gap-1 bg-black/60 border border-white/10 px-1.5 py-0.5">
-            <Zap className="w-3 h-3 text-[#F5A623]" />
-            <select
-              value={currentSlide?.speedRampPreset || 'NONE'}
-              onChange={(e) => handleSpeedRampChange(e.target.value as SpeedRampPreset)}
-              className="bg-transparent text-[10px] font-bold text-[#F5A623] outline-none cursor-pointer"
-              title="Velocity Speed-Ramp Curve"
-            >
-              {SPEED_RAMP_PRESETS.map((p) => (
-                <option key={p.id} value={p.id} className="bg-[#0B0C10] text-white">
-                  RAMP: {p.shortLabel}
-                </option>
-              ))}
-            </select>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsRampCurveOpen((o) => !o)}
+            className={`px-2 py-1 border text-[9px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap ${
+              isRampCurveOpen || currentSlide?.speedRampKeyframes?.length
+                ? 'bg-amber-500/20 border-[#F5A623] text-[#F5A623]'
+                : 'bg-white/5 border-white/15 text-zinc-300 hover:text-white'
+            }`}
+            title="Toggle Interactive Bezier Speed-Ramp Keyframe Curve"
+          >
+            <Zap className="w-3 h-3" />
+            <span>CURVE</span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="scrub-optical-flow-btn"
+            onClick={handleCycleOpticalFlow}
+            className={`px-2 py-1 border text-[9px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap ${
+              opticalFlowMode !== 'NONE'
+                ? 'bg-purple-500/20 border-purple-400 text-purple-200'
+                : 'bg-white/5 border-white/15 text-zinc-400 hover:text-white'
+            }`}
+            title="Cycle Optical Flow / Frame-Blend Slow-Motion Interpolation"
+          >
+            <Sparkles className="w-3 h-3" />
+            <span>{opticalFlowMode === 'OPTICAL_FLOW' ? 'FLOW' : opticalFlowMode === 'FRAME_BLEND' ? 'BLEND' : 'OPTICAL'}</span>
+          </button>
 
           <div className="flex items-center gap-0.5 bg-black/60 border border-white/10 px-1 py-0.5">
             <button
@@ -1082,7 +1646,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             >
               <ZoomOut className="w-3 h-3" />
             </button>
-            <span className="text-zinc-300 font-bold tabular-nums w-7 text-center">{timelineZoom.toFixed(1)}x</span>
+            <span className="text-zinc-300 font-bold tabular-nums w-6 text-center">{timelineZoom.toFixed(1)}x</span>
             <button
               type="button"
               onClick={() => setTimelineZoom((z) => Math.min(4.0, Number((z + 0.5).toFixed(1))))}
@@ -1106,14 +1670,39 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             {isCardDrawerOpen ? <PanelBottomClose className="w-3 h-3" /> : <PanelBottomOpen className="w-3 h-3" />}
             <span>CARDS ({activeSlides.length})</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setIsTimelineCollapsed((c) => !c)}
+            className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/15 text-zinc-300 text-[9px] font-bold flex items-center gap-0.5 cursor-pointer whitespace-nowrap"
+            title={isTimelineCollapsed ? 'Expand Filmstrip Timeline' : 'Collapse Filmstrip to Maximize Viewport'}
+          >
+            {isTimelineCollapsed ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
         </div>
       </div>
 
-      {/* 3. UNIFIED FILMSTRIP & SHOT SELECTOR (Bottom ~28% Height + Collapsible Card Drawer) */}
-      <footer className="relative flex-[0_0_28%] min-h-[155px] max-h-[245px] bg-[#07080B] flex flex-col shrink-0 z-20">
+      {/* 3. COLLAPSIBLE COMPACT FILMSTRIP & WAVEFORM TRACK (<=22% Height or Collapsed 28px) */}
+      <footer
+        className={`relative bg-[#07080B] flex flex-col shrink-0 z-20 transition-all duration-200 ${
+          isTimelineCollapsed ? 'h-7 overflow-hidden' : 'h-[128px]'
+        }`}
+      >
+        {isTimelineCollapsed && (
+          <div
+            onClick={() => setIsTimelineCollapsed(false)}
+            className="h-7 px-3 flex items-center justify-between text-[10px] text-zinc-400 hover:text-white cursor-pointer bg-[#090A0F]"
+          >
+            <span className="font-bold tracking-wider uppercase">
+              TIMELINE COLLAPSED · SH{String(safeIndex + 1).padStart(3, '0')}/{activeSlides.length} · {totalDurationSec.toFixed(1)}S TOTAL
+            </span>
+            <span className="text-[#F5A623] font-bold uppercase">EXPAND TRACK ▲</span>
+          </div>
+        )}
+
         {/* Optional Collapsible Card Drawer */}
-        {isCardDrawerOpen && (
-          <div className="absolute inset-0 z-40 bg-[#08090C] border-t border-[#F5A623]/40 flex flex-col overflow-hidden">
+        {isCardDrawerOpen && !isTimelineCollapsed && (
+          <div className="fixed inset-x-0 bottom-0 h-[230px] z-50 bg-[#08090C] border-t border-[#F5A623]/50 flex flex-col overflow-hidden shadow-2xl">
             <div className="h-8 px-3 bg-[#0D0E14] border-b border-white/10 flex items-center justify-between gap-2 shrink-0 text-[10px]">
               <div className="flex items-center gap-2">
                 <span className="text-[#F5A623] font-black tracking-wider">SHOT CARDS DRAWER</span>
@@ -1224,11 +1813,40 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
           </div>
         )}
 
+        {/* Hover-Skim Floating Preview Tooltip (Independent of Playhead) */}
+        {hoverSkim && !isTimelineCollapsed && (
+          <div
+            data-testid="scrub-hover-skim-tooltip"
+            style={{ left: `${Math.max(96, Math.min((typeof window !== 'undefined' ? window.innerWidth : 1200) - 96, hoverSkim.clientX))}px` }}
+            className="fixed bottom-[134px] -translate-x-1/2 w-44 rounded-lg bg-[#08090D]/95 border border-amber-400/60 shadow-2xl overflow-hidden pointer-events-none z-50"
+          >
+            <div className="h-20 bg-black relative overflow-hidden">
+              {hoverSkim.thumbUrl ? (
+                <img src={hoverSkim.thumbUrl} alt={hoverSkim.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[9px] text-zinc-500 font-bold">
+                  SH{String(hoverSkim.clipIndex + 1).padStart(3, '0')}
+                </div>
+              )}
+              <span className="absolute bottom-1 left-1 px-1 py-0.2 bg-black/85 text-[#FFE066] text-[9px] font-black tabular-nums">
+                {hoverSkim.localTimeSec.toFixed(2)}s · F{hoverSkim.frameNum}
+              </span>
+              <span className="absolute top-1 right-1 px-1 py-0.2 bg-amber-400 text-black text-[8px] font-black">
+                SKIM
+              </span>
+            </div>
+            <div className="px-2 py-1 text-[9px] font-bold text-white truncate">
+              {hoverSkim.title}
+            </div>
+          </div>
+        )}
+
         {/* Unified High-Density Proportional NLE Filmstrip Track */}
         <div
           ref={nleTimelineScrollRef}
           data-testid="scrub-nle-timeline"
           onWheel={handleFilmstripWheel}
+          onMouseLeave={() => setHoverSkim(null)}
           className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden bg-[#06070B] relative"
         >
           <div style={{ width: `${totalTrackWidthPx}px` }} className="h-full relative flex flex-col">
@@ -1237,7 +1855,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               onPointerDown={handleRulerPointerDown}
               onPointerMove={handleRulerPointerMove}
               onPointerUp={handleRulerPointerUp}
-              className="h-6 w-full bg-[#0D0E14] border-b border-white/10 relative cursor-ew-resize shrink-0"
+              className="h-5 w-full bg-[#0D0E14] border-b border-white/10 relative cursor-ew-resize shrink-0"
             >
               {rulerTicks.map((sec) => (
                 <div
@@ -1248,13 +1866,13 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                   <span className="text-[9px] text-zinc-400 tabular-nums pl-1 leading-none">
                     {sec.toFixed(0)}s
                   </span>
-                  <div className="w-px h-2 bg-white/30" />
+                  <div className="w-px h-1.5 bg-white/30" />
                 </div>
               ))}
             </div>
 
-            {/* Unified Proportional Filmstrip Blocks + Waveform Strip + `[|` `|]` Trim Handles */}
-            <div className="flex-1 min-h-0 flex flex-row items-stretch py-1.5 relative">
+            {/* Unified Proportional Filmstrip Blocks + Gold Audio Waveform & Transients + `[|` `|]` Trim/Roll Handles */}
+            <div className="flex-1 min-h-0 flex flex-row items-stretch py-1 relative">
               {activeSlides.map((slide, idx) => {
                 const win = getClipSourceWindow(slide);
                 const clipFrames = getShotFrameCount(win.timelineDurationSec, win.fps);
@@ -1262,6 +1880,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                 const isActive = idx === safeIndex;
                 const vaultEntry = resolveShotMediaEntry(shotMediaMap, slide as any, undefined, idx);
                 const thumbUrl = vaultEntry?.url || slide.thumbnailUrl || slide.remoteUrl || '';
+                const waveform = generateClipWaveformProfile(slide, idx, 18);
 
                 return (
                   <div
@@ -1271,6 +1890,24 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                     data-shot-drop-index={idx}
                     data-testid={`scrub-clip-block-${idx}`}
                     onClick={() => onSelectSlide(idx)}
+                    onPointerDown={(e) => handleClipBodyPointerDown(e, idx)}
+                    onPointerMove={(e) => {
+                      handleClipDragPointerMove(e);
+                      if (!activeTrimDragRef.current) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+                        const localT = ratio * win.timelineDurationSec;
+                        setHoverSkim({
+                          clipIndex: idx,
+                          localTimeSec: localT,
+                          frameNum: Math.max(1, Math.floor(localT * win.fps) + 1),
+                          title: slide.titleEn || `Shot ${idx + 1}`,
+                          thumbUrl: (!isVideoSourceUrl(thumbUrl) ? thumbUrl : slide.thumbnailUrl) || '',
+                          clientX: e.clientX
+                        });
+                      }
+                    }}
+                    onPointerUp={handleClipDragPointerUp}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -1289,7 +1926,9 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                       }
                     }}
                     style={{ width: `${widthPx}px` }}
-                    className={`relative h-full shrink-0 border-r border-black overflow-hidden cursor-pointer group/clip transition-colors ${
+                    className={`relative h-full shrink-0 border-r border-black overflow-hidden group/clip transition-colors ${
+                      editToolMode === 'SLIP' ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                    } ${
                       dropCardIndex === idx
                         ? 'bg-[#0d1f18] border-emerald-400 ring-2 ring-emerald-400/50'
                         : isActive
@@ -1299,7 +1938,7 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                   >
                     {/* Filmstrip Background Preview */}
                     {thumbUrl && (
-                      <div className="absolute inset-0 opacity-40 pointer-events-none overflow-hidden">
+                      <div className="absolute inset-0 opacity-35 pointer-events-none overflow-hidden">
                         <ShotMediaThumbnail
                           shotIndex={idx}
                           shotId={slide.id}
@@ -1313,22 +1952,26 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                       </div>
                     )}
 
-                    {/* Left Edge Trim Handle `[|` */}
+                    {/* Left Edge Trim / Roll Handle `[|` */}
                     <div
                       role="separator"
                       aria-label={`Trim in-point of shot ${idx + 1}`}
                       data-testid={`scrub-trim-left-${idx}`}
                       onPointerDown={(e) => handleTrimHandlePointerDown(e, idx, 'left')}
-                      onPointerMove={handleTrimHandlePointerMove}
-                      onPointerUp={handleTrimHandlePointerUp}
+                      onPointerMove={handleClipDragPointerMove}
+                      onPointerUp={handleClipDragPointerUp}
                       className={`absolute left-0 top-0 bottom-0 w-2 z-20 cursor-ew-resize flex items-center justify-center ${
-                        isActive ? 'bg-[#F5A623]' : 'bg-white/25 hover:bg-[#F5A623] opacity-70 group-hover/clip:opacity-100'
+                        editToolMode === 'ROLL' && idx > 0
+                          ? 'bg-cyan-400'
+                          : isActive
+                            ? 'bg-[#F5A623]'
+                            : 'bg-white/25 hover:bg-[#F5A623] opacity-70 group-hover/clip:opacity-100'
                       }`}
                     >
                       <span className="w-[2px] h-5 bg-black/85" />
                     </div>
 
-                    {/* Clip Label + Waveform Energy Bars */}
+                    {/* Clip Label + Gold Audio Waveform & Transient Beat Markers */}
                     <div className="relative z-10 h-full px-3 py-1 flex flex-col justify-between pointer-events-none">
                       <div className="flex items-center justify-between gap-1 text-[9px] tabular-nums">
                         <span className={`font-black px-1 ${isActive ? 'bg-[#F5A623] text-black' : 'bg-black/80 text-zinc-200'}`}>
@@ -1346,31 +1989,45 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                         </div>
                       </div>
 
-                      {/* Tactile Waveform / Beat Cut Profile Strip */}
-                      <div className="h-3.5 w-full flex items-end gap-[2px] opacity-75">
-                        {Array.from({ length: 12 }, (_, bIdx) => {
-                          const hPct = 25 + (((idx * 17 + bIdx * 31) % 75));
-                          return (
-                            <span
-                              key={bIdx}
-                              className={`flex-1 ${isActive ? 'bg-[#F5A623]' : 'bg-zinc-400/50'}`}
-                              style={{ height: `${hPct}%` }}
-                            />
-                          );
-                        })}
+                      {/* Gold Audio Waveform + Transient Beat Diamonds */}
+                      <div className="relative h-4 w-full flex items-end gap-[2px] opacity-85">
+                        {waveform.transientPositions.map((pos, tIdx) => (
+                          <span
+                            key={`tr_${tIdx}`}
+                            style={{ left: `${pos * 100}%` }}
+                            className="absolute -top-0.5 -translate-x-1/2 w-1.5 h-1.5 rotate-45 bg-cyan-300 shadow-[0_0_4px_#00F0FF]"
+                          />
+                        ))}
+                        {waveform.bars.map((amp, bIdx) => (
+                          <span
+                            key={bIdx}
+                            className={`flex-1 rounded-t-[1px] ${
+                              amp >= 0.78
+                                ? 'bg-[#FFE066]'
+                                : isActive
+                                  ? 'bg-[#F5A623]'
+                                  : 'bg-amber-400/55'
+                            }`}
+                            style={{ height: `${Math.round(amp * 100)}%` }}
+                          />
+                        ))}
                       </div>
                     </div>
 
-                    {/* Right Edge Trim Handle `|]` */}
+                    {/* Right Edge Trim / Roll Handle `|]` */}
                     <div
                       role="separator"
                       aria-label={`Trim out-point of shot ${idx + 1}`}
                       data-testid={`scrub-trim-right-${idx}`}
                       onPointerDown={(e) => handleTrimHandlePointerDown(e, idx, 'right')}
-                      onPointerMove={handleTrimHandlePointerMove}
-                      onPointerUp={handleTrimHandlePointerUp}
+                      onPointerMove={handleClipDragPointerMove}
+                      onPointerUp={handleClipDragPointerUp}
                       className={`absolute right-0 top-0 bottom-0 w-2 z-20 cursor-ew-resize flex items-center justify-center ${
-                        isActive ? 'bg-[#F5A623]' : 'bg-white/25 hover:bg-[#F5A623] opacity-70 group-hover/clip:opacity-100'
+                        editToolMode === 'ROLL' && idx < activeSlides.length - 1
+                          ? 'bg-cyan-400'
+                          : isActive
+                            ? 'bg-[#F5A623]'
+                            : 'bg-white/25 hover:bg-[#F5A623] opacity-70 group-hover/clip:opacity-100'
                       }`}
                     >
                       <span className="w-[2px] h-5 bg-black/85" />

@@ -883,6 +883,51 @@ export class VideoCacheService {
     }
   }
 
+  /**
+   * Nearest-neighbor O(K) lookup across cached ring-buffer keyframes for instant GPU <canvas> blitting
+   * while dragging/hover-skimming (avoids waiting on async VideoDecoder seek latency).
+   */
+  public getNearestKeyframeBitmap(
+    sourceUrl: string,
+    targetTimeSec: number,
+    maxDeltaSec: number = 0.75
+  ): { bitmap: ImageBitmap; cachedTimeSec: number } | null {
+    if (!sourceUrl) return null;
+    const exact = this.getKeyframeBitmap(sourceUrl, targetTimeSec);
+    if (exact) {
+      return { bitmap: exact, cachedTimeSec: quantizeKeyframeTime(targetTimeSec) };
+    }
+    const prefix = `${sourceUrl}@@`;
+    let bestRec: KeyframeBitmapRecord | null = null;
+    let bestTime = 0;
+    let bestDiff = maxDeltaSec;
+
+    for (const rec of this.keyframeBitmaps.values()) {
+      if (!rec.key.startsWith(prefix)) continue;
+      const t = Number(rec.key.slice(prefix.length));
+      if (!Number.isFinite(t)) continue;
+      const diff = Math.abs(t - targetTimeSec);
+      if (diff <= bestDiff) {
+        bestDiff = diff;
+        bestRec = rec;
+        bestTime = t;
+      }
+    }
+
+    if (!bestRec) return null;
+    return { bitmap: bestRec.bitmap, cachedTimeSec: bestTime };
+  }
+
+  public getRingBufferCount(sourceUrl: string): number {
+    if (!sourceUrl) return 0;
+    const prefix = `${sourceUrl}@@`;
+    let count = 0;
+    for (const key of this.keyframeBitmaps.keys()) {
+      if (key.startsWith(prefix)) count++;
+    }
+    return count;
+  }
+
   public evictUrl(url: string): void {
     if (!url) return;
     this.warmedRanges.delete(url);

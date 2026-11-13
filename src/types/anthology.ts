@@ -92,6 +92,12 @@ export type KineticTypographyArchetype =
 
 export type SpeedRampPreset = 'NONE' | 'BULLET_TIME' | 'WHIP_CUT' | 'HEARTBEAT';
 export type SmartCropMode = 'LEFT' | 'CENTER' | 'RIGHT' | 'AUTO_ZOOM' | 'CUSTOM';
+export type OpticalFlowMode = 'NONE' | 'FRAME_BLEND' | 'OPTICAL_FLOW';
+
+export interface SpeedRampKeyframe {
+  u: number; // Normalized 0.0 .. 1.0 along clip timeline duration
+  rate: number; // 0.25 .. 4.0 speed multiplier
+}
 
 export interface AnthologyFrame {
   id: number;
@@ -124,6 +130,8 @@ export interface AnthologyFrame {
   reframeZoom?: number;
   smartCropMode?: SmartCropMode;
   speedRampPreset?: SpeedRampPreset;
+  speedRampKeyframes?: SpeedRampKeyframe[];
+  opticalFlowMode?: OpticalFlowMode;
   flashCutEnabled?: boolean;
   flashCutIntervalSec?: number;
   beatDropEnabled?: boolean;

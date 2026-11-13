@@ -61,7 +61,10 @@ import {
   Download,
   Scissors,
   Layers,
-  Video
+  Video,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw
 } from 'lucide-react';
 import { ToolTooltip } from './ui/ToolTooltip';
 import { TrackVuMeter } from './audio/TrackVuMeter';
@@ -253,6 +256,37 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const titleAlign = useStudioStore((s) => s.titleAlign);
   const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [isDockHovered, setIsDockHovered] = useState(false);
+  const [isStripCollapsed, setIsStripCollapsed] = useState(false);
+  const hoverLeaveTimerRef = useRef<number | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [replaceTargetIdx, setReplaceTargetIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hoverLeaveTimerRef.current !== null) {
+        window.clearTimeout(hoverLeaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const clearHoverLeaveTimer = useCallback(() => {
+    if (hoverLeaveTimerRef.current !== null) {
+      window.clearTimeout(hoverLeaveTimerRef.current);
+      hoverLeaveTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHoverLeaveClear = useCallback((onlyForIdx?: number) => {
+    clearHoverLeaveTimer();
+    hoverLeaveTimerRef.current = window.setTimeout(() => {
+      setHoveredMarker((prev) => {
+        if (!prev) return null;
+        if (onlyForIdx !== undefined && prev.index !== onlyForIdx) return prev;
+        return null;
+      });
+    }, 180);
+  }, [clearHoverLeaveTimer]);
 
   const isAnyZoomActive = Boolean(
     (digitalZoom && digitalZoom.isZoomed && digitalZoom.scale > 1.01) ||
@@ -560,6 +594,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
   const handleMarkerHoverEnter = (idx: number, targetEl: HTMLElement) => {
     if (dragShotState || dispatchHudAnchor) return;
+    clearHoverLeaveTimer();
     const rect = targetEl.getBoundingClientRect();
     setHoveredMarker({
       index: idx,
@@ -667,11 +702,56 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     };
   }, [hoveredMarker, dragShotState, safeFrames, shotOffsets, shotMediaMap]);
 
+  const isStealthDimmed =
+    (isPlaying || !isDockHovered) &&
+    !hoveredMarker &&
+    !dispatchHudAnchor &&
+    !isEditingTitle &&
+    !isAllToolsOpen;
+
   return (
     <div
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      onMouseEnter={() => setIsDockHovered(true)}
+      onMouseLeave={() => {
+        setIsDockHovered(false);
+        scheduleHoverLeaveClear();
+      }}
       className="relative w-full shrink-0 z-40 flex flex-col items-center pointer-events-auto px-1 sm:px-2 pb-0.5 pt-0.5 bg-black/95 border-t border-white/10 transition-all duration-200 ease-out opacity-100"
     >
+      {/* Hidden File Input for Hover Card Replace Shot Action */}
+      <input
+        ref={replaceFileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          const targetIdx = replaceTargetIdx;
+          e.target.value = '';
+          if (!file || targetIdx === null) return;
+          const targetFrame = safeFrames[targetIdx];
+          if (!targetFrame) return;
+          if (onUploadMediaForIndex) {
+            onUploadMediaForIndex(targetIdx, file);
+          } else {
+            const shotKey = getShotMediaKey(targetFrame, targetIdx);
+            const entry = await saveShotMediaBlob(shotKey, file, file.name);
+            useStudioStore.getState().setShotMediaEntry(shotKey, entry);
+            if (onUpdateFrameAtIndex) {
+              onUpdateFrameAtIndex(targetIdx, {
+                ...targetFrame,
+                imageUrl: entry.url,
+                thumbnailUrl: entry.type === 'image' ? entry.url : targetFrame.thumbnailUrl,
+                isVideo: entry.type === 'video'
+              });
+            }
+          }
+          setHoveredMarker(null);
+          setReplaceTargetIdx(null);
+        }}
+      />
+
       {/* Floating Real-Time Drag Handle Tooltip */}
       {dragShotState && (
         <div
@@ -688,11 +768,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         </div>
       )}
 
-      {/* Floating Frame Thumbnail Hover-Preview on Bottom Scrubber Index Marker */}
+      {/* Floating Full-Color Interactive Frame Hover-Preview Card */}
       {hoveredPreviewData && (
         <div
           role="tooltip"
           data-testid="scrubber-hover-preview"
+          onMouseEnter={clearHoverLeaveTimer}
+          onMouseLeave={() => scheduleHoverLeaveClear()}
           style={{
             position: 'fixed',
             left: `${hoveredPreviewData.clampedLeft}px`,
@@ -700,10 +782,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             transform: 'translate(-50%, -100%)',
             zIndex: 9998
           }}
-          className="w-48 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/55 rounded-[4px] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in zoom-in-95 duration-150"
+          className="w-56 bg-[#090A10]/98 backdrop-blur-2xl border border-[#F5A623]/70 rounded-[6px] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.96)] pointer-events-auto select-none transform-gpu animate-in fade-in zoom-in-95 duration-150"
         >
-          {/* Frame Thumbnail Viewport */}
-          <div className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-[#050508] border border-white/10">
+          {/* Frame Thumbnail Viewport (Always Full-Color) */}
+          <div className="relative w-full aspect-[16/9] rounded-[3px] overflow-hidden bg-[#050508] border border-white/15">
             {hoveredPreviewData.hasMedia ? (
               <ShotMediaThumbnail
                 shotIndex={hoveredPreviewData.idx}
@@ -766,7 +848,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             {/* Scrim + Unboxed Index & Start Timecode */}
             <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/90 via-black/45 to-transparent flex items-end justify-between px-1.5 pb-0.5 font-mono text-[8px] tabular-nums">
               <span className="font-bold text-[#FFE066]">
-                #{String(hoveredPreviewData.shotNumber).padStart(3, '0')}
+                SH{String(hoveredPreviewData.shotNumber).padStart(2, '0')}
               </span>
               <span className="text-zinc-300">
                 {hoveredPreviewData.startTimecode}
@@ -774,13 +856,13 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </div>
           </div>
 
-          {/* Frame Title, Bengali Subtitle & Hold Duration */}
-          <div className="pt-1 px-0.5 flex flex-col gap-0.5">
+          {/* Frame Title, Bengali Subtitle, Duration & Lens Metadata */}
+          <div className="pt-1.5 px-0.5 flex flex-col gap-0.5">
             <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[9.5px] font-semibold text-white truncate">
+              <span className="text-[10px] font-bold text-white truncate">
                 {hoveredPreviewData.frame.title || `Frame ${hoveredPreviewData.shotNumber}`}
               </span>
-              <span className="text-[8.5px] font-mono text-[#D4AF37] tabular-nums shrink-0">
+              <span className="text-[8.5px] font-mono font-bold text-[#F5A623] tabular-nums shrink-0">
                 {formatDurationPillValue(hoveredPreviewData.holdSec)}
               </span>
             </div>
@@ -788,8 +870,51 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               <span className="truncate font-bangla text-zinc-300">
                 {hoveredPreviewData.frame.bengaliTitle || 'Sequence Frame'}
               </span>
-              <span className="font-mono text-zinc-500 shrink-0">Click to jump</span>
+              <span className="font-mono text-zinc-500 shrink-0 truncate max-w-[92px]">
+                {hoveredPreviewData.frame.cameraSpec?.focalLength || '50mm Cine'}
+              </span>
             </div>
+          </div>
+
+          {/* Interactive Action Trio: JUMP / SOLO / REPLACE */}
+          <div className="mt-1.5 pt-1.5 border-t border-white/10 grid grid-cols-3 gap-1 font-mono text-[8px] font-black uppercase">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectFrame(hoveredPreviewData.idx);
+                setHoveredMarker(null);
+              }}
+              className="py-1 px-1 rounded bg-[#F5A623]/20 hover:bg-[#F5A623] text-[#F5A623] hover:text-black border border-[#F5A623]/50 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+            >
+              <Play className="w-2.5 h-2.5" />
+              <span>JUMP</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectFrame(hoveredPreviewData.idx);
+                onSelectPlaybackMode?.('solo');
+                setHoveredMarker(null);
+              }}
+              className="py-1 px-1 rounded bg-[#00F0FF]/15 hover:bg-[#00F0FF] text-[#00F0FF] hover:text-black border border-[#00F0FF]/45 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+            >
+              <Focus className="w-2.5 h-2.5" />
+              <span>SOLO</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setReplaceTargetIdx(hoveredPreviewData.idx);
+                replaceFileInputRef.current?.click();
+              }}
+              className="py-1 px-1 rounded bg-white/5 hover:bg-white/20 text-zinc-200 hover:text-white border border-white/15 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+            >
+              <RefreshCw className="w-2.5 h-2.5" />
+              <span>REPLACE</span>
+            </button>
           </div>
 
           {/* Downward Pointer Caret Aligned to Hovered Index Marker */}
@@ -797,13 +922,25 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             style={{
               left: `calc(50% + ${hoveredPreviewData.caretOffsetPx}px)`
             }}
-            className="absolute -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#090A10] border-r border-b border-[#D4AF37]/55"
+            className="absolute -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#090A10] border-r border-b border-[#F5A623]/70"
           />
         </div>
       )}
 
-      {/* 100-Frame Strip Navigation with Compact 88x48 Cards & Tight py-1 Padding */}
-      <div className="w-full mb-0.5 pointer-events-auto flex items-center gap-1.5 sm:gap-2">
+      {/* Stealth Grayscale Transition Wrapper for Strip + Toolbar (Full Color Restored on Dock Hover / Pause) */}
+      <div
+        className={`w-full flex flex-col items-center transition-[filter,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          isStealthDimmed ? 'grayscale brightness-[0.65]' : 'grayscale-0 brightness-100'
+        }`}
+      >
+      {/* 100-Frame Strip Navigation with Compact 88x48 Cards & Collapsible Strip Container */}
+      <div
+        className={`w-full flex items-center gap-1.5 sm:gap-2 transition-all duration-200 ease-out ${
+          isStripCollapsed
+            ? 'max-h-0 opacity-0 pointer-events-none overflow-hidden mb-0'
+            : 'max-h-[72px] opacity-100 pointer-events-auto mb-0.5'
+        }`}
+      >
         <ToolTooltip
           title="PREVIOUS SHOT"
           why="Jumps playhead backward to the preceding sequence shot"
@@ -821,7 +958,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
         <div
           ref={stripRef}
-          onMouseLeave={() => setHoveredMarker(null)}
+          onMouseLeave={() => scheduleHoverLeaveClear()}
           onWheel={(e) => {
             if (e.deltaY !== 0) {
               e.currentTarget.scrollLeft += e.deltaY;
@@ -912,13 +1049,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     handleMarkerHoverEnter(idx, e.currentTarget);
                   }
                 }}
-                onMouseLeave={() =>
-                  setHoveredMarker((prev) => (prev?.index === idx ? null : prev))
-                }
+                onMouseLeave={() => scheduleHoverLeaveClear(idx)}
                 onFocus={(e) => handleMarkerHoverEnter(idx, e.currentTarget)}
-                onBlur={() =>
-                  setHoveredMarker((prev) => (prev?.index === idx ? null : prev))
-                }
+                onBlur={() => scheduleHoverLeaveClear(idx)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -1825,6 +1958,31 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </button>
           </ToolTooltip>
 
+          {/* Collapse / Expand Bottom Strip Toggle */}
+          <ToolTooltip
+            title={isStripCollapsed ? 'SHOW SHOT STRIP' : 'HIDE SHOT STRIP'}
+            why="Collapses the 100-shot strip so the video playback stage commands maximum vertical space."
+            how="Click to fold or unfold the thumbnail filmstrip."
+          >
+            <button
+              type="button"
+              data-testid="control-dock-strip-toggle"
+              aria-expanded={!isStripCollapsed}
+              aria-label={isStripCollapsed ? 'Expand Shot Strip' : 'Collapse Shot Strip'}
+              onClick={() => {
+                setHoveredMarker(null);
+                setIsStripCollapsed((c) => !c);
+              }}
+              className={`p-1 rounded border cursor-pointer transition-all active:scale-95 shrink-0 flex items-center justify-center ${
+                isStripCollapsed
+                  ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                  : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-400/60 text-neutral-300 hover:text-white'
+              }`}
+            >
+              {isStripCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </ToolTooltip>
+
           {/* Fullscreen Monitor */}
           <ToolTooltip
             title="CINEMA FULLSCREEN"
@@ -1841,6 +1999,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             </button>
           </ToolTooltip>
         </div>
+      </div>
       </div>
 
       {/* Transient Cockpit Dispatch Toast */}

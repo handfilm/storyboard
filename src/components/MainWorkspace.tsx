@@ -287,6 +287,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         reframeZoom: f.reframeZoom,
         smartCropMode: f.smartCropMode,
         speedRampPreset: f.speedRampPreset,
+        speedRampKeyframes: f.speedRampKeyframes,
+        opticalFlowMode: f.opticalFlowMode,
         flashCutEnabled: f.flashCutEnabled,
         flashCutIntervalSec: f.flashCutIntervalSec,
         beatDropEnabled: f.beatDropEnabled,
@@ -329,6 +331,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         reframeZoom: partial.reframeZoom !== undefined ? partial.reframeZoom : original.reframeZoom,
         smartCropMode: partial.smartCropMode !== undefined ? partial.smartCropMode : original.smartCropMode,
         speedRampPreset: partial.speedRampPreset !== undefined ? partial.speedRampPreset : original.speedRampPreset,
+        speedRampKeyframes: partial.speedRampKeyframes !== undefined ? partial.speedRampKeyframes : original.speedRampKeyframes,
+        opticalFlowMode: partial.opticalFlowMode !== undefined ? partial.opticalFlowMode : original.opticalFlowMode,
         flashCutEnabled: partial.flashCutEnabled !== undefined ? partial.flashCutEnabled : original.flashCutEnabled,
         flashCutIntervalSec: partial.flashCutIntervalSec !== undefined ? partial.flashCutIntervalSec : original.flashCutIntervalSec,
         beatDropEnabled: partial.beatDropEnabled !== undefined ? partial.beatDropEnabled : original.beatDropEnabled
@@ -637,6 +641,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                       reframeZoom: s.reframeZoom !== undefined ? s.reframeZoom : original.reframeZoom,
                       smartCropMode: s.smartCropMode !== undefined ? s.smartCropMode : original.smartCropMode,
                       speedRampPreset: s.speedRampPreset !== undefined ? s.speedRampPreset : original.speedRampPreset,
+                      speedRampKeyframes: s.speedRampKeyframes !== undefined ? s.speedRampKeyframes : original.speedRampKeyframes,
+                      opticalFlowMode: s.opticalFlowMode !== undefined ? s.opticalFlowMode : original.opticalFlowMode,
                       flashCutEnabled: s.flashCutEnabled !== undefined ? s.flashCutEnabled : original.flashCutEnabled,
                       flashCutIntervalSec: s.flashCutIntervalSec !== undefined ? s.flashCutIntervalSec : original.flashCutIntervalSec,
                       beatDropEnabled: s.beatDropEnabled !== undefined ? s.beatDropEnabled : original.beatDropEnabled

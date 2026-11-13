@@ -731,11 +731,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       if (screenRecorderEngine.getStatus() === 'recording' || screenRecorderEngine.getStatus() === 'paused') {
         await screenRecorderEngine.stopRecording();
       }
-      if (onOpenRecorder) {
-        onOpenRecorder();
-      } else {
-        eventBus.emit('recorder:close');
-      }
+      eventBus.emit('recorder:open');
     } catch (err) {
       console.error('[StageHeader] Error in stopRecording:', err);
     } finally {

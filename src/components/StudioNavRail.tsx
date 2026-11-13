@@ -1,9 +1,7 @@
 /**
  * @file /src/components/StudioNavRail.tsx
- * @description 10-Button Tactical Left Rail ("10 BUTTONS, 100 SHOTS") for HANDFILM Creative Suite.
- * Structures all studio capabilities into 10 cleanly spaced dedicated vertical buttons
- * (`STORY`, `CUT`, `CROP`, `TEXT`, `LIGHT`, `FX`, `AUDIO`, `CLOUD`, `BRIDGE`, `SYSTEM`)
- * with crisp icons + 8px uppercase micro-labels and portaled z-[9999] floating sub-tool flyouts.
+ * @description 10-Button Full-Height Colorful Tactical Left Rail ("10 BUTTONS, 100 SHOTS")
+ * for HANDFILM Creative Suite with Advanced Glassmorphic Brutalist Flyout Menus.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -41,7 +39,8 @@ import {
   Film,
   FileCode2,
   Download,
-  BarChart3
+  BarChart3,
+  Video
 } from 'lucide-react';
 import { eventBus } from '../core/eventBus';
 
@@ -79,6 +78,16 @@ export const CINE_PROFILES: CameraLensProfile[] = [
   { body: 'PANAVISION DXL2', lens: '75mm Primo 70 T2.0', sensor: 'Large Format 8K', shutter: '1/48s 180°' }
 ];
 
+export interface RailFrameAdjustments {
+  bloom: number;
+  grain: number;
+  vignette: number;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  motionBlur?: number;
+}
+
 export interface StudioNavRailProps {
   activeModule: StudioModuleId;
   onSelectModule: (module: StudioModuleId) => void;
@@ -92,6 +101,9 @@ export interface StudioNavRailProps {
   onOpenMultiCam?: () => void;
   onOpenVideoScopes?: () => void;
   onOpenShortcuts?: () => void;
+  onOpenRecorder?: () => void;
+  activeFrameAdjustments?: RailFrameAdjustments;
+  onUpdateActiveAdjustments?: (patch: Partial<RailFrameAdjustments>) => void;
   activeProfile?: CameraLensProfile;
   onSelectProfile?: (profile: CameraLensProfile) => void;
   totalShots?: number;
@@ -117,6 +129,7 @@ interface FlyoutSubTool {
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  shortcut?: string;
   isActive?: boolean;
   onSelect: () => void;
 }
@@ -126,7 +139,8 @@ interface RailButtonConfig {
   label: string;
   title: string;
   why: string;
-  icon: React.ComponentType<{ className?: string }>;
+  accentHex: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   activeModules: StudioModuleId[];
   onPrimaryClick: () => void;
   subTools: FlyoutSubTool[];
@@ -145,6 +159,9 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   onOpenMultiCam,
   onOpenVideoScopes,
   onOpenShortcuts,
+  onOpenRecorder,
+  activeFrameAdjustments,
+  onUpdateActiveAdjustments,
   activeProfile = CINE_PROFILES[0],
   onSelectProfile,
   totalShots = 100,
@@ -172,7 +189,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     clearCloseTimer();
     closeTimerRef.current = window.setTimeout(() => {
       setOpenFlyout(null);
-    }, 150);
+    }, 180);
   }, [clearCloseTimer]);
 
   useEffect(() => {
@@ -197,10 +214,10 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   const openButtonFlyout = (key: RailButtonKey, targetEl: HTMLElement) => {
     clearCloseTimer();
     const rect = targetEl.getBoundingClientRect();
-    const maxTop = typeof window !== 'undefined' ? window.innerHeight - 310 : rect.top;
+    const maxTop = typeof window !== 'undefined' ? Math.max(52, window.innerHeight - 360) : rect.top;
     setOpenFlyout({
       key,
-      top: Math.max(52, Math.min(maxTop, rect.top)),
+      top: Math.max(48, Math.min(maxTop, rect.top)),
       left: rect.right + 8
     });
   };
@@ -211,6 +228,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       label: 'STORY',
       title: 'STORY NOTEBOOK & SCRIPT',
       why: 'Fountain screenplay editor, 3-Act beat matrix, and shot loglines',
+      accentHex: '#F5A623',
       icon: BookOpen,
       activeModules: ['STORY', 'PRODUCTION'],
       onPrimaryClick: () => onSelectModule('STORY'),
@@ -239,6 +257,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       label: 'CUT',
       title: 'TIMELINE CUT & MULTI-CAM',
       why: 'Multi-track NLE razor cuts, storyboard grid, and multi-cam desk',
+      accentHex: '#E50914',
       icon: Scissors,
       activeModules: ['EDIT/CUT', 'BOARD', 'PLAYER'],
       onPrimaryClick: () => onSelectModule('EDIT/CUT'),
@@ -249,6 +268,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           sub: 'Sub-frame trimming & magnetic ripple lanes',
           icon: Scissors,
           badge: '24 FPS',
+          shortcut: 'S',
           isActive: activeModule === 'EDIT/CUT',
           onSelect: () => onSelectModule('EDIT/CUT')
         },
@@ -257,6 +277,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           label: 'Storyboard Grid Matrix',
           sub: `100-shot contact layout (Shot #${currentShotIndex + 1})`,
           icon: LayoutGrid,
+          shortcut: 'G',
           isActive: activeModule === 'BOARD',
           onSelect: () => onSelectModule('BOARD')
         },
@@ -275,7 +296,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 label: 'Multi-Cam Switcher',
                 sub: 'Synchronized multi-angle cutting desk',
                 icon: Film,
-                badge: 'SHIFT+M',
+                shortcut: 'SHIFT+M',
                 onSelect: () => onOpenMultiCam()
               }
             ]
@@ -287,6 +308,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       label: 'CROP',
       title: 'FRAMING, OPTICS & CAMERA RIG',
       why: 'Aspect ratios, safe composition guides, lens crop & cine body rig',
+      accentHex: '#00F0FF',
       icon: Crop,
       activeModules: ['OPTICS'],
       onPrimaryClick: () => onSelectModule('OPTICS'),
@@ -304,7 +326,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           label: 'Safe Composition Guides',
           sub: 'Toggle rule-of-thirds & center crosshair',
           icon: Crosshair,
-          badge: 'C',
+          shortcut: 'C',
           onSelect: () => eventBus.emit('studio:toggle_guides')
         },
         {
@@ -321,6 +343,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       label: 'TEXT',
       title: 'BILINGUAL TYPOGRAPHY',
       why: 'Kinetic Bangla & English titles, molten gold shaders, SRT burn-in',
+      accentHex: '#FF6B00',
       icon: Type,
       activeModules: ['TEXT'],
       onPrimaryClick: () => onSelectModule('TEXT'),
@@ -338,6 +361,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           label: 'Toggle Stage Titles Layer',
           sub: 'Show or hide live kinetic title overlays',
           icon: Eye,
+          shortcut: 'T',
           onSelect: () => eventBus.emit('studio:toggle_titles')
         }
       ]
@@ -346,7 +370,8 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       key: 'LIGHT',
       label: 'LIGHT',
       title: '34-PRESET LIGHTING RIG & LUTS',
-      why: 'Volumetric 34-preset cinema lighting rig, Hollywood LUTs, and bloom',
+      why: 'Volumetric 34-preset cinema lighting rig, Hollywood LUTs & bloom',
+      accentHex: '#FFE066',
       icon: Lightbulb,
       activeModules: ['LIBRARY', 'BLOOM'],
       onPrimaryClick: () => eventBus.emit('lighting:open'),
@@ -381,7 +406,8 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       key: 'FX',
       label: 'FX',
       title: 'OPTICAL FX, WARP & AI STUDIO',
-      why: 'Mesh liquify warp, AI cine prompts, and timestamped frame markup',
+      why: 'Mesh liquify warp, 35mm grain/halation sliders & AI prompts',
+      accentHex: '#A855F7',
       icon: Wand2,
       activeModules: ['LIQUIFY', 'AI', 'REVIEW'],
       onPrimaryClick: () => onSelectModule('LIQUIFY'),
@@ -391,7 +417,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           label: 'Liquify & Mesh Warp',
           sub: 'Push, twirl & optical speed FX sculptor',
           icon: Wand2,
-          badge: 'W',
+          shortcut: 'W',
           isActive: activeModule === 'LIQUIFY',
           onSelect: () => onSelectModule('LIQUIFY')
         },
@@ -418,6 +444,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       label: 'AUDIO',
       title: 'MASTER AUDIO, VU & SCOPES',
       why: '48kHz DSP mixer, waveform beat detection, scopes & telemetry',
+      accentHex: '#10B981',
       icon: Volume2,
       activeModules: ['SOUND'],
       onPrimaryClick: () => onSelectModule('SOUND'),
@@ -461,7 +488,8 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       key: 'CLOUD',
       label: 'CLOUD',
       title: 'MEDIA VAULT & R2 CLOUD ARCHIVE',
-      why: 'Resilient IndexedDB vault, Cloudflare R2 edge sync, project snapshots',
+      why: 'Resilient IndexedDB vault, Cloudflare R2 edge sync, snapshots',
+      accentHex: '#38BDF8',
       icon: Cloud,
       activeModules: ['MEDIA', 'R2_STORAGE'],
       onPrimaryClick: () => onSelectModule('MEDIA'),
@@ -499,12 +527,25 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'BRIDGE',
       label: 'BRIDGE',
-      title: 'ECOSYSTEM INTERCHANGE HUB',
-      why: 'Dispatch frames & sequences to Photoshop, Premiere Pro, Resolve & CapCut',
+      title: 'CAPTURE & INTERCHANGE HUB',
+      why: 'Screen Recorder Studio, Premiere/Resolve XML & CapCut Export',
+      accentHex: '#FB7185',
       icon: Zap,
       activeModules: ['EXPORT'],
       onPrimaryClick: () => eventBus.emit('cockpit:action', { type: 'open_modal' }),
       subTools: [
+        {
+          id: 'screen-recorder-studio',
+          label: 'Screen Recorder Studio',
+          sub: '4K/60 capture deck + instant .MP4 / Shot inject',
+          icon: Video,
+          badge: 'REC',
+          shortcut: 'ALT+R',
+          onSelect: () => {
+            if (onOpenRecorder) onOpenRecorder();
+            else eventBus.emit('recorder:open');
+          }
+        },
         {
           id: 'cockpit-hub',
           label: "Director's Cockpit Hub",
@@ -532,6 +573,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           label: 'Master Export Studio',
           sub: 'MP4 burn-in, PDF lookbook & RAWX archive',
           icon: Film,
+          shortcut: 'SHIFT+E',
           isActive: activeModule === 'EXPORT',
           onSelect: () => onSelectModule('EXPORT')
         }
@@ -542,6 +584,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       label: 'SYSTEM',
       title: 'SETTINGS, SHORTCUTS & RAIL LOCK',
       why: 'Studio preferences, keyboard shortcuts, telemetry mode & rail lock',
+      accentHex: '#A3E635',
       icon: Settings,
       activeModules: ['SETTINGS'],
       onPrimaryClick: () => {
@@ -606,7 +649,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 label: 'Keyboard Shortcuts',
                 sub: 'J-K-L playback, razor & director hotkeys',
                 icon: Keyboard,
-                badge: '?',
+                shortcut: '?',
                 onSelect: () => onOpenShortcuts()
               }
             ]
@@ -630,17 +673,21 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     ? railButtons.find((b) => b.key === openFlyout.key) ?? null
     : null;
 
+  const bloomVal = activeFrameAdjustments?.bloom ?? 20;
+  const grainVal = activeFrameAdjustments?.grain ?? 10;
+  const vignetteVal = activeFrameAdjustments?.vignette ?? 15;
+
   return (
     <aside
       aria-label="Director Left Tool Rail"
-      className={`h-full pb-1 select-none z-30 shrink-0 bg-black/92 backdrop-blur-2xl border-r border-white/10 flex flex-col font-mono-tech transition-all duration-200 relative ${
-        isCollapsed ? 'w-[60px]' : 'w-56'
+      className={`h-full select-none z-30 shrink-0 bg-[#05060A]/95 backdrop-blur-2xl border-r border-white/10 flex flex-col font-mono-tech transition-all duration-200 relative ${
+        isCollapsed ? 'w-[72px]' : 'w-56'
       }`}
     >
-      {/* Clean 10-Button Vertical Spine — completely clear of bottom timeline */}
+      {/* Full-Height 10-Button Evenly Distributed Vertical Spine */}
       <nav
         aria-label="10 Studio Tools"
-        className="flex-1 min-h-0 overflow-y-auto no-scrollbar py-1.5 px-1.5 flex flex-col items-center gap-1"
+        className="flex-1 min-h-0 py-1.5 px-1.5 flex flex-col justify-between gap-1 overflow-hidden"
       >
         {railButtons.map((btn) => {
           const Icon = btn.icon;
@@ -661,31 +708,34 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 openButtonFlyout(btn.key, e.currentTarget);
                 btn.onPrimaryClick();
               }}
-              className={`group relative rounded-[5px] cursor-pointer transition-all duration-150 select-none active:scale-95 shrink-0 ${
+              style={{
+                borderColor: isActive ? btn.accentHex : `${btn.accentHex}38`,
+                boxShadow: isActive ? `inset 0 0 14px ${btn.accentHex}28, 0 0 14px ${btn.accentHex}30` : undefined,
+                backgroundColor: isActive ? `${btn.accentHex}1F` : '#0C0E14'
+              }}
+              className={`group relative flex-1 min-h-0 rounded-md cursor-pointer transition-all duration-150 select-none active:scale-95 border ${
                 isCollapsed
-                  ? 'w-11 py-1.5 px-1 flex flex-col items-center justify-center gap-1'
-                  : 'w-full px-2.5 py-2 flex items-center gap-2.5'
-              } ${
-                isActive
-                  ? 'bg-gradient-to-b from-[#2a2214] via-[#1a150b] to-[#0f0c05] border border-amber-400/90 shadow-[inset_0_1px_1.5px_rgba(251,191,36,0.35),_0_0_10px_rgba(245,166,35,0.22)]'
-                  : 'bg-gradient-to-b from-[#181822] via-[#12121b] to-[#0b0b12] border border-white/10 hover:border-amber-400/70 hover:from-[#222232] hover:to-[#13131f]'
-              }`}
+                  ? 'w-full px-1 py-0.5 flex flex-col items-center justify-center gap-0.5'
+                  : 'w-full px-2.5 py-0.5 flex items-center gap-2.5'
+              } hover:brightness-125`}
             >
-              {isActive && (
-                <span className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-1 h-5 bg-amber-400 rounded-r shadow-[0_0_8px_#fbbf24]" />
-              )}
+              {/* Crisp Category Accent Bar */}
+              <span
+                style={{ backgroundColor: btn.accentHex }}
+                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r transition-opacity ${
+                  isActive ? 'opacity-100' : 'opacity-45 group-hover:opacity-100'
+                }`}
+              />
 
               <Icon
-                className={`w-4 h-4 shrink-0 transition-transform duration-150 group-hover:scale-105 ${
-                  isActive ? 'text-amber-300' : 'text-zinc-300 group-hover:text-amber-300'
-                }`}
+                style={{ color: btn.accentHex }}
+                className={`${isCollapsed ? 'w-5 h-5' : 'w-5 h-5'} shrink-0 transition-transform duration-150 group-hover:scale-110`}
               />
 
               {isCollapsed ? (
                 <span
-                  className={`text-[8px] leading-none font-bold uppercase tracking-tight whitespace-nowrap ${
-                    isActive ? 'text-amber-300' : 'text-zinc-400 group-hover:text-zinc-200'
-                  }`}
+                  style={{ color: isActive ? '#FFFFFF' : btn.accentHex }}
+                  className="text-[9.5px] leading-none font-black uppercase tracking-wider whitespace-nowrap"
                 >
                   {btn.label}
                 </span>
@@ -693,15 +743,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 <div className="min-w-0 flex-1 text-left">
                   <div className="flex items-center justify-between gap-1">
                     <span
-                      className={`text-[10px] font-black tracking-wider uppercase truncate ${
-                        isActive ? 'text-amber-300' : 'text-zinc-200'
-                      }`}
+                      style={{ color: isActive ? '#FFFFFF' : btn.accentHex }}
+                      className="text-[11px] font-black tracking-wider uppercase truncate"
                     >
                       {btn.label}
                     </span>
-                    <ChevronRight className="w-3 h-3 text-zinc-500 group-hover:text-amber-300 shrink-0" />
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white shrink-0" />
                   </div>
-                  <div className="text-[8px] text-zinc-500 truncate leading-tight mt-0.5">
+                  <div className="text-[8.5px] text-zinc-400 truncate leading-tight">
                     {btn.why}
                   </div>
                 </div>
@@ -711,7 +760,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         })}
       </nav>
 
-      {/* Portaled z-[9999] Floating Flyout Menu */}
+      {/* Portaled z-[9999] Glassmorphic Brutalist Advanced Flyout Drawer */}
       {openFlyout && activeFlyoutConfig && typeof document !== 'undefined' && createPortal(
         <div
           ref={flyoutRef}
@@ -721,26 +770,38 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
             position: 'fixed',
             top: `${openFlyout.top}px`,
             left: `${openFlyout.left}px`,
-            zIndex: 9999
+            zIndex: 9999,
+            borderColor: `${activeFlyoutConfig.accentHex}99`,
+            boxShadow: `0 22px 54px rgba(0,0,0,0.95), 0 0 28px ${activeFlyoutConfig.accentHex}2A`
           }}
-          className="z-[9999] w-64 bg-[#08090f]/98 border border-amber-500/60 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.95)] backdrop-blur-xl p-2 font-mono text-xs text-zinc-200 space-y-1.5"
+          className="z-[9999] w-72 bg-[#07080D]/95 border rounded-xl backdrop-blur-2xl p-2.5 font-mono text-xs text-zinc-200 space-y-2"
         >
           {/* Flyout Header */}
           <div className="px-2 py-1 border-b border-white/10 flex items-center justify-between gap-2">
-            <span className="text-[9px] font-black tracking-widest uppercase text-amber-300 truncate">
+            <span
+              style={{ color: activeFlyoutConfig.accentHex }}
+              className="text-[10px] font-black tracking-widest uppercase truncate"
+            >
               {activeFlyoutConfig.title}
             </span>
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 shrink-0">
+            <span
+              style={{
+                color: activeFlyoutConfig.accentHex,
+                borderColor: `${activeFlyoutConfig.accentHex}55`,
+                backgroundColor: `${activeFlyoutConfig.accentHex}1A`
+              }}
+              className="text-[8.5px] font-black px-1.5 py-0.5 rounded border shrink-0"
+            >
               {activeFlyoutConfig.label}
             </span>
           </div>
 
-          <p className="px-2 text-[9px] text-zinc-400 leading-snug">
+          <p className="px-2 text-[9.5px] text-zinc-400 leading-snug">
             {activeFlyoutConfig.why}
           </p>
 
-          {/* Sub-tool Buttons */}
-          <div className="space-y-1 pt-0.5">
+          {/* Sub-tool Buttons with Keyboard Shortcut Badges */}
+          <div className="space-y-1">
             {activeFlyoutConfig.subTools.map((sub) => {
               const SubIcon = sub.icon;
               return (
@@ -751,24 +812,27 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                     sub.onSelect();
                     setOpenFlyout(null);
                   }}
-                  className={`w-full px-2 py-1.5 rounded flex items-center gap-2 text-left transition-colors cursor-pointer border ${
-                    sub.isActive
-                      ? 'bg-amber-500/15 border-amber-400/60 text-amber-200'
-                      : 'bg-neutral-900/90 hover:bg-neutral-800 border-white/10 hover:border-amber-400/50 text-zinc-200'
-                  }`}
+                  style={{
+                    borderColor: sub.isActive ? activeFlyoutConfig.accentHex : 'rgba(255,255,255,0.1)',
+                    backgroundColor: sub.isActive ? `${activeFlyoutConfig.accentHex}20` : 'rgba(18,20,28,0.85)'
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-all cursor-pointer border hover:brightness-125"
                 >
                   <SubIcon
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      sub.isActive ? 'text-amber-300' : 'text-zinc-400'
+                    className={`w-4 h-4 shrink-0 ${
+                      sub.isActive ? 'text-white' : 'text-zinc-300'
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold truncate">{sub.label}</div>
+                    <div className="text-[10.5px] font-bold text-white truncate">{sub.label}</div>
                     <div className="text-[8.5px] text-zinc-400 truncate">{sub.sub}</div>
                   </div>
-                  {sub.badge && (
-                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-black/70 border border-white/15 text-amber-300 shrink-0">
-                      {sub.badge}
+                  {(sub.shortcut || sub.badge) && (
+                    <span
+                      style={{ color: activeFlyoutConfig.accentHex }}
+                      className="text-[8.5px] font-black px-1.5 py-0.5 rounded bg-black/80 border border-white/15 shrink-0"
+                    >
+                      {sub.shortcut || sub.badge}
                     </span>
                   )}
                 </button>
@@ -776,10 +840,71 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
             })}
           </div>
 
+          {/* Live Interactive Optical/Grading Sliders in LIGHT & FX Flyouts */}
+          {(activeFlyoutConfig.key === 'LIGHT' || activeFlyoutConfig.key === 'FX') && onUpdateActiveAdjustments && (
+            <div className="pt-2 border-t border-white/10 space-y-2 px-1">
+              <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider" style={{ color: activeFlyoutConfig.accentHex }}>
+                <span>LIVE SHOT SHADERS (SH{String(currentShotIndex + 1).padStart(2, '0')})</span>
+                <button
+                  type="button"
+                  onClick={() => onUpdateActiveAdjustments({ bloom: 25, grain: 12, vignette: 18 })}
+                  className="text-zinc-400 hover:text-white cursor-pointer"
+                >
+                  RESET
+                </button>
+              </div>
+
+              <label className="block space-y-0.5">
+                <div className="flex justify-between text-[9px] text-zinc-300">
+                  <span>HALATION / BLOOM</span>
+                  <span className="font-bold tabular-nums">{bloomVal}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={bloomVal}
+                  onChange={(e) => onUpdateActiveAdjustments({ bloom: Number(e.target.value) })}
+                  className="w-full accent-amber-400 cursor-pointer"
+                />
+              </label>
+
+              <label className="block space-y-0.5">
+                <div className="flex justify-between text-[9px] text-zinc-300">
+                  <span>35MM FILM GRAIN</span>
+                  <span className="font-bold tabular-nums">{grainVal}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={grainVal}
+                  onChange={(e) => onUpdateActiveAdjustments({ grain: Number(e.target.value) })}
+                  className="w-full accent-purple-400 cursor-pointer"
+                />
+              </label>
+
+              <label className="block space-y-0.5">
+                <div className="flex justify-between text-[9px] text-zinc-300">
+                  <span>OPTICAL VIGNETTE</span>
+                  <span className="font-bold tabular-nums">{vignetteVal}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={vignetteVal}
+                  onChange={(e) => onUpdateActiveAdjustments({ vignette: Number(e.target.value) })}
+                  className="w-full accent-cyan-400 cursor-pointer"
+                />
+              </label>
+            </div>
+          )}
+
           {/* Inline Cine Rig Switcher inside CROP flyout */}
           {activeFlyoutConfig.key === 'CROP' && (
             <div className="pt-1.5 border-t border-white/10 space-y-1">
-              <div className="px-2 flex items-center justify-between text-[8.5px] text-amber-300 font-bold uppercase tracking-wider">
+              <div className="px-2 flex items-center justify-between text-[8.5px] text-[#00F0FF] font-bold uppercase tracking-wider">
                 <span className="flex items-center gap-1">
                   <Camera className="w-3 h-3" />
                   CINE BODY & LENS
@@ -796,7 +921,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                       onClick={() => handleSelectCineProfile(prof)}
                       className={`w-full px-2 py-1 rounded text-left flex items-center justify-between gap-2 cursor-pointer transition-colors ${
                         selected
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-400/50'
+                          ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/50'
                           : 'hover:bg-white/5 text-zinc-300 border border-transparent'
                       }`}
                     >
@@ -804,7 +929,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                         <div className="text-[9.5px] font-bold truncate">{prof.body}</div>
                         <div className="text-[8px] text-zinc-400 truncate">{prof.lens}</div>
                       </div>
-                      {selected && <Check className="w-3 h-3 text-amber-300 shrink-0" />}
+                      {selected && <Check className="w-3 h-3 text-cyan-300 shrink-0" />}
                     </button>
                   );
                 })}

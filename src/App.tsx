@@ -208,8 +208,8 @@ export default function App() {
 
   const handleRecordingComplete = useCallback((result: RecordedCaptureResult) => {
     setCapturedResult(result);
-    setIsQuickTrimOpen(true);
-    setIsScreenRecorderOpen(false);
+    // Keep FloatingPillRecorder open so its 4-Option Capture Preview & Save Deck renders immediately
+    setIsScreenRecorderOpen(true);
   }, []);
 
   const handleOpenAdvancedTrimmer = useCallback((result: RecordedCaptureResult, initialIn: number, initialOut: number) => {
@@ -2532,10 +2532,18 @@ export default function App() {
           break;
         case 'p':
         case 'P':
-        case 'y':
-        case 'Y':
           e.preventDefault();
           setIsPanActive(prev => !prev);
+          break;
+        case 'y':
+        case 'Y':
+          if (isScrubOrMultiCam) break;
+          e.preventDefault();
+          setIsPanActive(prev => !prev);
+          break;
+        case 'n':
+        case 'N':
+          if (isScrubOrMultiCam) break;
           break;
         case 'c':
         case 'C':
@@ -2772,6 +2780,8 @@ export default function App() {
           reframeZoom: s.reframeZoom !== undefined ? s.reframeZoom : original?.reframeZoom,
           smartCropMode: s.smartCropMode !== undefined ? s.smartCropMode : original?.smartCropMode,
           speedRampPreset: s.speedRampPreset !== undefined ? s.speedRampPreset : original?.speedRampPreset,
+          speedRampKeyframes: s.speedRampKeyframes !== undefined ? s.speedRampKeyframes : original?.speedRampKeyframes,
+          opticalFlowMode: s.opticalFlowMode !== undefined ? s.opticalFlowMode : original?.opticalFlowMode,
           flashCutEnabled: s.flashCutEnabled !== undefined ? s.flashCutEnabled : original?.flashCutEnabled,
           flashCutIntervalSec: s.flashCutIntervalSec !== undefined ? s.flashCutIntervalSec : original?.flashCutIntervalSec,
           beatDropEnabled: s.beatDropEnabled !== undefined ? s.beatDropEnabled : original?.beatDropEnabled,
@@ -3104,6 +3114,18 @@ export default function App() {
             onOpenMultiCam={handleToggleMultiCam}
             onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
             onOpenShortcuts={() => setIsShortcutsOpen(true)}
+            onOpenRecorder={() => setIsScreenRecorderOpen(true)}
+            activeFrameAdjustments={currentFrame?.adjustments}
+            onUpdateActiveAdjustments={(patch) => {
+              if (!currentFrame) return;
+              handleUpdateFrame({
+                ...currentFrame,
+                adjustments: {
+                  ...currentFrame.adjustments,
+                  ...patch
+                }
+              });
+            }}
             totalShots={project.frames?.length || 100}
             currentShotIndex={currentIndex}
             saveState={saveState}
@@ -3584,11 +3606,25 @@ export default function App() {
         onUploadMedia={handleUploadImage}
       />
 
-      {/* Isolated Draggable Red-Pill Screen Recorder Widget */}
+      {/* Isolated Draggable Pro Screen Recorder Studio & 4-Option Save Deck */}
       <FloatingPillRecorder
         isOpen={isScreenRecorderOpen}
         onClose={() => setIsScreenRecorderOpen(false)}
         onRecordingComplete={handleRecordingComplete}
+        onCommittedToShot={(mediaUrl, shotIdx) => {
+          const targetFrame = project.frames[shotIdx];
+          if (targetFrame) {
+            handleUpdateFrameAtIndex(shotIdx, {
+              ...targetFrame,
+              imageUrl: mediaUrl,
+              isVideo: true
+            });
+          }
+        }}
+        onOpenTrimmer={(result) => {
+          setCapturedResult(result);
+          setIsQuickTrimOpen(true);
+        }}
       />
 
       {/* Instant Post-Capture Quick Trim Preview Modal */}

@@ -7,7 +7,7 @@
  * - Unified 9:16 Smart-Crop Subject Lock geometry shared between live DOM preview & Canvas export
  */
 
-import type { SmartCropMode, SpeedRampPreset } from '../types/anthology';
+import type { SmartCropMode, SpeedRampPreset, SpeedRampKeyframe } from '../types/anthology';
 import type { SlideDraft } from '../types/project';
 import { getClipSourceWindow } from './scrubNleMath';
 import { resolveShotMediaEntry, type ShotMediaMap } from '../services/handfilmMediaVault';
@@ -48,10 +48,49 @@ function roundSec(val: number): number {
 }
 
 /**
+ * Evaluates custom bezier-eased velocity keyframes (0.25x..4.0x) at normalized progress u in [0, 1].
+ */
+export function evaluateKeyframeRampAtProgress(
+  keyframes: ReadonlyArray<SpeedRampKeyframe> | undefined,
+  u: number
+): number | null {
+  if (!keyframes || keyframes.length < 2) return null;
+  const sorted = [...keyframes]
+    .map((k) => ({
+      u: Math.max(0, Math.min(1, k.u)),
+      rate: Math.max(0.25, Math.min(4.0, k.rate))
+    }))
+    .sort((a, b) => a.u - b.u);
+  const t = Math.max(0, Math.min(1, u));
+  if (t <= sorted[0].u) return sorted[0].rate;
+  if (t >= sorted[sorted.length - 1].u) return sorted[sorted.length - 1].rate;
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (t >= a.u && t <= b.u) {
+      const span = Math.max(1e-5, b.u - a.u);
+      const localU = (t - a.u) / span;
+      // Smoothstep S-curve interpolation matching bezier velocity handles
+      const eased = localU * localU * (3 - 2 * localU);
+      return a.rate + (b.rate - a.rate) * eased;
+    }
+  }
+  return sorted[sorted.length - 1].rate;
+}
+
+/**
  * Evaluates instantaneous playback rate multiplier (relative to base clip speed)
  * at normalized progress `u` in `[0, 1]` for smooth preview & export synchronization.
  */
-export function getSpeedRampFactorAtProgress(preset: SpeedRampPreset | undefined, u: number): number {
+export function getSpeedRampFactorAtProgress(
+  preset: SpeedRampPreset | undefined,
+  u: number,
+  customKeyframes?: ReadonlyArray<SpeedRampKeyframe>
+): number {
+  const customRate = evaluateKeyframeRampAtProgress(customKeyframes, u);
+  if (customRate !== null) return customRate;
+
   const t = Math.max(0, Math.min(1, u));
   switch (preset) {
     case 'BULLET_TIME': {
@@ -77,11 +116,13 @@ export function getSpeedRampFactorAtProgress(preset: SpeedRampPreset | undefined
 export function getSpeedRampInstantRate(
   preset: SpeedRampPreset | undefined,
   localTimeSec: number,
-  timelineDurationSec: number
+  timelineDurationSec: number,
+  customKeyframes?: ReadonlyArray<SpeedRampKeyframe>
 ): number {
-  if (!preset || preset === 'NONE') return 1.0;
+  const hasCustom = Boolean(customKeyframes && customKeyframes.length >= 2);
+  if (!hasCustom && (!preset || preset === 'NONE')) return 1.0;
   const dur = Math.max(0.25, timelineDurationSec);
-  return getSpeedRampFactorAtProgress(preset, localTimeSec / dur);
+  return getSpeedRampFactorAtProgress(preset, localTimeSec / dur, customKeyframes);
 }
 
 /**
@@ -95,8 +136,10 @@ export function evaluateSpeedRampSourceTime(
   const win = getClipSourceWindow(slide as Partial<SlideDraft>);
   const clampedLocal = Math.max(0, Math.min(win.timelineDurationSec, localTimeSec));
   const preset = slide?.speedRampPreset;
+  const keyframes = slide?.speedRampKeyframes;
+  const hasCustom = Boolean(keyframes && keyframes.length >= 2);
 
-  if (!preset || preset === 'NONE') {
+  if (!hasCustom && (!preset || preset === 'NONE')) {
     return roundSec(win.inSec + clampedLocal * win.speed);
   }
 
@@ -109,7 +152,7 @@ export function evaluateSpeedRampSourceTime(
   let integral = 0;
   for (let i = 0; i < steps; i++) {
     const uMid = (i + 0.5) * du;
-    integral += getSpeedRampFactorAtProgress(preset, uMid) * du;
+    integral += getSpeedRampFactorAtProgress(preset, uMid, keyframes) * du;
   }
 
   return roundSec(win.inSec + integral * dur * win.speed);

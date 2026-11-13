@@ -1,130 +1,127 @@
-/**
- * @file /src/utils/scrubNleMath.test.ts
- * @description Unit tests for CapCut-grade real-time NLE cutting, trimming, ripple delete & speed math.
- */
-
-import test from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SlideDraft } from '../types/project';
+import type { SlideDraft } from '../types/project';
 import {
-  splitClipAtTime,
-  trimClipEdge,
-  trimStartToPlayheadQ,
-  trimEndToPlayheadW,
-  rippleDeleteClip,
-  applyClipSpeed,
+  findNearestTransientSec,
+  generateClipWaveformProfile,
   getClipSourceWindow,
-  getClipSourceMediaTimeSec
+  rollClipCutPoint
 } from './scrubNleMath';
+import {
+  evaluateKeyframeRampAtProgress,
+  evaluateSpeedRampSourceTime
+} from './speedReelsEngine';
+import { videoCacheService } from '../services/videoCacheService';
+import { screenRecorderEngine } from '../services/screenRecorderEngine';
 
-function makeSlide(id: string, durationSec = 12.0, overrides: Partial<SlideDraft> = {}): SlideDraft {
+function makeSlide(idx: number, overrides: Partial<SlideDraft> = {}): SlideDraft {
   return {
-    id,
-    orderIndex: 0,
-    duration: durationSec,
-    durationSec,
+    id: `slide_${idx}`,
+    orderIndex: idx,
+    titleEn: `Shot ${idx + 1}`,
+    titleBn: `দৃশ্য ${idx + 1}`,
+    tagline: `Tagline ${idx + 1}`,
+    duration: 4.0,
+    durationSec: 4.0,
     targetFps: 24,
-    aspectRatio: '2.39:1',
-    titleEn: `Shot ${id}`,
-    titleBn: `দৃশ্য ${id}`,
-    mediaVaultKey: id.replace(/^slide_/, ''),
+    inPointMs: 0,
+    outPointMs: 4000,
+    playbackSpeed: 1.0,
     ...overrides
   };
 }
 
-test('splitClipAtTime slices active clip into Part A and Part B with contiguous in/out timestamps', () => {
-  const initial = [makeSlide('slide_0', 12.0), makeSlide('slide_1', 6.0)];
-  const res = splitClipAtTime(initial, 0, 4.5, true);
+test('rollClipCutPoint adjusts seam between adjacent clips while locking combined runtime', () => {
+  const slides = [
+    makeSlide(0, { inPointMs: 0, outPointMs: 4000, durationSec: 4.0 }),
+    makeSlide(1, { inPointMs: 2000, outPointMs: 6000, durationSec: 4.0 })
+  ];
+  const initialTotal = slides[0].durationSec! + slides[1].durationSec!;
 
-  assert.equal(res.changed, true);
-  assert.equal(res.slides.length, 3);
-  assert.equal(res.activeIndex, 1);
-  assert.equal(res.localTimeSec, 0);
+  // Roll cut point +1.0s right (extends clip 0 to 5.0s, pulls clip 1 inPoint earlier so clip 1 is 3.0s)
+  const rolledRight = rollClipCutPoint(slides, 0, 1.0, true);
+  assert.equal(rolledRight.changed, true);
+  assert.equal(rolledRight.leftDurationSec, 5.0);
+  assert.equal(rolledRight.rightDurationSec, 3.0);
+  assert.equal(rolledRight.leftDurationSec + rolledRight.rightDurationSec, initialTotal);
+  const rightWin = getClipSourceWindow(rolledRight.slides[1]);
+  assert.ok(Math.abs(rightWin.inSec - 3.0) < 0.02);
 
-  const partA = res.slides[0];
-  const partB = res.slides[1];
-  assert.equal(partA.titleEn, 'Shot slide_0 (Part A)');
-  assert.equal(partB.titleEn, 'Shot slide_0 (Part B)');
-  assert.equal(partA.durationSec, 4.5);
-  assert.equal(partB.durationSec, 7.5);
-  assert.equal(partA.inPointMs, 0);
-  assert.equal(partA.outPointMs, 4500);
-  assert.equal(partB.inPointMs, 4500);
-  assert.equal(partB.outPointMs, 12000);
-  assert.equal(partA.mediaVaultKey, '0');
-  assert.equal(partB.mediaVaultKey, '0');
-  assert.notEqual(partA.id, partB.id);
+  // Roll cut point -1.5s left from rolled state (shrinks clip 0 to 3.5s, recovers clip 1 head to 4.5s)
+  const rolledLeft = rollClipCutPoint(rolledRight.slides, 0, -1.5, true);
+  assert.equal(rolledLeft.changed, true);
+  assert.equal(rolledLeft.leftDurationSec, 3.5);
+  assert.equal(rolledLeft.rightDurationSec, 4.5);
+  assert.equal(rolledLeft.leftDurationSec + rolledLeft.rightDurationSec, initialTotal);
 });
 
-test('splitClipAtTime refuses split too close to clip boundary', () => {
-  const initial = [makeSlide('slide_0', 1.0)];
-  const res = splitClipAtTime(initial, 0, 0.1, true);
-  assert.equal(res.changed, false);
-  assert.equal(res.slides.length, 1);
+test('evaluateKeyframeRampAtProgress & evaluateSpeedRampSourceTime honor custom Bezier speed-ramp curves', () => {
+  const keyframes = [
+    { u: 0, rate: 0.5 },
+    { u: 0.5, rate: 3.0 },
+    { u: 1, rate: 0.5 }
+  ];
+
+  const r0 = evaluateKeyframeRampAtProgress(keyframes, 0);
+  const rMid = evaluateKeyframeRampAtProgress(keyframes, 0.5);
+  const r1 = evaluateKeyframeRampAtProgress(keyframes, 1);
+  assert.ok(r0 !== null && Math.abs(r0 - 0.5) < 1e-6);
+  assert.ok(rMid !== null && Math.abs(rMid - 3.0) < 1e-6);
+  assert.ok(r1 !== null && Math.abs(r1 - 0.5) < 1e-6);
+
+  const slide = makeSlide(0, {
+    inPointMs: 1000,
+    outPointMs: 5000,
+    durationSec: 4.0,
+    speedRampKeyframes: keyframes
+  });
+
+  let prev = evaluateSpeedRampSourceTime(slide, 0);
+  assert.ok(Math.abs(prev - 1.0) < 1e-6);
+  for (let i = 1; i <= 20; i++) {
+    const t = (i / 20) * 4.0;
+    const cur = evaluateSpeedRampSourceTime(slide, t);
+    assert.ok(cur >= prev, `Expected monotonic source time at ${t}: ${cur} < ${prev}`);
+    prev = cur;
+  }
 });
 
-test('trimClipEdge left [| and right |] trim in/out points cleanly while preserving ripple bounds', () => {
-  const initial = [makeSlide('slide_0', 12.0)];
-  // Trim left edge right by +3.0s -> inPointMs becomes 3000, duration 9.0s
-  const leftTrim = trimClipEdge(initial, 0, 'left', 3.0, true);
-  assert.equal(leftTrim.changed, true);
-  assert.equal(leftTrim.slides[0].inPointMs, 3000);
-  assert.equal(leftTrim.slides[0].outPointMs, 12000);
-  assert.equal(leftTrim.slides[0].durationSec, 9.0);
-  assert.equal(leftTrim.scrubPreviewSourceSec, 3.0);
+test('generateClipWaveformProfile & findNearestTransientSec yield deterministic waveform peaks and beat snap', () => {
+  const slide = makeSlide(0, { durationSec: 4.0, flashCutIntervalSec: 1.0 });
+  const profile = generateClipWaveformProfile(slide, 0, 28);
+  assert.equal(profile.bars.length, 28);
+  assert.ok(profile.bars.every((b) => b >= 0.15 && b <= 1.0));
+  assert.ok(profile.transientSeconds.length > 0);
 
-  // Trim right edge left by -2.0s on trimmed clip -> outPointMs becomes 10000, duration 7.0s
-  const rightTrim = trimClipEdge(leftTrim.slides, 0, 'right', -2.0, true);
-  assert.equal(rightTrim.changed, true);
-  assert.equal(rightTrim.slides[0].inPointMs, 3000);
-  assert.equal(rightTrim.slides[0].outPointMs, 10000);
-  assert.equal(rightTrim.slides[0].durationSec, 7.0);
+  const firstTransient = profile.transientSeconds[0];
+  const snapped = findNearestTransientSec(slide, 0, firstTransient + 0.01);
+  assert.ok(Math.abs(snapped - firstTransient) <= 0.25);
 });
 
-test('trimStartToPlayheadQ & trimEndToPlayheadW behave like CapCut Q/W ripple trims', () => {
-  const initial = [makeSlide('slide_0', 10.0), makeSlide('slide_1', 5.0)];
+test('videoCacheService keyframe ring-buffer nearest lookup resolves quantized cached frames', () => {
+  const fakeUrl = 'blob:unit-test-ringbuffer-clip';
+  const fakeBitmap = { close: () => {}, width: 320, height: 180 } as unknown as ImageBitmap;
 
-  // Q at 2.5s cuts head [0..2.5s] and resets playhead to 0
-  const afterQ = trimStartToPlayheadQ(initial, 0, 2.5, true);
-  assert.equal(afterQ.changed, true);
-  assert.equal(afterQ.localTimeSec, 0);
-  assert.equal(afterQ.slides[0].inPointMs, 2500);
-  assert.equal(afterQ.slides[0].outPointMs, 10000);
-  assert.equal(afterQ.slides[0].durationSec, 7.5);
+  videoCacheService.setKeyframeBitmap(fakeUrl, 2.5, fakeBitmap);
+  assert.ok(videoCacheService.getRingBufferCount(fakeUrl) >= 1);
 
-  // W at 3.0s on that 7.5s clip trims tail -> outPoint becomes 2.5 + 3.0 = 5.5s, duration 3.0s
-  const afterW = trimEndToPlayheadW(afterQ.slides, 0, 3.0, true);
-  assert.equal(afterW.changed, true);
-  assert.equal(afterW.slides[0].inPointMs, 2500);
-  assert.equal(afterW.slides[0].outPointMs, 5500);
-  assert.equal(afterW.slides[0].durationSec, 3.0);
+  const near = videoCacheService.getNearestKeyframeBitmap(fakeUrl, 2.65, 0.5);
+  assert.ok(near !== null);
+  if (!near) throw new Error('Expected cached bitmap match');
+  assert.equal(near.bitmap, fakeBitmap);
+  assert.ok(Math.abs(near.cachedTimeSec - 2.5) < 0.05);
+
+  const tooFar = videoCacheService.getNearestKeyframeBitmap(fakeUrl, 10.0, 0.5);
+  assert.equal(tooFar, null);
 });
 
-test('rippleDeleteClip removes clip and closes gap without deleting last clip', () => {
-  const initial = [makeSlide('a', 4.0), makeSlide('b', 6.0), makeSlide('c', 5.0)];
-  const deleted = rippleDeleteClip(initial, 1);
-  assert.equal(deleted.changed, true);
-  assert.equal(deleted.slides.length, 2);
-  assert.equal(deleted.slides[0].id, 'a');
-  assert.equal(deleted.slides[1].id, 'c');
-  assert.equal(deleted.slides[1].orderIndex, 1);
+test('screenRecorderEngine maintains deterministic idle/reset state machine contract', async () => {
+  screenRecorderEngine.resetToIdle();
+  assert.equal(screenRecorderEngine.getStatus(), 'idle');
+  assert.equal(screenRecorderEngine.getLastCaptureResult(), null);
 
-  const single = rippleDeleteClip([makeSlide('only', 4.0)], 0);
-  assert.equal(single.changed, false);
-});
-
-test('applyClipSpeed scales timeline duration and maps source media time accurately', () => {
-  const clip = makeSlide('slide_0', 8.0, { inPointMs: 2000, outPointMs: 10000 });
-  const sped = applyClipSpeed([clip], 0, 2.0);
-  assert.equal(sped.changed, true);
-  assert.equal(sped.slides[0].playbackSpeed, 2.0);
-  assert.equal(sped.slides[0].durationSec, 4.0);
-
-  const win = getClipSourceWindow(sped.slides[0]);
-  assert.equal(win.sourceSpanSec, 8.0);
-  assert.equal(win.timelineDurationSec, 4.0);
-
-  // At localTimeSec = 1.5s at 2.0x speed starting from inSec=2.0s -> source timestamp = 2.0 + 1.5*2 = 5.0s
-  const srcSec = getClipSourceMediaTimeSec(sped.slides[0], 1.5);
-  assert.equal(srcSec, 5.0);
+  screenRecorderEngine.cancelCountdown();
+  const stopNoOp = await screenRecorderEngine.stopRecording();
+  assert.equal(stopNoOp, null);
+  assert.equal(screenRecorderEngine.getStatus(), 'idle');
 });

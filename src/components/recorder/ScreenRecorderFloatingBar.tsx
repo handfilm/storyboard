@@ -224,7 +224,17 @@ export const ScreenRecorderFloatingBar: React.FC<ScreenRecorderFloatingBarProps>
                   : 'bg-emerald-500'
               }`} />
               <span className="font-bold text-[#F5A623] tracking-wider text-[11px]">
-                {status === 'recording' ? 'LIVE 4K CAPTURE' : status === 'paused' ? 'RECORDING PAUSED' : '4K SCREEN RECORDER'}
+                {status === 'recording'
+                  ? 'LIVE 4K CAPTURE'
+                  : status === 'paused'
+                    ? 'RECORDING PAUSED'
+                    : status === 'countdown'
+                      ? 'STARTING CAPTURE...'
+                      : status === 'processing'
+                        ? 'FINALIZING CLIP...'
+                        : status === 'ready'
+                          ? 'CAPTURE READY'
+                          : '4K SCREEN RECORDER'}
               </span>
             </div>
 

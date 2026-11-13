@@ -226,6 +226,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [isZoomControlsOpen, setIsZoomControlsOpen] = useState(false);
   const [isFilterTrayOpen, setIsFilterTrayOpen] = useState(false);
   const [isWebCodecsEngineActive, setIsWebCodecsEngineActive] = useState<boolean>(true);
+  const [isStageChromeHovered, setIsStageChromeHovered] = useState<boolean>(false);
   const [nativeVideoDuration, setNativeVideoDuration] = useState<number>(0);
   const [readyVideoUrl, setReadyVideoUrl] = useState<string | null>(null);
   const slotRefCallbacksRef = useRef<Map<string, (el: HTMLVideoElement | null) => void>>(new Map());
@@ -1642,27 +1643,37 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* 1. SLEEK 28px EXTERNAL STAGE METADATA & FX BAR (Hidden during Borderless Fullscreen idle) */}
+      {/* 1. SLEEK AUTO-COLLAPSING STAGE METADATA & FX BAR (Tucks smoothly during active playback unless hovered) */}
       {!hideFullscreenStageBars && (
-        <StageMetadataFxBar
-          className="animate-hud-fade-in"
-          sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '01'}
-          shotIndex={currentIndex}
-          frameNum={activeFrameNum}
-          totalFrames={activeTotalFrames}
-          smpte={activeSmpte}
-          fps={activeShotFps}
-          streamLabel={isScrubbing ? '540p PROXY' : 'RAW 4K'}
-          aspectRatio={aspectRatio || '2.39:1'}
-          playbackMode={playbackMode}
-          showHud={showHud}
-          isTitlesActive={isTitlesActive}
-          onToggleTitles={onToggleTitles}
-          lightName={activeLightPreset?.name}
-          onUploadMedia={() => fileInputRef.current?.click()}
-          onOpenInspector={onOpenInspector}
-          onToggleFullscreen={toggleFullscreen}
-        />
+        <div
+          onMouseEnter={() => setIsStageChromeHovered(true)}
+          onMouseLeave={() => setIsStageChromeHovered(false)}
+          className={`w-full shrink-0 transition-all duration-200 overflow-hidden ${
+            isAutoplay && !isStageChromeHovered
+              ? 'max-h-0 opacity-0 pointer-events-none'
+              : 'max-h-12 opacity-100'
+          }`}
+        >
+          <StageMetadataFxBar
+            className="animate-hud-fade-in"
+            sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '01'}
+            shotIndex={currentIndex}
+            frameNum={activeFrameNum}
+            totalFrames={activeTotalFrames}
+            smpte={activeSmpte}
+            fps={activeShotFps}
+            streamLabel={isScrubbing ? '540p PROXY' : 'RAW 4K'}
+            aspectRatio={aspectRatio || '2.39:1'}
+            playbackMode={playbackMode}
+            showHud={showHud}
+            isTitlesActive={isTitlesActive}
+            onToggleTitles={onToggleTitles}
+            lightName={activeLightPreset?.name}
+            onUploadMedia={() => fileInputRef.current?.click()}
+            onOpenInspector={onOpenInspector}
+            onToggleFullscreen={toggleFullscreen}
+          />
+        </div>
       )}
 
       {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (TIGHT EDGE-TO-EDGE FIT) */}
@@ -2119,32 +2130,42 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         />
       )}
 
-      {/* 4. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR */}
+      {/* 4. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR (Auto-tucks on playback) */}
       {!hideFullscreenStageBars && (
-        <StageCaptionStrip
-          shotIndex={currentIndex}
-          sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
-          aspectRatio={aspectRatio || '2.39:1'}
-          shotType={frame?.shotType}
-          cameraSpec={
-            frame?.cameraSpec
-              ? `${frame.cameraSpec.focalLength || '35mm'} ${frame.cameraSpec.aperture || 'f/1.4'}`
-              : undefined
-          }
-          lutFilter={frame?.lutFilter}
-          dopamineConfig={frame?.dopamineConfig}
-          slideTimeSec={slideTimeSec}
-          durationSec={effectiveShotDurationSec}
-          isTitlesActive={isTitlesActive}
-          onToggleTitles={onToggleTitles}
-          componentsVisibility={componentsVisibility}
-          isWebCodecsEngineActive={isWebCodecsEngineActive}
-          onToggleWebCodecs={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
-          totalRuntimeTimecode={totalRuntimeTimecode}
-          totalShotsCount={frames.length}
-          onUploadMedia={() => fileInputRef.current?.click()}
-          onToggleFullscreen={toggleFullscreen}
-        />
+        <div
+          onMouseEnter={() => setIsStageChromeHovered(true)}
+          onMouseLeave={() => setIsStageChromeHovered(false)}
+          className={`w-full shrink-0 transition-all duration-200 overflow-hidden ${
+            isAutoplay && !isStageChromeHovered
+              ? 'max-h-0 opacity-0 pointer-events-none'
+              : 'max-h-8 opacity-100'
+          }`}
+        >
+          <StageCaptionStrip
+            shotIndex={currentIndex}
+            sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
+            aspectRatio={aspectRatio || '2.39:1'}
+            shotType={frame?.shotType}
+            cameraSpec={
+              frame?.cameraSpec
+                ? `${frame.cameraSpec.focalLength || '35mm'} ${frame.cameraSpec.aperture || 'f/1.4'}`
+                : undefined
+            }
+            lutFilter={frame?.lutFilter}
+            dopamineConfig={frame?.dopamineConfig}
+            slideTimeSec={slideTimeSec}
+            durationSec={effectiveShotDurationSec}
+            isTitlesActive={isTitlesActive}
+            onToggleTitles={onToggleTitles}
+            componentsVisibility={componentsVisibility}
+            isWebCodecsEngineActive={isWebCodecsEngineActive}
+            onToggleWebCodecs={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
+            totalRuntimeTimecode={totalRuntimeTimecode}
+            totalShotsCount={frames.length}
+            onUploadMedia={() => fileInputRef.current?.click()}
+            onToggleFullscreen={toggleFullscreen}
+          />
+        </div>
       )}
 
       {/* Floating 35mm Film Stock & Color Grading Tray */}

@@ -501,3 +501,180 @@ export function slipClipWindow(
   };
 }
 
+/**
+ * Roll Edit Cut Point (`ROLL [N]`):
+ * Adjusts the cut seam between `slides[leftClipIndex]` (outPoint/duration) and
+ * `slides[leftClipIndex + 1]` (inPoint/duration) inversely while locking combined runtime.
+ */
+export function rollClipCutPoint(
+  slides: SlideDraft[],
+  leftClipIndex: number,
+  deltaTimelineSec: number,
+  snapToFrame: boolean = true
+): {
+  slides: SlideDraft[];
+  leftDurationSec: number;
+  rightDurationSec: number;
+  scrubPreviewSourceSec: number;
+  changed: boolean;
+} {
+  if (!slides.length || leftClipIndex < 0 || leftClipIndex >= slides.length - 1) {
+    return {
+      slides,
+      leftDurationSec: 0,
+      rightDurationSec: 0,
+      scrubPreviewSourceSec: 0,
+      changed: false
+    };
+  }
+
+  const leftSlide = slides[leftClipIndex];
+  const rightSlide = slides[leftClipIndex + 1];
+  const leftWin = getClipSourceWindow(leftSlide);
+  const rightWin = getClipSourceWindow(rightSlide);
+
+  const delta = snapToFrame
+    ? snapSecondsToFrame(Math.abs(deltaTimelineSec), leftWin.fps, true) * Math.sign(deltaTimelineSec)
+    : deltaTimelineSec;
+
+  if (Math.abs(delta) < 0.001) {
+    return {
+      slides,
+      leftDurationSec: leftWin.timelineDurationSec,
+      rightDurationSec: rightWin.timelineDurationSec,
+      scrubPreviewSourceSec: leftWin.outSec,
+      changed: false
+    };
+  }
+
+  // Right clip cannot shrink below MIN_NLE_CLIP_DURATION_SEC, nor pull inSec below 0
+  const maxExtendRight = Math.min(
+    MAX_SHOT_DURATION_SEC - leftWin.timelineDurationSec,
+    Math.max(0, rightWin.timelineDurationSec - MIN_NLE_CLIP_DURATION_SEC)
+  );
+  // Left clip cannot shrink below MIN_NLE_CLIP_DURATION_SEC, nor extend right clip past recoverable head or max dur
+  const maxRecoverRightLeft = Math.min(
+    rightWin.inSec / rightWin.speed,
+    MAX_SHOT_DURATION_SEC - rightWin.timelineDurationSec
+  );
+  const maxShrinkLeft = Math.min(
+    Math.max(0, leftWin.timelineDurationSec - MIN_NLE_CLIP_DURATION_SEC),
+    maxRecoverRightLeft
+  );
+
+  const appliedDelta = Math.max(-maxShrinkLeft, Math.min(maxExtendRight, delta));
+  if (Math.abs(appliedDelta) < 0.001) {
+    return {
+      slides,
+      leftDurationSec: leftWin.timelineDurationSec,
+      rightDurationSec: rightWin.timelineDurationSec,
+      scrubPreviewSourceSec: leftWin.outSec,
+      changed: false
+    };
+  }
+
+  const nextLeftDur = roundSec(leftWin.timelineDurationSec + appliedDelta);
+  const nextRightDur = roundSec(rightWin.timelineDurationSec - appliedDelta);
+  const nextLeftOutSec = roundSec(leftWin.inSec + nextLeftDur * leftWin.speed);
+  const nextRightInSec = roundSec(Math.max(0, rightWin.outSec - nextRightDur * rightWin.speed));
+
+  const nextSlides = slides.map((s, idx) => {
+    if (idx === leftClipIndex) {
+      return {
+        ...s,
+        duration: nextLeftDur,
+        durationSec: nextLeftDur,
+        inPointMs: roundMs(leftWin.inSec),
+        outPointMs: roundMs(nextLeftOutSec),
+        playbackSpeed: leftWin.speed
+      };
+    }
+    if (idx === leftClipIndex + 1) {
+      return {
+        ...s,
+        duration: nextRightDur,
+        durationSec: nextRightDur,
+        inPointMs: roundMs(nextRightInSec),
+        outPointMs: roundMs(rightWin.outSec),
+        playbackSpeed: rightWin.speed
+      };
+    }
+    return s;
+  });
+
+  return {
+    slides: reindexOrder(nextSlides),
+    leftDurationSec: nextLeftDur,
+    rightDurationSec: nextRightDur,
+    scrubPreviewSourceSec: nextLeftOutSec,
+    changed: true
+  };
+}
+
+export interface ClipWaveformSample {
+  bars: number[]; // Normalized 0.12 .. 1.0 energy heights
+  transientPositions: number[]; // Normalized 0 .. 1 positions along clip duration
+  transientSeconds: number[]; // Local timeline seconds of beat transients
+}
+
+/**
+ * Generates deterministic high-contrast micro-waveform bars & transient beat markers
+ * for timeline clips (aligning peaks with Beat-Drop interval if enabled).
+ */
+export function generateClipWaveformProfile(
+  slide: Partial<SlideDraft> | null | undefined,
+  clipIndex: number,
+  barCount: number = 28
+): ClipWaveformSample {
+  const win = getClipSourceWindow(slide);
+  const dur = Math.max(0.25, win.timelineDurationSec);
+  const intervalSec = Math.max(0.25, slide?.flashCutIntervalSec ?? 1.0);
+  const seedBase = (clipIndex + 1) * 37 + Math.round(win.inSec * 10);
+
+  const bars: number[] = [];
+  const transientPositions: number[] = [];
+  const transientSeconds: number[] = [];
+
+  for (let i = 0; i < barCount; i++) {
+    const u = (i + 0.5) / barCount;
+    const tSec = u * dur;
+    const distToBeat = Math.abs((tSec % intervalSec) - 0) < (dur / barCount) * 0.65;
+    const hash = Math.abs(Math.sin(seedBase * 0.71 + i * 1.93)) * 0.58 + Math.abs(Math.cos(i * 0.62 + clipIndex)) * 0.25;
+    const peakBoost = distToBeat ? 0.34 : 0;
+    const amplitude = Math.max(0.15, Math.min(1.0, hash + peakBoost));
+    bars.push(Number(amplitude.toFixed(3)));
+    if ((distToBeat && amplitude >= 0.72) || amplitude >= 0.86) {
+      transientPositions.push(Number(u.toFixed(4)));
+      transientSeconds.push(roundSec(tSec));
+    }
+  }
+
+  if (transientSeconds.length === 0 && dur >= 0.5) {
+    transientPositions.push(0.5);
+    transientSeconds.push(roundSec(dur * 0.5));
+  }
+
+  return { bars, transientPositions, transientSeconds };
+}
+
+/**
+ * Finds the nearest detected transient beat timestamp (in local clip seconds) to `localTimeSec`.
+ */
+export function findNearestTransientSec(
+  slide: Partial<SlideDraft> | null | undefined,
+  clipIndex: number,
+  localTimeSec: number
+): number {
+  const profile = generateClipWaveformProfile(slide, clipIndex, 32);
+  if (profile.transientSeconds.length === 0) return roundSec(localTimeSec);
+  let best = profile.transientSeconds[0];
+  let minDiff = Math.abs(best - localTimeSec);
+  for (const t of profile.transientSeconds) {
+    const diff = Math.abs(t - localTimeSec);
+    if (diff < minDiff) {
+      minDiff = diff;
+      best = t;
+    }
+  }
+  return best;
+}

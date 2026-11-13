@@ -15,7 +15,15 @@
  *    - Accurate 60fps counter, SMPTE timecode (HH:MM:SS:FF), and byte throughput meter.
  */
 
+import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4ArrayBufferTarget } from 'mp4-muxer';
+import {
+  FullResVideoEncoder,
+  diagnoseWebCodecsOutputFormat
+} from './videoEncoder';
+
 export type CaptureResolution = '4K' | '1080p' | 'window';
+export type FpsPreset = '1080p60' | '4K30' | '24fps';
+export type DisplaySurfacePreference = 'monitor' | 'window' | 'browser';
 export type RecordingContainerFormat = 'webm' | 'mp4';
 export type MultiAngleMode = 'screen-cam-pip' | 'cam-screen-pip' | 'screen-only' | 'cam-only';
 
@@ -24,15 +32,20 @@ export interface RecorderTelemetry {
   timecode: string;
   fps: number;
   totalBytes: number;
-  status: 'idle' | 'recording' | 'paused' | 'processing';
+  status: 'idle' | 'countdown' | 'recording' | 'paused' | 'processing' | 'ready';
   activeCodec: string;
   resolution: string;
   multiAngleMode?: MultiAngleMode;
   hasCamera?: boolean;
+  audioLevel?: number;
+  countdownRemainingSec?: number;
 }
 
 export interface RecorderOptions {
   resolution?: CaptureResolution;
+  fpsPreset?: FpsPreset;
+  sourceSurface?: DisplaySurfacePreference;
+  countdownSec?: number;
   format?: RecordingContainerFormat;
   captureSystemAudio?: boolean;
   captureMicrophone?: boolean;
@@ -56,6 +69,7 @@ export interface RecordedCaptureResult {
 type TelemetryListener = (telemetry: RecorderTelemetry) => void;
 type StatusListener = (status: RecorderTelemetry['status']) => void;
 type MultiAngleListener = (mode: MultiAngleMode, hasCamera: boolean) => void;
+type CaptureCompleteListener = (result: RecordedCaptureResult) => void;
 
 class ScreenRecorderEngine {
   private mediaRecorder: MediaRecorder | null = null;
@@ -64,9 +78,18 @@ class ScreenRecorderEngine {
   private micStream: MediaStream | null = null;
   private combinedStream: MediaStream | null = null;
   private audioCtx: AudioContext | null = null;
+  private analyserNode: AnalyserNode | null = null;
+  private analyserData: Uint8Array<ArrayBuffer> | null = null;
   private recordedChunks: Blob[] = [];
   private chunkSessionId: string = '';
   private chunkIndex: number = 0;
+  private targetFps: number = 60;
+
+  // Deterministic stop & ready state guards
+  private inFlightStopPromise: Promise<RecordedCaptureResult | null> | null = null;
+  private lastCaptureResult: RecordedCaptureResult | null = null;
+  private countdownCancelled: boolean = false;
+  private countdownRemainingSec: number = 0;
 
   // Multi-Angle Compositor state
   private displayVideoEl: HTMLVideoElement | null = null;
@@ -75,7 +98,6 @@ class ScreenRecorderEngine {
   private compositeCtx: CanvasRenderingContext2D | null = null;
   private compositeRafId: number | null = null;
   private multiAngleMode: MultiAngleMode = 'screen-cam-pip';
-  private isCameraRequested: boolean = false;
 
   // Telemetry state
   private status: RecorderTelemetry['status'] = 'idle';
@@ -87,13 +109,55 @@ class ScreenRecorderEngine {
   private lastFpsSampleTime: number = 0;
   private currentFps: number = 60;
   private activeCodec: string = '';
-  private currentResolutionText: string = '3840x2160';
+  private currentResolutionText: string = '1920x1080';
   private telemetryTimer: number | null = null;
 
   // Listeners
   private telemetryListeners: Set<TelemetryListener> = new Set();
   private statusListeners: Set<StatusListener> = new Set();
   private multiAngleListeners: Set<MultiAngleListener> = new Set();
+  private captureCompleteListeners: Set<CaptureCompleteListener> = new Set();
+
+  private resolvePresetDimensions(options: RecorderOptions): {
+    width: number;
+    height: number;
+    fps: number;
+    resolutionTag: CaptureResolution;
+    displaySurface: DisplaySurfacePreference;
+  } {
+    const preset = options.fpsPreset;
+    let width = 1920;
+    let height = 1080;
+    let fps = 60;
+    let resolutionTag: CaptureResolution = options.resolution || '1080p';
+
+    if (preset === '4K30' || (!preset && options.resolution === '4K')) {
+      width = 3840;
+      height = 2160;
+      fps = 30;
+      resolutionTag = '4K';
+    } else if (preset === '24fps') {
+      width = 1920;
+      height = 1080;
+      fps = 24;
+      resolutionTag = options.resolution || '1080p';
+    } else if (preset === '1080p60' || options.resolution === '1080p') {
+      width = 1920;
+      height = 1080;
+      fps = 60;
+      resolutionTag = '1080p';
+    } else if (options.resolution === 'window') {
+      width = 1920;
+      height = 1080;
+      fps = 60;
+      resolutionTag = 'window';
+    }
+
+    const displaySurface: DisplaySurfacePreference =
+      options.sourceSurface || (resolutionTag === 'window' ? 'window' : 'monitor');
+
+    return { width, height, fps, resolutionTag, displaySurface };
+  }
 
   /**
    * Determine best supported hardware-accelerated codec.
@@ -113,13 +177,13 @@ class ScreenRecorderEngine {
       }
     }
 
-    // WebM priority: AV1 -> VP9 Profile 2 -> H.264 -> Generic WebM
+    // WebM priority: VP9 -> H.264 -> AV1 -> Generic WebM
     const webmCodecs = [
-      'video/webm;codecs=av01.0.08M.10,opus',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp9',
       'video/webm;codecs=h264,opus',
       'video/webm;codecs=h264',
+      'video/webm;codecs=av01.0.08M.10,opus',
       'video/webm'
     ];
 
@@ -131,53 +195,64 @@ class ScreenRecorderEngine {
   }
 
   /**
-   * Build display media constraints for selected resolution.
+   * Build display media constraints for selected resolution/FPS/surface.
    */
-  private getDisplayConstraints(resolution: CaptureResolution): MediaStreamConstraints {
-    let width = 3840;
-    let height = 2160;
-
-    if (resolution === '1080p') {
-      width = 1920;
-      height = 1080;
-    }
-
+  private getDisplayConstraints(
+    width: number,
+    height: number,
+    fps: number,
+    displaySurface: DisplaySurfacePreference
+  ): MediaStreamConstraints {
     return {
       video: {
-        displaySurface: resolution === 'window' ? 'window' : 'monitor',
+        displaySurface,
         width: { ideal: width, max: width },
         height: { ideal: height, max: height },
-        frameRate: { ideal: 60, max: 60 },
+        frameRate: { ideal: fps, max: fps },
         selfBrowserSurface: 'exclude'
-      } as any,
-      audio: true // System audio request
+      } as MediaTrackConstraints,
+      audio: true
     };
   }
 
+  public cancelCountdown(): void {
+    this.countdownCancelled = true;
+    this.countdownRemainingSec = 0;
+    if (this.status === 'countdown') {
+      this.cleanup();
+      this.status = 'idle';
+      this.notifyStatus('idle');
+    }
+  }
+
   /**
-   * Start high-fidelity screen recording.
+   * Start high-fidelity screen recording (with optional 3s countdown AFTER display permission grant).
    */
   public async startRecording(options: RecorderOptions = {}): Promise<void> {
-    if (this.status === 'recording') return;
+    if (this.status === 'recording' || this.status === 'paused' || this.status === 'countdown') return;
 
+    this.lastCaptureResult = null;
     this.recordedChunks = [];
     this.totalBytesRecorded = 0;
     this.pausedTimeAccumulator = 0;
-    this.startTime = performance.now();
-    this.lastFpsSampleTime = this.startTime;
-    this.frameCount = 0;
-    this.chunkSessionId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    this.chunkIndex = 0;
+    this.countdownCancelled = false;
+    this.countdownRemainingSec = 0;
 
-    const resolution = options.resolution || '4K';
+    const { width, height, fps, displaySurface } = this.resolvePresetDimensions(options);
+    this.targetFps = fps;
+    this.currentFps = fps;
+
     const format = options.format || 'webm';
     const mimeType = this.getBestSupportedMimeType(format);
     this.activeCodec = mimeType;
-    this.currentResolutionText = resolution === '4K' ? '3840x2160' : resolution === '1080p' ? '1920x1080' : 'Window';
+    this.currentResolutionText = `${width}x${height}`;
+
+    this.chunkSessionId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.chunkIndex = 0;
 
     try {
-      // 1. Request Display Stream
-      const constraints = this.getDisplayConstraints(resolution);
+      // 1. Request Display Stream IMMEDIATELY while user activation gesture is fresh
+      const constraints = this.getDisplayConstraints(width, height, fps, displaySurface);
       this.displayStream = await navigator.mediaDevices.getDisplayMedia(constraints);
 
       // Handle user stopping stream via browser native UI banner
@@ -185,7 +260,9 @@ class ScreenRecorderEngine {
       if (videoTrack) {
         videoTrack.onended = () => {
           if (this.status === 'recording' || this.status === 'paused') {
-            this.stopRecording();
+            void this.stopRecording();
+          } else if (this.status === 'countdown') {
+            this.cancelCountdown();
           }
         };
 
@@ -195,13 +272,26 @@ class ScreenRecorderEngine {
         }
       }
 
-      // 2. Dual-Track Studio Audio Mixing
-      this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+      // 2. Dual-Track Studio Audio Mixing + Live AnalyserNode VU Meter
+      this.audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
         latencyHint: 'interactive',
         sampleRate: 48000
       });
+      if (this.audioCtx.state === 'suspended') {
+        await this.audioCtx.resume().catch(() => {});
+      }
 
       const audioDest = this.audioCtx.createMediaStreamDestination();
+      const masterMixBus = this.audioCtx.createGain();
+      masterMixBus.gain.value = 1.0;
+
+      this.analyserNode = this.audioCtx.createAnalyser();
+      this.analyserNode.fftSize = 256;
+      this.analyserNode.smoothingTimeConstant = 0.65;
+      this.analyserData = new Uint8Array(new ArrayBuffer(this.analyserNode.frequencyBinCount));
+      masterMixBus.connect(this.analyserNode);
+      masterMixBus.connect(audioDest);
+
       let hasAudioTrack = false;
 
       // System Audio Routing (Zero-gain passthrough)
@@ -212,7 +302,7 @@ class ScreenRecorderEngine {
           const sysGain = this.audioCtx.createGain();
           sysGain.gain.value = 1.0;
           sysSource.connect(sysGain);
-          sysGain.connect(audioDest);
+          sysGain.connect(masterMixBus);
           hasAudioTrack = true;
         } catch (err) {
           console.warn('[ScreenRecorder] System audio routing warning:', err);
@@ -240,11 +330,11 @@ class ScreenRecorderEngine {
           compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
 
           const micGain = this.audioCtx.createGain();
-          micGain.gain.value = 1.15; // Gentle vocal presence lift
+          micGain.gain.value = 1.15;
 
           micSource.connect(compressor);
           compressor.connect(micGain);
-          micGain.connect(audioDest);
+          micGain.connect(masterMixBus);
           hasAudioTrack = true;
         } catch (err) {
           console.warn('[ScreenRecorder] Microphone capture failed, continuing without mic:', err);
@@ -252,14 +342,14 @@ class ScreenRecorderEngine {
       }
 
       // Multi-Angle Initialization
-      this.multiAngleMode = options.initialMultiAngleMode || 'screen-cam-pip';
+      this.multiAngleMode = options.initialMultiAngleMode || (options.enableCamera ? 'screen-cam-pip' : 'screen-only');
       if (options.enableCamera) {
         try {
           this.cameraStream = await navigator.mediaDevices.getUserMedia({
             video: {
               width: { ideal: 1280 },
               height: { ideal: 720 },
-              frameRate: { ideal: 60 }
+              frameRate: { ideal: Math.min(60, fps) }
             },
             audio: false
           });
@@ -269,11 +359,9 @@ class ScreenRecorderEngine {
       }
 
       // Initialize composite elements
-      const targetW = resolution === '4K' ? 3840 : 1920;
-      const targetH = resolution === '4K' ? 2160 : 1080;
       this.compositeCanvas = document.createElement('canvas');
-      this.compositeCanvas.width = targetW;
-      this.compositeCanvas.height = targetH;
+      this.compositeCanvas.width = width;
+      this.compositeCanvas.height = height;
       this.compositeCtx = this.compositeCanvas.getContext('2d', { alpha: false });
 
       this.displayVideoEl = document.createElement('video');
@@ -290,10 +378,54 @@ class ScreenRecorderEngine {
         this.cameraVideoEl.play().catch(() => {});
       }
 
+      // Optional 3s countdown AFTER stream grant
+      const countdownTotal = Math.max(0, Math.round(options.countdownSec ?? 0));
+      if (countdownTotal > 0) {
+        this.status = 'countdown';
+        for (let rem = countdownTotal; rem > 0; rem--) {
+          if (this.countdownCancelled) {
+            this.cleanup();
+            this.status = 'idle';
+            this.notifyStatus('idle');
+            return;
+          }
+          this.countdownRemainingSec = rem;
+          this.notifyStatus('countdown');
+          this.notifyTelemetry({
+            durationSec: 0,
+            timecode: '00:00:00:00',
+            fps: this.targetFps,
+            totalBytes: 0,
+            status: 'countdown',
+            activeCodec: this.activeCodec,
+            resolution: this.currentResolutionText,
+            multiAngleMode: this.multiAngleMode,
+            hasCamera: this.hasCamera(),
+            audioLevel: this.sampleAudioLevel(),
+            countdownRemainingSec: rem
+          });
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        if (this.countdownCancelled) {
+          this.cleanup();
+          this.status = 'idle';
+          this.notifyStatus('idle');
+          return;
+        }
+        this.countdownRemainingSec = 0;
+      }
+
+      this.startTime = performance.now();
+      this.lastFpsSampleTime = this.startTime;
+      this.frameCount = 0;
+
+      // Render composite loop while recording
+      this.status = 'recording';
       this.startCompositeLoop();
 
-      const canvasStream = (this.compositeCanvas as any).captureStream 
-        ? (this.compositeCanvas as any).captureStream(60) 
+      const canvasEl = this.compositeCanvas as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream };
+      const canvasStream = canvasEl.captureStream
+        ? canvasEl.captureStream(fps)
         : this.displayStream;
       const compositeVideoTrack = canvasStream.getVideoTracks()[0] || videoTrack;
 
@@ -307,13 +439,12 @@ class ScreenRecorderEngine {
       // 4. Initialize MediaRecorder with Timeslice Ingestion
       const recorderOptions: MediaRecorderOptions = {
         mimeType,
-        videoBitsPerSecond: resolution === '4K' ? 45_000_000 : 18_000_000,
+        videoBitsPerSecond: width >= 3840 ? 45_000_000 : 18_000_000,
         audioBitsPerSecond: 256_000
       };
 
       this.mediaRecorder = new MediaRecorder(this.combinedStream, recorderOptions);
 
-      // Streaming chunk collection (piped to IndexedDB to eliminate RAM bloat)
       this.mediaRecorder.ondataavailable = (e: BlobEvent) => {
         if (e.data && e.data.size > 0) {
           this.recordedChunks.push(e.data);
@@ -340,13 +471,31 @@ class ScreenRecorderEngine {
         this.notifyStatus('recording');
       };
 
-      // Timeslice 1000ms: push chunk to IndexedDB buffer every 1 second
-      this.mediaRecorder.start(1000);
+      this.mediaRecorder.start(500);
     } catch (err) {
       this.cleanup();
       this.status = 'idle';
       this.notifyStatus('idle');
       throw err;
+    }
+  }
+
+  /**
+   * Sample normalized 0..100 audio VU level from AnalyserNode.
+   */
+  private sampleAudioLevel(): number {
+    if (!this.analyserNode || !this.analyserData) return 0;
+    try {
+      this.analyserNode.getByteFrequencyData(this.analyserData);
+      let sum = 0;
+      const len = this.analyserData.length;
+      for (let i = 0; i < len; i++) {
+        sum += this.analyserData[i];
+      }
+      const avg = len > 0 ? sum / len : 0;
+      return Math.min(100, Math.round((avg / 180) * 100));
+    } catch {
+      return 0;
     }
   }
 
@@ -369,35 +518,44 @@ class ScreenRecorderEngine {
   }
 
   /**
-   * Stop recording and return compiled result.
+   * Deterministic Stop & Finalize (guards concurrent calls, flushes requestData(),
+   * enforces 1500ms timeout safeguard, tears down tracks cleanly AFTER assembly,
+   * and enters 'ready' state emitting onCaptureComplete).
    */
   public async stopRecording(): Promise<RecordedCaptureResult | null> {
-    if (!this.mediaRecorder || this.status === 'idle') return null;
+    if (this.inFlightStopPromise) {
+      return this.inFlightStopPromise;
+    }
 
-    this.status = 'processing';
-    this.notifyStatus('processing');
-    this.stopTelemetryLoop();
+    if (this.status === 'countdown') {
+      this.cancelCountdown();
+      return null;
+    }
 
-    return new Promise((resolve) => {
-      if (!this.mediaRecorder) {
-        this.cleanup();
-        this.status = 'idle';
-        this.notifyStatus('idle');
-        resolve(null);
-        return;
-      }
+    if (!this.mediaRecorder || this.status === 'idle' || this.status === 'ready') {
+      return this.lastCaptureResult;
+    }
 
-      this.mediaRecorder.onstop = async () => {
+    this.inFlightStopPromise = (async () => {
+      const recorder = this.mediaRecorder;
+      this.status = 'processing';
+      this.notifyStatus('processing');
+      this.stopTelemetryLoop();
+
+      const buildFinalResult = async (): Promise<RecordedCaptureResult> => {
         const mimeType = this.activeCodec || 'video/webm';
         let chunks = this.recordedChunks;
         if (chunks.length === 0) {
           chunks = await this.readAllChunksFromIdb();
         }
         const finalBlob = new Blob(chunks, { type: mimeType });
-        const durationSec = Math.max(0.1, (performance.now() - this.startTime - this.pausedTimeAccumulator) / 1000);
+        const durationSec = Math.max(
+          0.1,
+          (performance.now() - this.startTime - this.pausedTimeAccumulator) / 1000
+        );
 
-        let width = 3840;
-        let height = 2160;
+        let width = 1920;
+        let height = 1080;
         if (this.currentResolutionText.includes('x')) {
           const [w, h] = this.currentResolutionText.split('x').map(Number);
           if (w && h) {
@@ -406,7 +564,7 @@ class ScreenRecorderEngine {
           }
         }
 
-        const result: RecordedCaptureResult = {
+        return {
           blob: finalBlob,
           format: mimeType.includes('mp4') ? 'mp4' : 'webm',
           mimeType,
@@ -414,38 +572,252 @@ class ScreenRecorderEngine {
           totalBytes: this.totalBytesRecorded || finalBlob.size,
           width,
           height,
-          fps: Math.round(this.currentFps) || 60,
+          fps: Math.round(this.currentFps) || this.targetFps || 60,
           createdAt: Date.now()
         };
-
-        this.clearChunksIdb().catch(() => {});
-        this.cleanup();
-        this.status = 'idle';
-        this.notifyStatus('idle');
-        resolve(result);
       };
 
       try {
-        this.mediaRecorder.stop();
+        if (recorder && recorder.state !== 'inactive') {
+          await Promise.race([
+            new Promise<void>((resolve) => {
+              const handleStop = () => {
+                resolve();
+              };
+              recorder.onstop = handleStop;
+              try {
+                recorder.requestData();
+              } catch {}
+              try {
+                recorder.stop();
+              } catch {
+                resolve();
+              }
+            }),
+            new Promise<void>((resolve) => setTimeout(resolve, 1500))
+          ]);
+        }
+
+        const result = await buildFinalResult();
+        this.clearChunksIdb().catch(() => {});
+        this.cleanup();
+        this.lastCaptureResult = result;
+        this.status = 'ready';
+        this.notifyStatus('ready');
+        this.captureCompleteListeners.forEach((fn) => {
+          try {
+            fn(result);
+          } catch (err) {
+            console.warn('[ScreenRecorder] captureComplete listener error:', err);
+          }
+        });
+        return result;
       } catch (err) {
         console.warn('[ScreenRecorder] Stop error:', err);
         this.cleanup();
         this.status = 'idle';
         this.notifyStatus('idle');
-        resolve(null);
+        return null;
+      } finally {
+        this.inFlightStopPromise = null;
       }
+    })();
+
+    return this.inFlightStopPromise;
+  }
+
+  /**
+   * Reset from 'ready' state back to 'idle' cleanly for a new recording.
+   */
+  public resetToIdle(): void {
+    this.lastCaptureResult = null;
+    this.recordedChunks = [];
+    this.cleanup();
+    this.status = 'idle';
+    this.notifyStatus('idle');
+  }
+
+  public getLastCaptureResult(): RecordedCaptureResult | null {
+    return this.lastCaptureResult;
+  }
+
+  public onCaptureComplete(listener: CaptureCompleteListener): () => void {
+    this.captureCompleteListeners.add(listener);
+    return () => this.captureCompleteListeners.delete(listener);
+  }
+
+  /**
+   * Transcode a recorded capture into a true H.264 MP4 container using WebCodecs + mp4-muxer
+   * (with MediaRecorder MP4 fallback when WebCodecs AVC is unavailable).
+   */
+  public async convertRecordingToMp4(
+    result: RecordedCaptureResult,
+    onProgress?: (percent: number, message: string) => void
+  ): Promise<RecordedCaptureResult> {
+    if (result.format === 'mp4' && result.mimeType.includes('mp4')) {
+      onProgress?.(100, 'Already in MP4 format');
+      return result;
+    }
+
+    onProgress?.(5, 'Initializing H.264 / MP4 encoder...');
+    const width = Math.max(2, result.width % 2 === 0 ? result.width : result.width - 1);
+    const height = Math.max(2, result.height % 2 === 0 ? result.height : result.height - 1);
+    const fps = Math.max(15, Math.min(60, result.fps || 30));
+
+    const diag = await diagnoseWebCodecsOutputFormat({
+      width,
+      height,
+      fps,
+      bitrateBps: width >= 3840 ? 28_000_000 : 14_000_000,
+      desiredFormat: 'mp4-avc'
     });
+
+    const sourceUrl = URL.createObjectURL(result.blob);
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.playsInline = true;
+    video.src = sourceUrl;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('Failed to load captured stream for MP4 transcode'));
+      });
+
+      const duration = Math.max(0.2, Number.isFinite(video.duration) && video.duration > 0 ? video.duration : result.durationSec);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) throw new Error('2D canvas unavailable for MP4 conversion');
+
+      if (diag.selectedCodec && diag.selectedAcceleration && typeof VideoEncoder !== 'undefined') {
+        const target = new Mp4ArrayBufferTarget();
+        const muxer = new Mp4Muxer({
+          target,
+          video: {
+            codec: 'avc',
+            width,
+            height,
+            frameRate: fps
+          },
+          fastStart: 'in-memory',
+          firstTimestampBehavior: 'offset'
+        });
+
+        let encErr: Error | null = null;
+        const encoder = new FullResVideoEncoder({
+          width,
+          height,
+          fps,
+          bitrateBps: width >= 3840 ? 28_000_000 : 14_000_000,
+          codec: diag.selectedCodec,
+          hardwareAcceleration: diag.selectedAcceleration,
+          maxQueueSize: 5,
+          keyFrameInterval: fps,
+          onEncodedChunk: (data, type, safeTimestamp, safeDuration, safeMeta) => {
+            muxer.addVideoChunkRaw(data, type, safeTimestamp, safeDuration, safeMeta);
+          },
+          onError: (err) => {
+            encErr = err instanceof Error ? err : new Error(String(err));
+          }
+        });
+
+        const totalFrames = Math.max(1, Math.round(duration * fps));
+        const frameDurationUs = Math.round(1_000_000 / fps);
+
+        for (let i = 0; i < totalFrames; i++) {
+          if (encErr) throw encErr;
+          const t = Math.min(duration - 0.01, i / fps);
+          await new Promise<void>((resolve) => {
+            const onSeeked = () => {
+              video.removeEventListener('seeked', onSeeked);
+              resolve();
+            };
+            video.addEventListener('seeked', onSeeked);
+            video.currentTime = t;
+          });
+          ctx.drawImage(video, 0, 0, width, height);
+          await encoder.encodeFrame(canvas, i, {
+            timestampMicros: i * frameDurationUs,
+            durationMicros: frameDurationUs
+          });
+          if (i % 6 === 0) {
+            onProgress?.(10 + Math.round((i / totalFrames) * 82), `Transcoding MP4 frame ${i + 1}/${totalFrames}...`);
+          }
+        }
+
+        await encoder.flushAndClose();
+        muxer.finalize();
+        const mp4Blob = new Blob([target.buffer], { type: 'video/mp4' });
+        onProgress?.(100, 'MP4 conversion complete');
+        return {
+          ...result,
+          blob: mp4Blob,
+          format: 'mp4',
+          mimeType: 'video/mp4',
+          totalBytes: mp4Blob.size,
+          width,
+          height,
+          fps
+        };
+      }
+
+      // Fallback: MediaRecorder MP4 if supported
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4')) {
+        const stream = canvas.captureStream(fps);
+        const rec = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+        const chunks: Blob[] = [];
+        rec.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+        rec.start(250);
+        video.currentTime = 0;
+        await video.play().catch(() => {});
+        await new Promise<void>((resolve) => {
+          const pump = () => {
+            if (video.ended || video.currentTime >= duration) {
+              resolve();
+              return;
+            }
+            ctx.drawImage(video, 0, 0, width, height);
+            requestAnimationFrame(pump);
+          };
+          requestAnimationFrame(pump);
+        });
+        const mp4Blob = await new Promise<Blob>((resolve) => {
+          rec.onstop = () => resolve(new Blob(chunks, { type: 'video/mp4' }));
+          rec.stop();
+        });
+        onProgress?.(100, 'MP4 conversion complete');
+        return {
+          ...result,
+          blob: mp4Blob,
+          format: 'mp4',
+          mimeType: 'video/mp4',
+          totalBytes: mp4Blob.size
+        };
+      }
+
+      throw new Error('Hardware H.264 / MP4 encoder unavailable in this browser');
+    } finally {
+      URL.revokeObjectURL(sourceUrl);
+    }
   }
 
   /**
    * Discard active session.
    */
   public cancelRecording(): void {
+    this.countdownCancelled = true;
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       try {
+        this.mediaRecorder.onstop = null;
         this.mediaRecorder.stop();
       } catch {}
     }
+    this.lastCaptureResult = null;
     this.cleanup();
     this.status = 'idle';
     this.notifyStatus('idle');
@@ -467,17 +839,19 @@ class ScreenRecorderEngine {
       
       const durationSec = Math.max(0, elapsedMs / 1000);
 
-      // FPS Calculation
-      this.frameCount++;
+      // FPS Calculation from actual composite frames rendered
       const timeSinceLastFps = now - this.lastFpsSampleTime;
       if (timeSinceLastFps >= 1000) {
-        this.currentFps = Math.min(60, Math.round((this.frameCount * 1000) / timeSinceLastFps));
+        if (this.frameCount > 0) {
+          this.currentFps = Math.min(this.targetFps, Math.max(15, Math.round((this.frameCount * 1000) / timeSinceLastFps)));
+        }
         this.frameCount = 0;
         this.lastFpsSampleTime = now;
       }
 
-      const totalFrames = Math.floor(durationSec * 24);
-      const ff = totalFrames % 24;
+      const fpsBase = this.targetFps || 24;
+      const totalFrames = Math.floor(durationSec * fpsBase);
+      const ff = totalFrames % fpsBase;
       const ss = Math.floor(durationSec) % 60;
       const mm = Math.floor(durationSec / 60) % 60;
       const hh = Math.floor(durationSec / 3600);
@@ -492,7 +866,9 @@ class ScreenRecorderEngine {
         activeCodec: this.activeCodec,
         resolution: this.currentResolutionText,
         multiAngleMode: this.multiAngleMode,
-        hasCamera: Boolean(this.cameraStream && this.cameraStream.active)
+        hasCamera: Boolean(this.cameraStream && this.cameraStream.active),
+        audioLevel: this.status === 'paused' ? 0 : this.sampleAudioLevel(),
+        countdownRemainingSec: this.countdownRemainingSec
       };
 
       this.notifyTelemetry(telemetry);
@@ -508,6 +884,7 @@ class ScreenRecorderEngine {
     const render = () => {
       if (this.status !== 'recording' && this.status !== 'paused') return;
 
+      this.frameCount++;
       const canvas = this.compositeCanvas;
       const ctx = this.compositeCtx;
       if (!canvas || !ctx) return;
@@ -788,6 +1165,8 @@ class ScreenRecorderEngine {
       this.audioCtx = null;
     }
 
+    this.analyserNode = null;
+    this.analyserData = null;
     this.mediaRecorder = null;
   }
 

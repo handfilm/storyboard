@@ -4,9 +4,10 @@
  * Features tactile HUD controls, precision frame stepping, mode switching, and smooth timeline scrubber.
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { PlaybackMode } from '../../types/editor';
 import { clampShotDuration, formatDurationPillValue } from '../../types/storyboard';
+import { playbackClock } from '../../utils/playbackClock';
 import { CadenceSelectorPill } from './CadenceSelectorPill';
 import {
   Play,
@@ -84,6 +85,33 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
 }) => {
   const effectiveDuration = clampShotDuration(slideDurationSec);
   const safeFps = targetFps === 60 ? 60 : 24;
+  const timeLabelDomRef = useRef<HTMLSpanElement | null>(null);
+  const rangeDomRef = useRef<HTMLInputElement | null>(null);
+  const durationRef = useRef(effectiveDuration);
+  durationRef.current = effectiveDuration;
+
+  useEffect(() => {
+    return playbackClock.subscribe((snap) => {
+      const dur = snap.durationSec > 0 ? snap.durationSec : durationRef.current;
+      const clamped = Math.min(dur, Math.max(0, snap.timeSec));
+      if (timeLabelDomRef.current) {
+        timeLabelDomRef.current.textContent = `${clamped.toFixed(2)}s`;
+      }
+      if (rangeDomRef.current) {
+        rangeDomRef.current.value = String(clamped);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    const clamped = Math.min(effectiveDuration, Math.max(0, slideTimeSec));
+    if (timeLabelDomRef.current) {
+      timeLabelDomRef.current.textContent = `${clamped.toFixed(2)}s`;
+    }
+    if (rangeDomRef.current) {
+      rangeDomRef.current.value = String(clamped);
+    }
+  }, [slideTimeSec, effectiveDuration]);
 
   return (
     <div className={`w-full bg-[#08080C]/95 backdrop-blur-xl border border-white/10 rounded-[3px] p-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech select-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] ${className}`}>
@@ -156,15 +184,16 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
 
       {/* Center: Slide timeline scrubber */}
       <div className="flex-1 min-w-[200px] flex items-center gap-2 px-2 tabular-nums">
-        <span className="text-[9px] text-[#D4AF37] font-semibold w-12 text-right">
+        <span ref={timeLabelDomRef} className="text-[9px] text-[#D4AF37] font-semibold w-12 text-right">
           {slideTimeSec.toFixed(2)}s
         </span>
         <input
+          ref={rangeDomRef}
           type="range"
           min="0"
           max={effectiveDuration}
           step={1 / safeFps}
-          value={Math.min(effectiveDuration, slideTimeSec)}
+          defaultValue={Math.min(effectiveDuration, slideTimeSec)}
           onChange={(e) => onScrubSlideTime?.(Number(e.target.value))}
           className="flex-1 accent-[#D4AF37] cursor-pointer h-1.5 bg-white/20 rounded"
         />

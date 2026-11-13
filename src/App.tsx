@@ -159,6 +159,8 @@ export default function App() {
   const [panOffsets, setPanOffsets] = useState<Record<number, number>>({});
   const [showGuides, setShowGuides] = useState(false);
   const [componentsVisibility, setComponentsVisibility] = useState<ComponentVisibility>(loadSavedComponentVisibility);
+  const componentsVisibilityRef = useRef<ComponentVisibility>(componentsVisibility);
+  componentsVisibilityRef.current = componentsVisibility;
 
   // Modals and popovers state
   const [isContactSheetOpen, setIsContactSheetOpen] = useState(false);
@@ -491,8 +493,8 @@ export default function App() {
     });
   }, []);
 
-  const applyProjectV1ToState = useCallback((p: ProjectV1) => {
-    if (!p) return;
+  const applyProjectV1ToState = useCallback((p: ProjectV1): AnthologyFrame[] | null => {
+    if (!p) return null;
     const safeShots = Array.isArray(p.shots) && p.shots.length > 0 ? p.shots : [];
     const baseFrames = generateInitialFrames();
 
@@ -579,6 +581,7 @@ export default function App() {
     } catch {
       // safe fallback
     }
+    return frames;
   }, []);
 
   // Listen to shot updates from MediaStudio, CinemaStage, TextTypographyDrawer, and BoardStudio
@@ -785,16 +788,15 @@ export default function App() {
     const unsubShotsDeleted = eventBus.on('shots:deleted', ({ indicesToRemove }: { indicesToRemove: number[] }) => {
       if (!Array.isArray(indicesToRemove) || indicesToRemove.length === 0) return;
       const removeSet = new Set(indicesToRemove);
-      setProject(prev => {
-        const remaining = prev.frames.filter((_, idx) => !removeSet.has(idx));
-        if (remaining.length === 0) return prev;
-        const reindexed = remaining.map((f, idx) => ({
-          ...f,
-          epNumber: `#${String(idx + 1).padStart(3, '0')}`
-        }));
-        setCurrentIndex(cur => Math.max(0, Math.min(reindexed.length - 1, cur)));
-        return { ...prev, frames: reindexed };
-      });
+      const currentFrames = projectFramesRef.current;
+      const remaining = currentFrames.filter((_, idx) => !removeSet.has(idx));
+      if (remaining.length === 0) return;
+      const reindexed = remaining.map((f, idx) => ({
+        ...f,
+        epNumber: `#${String(idx + 1).padStart(3, '0')}`
+      }));
+      setProject(prev => ({ ...prev, frames: reindexed }));
+      setCurrentIndex(cur => Math.max(0, Math.min(reindexed.length - 1, cur)));
     });
 
     const unsubLightingOpen = eventBus.on('lighting:open', () => {
@@ -925,8 +927,9 @@ export default function App() {
       }
 
       const loaded = await storageManager.loadProject(session?.activeProjectId || undefined);
+      let hydratedLoadedFrames: AnthologyFrame[] | null = null;
       if (loaded && isMounted) {
-        applyProjectV1ToState(loaded);
+        hydratedLoadedFrames = applyProjectV1ToState(loaded);
         if (session && typeof session.activeSlideIndex === 'number') {
           setCurrentIndex(session.activeSlideIndex);
         }
@@ -945,104 +948,114 @@ export default function App() {
         const slots = await studioDraftDb.getAllTimelineSlots();
 
         const pendingVideoPosters: Array<{ keys: Array<string | number | undefined>; url: string }> = [];
+        const baseFrames = hydratedLoadedFrames ?? projectFramesRef.current;
+        const nextFrames = [...baseFrames];
+        const hydratedIndices = new Set<number>();
+        const storeUpdates: Array<{ idx: number; partial: { imageUrl?: string; thumbnailUrl?: string; isVideo?: boolean } }> = [];
 
-        setProject(prev => {
-          const nextFrames = [...prev.frames];
-          const hydratedIndices = new Set<number>();
-
-          // Hydrate timeline_slots only for explicitly mapped slots
-          for (const slot of slots) {
-            const item = vaultItems.find(v => v.id === slot.mediaId);
-            if (item && item.blob && nextFrames[slot.slotIndex]) {
-              const targetFrame = nextFrames[slot.slotIndex];
-              const url = studioDraftDb.getActiveMediaUrl(item.id, item.blob);
-              const isVid = item.mimeType.startsWith('video');
-              const validVaultThumb =
-                item.thumbnailUrl && !isSvgPlaceholderUrl(item.thumbnailUrl) && !isVideoSourceUrl(item.thumbnailUrl)
-                  ? item.thumbnailUrl
-                  : undefined;
-              const thumb = validVaultThumb || (!isVid ? url : undefined);
-              if (thumb) {
-                if (targetFrame?.id !== undefined && targetFrame?.id !== null) {
-                  thumbnailMemoryCache.set(String(targetFrame.id), thumb);
-                }
-                thumbnailMemoryCache.set(String(slot.slotIndex), thumb);
-                thumbnailMemoryCache.set(String(slot.slotIndex + 1), thumb);
-                thumbnailMemoryCache.set(`shot_${slot.slotIndex}`, thumb);
-                thumbnailMemoryCache.set(url, thumb);
-              } else if (isVid && url) {
-                pendingVideoPosters.push({
-                  keys: [targetFrame?.id, `shot_${slot.slotIndex}`, slot.slotIndex],
-                  url
-                });
+        // Hydrate timeline_slots only for explicitly mapped slots
+        for (const slot of slots) {
+          const item = vaultItems.find(v => v.id === slot.mediaId);
+          if (item && item.blob && nextFrames[slot.slotIndex]) {
+            const targetFrame = nextFrames[slot.slotIndex];
+            const url = studioDraftDb.getActiveMediaUrl(item.id, item.blob);
+            const isVid = item.mimeType.startsWith('video');
+            const validVaultThumb =
+              item.thumbnailUrl && !isSvgPlaceholderUrl(item.thumbnailUrl) && !isVideoSourceUrl(item.thumbnailUrl)
+                ? item.thumbnailUrl
+                : undefined;
+            const thumb = validVaultThumb || (!isVid ? url : undefined);
+            if (thumb) {
+              if (targetFrame?.id !== undefined && targetFrame?.id !== null) {
+                thumbnailMemoryCache.set(String(targetFrame.id), thumb);
               }
-              hydratedIndices.add(slot.slotIndex);
-              nextFrames[slot.slotIndex] = {
-                ...targetFrame,
-                imageUrl: url,
-                thumbnailUrl: thumb,
-                isVideo: isVid
-              };
-              useStudioStore.getState().updateShot(slot.slotIndex, {
-                imageUrl: url,
-                thumbnailUrl: thumb,
-                isVideo: isVid
+              thumbnailMemoryCache.set(String(slot.slotIndex), thumb);
+              thumbnailMemoryCache.set(String(slot.slotIndex + 1), thumb);
+              thumbnailMemoryCache.set(`shot_${slot.slotIndex}`, thumb);
+              thumbnailMemoryCache.set(url, thumb);
+            } else if (isVid && url) {
+              pendingVideoPosters.push({
+                keys: [targetFrame?.id, `shot_${slot.slotIndex}`, slot.slotIndex],
+                url
               });
             }
-          }
-
-          // Hydrate per-shot isolated blobs from handfilm_media_vault (authoritative per-shot store)
-          nextFrames.forEach((f, idx) => {
-            const entry = resolveShotMediaEntry(restoredMap, f, undefined, idx);
-            if (entry) {
-              hydratedIndices.add(idx);
-              const isVid = entry.type === 'video';
-              const existingCleanThumb =
-                f.thumbnailUrl &&
-                !f.thumbnailUrl.startsWith('blob:') &&
-                !isSvgPlaceholderUrl(f.thumbnailUrl) &&
-                !isVideoSourceUrl(f.thumbnailUrl)
-                  ? f.thumbnailUrl
-                  : undefined;
-              const thumb = !isVid ? entry.url : existingCleanThumb;
-              if (thumb) {
-                if (f.id !== undefined && f.id !== null) thumbnailMemoryCache.set(String(f.id), thumb);
-                thumbnailMemoryCache.set(String(idx), thumb);
-                thumbnailMemoryCache.set(`shot_${idx}`, thumb);
-                thumbnailMemoryCache.set(entry.url, thumb);
-              } else if (isVid && entry.url) {
-                pendingVideoPosters.push({
-                  keys: [f.id, `shot_${idx}`, idx],
-                  url: entry.url
-                });
+            hydratedIndices.add(slot.slotIndex);
+            nextFrames[slot.slotIndex] = {
+              ...targetFrame,
+              imageUrl: url,
+              thumbnailUrl: thumb,
+              isVideo: isVid
+            };
+            storeUpdates.push({
+              idx: slot.slotIndex,
+              partial: {
+                imageUrl: url,
+                thumbnailUrl: thumb,
+                isVideo: isVid
               }
+            });
+          }
+        }
+
+        // Hydrate per-shot isolated blobs from handfilm_media_vault (authoritative per-shot store)
+        nextFrames.forEach((f, idx) => {
+          const entry = resolveShotMediaEntry(restoredMap, f, undefined, idx);
+          if (entry) {
+            hydratedIndices.add(idx);
+            const isVid = entry.type === 'video';
+            const existingCleanThumb =
+              f.thumbnailUrl &&
+              !f.thumbnailUrl.startsWith('blob:') &&
+              !isSvgPlaceholderUrl(f.thumbnailUrl) &&
+              !isVideoSourceUrl(f.thumbnailUrl)
+                ? f.thumbnailUrl
+                : undefined;
+            const thumb = !isVid ? entry.url : existingCleanThumb;
+            if (thumb) {
+              if (f.id !== undefined && f.id !== null) thumbnailMemoryCache.set(String(f.id), thumb);
+              thumbnailMemoryCache.set(String(idx), thumb);
+              thumbnailMemoryCache.set(`shot_${idx}`, thumb);
+              thumbnailMemoryCache.set(entry.url, thumb);
+            } else if (isVid && entry.url) {
+              pendingVideoPosters.push({
+                keys: [f.id, `shot_${idx}`, idx],
+                url: entry.url
+              });
+            }
+            nextFrames[idx] = {
+              ...f,
+              imageUrl: entry.url,
+              thumbnailUrl: thumb,
+              isVideo: isVid
+            };
+            storeUpdates.push({
+              idx,
+              partial: {
+                imageUrl: entry.url,
+                thumbnailUrl: thumb,
+                isVideo: isVid
+              }
+            });
+          } else if (!hydratedIndices.has(idx)) {
+            // Scrub expired blob: URLs left over from previous browser sessions
+            const hasDeadBlobImg = typeof f.imageUrl === 'string' && f.imageUrl.startsWith('blob:');
+            const hasDeadBlobThumb = typeof f.thumbnailUrl === 'string' && f.thumbnailUrl.startsWith('blob:');
+            if (hasDeadBlobImg || hasDeadBlobThumb) {
               nextFrames[idx] = {
                 ...f,
-                imageUrl: entry.url,
-                thumbnailUrl: thumb,
-                isVideo: isVid
+                imageUrl: hasDeadBlobImg ? undefined : f.imageUrl,
+                thumbnailUrl: hasDeadBlobThumb ? undefined : f.thumbnailUrl,
+                isVideo: hasDeadBlobImg ? false : f.isVideo
               };
-              useStudioStore.getState().updateShot(idx, {
-                imageUrl: entry.url,
-                thumbnailUrl: thumb,
-                isVideo: isVid
-              });
-            } else if (!hydratedIndices.has(idx)) {
-              // Scrub expired blob: URLs left over from previous browser sessions
-              const hasDeadBlobImg = typeof f.imageUrl === 'string' && f.imageUrl.startsWith('blob:');
-              const hasDeadBlobThumb = typeof f.thumbnailUrl === 'string' && f.thumbnailUrl.startsWith('blob:');
-              if (hasDeadBlobImg || hasDeadBlobThumb) {
-                nextFrames[idx] = {
-                  ...f,
-                  imageUrl: hasDeadBlobImg ? undefined : f.imageUrl,
-                  thumbnailUrl: hasDeadBlobThumb ? undefined : f.thumbnailUrl,
-                  isVideo: hasDeadBlobImg ? false : f.isVideo
-                };
-              }
             }
-          });
-          return { ...prev, frames: nextFrames };
+          }
         });
+
+        setProject(prev => ({ ...prev, frames: nextFrames }));
+        const store = useStudioStore.getState();
+        for (const u of storeUpdates) {
+          store.updateShot(u.idx, u.partial);
+        }
 
         // Pre-warm video posters for hydrated video shots cleanly under concurrency cap
         for (const job of pendingVideoPosters.slice(0, 24)) {
@@ -1242,7 +1255,20 @@ export default function App() {
   const goToFrame = useCallback((index: number) => {
     const total = project.frames.length;
     const nextIndex = ((index % total) + total) % total;
+    const targetFrame = project.frames[nextIndex] || project.frames[0];
+    const targetDur = getShotDurationSec(targetFrame, project.defaultSlideHoldSec ?? 12.0);
+    const targetFps = getShotTargetFps(targetFrame, 24);
+    const offsets = getCumulativeShotOffsets(project.frames, project.defaultSlideHoldSec ?? 12.0);
+    const targetStart = offsets[nextIndex]?.startSec ?? 0;
+
     slideTimeSecRef.current = 0;
+    playbackClock.emit({
+      timeSec: 0,
+      durationSec: targetDur,
+      shotIndex: nextIndex,
+      fps: targetFps,
+      shotStartSec: targetStart
+    });
     setCurrentIndex(nextIndex);
     setSlideTimeSec(0);
     setSeekVersion((v) => v + 1);
@@ -1251,7 +1277,7 @@ export default function App() {
       useStudioStore.getState().setSlideTimeSec(0);
     } catch {}
     audioEngine.playShutterClick();
-  }, [project.frames.length]);
+  }, [project.frames, project.defaultSlideHoldSec]);
 
   const nextFrame = useCallback(() => goToFrame(currentIndex + 1), [goToFrame, currentIndex]);
   const prevFrame = useCallback(() => goToFrame(currentIndex - 1), [goToFrame, currentIndex]);
@@ -1264,6 +1290,8 @@ export default function App() {
     const shotFps = getShotTargetFps(activeShot, 24);
     const FRAME_DELTA = 1 / shotFps;
     const SLIDE_DURATION = getShotDurationSec(activeShot, project.defaultSlideHoldSec ?? 12.0);
+    const offsets = getCumulativeShotOffsets(project.frames, project.defaultSlideHoldSec ?? 12.0);
+    const currentStart = offsets[currentIndex]?.startSec ?? 0;
     const totalCount = Math.max(1, project.frames.length);
     const reelStart = reelLoopActive ? Math.min(totalCount - 1, activeReelIndex * 10) : 0;
     const reelEnd = reelLoopActive ? Math.min(totalCount - 1, reelStart + 9) : totalCount - 1;
@@ -1275,6 +1303,7 @@ export default function App() {
       if (updated < 0) updated = 0;
       if (updated > SLIDE_DURATION) updated = SLIDE_DURATION;
       slideTimeSecRef.current = updated;
+      playbackClock.emit({ timeSec: updated, durationSec: SLIDE_DURATION, shotIndex: currentIndex, fps: shotFps, shotStartSec: currentStart });
       setSlideTimeSec(updated);
       try {
         useStudioStore.getState().setSlideTimeSec(updated);
@@ -1286,7 +1315,12 @@ export default function App() {
           currentIndex >= reelStart && currentIndex <= reelEnd
             ? reelStart + ((currentIndex - reelStart + 1) % reelLen)
             : reelStart;
+        const nextShot = project.frames[nextIdx] || activeShot;
+        const nextDur = getShotDurationSec(nextShot, project.defaultSlideHoldSec ?? 12.0);
+        const nextFps = getShotTargetFps(nextShot, 24);
+        const nextStart = offsets[nextIdx]?.startSec ?? 0;
         slideTimeSecRef.current = 0;
+        playbackClock.emit({ timeSec: 0, durationSec: nextDur, shotIndex: nextIdx, fps: nextFps, shotStartSec: nextStart });
         setCurrentIndex(nextIdx);
         setSlideTimeSec(0);
         try {
@@ -1301,8 +1335,10 @@ export default function App() {
         const prevShot = project.frames[prevIdx] || activeShot;
         const prevShotDur = getShotDurationSec(prevShot, project.defaultSlideHoldSec ?? 12.0);
         const prevShotFps = getShotTargetFps(prevShot, 24);
+        const prevStart = offsets[prevIdx]?.startSec ?? 0;
         const loopTime = Math.max(0, prevShotDur - 1 / prevShotFps);
         slideTimeSecRef.current = loopTime;
+        playbackClock.emit({ timeSec: loopTime, durationSec: prevShotDur, shotIndex: prevIdx, fps: prevShotFps, shotStartSec: prevStart });
         setCurrentIndex(prevIdx);
         setSlideTimeSec(loopTime);
         try {
@@ -1311,6 +1347,7 @@ export default function App() {
         } catch {}
       } else {
         slideTimeSecRef.current = updated;
+        playbackClock.emit({ timeSec: updated, durationSec: SLIDE_DURATION, shotIndex: currentIndex, fps: shotFps, shotStartSec: currentStart });
         setSlideTimeSec(updated);
         try {
           useStudioStore.getState().setSlideTimeSec(updated);
@@ -1325,8 +1362,10 @@ export default function App() {
   const handleScrubSlideTime = useCallback((timeSec: number) => {
     const activeShot = project.frames[currentIndex] || project.frames[0];
     const maxDur = getShotDurationSec(activeShot, project.defaultSlideHoldSec ?? 12.0);
+    const shotFps = getShotTargetFps(activeShot, 24);
     const clamped = Math.max(0, Math.min(maxDur, timeSec));
     slideTimeSecRef.current = clamped;
+    playbackClock.emit({ timeSec: clamped, durationSec: maxDur, shotIndex: currentIndex, fps: shotFps });
     setSlideTimeSec(clamped);
     setSeekVersion((v) => v + 1);
     try {
@@ -1341,7 +1380,20 @@ export default function App() {
       globalSec,
       project.defaultSlideHoldSec ?? 12.0
     );
+    const targetFrame = project.frames[resolved.shotIndex] || project.frames[0];
+    const targetDur = getShotDurationSec(targetFrame, project.defaultSlideHoldSec ?? 12.0);
+    const targetFps = getShotTargetFps(targetFrame, 24);
+    const offsets = getCumulativeShotOffsets(project.frames, project.defaultSlideHoldSec ?? 12.0);
+    const targetStart = offsets[resolved.shotIndex]?.startSec ?? 0;
+
     slideTimeSecRef.current = resolved.localTimeSec;
+    playbackClock.emit({
+      timeSec: resolved.localTimeSec,
+      durationSec: targetDur,
+      shotIndex: resolved.shotIndex,
+      fps: targetFps,
+      shotStartSec: targetStart
+    });
     setCurrentIndex(resolved.shotIndex);
     setSlideTimeSec(resolved.localTimeSec);
     setSeekVersion((v) => v + 1);
@@ -1351,7 +1403,7 @@ export default function App() {
     } catch {}
   }, [project.frames, project.defaultSlideHoldSec]);
 
-  // Hardware <video> clock sync callback (never increments seekVersion so stage never fights video.currentTime)
+  // Hardware <video> clock sync callback (invoked on discrete pause/scrub-end only; 60fps updates bypass React state via playbackClock)
   const handleHardwareVideoTimeSync = useCallback((shotIdx: number, timeSec: number) => {
     if (shotIdx !== currentIndexRef.current) return;
     const clamped = Math.max(0, timeSec);
@@ -1393,7 +1445,7 @@ export default function App() {
     (activeStageVaultEntry?.type === 'video' || isVideoSourceUrl(activeStageResolvedUrl, { isVideo: activeStageShot?.isVideo }))
   );
 
-  // Elastic Multi-Cadence Dual-Mode Playback Engine (0.5s rap cuts up to 30m holds)
+  // Elastic Multi-Cadence Dual-Mode Playback Engine (Zero 60fps React useState re-renders; direct playbackClock rAF)
   const animFrameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
 
@@ -1405,6 +1457,12 @@ export default function App() {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
       }
+      // Flush final paused playhead timestamp to discrete React state once
+      const pausedSec = slideTimeSecRef.current;
+      setSlideTimeSec(pausedSec);
+      try {
+        useStudioStore.getState().setSlideTimeSec(pausedSec);
+      } catch {}
       return;
     }
 
@@ -1430,7 +1488,7 @@ export default function App() {
     const currentOffset = shotOffsets[currentIndex];
     const shotSlideHold = currentOffset?.durationSec ?? getShotDurationSec(currentFrame, project.defaultSlideHoldSec ?? 12.0);
     const shotStartSec = currentOffset?.startSec ?? 0;
-    let lastReactSyncMs = 0;
+    const shotFps = getShotTargetFps(currentFrame, 24);
 
     const tick = (now: number) => {
       if (lastTimestampRef.current !== null) {
@@ -1455,11 +1513,20 @@ export default function App() {
               currentIndex >= reelStart && currentIndex <= reelEnd
                 ? reelStart + ((currentIndex - reelStart + 1) % reelLen)
                 : reelStart;
+            const nextShot = project.frames[nextIdx] || currentFrame;
             const nextShotDur = shotOffsets[nextIdx]?.durationSec ?? 12.0;
+            const nextShotStart = shotOffsets[nextIdx]?.startSec ?? 0;
+            const nextShotFps = getShotTargetFps(nextShot, 24);
             const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
             slideTimeSecRef.current = remainderTime;
             lastTimestampRef.current = null;
-            playbackClock.emit({ timeSec: remainderTime, durationSec: nextShotDur, shotIndex: nextIdx });
+            playbackClock.emit({
+              timeSec: remainderTime,
+              durationSec: nextShotDur,
+              shotIndex: nextIdx,
+              fps: nextShotFps,
+              shotStartSec: nextShotStart
+            });
             setCurrentIndex(nextIdx);
             setSlideTimeSec(remainderTime);
             try {
@@ -1468,34 +1535,34 @@ export default function App() {
             } catch {}
           } else {
             slideTimeSecRef.current = nextTime;
-            playbackClock.emit({ timeSec: nextTime, durationSec: boundaryDuration, shotIndex: currentIndex });
-            if (now - lastReactSyncMs >= 120) {
-              lastReactSyncMs = now;
-              setSlideTimeSec(nextTime);
-              try {
-                useStudioStore.getState().setSlideTimeSec(nextTime);
-              } catch {}
-            }
+            playbackClock.emit({
+              timeSec: nextTime,
+              durationSec: boundaryDuration,
+              shotIndex: currentIndex,
+              fps: shotFps,
+              shotStartSec
+            });
           }
         } else {
           if (nextTime >= shotSlideHold) {
             const loopTime = shotSlideHold > 0 ? nextTime % shotSlideHold : 0;
             slideTimeSecRef.current = loopTime;
-            playbackClock.emit({ timeSec: loopTime, durationSec: shotSlideHold, shotIndex: currentIndex });
-            setSlideTimeSec(loopTime);
-            try {
-              useStudioStore.getState().setSlideTimeSec(loopTime);
-            } catch {}
+            playbackClock.emit({
+              timeSec: loopTime,
+              durationSec: shotSlideHold,
+              shotIndex: currentIndex,
+              fps: shotFps,
+              shotStartSec
+            });
           } else {
             slideTimeSecRef.current = nextTime;
-            playbackClock.emit({ timeSec: nextTime, durationSec: shotSlideHold, shotIndex: currentIndex });
-            if (now - lastReactSyncMs >= 120) {
-              lastReactSyncMs = now;
-              setSlideTimeSec(nextTime);
-              try {
-                useStudioStore.getState().setSlideTimeSec(nextTime);
-              } catch {}
-            }
+            playbackClock.emit({
+              timeSec: nextTime,
+              durationSec: shotSlideHold,
+              shotIndex: currentIndex,
+              fps: shotFps,
+              shotStartSec
+            });
           }
         }
       }
@@ -1776,21 +1843,20 @@ export default function App() {
   // Also listen to store-driven title toggles (e.g., Stage or OpticalMonitor shortcut toggleTitles)
   useEffect(() => {
     return eventBus.on('titles:toggle', (visible: boolean) => {
-      setComponentsVisibility(prev => {
-        if (prev.titlesAll === visible) return prev;
-        const allSubChannelsOff =
-          prev.titleBn === false && prev.titleEn === false && prev.tagline === false;
-        const next: ComponentVisibility = {
-          ...prev,
-          titlesAll: visible,
-          titleBn: visible && allSubChannelsOff ? true : prev.titleBn,
-          titleEn: visible && allSubChannelsOff ? true : prev.titleEn,
-          tagline: visible && allSubChannelsOff ? true : prev.tagline
-        };
-        console.log('[App] eventBus titles:toggle received -> syncing componentsVisibility:', next);
-        saveComponentVisibility(next);
-        return next;
-      });
+      const prev = componentsVisibilityRef.current;
+      if (prev.titlesAll === visible) return;
+      const allSubChannelsOff =
+        prev.titleBn === false && prev.titleEn === false && prev.tagline === false;
+      const next: ComponentVisibility = {
+        ...prev,
+        titlesAll: visible,
+        titleBn: visible && allSubChannelsOff ? true : prev.titleBn,
+        titleEn: visible && allSubChannelsOff ? true : prev.titleEn,
+        tagline: visible && allSubChannelsOff ? true : prev.tagline
+      };
+      console.log('[App] eventBus titles:toggle received -> syncing componentsVisibility:', next);
+      saveComponentVisibility(next);
+      setComponentsVisibility(next);
     });
   }, []);
 
@@ -1879,29 +1945,28 @@ export default function App() {
 
   // Title Toggle Handler
   const handleToggleTitles = useCallback(() => {
-    setComponentsVisibility(prev => {
-      const currentEffective = Boolean(
-        prev.titlesAll && (prev.titleBn !== false || prev.titleEn !== false || prev.tagline !== false)
-      );
-      const nextVal = !currentEffective;
-      const allSubChannelsOff =
-        prev.titleBn === false && prev.titleEn === false && prev.tagline === false;
-      const next: ComponentVisibility = {
-        ...prev,
-        titlesAll: nextVal,
-        titleBn: nextVal && allSubChannelsOff ? true : prev.titleBn,
-        titleEn: nextVal && allSubChannelsOff ? true : prev.titleEn,
-        tagline: nextVal && allSubChannelsOff ? true : prev.tagline
-      };
-      console.log('[App] handleToggleTitles -> updating componentsVisibility:', {
-        previous: currentEffective,
-        next: nextVal,
-        updatedVisibility: next
-      });
-      saveComponentVisibility(next);
-      syncVisibilityToStore(next);
-      return next;
+    const prev = componentsVisibilityRef.current;
+    const currentEffective = Boolean(
+      prev.titlesAll && (prev.titleBn !== false || prev.titleEn !== false || prev.tagline !== false)
+    );
+    const nextVal = !currentEffective;
+    const allSubChannelsOff =
+      prev.titleBn === false && prev.titleEn === false && prev.tagline === false;
+    const next: ComponentVisibility = {
+      ...prev,
+      titlesAll: nextVal,
+      titleBn: nextVal && allSubChannelsOff ? true : prev.titleBn,
+      titleEn: nextVal && allSubChannelsOff ? true : prev.titleEn,
+      tagline: nextVal && allSubChannelsOff ? true : prev.tagline
+    };
+    console.log('[App] handleToggleTitles -> updating componentsVisibility:', {
+      previous: currentEffective,
+      next: nextVal,
+      updatedVisibility: next
     });
+    setComponentsVisibility(next);
+    saveComponentVisibility(next);
+    syncVisibilityToStore(next);
   }, [syncVisibilityToStore]);
 
   useEffect(() => {
@@ -1928,20 +1993,19 @@ export default function App() {
   }, [redoStack, project]);
 
   const handleUpdateFrame = useCallback((updated: AnthologyFrame) => {
-    let nextDur = 12.0;
-    let targetIdx = -1;
+    const currentFrames = projectFramesRef.current;
+    const targetIdx = currentFrames.findIndex(f => f.id === updated.id);
+    const nextDur =
+      targetIdx !== -1
+        ? getShotDurationSec(updated, getShotDurationSec(currentFrames[targetIdx], 12.0))
+        : getShotDurationSec(updated, 12.0);
 
-    setProject(prev => {
-      const idx = prev.frames.findIndex(f => f.id === updated.id);
-      if (idx !== -1) {
-        targetIdx = idx;
-        nextDur = getShotDurationSec(updated, getShotDurationSec(prev.frames[idx], 12.0));
-      }
-      return {
-        ...prev,
-        frames: prev.frames.map(f => f.id === updated.id ? { ...updated, durationSec: nextDur, slideHoldSec: nextDur } : f)
-      };
-    });
+    setProject(prev => ({
+      ...prev,
+      frames: prev.frames.map(f =>
+        f.id === updated.id ? { ...updated, durationSec: nextDur, slideHoldSec: nextDur } : f
+      )
+    }));
 
     if (targetIdx !== -1) {
       try {
@@ -1968,12 +2032,13 @@ export default function App() {
   }, []);
 
   const handleUpdateFrameAtIndex = useCallback((index: number, updated: AnthologyFrame) => {
-    let nextDur = 12.0;
+    const currentFrames = projectFramesRef.current;
+    if (index < 0 || index >= currentFrames.length) return;
+    const nextDur = getShotDurationSec(updated, getShotDurationSec(currentFrames[index], 12.0));
 
     setProject(prev => {
       if (index < 0 || index >= prev.frames.length) return prev;
       const nextFrames = [...prev.frames];
-      nextDur = getShotDurationSec(updated, getShotDurationSec(nextFrames[index], 12.0));
       nextFrames[index] = {
         ...updated,
         slideHoldSec: nextDur,
@@ -1999,20 +2064,15 @@ export default function App() {
 
   const handleApplyDurationToAll = useCallback((durationSec: number) => {
     const clamped = clampShotDuration(durationSec);
-    setProject(prev => {
-      const nextFrames = prev.frames.map((f) => {
-        return {
-          ...f,
-          slideHoldSec: clamped,
-          durationSec: clamped
-        };
-      });
-      return {
-        ...prev,
-        defaultSlideHoldSec: clamped,
-        frames: nextFrames
-      };
-    });
+    setProject(prev => ({
+      ...prev,
+      defaultSlideHoldSec: clamped,
+      frames: prev.frames.map((f) => ({
+        ...f,
+        slideHoldSec: clamped,
+        durationSec: clamped
+      }))
+    }));
     setSlideTimeSec(prev => Math.min(prev, clamped));
 
     try {
@@ -2025,16 +2085,17 @@ export default function App() {
   }, []);
 
   const handleMatchAudioBeats = useCallback(() => {
-    let computedDurations: number[] = [];
+    const currentFrames = projectFramesRef.current;
+    const activeDur = getShotDurationSec(currentFrames[currentIndex], 12.0);
+    const beatDurations = audioEngine.calculateAutoCutDurations(
+      currentFrames.length,
+      Math.min(activeDur, 4.0)
+    );
+    const computedDurations = beatDurations.map(d => clampShotDuration(d ?? activeDur));
 
-    setProject(prev => {
-      const activeDur = getShotDurationSec(prev.frames[currentIndex], 12.0);
-      const beatDurations = audioEngine.calculateAutoCutDurations(
-        prev.frames.length,
-        Math.min(activeDur, 4.0)
-      );
-      computedDurations = beatDurations.map(d => clampShotDuration(d ?? activeDur));
-      const nextFrames = prev.frames.map((f, idx) => {
+    setProject(prev => ({
+      ...prev,
+      frames: prev.frames.map((f, idx) => {
         const dur = computedDurations[idx] || activeDur;
         return {
           ...f,
@@ -2042,9 +2103,8 @@ export default function App() {
           durationSec: dur,
           beatSnapEnabled: true
         };
-      });
-      return { ...prev, frames: nextFrames };
-    });
+      })
+    }));
 
     setIsSnapToBeat(true);
     try {
@@ -3234,34 +3294,36 @@ export default function App() {
       />
 
       {/* Canvas Liquify & Mesh Warp Studio (W) */}
-      <CanvasLiquifyModal
-        isOpen={isLiquifyOpen}
-        frame={currentFrame}
-        initialTab={liquifyInitialTab}
-        onClose={() => setIsLiquifyOpen(false)}
-        activeLightId={currentFrame.lightId}
-        onApplyLightToShot={(lightId) => {
-          handleUpdateFrame({
-            ...currentFrame,
-            lightId: lightId ?? undefined
-          });
-        }}
-        onApplyLightToAll={(lightId) => {
-          setProject((prev) => ({
-            ...prev,
-            frames: prev.frames.map((f) => ({
-              ...f,
+      {isLiquifyOpen && (
+        <CanvasLiquifyModal
+          isOpen={isLiquifyOpen}
+          frame={currentFrame}
+          initialTab={liquifyInitialTab}
+          onClose={() => setIsLiquifyOpen(false)}
+          activeLightId={currentFrame.lightId}
+          onApplyLightToShot={(lightId) => {
+            handleUpdateFrame({
+              ...currentFrame,
               lightId: lightId ?? undefined
-            }))
-          }));
-        }}
-        onApplyWarp={(warpedUrl) => {
-          handleUpdateFrame({
-            ...currentFrame,
-            imageUrl: warpedUrl
-          });
-        }}
-      />
+            });
+          }}
+          onApplyLightToAll={(lightId) => {
+            setProject((prev) => ({
+              ...prev,
+              frames: prev.frames.map((f) => ({
+                ...f,
+                lightId: lightId ?? undefined
+              }))
+            }));
+          }}
+          onApplyWarp={(warpedUrl) => {
+            handleUpdateFrame({
+              ...currentFrame,
+              imageUrl: warpedUrl
+            });
+          }}
+        />
+      )}
 
       {/* Modal 1: 100-Frame Contact Sheet Grid & Storyboard Sequence Director */}
       <ContactSheetModal

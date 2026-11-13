@@ -14,7 +14,14 @@ import {
   detachAudioFromClip,
   generateSrtFromClips
 } from './cutRenderMath';
-import { formatVlcTimecode, isVideoMediaUrl } from './playbackClock';
+import {
+  formatVlcTimecode,
+  formatSmpteTimecode,
+  isVideoMediaUrl,
+  syncVideoCurrentTimeWithFastSeek,
+  PlaybackClockBus,
+  type FastSeekableVideo
+} from './playbackClock';
 
 function makeClip(overrides: Partial<TimelineClip> = {}): TimelineClip {
   return {
@@ -174,7 +181,74 @@ test('generateSrtFromClips and VLC clock helpers format cleanly', () => {
 
   assert.equal(formatVlcTimecode(125.5, true), '02:05.50');
   assert.equal(formatVlcTimecode(3661), '1:01:01');
+  assert.equal(formatSmpteTimecode(1.5, 24), '00:00:01:12');
   assert.equal(isVideoMediaUrl('blob:https://app/123', false, 'video/mp4'), true);
   assert.equal(isVideoMediaUrl('https://cdn.example.com/clip.webm'), true);
   assert.equal(isVideoMediaUrl('https://cdn.example.com/frame.jpg'), false);
+});
+
+test('syncVideoCurrentTimeWithFastSeek uses fastSeek for sub-millisecond drift and falls back cleanly', () => {
+  const fastSeekCalls: number[] = [];
+  const videoWithFastSeek: FastSeekableVideo = {
+    currentTime: 1.0,
+    duration: 10.0,
+    seeking: false,
+    fastSeek(t: number) {
+      fastSeekCalls.push(t);
+      this.currentTime = t;
+    }
+  };
+
+  // Sub-millisecond drift within default 0.0005s threshold should be skipped
+  assert.equal(syncVideoCurrentTimeWithFastSeek(videoWithFastSeek, 1.0003), false);
+  assert.equal(fastSeekCalls.length, 0);
+
+  // Larger drift uses video.fastSeek() and clamps cleanly before duration end
+  assert.equal(syncVideoCurrentTimeWithFastSeek(videoWithFastSeek, 4.25), true);
+  assert.deepEqual(fastSeekCalls, [4.25]);
+  assert.equal(syncVideoCurrentTimeWithFastSeek(videoWithFastSeek, 12.0), true);
+  assert.equal(fastSeekCalls[1], 9.995);
+
+  // Active seeking lock prevents overlapping seek dispatch
+  videoWithFastSeek.seeking = true;
+  assert.equal(syncVideoCurrentTimeWithFastSeek(videoWithFastSeek, 2.0), false);
+
+  // Fallback when fastSeek is unavailable or throws
+  const videoFallback: FastSeekableVideo = {
+    currentTime: 0,
+    duration: 8.0,
+    seeking: false,
+    fastSeek() {
+      throw new Error('fastSeek unsupported');
+    }
+  };
+  assert.equal(syncVideoCurrentTimeWithFastSeek(videoFallback, 3.125), true);
+  assert.equal(videoFallback.currentTime, 3.125);
+});
+
+test('PlaybackClockBus bindDomElement updates DOM refs directly without React state', () => {
+  const bus = new PlaybackClockBus();
+  const mockPlayheadEl = { style: { left: '0%' }, textContent: '' } as unknown as HTMLElement;
+  const mockTimecodeEl = { style: {}, textContent: '' } as unknown as HTMLElement;
+
+  const unbindPlayhead = bus.bindDomElement(mockPlayheadEl, (el, snap) => {
+    const pct = (snap.timeSec / Math.max(0.01, snap.durationSec)) * 100;
+    el.style.left = `${pct.toFixed(2)}%`;
+  });
+  const unbindTc = bus.bindDomElement(mockTimecodeEl, (el, snap) => {
+    el.textContent = formatSmpteTimecode(snap.timeSec, snap.fps);
+  });
+
+  assert.equal(mockPlayheadEl.style.left, '0.00%');
+  assert.equal(mockTimecodeEl.textContent, '00:00:00:00');
+
+  bus.emit({ timeSec: 2.5, durationSec: 10, fps: 24 });
+  assert.equal(bus.getTimeSec(), 2.5);
+  assert.equal(mockPlayheadEl.style.left, '25.00%');
+  assert.equal(mockTimecodeEl.textContent, '00:00:02:12');
+
+  unbindPlayhead();
+  unbindTc();
+  bus.emit({ timeSec: 5.0 });
+  assert.equal(mockPlayheadEl.style.left, '25.00%');
 });

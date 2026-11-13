@@ -24,6 +24,7 @@ import {
 import { useStudioStore, HeroTitlePreset, TitleAlign } from '../../core/store';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { eventBus } from '../../core/eventBus';
+import { playbackClock, formatSmpteTimecode } from '../../utils/playbackClock';
 
 export interface StageMetadataFxBarProps {
   sceneCode?: string;
@@ -141,6 +142,30 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
     setIsTitleFxOpen((v) => !v);
   };
 
+  const frameTagDomRef = useRef<HTMLSpanElement | null>(null);
+  const smpteDomRef = useRef<HTMLSpanElement | null>(null);
+  const hudCtxRef = useRef({ shotIndex, totalFrames, fps, showHud });
+  hudCtxRef.current = { shotIndex, totalFrames, fps, showHud };
+
+  useEffect(() => {
+    return playbackClock.subscribe((snap) => {
+      const ctx = hudCtxRef.current;
+      if (!ctx.showHud || snap.shotIndex !== ctx.shotIndex) return;
+      const activeFps = snap.fps > 0 ? snap.fps : ctx.fps;
+      const activeTotal = ctx.totalFrames > 0 ? ctx.totalFrames : Math.max(1, Math.round((snap.durationSec || 12) * activeFps));
+      const nextFrame = Math.min(
+        activeTotal,
+        Math.max(1, Math.floor(Math.max(0, snap.timeSec) * activeFps) + 1)
+      );
+      if (frameTagDomRef.current) {
+        frameTagDomRef.current.textContent = `F${String(nextFrame).padStart(3, '0')}/${String(activeTotal).padStart(3, '0')}`;
+      }
+      if (smpteDomRef.current) {
+        smpteDomRef.current.textContent = formatSmpteTimecode(snap.timeSec, activeFps);
+      }
+    });
+  }, []);
+
   const shotCode = String(shotIndex + 1).padStart(3, '0');
   const frameTag = `F${String(Math.min(totalFrames, Math.max(1, frameNum))).padStart(3, '0')}/${String(totalFrames).padStart(3, '0')}`;
 
@@ -158,13 +183,19 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         {showHud && (
           <>
             <span className="text-neutral-700 group-hover:text-white/25 shrink-0 transition-colors duration-200">•</span>
-            <span className="text-neutral-400 group-hover:text-white font-bold tabular-nums whitespace-nowrap shrink-0 transition-colors duration-200">
+            <span
+              ref={frameTagDomRef}
+              className="text-neutral-400 group-hover:text-white font-bold tabular-nums whitespace-nowrap shrink-0 transition-colors duration-200"
+            >
               {frameTag}
             </span>
             {smpte && (
               <>
                 <span className="text-neutral-700 group-hover:text-white/25 hidden sm:inline shrink-0 transition-colors duration-200">•</span>
-                <span className="text-neutral-500 group-hover:text-neutral-200 tabular-nums hidden sm:inline whitespace-nowrap shrink-0 transition-colors duration-200">
+                <span
+                  ref={smpteDomRef}
+                  className="text-neutral-500 group-hover:text-neutral-200 tabular-nums hidden sm:inline whitespace-nowrap shrink-0 transition-colors duration-200"
+                >
                   {smpte}
                 </span>
               </>

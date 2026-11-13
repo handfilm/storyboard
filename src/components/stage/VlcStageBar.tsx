@@ -4,7 +4,7 @@
  * Subscribes to playbackClock for 60fps timecode/scrubber updates without re-rendering App.
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Play,
   Pause,
@@ -31,8 +31,9 @@ import {
   X
 } from 'lucide-react';
 import {
-  usePlaybackClock,
+  playbackClock,
   formatVlcTimecode,
+  type PlaybackClockSnapshot,
   type VlcLoopMode,
   type VlcAbLoop
 } from '../../utils/playbackClock';
@@ -122,9 +123,18 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
   onOpenCinemaPlayer,
   onToggleFullscreen
 }) => {
-  const clock = usePlaybackClock(true);
   const scrubberRef = useRef<HTMLDivElement>(null);
+  const currentTimeDomRef = useRef<HTMLSpanElement>(null);
+  const remainingTimeDomRef = useRef<HTMLButtonElement>(null);
+  const bufferedFillDomRef = useRef<HTMLDivElement>(null);
+  const progressFillDomRef = useRef<HTMLDivElement>(null);
+  const scrubThumbDomRef = useRef<HTMLDivElement>(null);
+
   const isDraggingRef = useRef(false);
+  const showRemainingRef = useRef(false);
+  const durationPropRef = useRef(durationSec);
+  durationPropRef.current = durationSec;
+  const safeDurationRef = useRef(Math.max(0.1, durationSec));
 
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPct, setHoverPct] = useState(0);
@@ -133,16 +143,54 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
   const [isAspectOpen, setIsAspectOpen] = useState(false);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
 
-  const safeDuration = Math.max(0.1, clock.durationSec > 0 ? clock.durationSec : durationSec);
-  const safeTime = Math.max(0, Math.min(safeDuration, clock.timeSec));
-  const progressPct = Math.min(100, Math.max(0, (safeTime / safeDuration) * 100));
-  const bufferPct = Math.min(100, Math.max(progressPct, clock.bufferedPct * 100));
+  showRemainingRef.current = showRemaining;
+
+  const initialClock = playbackClock.getSnapshot();
+  const safeDuration = Math.max(0.1, initialClock.durationSec > 0 ? initialClock.durationSec : durationSec);
+  const safeTime = Math.max(0, Math.min(safeDuration, initialClock.timeSec));
+  const initialProgressPct = Math.min(100, Math.max(0, (safeTime / safeDuration) * 100));
+  const initialBufferPct = Math.min(100, Math.max(initialProgressPct, initialClock.bufferedPct * 100));
+
+  const applyClockSnapshotToDom = (snap: PlaybackClockSnapshot) => {
+    const dur = Math.max(0.1, snap.durationSec > 0 ? snap.durationSec : durationPropRef.current);
+    safeDurationRef.current = dur;
+    const t = Math.max(0, Math.min(dur, snap.timeSec));
+    const pct = Math.min(100, Math.max(0, (t / dur) * 100));
+    const bufPct = Math.min(100, Math.max(pct, snap.bufferedPct * 100));
+    const showMs = dur < 60;
+
+    if (currentTimeDomRef.current) {
+      currentTimeDomRef.current.textContent = formatVlcTimecode(t, showMs);
+    }
+    if (remainingTimeDomRef.current) {
+      remainingTimeDomRef.current.textContent = showRemainingRef.current
+        ? `-${formatVlcTimecode(Math.max(0, dur - t), showMs)}`
+        : formatVlcTimecode(dur, showMs);
+    }
+    if (progressFillDomRef.current) {
+      progressFillDomRef.current.style.width = `${pct.toFixed(3)}%`;
+    }
+    if (bufferedFillDomRef.current) {
+      bufferedFillDomRef.current.style.width = `${bufPct.toFixed(3)}%`;
+    }
+    if (scrubThumbDomRef.current) {
+      scrubThumbDomRef.current.style.left = `${pct.toFixed(3)}%`;
+    }
+  };
+
+  useEffect(() => {
+    return playbackClock.subscribe(applyClockSnapshotToDom);
+  }, []);
+
+  useEffect(() => {
+    applyClockSnapshotToDom(playbackClock.getSnapshot());
+  }, [showRemaining, durationSec]);
 
   const computeTimeFromPointer = (clientX: number): { sec: number; pct: number } => {
     const rect = scrubberRef.current?.getBoundingClientRect();
     if (!rect || rect.width <= 0) return { sec: 0, pct: 0 };
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return { sec: ratio * safeDuration, pct: ratio * 100 };
+    return { sec: ratio * safeDurationRef.current, pct: ratio * 100 };
   };
 
   const handleScrubPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -249,7 +297,10 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
 
       {/* Row 1: Full-Width Seek Scrubber with A-B Loop Highlight + Hover Preview */}
       <div className="flex items-center gap-2.5 mb-1">
-        <span className="text-[10.5px] font-mono font-semibold text-white/85 tabular-nums w-14 shrink-0">
+        <span
+          ref={currentTimeDomRef}
+          className="text-[10.5px] font-mono font-semibold text-white/85 tabular-nums w-14 shrink-0"
+        >
           {formatVlcTimecode(safeTime, safeDuration < 60)}
         </span>
 
@@ -275,7 +326,8 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <div className="w-full h-1.5 group-hover:h-2 bg-white/15 rounded-full overflow-hidden relative transition-all">
             {/* Buffered */}
             <div
-              style={{ width: `${bufferPct}%` }}
+              ref={bufferedFillDomRef}
+              style={{ width: `${initialBufferPct}%` }}
               className="absolute left-0 top-0 bottom-0 bg-white/20"
             />
             {/* A-B Loop Span Highlight */}
@@ -290,7 +342,8 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
             )}
             {/* Playhead Fill */}
             <div
-              style={{ width: `${progressPct}%` }}
+              ref={progressFillDomRef}
+              style={{ width: `${initialProgressPct}%` }}
               className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#F5A623] to-[#FFE066]"
             />
           </div>
@@ -313,12 +366,14 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
 
           {/* Scrub Handle */}
           <div
-            style={{ left: `${progressPct}%` }}
+            ref={scrubThumbDomRef}
+            style={{ left: `${initialProgressPct}%` }}
             className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#FFE066] border border-black shadow-[0_0_8px_rgba(245,166,35,0.85)] opacity-80 group-hover:opacity-100 scale-90 group-hover:scale-110 transition-transform pointer-events-none"
           />
         </div>
 
         <button
+          ref={remainingTimeDomRef}
           type="button"
           onClick={() => setShowRemaining((r) => !r)}
           className="text-[10.5px] font-mono font-semibold text-white/65 hover:text-amber-300 tabular-nums w-16 text-right shrink-0 cursor-pointer"

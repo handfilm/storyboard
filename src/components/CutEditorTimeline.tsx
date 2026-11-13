@@ -18,6 +18,7 @@ import { studioDraftDb } from '../services/db';
 import { useStudioStore } from '../core/store';
 import { resolveShotMediaEntry } from '../services/handfilmMediaVault';
 import { moveClipWithMagneticSnap, type TrackMixState } from '../utils/cutRenderMath';
+import { cutClock, formatSmpteTimecode } from '../utils/playbackClock';
 import {
   Scissors,
   ZoomIn,
@@ -47,7 +48,7 @@ export interface CutEditorTimelineProps {
   isPlaying?: boolean;
   selectedClipId: string | null;
   onSelectClip: (clipId: string | null) => void;
-  onSeek: (timeSec: number) => void;
+  onSeek: (timeSec: number, isContinuousScrub?: boolean) => void;
   onSplitClip?: () => void;
   onRippleDeleteClip?: (clipId: string) => void;
   onFreezeFrame?: (clipId: string) => void;
@@ -100,28 +101,43 @@ export interface PlayheadTimecodeOverlayProps {
 export const PlayheadTimecodeOverlay: React.FC<PlayheadTimecodeOverlayProps> = ({
   currentTime,
   duration,
-  isScrubbing = false,
   fps = 24,
   className = '',
   onScrubStart
 }) => {
+  const overlayRootRef = useRef<HTMLDivElement>(null);
+  const timecodeSpanRef = useRef<HTMLSpanElement>(null);
+  const ctxRef = useRef({ duration, fps });
+  ctxRef.current = { duration, fps };
+
+  useEffect(() => {
+    return cutClock.subscribe((snap) => {
+      const safeTime = Math.max(0, snap.timeSec);
+      const activeDur = Math.max(0.01, snap.durationSec > 0 ? snap.durationSec : ctxRef.current.duration);
+      const activeFps = snap.fps > 0 ? snap.fps : ctxRef.current.fps;
+      const pct = Math.min(100, Math.max(0, (safeTime / activeDur) * 100));
+      const totalFrames = Math.floor(safeTime * activeFps);
+
+      if (overlayRootRef.current) {
+        overlayRootRef.current.style.left = `${pct.toFixed(3)}%`;
+      }
+      if (timecodeSpanRef.current) {
+        timecodeSpanRef.current.textContent = `${formatSmpteTimecode(safeTime, activeFps)} // F${totalFrames}`;
+      }
+    });
+  }, []);
+
   const safeCurrentTime = Math.max(0, currentTime);
   const safeDuration = Math.max(0.01, duration);
   const normalizedProgress = Math.min(100, Math.max(0, (safeCurrentTime / safeDuration) * 100));
 
   const totalFrames = Math.floor(safeCurrentTime * fps);
-  const ff = totalFrames % fps;
-  const ss = Math.floor(safeCurrentTime) % 60;
-  const mm = Math.floor(safeCurrentTime / 60) % 60;
-  const hh = Math.floor(safeCurrentTime / 3600);
-
-  const timecodeString = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')} // F${totalFrames}`;
+  const timecodeString = `${formatSmpteTimecode(safeCurrentTime, fps)} // F${totalFrames}`;
 
   return (
     <div
-      className={`absolute top-0 bottom-0 pointer-events-none will-change-[left] ${
-        isScrubbing ? 'transition-none' : 'transition-[left] duration-75 ease-out'
-      } ${className}`}
+      ref={overlayRootRef}
+      className={`absolute top-0 bottom-0 pointer-events-none will-change-[left] ${className}`}
       style={{
         left: `${normalizedProgress}%`,
         transform: 'translateX(-50%)'
@@ -129,7 +145,7 @@ export const PlayheadTimecodeOverlay: React.FC<PlayheadTimecodeOverlayProps> = (
     >
       <div className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap z-50">
         <div className="bg-[#0c0d10]/95 border border-[#F5A623]/60 text-[#F5A623] px-2 py-0.5 rounded text-[9.5px] font-mono shadow-lg backdrop-blur-md pointer-events-none whitespace-nowrap flex items-center gap-1.5 tracking-wider tabular-nums">
-          <span className="font-semibold">{timecodeString}</span>
+          <span ref={timecodeSpanRef} className="font-semibold">{timecodeString}</span>
         </div>
       </div>
 
@@ -198,6 +214,7 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
   }, [onTrackStatesChange, trackStates]);
 
   const timelineTracksRef = useRef<HTMLDivElement>(null);
+  const headerTimecodeDomRef = useRef<HTMLSpanElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const isBeatSnapActive = propSnapToBeat !== undefined ? propSnapToBeat : localSnapToBeat;
 
@@ -210,18 +227,26 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
   }, []);
 
   const pps = (zoomScale / 100) * 50;
+  const scrollCtxRef = useRef({ isPlaying, isScrubbing, pps });
+  scrollCtxRef.current = { isPlaying, isScrubbing, pps };
 
-  // Keep playhead visible during playback
+  // Direct-DOM 60 FPS header timecode + auto-scroll without triggering React re-renders
   useEffect(() => {
-    if (!isPlaying || isScrubbing || !timelineTracksRef.current) return;
-    const container = timelineTracksRef.current;
-    const playheadPx = playheadTime * pps;
-    const viewLeft = container.scrollLeft;
-    const viewRight = viewLeft + container.clientWidth;
-    if (playheadPx > viewRight - 80 || playheadPx < viewLeft) {
-      container.scrollLeft = Math.max(0, playheadPx - container.clientWidth * 0.25);
-    }
-  }, [isPlaying, isScrubbing, playheadTime, pps]);
+    return cutClock.subscribe((snap) => {
+      if (headerTimecodeDomRef.current) {
+        headerTimecodeDomRef.current.textContent = formatSmpteTimecode(snap.timeSec, 24);
+      }
+      const { isPlaying: playing, isScrubbing: scrubbing, pps: curPps } = scrollCtxRef.current;
+      if (!playing || scrubbing || !timelineTracksRef.current) return;
+      const container = timelineTracksRef.current;
+      const playheadPx = snap.timeSec * curPps;
+      const viewLeft = container.scrollLeft;
+      const viewRight = viewLeft + container.clientWidth;
+      if (playheadPx > viewRight - 80 || playheadPx < viewLeft) {
+        container.scrollLeft = Math.max(0, playheadPx - container.clientWidth * 0.25);
+      }
+    });
+  }, []);
 
   const handleToggleBeatSnapInternal = () => {
     if (onToggleSnapToBeat) {
@@ -288,12 +313,12 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
     return { url: thumbUrl, isVideo };
   }, [vaultMediaMap, project.shots, shotMediaMap]);
 
-  // 60FPS RAF-synced timeline scrubber
-  const [dragTime, setDragTime] = useState<number | null>(null);
+  // 60FPS Direct-DOM RAF-synced timeline scrubber (zero React state re-renders while dragging)
+  const dragTimeRef = useRef<number | null>(null);
   const rafSeekRef = useRef<number | null>(null);
   const pendingClientXRef = useRef<number | null>(null);
 
-  const applySeekPosition = useCallback((clientX: number) => {
+  const applySeekPosition = useCallback((clientX: number, isContinuousScrub = true) => {
     if (!timelineTracksRef.current) return;
     const rect = timelineTracksRef.current.getBoundingClientRect();
     const scrollLeft = timelineTracksRef.current.scrollLeft;
@@ -317,13 +342,14 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
       }
     }
 
-    setDragTime(newTime);
-    onSeek(newTime);
+    dragTimeRef.current = newTime;
+    cutClock.emit({ timeSec: newTime, durationSec: Math.max(0.1, totalDuration), fps: 24 });
+    onSeek(newTime, isContinuousScrub);
   }, [totalDuration, pps, onSeek, isMagneticSnap, isBeatSnapActive, clips]);
 
   const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement> | React.MouseEvent) => {
     setIsScrubbing(true);
-    applySeekPosition(e.clientX);
+    applySeekPosition(e.clientX, true);
   };
 
   useEffect(() => {
@@ -334,7 +360,7 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
       if (rafSeekRef.current === null) {
         rafSeekRef.current = requestAnimationFrame(() => {
           if (pendingClientXRef.current !== null) {
-            applySeekPosition(pendingClientXRef.current);
+            applySeekPosition(pendingClientXRef.current, true);
           }
           rafSeekRef.current = null;
         });
@@ -346,8 +372,12 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
         cancelAnimationFrame(rafSeekRef.current);
         rafSeekRef.current = null;
       }
+      const finalSec = dragTimeRef.current;
+      dragTimeRef.current = null;
       setIsScrubbing(false);
-      setDragTime(null);
+      if (finalSec !== null) {
+        onSeek(finalSec, false);
+      }
     };
 
     if (isScrubbing) {
@@ -362,18 +392,11 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
         rafSeekRef.current = null;
       }
     };
-  }, [isScrubbing, applySeekPosition]);
+  }, [isScrubbing, applySeekPosition, onSeek]);
 
-  const formatSMPTE = (seconds: number) => {
-    const totalFrames = Math.floor(seconds * 24);
-    const ff = totalFrames % 24;
-    const ss = Math.floor(seconds) % 60;
-    const mm = Math.floor(seconds / 60) % 60;
-    const hh = Math.floor(seconds / 3600);
-    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
-  };
+  const formatSMPTE = (seconds: number) => formatSmpteTimecode(seconds, 24);
 
-  const currentTime = dragTime !== null ? dragTime : Math.max(0, playheadTime);
+  const currentTime = Math.max(0, playheadTime);
   const duration = Math.max(0.1, totalDuration);
 
   const toggleTrackState = (trackId: string, prop: keyof TrackMixState) => {
@@ -671,7 +694,7 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
           />
 
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/80 border border-[#27283C] tabular-nums">
-            <span className="font-mono text-[11px] text-[#FFE066] font-bold tracking-wider">
+            <span ref={headerTimecodeDomRef} className="font-mono text-[11px] text-[#FFE066] font-bold tracking-wider">
               {formatSMPTE(playheadTime)}
             </span>
             <span className="text-zinc-600 font-mono text-[10px]">

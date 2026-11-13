@@ -5,7 +5,7 @@
  * into one Stealth Grey bar that illuminates with vibrant accents on hover.
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Eye, EyeOff, Maximize2, Upload, Zap } from 'lucide-react';
 import {
   useStudioStore,
@@ -14,7 +14,7 @@ import {
 } from '../../core/store';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { DopamineShotConfig } from '../../types/anthology';
-import { usePlaybackClock } from '../../utils/playbackClock';
+import { playbackClock } from '../../utils/playbackClock';
 
 export interface StageCaptionStripProps {
   shotIndex: number;
@@ -66,12 +66,25 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
   const storeTitleConfig = useStudioStore((s) => s.titleConfig);
   const activePreset: HeroTitlePreset = storeTitleConfig?.preset || 'molten-gold';
   const effectiveAlign = resolveEffectiveTitleAlign(titleAlign, shotIndex, shotType);
-  const liveClock = usePlaybackClock(true);
+  const progressFillDomRef = useRef<HTMLDivElement | null>(null);
+  const shotIndexRef = useRef(shotIndex);
+  const durationPropRef = useRef(durationSec);
+  shotIndexRef.current = shotIndex;
+  durationPropRef.current = durationSec;
 
-  const activeTime = liveClock.shotIndex === shotIndex ? liveClock.timeSec : slideTimeSec;
-  const activeDur = liveClock.shotIndex === shotIndex && liveClock.durationSec > 0 ? liveClock.durationSec : durationSec;
-  const progressPct =
-    activeDur > 0 ? Math.min(100, Math.max(0, (activeTime / activeDur) * 100)) : 0;
+  const initialProgressPct =
+    durationSec > 0 ? Math.min(100, Math.max(0, (slideTimeSec / durationSec) * 100)) : 0;
+
+  useEffect(() => {
+    return playbackClock.subscribe((snap) => {
+      const el = progressFillDomRef.current;
+      if (!el) return;
+      if (snap.shotIndex !== shotIndexRef.current) return;
+      const activeDur = snap.durationSec > 0 ? snap.durationSec : durationPropRef.current;
+      const pct = activeDur > 0 ? Math.min(100, Math.max(0, (snap.timeSec / activeDur) * 100)) : 0;
+      el.style.width = `${pct.toFixed(3)}%`;
+    });
+  }, []);
 
   const presetHoverClass =
     activePreset === 'titanium-silver'
@@ -91,8 +104,9 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
       {/* Subtle 1px Progress Baseline (Stealth grey at rest -> radiant amber/red on bar hover) */}
       <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-neutral-900 pointer-events-none">
         <div
-          className="h-full bg-neutral-700 group-hover:bg-gradient-to-r group-hover:from-[#F5A623] group-hover:via-[#FFE066] group-hover:to-[#E50914] transition-all duration-200 ease-linear"
-          style={{ width: `${progressPct}%` }}
+          ref={progressFillDomRef}
+          className="h-full bg-neutral-700 group-hover:bg-gradient-to-r group-hover:from-[#F5A623] group-hover:via-[#FFE066] group-hover:to-[#E50914]"
+          style={{ width: `${initialProgressPct}%` }}
         />
       </div>
 

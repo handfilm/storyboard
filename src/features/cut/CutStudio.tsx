@@ -34,6 +34,7 @@ import {
 import { CutEditorTimeline } from '../../components/CutEditorTimeline';
 import { getShotDurationSec, MIN_SHOT_DURATION_SEC } from '../../types/storyboard';
 import { eventBus } from '../../core/eventBus';
+import { cutClock, syncVideoCurrentTimeWithFastSeek } from '../../utils/playbackClock';
 import {
   Scissors,
   Play,
@@ -372,7 +373,9 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
   }, [shotMediaMap, project.shots]);
 
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
+  // Discrete React state for cut-boundary swaps & paused snapshots; 60 FPS ticks use playheadTimeRef + cutClock
   const [playheadTime, setPlayheadTime] = useState<number>(0);
+  const playheadTimeRef = useRef<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [monitorVolume, setMonitorVolume] = useState<number>(1.0); // 0 .. 2.0 (200% VLC boost)
   const [isMonitorMuted, setIsMonitorMuted] = useState<boolean>(false);
@@ -385,10 +388,16 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
   const [exportNotification, setExportNotification] = useState<string | null>(null);
 
   const monitorContainerRef = useRef<HTMLDivElement>(null);
+  const monitorTimecodeDomRef = useRef<HTMLSpanElement>(null);
   const v1VideoRef = useRef<HTMLVideoElement | null>(null);
   const v2VideoRef = useRef<HTMLVideoElement | null>(null);
   const audioPoolRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const playheadRafRef = useRef<number | null>(null);
+  const prevActiveClipsRef = useRef<{ v1: string | null; v2: string | null; t1: string | null }>({
+    v1: null,
+    v2: null,
+    t1: null
+  });
   const dragTransformRef = useRef<{
     mode: 'move' | 'scale';
     clipId: string;
@@ -456,10 +465,171 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
     setRedoStack(r => r.slice(0, -1));
   }, [redoStack, clips]);
 
-  // Playback Loop (respects monitorSpeed)
+  const clipsRef = useRef(clips);
+  clipsRef.current = clips;
+  const trackStatesRef = useRef(trackStates);
+  trackStatesRef.current = trackStates;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const monitorSpeedRef = useRef(monitorSpeed);
+  monitorSpeedRef.current = monitorSpeed;
+  const monitorVolumeRef = useRef(monitorVolume);
+  monitorVolumeRef.current = monitorVolume;
+  const isMonitorMutedRef = useRef(isMonitorMuted);
+  isMonitorMutedRef.current = isMonitorMuted;
+  const anyAudioTrackSoloedRef = useRef(anyAudioTrackSoloed);
+  anyAudioTrackSoloedRef.current = anyAudioTrackSoloed;
+
+  // Helper to sync a video element cleanly via video.fastSeek() & speed/audio at a specific time
+  const syncVideoElementAtTime = useCallback(
+    (el: HTMLVideoElement | null, clip: TimelineClip | null, tSec: number, playing: boolean) => {
+      if (!el || !clip || clip.type !== 'video' || !clip.url) return;
+
+      const curTrackStates = trackStatesRef.current;
+      const curSpeed = monitorSpeedRef.current;
+      const curMuted = isMonitorMutedRef.current;
+      const curVol = monitorVolumeRef.current;
+
+      const targetMediaTime = computeClipMediaTime(clip, tSec);
+      const speedMult = Math.max(0.25, Math.min(4.0, (clip.speed?.multiplier ?? 1) * curSpeed));
+      const isFrozen = Boolean(clip.speed?.isFrozen);
+      const isReversed = Boolean(clip.speed?.isReversed);
+
+      // Sub-millisecond fastSeek precision when paused, frozen, reversed, or scrubbing; loose guard while hardware plays
+      const driftTolerance = playing && !isFrozen && !isReversed ? 0.16 : 0.0005;
+      if (Number.isFinite(targetMediaTime) && el.readyState >= 1) {
+        syncVideoCurrentTimeWithFastSeek(el, targetMediaTime, driftTolerance);
+      }
+
+      if (Math.abs(el.playbackRate - speedMult) > 0.02) {
+        try {
+          el.playbackRate = speedMult;
+        } catch {}
+      }
+
+      const trackMutedOrUnsoloed = Boolean(curTrackStates[clip.trackId]?.muted);
+      const clipGain =
+        computeAudioClipGain(
+          clip,
+          tSec,
+          curTrackStates[clip.trackId],
+          false,
+          curMuted || trackMutedOrUnsoloed
+        ) * curVol;
+      applyVlcMediaGain(el, clipGain, curMuted || trackMutedOrUnsoloed || clipGain <= 0.001);
+
+      if (playing && !isFrozen && !isReversed) {
+        if (el.paused && el.readyState >= 2) {
+          el.play().catch(() => {});
+        }
+      } else if (!el.paused) {
+        el.pause();
+      }
+    },
+    []
+  );
+
+  // Sync V1, V2, and A1/A2/VO media elements directly at 60 FPS without React state re-renders
+  const syncAllMediaAtTime = useCallback(
+    (tSec: number, playing: boolean) => {
+      const curClips = clipsRef.current;
+      const curTrackStates = trackStatesRef.current;
+      const curSpeed = monitorSpeedRef.current;
+      const curVol = monitorVolumeRef.current;
+      const curMuted = isMonitorMutedRef.current;
+      const curSolo = anyAudioTrackSoloedRef.current;
+
+      const v1Clip = !curTrackStates.V1?.hidden
+        ? curClips.find((c) => c.trackId === 'V1' && tSec >= c.start && tSec <= c.start + c.duration) || null
+        : null;
+      const v2Clip = !curTrackStates.V2?.hidden
+        ? curClips.find((c) => c.trackId === 'V2' && tSec >= c.start && tSec <= c.start + c.duration) || null
+        : null;
+      const t1Clip = !curTrackStates.T1?.hidden
+        ? curClips.find((c) => c.trackId === 'T1' && tSec >= c.start && tSec <= c.start + c.duration) || null
+        : null;
+
+      syncVideoElementAtTime(v1VideoRef.current, v1Clip, tSec, playing);
+      syncVideoElementAtTime(v2VideoRef.current, v2Clip, tSec, playing);
+
+      const pool = audioPoolRef.current;
+      const activeAudioClips = curClips.filter(
+        (c) =>
+          (c.trackId === 'A1' || c.trackId === 'A2' || c.trackId === 'VO') &&
+          Boolean(c.url) &&
+          tSec >= c.start &&
+          tSec <= c.start + c.duration
+      );
+      const activeIds = new Set(activeAudioClips.map((c) => c.id));
+
+      pool.forEach((el, id) => {
+        if (!activeIds.has(id) && !el.paused) {
+          el.pause();
+        }
+      });
+
+      activeAudioClips.forEach((clip) => {
+        if (!clip.url) return;
+        let el = pool.get(clip.id);
+        if (!el) {
+          el = new Audio(clip.url);
+          el.preload = 'auto';
+          pool.set(clip.id, el);
+        } else if (el.src !== clip.url && !el.src.endsWith(clip.url)) {
+          el.src = clip.url;
+        }
+
+        const targetTime = computeClipMediaTime(clip, tSec);
+        const drift = Math.abs(el.currentTime - targetTime);
+        const tolerance = playing && !clip.speed?.isReversed ? 0.25 : 0.02;
+        if (Number.isFinite(targetTime) && drift > tolerance && el.readyState >= 1) {
+          try {
+            el.currentTime = targetTime;
+          } catch {}
+        }
+
+        const rate = Math.max(0.25, Math.min(4.0, (clip.speed?.multiplier || 1) * curSpeed));
+        if (Math.abs(el.playbackRate - rate) > 0.02) {
+          try {
+            el.playbackRate = rate;
+          } catch {}
+        }
+
+        const clipGain =
+          computeAudioClipGain(clip, tSec, curTrackStates[clip.trackId], curSolo, curMuted) * curVol;
+
+        applyVlcMediaGain(el, clipGain, curMuted || clipGain <= 0.001);
+
+        if (playing && !clip.speed?.isFrozen) {
+          if (el.paused) el.play().catch(() => {});
+        } else if (!el.paused) {
+          el.pause();
+        }
+      });
+
+      const nextV1Id = v1Clip?.id ?? null;
+      const nextV2Id = v2Clip?.id ?? null;
+      const nextT1Id = t1Clip?.id ?? null;
+      const prevIds = prevActiveClipsRef.current;
+      const boundaryChanged =
+        nextV1Id !== prevIds.v1 || nextV2Id !== prevIds.v2 || nextT1Id !== prevIds.t1;
+      prevActiveClipsRef.current = { v1: nextV1Id, v2: nextV2Id, t1: nextT1Id };
+      return boundaryChanged;
+    },
+    [syncVideoElementAtTime]
+  );
+
+  // High-performance 60 FPS Playback Loop: Direct-DOM cutClock + fastSeek (Zero React re-renders between cuts)
   useEffect(() => {
     if (!isPlaying) {
       if (playheadRafRef.current) cancelAnimationFrame(playheadRafRef.current);
+      const pausedAt = playheadTimeRef.current;
+      cutClock.emit({ timeSec: pausedAt, durationSec: totalDuration, fps: 24 });
+      if (monitorTimecodeDomRef.current) {
+        monitorTimecodeDomRef.current.textContent = formatTC(pausedAt);
+      }
+      syncAllMediaAtTime(pausedAt, false);
+      setPlayheadTime(pausedAt);
       return;
     }
 
@@ -468,14 +638,30 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
       const delta = Math.min(0.1, (now - lastTime) / 1000);
       lastTime = now;
 
-      setPlayheadTime(prev => {
-        const next = prev + delta * monitorSpeed;
-        if (next >= totalDuration) {
-          setIsPlaying(false);
-          return 0;
+      const next = playheadTimeRef.current + delta * monitorSpeed;
+      if (next >= totalDuration) {
+        playheadTimeRef.current = 0;
+        cutClock.emit({ timeSec: 0, durationSec: totalDuration, fps: 24 });
+        if (monitorTimecodeDomRef.current) {
+          monitorTimecodeDomRef.current.textContent = formatTC(0);
         }
-        return next;
-      });
+        syncAllMediaAtTime(0, false);
+        setIsPlaying(false);
+        setPlayheadTime(0);
+        return;
+      }
+
+      playheadTimeRef.current = next;
+      if (monitorTimecodeDomRef.current) {
+        monitorTimecodeDomRef.current.textContent = formatTC(next);
+      }
+      cutClock.emit({ timeSec: next, durationSec: totalDuration, fps: 24 });
+
+      const cutBoundaryCrossed = syncAllMediaAtTime(next, true);
+      if (cutBoundaryCrossed) {
+        // Trigger React mount/unmount swap ONLY when entering/exiting a clip
+        setPlayheadTime(next);
+      }
 
       playheadRafRef.current = requestAnimationFrame(tick);
     };
@@ -484,7 +670,24 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
     return () => {
       if (playheadRafRef.current) cancelAnimationFrame(playheadRafRef.current);
     };
-  }, [isPlaying, totalDuration, monitorSpeed]);
+  }, [isPlaying, totalDuration, monitorSpeed, syncAllMediaAtTime]);
+
+  // Direct seek / scrub handler (sub-millisecond video.fastSeek + direct DOM, avoids React re-render during drag)
+  const handleTimelineSeek = useCallback(
+    (targetTime: number, isContinuousScrub = false) => {
+      const clamped = Math.max(0, Math.min(totalDuration, targetTime));
+      playheadTimeRef.current = clamped;
+      if (monitorTimecodeDomRef.current) {
+        monitorTimecodeDomRef.current.textContent = formatTC(clamped);
+      }
+      cutClock.emit({ timeSec: clamped, durationSec: totalDuration, fps: 24 });
+      const boundaryCrossed = syncAllMediaAtTime(clamped, isPlayingRef.current);
+      if (!isContinuousScrub || boundaryCrossed) {
+        setPlayheadTime(clamped);
+      }
+    },
+    [totalDuration, syncAllMediaAtTime]
+  );
 
   // Active monitor clips (honoring track Hidden eye icon)
   const activeMonitorV1Clip = useMemo(() => {
@@ -502,133 +705,17 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
     return clips.find(c => c.trackId === 'T1' && playheadTime >= c.start && playheadTime <= c.start + c.duration) || null;
   }, [clips, playheadTime, trackStates]);
 
-  // Helper to sync a video element cleanly with playheadTime & clip speed/audio
   const syncVideoElement = useCallback(
     (el: HTMLVideoElement | null, clip: TimelineClip | null) => {
-      if (!el || !clip || clip.type !== 'video' || !clip.url) return;
-
-      const targetMediaTime = computeClipMediaTime(clip, playheadTime);
-      const speedMult = Math.max(0.25, Math.min(4.0, (clip.speed?.multiplier ?? 1) * monitorSpeed));
-      const isFrozen = Boolean(clip.speed?.isFrozen);
-      const isReversed = Boolean(clip.speed?.isReversed);
-      const drift = Math.abs(el.currentTime - targetMediaTime);
-
-      // Seek when paused, frozen, reversed, or drifted out of sync window
-      const tolerance = isPlaying && !isFrozen && !isReversed ? 0.25 : 0.04;
-      if (Number.isFinite(targetMediaTime) && drift > tolerance && el.readyState >= 1) {
-        try {
-          el.currentTime = targetMediaTime;
-        } catch {
-          // ignore media seek race
-        }
-      }
-
-      if (Math.abs(el.playbackRate - speedMult) > 0.02) {
-        try {
-          el.playbackRate = speedMult;
-        } catch {
-          // ignore unsupported rate
-        }
-      }
-
-      const trackMutedOrUnsoloed = Boolean(trackStates[clip.trackId]?.muted);
-      const clipGain =
-        computeAudioClipGain(
-          clip,
-          playheadTime,
-          trackStates[clip.trackId],
-          false,
-          isMonitorMuted || trackMutedOrUnsoloed
-        ) * monitorVolume;
-      applyVlcMediaGain(el, clipGain, isMonitorMuted || trackMutedOrUnsoloed || clipGain <= 0.001);
-
-      if (isPlaying && !isFrozen && !isReversed) {
-        if (el.paused && el.readyState >= 2) {
-          el.play().catch(() => {});
-        }
-      } else {
-        if (!el.paused) {
-          el.pause();
-        }
-      }
+      syncVideoElementAtTime(el, clip, playheadTimeRef.current, isPlayingRef.current);
     },
-    [playheadTime, isPlaying, monitorSpeed, trackStates, isMonitorMuted, monitorVolume]
+    [syncVideoElementAtTime]
   );
 
-  // Sync V1 & V2 video elements on every playhead / playback / mix change
+  // Re-sync discrete parameter changes (clips edits, track mute/solo, monitor speed/volume)
   useEffect(() => {
-    syncVideoElement(v1VideoRef.current, activeMonitorV1Clip);
-    syncVideoElement(v2VideoRef.current, activeMonitorV2Clip);
-  }, [syncVideoElement, activeMonitorV1Clip, activeMonitorV2Clip]);
-
-  // Sync A1 / A2 / VO <audio> elements with URLs + track Mute/Solo + VLC Preamp Gain
-  useEffect(() => {
-    const pool = audioPoolRef.current;
-    const activeAudioClips = clips.filter(
-      c =>
-        (c.trackId === 'A1' || c.trackId === 'A2' || c.trackId === 'VO') &&
-        Boolean(c.url) &&
-        playheadTime >= c.start &&
-        playheadTime <= c.start + c.duration
-    );
-    const activeIds = new Set(activeAudioClips.map(c => c.id));
-
-    // Pause inactive audio pool elements
-    pool.forEach((el, id) => {
-      if (!activeIds.has(id) && !el.paused) {
-        el.pause();
-      }
-    });
-
-    activeAudioClips.forEach(clip => {
-      if (!clip.url) return;
-      let el = pool.get(clip.id);
-      if (!el) {
-        el = new Audio(clip.url);
-        el.preload = 'auto';
-        pool.set(clip.id, el);
-      } else if (el.src !== clip.url && !el.src.endsWith(clip.url)) {
-        el.src = clip.url;
-      }
-
-      const targetTime = computeClipMediaTime(clip, playheadTime);
-      const drift = Math.abs(el.currentTime - targetTime);
-      const tolerance = isPlaying && !clip.speed.isReversed ? 0.28 : 0.05;
-      if (Number.isFinite(targetTime) && drift > tolerance && el.readyState >= 1) {
-        try {
-          el.currentTime = targetTime;
-        } catch {
-          // ignore
-        }
-      }
-
-      const rate = Math.max(0.25, Math.min(4.0, (clip.speed?.multiplier || 1) * monitorSpeed));
-      if (Math.abs(el.playbackRate - rate) > 0.02) {
-        try {
-          el.playbackRate = rate;
-        } catch {
-          // ignore
-        }
-      }
-
-      const clipGain =
-        computeAudioClipGain(
-          clip,
-          playheadTime,
-          trackStates[clip.trackId],
-          anyAudioTrackSoloed,
-          isMonitorMuted
-        ) * monitorVolume;
-
-      applyVlcMediaGain(el, clipGain, isMonitorMuted || clipGain <= 0.001);
-
-      if (isPlaying && !clip.speed?.isFrozen) {
-        if (el.paused) el.play().catch(() => {});
-      } else if (!el.paused) {
-        el.pause();
-      }
-    });
-  }, [clips, playheadTime, isPlaying, monitorSpeed, monitorVolume, isMonitorMuted, trackStates, anyAudioTrackSoloed]);
+    syncAllMediaAtTime(playheadTimeRef.current, isPlaying);
+  }, [clips, trackStates, monitorSpeed, monitorVolume, isMonitorMuted, anyAudioTrackSoloed, isPlaying, syncAllMediaAtTime]);
 
   // Pointer drag/scale handling for Program Monitor bounding box
   useEffect(() => {
@@ -702,9 +789,10 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
     const targetClip = selectedClip || activeMonitorV1Clip;
     if (!targetClip) return;
 
-    let splitTimelineSec = playheadTime;
+    const currentTime = playheadTimeRef.current;
+    let splitTimelineSec = currentTime;
     if (audioEngine.getIsSnapToBeatEnabled()) {
-      const snapped = audioEngine.snapTimeToNearestBeat(playheadTime, 0.35);
+      const snapped = audioEngine.snapTimeToNearestBeat(currentTime, 0.35);
       if (
         snapped >= targetClip.start + MIN_SHOT_DURATION_SEC &&
         snapped <= targetClip.start + targetClip.duration - MIN_SHOT_DURATION_SEC
@@ -739,9 +827,11 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
     setClips(prev => prev.map(c => c.id === targetClip.id ? part1 : c).concat(part2));
     setSelectedClipId(part2.id);
+    playheadTimeRef.current = splitTimelineSec;
+    cutClock.emit({ timeSec: splitTimelineSec });
     setPlayheadTime(splitTimelineSec);
     audioEngine.playShutterClick();
-  }, [selectedClip, activeMonitorV1Clip, playheadTime, clips, pushUndo]);
+  }, [selectedClip, activeMonitorV1Clip, clips, pushUndo]);
 
   const handleDuplicateClip = (clip: TimelineClip) => {
     pushUndo(clips);
@@ -770,13 +860,13 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
   const handleFreezeFrame = useCallback((clipId: string) => {
     pushUndo(clips);
-    const res = freezeFrameAtPlayhead(clips, clipId, playheadTime, 2.0);
+    const res = freezeFrameAtPlayhead(clips, clipId, playheadTimeRef.current, 2.0);
     setClips(res.clips);
     if (res.freezeClipId) {
       setSelectedClipId(res.freezeClipId);
       notify('Inserted 2.0s Freeze Frame at playhead');
     }
-  }, [clips, playheadTime, pushUndo, notify]);
+  }, [clips, pushUndo, notify]);
 
   const handleDetachAudio = useCallback((clipId: string) => {
     pushUndo(clips);
@@ -806,7 +896,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
           trackId: 'A2',
           name: file.name,
           type: 'audio',
-          start: playheadTime,
+          start: playheadTimeRef.current,
           duration: Number(dur.toFixed(2)),
           inPoint: 0,
           outPoint: Number(dur.toFixed(2)),
@@ -824,7 +914,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
       },
       { once: true }
     );
-  }, [clips, playheadTime, pushUndo, notify]);
+  }, [clips, pushUndo, notify]);
 
   // Two-Way Sync: FROM BOARD
   const handleSyncFromBoard = () => {
@@ -1174,7 +1264,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       const files = Array.from(e.target.files || []);
                       if (files.length === 0) return;
                       pushUndo(clips);
-                      let insertAt = playheadTime;
+                      let insertAt = playheadTimeRef.current;
                       const added: TimelineClip[] = [];
                       files.forEach((file, idx) => {
                         const url = URL.createObjectURL(file);
@@ -1218,7 +1308,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                         trackId: 'V1',
                         name: `${pal.name}`,
                         type: 'image',
-                        start: Number(playheadTime.toFixed(3)),
+                        start: Number(playheadTimeRef.current.toFixed(3)),
                         duration: 3.0,
                         inPoint: 0,
                         outPoint: 3.0,
@@ -1285,7 +1375,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       trackId: 'A1',
                       name: fx.name,
                       type: 'audio',
-                      start: Number(playheadTime.toFixed(3)),
+                      start: Number(playheadTimeRef.current.toFixed(3)),
                       duration: fx.dur,
                       inPoint: 0,
                       outPoint: fx.dur,
@@ -1329,7 +1419,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       trackId: 'T1',
                       name: `Title: ${t.en}`,
                       type: 'text',
-                      start: Number(playheadTime.toFixed(3)),
+                      start: Number(playheadTimeRef.current.toFixed(3)),
                       duration: 3.0,
                       inPoint: 0,
                       outPoint: 3.0,
@@ -1375,7 +1465,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                         trackId: 'V2',
                         name: `PiP: ${file.name}`,
                         type: isVid ? 'video' : 'image',
-                        start: Number(playheadTime.toFixed(3)),
+                        start: Number(playheadTimeRef.current.toFixed(3)),
                         duration: 4.0,
                         inPoint: 0,
                         outPoint: 4.0,
@@ -1410,7 +1500,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       trackId: 'V2',
                       name: st.name,
                       type: 'sticker',
-                      start: Number(playheadTime.toFixed(3)),
+                      start: Number(playheadTimeRef.current.toFixed(3)),
                       duration: 4.0,
                       inPoint: 0,
                       outPoint: 4.0,
@@ -1874,7 +1964,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
           <div className="h-10 bg-[#08080C] border border-white/10 mt-2 px-3 rounded-[2px] flex items-center justify-between text-xs shrink-0 gap-2 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => setPlayheadTime(0)}
+                onClick={() => handleTimelineSeek(0, false)}
                 className="p-1 hover:text-[#FFE066] text-white/60 cursor-pointer"
                 title="Rewind to start"
               >
@@ -1891,13 +1981,16 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                 {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
               </button>
               <button
-                onClick={() => setPlayheadTime(t => Math.min(totalDuration, t + 1))}
+                onClick={() => handleTimelineSeek(Math.min(totalDuration, playheadTimeRef.current + 1), false)}
                 className="p-1 hover:text-[#FFE066] text-white/60 cursor-pointer"
                 title="Step forward 1s"
               >
                 <FastForward className="w-3.5 h-3.5" />
               </button>
-              <span className="font-mono-tech text-xs text-[#FFE066] font-bold ml-1 tabular-nums">
+              <span
+                ref={monitorTimecodeDomRef}
+                className="font-mono-tech text-xs text-[#FFE066] font-bold ml-1 tabular-nums"
+              >
                 {formatTC(playheadTime)}
               </span>
               <span className="text-white/40 text-[10px] tabular-nums">/ {formatTC(totalDuration)}</span>
@@ -2473,7 +2566,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
         isPlaying={isPlaying}
         selectedClipId={selectedClipId}
         onSelectClip={setSelectedClipId}
-        onSeek={setPlayheadTime}
+        onSeek={handleTimelineSeek}
         onSplitClip={handleSplitAtPlayhead}
         onRippleDeleteClip={handleRippleDelete}
         onFreezeFrame={handleFreezeFrame}

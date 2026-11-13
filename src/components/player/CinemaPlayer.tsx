@@ -24,7 +24,12 @@ import { keyScopeManager } from '../../core/keyScopeManager';
 import { useStudioStore } from '../../core/store';
 import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
 import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
-import { isVideoMediaUrl, type VlcAbLoop, type VlcLoopMode } from '../../utils/playbackClock';
+import {
+  isVideoMediaUrl,
+  syncVideoCurrentTimeWithFastSeek,
+  type VlcAbLoop,
+  type VlcLoopMode
+} from '../../utils/playbackClock';
 import { 
   Play, 
   Pause, 
@@ -81,6 +86,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
+  const bufferedBarDomRef = useRef<HTMLDivElement>(null);
+  const progressBarDomRef = useRef<HTMLDivElement>(null);
+  const scrubKnobDomRef = useRef<HTMLDivElement>(null);
+  const timecodeDomRef = useRef<HTMLButtonElement>(null);
   const hideHudTimerRef = useRef<number | null>(null);
   const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
 
@@ -94,11 +103,12 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     activeFrame?.imageUrl ||
     '';
 
-  // Playback States
+  // Playback States (no 60fps currentTime React state re-renders)
   const [isPlaying, setIsPlaying] = useState(true);
-  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(12.0); // Updated dynamically from metadata
-  const [bufferedTime, setBufferedTime] = useState(0);
+  const currentTimeRef = useRef<number>(0);
+  const durationRef = useRef<number>(12.0);
+  const bufferedTimeRef = useRef<number>(0);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(0.85);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
@@ -128,6 +138,16 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [pipWarning, setPipWarning] = useState<string | null>(null);
 
+  const abLoopRef = useRef(abLoop);
+  abLoopRef.current = abLoop;
+  const showRemainingTimeRef = useRef(showRemainingTime);
+  showRemainingTimeRef.current = showRemainingTime;
+  const playSubclipOnlyRef = useRef(playSubclipOnly);
+  playSubclipOnlyRef.current = playSubclipOnly;
+  const activeFrameRef = useRef(activeFrame);
+  activeFrameRef.current = activeFrame;
+  durationRef.current = duration;
+
   const isVideo = activeVaultEntry
     ? activeVaultEntry.type === 'video'
     : isVideoMediaUrl(
@@ -138,7 +158,8 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
 
   useEffect(() => {
     setAbLoop({ a: null, b: null });
-    setCurrentTime(0);
+    currentTimeRef.current = 0;
+    bufferedTimeRef.current = 0;
   }, [currentIndex]);
 
   // Key Scope Layer Management & Hardware Fullscreen
@@ -236,29 +257,59 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     showControlsTemporarily();
   }, [showControlsTemporarily, triggerBeacon]);
 
+  // Direct DOM flush for 60 FPS scrubber + timecode (zero React re-renders)
+  const flushDirectPlayerDom = useCallback((curSec: number, durSec?: number, bufSec?: number) => {
+    currentTimeRef.current = curSec;
+    const dur = durSec && durSec > 0 ? durSec : durationRef.current;
+    const buf = bufSec !== undefined ? bufSec : bufferedTimeRef.current;
+    const pct = dur > 0 ? Math.min(100, Math.max(0, (curSec / dur) * 100)) : 0;
+    const bufPct = dur > 0 ? Math.min(100, Math.max(pct, (buf / dur) * 100)) : 0;
+
+    if (progressBarDomRef.current) {
+      progressBarDomRef.current.style.width = `${pct.toFixed(3)}%`;
+    }
+    if (bufferedBarDomRef.current) {
+      bufferedBarDomRef.current.style.width = `${bufPct.toFixed(3)}%`;
+    }
+    if (scrubKnobDomRef.current) {
+      scrubKnobDomRef.current.style.left = `${pct.toFixed(3)}%`;
+    }
+    if (timecodeDomRef.current) {
+      timecodeDomRef.current.textContent = showRemainingTimeRef.current
+        ? formatTime(Math.max(0, dur - curSec), true)
+        : `${formatTime(curSec)} / ${formatTime(dur)}`;
+    }
+  }, [formatTime]);
+
+  useEffect(() => {
+    flushDirectPlayerDom(currentTimeRef.current, duration, bufferedTimeRef.current);
+  }, [duration, showRemainingTime, currentIndex, flushDirectPlayerDom]);
+
   // Skip 10s Backward
   const skipBackward = useCallback(() => {
     if (videoRef.current) {
-      videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
-      setCurrentTime(videoRef.current.currentTime);
+      const next = Math.max(0, videoRef.current.currentTime - 10);
+      syncVideoCurrentTimeWithFastSeek(videoRef.current, next, 0.0005);
+      flushDirectPlayerDom(next);
     } else {
-      setCurrentTime(t => Math.max(0, t - 10));
+      flushDirectPlayerDom(Math.max(0, currentTimeRef.current - 10));
     }
     triggerBeacon('rwd');
     showControlsTemporarily();
-  }, [showControlsTemporarily, triggerBeacon]);
+  }, [showControlsTemporarily, triggerBeacon, flushDirectPlayerDom]);
 
   // Skip 10s Forward
   const skipForward = useCallback(() => {
     if (videoRef.current) {
-      videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
-      setCurrentTime(videoRef.current.currentTime);
+      const next = Math.min(durationRef.current, videoRef.current.currentTime + 10);
+      syncVideoCurrentTimeWithFastSeek(videoRef.current, next, 0.0005);
+      flushDirectPlayerDom(next);
     } else {
-      setCurrentTime(t => Math.min(duration, t + 10));
+      flushDirectPlayerDom(Math.min(durationRef.current, currentTimeRef.current + 10));
     }
     triggerBeacon('fwd');
     showControlsTemporarily();
-  }, [duration, showControlsTemporarily, triggerBeacon]);
+  }, [showControlsTemporarily, triggerBeacon, flushDirectPlayerDom]);
 
   // Frame Step (1 frame at 24fps)
   const stepFrame = useCallback((forward: boolean) => {
@@ -267,15 +318,22 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
       videoRef.current.pause();
       setIsPlaying(false);
       const nextTime = forward
-        ? Math.min(duration, videoRef.current.currentTime + frameDelta)
+        ? Math.min(durationRef.current, videoRef.current.currentTime + frameDelta)
         : Math.max(0, videoRef.current.currentTime - frameDelta);
-      videoRef.current.currentTime = nextTime;
-      setCurrentTime(nextTime);
+      try {
+        videoRef.current.currentTime = nextTime;
+      } catch {
+        syncVideoCurrentTimeWithFastSeek(videoRef.current, nextTime, 0.0005);
+      }
+      flushDirectPlayerDom(nextTime);
     } else {
-      setCurrentTime(t => forward ? Math.min(duration, t + frameDelta) : Math.max(0, t - frameDelta));
+      const nextTime = forward
+        ? Math.min(durationRef.current, currentTimeRef.current + frameDelta)
+        : Math.max(0, currentTimeRef.current - frameDelta);
+      flushDirectPlayerDom(nextTime);
     }
     showControlsTemporarily();
-  }, [duration, showControlsTemporarily]);
+  }, [showControlsTemporarily, flushDirectPlayerDom]);
 
   // Volume & Mute control (VLC 0% - 200% Preamp)
   const toggleMute = useCallback(() => {
@@ -429,38 +487,69 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     showControlsTemporarily();
   }, [showControlsTemporarily]);
 
-  // Video Time Update & Buffer Progress
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      const cur = videoRef.current.currentTime;
-      setCurrentTime(cur);
+  // High-performance 60 FPS rAF clock sync (bypasses React useState re-renders completely)
+  useEffect(() => {
+    if (!isOpen || !isPlaying || !isVideo) return;
+    let rafId: number | null = null;
 
-      // Handle VLC A-B Loop Enforcement
-      if (abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a + 0.08) {
-        if (cur >= abLoop.b) {
-          videoRef.current.currentTime = abLoop.a;
-          setCurrentTime(abLoop.a);
+    const tick = () => {
+      const vid = videoRef.current;
+      if (vid && !vid.seeking && !vid.paused && vid.readyState >= 2) {
+        const cur = vid.currentTime;
+        const dur = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : durationRef.current;
+        if (Math.abs(dur - durationRef.current) > 0.05) {
+          durationRef.current = dur;
         }
-      }
 
-      // Handle Subclip Loop Enforcement
-      if (playSubclipOnly && activeFrame.subclipInSec !== undefined && activeFrame.subclipOutSec !== undefined) {
-        if (cur >= activeFrame.subclipOutSec) {
-          videoRef.current.currentTime = activeFrame.subclipInSec;
+        // Handle VLC A-B Loop Enforcement with fastSeek
+        const loop = abLoopRef.current;
+        if (loop.a !== null && loop.b !== null && loop.b > loop.a + 0.08 && cur >= loop.b) {
+          syncVideoCurrentTimeWithFastSeek(vid, loop.a, 0.0005);
+          flushDirectPlayerDom(loop.a, dur);
+          rafId = requestAnimationFrame(tick);
+          return;
         }
-      }
 
-      // Buffer ranges
-      const buf = videoRef.current.buffered;
-      if (buf && buf.length > 0) {
-        for (let i = 0; i < buf.length; i++) {
-          if (buf.start(i) <= cur && cur <= buf.end(i)) {
-            setBufferedTime(buf.end(i));
-            break;
+        // Handle Subclip Loop Enforcement with fastSeek
+        const af = activeFrameRef.current;
+        if (playSubclipOnlyRef.current && af?.subclipInSec !== undefined && af?.subclipOutSec !== undefined) {
+          if (cur >= af.subclipOutSec) {
+            syncVideoCurrentTimeWithFastSeek(vid, af.subclipInSec, 0.0005);
+            flushDirectPlayerDom(af.subclipInSec, dur);
+            rafId = requestAnimationFrame(tick);
+            return;
           }
         }
+
+        // Buffer ranges
+        let bufEnd = bufferedTimeRef.current;
+        const buf = vid.buffered;
+        if (buf && buf.length > 0) {
+          for (let i = 0; i < buf.length; i++) {
+            if (buf.start(i) <= cur && cur <= buf.end(i)) {
+              bufEnd = buf.end(i);
+              bufferedTimeRef.current = bufEnd;
+              break;
+            }
+          }
+        }
+
+        flushDirectPlayerDom(cur, dur, bufEnd);
       }
-    }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [isOpen, isPlaying, isVideo, flushDirectPlayerDom]);
+
+  // Fallback low-frequency sync when paused/buffering
+  const handleTimeUpdate = () => {
+    if (!videoRef.current || isPlaying) return;
+    const cur = videoRef.current.currentTime;
+    flushDirectPlayerDom(cur);
   };
 
   // Video metadata loaded
@@ -468,12 +557,14 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     if (videoRef.current) {
       const dur = videoRef.current.duration;
       if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
+        durationRef.current = dur;
         setDuration(dur);
       }
       videoRef.current.playbackRate = playbackSpeed;
       applyVlcMediaGain(videoRef.current, volume, isMuted);
       if (playSubclipOnly && activeFrame.subclipInSec !== undefined) {
-        videoRef.current.currentTime = activeFrame.subclipInSec;
+        syncVideoCurrentTimeWithFastSeek(videoRef.current, activeFrame.subclipInSec, 0.0005);
+        flushDirectPlayerDom(activeFrame.subclipInSec);
       }
       if (isPlaying) {
         videoRef.current.play().catch(() => {});
@@ -481,17 +572,15 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     }
   };
 
-  // Scrubber scrubbing
+  // Scrubber scrubbing via video.fastSeek() + direct DOM update (zero React state re-renders)
   const handleScrubberMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!scrubberRef.current) return;
     setIsDraggingScrubber(true);
     const rect = scrubberRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const targetTime = pct * duration;
-    setCurrentTime(targetTime);
-    if (videoRef.current) {
-      videoRef.current.currentTime = targetTime;
-    }
+    const targetTime = pct * durationRef.current;
+    flushDirectPlayerDom(targetTime);
+    syncVideoCurrentTimeWithFastSeek(videoRef.current, targetTime, 0.0005);
   };
 
   const handleScrubberMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -499,14 +588,12 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     const rect = scrubberRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setHoverPosition(pct * 100);
-    setHoverTime(pct * duration);
+    setHoverTime(pct * durationRef.current);
 
     if (isDraggingScrubber) {
-      const targetTime = pct * duration;
-      setCurrentTime(targetTime);
-      if (videoRef.current) {
-        videoRef.current.currentTime = targetTime;
-      }
+      const targetTime = pct * durationRef.current;
+      flushDirectPlayerDom(targetTime);
+      syncVideoCurrentTimeWithFastSeek(videoRef.current, targetTime, 0.0005);
     }
   };
 
@@ -516,11 +603,9 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     const touch = e.touches[0];
     const rect = scrubberRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-    const targetTime = pct * duration;
-    setCurrentTime(targetTime);
-    if (videoRef.current) {
-      videoRef.current.currentTime = targetTime;
-    }
+    const targetTime = pct * durationRef.current;
+    flushDirectPlayerDom(targetTime);
+    syncVideoCurrentTimeWithFastSeek(videoRef.current, targetTime, 0.0005);
     showControlsTemporarily();
   };
 
@@ -530,12 +615,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     const rect = scrubberRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
     setHoverPosition(pct * 100);
-    setHoverTime(pct * duration);
-    const targetTime = pct * duration;
-    setCurrentTime(targetTime);
-    if (videoRef.current) {
-      videoRef.current.currentTime = targetTime;
-    }
+    setHoverTime(pct * durationRef.current);
+    const targetTime = pct * durationRef.current;
+    flushDirectPlayerDom(targetTime);
+    syncVideoCurrentTimeWithFastSeek(videoRef.current, targetTime, 0.0005);
   };
 
   // Touch double-tap skipping
@@ -630,8 +713,8 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
     }
   };
 
-  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const bufferPct = duration > 0 ? (bufferedTime / duration) * 100 : 0;
+  const progressPct = duration > 0 ? (currentTimeRef.current / duration) * 100 : 0;
+  const bufferPct = duration > 0 ? (bufferedTimeRef.current / duration) * 100 : 0;
 
   return (
     <div
@@ -911,6 +994,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
           <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden relative group-hover:h-2 transition-all">
             {/* Buffered progress */}
             <div 
+              ref={bufferedBarDomRef}
               style={{ width: `${bufferPct}%` }}
               className="absolute left-0 top-0 bottom-0 bg-white/30"
             />
@@ -926,6 +1010,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
             )}
             {/* Playhead progress */}
             <div 
+              ref={progressBarDomRef}
               style={{ width: `${progressPct}%` }}
               className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#D4AF37] to-[#FFE066]"
             />
@@ -933,6 +1018,7 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
 
           {/* Scrub Knob */}
           <div 
+            ref={scrubKnobDomRef}
             style={{ left: `${progressPct}%` }}
             className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-[#FFE066] border-2 border-black shadow-[0_0_8px_rgba(212,175,55,0.8)] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
           />
@@ -1034,14 +1120,15 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
 
             {/* Timecode display */}
             <button
+              ref={timecodeDomRef}
               type="button"
               onClick={() => setShowRemainingTime(r => !r)}
               className="text-xs font-mono font-bold text-white/90 hover:text-[#D4AF37] transition-colors cursor-pointer ml-2 tabular-nums"
               title="Click to Toggle Remaining Time"
             >
               {showRemainingTime
-                ? formatTime(duration - currentTime, true)
-                : `${formatTime(currentTime)} / ${formatTime(duration)}`}
+                ? formatTime(duration - currentTimeRef.current, true)
+                : `${formatTime(currentTimeRef.current)} / ${formatTime(duration)}`}
             </button>
           </div>
 
@@ -1051,7 +1138,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
             <div className="hidden md:flex items-center rounded border border-white/15 bg-black/50 text-[10px] font-mono overflow-hidden">
               <button
                 type="button"
-                onClick={() => setAbLoop((p) => ({ a: currentTime, b: p.b !== null && p.b <= currentTime ? null : p.b }))}
+                onClick={() => {
+                  const t = currentTimeRef.current;
+                  setAbLoop((p) => ({ a: t, b: p.b !== null && p.b <= t ? null : p.b }));
+                }}
                 className={`px-2 py-1 cursor-pointer ${abLoop.a !== null ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-white/60 hover:text-white'}`}
                 title="Set A-B Loop Start"
               >
@@ -1059,7 +1149,10 @@ export const CinemaPlayer: React.FC<CinemaPlayerProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setAbLoop((p) => ({ a: p.a ?? 0, b: Math.max((p.a ?? 0) + 0.1, currentTime) }))}
+                onClick={() => {
+                  const t = currentTimeRef.current;
+                  setAbLoop((p) => ({ a: p.a ?? 0, b: Math.max((p.a ?? 0) + 0.1, t) }));
+                }}
                 className={`px-2 py-1 border-l border-white/15 cursor-pointer ${abLoop.b !== null ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-white/60 hover:text-white'}`}
                 title="Set A-B Loop End"
               >

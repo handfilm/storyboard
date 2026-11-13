@@ -270,19 +270,14 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     setCurrentFrame(Math.floor(slideTimeSec * activeFps));
   }, [slideTimeSec, activeFps]);
 
-  // Hook 1: Professional Video Playback Engine
+  // Hook 1: Professional Video Playback Engine (60fps direct-DOM playbackClock; no React re-renders)
   const engine = useVideoPlaybackEngine({
     totalSlides,
     initialSlideIndex: currentIndex,
     initialMode: playbackMode,
     fps: activeFps,
     activeSlideDurationSec: SLIDE_MAX_TIME,
-    onSlideChange: () => {},
-    onTimeUpdate: (sSec) => {
-      if (isPlaying) {
-        onScrubSlideTime(sSec);
-      }
-    }
+    onSlideChange: () => {}
   });
 
   // Attach active video element & strictly sync hardware state with React props

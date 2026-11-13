@@ -20,6 +20,7 @@ import {
 } from '../types/storyboard';
 import { audioEngine } from '../services/audioEngine';
 import { getCachedThumbnailUrl, isSvgPlaceholderUrl, isVideoSourceUrl } from '../services/thumbnailEngine';
+import { playbackClock } from '../utils/playbackClock';
 import { ShotMediaThumbnail } from './ShotMediaThumbnail';
 import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import {
@@ -298,6 +299,48 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const shotOffsets = useMemo(() => getCumulativeShotOffsets(safeFrames), [safeFrames]);
   const currentShotStartSec = shotOffsets[currentIndex]?.startSec ?? 0;
   const tcString = formatFullSMPTETimecode(currentShotStartSec + slideTimeSec, currentFps);
+
+  const tcDomRef = useRef<HTMLSpanElement | null>(null);
+  const activeShotProgressDomRef = useRef<HTMLDivElement | null>(null);
+  const activeShotRelTcDomRef = useRef<HTMLSpanElement | null>(null);
+  const dockClockCtxRef = useRef({
+    currentIndex,
+    currentShotStartSec,
+    currentDurationSec,
+    currentFps,
+    isPlaying
+  });
+  dockClockCtxRef.current = {
+    currentIndex,
+    currentShotStartSec,
+    currentDurationSec,
+    currentFps,
+    isPlaying
+  };
+
+  useEffect(() => {
+    return playbackClock.subscribe((snap) => {
+      const ctx = dockClockCtxRef.current;
+      const activeStart = snap.shotStartSec > 0 || snap.shotIndex === 0 ? snap.shotStartSec : ctx.currentShotStartSec;
+      const activeFps = snap.fps > 0 ? snap.fps : ctx.currentFps;
+      const activeDur = snap.durationSec > 0 ? snap.durationSec : ctx.currentDurationSec;
+
+      if (tcDomRef.current) {
+        tcDomRef.current.textContent = formatFullSMPTETimecode(activeStart + snap.timeSec, activeFps);
+      }
+      if (snap.shotIndex === ctx.currentIndex) {
+        if (activeShotProgressDomRef.current) {
+          const pct = activeDur > 0 ? Math.min(100, Math.max(0, (snap.timeSec / activeDur) * 100)) : 0;
+          activeShotProgressDomRef.current.style.width = `${pct.toFixed(3)}%`;
+        }
+        if (activeShotRelTcDomRef.current && ctx.isPlaying) {
+          const relFrames = Math.floor((snap.timeSec % 1) * activeFps);
+          const relSecondsPart = Math.floor(snap.timeSec);
+          activeShotRelTcDomRef.current.textContent = `+${String(relSecondsPart).padStart(2, '0')}:${String(relFrames).padStart(2, '0')}F`;
+        }
+      }
+    });
+  }, []);
 
   // Director's Cockpit — Bridge Shots Manifest & Floating Dispatch HUD State
   const [dispatchHudAnchor, setDispatchHudAnchor] = useState<{
@@ -968,6 +1011,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     {shotBadge}
                   </span>
                   <span
+                    ref={isActive ? activeShotRelTcDomRef : undefined}
                     className={`px-1 py-0.5 rounded text-[8px] font-bold leading-none tabular-nums ${
                       isActive
                         ? 'bg-black/90 border border-amber-400/70 text-amber-300'
@@ -1022,6 +1066,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 {isActive && (
                   <div className="absolute bottom-0 inset-x-0 h-[2px] bg-black/80 overflow-hidden pointer-events-none z-20">
                     <div
+                      ref={activeShotProgressDomRef}
                       className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFE066] shadow-[0_0_6px_rgba(255,224,102,0.9)]"
                       style={{
                         width: `${Math.min(100, Math.max(0, (slideTimeSec / holdSec) * 100))}%`
@@ -1217,7 +1262,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           >
             <div className="flex items-center gap-1 h-6.5 px-2 rounded bg-neutral-900/90 border border-neutral-800 text-[9.5px] font-mono shrink-0 whitespace-nowrap shadow-inner tabular-nums">
               <Clock className="w-3 h-3 text-amber-400" />
-              <span className="text-amber-400 font-bold tracking-wider text-[10px]">{tcString}</span>
+              <span ref={tcDomRef} className="text-amber-400 font-bold tracking-wider text-[10px]">{tcString}</span>
               <span className="text-zinc-600 text-[9px]">/</span>
               <span className="text-zinc-300 font-bold text-[9.5px]">{currentDurationSec.toFixed(1)}s</span>
             </div>

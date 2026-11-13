@@ -9,7 +9,7 @@ import { studioDraftDb, VaultMediaItem } from './db';
 import { opfsMediaStorage } from './media/opfsMediaStorage';
 import { eventBus } from '../core/eventBus';
 
-export type GeminiImageModelId = 'gemini-3.1-flash-lite-image' | 'gemini-nano-banana-2.1';
+export type GeminiImageModelId = 'gemini-2.5-flash-image' | 'gemini-3.1-flash-lite-image' | 'gemini-nano-banana-2.1';
 export type AiAspectRatio = '21:9' | '16:9' | '9:16' | '4:3' | '1:1';
 export type FlowCameraMovement =
   | 'Dolly Push-In'
@@ -22,8 +22,10 @@ export type FlowMotionIntensity = 'Low' | 'Cinematic' | 'Hyper-Kinetic';
 
 export interface AiEngineStatusResponse {
   connected: boolean;
+  source?: 'server-env' | 'local-storage' | 'vite-env' | 'none';
   models: {
     imageFast: string;
+    imageFallback?: string;
     imagePro: string;
     videoFlow: string;
   };
@@ -100,6 +102,91 @@ export const IMAGE_ASPECT_RATIOS: ReadonlyArray<{ value: AiAspectRatio; label: s
   { value: '4:3', label: '4:3', sub: 'Academy' },
   { value: '1:1', label: '1:1', sub: 'Square' }
 ];
+
+const LOCAL_KEY_STORAGE = 'handfilm_gemini_api_key';
+
+function getStoredLocalGeminiKey(): { key: string; source: 'local-storage' | 'vite-env' | 'none' } {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = (window.localStorage.getItem(LOCAL_KEY_STORAGE) || '').trim();
+      if (stored) return { key: stored, source: 'local-storage' };
+    }
+  } catch {}
+  try {
+    const viteKey = String((import.meta as any)?.env?.VITE_GEMINI_API_KEY || '').trim();
+    if (viteKey) return { key: viteKey, source: 'vite-env' };
+  } catch {}
+  return { key: '', source: 'none' };
+}
+
+function buildAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...(extra || {}) };
+  const { key } = getStoredLocalGeminiKey();
+  if (key) {
+    if (/^AQ\./i.test(key) || /^ya29\./i.test(key)) {
+      headers.Authorization = `Bearer ${key}`;
+    } else {
+      headers['x-gemini-api-key'] = key;
+    }
+  }
+  return headers;
+}
+
+export function extractExactApiErrorMessage(payload: any, fallback: string): string {
+  const msg =
+    payload?.error?.message ||
+    payload?.status?.message ||
+    (typeof payload?.error === 'string' ? payload.error : '') ||
+    payload?.message ||
+    '';
+  return String(msg).trim() || fallback;
+}
+
+export async function parseApiJsonSafe(res: Response): Promise<{
+  isJson: boolean;
+  isHtmlFallback: boolean;
+  payload: any;
+}> {
+  const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    try {
+      const payload = await res.json();
+      return { isJson: true, isHtmlFallback: false, payload };
+    } catch {
+      return { isJson: false, isHtmlFallback: false, payload: null };
+    }
+  }
+  const rawText = await res.text().catch(() => '');
+  const trimmed = rawText.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const payload = JSON.parse(trimmed);
+      return { isJson: true, isHtmlFallback: false, payload };
+    } catch {}
+  }
+  const isHtmlFallback =
+    contentType.includes('text/html') ||
+    /^<!doctype\s+html/i.test(trimmed) ||
+    /^<html/i.test(trimmed);
+  return { isJson: false, isHtmlFallback, payload: rawText };
+}
+
+async function createDirectGoogleGenAIClient(rawKey: string) {
+  const { GoogleGenAI } = await import('@google/genai');
+  const isBearer = /^AQ\./i.test(rawKey) || /^ya29\./i.test(rawKey);
+  return new GoogleGenAI({
+    apiKey: isBearer ? 'oauth-bearer' : rawKey,
+    httpOptions: isBearer
+      ? {
+          headers: {
+            Authorization: `Bearer ${rawKey}`
+          }
+        }
+      : undefined
+  });
+}
+
+const directVeoOpsCache = new Map<string, any>();
 
 export function buildPromptFromShot(frame: AnthologyFrame | null | undefined, shotIndex: number): string {
   if (!frame) {
@@ -214,46 +301,186 @@ export async function persistGeneratedBlobToVault(
 }
 
 export async function getAiEngineStatus(): Promise<AiEngineStatusResponse> {
-  const res = await fetch('/api/ai/status');
-  if (!res.ok) {
-    throw new Error(`Status check failed (${res.status})`);
+  const local = getStoredLocalGeminiKey();
+  const endpoints = ['/api/ai/status', '/api/ai-config', '/api/ai-key'];
+
+  for (const ep of endpoints) {
+    try {
+      const res = await fetch(ep, { headers: buildAuthHeaders() });
+      if (!res.ok) continue;
+      const parsed = await parseApiJsonSafe(res);
+      if (!parsed.isJson || !parsed.payload) continue;
+      const data = parsed.payload;
+      const serverConnected = Boolean(data?.connected);
+      return {
+        connected: serverConnected || local.key.length > 0,
+        source: serverConnected ? 'server-env' : local.source,
+        models: {
+          imageFast: data?.models?.imageFast || 'gemini-2.5-flash-image',
+          imageFallback: data?.models?.imageFallback || 'imagen-3.0-generate-002',
+          imagePro: data?.models?.imagePro || 'gemini-nano-banana-2.1',
+          videoFlow: data?.models?.videoFlow || 'veo-2.0-generate-001'
+        }
+      };
+    } catch {
+      // Try next endpoint / local fallback
+    }
   }
-  const data = await res.json();
+
   return {
-    connected: Boolean(data?.connected),
+    connected: local.key.length > 0,
+    source: local.source,
     models: {
-      imageFast: data?.models?.imageFast || 'gemini-3.1-flash-lite-image',
-      imagePro: data?.models?.imagePro || 'gemini-nano-banana-2.1',
-      videoFlow: data?.models?.videoFlow || 'gemini-omni-1.2-flash'
+      imageFast: 'gemini-2.5-flash-image',
+      imageFallback: 'imagen-3.0-generate-002',
+      imagePro: 'gemini-nano-banana-2.1',
+      videoFlow: 'veo-2.0-generate-001'
     }
   };
+}
+
+async function generateImageDirectlyWithSdk(
+  params: ImageGenerateParams,
+  variationIndex: number,
+  apiKey: string
+): Promise<{ dataUrl: string; modelUsed: string }> {
+  const ai = await createDirectGoogleGenAIClient(apiKey);
+  const promptText =
+    variationIndex > 0
+      ? `${params.prompt} [Variation #${variationIndex + 1}, distinct framing nuance]`
+      : params.prompt;
+  const imagenAspect = params.aspectRatio === '21:9' ? '16:9' : params.aspectRatio;
+  const enhancedPrompt =
+    params.aspectRatio === '21:9'
+      ? `${promptText}. Frame composition for 2.39:1 anamorphic cinema scope widescreen.`
+      : promptText;
+
+  const parts: any[] = [];
+  if (params.referenceImageBase64) {
+    const cleanRef = params.referenceImageBase64.replace(/^data:[^;]+;base64,/, '');
+    if (cleanRef.length > 0) {
+      parts.push({
+        inlineData: {
+          data: cleanRef,
+          mimeType: params.referenceMimeType || 'image/png'
+        }
+      });
+    }
+  }
+  parts.push({ text: enhancedPrompt });
+
+  let lastErr: any = null;
+  // Primary: gemini-2.5-flash-image via generateContent(responseModalities: ['IMAGE'])
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts },
+      config: {
+        responseModalities: ['IMAGE']
+      }
+    });
+    const outParts = response?.candidates?.[0]?.content?.parts ?? [];
+    for (const part of outParts) {
+      if (part?.inlineData?.data) {
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        return {
+          dataUrl: `data:${mimeType};base64,${part.inlineData.data}`,
+          modelUsed: 'gemini-2.5-flash-image'
+        };
+      }
+    }
+    lastErr = new Error('gemini-2.5-flash-image returned no inlineData image parts.');
+  } catch (err: any) {
+    lastErr = err;
+  }
+
+  // Fallback: imagen-3.0-generate-002 via generateImages
+  try {
+    const imagenRes = await ai.models.generateImages({
+      model: 'imagen-3.0-generate-002',
+      prompt: enhancedPrompt,
+      config: {
+        numberOfImages: 1,
+        aspectRatio: imagenAspect
+      }
+    });
+    const imgObj = imagenRes?.generatedImages?.[0]?.image;
+    if (imgObj?.imageBytes) {
+      const mimeType = imgObj.mimeType || 'image/png';
+      return {
+        dataUrl: `data:${mimeType};base64,${imgObj.imageBytes}`,
+        modelUsed: 'imagen-3.0-generate-002'
+      };
+    }
+    lastErr = new Error('imagen-3.0-generate-002 returned an empty generatedImages response.');
+  } catch (fallbackErr: any) {
+    lastErr = fallbackErr || lastErr;
+  }
+
+  throw new Error(extractExactApiErrorMessage(lastErr, lastErr?.message || 'Gemini image generation failed'));
 }
 
 export async function generateSingleCinemaImage(
   params: ImageGenerateParams,
   variationIndex = 0
 ): Promise<GeneratedMediaAsset> {
-  const res = await fetch('/api/ai/image/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt: variationIndex > 0
-        ? `${params.prompt} [Variation #${variationIndex + 1}, distinct framing nuance]`
-        : params.prompt,
-      aspectRatio: params.aspectRatio,
-      model: params.model,
-      imageSize: params.imageSize || '1K',
-      referenceImageBase64: params.referenceImageBase64,
-      referenceMimeType: params.referenceMimeType
-    })
-  });
+  let imageUrl = '';
+  let resolvedModel: string = params.model || 'gemini-2.5-flash-image';
 
-  const payload = await res.json().catch(() => ({}));
-  if (!res.ok || !payload?.success || !payload?.imageUrl) {
-    throw new Error(payload?.error || `Gemini Image generation failed (${res.status})`);
+  let shouldTryDirectSdk = false;
+  let serverErrorMessage = '';
+
+  try {
+    const res = await fetch('/api/ai/image/generate', {
+      method: 'POST',
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        prompt: variationIndex > 0
+          ? `${params.prompt} [Variation #${variationIndex + 1}, distinct framing nuance]`
+          : params.prompt,
+        aspectRatio: params.aspectRatio,
+        model: params.model,
+        imageSize: params.imageSize || '1K',
+        referenceImageBase64: params.referenceImageBase64,
+        referenceMimeType: params.referenceMimeType
+      })
+    });
+
+    const parsed = await parseApiJsonSafe(res);
+    if (parsed.isJson && parsed.payload) {
+      if (!res.ok || !parsed.payload?.success || !parsed.payload?.imageUrl) {
+        serverErrorMessage = extractExactApiErrorMessage(
+          parsed.payload,
+          `Gemini image endpoint returned HTTP ${res.status} without image data.`
+        );
+      } else {
+        imageUrl = parsed.payload.imageUrl;
+        resolvedModel = parsed.payload.model || resolvedModel;
+      }
+    } else if (parsed.isHtmlFallback || !res.ok) {
+      shouldTryDirectSdk = true;
+      serverErrorMessage = `Static/SPA response (${res.status}) on /api/ai/image/generate — no Node API backend active.`;
+    } else {
+      shouldTryDirectSdk = true;
+      serverErrorMessage = `Unexpected non-JSON response (${res.status}) from /api/ai/image/generate.`;
+    }
+  } catch (networkErr: any) {
+    shouldTryDirectSdk = true;
+    serverErrorMessage = networkErr?.message || 'Network error reaching /api/ai/image/generate';
   }
 
-  const { blob, mimeType } = dataUrlToBlob(payload.imageUrl, 'image/png');
+  if (!imageUrl) {
+    const { key } = getStoredLocalGeminiKey();
+    if (shouldTryDirectSdk && key) {
+      const direct = await generateImageDirectlyWithSdk(params, variationIndex, key);
+      imageUrl = direct.dataUrl;
+      resolvedModel = direct.modelUsed;
+    } else {
+      throw new Error(serverErrorMessage || 'Gemini Image generation failed.');
+    }
+  }
+
+  const { blob, mimeType } = dataUrlToBlob(imageUrl, 'image/png');
   const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
   const shotTag = typeof params.shotIndex === 'number' ? `SH${String(params.shotIndex + 1).padStart(2, '0')}_` : '';
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(11, 19);
@@ -270,49 +497,163 @@ export async function generateSingleCinemaImage(
     blob,
     prompt: params.prompt,
     aspectRatio: params.aspectRatio,
-    model: payload.model || params.model,
+    model: resolvedModel,
     createdAt: Date.now(),
     vaultId: vaultItem?.id
   };
 }
 
 export async function startFlowVideoGeneration(params: FlowVideoStartParams): Promise<{ interactionId: string; status: string }> {
-  const res = await fetch('/api/ai/video/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params)
-  });
+  let shouldTryDirectSdk = false;
+  let serverErrorMessage = '';
 
-  const payload = await res.json().catch(() => ({}));
-  if (!res.ok || !payload?.success || !payload?.interactionId) {
-    throw new Error(payload?.error || `Failed to start Google Flow render (${res.status})`);
+  try {
+    const res = await fetch('/api/ai/video/generate', {
+      method: 'POST',
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(params)
+    });
+
+    const parsed = await parseApiJsonSafe(res);
+    if (parsed.isJson && parsed.payload) {
+      if (!res.ok || !parsed.payload?.success || !parsed.payload?.interactionId) {
+        throw new Error(extractExactApiErrorMessage(parsed.payload, `Failed to start Google Flow render (${res.status})`));
+      }
+      return {
+        interactionId: String(parsed.payload.interactionId),
+        status: String(parsed.payload.status || 'queued')
+      };
+    }
+    if (parsed.isHtmlFallback || !res.ok) {
+      shouldTryDirectSdk = true;
+      serverErrorMessage = `Static/SPA response (${res.status}) on /api/ai/video/generate — no Node API backend active.`;
+    }
+  } catch (err: any) {
+    if (!shouldTryDirectSdk && !/Static\/SPA|Failed to fetch|NetworkError/i.test(String(err?.message || ''))) {
+      throw err;
+    }
+    shouldTryDirectSdk = true;
+    serverErrorMessage = err?.message || 'Unable to reach /api/ai/video/generate';
   }
 
-  return {
-    interactionId: String(payload.interactionId),
-    status: String(payload.status || 'queued')
-  };
+  const { key } = getStoredLocalGeminiKey();
+  if (shouldTryDirectSdk && key) {
+    const ai = await createDirectGoogleGenAIClient(key);
+    const validAspect = params.aspectRatio === '9:16' ? '9:16' : '16:9';
+    const motionDirectives = [
+      params.prompt.trim() || 'Subtle cinematic camera choreography and atmospheric film lighting.',
+      `Camera Movement: ${params.cameraMovement}.`,
+      `Motion Intensity: ${params.motionIntensity}.`,
+      '24fps cinema cadence, rich anamorphic depth of field, temporal coherence.',
+      params.aspectRatio === '21:9' ? '2.39:1 widescreen anamorphic letterbox cinema framing.' : ''
+    ].filter(Boolean).join(' ');
+    const cleanStart = params.startFrameBase64
+      ? params.startFrameBase64.replace(/^data:[^;]+;base64,/, '')
+      : '';
+    const operation = await ai.models.generateVideos({
+      model: 'veo-2.0-generate-001',
+      prompt: motionDirectives,
+      ...(cleanStart
+        ? {
+            image: {
+              imageBytes: cleanStart,
+              mimeType: params.startFrameMimeType || 'image/png'
+            }
+          }
+        : {}),
+      config: {
+        aspectRatio: validAspect,
+        numberOfVideos: 1
+      }
+    });
+    const opName = String(operation?.name || `veo_direct_${Date.now()}`);
+    directVeoOpsCache.set(opName, operation);
+    return {
+      interactionId: opName,
+      status: operation?.done ? 'completed' : 'queued'
+    };
+  }
+
+  throw new Error(serverErrorMessage || 'Failed to start Google Flow / Veo video render.');
 }
 
 export async function pollFlowVideoStatus(interactionId: string): Promise<FlowVideoPollResult> {
-  const res = await fetch(`/api/ai/video/status/${encodeURIComponent(interactionId)}`);
-  const payload = await res.json().catch(() => ({}));
+  if (directVeoOpsCache.has(interactionId)) {
+    const { key } = getStoredLocalGeminiKey();
+    if (!key) {
+      throw new Error('GEMINI_API_KEY missing while polling Veo operation.');
+    }
+    const ai = await createDirectGoogleGenAIClient(key);
+    const prevOp = directVeoOpsCache.get(interactionId);
+    const updatedOp = await ai.operations.getVideosOperation({ operation: prevOp });
+    directVeoOpsCache.set(interactionId, updatedOp);
+
+    if (updatedOp?.error) {
+      return {
+        status: 'failed',
+        done: true,
+        error: extractExactApiErrorMessage(updatedOp.error, 'Veo video generation failed.')
+      };
+    }
+
+    if (updatedOp?.done) {
+      const genVideo = updatedOp?.response?.generatedVideos?.[0]?.video;
+      if (genVideo?.videoBytes) {
+        const mime = genVideo.mimeType || 'video/mp4';
+        return {
+          status: 'completed',
+          done: true,
+          videoUrl: `data:${mime};base64,${genVideo.videoBytes}`,
+          mimeType: mime
+        };
+      }
+      if (genVideo?.uri) {
+        const sep = genVideo.uri.includes('?') ? '&' : '?';
+        const isBearer = /^AQ\./i.test(key) || /^ya29\./i.test(key);
+        const signedUri = isBearer ? genVideo.uri : `${genVideo.uri}${sep}key=${encodeURIComponent(key)}`;
+        return {
+          status: 'completed',
+          done: true,
+          videoUrl: signedUri,
+          mimeType: genVideo.mimeType || 'video/mp4'
+        };
+      }
+      return {
+        status: 'failed',
+        done: true,
+        error: 'Veo operation completed without video data.'
+      };
+    }
+
+    return { status: 'in_progress', done: false };
+  }
+
+  const res = await fetch(`/api/ai/video/status/${encodeURIComponent(interactionId)}`, {
+    headers: buildAuthHeaders()
+  });
+  const parsed = await parseApiJsonSafe(res);
+  if (!parsed.isJson) {
+    throw new Error(`Flow polling received non-JSON response (${res.status}).`);
+  }
+  const payload = parsed.payload;
   if (!res.ok && !payload?.done) {
-    throw new Error(payload?.error || `Flow polling failed (${res.status})`);
+    throw new Error(extractExactApiErrorMessage(payload, `Flow polling failed (${res.status})`));
   }
   return {
     status: String(payload?.status || 'in_progress'),
     done: Boolean(payload?.done),
     videoUrl: payload?.videoUrl,
     mimeType: payload?.mimeType || 'video/mp4',
-    error: payload?.error,
+    error: payload?.error ? extractExactApiErrorMessage(payload, payload.error) : undefined,
     code: payload?.code
   };
 }
 
 export async function cancelFlowVideoGeneration(interactionId: string): Promise<void> {
+  directVeoOpsCache.delete(interactionId);
   await fetch(`/api/ai/video/cancel/${encodeURIComponent(interactionId)}`, {
-    method: 'POST'
+    method: 'POST',
+    headers: buildAuthHeaders()
   }).catch(() => null);
 }
 
@@ -328,12 +669,18 @@ export async function resolveVideoUrlToVaultAsset(
     blob = parsed.blob;
     mimeType = parsed.mimeType;
   } else {
-    const res = await fetch(videoUrl);
+    const { key } = getStoredLocalGeminiKey();
+    const isBearer = Boolean(key && (/^AQ\./i.test(key) || /^ya29\./i.test(key)));
+    const isExternalGoogleUri = videoUrl.startsWith('http');
+    const res = await fetch(videoUrl, {
+      headers: isExternalGoogleUri && isBearer && key ? { Authorization: `Bearer ${key}` } : buildAuthHeaders()
+    });
     if (!res.ok) {
       throw new Error(`Failed to fetch generated Flow MP4 (${res.status})`);
     }
-    blob = await res.blob();
-    mimeType = blob.type || 'video/mp4';
+    const rawBlob = await res.blob();
+    mimeType = rawBlob.type || 'video/mp4';
+    blob = rawBlob.type ? rawBlob : new Blob([rawBlob], { type: 'video/mp4' });
   }
 
   const shotTag = typeof meta.shotIndex === 'number' ? `SH${String(meta.shotIndex + 1).padStart(2, '0')}_` : '';
@@ -351,7 +698,7 @@ export async function resolveVideoUrlToVaultAsset(
     blob,
     prompt: meta.prompt,
     aspectRatio: meta.aspectRatio,
-    model: 'gemini-omni-1.2-flash',
+    model: 'veo-2.0-generate-001',
     createdAt: Date.now(),
     vaultId: vaultItem?.id
   };

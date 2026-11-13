@@ -310,7 +310,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         : 'items-center text-center';
 
   const horizontalAnchorLeft = choreography.cssLeft;
+  const horizontalAnchorRight = choreography.cssRight;
   const horizontalTranslateX = choreography.cssTranslateX;
+  const zoneMaxWidth = choreography.cssMaxWidth;
 
   const getVerticalAnchorStyle = (): React.CSSProperties => {
     if (choreography.cssVertical.top !== undefined) {
@@ -318,12 +320,16 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       return {
         top: choreography.cssVertical.top,
         left: horizontalAnchorLeft,
+        right: horizontalAnchorRight,
+        maxWidth: zoneMaxWidth,
         transform: `translate3d(${horizontalTranslateX}, calc(${baseY} + ${verticalOffset}px), 0)`
       };
     }
     return {
       bottom: choreography.cssVertical.bottom || '12%',
       left: horizontalAnchorLeft,
+      right: horizontalAnchorRight,
+      maxWidth: zoneMaxWidth,
       transform: `translate3d(${horizontalTranslateX}, ${verticalOffset}px, 0)`
     };
   };
@@ -331,9 +337,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   // Use preset's own fontScale directly, tempered gently by architecture multiplier only for default hero
   const isCustomPreset = presetConfig.presetId !== 'molten-gold' && presetConfig.presetId !== 'titanium-silver' && presetConfig.presetId !== 'neon-crimson';
   const effectiveFontSizePx = isCustomPreset
-    ? Math.max(22, Math.min(62, Math.round(presetConfig.fontScale)))
-    : Math.max(22, Math.min(68, Math.round(titleSizePx * scale * procArch.scaleMultiplier)));
-  const clampedFontSizeCss = `clamp(18px, 3.8vw, ${effectiveFontSizePx}px)`;
+    ? Math.max(20, Math.min(54, Math.round(presetConfig.fontScale)))
+    : Math.max(20, Math.min(58, Math.round(titleSizePx * scale * procArch.scaleMultiplier)));
+  const clampedFontSizeCss = `clamp(16px, 3.3cqw, ${effectiveFontSizePx}px)`;
   const effectiveTrackingEm = isCustomPreset
     ? Math.max(0.01, tracking)
     : Math.max(0.02, tracking + procArch.trackingBoostEm);
@@ -558,6 +564,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       data-typography-arch={procArch.id}
       data-optical-fx={procFx.id}
       data-variant={variant}
+      style={{ containerType: 'inline-size' }}
       aria-hidden={!isEnabled}
     >
       {/* Outgoing 180ms Shot Exit Dissolve Layer */}
@@ -565,14 +572,28 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         <div
           key={`exiting-cluster-${exitingSnapshot.key}`}
           aria-hidden="true"
-          className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-[calc(100%-6rem)] flex flex-col py-2 pointer-events-none animate-title-exit-dissolve ${exitingSnapshot.clusterAlignClasses} !pl-0 !pr-0`}
+          className={`absolute w-fit flex flex-col py-2 pointer-events-none animate-title-exit-dissolve ${exitingSnapshot.clusterAlignClasses} !pl-0 !pr-0`}
           style={exitingSnapshot.anchorStyle}
         >
-          <div className={`flex flex-col max-w-5xl ${exitingSnapshot.blockAlignClasses}`}>
-            <span className="font-black leading-tight" style={exitingSnapshot.primaryTitleStyle}>
+          <div className={`flex flex-col w-full max-w-full ${exitingSnapshot.blockAlignClasses}`}>
+            <span
+              className="font-black leading-tight max-w-full"
+              style={{
+                ...exitingSnapshot.primaryTitleStyle,
+                wordBreak: 'keep-all',
+                overflowWrap: 'break-word'
+              }}
+            >
               {exitingSnapshot.bangla}
             </span>
-            <span className="text-xs sm:text-sm md:text-base font-bold mt-1.5" style={exitingSnapshot.englishSubtitleStyle}>
+            <span
+              className="text-xs sm:text-sm md:text-base font-bold mt-1.5 max-w-full"
+              style={{
+                ...exitingSnapshot.englishSubtitleStyle,
+                wordBreak: 'keep-all',
+                overflowWrap: 'break-word'
+              }}
+            >
               {exitingSnapshot.english}
             </span>
           </div>
@@ -600,15 +621,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
             <div
               key={`hero-title-cluster-${shotIndex}`}
               data-title-cluster="true"
-              className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-[calc(100%-6rem)] flex flex-col py-2 transition-[left,transform] duration-300 ease-out title-morph-smooth animate-title-reveal-in ${clusterAlignClasses} !pl-0 !pr-0`}
+              className={`absolute w-fit flex flex-col py-2 transition-[left,transform] duration-300 ease-out title-morph-smooth animate-title-reveal-in ${clusterAlignClasses} !pl-0 !pr-0`}
               style={getVerticalAnchorStyle()}
             >
               <div
                 key={`kinetic-entrance-${shotIndex}-${choreography.zone9}`}
-                className={directionalMotionClass}
+                className={`w-full max-w-full ${directionalMotionClass}`}
               >
               <div
-                className={`relative flex flex-col max-w-5xl ${motionClass} title-morph-smooth ${blockAlignClasses} ${
+                className={`relative flex flex-col w-full max-w-full ${motionClass} title-morph-smooth ${blockAlignClasses} ${
                   presetConfig.layoutMode === 'lower-third-bar'
                     ? 'rounded-r-lg rounded-l-xs'
                     : presetConfig.layoutMode === 'editorial-split'
@@ -681,7 +702,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                 >
                   {/* Primary Title (Double-click directly on Stage to inline edit) */}
                   {showBangla && (
-                    <div className="relative inline-block">
+                    <div className="relative inline-block max-w-full">
                       {editingField === 'bangla' ? (
                         <input
                           ref={inlineInputRef}
@@ -704,9 +725,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                           onPointerDown={(e) => e.stopPropagation()}
                           onPointerUp={(e) => e.stopPropagation()}
                           onClick={(e) => e.stopPropagation()}
-                          className="pointer-events-auto cursor-text bg-[#0B0B0D]/85 border border-[#F59E0B] rounded px-3 py-1 font-bangla font-black text-[#F4F4F5] outline-none min-w-[220px] shadow-[0_0_24px_rgba(245,158,11,0.45)]"
+                          className="pointer-events-auto cursor-text bg-[#0B0B0D]/85 border border-[#F59E0B] rounded px-3 py-1 font-bangla font-black text-[#F4F4F5] outline-none min-w-[200px] max-w-full shadow-[0_0_24px_rgba(245,158,11,0.45)]"
                           style={{
-                            fontSize: `${Math.max(22, Math.round(effectiveFontSizePx * 0.72))}px`,
+                            fontSize: `${Math.max(20, Math.round(effectiveFontSizePx * 0.72))}px`,
                             textAlign: layoutEffectiveAlign === 'LEFT' ? 'left' : layoutEffectiveAlign === 'RIGHT' ? 'right' : 'center'
                           }}
                         />
@@ -716,13 +737,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                             <>
                               <span
                                 aria-hidden="true"
-                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full break-words [text-wrap:balance]"
+                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full [text-wrap:balance]"
                                 style={{
                                   fontFamily: presetConfig.banglaFontFamily,
                                   fontSize: clampedFontSizeCss,
                                   letterSpacing: `${effectiveTrackingEm}em`,
                                   textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
                                   color: '#00F0FF',
+                                  wordBreak: 'keep-all',
+                                  overflowWrap: 'break-word',
                                   transform: `translate3d(-${rgbShiftPx}px, 1px, 0)`
                                 }}
                               >
@@ -730,13 +753,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                               </span>
                               <span
                                 aria-hidden="true"
-                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full break-words [text-wrap:balance]"
+                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60 max-w-full [text-wrap:balance]"
                                 style={{
                                   fontFamily: presetConfig.banglaFontFamily,
                                   fontSize: clampedFontSizeCss,
                                   letterSpacing: `${effectiveTrackingEm}em`,
                                   textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
                                   color: '#FF0055',
+                                  wordBreak: 'keep-all',
+                                  overflowWrap: 'break-word',
                                   transform: `translate3d(${rgbShiftPx}px, -1px, 0)`
                                 }}
                               >
@@ -760,12 +785,16 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                               if (e.detail >= 2) e.stopPropagation();
                             }}
                             title="Double-click to edit Bangla title directly on Stage"
-                            className={`relative font-black leading-tight select-none pointer-events-auto cursor-text title-morph-smooth max-w-full break-words [text-wrap:balance] ${
+                            className={`relative font-black leading-tight select-none pointer-events-auto cursor-text title-morph-smooth max-w-full [text-wrap:balance] ${
                               procFx.hasStrobePulse || presetConfig.category === 'DOPAMINE'
                                 ? 'animate-pulse'
                                 : ''
                             }`}
-                            style={primaryTitleStyle}
+                            style={{
+                              ...primaryTitleStyle,
+                              wordBreak: 'keep-all',
+                              overflowWrap: 'break-word'
+                            }}
                           >
                             {displayBangla}
                           </h1>
@@ -822,8 +851,12 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                             if (e.detail >= 2) e.stopPropagation();
                           }}
                           title="Double-click to edit English subtitle directly on Stage"
-                          className="text-xs sm:text-sm font-bold pointer-events-auto cursor-text title-morph-smooth max-w-full break-words [text-wrap:balance]"
-                          style={englishSubtitleStyle}
+                          className="text-xs sm:text-sm font-bold pointer-events-auto cursor-text title-morph-smooth max-w-full [text-wrap:balance]"
+                          style={{
+                            ...englishSubtitleStyle,
+                            wordBreak: 'keep-all',
+                            overflowWrap: 'break-word'
+                          }}
                         >
                           {displayEnglish}
                         </p>
@@ -833,7 +866,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
                       {cameraInfo && presetConfig.layoutMode !== 'minimal-whisper' && (
                         <span
-                          className="font-mono text-[9px] tracking-[0.25em] uppercase mt-1.5 opacity-65"
+                          className="font-mono text-[9px] tracking-[0.25em] uppercase mt-1.5 opacity-65 max-w-full truncate"
                           style={{ color: presetConfig.secondaryColor }}
                         >
                           {cameraInfo}
@@ -845,7 +878,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   {/* If lower-plate or lower-row layout is active and dialogue exists, display subtle metadata line inside card */}
                   {(isBottomPlateLayout || choreography.row === 'lower') && showDialogue && displayDialogue && (
                     <p
-                      className="mt-1.5 text-[11px] italic opacity-85 max-w-md truncate"
+                      className="mt-1.5 text-[11px] italic opacity-85 max-w-full truncate"
                       style={{
                         fontFamily: presetConfig.englishFontFamily,
                         color: presetConfig.secondaryColor
@@ -871,7 +904,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
             {/* Narrative Line / Dialogue Card (Rendered at bottom-stage for top/mid layouts) */}
             {!isBottomPlateLayout && choreography.row !== 'lower' && showDialogue && displayDialogue && (
               <div
-                className={`absolute bottom-5 sm:bottom-8 z-20 pointer-events-none w-max max-w-[calc(100%-3rem)] sm:max-w-xl px-2 transition-[left,transform] duration-300 ease-out ${
+                className={`absolute bottom-5 sm:bottom-8 z-20 pointer-events-none w-fit px-1 transition-[left,transform] duration-300 ease-out ${
                   effectiveAlign === 'LEFT'
                     ? 'text-left'
                     : effectiveAlign === 'RIGHT'
@@ -880,14 +913,20 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                 }`}
                 style={{
                   left: horizontalAnchorLeft,
+                  right: horizontalAnchorRight,
+                  maxWidth: zoneMaxWidth,
                   transform: `translate3d(${horizontalTranslateX}, 0, 0)`
                 }}
               >
                 <div
-                  className="inline-flex items-center gap-2 bg-[#141417]/55 backdrop-blur-xl backdrop-saturate-150 border text-[#F4F4F5]/95 px-5 py-1.5 rounded-full text-xs sm:text-sm italic shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] animate-in fade-in slide-in-from-bottom-2 duration-300"
-                  style={{ borderColor: `${accentHex}44` }}
+                  className="inline-flex items-center gap-2 max-w-full bg-[#141417]/55 backdrop-blur-xl backdrop-saturate-150 border text-[#F4F4F5]/95 px-4 py-1.5 rounded-full text-xs sm:text-sm italic shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] animate-in fade-in slide-in-from-bottom-2 duration-300"
+                  style={{
+                    borderColor: `${accentHex}44`,
+                    wordBreak: 'keep-all',
+                    overflowWrap: 'break-word'
+                  }}
                 >
-                  <span>"{displayDialogue}"</span>
+                  <span className="max-w-full">"{displayDialogue}"</span>
                 </div>
               </div>
             )}

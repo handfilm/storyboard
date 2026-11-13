@@ -88,12 +88,16 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
       const raw = window.localStorage.getItem('handfilm_ai_engine_config');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed?.selectedImageModel === 'gemini-nano-banana-2.1' || parsed?.selectedImageModel === 'gemini-3.1-flash-lite-image') {
+        if (
+          parsed?.selectedImageModel === 'gemini-2.5-flash-image' ||
+          parsed?.selectedImageModel === 'gemini-nano-banana-2.1' ||
+          parsed?.selectedImageModel === 'gemini-3.1-flash-lite-image'
+        ) {
           return parsed.selectedImageModel;
         }
       }
     } catch {}
-    return 'gemini-3.1-flash-lite-image';
+    return 'gemini-2.5-flash-image';
   });
   const [selectedImageSize, setSelectedImageSize] = useState<'1K' | '2K' | '4K'>(() => {
     try {
@@ -162,10 +166,12 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
     } catch {
       setEngineStatus({
         connected: false,
+        source: 'none',
         models: {
-          imageFast: 'gemini-3.1-flash-lite-image',
+          imageFast: 'gemini-2.5-flash-image',
+          imageFallback: 'imagen-3.0-generate-002',
           imagePro: 'gemini-nano-banana-2.1',
-          videoFlow: 'gemini-omni-1.2-flash'
+          videoFlow: 'veo-2.0-generate-001'
         }
       });
     } finally {
@@ -404,7 +410,7 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
           }
 
           setFlowJob((cur) => (cur ? { ...cur, status: pollRes.status } : cur));
-          activePollTimerRef.current = window.setTimeout(pollLoop, 2500);
+          activePollTimerRef.current = window.setTimeout(pollLoop, 5000);
         } catch (err: any) {
           stopFlowTimers();
           setFlowJob((cur) =>
@@ -413,7 +419,7 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
         }
       };
 
-      activePollTimerRef.current = window.setTimeout(pollLoop, 2500);
+      activePollTimerRef.current = window.setTimeout(pollLoop, 5000);
     } catch (err: any) {
       stopFlowTimers();
       setFlowJob(null);
@@ -565,14 +571,14 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
               <span className="text-[#8E8E93] font-bold">IMAGE TIER:</span>
               <button
                 type="button"
-                onClick={() => setSelectedImageModel('gemini-3.1-flash-lite-image')}
+                onClick={() => setSelectedImageModel('gemini-2.5-flash-image')}
                 className={`px-2 py-0.5 rounded border cursor-pointer transition-colors ${
-                  selectedImageModel === 'gemini-3.1-flash-lite-image'
+                  selectedImageModel === 'gemini-2.5-flash-image' || selectedImageModel === 'gemini-3.1-flash-lite-image'
                     ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B] font-bold'
                     : 'bg-[#0B0B0D] border-white/[0.08] text-[#8E8E93]'
                 }`}
               >
-                Flash Lite Image
+                Flash Image + Imagen 3
               </button>
               <button
                 type="button"
@@ -610,8 +616,15 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
 
           <div className="flex items-center gap-2 text-[9.5px] text-[#8E8E93]">
             <span>
-              Server Proxy Key: <strong className="text-[#F4F4F5]">Settings &gt; Secrets (GEMINI_API_KEY)</strong> · Video:{' '}
-              <strong className="text-[#38BDF8]">gemini-omni-1.2-flash</strong>
+              Engine Key:{' '}
+              <strong className="text-[#F4F4F5]">
+                {engineStatus?.source === 'local-storage'
+                  ? 'localStorage Vault'
+                  : engineStatus?.source === 'vite-env'
+                    ? 'Vite Env'
+                    : 'Settings > Secrets (GEMINI_API_KEY)'}
+              </strong>{' '}
+              · Video: <strong className="text-[#38BDF8]">veo-2.0-generate-001</strong>
             </span>
             <button
               type="button"

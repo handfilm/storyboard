@@ -308,3 +308,87 @@ test('Consolidated 24px Top Stage HUD, 26px VlcStageBar Center Bridge, and elimi
   assert.match(vlcBarSrc, /vlc-center-runtime-badge/);
 });
 
+test('Right-zone title anchoring prevents right-edge clipping & TactileStage enforces bounded 2.39:1 gate', async () => {
+  const { resolveSpatialTitleChoreography } = await import('../services/titleChoreographyEngine');
+
+  const rightTop = resolveSpatialTitleChoreography({
+    titleAlign: 'RIGHT',
+    zone9: 'top-right',
+    layoutMode: 'center-hero',
+    shotIndex: 2
+  });
+  assert.strictEqual(rightTop.cssLeft, 'auto');
+  assert.strictEqual(rightTop.cssRight, '5%');
+  assert.strictEqual(rightTop.cssTranslateX, '0%');
+  assert.strictEqual(rightTop.cssMaxWidth, '55%');
+
+  const leftTop = resolveSpatialTitleChoreography({
+    titleAlign: 'LEFT',
+    zone9: 'top-left',
+    layoutMode: 'center-hero',
+    shotIndex: 1
+  });
+  assert.strictEqual(leftTop.cssLeft, '5%');
+  assert.strictEqual(leftTop.cssRight, 'auto');
+  assert.strictEqual(leftTop.cssTranslateX, '0%');
+  assert.strictEqual(leftTop.cssMaxWidth, '55%');
+
+  const midCenter = resolveSpatialTitleChoreography({
+    titleAlign: 'MID',
+    zone9: 'center-hero',
+    layoutMode: 'center-hero',
+    shotIndex: 0
+  });
+  assert.strictEqual(midCenter.cssLeft, '50%');
+  assert.strictEqual(midCenter.cssTranslateX, '-50%');
+  assert.strictEqual(midCenter.cssMaxWidth, '82%');
+
+  const overlaySrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/StageTextOverlay.tsx'),
+    'utf8'
+  );
+  assert.match(overlaySrc, /wordBreak:\s*'keep-all'/);
+  assert.match(overlaySrc, /overflowWrap:\s*'break-word'/);
+  assert.doesNotMatch(overlaySrc, /\bw-max\b/, 'StageTextOverlay must not use unbounded w-max that clips right-aligned titles');
+
+  const tactileStageSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/stage/TactileStage.tsx'),
+    'utf8'
+  );
+  assert.match(tactileStageSrc, /2\.39 \/ 1/);
+  assert.match(tactileStageSrc, /rgba\(245, 158, 11, 0\.22\)/);
+  assert.match(tactileStageSrc, /bg-\[#050505\]/);
+});
+
+test('aiMediaService safely handles HTTP 200 HTML SPA responses without throwing generic failed (200)', async () => {
+  const { parseApiJsonSafe, extractExactApiErrorMessage } = await import('../services/aiMediaService');
+
+  const htmlRes = new Response('<!doctype html><html><body>SPA</body></html>', {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  });
+  const parsedHtml = await parseApiJsonSafe(htmlRes);
+  assert.strictEqual(parsedHtml.isJson, false);
+  assert.strictEqual(parsedHtml.isHtmlFallback, true);
+
+  const jsonRes = new Response(JSON.stringify({ success: true, imageUrl: 'data:image/png;base64,abc' }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+  const parsedJson = await parseApiJsonSafe(jsonRes);
+  assert.strictEqual(parsedJson.isJson, true);
+  assert.strictEqual(parsedJson.isHtmlFallback, false);
+  assert.strictEqual(parsedJson.payload.success, true);
+
+  const msg = extractExactApiErrorMessage({ status: { message: 'Quota exceeded on model' } }, 'Fallback');
+  assert.strictEqual(msg, 'Quota exceeded on model');
+
+  const serviceSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/services/aiMediaService.ts'),
+    'utf8'
+  );
+  assert.match(serviceSrc, /gemini-2\.5-flash-image/);
+  assert.match(serviceSrc, /imagen-3\.0-generate-002/);
+  assert.match(serviceSrc, /veo-2\.0-generate-001/);
+});
+

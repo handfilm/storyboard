@@ -214,9 +214,11 @@ export interface SpatialTitleChoreography {
   // 90% Title-Safe normalized anchor ratios (0..1 of stage width/height)
   anchorXRatio: number;
   anchorYRatio: number;
-  // CSS anchor styles matching 90% Title-Safe insets
+  // CSS anchor styles matching 90% Title-Safe insets (no right-edge overflow)
   cssLeft: string;
+  cssRight: string;
   cssTranslateX: string;
+  cssMaxWidth: string;
   cssVertical: { top?: string; bottom?: string; translateY: string };
 }
 
@@ -306,15 +308,19 @@ export function resolveSpatialTitleChoreography(
   const anchorXRatio = meta.col === 'LEFT' ? 0.055 : meta.col === 'RIGHT' ? 0.945 : 0.5;
   const anchorYRatio = meta.row === 'top' ? 0.165 : meta.row === 'lower' ? 0.81 : 0.48;
 
-  // Preserve classic CSS safe-inset margins (90% Title-Safe = 5% horizontal inset, 10% top / 12% bottom)
+  // Bounded 90% Title-Safe CSS anchors:
+  // LEFT: left 5%, right auto, max-width 55%
+  // MID:  left 50%, translateX -50%, max-width 82%
+  // RIGHT: right 5%, left auto, translateX 0%, max-width 55% (prevents right-edge clipping)
   const cssLeft =
     meta.col === 'LEFT'
       ? '5%'
       : meta.col === 'RIGHT'
-        ? '95%'
+        ? 'auto'
         : '50%';
-  const cssTranslateX =
-    meta.col === 'LEFT' ? '0%' : meta.col === 'RIGHT' ? '-100%' : '-50%';
+  const cssRight = meta.col === 'RIGHT' ? '5%' : 'auto';
+  const cssTranslateX = meta.col === 'MID' ? '-50%' : '0%';
+  const cssMaxWidth = meta.col === 'MID' ? '82%' : '55%';
 
   const cssVertical =
     meta.row === 'top'
@@ -333,7 +339,9 @@ export function resolveSpatialTitleChoreography(
     anchorXRatio,
     anchorYRatio,
     cssLeft,
+    cssRight,
     cssTranslateX,
+    cssMaxWidth,
     cssVertical
   };
 }

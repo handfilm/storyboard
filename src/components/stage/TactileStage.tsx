@@ -199,9 +199,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageElementRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageSlotWrapperRef = useRef<HTMLDivElement>(null);
   const stageViewportRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageTitleContainerRef = useRef<HTMLDivElement | null>(null);
+  const [stageSlotBounds, setStageSlotBounds] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   const [isScrubbing, setIsScrubbing] = useState(false);
   const isScrubbingRef = useRef<boolean>(false);
@@ -256,6 +258,25 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   useEffect(() => {
     setLoopMode(playbackMode === 'solo' ? 'repeat-one' : 'sequence');
   }, [playbackMode]);
+
+  useEffect(() => {
+    const el = stageSlotWrapperRef.current;
+    if (!el) return;
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const w = Math.max(0, Math.floor(rect.width));
+      const h = Math.max(0, Math.floor(rect.height));
+      setStageSlotBounds((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+    };
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
 
   // Reset A-B loop & native duration cleanly when switching shots
   useEffect(() => {
@@ -1409,22 +1430,53 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     }
   };
 
-  // Dynamic Aspect Ratio Auto-Fitting:
-  // - Clean, responsive framing flush to top with no blank gap
-  // - Leaves dedicated clearance at bottom for bezel ribbon and control dock
-  // Tight Edge-to-Edge Stage Sizing: fills 100% of available stage width & height at 100% scale,
-  // or scales cleanly to 70% when toggled in the Stage Metadata Bar.
+  // Bounded Cinema Gate Framing:
+  // Enforces exact 2.39:1 (or active toggled aspectRatio) containment inside the center workspace
+  // without vertical or horizontal overflow, framed by a subtle cinema gate hairline.
+  const resolveActiveStageRatio = (): { numeric: number; css: string } => {
+    const raw = String(aspectRatio || '2.39:1').trim();
+    if (raw === '16:9') return { numeric: 16 / 9, css: '16 / 9' };
+    if (raw === '4:3') return { numeric: 4 / 3, css: '4 / 3' };
+    if (raw === '1:1') return { numeric: 1, css: '1 / 1' };
+    if (raw === '9:16') return { numeric: 9 / 16, css: '9 / 16' };
+    if (raw === '4:5') return { numeric: 4 / 5, css: '4 / 5' };
+    if (raw === '21:9' || raw === '2.39:1') return { numeric: 2.39, css: '2.39 / 1' };
+    const parts = raw.split(':').map(Number);
+    if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) {
+      return { numeric: parts[0] / parts[1], css: `${parts[0]} / ${parts[1]}` };
+    }
+    return { numeric: 2.39, css: '2.39 / 1' };
+  };
+
   const getStageBoxStyle = (): React.CSSProperties => {
-    if (stageScale === 0.7) {
+    const { numeric, css } = resolveActiveStageRatio();
+    const scaleFactor = stageScale === 0.7 ? 0.7 : 1;
+    const availW = stageSlotBounds.width;
+    const availH = stageSlotBounds.height;
+
+    if (availW > 0 && availH > 0) {
+      let boxW = availW * scaleFactor;
+      let boxH = boxW / numeric;
+      if (boxH > availH * scaleFactor) {
+        boxH = availH * scaleFactor;
+        boxW = boxH * numeric;
+      }
       return {
-        width: '70%',
-        height: '70%',
+        width: `${Math.max(160, Math.floor(boxW))}px`,
+        height: `${Math.max(90, Math.floor(boxH))}px`,
+        aspectRatio: css,
+        border: '1px solid rgba(245, 158, 11, 0.22)',
         margin: '0 auto'
       };
     }
+
     return {
-      width: '100%',
-      height: '100%'
+      width: stageScale === 0.7 ? '70%' : '100%',
+      maxWidth: '100%',
+      maxHeight: stageScale === 0.7 ? '70%' : '100%',
+      aspectRatio: css,
+      border: '1px solid rgba(245, 158, 11, 0.22)',
+      margin: '0 auto'
     };
   };
 
@@ -1680,8 +1732,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       )}
 
-      {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (TIGHT EDGE-TO-EDGE FIT) */}
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden p-0">
+      {/* 2. BOUNDED 2.39:1 CINEMA VIEWPORT GATE (Matte #050505 surround, zero edge overflow) */}
+      <div
+        ref={stageSlotWrapperRef}
+        className="flex-1 min-h-0 w-full flex items-center justify-center bg-[#050505] overflow-hidden p-0.5"
+      >
         <div
           id="stage-media-container"
           ref={stageMediaContainerRef}
@@ -1696,7 +1751,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onPointerUp={handleStagePointerUp}
           onPointerCancel={handleStagePointerCancel}
           style={getStageBoxStyle()}
-          className="relative bg-[#000000] border-y border-white/10 rounded-none overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair transition-[width,height] duration-200 ease-out"
+          className="relative bg-[#000000] rounded-none overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair transition-[width,height] duration-200 ease-out"
         >
         {/* DYNAMIC CANVAS SVG BARREL DISTORTION FILTER */}
         <svg

@@ -360,17 +360,23 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
   });
   const effectiveAlign = choreography.effectiveAlign;
   const horizontalAnchorLeft = choreography.cssLeft;
+  const horizontalAnchorRight = choreography.cssRight;
   const horizontalTranslateX = choreography.cssTranslateX;
+  const zoneMaxWidth = choreography.cssMaxWidth;
   const verticalStyle: React.CSSProperties =
     choreography.cssVertical.top !== undefined
       ? {
           top: choreography.cssVertical.top,
           left: horizontalAnchorLeft,
+          right: horizontalAnchorRight,
+          maxWidth: zoneMaxWidth,
           transform: `translate3d(${horizontalTranslateX}, ${choreography.cssVertical.translateY}, 0)`
         }
       : {
           bottom: choreography.cssVertical.bottom || '12%',
           left: horizontalAnchorLeft,
+          right: horizontalAnchorRight,
+          maxWidth: zoneMaxWidth,
           transform: `translate3d(${horizontalTranslateX}, 0, 0)`
         };
 
@@ -408,7 +414,7 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
 
       {/* Strictly Time-Gated Phase Display with Spatial 9-Zone Title Align CSS Transition */}
       <div
-        className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-4xl min-h-[180px] flex items-center justify-center z-10 transition-[left,transform] duration-300 ease-out ${
+        className={`absolute w-fit min-h-[180px] flex items-center justify-center z-10 transition-[left,transform] duration-300 ease-out ${
           effectiveAlign === 'LEFT'
             ? 'text-left'
             : effectiveAlign === 'RIGHT'

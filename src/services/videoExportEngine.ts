@@ -42,7 +42,7 @@ import {
 import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
 import { renderAlignedCinemaTitleOverlay } from '../utils/interchangeExport';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
-import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption } from '../types/anthology';
+import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption, SmartCropMode, SpeedRampPreset } from '../types/anthology';
 import {
   diagnoseWebCodecsOutputFormat,
   FullResVideoEncoder,
@@ -55,6 +55,12 @@ export { sanitizeMuxerChunkMetadata };
 import { SlideDraft } from '../types/project';
 import { buildFilmStockCssFilter, applyCinematicPostProcess } from './cinematicFilterEngine';
 import { renderCanvasBurnInCaption } from './captionEngine';
+import { opfsMediaStorage } from './media/opfsMediaStorage';
+import {
+  computeSmartCropRect,
+  evaluateBeatDropFx,
+  evaluateSpeedRampSourceTime
+} from '../utils/speedReelsEngine';
 
 export type ShotSelectionMode = 'all' | 'range' | 'custom' | 'current';
 
@@ -569,21 +575,21 @@ export function waitForSeek(video: HTMLVideoElement, targetTime: number, timeout
 }
 
 /**
- * Captures a verified non-black frame snapshot from an HTMLVideoElement onto an offscreen canvas,
- * returning either a verified snapshot canvas or the previous valid snapshot if decode yielded blank.
+ * Captures and samples pixels from an HTMLVideoElement onto an offscreen canvas.
+ * Returns `{ source, hasPixels }` so callers can detect stalled GPU textures (pure black).
  */
-function resolveVerifiedVideoSource(
+function sampleVerifiedVideoFrame(
   video: HTMLVideoElement,
   probeCanvasRef: { canvas: HTMLCanvasElement | null; ctx: CanvasRenderingContext2D | null; hasValid: boolean }
-): HTMLVideoElement | HTMLCanvasElement | null {
-  if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) {
-    return probeCanvasRef.hasValid ? probeCanvasRef.canvas : null;
-  }
-  if (video.readyState < 2) {
-    return probeCanvasRef.hasValid ? probeCanvasRef.canvas : null;
+): { source: HTMLVideoElement | HTMLCanvasElement | null; hasPixels: boolean } {
+  if (!video || video.videoWidth <= 0 || video.videoHeight <= 0 || video.readyState < 2) {
+    return {
+      source: probeCanvasRef.hasValid ? probeCanvasRef.canvas : null,
+      hasPixels: false
+    };
   }
   if (typeof document === 'undefined') {
-    return video;
+    return { source: video, hasPixels: true };
   }
   try {
     if (!probeCanvasRef.canvas) {
@@ -598,11 +604,10 @@ function resolveVerifiedVideoSource(
     }
     const pCtx = probeCanvasRef.ctx;
     const pCanvas = probeCanvasRef.canvas;
-    if (!pCtx || !pCanvas) return video;
+    if (!pCtx || !pCanvas) return { source: video, hasPixels: true };
 
     pCtx.drawImage(video, 0, 0, pCanvas.width, pCanvas.height);
 
-    // Fast 5-point sample to detect driver GPU-blank frames (all zero RGB)
     const w = pCanvas.width;
     const h = pCanvas.height;
     const pts: Array<[number, number]> = [
@@ -623,18 +628,70 @@ function resolveVerifiedVideoSource(
 
     if (hasPixels) {
       probeCanvasRef.hasValid = true;
-      return pCanvas;
+      return { source: pCanvas, hasPixels: true };
     }
 
-    // If GPU returned pure black while we already have a previous valid frame, keep the valid frame
-    if (probeCanvasRef.hasValid) {
-      return pCanvas;
-    }
-    return video;
+    return {
+      source: probeCanvasRef.hasValid ? pCanvas : video,
+      hasPixels: false
+    };
   } catch {
-    // Tainted cross-origin video: drawImage directly to export canvas (which already runs clean)
-    return video;
+    return { source: video, hasPixels: true };
   }
+}
+
+/**
+ * Deterministic Seek + GPU Frame Decode Barrier:
+ * Awaits `seeked` + `readyState >= 2`, and if the GPU video texture initially samples pure black,
+ * performs a silent muted micro-play/pause nudge (<=45ms) + `requestVideoFrameCallback` so hardware
+ * decoders flush a real paintable frame before `ctx.drawImage`.
+ */
+async function seekAndWaitForFrame(
+  video: HTMLVideoElement,
+  targetTimeSec: number,
+  probeCanvasRef: { canvas: HTMLCanvasElement | null; ctx: CanvasRenderingContext2D | null; hasValid: boolean },
+  timeoutMs: number = 1200
+): Promise<HTMLVideoElement | HTMLCanvasElement | null> {
+  await waitForSeek(video, targetTimeSec, timeoutMs);
+  let sample = sampleVerifiedVideoFrame(video, probeCanvasRef);
+  if (sample.hasPixels) {
+    return sample.source;
+  }
+
+  // Micro-nudge paused GPU decoder to present at least one real frame
+  try {
+    video.muted = true;
+    const p = video.play();
+    if (p && typeof p.then === 'function') {
+      await Promise.race([p.catch(() => {}), new Promise<void>((r) => setTimeout(r, 45))]);
+    }
+    const rvfc = (video as any).requestVideoFrameCallback;
+    if (typeof rvfc === 'function' && !video.paused) {
+      await new Promise<void>((res) => {
+        let done = false;
+        const t = setTimeout(() => { if (!done) { done = true; res(); } }, 50);
+        try {
+          rvfc.call(video, () => {
+            if (!done) { done = true; clearTimeout(t); res(); }
+          });
+        } catch {
+          clearTimeout(t);
+          res();
+        }
+      });
+    } else {
+      await new Promise<void>((r) => setTimeout(r, 32));
+    }
+    video.pause();
+    if (Math.abs((video.currentTime || 0) - targetTimeSec) > 0.05) {
+      await waitForSeek(video, targetTimeSec, 500);
+    }
+    sample = sampleVerifiedVideoFrame(video, probeCanvasRef);
+  } catch {
+    // Non-fatal fallback
+  }
+
+  return sample.source;
 }
 
 /**
@@ -650,7 +707,7 @@ export interface FrameCompositeProps {
   totalFramesInShot: number; // Variable: e.g. 12 frames (0.5s) up to 43,200 frames (30m)
   shotStartTimeSec?: number; // Cumulative timeline start time in seconds for frame-accurate SMPTE
   fps?: number;
-  sourceElement: HTMLVideoElement | ImageBitmap | HTMLImageElement | null;
+  sourceElement: HTMLVideoElement | ImageBitmap | HTMLImageElement | HTMLCanvasElement | null;
   titleBn?: string;
   titleEn?: string;
   tagline?: string;
@@ -666,6 +723,13 @@ export interface FrameCompositeProps {
   titlePreset?: HeroTitlePreset;
   titleSize?: number;
   verticalOffset?: number;
+  panX?: number;
+  panY?: number;
+  reframeZoom?: number;
+  smartCropMode?: SmartCropMode;
+  flashCutEnabled?: boolean;
+  flashCutIntervalSec?: number;
+  beatDropEnabled?: boolean;
 }
 
 export function compositeCinemaFrame(props: FrameCompositeProps): void {
@@ -686,7 +750,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     burnInTitles,
     cleanPlates,
     simulateFlare,
-    projectTitle,
     lutFilter,
     adjustments,
     caption,
@@ -694,18 +757,24 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     titleAlign,
     titlePreset,
     titleSize,
-    verticalOffset
+    verticalOffset,
+    panX,
+    panY,
+    reframeZoom,
+    smartCropMode,
+    flashCutEnabled,
+    flashCutIntervalSec,
+    beatDropEnabled
   } = props;
 
   const isVertical = preset === '9_16_vertical';
   const is4K = width >= 3840 || height >= 2160;
   const currentLocalSec = frameInShot / Math.max(1, fps);
 
-  // 1. Always initialize export canvas with the shot's exact procedural color gradient backdrop
-  //    (guarantees zero blank #000000 frames even if media decode glitches or is unassigned).
-  renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
+  // 1. Strict Vantablack #050505 base; paint procedural backdrop cleanly if no video/image plate is ready
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0, 0, width, height);
 
-  // 2. Render Per-Shot Video/Image Media Layer if ready and decodable
   const hasReadySource = Boolean(
     sourceElement &&
       (sourceElement instanceof HTMLVideoElement
@@ -715,13 +784,18 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
           : sourceElement.width > 0 && sourceElement.height > 0)
   );
 
+  if (!hasReadySource) {
+    renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
+  }
+
+  // 2. Render Per-Shot Video/Image Media Layer
   if (hasReadySource && sourceElement) {
     let srcW = 1920;
     let srcH = 1080;
     if (sourceElement instanceof HTMLVideoElement) {
       srcW = sourceElement.videoWidth || 1920;
       srcH = sourceElement.videoHeight || 1080;
-    } else if (sourceElement instanceof ImageBitmap) {
+    } else if (sourceElement instanceof ImageBitmap || sourceElement instanceof HTMLCanvasElement) {
       srcW = sourceElement.width;
       srcH = sourceElement.height;
     } else if (sourceElement instanceof HTMLImageElement) {
@@ -729,26 +803,57 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       srcH = sourceElement.naturalHeight || 1080;
     }
 
+    const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
+
     if (isVertical) {
-      // 9:16 Vertical Reel Mode: Ambient blurred scope backing + sharp centered letterbox
-      ctx.save();
-      ctx.filter = 'blur(30px) brightness(0.4)';
-      ctx.drawImage(sourceElement as any, -width * 0.5, 0, width * 2, height);
-      ctx.restore();
+      const hasSmartCropOrReframe = Boolean(
+        smartCropMode ||
+          (typeof reframeZoom === 'number' && reframeZoom > 1.01) ||
+          typeof panX === 'number' ||
+          typeof panY === 'number'
+      );
 
-      const targetScopeH = Math.round(width / 2.39);
-      const targetScopeY = Math.round((height - targetScopeH) / 2);
+      if (hasSmartCropOrReframe) {
+        const crop = computeSmartCropRect(srcW, srcH, width, height, {
+          panX,
+          panY,
+          reframeZoom,
+          smartCropMode
+        });
+        ctx.save();
+        if (filmFilter && filmFilter !== 'none') {
+          ctx.filter = filmFilter;
+        }
+        try {
+          ctx.drawImage(sourceElement as any, crop.sx, crop.sy, crop.sw, crop.sh, crop.dx, crop.dy, crop.dw, crop.dh);
+        } catch {
+          renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
+        }
+        ctx.restore();
+      } else {
+        // Legacy 2.39:1 vertical pillar-box letterbox
+        ctx.save();
+        ctx.filter = 'blur(30px) brightness(0.4)';
+        ctx.drawImage(sourceElement as any, -width * 0.5, 0, width * 2, height);
+        ctx.restore();
 
-      ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      ctx.shadowBlur = 24;
-      ctx.shadowOffsetY = 4;
-      ctx.drawImage(sourceElement as any, 0, targetScopeY, width, targetScopeH);
-      ctx.restore();
+        const targetScopeH = Math.round(width / 2.39);
+        const targetScopeY = Math.round((height - targetScopeH) / 2);
 
-      ctx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(0, targetScopeY, width, targetScopeH);
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 4;
+        if (filmFilter && filmFilter !== 'none') {
+          ctx.filter = filmFilter;
+        }
+        ctx.drawImage(sourceElement as any, 0, targetScopeY, width, targetScopeH);
+        ctx.restore();
+
+        ctx.strokeStyle = 'rgba(245, 166, 35, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, targetScopeY, width, targetScopeH);
+      }
     } else {
       const panProgress = frameInShot / Math.max(1, totalFramesInShot);
       const smoothProgress = 0.5 - 0.5 * Math.cos(Math.PI * panProgress);
@@ -776,20 +881,39 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       const scaledY = drawY - (scaledH - drawH) / 2;
 
       ctx.save();
-      const filmFilter = buildFilmStockCssFilter(lutFilter || 'kodak_vision3', adjustments);
       if (filmFilter && filmFilter !== 'none') {
         ctx.filter = filmFilter;
       }
       try {
         ctx.drawImage(sourceElement as any, scaledX, scaledY, scaledW, scaledH);
       } catch {
-        // Fallback keeps procedural backdrop initialized above
+        renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
       }
       ctx.restore();
     }
   }
 
   applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
+
+  // 2a. Beat-Drop Chromatic Aberration & 2-Frame Vantablack Flash Cut FX
+  const beatFx = evaluateBeatDropFx(
+    { flashCutEnabled, flashCutIntervalSec, beatDropEnabled },
+    currentLocalSec,
+    fps
+  );
+  if (beatFx.chromaticOffsetPx > 0.5) {
+    const edgeW = Math.max(4, Math.round(beatFx.chromaticOffsetPx * (is4K ? 3 : 1.5)));
+    ctx.save();
+    ctx.fillStyle = 'rgba(229, 9, 20, 0.42)';
+    ctx.fillRect(0, 0, edgeW, height);
+    ctx.fillStyle = 'rgba(34, 211, 238, 0.42)';
+    ctx.fillRect(width - edgeW, 0, edgeW, height);
+    ctx.restore();
+  }
+  if (beatFx.isFlashCutFrame) {
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, width, height);
+  }
 
   // 2b. Theatrical 2.39:1 Scope Mattes (Letterbox boundaries) for Standard 16:9 or standalone slates
   const isStandard16_9 = preset === '1080p_standard' || preset === '4k_standard';
@@ -833,7 +957,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
 
   // 4. Anamorphic Flare & Light Streak Simulation
   const shouldRenderFlare = Boolean(simulateFlare || !hasReadySource);
-  if (shouldRenderFlare) {
+  if (shouldRenderFlare && !beatFx.isFlashCutFrame) {
     const flareY = isVertical ? height * 0.5 : height * 0.48;
     const flareH = Math.max(8, height * 0.035);
 
@@ -873,7 +997,8 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       shotType
     );
     const resolvedPreset = titlePreset ?? storeState.titleConfig?.preset ?? 'molten-gold';
-    const resolvedSize = titleSize ?? storeState.titleConfig?.titleSize ?? 72;
+    const baseSize = titleSize ?? storeState.titleConfig?.titleSize ?? 72;
+    const resolvedSize = Math.round(baseSize * beatFx.beatSlamScale);
     const resolvedVerticalOffset = verticalOffset ?? storeState.titleConfig?.verticalOffset ?? 0;
 
     renderAlignedCinemaTitleOverlay(ctx, width, height, {
@@ -953,7 +1078,6 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
     height,
     shotIndex,
     frameInShot,
-    totalFramesInShot,
     fps = 24,
     lutFilter,
     adjustments,
@@ -966,8 +1090,18 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
     titleAlign,
     titlePreset,
     titleSize,
-    verticalOffset
+    verticalOffset,
+    flashCutEnabled,
+    flashCutIntervalSec,
+    beatDropEnabled
   } = props;
+
+  // Never overwrite an intentional 2-frame Vantablack Beat-Drop Flash Cut frame
+  const currentLocalSec = frameInShot / Math.max(1, fps);
+  const beatFx = evaluateBeatDropFx({ flashCutEnabled, flashCutIntervalSec, beatDropEnabled }, currentLocalSec, fps);
+  if (beatFx.isFlashCutFrame) {
+    return;
+  }
 
   try {
     const sampleCoords: Array<[number, number]> = [
@@ -988,7 +1122,6 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
     }
 
     if (!hasNonBlackPixel) {
-      const currentLocalSec = frameInShot / Math.max(1, fps);
       renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
       applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
       if (burnInTitles && !cleanPlates) {
@@ -1101,7 +1234,7 @@ function resolveExportShotDurationSec(slide: any, frame: any): number {
 }
 
 /**
- * Resolves exact source <video> seek timestamp accounting for NLE inPointMs and playbackSpeed.
+ * Resolves exact source <video> seek timestamp accounting for NLE inPointMs, playbackSpeed, and Velocity Speed-Ramp curves.
  */
 function resolveExportVideoSeekSec(
   slide: any,
@@ -1111,13 +1244,16 @@ function resolveExportVideoSeekSec(
   vidDuration: number
 ): number {
   if (!(vidDuration > 0)) return 0;
-  const rawInMs = slide?.inPointMs ?? frame?.inPointMs ?? 0;
-  const inSec = typeof rawInMs === 'number' && Number.isFinite(rawInMs) && rawInMs > 0 ? rawInMs / 1000 : 0;
-  const rawSpeed = slide?.playbackSpeed ?? frame?.playbackSpeed ?? 1.0;
-  const speed = typeof rawSpeed === 'number' && Number.isFinite(rawSpeed) && rawSpeed > 0
-    ? Math.max(0.25, Math.min(4.0, rawSpeed))
-    : 1.0;
-  const sourceSec = inSec + (frameInShot / fps) * speed;
+  const merged = {
+    ...frame,
+    ...slide,
+    inPointMs: slide?.inPointMs ?? frame?.inPointMs,
+    outPointMs: slide?.outPointMs ?? frame?.outPointMs,
+    playbackSpeed: slide?.playbackSpeed ?? frame?.playbackSpeed,
+    speedRampPreset: slide?.speedRampPreset ?? frame?.speedRampPreset,
+    durationSec: resolveExportShotDurationSec(slide, frame)
+  };
+  const sourceSec = evaluateSpeedRampSourceTime(merged, frameInShot / Math.max(1, fps));
   return sourceSec >= vidDuration ? sourceSec % vidDuration : Math.max(0, sourceSec);
 }
 
@@ -1155,15 +1291,58 @@ async function loadShotRawBlob(shotIdx: number, slide: any, frame: any): Promise
 }
 
 /**
- * Decodes per-shot media from `shotMediaMap` (stored blob URLs) or `handfilm_media_vault`,
+ * Pre-Export Asset Verification & Blob Re-Hydration:
+ * Ensures any expired blob: URLs across selected shots are verified against OPFS / IndexedDB before frame 0.
+ */
+async function warmAndVerifySequenceAssets(
+  shotIndices: number[],
+  slides: any[],
+  frames: any[],
+  shotMediaMap?: ShotMediaMap
+): Promise<Map<number, string>> {
+  const rehydratedUrls = new Map<number, string>();
+  const opfsAvailable = opfsMediaStorage.checkSupport();
+
+  for (const shotIdx of shotIndices) {
+    const slide = slides[shotIdx];
+    const frame = frames[shotIdx];
+    const entry = resolveShotMediaEntry(shotMediaMap, frame, slide, shotIdx);
+    const url = entry?.url || frame?.imageUrl || slide?.remoteUrl || '';
+
+    if (url.startsWith('blob:') && opfsAvailable) {
+      let alive = false;
+      try {
+        const res = await fetch(url);
+        alive = res.ok;
+      } catch {
+        alive = false;
+      }
+      if (!alive) {
+        try {
+          const slot = await studioDraftDb.getTimelineSlot(shotIdx);
+          if (slot?.mediaId) {
+            const opfsUrl = await opfsMediaStorage.getMasterMediaUrl(slot.mediaId);
+            if (opfsUrl) rehydratedUrls.set(shotIdx, opfsUrl);
+          }
+        } catch {}
+      }
+    }
+  }
+
+  return rehydratedUrls;
+}
+
+/**
+ * Decodes per-shot media from `shotMediaMap` (stored blob URLs), OPFS, or `handfilm_media_vault`,
  * explicitly awaiting `onloadeddata` for videos or `img.decode()` for images before capture.
- * Returns null sources when missing or failed so `compositeCinemaFrame` falls back to the procedural color gradient.
+ * Returns null sources when missing or failed so `compositeCinemaFrame` falls back cleanly.
  */
 async function loadShotSourceMedia(
   shotIdx: number,
   slide: any,
   frame: any,
-  shotMediaMap?: ShotMediaMap
+  shotMediaMap?: ShotMediaMap,
+  rehydratedUrlOverride?: string
 ): Promise<{
   activeVideoElement: HTMLVideoElement | null;
   activeBitmap: ImageBitmap | HTMLImageElement | null;
@@ -1179,6 +1358,22 @@ async function loadShotSourceMedia(
   let activeBitmap: ImageBitmap | HTMLImageElement | null = null;
   let activeObjectUrl: string | null = null;
   let ownsObjectUrl = false;
+
+  // 0. Check rehydrated OPFS object URL if prior blob: expired
+  if (rehydratedUrlOverride) {
+    const isVid = mediaEntry ? mediaEntry.type === 'video' : Boolean(frame?.isVideo || slide?.isVideo);
+    if (isVid) {
+      const vid = await loadVideoElementWithOnLoadedData(rehydratedUrlOverride, 4500);
+      if (vid) {
+        return { activeVideoElement: vid, activeBitmap: null, activeObjectUrl: rehydratedUrlOverride, ownsObjectUrl: true };
+      }
+    } else {
+      const img = await loadDecodedImage(rehydratedUrlOverride, 3000);
+      if (img) {
+        return { activeVideoElement: null, activeBitmap: img, activeObjectUrl: rehydratedUrlOverride, ownsObjectUrl: true };
+      }
+    }
+  }
 
   // 1. Primary: Resolve directly from `shotMediaMap` stored blob URL
   if (mediaEntry?.url) {
@@ -1486,6 +1681,7 @@ async function exportCinemaMasterWithMediaRecorder(
 
     let globalFrameIndex = 0;
     const startTimeMs = performance.now();
+    const rehydratedUrls = await warmAndVerifySequenceAssets(shotIndices, slides, frames, shotMediaMap);
 
     try {
       for (let shotListIdx = 0; shotListIdx < shotIndices.length; shotListIdx++) {
@@ -1506,7 +1702,7 @@ async function exportCinemaMasterWithMediaRecorder(
         const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
         const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl, ownsObjectUrl } =
-          await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
+          await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap, rehydratedUrls.get(shotIdx));
         let activeVideoElement = loadedVid;
         let activeBitmap = loadedBmp;
         let activeObjectUrl = ownsObjectUrl ? loadedUrl : null;
@@ -1536,8 +1732,7 @@ async function exportCinemaMasterWithMediaRecorder(
               ? activeVideoElement.duration
               : shotDurationSec;
             const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
-            await waitForSeek(activeVideoElement, targetVideoSec, 1000);
-            verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
+            verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
           }
 
           const frameProps: FrameCompositeProps = {
@@ -1560,7 +1755,14 @@ async function exportCinemaMasterWithMediaRecorder(
             projectTitle,
             lutFilter: frame?.lutFilter,
             adjustments: frame?.adjustments,
-            caption: frame?.caption
+            caption: frame?.caption,
+            panX: slide?.panX ?? frame?.panX,
+            panY: slide?.panY ?? frame?.panY,
+            reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
+            smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode,
+            flashCutEnabled: slide?.flashCutEnabled ?? frame?.flashCutEnabled,
+            flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
+            beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled
           };
           compositeCinemaFrame(frameProps);
           ensureNonBlankCanvasFrame(frameProps);
@@ -1845,6 +2047,7 @@ async function exportWithWebCodecs(
 
   let globalFrameIndex = 0;
   const startTimeMs = performance.now();
+  const rehydratedUrls = await warmAndVerifySequenceAssets(shotIndices, slides, frames, shotMediaMap);
 
   for (let shotListIdx = 0; shotListIdx < shotIndices.length; shotListIdx++) {
     if (abortSignal?.aborted) {
@@ -1865,7 +2068,7 @@ async function exportWithWebCodecs(
     const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
     const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl, ownsObjectUrl } =
-      await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
+      await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap, rehydratedUrls.get(shotIdx));
     let activeVideoElement = loadedVid;
     let activeBitmap = loadedBmp;
     let activeObjectUrl = ownsObjectUrl ? loadedUrl : null;
@@ -1904,8 +2107,7 @@ async function exportWithWebCodecs(
           ? activeVideoElement.duration
           : shotDurationSec;
         const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
-        await waitForSeek(activeVideoElement, targetVideoSec, 1000);
-        verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
+        verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
       }
 
       const frameProps: FrameCompositeProps = {
@@ -1928,12 +2130,30 @@ async function exportWithWebCodecs(
         projectTitle,
         lutFilter: frame?.lutFilter,
         adjustments: frame?.adjustments,
-        caption: frame?.caption
+        caption: frame?.caption,
+        panX: slide?.panX ?? frame?.panX,
+        panY: slide?.panY ?? frame?.panY,
+        reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
+        smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode,
+        flashCutEnabled: slide?.flashCutEnabled ?? frame?.flashCutEnabled,
+        flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
+        beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled
       };
       compositeCinemaFrame(frameProps);
       ensureNonBlankCanvasFrame(frameProps);
-      if (!verifyNonBlankCanvasFrame(canvas, ctx)) {
-        // Guarantee non-blank procedural backdrop + film title composite on edge decode stalls
+      const isFlashFrame = Boolean(
+        frameProps.flashCutEnabled &&
+          evaluateBeatDropFx(
+            {
+              flashCutEnabled: frameProps.flashCutEnabled,
+              flashCutIntervalSec: frameProps.flashCutIntervalSec,
+              beatDropEnabled: frameProps.beatDropEnabled
+            },
+            f / Math.max(1, fps),
+            fps
+          ).isFlashCutFrame
+      );
+      if (!isFlashFrame && !verifyNonBlankCanvasFrame(canvas, ctx)) {
         renderProceduralBackdropToCanvas(ctx, width, height, shotIdx, shotStartTimeSec + f / fps);
       }
 
@@ -2336,6 +2556,7 @@ export async function exportCinemaMasterVp9(
 
     let globalFrameIndex = 0;
     const startTimeMs = performance.now();
+    const rehydratedUrls = await warmAndVerifySequenceAssets(shotIndices, slides, frames, shotMediaMap);
 
     for (let shotListIdx = 0; shotListIdx < shotIndices.length; shotListIdx++) {
       if (abortSignal?.aborted) {
@@ -2353,7 +2574,7 @@ export async function exportCinemaMasterVp9(
       const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
       const { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl } =
-        await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap);
+        await loadShotSourceMedia(shotIdx, slide, frame, shotMediaMap, rehydratedUrls.get(shotIdx));
       const ownedUrl = ownsObjectUrl ? activeObjectUrl : null;
       const probeRef = { canvas: null as HTMLCanvasElement | null, ctx: null as CanvasRenderingContext2D | null, hasValid: false };
       const shotDurationSec = perShotDurationsSec[shotListIdx];
@@ -2382,8 +2603,7 @@ export async function exportCinemaMasterVp9(
             ? activeVideoElement.duration
             : shotDurationSec;
           const targetVideoSec = resolveExportVideoSeekSec(slide, frame, f, fps, vidDuration);
-          await waitForSeek(activeVideoElement, targetVideoSec, 1000);
-          verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
+          verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetVideoSec, probeRef, 1200)) || activeBitmap;
         }
 
         const frameProps: FrameCompositeProps = {
@@ -2406,7 +2626,14 @@ export async function exportCinemaMasterVp9(
           projectTitle,
           lutFilter: frame?.lutFilter,
           adjustments: frame?.adjustments,
-          caption: frame?.caption
+          caption: frame?.caption,
+          panX: slide?.panX ?? frame?.panX,
+          panY: slide?.panY ?? frame?.panY,
+          reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
+          smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode,
+          flashCutEnabled: slide?.flashCutEnabled ?? frame?.flashCutEnabled,
+          flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
+          beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled
         };
         compositeCinemaFrame(frameProps);
         ensureNonBlankCanvasFrame(frameProps);
@@ -2616,8 +2843,7 @@ export async function exportPngSequenceZip(
           ? activeVideoElement.duration
           : shotDurSec;
         const targetSec = vidDuration > 0 ? (frameInShot / 24) % vidDuration : 0;
-        await waitForSeek(activeVideoElement, targetSec, 1000);
-        verifiedSource = resolveVerifiedVideoSource(activeVideoElement, probeRef) || activeBitmap;
+        verifiedSource = (await seekAndWaitForFrame(activeVideoElement, targetSec, probeRef, 1200)) || activeBitmap;
       }
 
       const frameProps: FrameCompositeProps = {
@@ -2640,7 +2866,11 @@ export async function exportPngSequenceZip(
         projectTitle,
         lutFilter: frame?.lutFilter,
         adjustments: frame?.adjustments,
-        caption: frame?.caption
+        caption: frame?.caption,
+        panX: slide?.panX ?? frame?.panX,
+        panY: slide?.panY ?? frame?.panY,
+        reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
+        smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode
       };
       compositeCinemaFrame(frameProps);
       ensureNonBlankCanvasFrame(frameProps);

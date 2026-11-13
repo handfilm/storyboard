@@ -89,6 +89,7 @@ import { formatFullSMPTETimecode } from '../../types/storyboard';
 import { playbackClock, syncVideoCurrentTimeWithFastSeek, type VlcLoopMode, type VlcAbLoop } from '../../utils/playbackClock';
 import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
 import { videoCacheService } from '../../services/videoCacheService';
+import { getSpeedRampInstantRate, evaluateBeatDropFx } from '../../utils/speedReelsEngine';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -226,6 +227,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const [isFilterTrayOpen, setIsFilterTrayOpen] = useState(false);
   const [isWebCodecsEngineActive, setIsWebCodecsEngineActive] = useState<boolean>(true);
   const [nativeVideoDuration, setNativeVideoDuration] = useState<number>(0);
+  const [readyVideoUrl, setReadyVideoUrl] = useState<string | null>(null);
+  const slotRefCallbacksRef = useRef<Map<string, (el: HTMLVideoElement | null) => void>>(new Map());
   const [loopMode, setLoopMode] = useState<VlcLoopMode>(playbackMode === 'solo' ? 'repeat-one' : 'sequence');
   const [abLoop, setAbLoop] = useState<VlcAbLoop>({ a: null, b: null });
   const [stageFitMode, setStageFitMode] = useState<'contain' | 'cover' | 'fill'>(fitMode === 'contain' ? 'contain' : 'cover');
@@ -809,26 +812,60 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   }, [currentIndex, frames, shotMediaMap, sourceUrl, cachedPosterUrl, zoomTransforms.bgDepthBlur, barrelDistortion]);
 
   // Keep videoRef synced to active slot and release unmounted decoder handles
-  const registerSlotVideoRef = useCallback(
-    (shotIdx: number, role: 'prev' | 'active' | 'next', el: HTMLVideoElement | null) => {
-      if (el) {
-        slotVideoRefs.current.set(shotIdx, el);
-        if (role === 'active') {
-          videoRef.current = el;
+  // IMPORTANT: Cached per `(shotIdx, role)` callback avoids inline-closure teardown on every render!
+  const getSlotRefCallback = useCallback(
+    (shotIdx: number, role: 'prev' | 'active' | 'next') => {
+      const cacheKey = `${shotIdx}:${role}`;
+      const existingCb = slotRefCallbacksRef.current.get(cacheKey);
+      if (existingCb) return existingCb;
+
+      const cb = (el: HTMLVideoElement | null) => {
+        if (el) {
+          slotVideoRefs.current.set(shotIdx, el);
+          if (role === 'active') {
+            videoRef.current = el;
+            if (el.readyState >= 2) {
+              setReadyVideoUrl(el.currentSrc || el.src || '__ready__');
+            }
+          }
+        } else {
+          const existing = slotVideoRefs.current.get(shotIdx);
+          if (existing) {
+            cleanupVideoElement(existing);
+            slotVideoRefs.current.delete(shotIdx);
+          }
+          if (role === 'active') {
+            videoRef.current = null;
+          }
         }
-      } else {
-        const existing = slotVideoRefs.current.get(shotIdx);
-        if (existing) {
-          cleanupVideoElement(existing);
-          slotVideoRefs.current.delete(shotIdx);
-        }
-        if (role === 'active') {
-          videoRef.current = null;
-        }
-      }
+      };
+      slotRefCallbacksRef.current.set(cacheKey, cb);
+      return cb;
     },
     []
   );
+
+  // Sync videoRef & pause/dispose evicted slots whenever active pool slots change
+  useEffect(() => {
+    const activeSlotIdxSet = new Set(poolSlots.map((s) => s.shotIdx));
+    for (const [idx, vid] of slotVideoRefs.current.entries()) {
+      if (!activeSlotIdxSet.has(idx)) {
+        cleanupVideoElement(vid);
+        slotVideoRefs.current.delete(idx);
+      }
+    }
+    const activeVid = slotVideoRefs.current.get(currentIndex) ?? null;
+    if (activeVid) {
+      videoRef.current = activeVid;
+      if (activeVid.readyState >= 2) {
+        setReadyVideoUrl(activeVid.currentSrc || activeVid.src || '__ready__');
+      } else {
+        setReadyVideoUrl(null);
+      }
+    } else {
+      setReadyVideoUrl(null);
+    }
+  }, [currentIndex, poolSlots]);
 
   // Video decoder teardown on unmount (4GB Guard)
   useEffect(() => {
@@ -1022,6 +1059,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         // Direct hardware time mapped to trimmed clip timeline is ground truth (read-only)
         accumulatedShotClockRef.current = curLocal;
         lastVideoClockTimeRef.current = curLocal;
+
+        // Live Velocity Speed-Ramp rate modulation during active playback
+        const activeRamp = frameRef.current?.speedRampPreset;
+        if (activeRamp && activeRamp !== 'NONE') {
+          const rampFactor = getSpeedRampInstantRate(activeRamp, curLocal, clipDur);
+          const targetRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * clipSpeed * rampFactor));
+          if (Math.abs(video.playbackRate - targetRate) > 0.04) {
+            video.playbackRate = targetRate;
+          }
+        }
 
         playbackClock.emit({
           timeSec: curLocal,
@@ -1687,12 +1734,13 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               const isSlotActive = slot.role === 'active';
               const shouldPreloadAuto = slot.role === 'active' || slot.role === 'next';
               const shouldNativeLoop = loopMode === 'repeat-one' && abLoop.a === null && abLoop.b === null;
+              const slotReady = readyVideoUrl === slot.url || (isSlotActive && (videoRef.current?.readyState ?? 0) >= 2);
               return (
                 <video
-                  key={`stage-pool-video-${slot.shotIdx}-${slot.shotKey}-${slot.url}`}
+                  key={`stage-pool-video-${slot.shotIdx}-${slot.shotKey}`}
                   id={isSlotActive ? 'stage-fallback-video' : `stage-pool-${slot.role}-${slot.shotIdx}`}
                   data-pool-role={slot.role}
-                  ref={(el) => registerSlotVideoRef(slot.shotIdx, slot.role, el)}
+                  ref={getSlotRefCallback(slot.shotIdx, slot.role)}
                   src={slot.url}
                   crossOrigin="anonymous"
                   poster={slot.poster || undefined}
@@ -1703,6 +1751,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                   onSeeked={(e) => {
                     if (isSlotActive) {
                       seekGuardRef.current.handleSeeked(e.currentTarget);
+                      if (e.currentTarget.readyState >= 2) {
+                        setReadyVideoUrl(slot.url);
+                      }
                       void videoCacheService.captureKeyframeBitmap(e.currentTarget, slot.url, e.currentTarget.currentTime);
                     }
                   }}
@@ -1724,19 +1775,38 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                       const entryKey = `${slot.shotIdx}:${slot.url}`;
                       if (lastShotEntrySeekKeyRef.current !== entryKey) {
                         lastShotEntrySeekKeyRef.current = entryKey;
-                        if (clipInSec > 0.01 && Math.abs(vid.currentTime - clipInSec) > 0.05) {
+                        const entrySec = clipInSec > 0.01 ? clipInSec : (slideTimeSecRef.current > 0.05 ? localToSourceSec(slideTimeSecRef.current) : 0);
+                        if (entrySec > 0.01 && Math.abs(vid.currentTime - entrySec) > 0.05) {
                           try {
-                            vid.currentTime = clipInSec;
+                            vid.currentTime = entrySec;
                           } catch {}
                         }
                       }
                     }
                   }}
                   onLoadedData={(e) => {
-                    if (isSlotActive && isAutoplay && !isScrubbingRef.current && e.currentTarget.paused) {
-                      applyVlcMediaGain(e.currentTarget, effectiveVolume, effectiveMuted);
-                      e.currentTarget.playbackRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * clipSpeed));
-                      e.currentTarget.play().catch(() => {});
+                    if (isSlotActive) {
+                      setReadyVideoUrl(slot.url);
+                      const vid = e.currentTarget;
+                      if (isAutoplay && !isScrubbingRef.current && vid.paused) {
+                        applyVlcMediaGain(vid, effectiveVolume, effectiveMuted);
+                        vid.playbackRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * clipSpeed));
+                        vid.play().catch(() => {
+                          vid.muted = true;
+                          vid.play().catch(() => {});
+                        });
+                      }
+                    }
+                  }}
+                  onCanPlay={(e) => {
+                    if (isSlotActive) {
+                      setReadyVideoUrl(slot.url);
+                      const vid = e.currentTarget;
+                      if (isAutoplay && !isScrubbingRef.current && vid.paused) {
+                        applyVlcMediaGain(vid, effectiveVolume, effectiveMuted);
+                        vid.playbackRate = Math.max(0.25, Math.min(4.0, (playbackSpeed || 1.0) * clipSpeed));
+                        vid.play().catch(() => {});
+                      }
                     }
                   }}
                   onTimeUpdate={(e) => {
@@ -1779,7 +1849,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                   className={`absolute inset-0 w-full h-full ${fitModeClass} will-change-transform`}
                   style={{
                     filter: slot.filter,
-                    opacity: isSlotActive ? 1 : 0,
+                    opacity: isSlotActive ? (slotReady || !slot.poster ? 1 : 0) : 0,
                     zIndex: isSlotActive ? 2 : 0,
                     pointerEvents: isSlotActive ? 'auto' : 'none',
                     transform: 'translateZ(0)',
@@ -1789,7 +1859,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               );
             })}
 
-          {/* STILL IMAGE / CACHED POSTER INSTANT LAYER */}
+          {/* STILL IMAGE / CACHED POSTER INSTANT FALLBACK LAYER (auto-hides once live video readyState >= 2) */}
           {activeMediaUrl && !isVideoMedia && (
             <img
               id="stage-fallback-img"
@@ -1800,16 +1870,43 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               style={{ filter: combinedMediaFilter }}
             />
           )}
-          {!activeMediaUrl && cachedPosterUrl && (
-            <img
-              id="stage-fallback-poster"
-              src={cachedPosterUrl}
-              crossOrigin="anonymous"
-              alt="Cached Shot Poster"
-              className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-[1]`}
-              style={{ filter: combinedMediaFilter }}
-            />
-          )}
+          {(() => {
+            const activeSlot = poolSlots.find((s) => s.role === 'active');
+            const fallbackPoster = cachedPosterUrl || activeSlot?.poster || (frame?.thumbnailUrl && !isSvgPlaceholderUrl(frame.thumbnailUrl) ? frame.thumbnailUrl : '');
+            const activeVideoNotReady = isVideoMedia && activeMediaUrl && readyVideoUrl !== activeMediaUrl && (videoRef.current?.readyState ?? 0) < 2;
+            if ((!activeMediaUrl || activeVideoNotReady) && fallbackPoster) {
+              return (
+                <img
+                  id="stage-fallback-poster"
+                  src={fallbackPoster}
+                  crossOrigin="anonymous"
+                  alt="Cached Shot Poster"
+                  className={`absolute inset-0 w-full h-full ${fitModeClass} pointer-events-none z-[1]`}
+                  style={{ filter: combinedMediaFilter }}
+                />
+              );
+            }
+            return null;
+          })()}
+
+          {/* BEAT-DROP / 2-FRAME FLASH CUT FX OVERLAY (synchronized with Reels Engine) */}
+          {(() => {
+            const fx = evaluateBeatDropFx(frame as any, slideTimeSec, activeShotFps);
+            if (!fx.isFlashCutFrame && fx.chromaticOffsetPx <= 0.5) return null;
+            return (
+              <div className="absolute inset-0 pointer-events-none z-[15]">
+                {fx.isFlashCutFrame && <div className="absolute inset-0 bg-[#050505]" />}
+                {fx.chromaticOffsetPx > 0.5 && (
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      boxShadow: `inset ${fx.chromaticOffsetPx}px 0 0 rgba(229,9,20,0.45), inset -${fx.chromaticOffsetPx}px 0 0 rgba(34,211,238,0.45)`
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })()}
 
           {/* PURE PROCEDURAL CINEMA BACKDROP LAYER (Active whenever no local video/photo has been dropped) */}
           {!activeMediaUrl && !cachedPosterUrl && (

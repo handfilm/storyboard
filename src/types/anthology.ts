@@ -90,6 +90,9 @@ export type KineticTypographyArchetype =
   | 'dark-metallic'
   | 'ambient-chill';
 
+export type SpeedRampPreset = 'NONE' | 'BULLET_TIME' | 'WHIP_CUT' | 'HEARTBEAT';
+export type SmartCropMode = 'LEFT' | 'CENTER' | 'RIGHT' | 'AUTO_ZOOM' | 'CUSTOM';
+
 export interface AnthologyFrame {
   id: number;
   epNumber: string;
@@ -116,7 +119,14 @@ export interface AnthologyFrame {
   dopamineConfig?: DopamineShotConfig;
   kineticArchetype?: KineticTypographyArchetype;
   tags: string[];
+  panX?: number;
   panY?: number;
+  reframeZoom?: number;
+  smartCropMode?: SmartCropMode;
+  speedRampPreset?: SpeedRampPreset;
+  flashCutEnabled?: boolean;
+  flashCutIntervalSec?: number;
+  beatDropEnabled?: boolean;
   activeLens?: string;
   dof?: string;
   titleAnimation?: TitleAnimationStyle;

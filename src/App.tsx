@@ -2766,7 +2766,16 @@ export default function App() {
           inPointMs: s.inPointMs !== undefined ? s.inPointMs : original?.inPointMs,
           outPointMs: s.outPointMs !== undefined ? s.outPointMs : original?.outPointMs,
           playbackSpeed: s.playbackSpeed !== undefined ? s.playbackSpeed : original?.playbackSpeed,
-          mediaVaultKey: vaultKey
+          mediaVaultKey: vaultKey,
+          panX: s.panX !== undefined ? s.panX : original?.panX,
+          panY: s.panY !== undefined ? s.panY : original?.panY,
+          reframeZoom: s.reframeZoom !== undefined ? s.reframeZoom : original?.reframeZoom,
+          smartCropMode: s.smartCropMode !== undefined ? s.smartCropMode : original?.smartCropMode,
+          speedRampPreset: s.speedRampPreset !== undefined ? s.speedRampPreset : original?.speedRampPreset,
+          flashCutEnabled: s.flashCutEnabled !== undefined ? s.flashCutEnabled : original?.flashCutEnabled,
+          flashCutIntervalSec: s.flashCutIntervalSec !== undefined ? s.flashCutIntervalSec : original?.flashCutIntervalSec,
+          beatDropEnabled: s.beatDropEnabled !== undefined ? s.beatDropEnabled : original?.beatDropEnabled,
+          beatSnapEnabled: s.beatSnapEnabled !== undefined ? s.beatSnapEnabled : original?.beatSnapEnabled
         };
       });
 
@@ -3188,6 +3197,7 @@ export default function App() {
           onUpdateFrame={handleUpdateFrame}
           onUpdateFrameAtIndex={handleUpdateFrameAtIndex}
           onCommitSlidesNle={handleCommitSlidesNle}
+          onOpenExport={() => handleOpenExportStudio('mp4')}
           onApplyDurationToAll={handleApplyDurationToAll}
           onMatchAudioBeats={handleMatchAudioBeats}
           playbackMode={playbackMode}
@@ -3289,7 +3299,6 @@ export default function App() {
           multiCamLayoutConfig={multiCamLayoutConfig}
           onChangeMultiCamLayoutConfig={setMultiCamLayoutConfig}
           onOpenRecorder={() => setIsScreenRecorderOpen(true)}
-          onOpenExport={() => handleOpenExportStudio('mp4')}
           seekVersion={seekVersion}
           onSyncVideoTime={handleHardwareVideoTimeSync}
           onAdvanceFromVideoClock={handleAdvanceFromVideoClock}

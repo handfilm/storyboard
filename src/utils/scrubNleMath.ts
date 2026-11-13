@@ -451,3 +451,53 @@ export function applyClipSpeed(
     changed: true
   };
 }
+
+/**
+ * Slip Clip Source Window (`SLIP`):
+ * Shifts source `inPointMs` / `outPointMs` in tandem without altering `timelineDurationSec`.
+ */
+export function slipClipWindow(
+  slides: SlideDraft[],
+  clipIndex: number,
+  deltaSourceSec: number,
+  snapToFrame: boolean = true
+): ScrubNleEditResult {
+  if (!slides.length || clipIndex < 0 || clipIndex >= slides.length) {
+    return { slides, activeIndex: Math.max(0, clipIndex), localTimeSec: 0, changed: false };
+  }
+
+  const target = slides[clipIndex];
+  const win = getClipSourceWindow(target);
+  const delta = snapToFrame
+    ? snapSecondsToFrame(Math.abs(deltaSourceSec), win.fps, true) * Math.sign(deltaSourceSec)
+    : deltaSourceSec;
+
+  if (Math.abs(delta) < 0.001) {
+    return { slides, activeIndex: clipIndex, localTimeSec: 0, changed: false };
+  }
+
+  const nextInSec = roundSec(Math.max(0, win.inSec + delta));
+  const actualShift = nextInSec - win.inSec;
+  if (Math.abs(actualShift) < 0.001) {
+    return { slides, activeIndex: clipIndex, localTimeSec: 0, changed: false };
+  }
+  const nextOutSec = roundSec(nextInSec + win.sourceSpanSec);
+
+  const nextSlides = slides.map((s, idx) =>
+    idx === clipIndex
+      ? {
+          ...s,
+          inPointMs: roundMs(nextInSec),
+          outPointMs: roundMs(nextOutSec)
+        }
+      : s
+  );
+
+  return {
+    slides: reindexOrder(nextSlides),
+    activeIndex: clipIndex,
+    localTimeSec: 0,
+    changed: true
+  };
+}
+

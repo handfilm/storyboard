@@ -18,7 +18,6 @@ import { AnthologyFrame, AspectRatio } from '../types/anthology';
 import { OpticalFrame } from './OpticalFrame';
 import { OpticalMonitor } from './player/OpticalMonitor';
 import { ReelsView } from './ReelsView';
-import { TimelineSequencer } from './sequencer/TimelineSequencer';
 import { ScrubPanel } from './scrub/ScrubPanel';
 import { BoardStudio } from '../features/board/BoardStudio';
 import { CutStudio } from '../features/cut/CutStudio';
@@ -283,7 +282,14 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         colorAccent: f.colorAccent,
         lutFilter: f.lutFilter,
         isVideo: f.isVideo,
-        panY: panOffsetPercent,
+        panX: f.panX,
+        panY: f.panY ?? panOffsetPercent,
+        reframeZoom: f.reframeZoom,
+        smartCropMode: f.smartCropMode,
+        speedRampPreset: f.speedRampPreset,
+        flashCutEnabled: f.flashCutEnabled,
+        flashCutIntervalSec: f.flashCutIntervalSec,
+        beatDropEnabled: f.beatDropEnabled,
         cameraSpec: f.cameraSpec
       };
     });
@@ -317,7 +323,15 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         outPointMs: partial.outPointMs !== undefined ? partial.outPointMs : original.outPointMs,
         playbackSpeed: partial.playbackSpeed !== undefined ? partial.playbackSpeed : original.playbackSpeed,
         mediaVaultKey: partial.mediaVaultKey !== undefined ? partial.mediaVaultKey : original.mediaVaultKey,
-        beatSnapEnabled: partial.beatSnapEnabled !== undefined ? partial.beatSnapEnabled : original.beatSnapEnabled
+        beatSnapEnabled: partial.beatSnapEnabled !== undefined ? partial.beatSnapEnabled : original.beatSnapEnabled,
+        panX: partial.panX !== undefined ? partial.panX : original.panX,
+        panY: partial.panY !== undefined ? partial.panY : original.panY,
+        reframeZoom: partial.reframeZoom !== undefined ? partial.reframeZoom : original.reframeZoom,
+        smartCropMode: partial.smartCropMode !== undefined ? partial.smartCropMode : original.smartCropMode,
+        speedRampPreset: partial.speedRampPreset !== undefined ? partial.speedRampPreset : original.speedRampPreset,
+        flashCutEnabled: partial.flashCutEnabled !== undefined ? partial.flashCutEnabled : original.flashCutEnabled,
+        flashCutIntervalSec: partial.flashCutIntervalSec !== undefined ? partial.flashCutIntervalSec : original.flashCutIntervalSec,
+        beatDropEnabled: partial.beatDropEnabled !== undefined ? partial.beatDropEnabled : original.beatDropEnabled
       };
 
       if (onUpdateFrameAtIndex) {
@@ -498,97 +512,49 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           </div>
         )}
 
-        {/* VIEW 1: DUAL STUDIO SPLIT (Top: Elastic Reels Viewport, Bottom: Timeline Sequencer) */}
+        {/* VIEW 1: REELS STUDIO SPLIT (70% 9:16 Cinema Viewport + 30% Crazy 12s Speed Reels Control Deck) */}
         {currentPanel === 'SPLIT' && (
           <div className="w-full h-full flex flex-col overflow-hidden">
-            <div className="flex-1 min-h-[340px] w-full flex items-center justify-center overflow-hidden border-b border-[#1C1C24]">
-              <ReelsView
-                currentSlide={slides[currentIndex]}
-                nextSlide={slides[(currentIndex + 1) % slides.length]}
-                currentIndex={currentIndex}
-                totalSlides={slides.length}
-                aspectRatio={aspectRatio as AspectRatioType}
-                playbackMode={playbackMode}
-                isPlaying={isAutoplay}
-                isLooping={isLooping}
-                slideTimeSec={slideTimeSec}
-                playbackSpeed={playbackSpeed}
-                onChangePlaybackSpeed={onChangePlaybackSpeed}
-                onChangeSlideDuration={handleActiveShotDurationChange}
-                onChangeTargetFps={handleActiveShotFpsChange}
-                onApplyDurationToAll={onApplyDurationToAll}
-                isSnapToBeat={isSnapToBeat}
-                onToggleSnapToBeat={onToggleSnapToBeat}
-                onTogglePlay={onTogglePlay || (() => {})}
-                onToggleLoop={() => setIsLooping(l => !l)}
-                onStepFrame={onStepFrame || (() => {})}
-                onScrubSlideTime={onScrubSlideTime || (() => {})}
-                onScrubGlobalTime={onScrubGlobalTime}
-                onSelectPlaybackMode={onSelectPlaybackMode || (() => {})}
-                onChangeAspectRatio={onChangeAspectRatio || (() => {})}
-                onUploadMedia={onUploadImage}
-                onPurgeMedia={onPurgeMedia}
-                onOpenCinemaPlayer={onOpenCinemaPlayer}
-                projectTitle={projectTitle}
-                showTitles={isTitleVisible}
-                componentsVisibility={componentsVisibility}
-                defaultSafeZone="bottom"
-                onJumpToShot={onSelectFrame}
-                onSelectReel={(reelIdx) => onSelectFrame(reelIdx * 10)}
-              />
-            </div>
-
-            {/* Bottom: Elastic Multi-Cadence Sequencer */}
-            <div className="h-[275px] w-full shrink-0 overflow-hidden">
-              <TimelineSequencer
-                slides={slides}
-                activeSlideIndex={currentIndex}
-                playbackMode={playbackMode}
-                isPlaying={isAutoplay}
-                slideTimeSec={slideTimeSec}
-                onSelectSlide={onSelectFrame}
-                onTogglePlay={onTogglePlay || (() => {})}
-                onStepFrame={onStepFrame || (() => {})}
-                onScrubSlideTime={onScrubSlideTime || (() => {})}
-                onScrubGlobalTime={onScrubGlobalTime}
-                onSelectPlaybackMode={onSelectPlaybackMode || (() => {})}
-                onAddSlide={onAddSlide || (() => {})}
-                onDuplicateSlide={onDuplicateSlide || (() => {})}
-                onDeleteSlide={onDeleteSlide || (() => {})}
-                onReorderSlides={(reordered) => {
-                  if (onReorderFrames) {
-                    const newFrames = reordered.map((s, idx) => {
-                      const original = frames[s.orderIndex ?? idx] || frames[idx] || frames[0];
-                      const dur = getShotDurationSec(s, getShotDurationSec(original, 12.0));
-                      return {
-                        ...original,
-                        title: s.titleEn || original.title,
-                        bengaliTitle: s.titleBn || original.bengaliTitle,
-                        imageUrl: s.remoteUrl || original.imageUrl,
-                        slideHoldSec: dur,
-                        durationSec: dur,
-                        targetFps: s.targetFps ?? original.targetFps
-                      };
-                    });
-                    onReorderFrames(newFrames);
-                  }
-                }}
-                onUpdateSlide={handleUpdateSlideInternal}
-                onApplyDurationToAll={onApplyDurationToAll}
-                onMatchAudioBeats={onMatchAudioBeats}
-                isSnapToBeat={isSnapToBeat}
-                onToggleSnapToBeat={onToggleSnapToBeat}
-                onLoadAudioFile={onLoadAudioFile}
-                onUploadMedia={(idx, file) => {
-                  onSelectFrame(idx);
-                  if (onUploadMediaForIndex) {
-                    onUploadMediaForIndex(idx, file);
-                  } else {
-                    onUploadImage(file);
-                  }
-                }}
-              />
-            </div>
+            <ReelsView
+              slides={slides}
+              frames={frames}
+              currentSlide={slides[currentIndex]}
+              nextSlide={slides[(currentIndex + 1) % slides.length]}
+              currentIndex={currentIndex}
+              totalSlides={slides.length}
+              aspectRatio={aspectRatio as AspectRatioType}
+              playbackMode={playbackMode}
+              isPlaying={isAutoplay}
+              isLooping={isLooping}
+              slideTimeSec={slideTimeSec}
+              playbackSpeed={playbackSpeed}
+              onChangePlaybackSpeed={onChangePlaybackSpeed}
+              onChangeSlideDuration={handleActiveShotDurationChange}
+              onChangeTargetFps={handleActiveShotFpsChange}
+              onApplyDurationToAll={onApplyDurationToAll}
+              isSnapToBeat={isSnapToBeat}
+              onToggleSnapToBeat={onToggleSnapToBeat}
+              onTogglePlay={onTogglePlay || (() => {})}
+              onToggleLoop={() => setIsLooping(l => !l)}
+              onStepFrame={onStepFrame || (() => {})}
+              onScrubSlideTime={onScrubSlideTime || (() => {})}
+              onScrubGlobalTime={onScrubGlobalTime}
+              onSelectPlaybackMode={onSelectPlaybackMode || (() => {})}
+              onChangeAspectRatio={onChangeAspectRatio || (() => {})}
+              onUploadMedia={onUploadImage}
+              onPurgeMedia={onPurgeMedia}
+              onOpenCinemaPlayer={onOpenCinemaPlayer}
+              onOpenExport={onOpenExport}
+              onUpdateSlide={handleUpdateSlideInternal}
+              onCommitNleEdit={onCommitSlidesNle}
+              onSelectSlide={onSelectFrame}
+              projectTitle={projectTitle}
+              showTitles={isTitleVisible}
+              componentsVisibility={componentsVisibility}
+              defaultSafeZone="bottom"
+              onJumpToShot={onSelectFrame}
+              onSelectReel={(reelIdx) => onSelectFrame(reelIdx * 10)}
+            />
           </div>
         )}
 
@@ -665,7 +631,15 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                       inPointMs: s.inPointMs !== undefined ? s.inPointMs : original.inPointMs,
                       outPointMs: s.outPointMs !== undefined ? s.outPointMs : original.outPointMs,
                       playbackSpeed: s.playbackSpeed !== undefined ? s.playbackSpeed : original.playbackSpeed,
-                      mediaVaultKey: s.mediaVaultKey ?? original.mediaVaultKey ?? (original.id !== undefined ? String(original.id) : undefined)
+                      mediaVaultKey: s.mediaVaultKey ?? original.mediaVaultKey ?? (original.id !== undefined ? String(original.id) : undefined),
+                      panX: s.panX !== undefined ? s.panX : original.panX,
+                      panY: s.panY !== undefined ? s.panY : original.panY,
+                      reframeZoom: s.reframeZoom !== undefined ? s.reframeZoom : original.reframeZoom,
+                      smartCropMode: s.smartCropMode !== undefined ? s.smartCropMode : original.smartCropMode,
+                      speedRampPreset: s.speedRampPreset !== undefined ? s.speedRampPreset : original.speedRampPreset,
+                      flashCutEnabled: s.flashCutEnabled !== undefined ? s.flashCutEnabled : original.flashCutEnabled,
+                      flashCutIntervalSec: s.flashCutIntervalSec !== undefined ? s.flashCutIntervalSec : original.flashCutIntervalSec,
+                      beatDropEnabled: s.beatDropEnabled !== undefined ? s.beatDropEnabled : original.beatDropEnabled
                     };
                   });
                   onReorderFrames(newFrames);

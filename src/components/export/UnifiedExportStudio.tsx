@@ -266,6 +266,37 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   const [exportWarning, setExportWarning] = useState<string | null>(null);
   const [isFinished, setIsFinished] = useState<boolean>(false);
   const [downloadedFileName, setDownloadedFileName] = useState<string>('');
+  const [lastExportDownload, setLastExportDownload] = useState<{ url: string; filename: string } | null>(null);
+  const [elapsedSec, setElapsedSec] = useState<number>(0);
+  const exportStartedAtRef = useRef<number>(0);
+
+  const formatElapsedClock = useCallback((sec: number): string => {
+    const whole = Math.max(0, Math.floor(sec));
+    const mins = Math.floor(whole / 60);
+    const rem = whole % 60;
+    return `${String(mins).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+  }, []);
+
+  useEffect(() => {
+    if (!isExporting) return;
+    exportStartedAtRef.current = performance.now();
+    setElapsedSec(0);
+    const id = window.setInterval(() => {
+      setElapsedSec((performance.now() - exportStartedAtRef.current) / 1000);
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [isExporting]);
+
+  useEffect(() => {
+    const currentUrl = lastExportDownload?.url;
+    return () => {
+      if (currentUrl) {
+        try {
+          URL.revokeObjectURL(currentUrl);
+        } catch {}
+      }
+    };
+  }, [lastExportDownload]);
 
   // 8. Refs
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -318,8 +349,11 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       const cleanProject = projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
       const timeStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       setCustomFilename(`HANDFILM_${cleanProject}_Master_${timeStr}`);
+      if (aspectRatio === '9:16') {
+        setResolutionPreset('9_16_vertical');
+      }
     }
-  }, [isOpen, currentSlideIndex, totalCount, projectTitle]);
+  }, [isOpen, currentSlideIndex, totalCount, projectTitle, aspectRatio]);
 
   // Global Keyboard Shortcuts (Escape to Close)
   useEffect(() => {
@@ -915,9 +949,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(downloadUrl), 8000);
 
       playExportSuccessChime();
+      setLastExportDownload({ url: downloadUrl, filename: targetName });
       setDownloadedFileName(targetName);
       setIsFinished(true);
       setIsExporting(false);
@@ -1017,9 +1051,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(downloadUrl), 8000);
 
       playExportSuccessChime();
+      setLastExportDownload({ url: downloadUrl, filename: targetName });
       setDownloadedFileName(targetName);
       setIsFinished(true);
       setIsExporting(false);
@@ -1891,8 +1925,8 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
                   {/* Render Telemetry Badge (When Exporting) */}
                   {isExporting && (
-                    <div className="text-[10.5px] font-mono text-[#F5A623] bg-black/60 px-2.5 py-1 rounded border border-[#F5A623]/30">
-                      FRAME {telemetry.currentFrameNum.toLocaleString()} / {telemetry.totalFrames.toLocaleString()} ({telemetry.percent}%)
+                    <div className="text-[10.5px] font-mono tabular-nums text-[#F5A623] bg-black/75 px-2.5 py-1 rounded border border-[#F5A623]/40 whitespace-nowrap">
+                      FRAME {telemetry.currentFrameNum.toLocaleString()} / {telemetry.totalFrames.toLocaleString()} · {telemetry.percent}% · ELAPSED {formatElapsedClock(elapsedSec)}
                     </div>
                   )}
                 </div>
@@ -1932,18 +1966,18 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
                   {/* Live Render Telemetry Overlay during WebCodecs Export */}
                   {isExporting && (
-                    <div className="absolute bottom-3 left-3 right-3 p-2 rounded bg-black/85 backdrop-blur-sm border border-[#F5A623]/35 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[10px] font-mono text-zinc-200 pointer-events-none shadow-lg">
+                    <div className="absolute bottom-3 left-3 right-3 p-2 rounded bg-black/85 backdrop-blur-sm border border-[#F5A623]/35 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[10px] font-mono tabular-nums text-zinc-200 pointer-events-none shadow-lg">
                       <div className="flex items-center gap-2">
                         <span className="text-[#F5A623] font-bold">
                           SHOT {String(telemetry.currentShotIndex).padStart(3, '0')}/{String(telemetry.totalShots).padStart(3, '0')}
                         </span>
-                        <span className="text-zinc-500">•</span>
-                        <span>FRAME {telemetry.currentFrameNum}</span>
-                        <span className="text-zinc-500">•</span>
-                        <span className="text-cyan-400">{telemetry.percent}% COMPLETED</span>
+                        <span className="text-zinc-500">·</span>
+                        <span>FRAME {telemetry.currentFrameNum.toLocaleString()} / {telemetry.totalFrames.toLocaleString()}</span>
+                        <span className="text-zinc-500">·</span>
+                        <span className="text-cyan-400">{telemetry.percent}%</span>
                       </div>
-                      <div className="text-zinc-400 text-[9px]">
-                        Hardware Accelerated VideoEncoder Active
+                      <div className="text-zinc-300 text-[9.5px] font-mono tabular-nums">
+                        ELAPSED {formatElapsedClock(elapsedSec)} · {telemetry.statusText}
                       </div>
                     </div>
                   )}
@@ -2850,12 +2884,26 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
           )}
 
           {isFinished && (
-            <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-start gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold">Export Ready / Delivered</p>
-                <p className="text-emerald-400/80 font-mono text-[10.5px] truncate max-w-xl">{downloadedFileName}</p>
+            <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="font-bold">Export Ready / Delivered</p>
+                  <p className="text-emerald-400/80 font-mono text-[10.5px] truncate max-w-xl">
+                    {downloadedFileName}
+                  </p>
+                </div>
               </div>
+              {lastExportDownload && (
+                <a
+                  href={lastExportDownload.url}
+                  download={lastExportDownload.filename}
+                  className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[11px] tracking-wider uppercase flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>DOWNLOAD FILE</span>
+                </a>
+              )}
             </div>
           )}
 
@@ -2883,12 +2931,12 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     </div>
                   </div>
 
-                  <div>
+                  <div className="font-mono tabular-nums">
                     <div className="text-xs font-bold text-[#F5A623] tracking-wide">
-                      [ RENDERING SHOT {String(telemetry.currentShotIndex).padStart(3, '0')}/{String(telemetry.totalShots).padStart(3, '0')} • FRAME {telemetry.currentFrameNum.toLocaleString()}/{telemetry.totalFrames.toLocaleString()} • {telemetry.percent}% • {telemetry.fps.toFixed(1)} FPS ]
+                      SHOT {String(telemetry.currentShotIndex).padStart(3, '0')}/{String(telemetry.totalShots).padStart(3, '0')} · FRAME {telemetry.currentFrameNum.toLocaleString()}/{telemetry.totalFrames.toLocaleString()} · {telemetry.percent}% · ELAPSED {formatElapsedClock(elapsedSec)}
                     </div>
                     <div className="text-[10px] text-zinc-400 font-sans mt-0.5">
-                      Writing H.264 High Profile MP4 bitstream via WebCodecs
+                      {telemetry.statusText || 'Encoding master sequence frames via WebCodecs'} ({telemetry.fps.toFixed(1)} FPS)
                     </div>
                   </div>
                 </div>

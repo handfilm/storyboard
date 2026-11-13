@@ -13,7 +13,8 @@
  * and keyframed time-driven entrance motion.
  */
 
-import { TitlePresetConfig } from '../types/titlePreset';
+import { TitlePresetConfig, TitleZone9, TitleKineticEntrance } from '../types/titlePreset';
+import { getZone9Metadata, isValidTitleZone9 } from './titleChoreographyEngine';
 
 export interface TitleCanvasCompositeMeta {
   banglaTitle?: string;
@@ -21,6 +22,8 @@ export interface TitleCanvasCompositeMeta {
   dialogue?: string;
   cameraInfo?: string;
   effectiveAlign?: 'LEFT' | 'MID' | 'RIGHT';
+  zone9?: TitleZone9;
+  kineticEntrance?: TitleKineticEntrance;
   opacity?: number;
   beatSlamScale?: number;
 }
@@ -217,13 +220,35 @@ export function renderTitlePresetToCanvas(
     motionScale *= pulse;
   }
 
+  // Directional 9-Zone Kinetic Entrance Choreography (1:1 parity with Stage CSS keyframes)
+  if (meta.kineticEntrance === 'slide-from-left') {
+    const p = easeOutCubic(safeTime / 0.42);
+    motionOpacity = Math.min(motionOpacity, p);
+    motionTranslateX += -(1 - p) * 36 * scaleFactor;
+  } else if (meta.kineticEntrance === 'slide-from-right') {
+    const p = easeOutCubic(safeTime / 0.42);
+    motionOpacity = Math.min(motionOpacity, p);
+    motionTranslateX += (1 - p) * 36 * scaleFactor;
+  } else if (meta.kineticEntrance === 'center-bloom') {
+    const p = easeOutCubic(safeTime / 0.44);
+    motionOpacity = Math.min(motionOpacity, p);
+    motionScale *= 0.92 + 0.08 * p;
+  }
+
   const finalOpacity = Math.max(0, Math.min(1, baseOpacity * motionOpacity));
   if (finalOpacity <= 0.01) return;
 
-  const rawAlign = meta.effectiveAlign || 'MID';
-  const effectiveAlign: 'LEFT' | 'MID' | 'RIGHT' =
-    config.layoutMode === 'lower-third-bar' && rawAlign === 'MID' ? 'LEFT' : rawAlign;
+  const explicitZoneMeta = meta.zone9 && isValidTitleZone9(meta.zone9)
+    ? getZone9Metadata(meta.zone9)
+    : null;
 
+  const rawAlign = explicitZoneMeta ? explicitZoneMeta.col : (meta.effectiveAlign || 'MID');
+  const effectiveAlign: 'LEFT' | 'MID' | 'RIGHT' =
+    !explicitZoneMeta && config.layoutMode === 'lower-third-bar' && rawAlign === 'MID'
+      ? 'LEFT'
+      : rawAlign;
+
+  // 90% Title-Safe horizontal margins (5.5% inset from edges, 50% center)
   const padX = Math.round(width * 0.055);
   const anchorX =
     effectiveAlign === 'LEFT'
@@ -241,9 +266,17 @@ export function renderTitlePresetToCanvas(
   const offsetY = (config.verticalOffset || 0) * scaleFactor;
   const accentHex = config.backdropPlate?.accentBarColor || config.primaryColor || '#F5A623';
 
-  // Vertical anchor per layoutMode
+  // Vertical anchor from explicit 9-zone grid OR per layoutMode (1:1 parity with Stage)
   let anchorY = Math.round(height * 0.48 + offsetY);
-  if (config.layoutMode === 'lower-third-bar') {
+  if (explicitZoneMeta) {
+    if (explicitZoneMeta.row === 'top') {
+      anchorY = Math.round(height * 0.165 + offsetY);
+    } else if (explicitZoneMeta.row === 'lower') {
+      anchorY = Math.round(height * 0.81 + offsetY);
+    } else {
+      anchorY = Math.round(height * 0.48 + offsetY);
+    }
+  } else if (config.layoutMode === 'lower-third-bar') {
     anchorY = Math.round(height * 0.81 + offsetY);
   } else if (config.layoutMode === 'hud-bracket') {
     anchorY = Math.round(height * 0.17 + offsetY);
@@ -274,7 +307,9 @@ export function renderTitlePresetToCanvas(
     dialogue && /^\[(?:🌪️\s*)?DOPAMINE:/i.test(dialogue.trim()) && config.category !== 'DOPAMINE'
       ? ''
       : dialogue;
+  const isLowerRowZone = explicitZoneMeta?.row === 'lower';
   const isLowerPlate =
+    isLowerRowZone ||
     config.layoutMode === 'lower-third-bar' ||
     config.layoutMode === 'brutalist-box' ||
     config.layoutMode === 'minimal-whisper';

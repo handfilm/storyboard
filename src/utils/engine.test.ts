@@ -583,5 +583,70 @@ test('ensureUniqueFrameIds & getNextUniqueFrameId deduplicate colliding id: 0 an
   assert.equal(getNextUniqueFrameId(unique), Math.max(...(ids as number[])) + 1);
 });
 
+test('formatLutPresetLabel & film-stock LUT CSS mappings work for export preview', async () => {
+  const { getLutFilterCSS, formatLutPresetLabel } = await import('./engine.ts');
+
+  assert.equal(formatLutPresetLabel('cinematic'), 'Cinema 35');
+  assert.equal(formatLutPresetLabel('noir'), 'B&W Noir');
+  assert.equal(formatLutPresetLabel('noir_35mm'), 'Noir 35mm');
+  assert.equal(formatLutPresetLabel('kodak_vision3'), 'Kodak Vision3');
+
+  assert.ok(getLutFilterCSS('noir_35mm').includes('grayscale(1)'));
+  assert.ok(getLutFilterCSS('bleach_bypass').includes('saturate(50%)'));
+  assert.ok(getLutFilterCSS('kodak_vision3').includes('sepia(0.18)'));
+  assert.ok(getLutFilterCSS('fuji_eterna').includes('hue-rotate(6deg)'));
+  assert.equal(getLutFilterCSS('raw_clean'), 'none');
+});
+
+test('ExportLutPreviewCard renders selected frame thumbnail with active LUT CSS filter applied', async () => {
+  const React = (await import('react')).default;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ExportLutPreviewCard } = await import('../components/export/ExportLutPreviewCard.tsx');
+
+  const html = renderToStaticMarkup(
+    React.createElement(ExportLutPreviewCard, {
+      shotIndex: 2,
+      frame: {
+        id: 3,
+        epNumber: '003',
+        title: 'Neon Rain Arrival',
+        bengaliTitle: 'বৃষ্টিতে আগমন',
+        tagline: 'Anamorphic street reflection',
+        imageUrl: 'https://example.com/frame3.jpg',
+        aspectRatio: '2.39:1',
+        lutFilter: 'noir',
+        adjustments: {
+          brightness: 105,
+          contrast: 120,
+          saturation: 90,
+          bloom: 20,
+          grain: 15,
+          motionBlur: 0,
+          vignette: 25
+        },
+        cameraSpec: {
+          focalLength: '40mm',
+          aperture: 'T1.8',
+          shutter: '180°',
+          iso: '800',
+          sensor: 'LF',
+          format: 'RAW'
+        },
+        tags: ['rain'],
+        directorNotes: ''
+      }
+    })
+  );
+
+  assert.ok(html.includes('data-testid="export-lut-preview-card"'));
+  assert.ok(html.includes('data-active-lut="noir"'));
+  assert.ok(html.includes('SH003'));
+  assert.ok(html.includes('Neon Rain Arrival'));
+  assert.ok(html.includes('B&amp;W Noir'));
+  assert.ok(html.includes('grayscale(1)'));
+  assert.ok(html.includes('COMPARE RAW'));
+});
+
+
 
 

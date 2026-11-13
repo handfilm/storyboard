@@ -1119,6 +1119,8 @@ export function resolveShotTitleData(
           ? existing.englishSubtitle
           : defaults.englishSubtitle,
       alignment: existing.alignment ?? fallbackAlignment ?? 'MID',
+      ...(existing.zone9 ? { zone9: existing.zone9 } : {}),
+      ...(existing.kineticEntrance ? { kineticEntrance: existing.kineticEntrance } : {}),
       fontScale: existing.fontScale ?? resolvedStyle.fontScale,
       glowIntensity: existing.glowIntensity ?? resolvedStyle.glowIntensity,
       letterTracking: existing.letterTracking ?? resolvedStyle.letterTracking,

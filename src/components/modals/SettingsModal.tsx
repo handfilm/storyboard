@@ -44,6 +44,8 @@ import {
   ShortcutCategory, 
   CATEGORY_LABELS 
 } from '../../services/customShortcutsService';
+import { useStudioStore } from '../../core/store';
+import { ExportLutPreviewCard } from '../export/ExportLutPreviewCard';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -74,6 +76,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [defaultResolution, setDefaultResolution] = useState<'720p' | '1080p' | '4k'>('1080p');
   const [defaultFps, setDefaultFps] = useState<24 | 30 | 60>(24);
   const [defaultFormat, setDefaultFormat] = useState<'mp4' | 'fcpxml' | 'xml' | 'otio'>('mp4');
+
+  const storeProject = useStudioStore((s) => s.project);
+  const activeShotIndex = useStudioStore((s) => s.activeShotIndex);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
+  const storeActiveLut = useStudioStore((s) => s.activeLut);
+  const storeAspectRatio = useStudioStore((s) => s.aspectRatio);
+  const titleAlign = useStudioStore((s) => s.titleAlign);
+  const activeStoreShot = storeProject?.shots?.[activeShotIndex];
 
   // Diagnostics State
   const [diagnosticLogs, setDiagnosticLogs] = useState<Array<{ name: string; status: 'PASS' | 'WARN'; latency: string }>>([
@@ -697,6 +707,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 3: EXPORT DEFAULTS */}
           {activeTab === 'export' && (
             <div className="space-y-4">
+              <ExportLutPreviewCard
+                compact
+                shotIndex={activeShotIndex}
+                storeShot={activeStoreShot}
+                shotMediaMap={shotMediaMap}
+                fallbackLut={storeActiveLut}
+                aspectRatio={storeAspectRatio}
+                titleAlign={titleAlign}
+              />
+
               <div className="p-4 bg-[#0f0f18] border border-[#272732] rounded-[2px] space-y-4">
                 <div>
                   <label className="text-xs font-bold text-white block mb-1.5">

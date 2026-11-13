@@ -54,8 +54,11 @@ import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
 import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
 import { resolveShotTitleData, resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
 import { renderTitlePresetToCanvas } from '../../services/titleCanvasRenderer';
+import { resolveSpatialTitleChoreography } from '../../services/titleChoreographyEngine';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from '../../services/thumbnailEngine';
+import { getLutFilterCSS, formatLutPresetLabel } from '../../utils/engine';
+import { ExportLutPreviewCard } from './ExportLutPreviewCard';
 import { EditInAppStrip } from '../bridge/EditInAppStrip';
 import { 
   Film, 
@@ -162,7 +165,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   const currentSlideIndex = typeof currentIndex === 'number' ? currentIndex : (rawSlideIndex ?? 0);
   const storeShotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const projectShots = useStudioStore((s) => s.project?.shots);
+  const storeActiveLut = useStudioStore((s) => s.activeLut);
   const titleAlign = useStudioStore((s) => s.titleAlign);
+  const titleZone = useStudioStore((s) => s.titleZone);
   const titleConfig = useStudioStore((s) => s.titleConfig);
   const activeShotMediaMap = propShotMediaMap ?? storeShotMediaMap;
 
@@ -318,6 +323,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
   // 9. Interactive Shot Preview Selection (for dedicated canvas monitor)
   const [previewShotIdx, setPreviewShotIdx] = useState<number>(currentSlideIndex || 0);
+  const [bypassPreviewLut, setBypassPreviewLut] = useState<boolean>(false);
 
   // Synchronize Tab when initialTab changes
   useEffect(() => {
@@ -333,6 +339,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       setIsFinished(false);
       setExportError(null);
       setExcludedIndices([]);
+      setBypassPreviewLut(false);
       if (hasAppliedContactRangeRef.current) {
         if (appliedFirstShotIdxRef.current !== null) {
           setPreviewShotIdx(Math.min(totalCount - 1, appliedFirstShotIdxRef.current));
@@ -548,6 +555,22 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   }, [activeMonitorShotIdx, frames, slides, projectShots, titleConfig, titleAlign]);
 
   const activeMonitorPresetConfig = activeMonitorTitleData.styleConfig;
+  const activeMonitorFrame = frames[activeMonitorShotIdx] as any;
+  const activeMonitorSlide = slides[activeMonitorShotIdx] as any;
+  const activeMonitorStoreShot = projectShots?.[activeMonitorShotIdx] as any;
+  const activeMonitorLut =
+    activeMonitorFrame?.lutFilter ||
+    activeMonitorSlide?.lutFilter ||
+    activeMonitorStoreShot?.lutFilter ||
+    storeActiveLut ||
+    'cinematic';
+  const activeMonitorAdjustments =
+    activeMonitorFrame?.adjustments ||
+    activeMonitorSlide?.adjustments ||
+    activeMonitorStoreShot?.adjustments;
+  const activeMonitorLutCss = bypassPreviewLut
+    ? 'none'
+    : getLutFilterCSS(activeMonitorLut, activeMonitorAdjustments);
 
   // Idle Frame Preview Effect: Resolves per-shot media via unified video/image candidate resolver,
   // IndexedDB vaults, and OPFS — explicitly awaiting `onloadeddata` / `img.decode()` before compositing.
@@ -623,11 +646,16 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
       // 1:1 WYSIWYG Preset Title Burn-in Preview matching exact exported MP4 canvas compositor
       if (burnInTitles && activeMonitorTitleData.enabled !== false) {
-        const resolvedAlign = resolveEffectiveTitleAlign(
-          activeMonitorTitleData.alignment ?? titleAlign ?? 'AUTO',
-          validShotIdx,
-          frame?.cameraSpec?.focalLength ?? storeShot?.cameraSpec?.focalLength
-        );
+        const spatial = resolveSpatialTitleChoreography({
+          titleAlign: activeMonitorTitleData.alignment ?? titleAlign ?? 'AUTO',
+          zone9: activeMonitorTitleData.zone9 ?? (titleConfig?.heroGlobal ? titleZone : undefined),
+          layoutMode: activeMonitorPresetConfig.layoutMode,
+          shotIndex: validShotIdx,
+          shotType: frame?.shotType ?? storeShot?.shotType,
+          panX: storeShot?.panX,
+          panY: storeShot?.panY,
+          smartCropMode: storeShot?.smartCropMode
+        });
         const camSpecs = frame?.cameraSpecs ?? frame?.cameraSpec;
         const camInfo = camSpecs
           ? `${camSpecs.focalLength || '35mm'} · ${camSpecs.aperture || 'T1.5'}`
@@ -642,7 +670,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             englishTitle: activeMonitorTitleData.englishSubtitle || titleEn,
             dialogue: activeMonitorTitleData.captionNote || tagline,
             cameraInfo: camInfo,
-            effectiveAlign: resolvedAlign,
+            effectiveAlign: spatial.effectiveAlign,
+            zone9: spatial.zone9,
+            kineticEntrance: activeMonitorTitleData.kineticEntrance ?? spatial.kineticEntrance,
             opacity: 1.0
           },
           activeMonitorPresetConfig,
@@ -690,6 +720,15 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       ctx.stroke();
     };
 
+    const renderGradedBackdrop = () => {
+      ctx.save();
+      if (activeMonitorLutCss && activeMonitorLutCss !== 'none') {
+        ctx.filter = activeMonitorLutCss;
+      }
+      renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+      ctx.restore();
+    };
+
     const drawCoveredSource = (source: HTMLVideoElement | HTMLImageElement, srcW: number, srcH: number): boolean => {
       if (srcW <= 0 || srcH <= 0) return false;
       const iRatio = srcW / srcH;
@@ -708,17 +747,23 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       }
 
       try {
+        ctx.save();
+        if (activeMonitorLutCss && activeMonitorLutCss !== 'none') {
+          ctx.filter = activeMonitorLutCss;
+        }
         renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
         ctx.drawImage(source, dX, dY, dW, dH);
+        ctx.restore();
         return true;
       } catch {
+        ctx.restore();
         return false;
       }
     };
 
     const renderPreviewFrame = async () => {
-      // Always initialize monitor with shot's exact procedural color gradient backdrop
-      renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+      // Always initialize monitor with shot's exact procedural color gradient backdrop + active LUT
+      renderGradedBackdrop();
 
       let thumbUrl = resolvedCandidate.url || '';
       let isVideo = resolvedCandidate.isVideo;
@@ -913,7 +958,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
           const drewPoster = await tryDrawFallbackPoster();
           if (isCancelled || !dedicatedCanvasRef.current) return;
           if (!drewPoster) {
-            renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+            renderGradedBackdrop();
           }
         }
         drawCompositingOverlay();
@@ -950,7 +995,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         const drewPoster = await tryDrawFallbackPoster();
         if (isCancelled || !dedicatedCanvasRef.current) return;
         if (!drewPoster) {
-          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+          renderGradedBackdrop();
         }
       }
       drawCompositingOverlay();
@@ -982,6 +1027,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     isExporting,
     activeMonitorShotIdx,
     activeMonitorPresetConfig,
+    activeMonitorLutCss,
     slides,
     frames,
     projectShots,
@@ -1907,6 +1953,14 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                           bengaliTitle={frame?.bengaliTitle || slide?.titleBn}
                           shotType={frame?.shotType}
                           titleAlign={titleAlign}
+                          lutFilterCss={getLutFilterCSS(
+                            (frame as any)?.lutFilter ||
+                              (slide as any)?.lutFilter ||
+                              (projectShots?.[shotIdx] as any)?.lutFilter ||
+                              storeActiveLut ||
+                              'cinematic',
+                            (frame as any)?.adjustments || (projectShots?.[shotIdx] as any)?.adjustments
+                          )}
                           mediaClassName={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
                           alt={shotLabel}
                           compactProcedural
@@ -1963,6 +2017,22 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             </div>
           </div>
 
+          {/* SELECTED FRAME PRE-EXPORT LUT LOOK VERIFICATION WINDOW (VISIBLE ON ALL TABS) */}
+          {!isExporting && (
+            <ExportLutPreviewCard
+              shotIndex={activeMonitorShotIdx}
+              frame={activeMonitorFrame}
+              slide={activeMonitorSlide}
+              storeShot={activeMonitorStoreShot}
+              shotMediaMap={activeShotMediaMap}
+              fallbackLut={storeActiveLut}
+              aspectRatio={aspectRatio}
+              bypassLut={bypassPreviewLut}
+              onToggleBypassLut={() => setBypassPreviewLut((v) => !v)}
+              titleAlign={titleAlign}
+            />
+          )}
+
           {/* ============================================================== */}
           {/* TAB-SPECIFIC PANELS                                            */}
           {/* ============================================================== */}
@@ -1980,7 +2050,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       <Film className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <div className="text-[11px] font-bold text-white tracking-wider uppercase flex items-center gap-2">
+                      <div className="text-[11px] font-bold text-white tracking-wider uppercase flex items-center gap-2 flex-wrap">
                         <span>{isExporting ? 'LIVE RENDER ENCODER FEED' : 'DEDICATED FRAME PREVIEW MONITOR'}</span>
                         {isExporting ? (
                           <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-amber-500/20 text-[#F5A623] border border-amber-500/40 animate-pulse flex items-center gap-1">
@@ -1988,16 +2058,21 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                             REC • 24 FPS
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                            STANDBY PREVIEW
-                          </span>
+                          <>
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              STANDBY PREVIEW
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold bg-[#F5A623]/15 text-[#F5A623] border border-[#F5A623]/35">
+                              {bypassPreviewLut ? 'LUT BYPASSED' : `LUT: ${formatLutPresetLabel(activeMonitorLut)}`}
+                            </span>
+                          </>
                         )}
                       </div>
                       <div className="text-[9.5px] text-zinc-400 font-sans">
                         {isExporting 
                           ? `Blitting WebCodecs hardware accelerated render stream (Shot ${telemetry.currentShotIndex}/${telemetry.totalShots})` 
-                          : `Visualizing Shot SH${String((previewShotIdx || 0) + 1).padStart(3, '0')} frame with optical composite overlays`}
+                          : `Visualizing Shot SH${String((previewShotIdx || 0) + 1).padStart(3, '0')} frame with ${formatLutPresetLabel(activeMonitorLut)} LUT & optical overlays`}
                       </div>
                     </div>
                   </div>

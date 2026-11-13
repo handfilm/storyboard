@@ -159,14 +159,35 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
     <div
       className={className}
       data-testid={`shot-media-thumb-${shotIndex}`}
-      style={{ background: proc.palette.thumbCssBackdrop }}
+      style={{ background: '#07080d' }}
     >
-      {/* Procedural cinema backdrop always underlies to eliminate black flashes */}
+      {/* Visual plate layer (procedural backdrop + grain + raster image) receives unified LUT CSS filter */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: proc.palette.lightLeakCss }}
-      />
-      <div className="absolute inset-0 procedural-film-grain opacity-35 pointer-events-none" />
+        data-testid={`shot-media-thumb-grade-${shotIndex}`}
+        style={{
+          background: proc.palette.thumbCssBackdrop,
+          ...filterStyle
+        }}
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: proc.palette.lightLeakCss }}
+        />
+        <div className="absolute inset-0 procedural-film-grain opacity-35 pointer-events-none" />
+
+        {/* Authoritative raster thumbnail */}
+        {virtualized && rasterUrl && (
+          <img
+            src={rasterUrl}
+            alt={alt || title || `Shot ${shotIndex + 1}`}
+            referrerPolicy="no-referrer"
+            decoding="async"
+            onError={() => setImgFailedUrl(rasterUrl)}
+            className={`absolute inset-0 ${mediaClassName} transition-opacity duration-150`}
+          />
+        )}
+      </div>
 
       {!rasterUrl && !liveVideoPainted && showProceduralText && (
         <div
@@ -209,21 +230,6 @@ export const ShotMediaThumbnail: React.FC<ShotMediaThumbnailProps> = ({
             </>
           )}
         </div>
-      )}
-
-      {/* Static <img> posters & procedural gradients only (zero background <video> decoders) */}
-
-      {/* Authoritative raster thumbnail */}
-      {virtualized && rasterUrl && (
-        <img
-          src={rasterUrl}
-          alt={alt || title || `Shot ${shotIndex + 1}`}
-          referrerPolicy="no-referrer"
-          decoding="async"
-          onError={() => setImgFailedUrl(rasterUrl)}
-          style={filterStyle}
-          className={`absolute inset-0 ${mediaClassName} transition-opacity duration-150`}
-        />
       )}
     </div>
   );

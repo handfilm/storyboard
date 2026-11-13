@@ -16,7 +16,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Flame, Radio, Activity } from 'lucide-react';
 
-import { resolveEffectiveTitleAlign, TitleAlign } from '../../../core/store';
+import { resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../../../core/store';
+import { resolveSpatialTitleChoreography } from '../../../services/titleChoreographyEngine';
 
 export interface DopamineCompilationSequenceProps {
   hookText: string;
@@ -345,19 +346,33 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
     return null;
   };
 
-  const effectiveAlign = resolveEffectiveTitleAlign(titleAlign, shotIndex, shotType);
-  const horizontalAnchorLeft =
-    effectiveAlign === 'LEFT'
-      ? '3rem'
-      : effectiveAlign === 'RIGHT'
-        ? 'calc(100% - 3rem)'
-        : '50%';
-  const horizontalTranslateX =
-    effectiveAlign === 'LEFT'
-      ? '0%'
-      : effectiveAlign === 'RIGHT'
-        ? '-100%'
-        : '-50%';
+  const storeTitleZone = useStudioStore((s) => s.titleZone);
+  const storeShot = useStudioStore((s) => s.project.shots?.[shotIndex]);
+  const choreography = resolveSpatialTitleChoreography({
+    titleAlign,
+    zone9: storeShot?.titleData?.zone9 ?? storeTitleZone,
+    layoutMode: 'center-hero',
+    shotIndex,
+    shotType: shotType ?? storeShot?.shotType,
+    panX: storeShot?.panX,
+    panY: storeShot?.panY,
+    smartCropMode: storeShot?.smartCropMode
+  });
+  const effectiveAlign = choreography.effectiveAlign;
+  const horizontalAnchorLeft = choreography.cssLeft;
+  const horizontalTranslateX = choreography.cssTranslateX;
+  const verticalStyle: React.CSSProperties =
+    choreography.cssVertical.top !== undefined
+      ? {
+          top: choreography.cssVertical.top,
+          left: horizontalAnchorLeft,
+          transform: `translate3d(${horizontalTranslateX}, ${choreography.cssVertical.translateY}, 0)`
+        }
+      : {
+          bottom: choreography.cssVertical.bottom || '12%',
+          left: horizontalAnchorLeft,
+          transform: `translate3d(${horizontalTranslateX}, 0, 0)`
+        };
 
   return (
     <div 
@@ -365,6 +380,7 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
       style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
       data-title-align={titleAlign}
       data-effective-align={effectiveAlign}
+      data-title-zone={choreography.zone9}
     >
       {/* Dynamic Background Volumetric Atmospheric Flare */}
       <div 
@@ -390,19 +406,16 @@ export const DopamineCompilationSequence: React.FC<DopamineCompilationSequencePr
         </div>
       )}
 
-      {/* Strictly Time-Gated Phase Display with Horizontal Title Align CSS Transition */}
+      {/* Strictly Time-Gated Phase Display with Spatial 9-Zone Title Align CSS Transition */}
       <div
-        className={`absolute top-1/2 w-max max-w-[calc(100%-3rem)] sm:max-w-4xl min-h-[300px] flex items-center justify-center z-10 transition-[left,transform] duration-300 ease-out ${
+        className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-4xl min-h-[180px] flex items-center justify-center z-10 transition-[left,transform] duration-300 ease-out ${
           effectiveAlign === 'LEFT'
             ? 'text-left'
             : effectiveAlign === 'RIGHT'
               ? 'text-right'
               : 'text-center'
         }`}
-        style={{
-          left: horizontalAnchorLeft,
-          transform: `translate3d(${horizontalTranslateX}, -50%, 0)`
-        }}
+        style={verticalStyle}
       >
         <AnimatePresence mode="wait">
           {renderPhase()}

@@ -63,6 +63,22 @@ export interface TitlePresetConfig {
 
 export type ShotTitleAlignment = 'LEFT' | 'MID' | 'RIGHT' | 'AUTO';
 
+export type TitleZone9 =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'mid-left'
+  | 'center-hero'
+  | 'mid-right'
+  | 'lower-left'
+  | 'lower-center'
+  | 'lower-right';
+
+export type TitleKineticEntrance =
+  | 'slide-from-left'
+  | 'center-bloom'
+  | 'slide-from-right';
+
 export interface ShotTitleData {
   enabled: boolean;
   presetId: string;
@@ -70,6 +86,8 @@ export interface ShotTitleData {
   englishSubtitle: string;
   captionNote?: string;
   alignment: ShotTitleAlignment;
+  zone9?: TitleZone9 | 'AUTO';
+  kineticEntrance?: TitleKineticEntrance;
   fontScale: number;
   glowIntensity: number;
   letterTracking: number;
@@ -78,4 +96,5 @@ export interface ShotTitleData {
   exitAnim?: 'dissolve-out' | 'slide-out' | 'none';
   styleConfig?: TitlePresetConfig;
 }
+
 

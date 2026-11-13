@@ -965,6 +965,48 @@
   animation: titleLowerThirdSlide 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes titleSlideFromLeft {
+  0% {
+    opacity: 0;
+    transform: translate3d(-36px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.animate-title-slide-left {
+  animation: titleSlideFromLeft 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes titleCenterBloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-title-center-bloom {
+  animation: titleCenterBloom 440ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes titleSlideFromRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(36px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.animate-title-slide-right {
+  animation: titleSlideFromRight 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-title-kinetic-slam,
   .animate-title-typewriter-hud,
@@ -972,6 +1014,9 @@
   .animate-title-slow-fade,
   .animate-title-chopper-staccato,
   .animate-title-lower-third,
+  .animate-title-slide-left,
+  .animate-title-center-bloom,
+  .animate-title-slide-right,
   .animate-title-reveal-in,
   .animate-title-exit-dissolve,
   .title-morph-smooth {

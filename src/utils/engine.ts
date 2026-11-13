@@ -44,10 +44,17 @@ export function getLutFilterCSS(
 
   switch (preset) {
     case 'noir':
+    case 'noir_35mm':
       filters.push('grayscale(1)', 'contrast(140%)', 'brightness(95%)');
       break;
     case 'golden':
       filters.push('sepia(0.35)', 'contrast(115%)', 'saturate(120%)');
+      break;
+    case 'kodak_vision3':
+      filters.push('contrast(112%)', 'saturate(118%)', 'sepia(0.18)');
+      break;
+    case 'fuji_eterna':
+      filters.push('contrast(105%)', 'saturate(92%)', 'hue-rotate(6deg)');
       break;
     case 'cyberpunk':
       filters.push('hue-rotate(-25deg)', 'saturate(135%)', 'contrast(115%)');
@@ -56,6 +63,7 @@ export function getLutFilterCSS(
       filters.push('hue-rotate(60deg)', 'saturate(125%)', 'contrast(115%)');
       break;
     case 'bleach':
+    case 'bleach_bypass':
       filters.push('contrast(140%)', 'saturate(50%)');
       break;
     case 'technicolor':
@@ -71,11 +79,40 @@ export function getLutFilterCSS(
       filters.push('contrast(110%)', 'saturate(115%)', 'sepia(0.08)');
       break;
     case 'raw':
+    case 'raw_clean':
     default:
       break;
   }
 
   return filters.join(' ') || 'none';
+}
+
+const LUT_DISPLAY_LABELS: Record<string, string> = {
+  cinematic: 'Cinema 35',
+  noir: 'B&W Noir',
+  noir_35mm: 'Noir 35mm',
+  golden: 'Golden Hour',
+  kodak_vision3: 'Kodak Vision3',
+  fuji_eterna: 'Fuji Eterna',
+  cyberpunk: 'Cyberpunk',
+  matrix: 'Matrix Emerald',
+  bleach: 'Bleach Bypass',
+  bleach_bypass: 'Bleach Bypass',
+  technicolor: 'Technicolor',
+  infrared: 'Infrared',
+  tungsten: 'Tungsten 3200K',
+  kodachrome: 'Kodachrome',
+  solaris: 'Solaris',
+  monolith: 'Monolith',
+  flir: 'FLIR Thermal',
+  nightvision: 'Night Vision',
+  raw: 'RAW Flat',
+  raw_clean: 'RAW Clean'
+};
+
+export function formatLutPresetLabel(preset?: LutPreset | string | null): string {
+  const key = (preset || 'cinematic').toString().trim().toLowerCase();
+  return LUT_DISPLAY_LABELS[key] || key.replace(/_/g, ' ').toUpperCase();
 }
 
 /**

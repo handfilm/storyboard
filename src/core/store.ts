@@ -14,7 +14,19 @@ import { depthOcclusionService, DepthLayerMode } from '../services/depthOcclusio
 import { AudioPunchMode } from '../services/transientPunchEngine';
 import { AutonomousKineticPreset } from '../services/kineticTypographyStyles';
 import type { ShotMediaEntry, ShotMediaMap } from '../services/handfilmMediaVault';
-import type { TitlePresetConfig, ShotTitleData } from '../types/titlePreset';
+import type {
+  TitlePresetConfig,
+  ShotTitleData,
+  TitleZone9,
+  TitleKineticEntrance
+} from '../types/titlePreset';
+import {
+  composeZone9,
+  getKineticEntranceForAlign,
+  getZone9Metadata,
+  isValidTitleZone9,
+  zone9ToAlign
+} from '../services/titleChoreographyEngine';
 import {
   buildTitlePresetConfigById,
   createDefaultShotTitleData,
@@ -83,6 +95,7 @@ export interface DigitalZoomState {
 export type HeroTitlePreset = 'molten-gold' | 'titanium-silver' | 'neon-crimson';
 export type TitleAlign = 'LEFT' | 'MID' | 'RIGHT' | 'AUTO';
 export type TitlePosition = 'left-bottom' | 'mid-bottom' | 'right-bottom' | 'auto';
+export type { TitleZone9, TitleKineticEntrance };
 
 export function titleAlignToPosition(align: TitleAlign): TitlePosition {
   switch (align) {
@@ -167,6 +180,10 @@ export interface StudioState {
   titleConfig: HeroTitleConfig;
   titleAlign: TitleAlign;
   setTitleAlign: (align: TitleAlign) => void;
+  titleZone: TitleZone9 | 'AUTO';
+  setTitleZone: (zone: TitleZone9 | 'AUTO') => void;
+  isSafeZoneOverlayVisible: boolean;
+  setIsSafeZoneOverlayVisible: (visible: boolean) => void;
   titlePosition: TitlePosition;
   setTitlePosition: (position: TitlePosition) => void;
   setTitlePreset: (preset: HeroTitlePreset) => void;
@@ -496,6 +513,45 @@ export const useStudioStore = create<StudioState>()(
       showTitles: defaultVisibility.titlesAll
     },
     titleAlign: 'MID',
+    titleZone: 'AUTO',
+    isSafeZoneOverlayVisible: false,
+    setIsSafeZoneOverlayVisible: (visible: boolean) => {
+      set((state) => {
+        state.isSafeZoneOverlayVisible = Boolean(visible);
+      });
+    },
+    setTitleZone: (zone: TitleZone9 | 'AUTO') => {
+      let targetIdx = 0;
+      let nextTitleData: ShotTitleData | undefined;
+      const derivedAlign: TitleAlign = zone === 'AUTO' ? 'AUTO' : zone9ToAlign(zone);
+      const derivedEntrance: TitleKineticEntrance | undefined =
+        zone === 'AUTO' ? undefined : getZone9Metadata(zone).entrance;
+      set((state) => {
+        state.titleZone = zone;
+        state.titleAlign = derivedAlign;
+        state.titlePosition = titleAlignToPosition(derivedAlign);
+        targetIdx = state.activeShotIndex;
+        const shot = state.project.shots?.[targetIdx];
+        if (shot) {
+          const resolved = resolveShotTitleData(shot, targetIdx);
+          nextTitleData = {
+            ...resolved,
+            alignment: derivedAlign,
+            zone9: zone,
+            kineticEntrance: derivedEntrance
+          };
+          shot.titleData = nextTitleData;
+          shot.updatedAt = Date.now();
+        }
+      });
+      eventBus.emit('title:align', derivedAlign);
+      if (nextTitleData) {
+        eventBus.emit('shot:updated', {
+          index: targetIdx,
+          partial: { titleData: nextTitleData }
+        });
+      }
+    },
     setTitleAlign: (align: TitleAlign) => {
       let targetIdx = 0;
       let nextTitleData: ShotTitleData | undefined;
@@ -504,11 +560,24 @@ export const useStudioStore = create<StudioState>()(
         state.titlePosition = titleAlignToPosition(align);
         targetIdx = state.activeShotIndex;
         const shot = state.project.shots?.[targetIdx];
+        const currentShotZone = shot?.titleData?.zone9 ?? state.titleZone;
+        let nextZone: TitleZone9 | 'AUTO' = 'AUTO';
+        if (align === 'AUTO') {
+          nextZone = 'AUTO';
+        } else if (currentShotZone && currentShotZone !== 'AUTO' && isValidTitleZone9(currentShotZone)) {
+          const prevRow = getZone9Metadata(currentShotZone).row;
+          nextZone = composeZone9(prevRow, align);
+        } else {
+          nextZone = 'AUTO';
+        }
+        state.titleZone = nextZone;
         if (shot) {
           const resolved = resolveShotTitleData(shot, targetIdx);
           nextTitleData = {
             ...resolved,
-            alignment: align
+            alignment: align,
+            zone9: nextZone,
+            kineticEntrance: align === 'AUTO' ? undefined : getKineticEntranceForAlign(align)
           };
           shot.titleData = nextTitleData;
           shot.updatedAt = Date.now();
@@ -949,6 +1018,8 @@ export const useStudioStore = create<StudioState>()(
           enabled: sourceData.enabled,
           presetId: sourceData.presetId,
           alignment: sourceData.alignment,
+          ...(sourceData.zone9 ? { zone9: sourceData.zone9 } : {}),
+          ...(sourceData.kineticEntrance ? { kineticEntrance: sourceData.kineticEntrance } : {}),
           fontScale: sourceData.fontScale,
           glowIntensity: sourceData.glowIntensity,
           letterTracking: sourceData.letterTracking,

@@ -4058,6 +4058,7 @@ export default function App() {
       {isPublishModalOpen && (
         <PublishModal
           project={project}
+          currentIndex={currentIndex}
           onClose={() => setIsPublishModalOpen(false)}
           onImportProject={(imported) => {
             setProject({

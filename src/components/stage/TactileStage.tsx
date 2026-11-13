@@ -81,7 +81,6 @@ import { FrameAdjustments, LutPreset } from '../../types/anthology';
 import { depthOcclusionService } from '../../services/depthOcclusionService';
 import { transientPunchEngine } from '../../services/transientPunchEngine';
 import { StageMetadataFxBar } from './StageMetadataFxBar';
-import { StageCaptionStrip } from './StageCaptionStrip';
 import { VlcStageBar } from './VlcStageBar';
 import { getLightingPresetById } from '../../data/lightingPresets';
 import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
@@ -90,6 +89,7 @@ import { playbackClock, syncVideoCurrentTimeWithFastSeek, type VlcLoopMode, type
 import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPreamp';
 import { videoCacheService } from '../../services/videoCacheService';
 import { getSpeedRampInstantRate, evaluateBeatDropFx } from '../../utils/speedReelsEngine';
+import { TITLE_ZONE_9_MATRIX, resolveSpatialTitleChoreography } from '../../services/titleChoreographyEngine';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -243,6 +243,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const toggleStoreAudio = useStudioStore((s) => s.toggleAudio);
   const setStoreAspectRatio = useStudioStore((s) => s.setAspectRatio);
   const setStoreFitMode = useStudioStore((s) => s.setFitMode);
+  const isSafeZoneOverlayVisible = useStudioStore((s) => s.isSafeZoneOverlayVisible);
+  const titleZone = useStudioStore((s) => s.titleZone);
 
   const effectiveMuted = isAudioMuted ?? storeIsAudioMuted;
   const effectiveVolume = Number.isFinite(storeAudioVolume) ? storeAudioVolume : 0.85;
@@ -1643,20 +1645,20 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         }}
       />
 
-      {/* 1. SLEEK AUTO-COLLAPSING STAGE METADATA & FX BAR (Tucks smoothly during active playback unless hovered) */}
+      {/* 1. UNIFIED 24px SINGLE-ROW TOP STAGE HEADER (Auto-collapses during active playback unless hovered) */}
       {!hideFullscreenStageBars && (
         <div
           onMouseEnter={() => setIsStageChromeHovered(true)}
           onMouseLeave={() => setIsStageChromeHovered(false)}
-          className={`w-full shrink-0 transition-all duration-200 overflow-hidden ${
+          className={`w-full shrink-0 transition-all duration-200 ${
             isAutoplay && !isStageChromeHovered
-              ? 'max-h-0 opacity-0 pointer-events-none'
-              : 'max-h-[20px] opacity-100'
+              ? 'max-h-0 opacity-0 pointer-events-none overflow-hidden'
+              : 'max-h-[24px] opacity-100 overflow-visible z-40'
           }`}
         >
           <StageMetadataFxBar
             className="animate-hud-fade-in"
-            sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '01'}
+            sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
             shotIndex={currentIndex}
             frame={frame}
             frameNum={activeFrameNum}
@@ -1670,9 +1672,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             isTitlesActive={isTitlesActive}
             onToggleTitles={onToggleTitles}
             lightName={activeLightPreset?.name}
-            onUploadMedia={() => fileInputRef.current?.click()}
-            onOpenInspector={onOpenInspector}
-            onToggleFullscreen={toggleFullscreen}
+            lutFilter={frame?.lutFilter}
+            adjustments={frame?.adjustments}
+            isWebCodecsEngineActive={isWebCodecsEngineActive}
+            onToggleWebCodecs={() => setIsWebCodecsEngineActive((v) => !v)}
           />
         </div>
       )}
@@ -2078,6 +2081,58 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
+        {/* LIVE 90% TITLE-SAFE & 93% ACTION-SAFE GUIDE OVERLAY (Active while adjusting 9-Zone Matrix) */}
+        {isSafeZoneOverlayVisible && (() => {
+          const activeChoreography = resolveSpatialTitleChoreography({
+            titleAlign,
+            zone9: frame?.titleData?.zone9 ?? titleZone,
+            layoutMode: frame?.titleStyleConfig?.layoutMode ?? 'center-hero',
+            shotIndex: currentIndex,
+            shotType: frame?.shotType,
+            panX: frame?.panX,
+            panY: frame?.panY,
+            smartCropMode: frame?.smartCropMode
+          });
+          return (
+            <div
+              data-testid="stage-safe-zone-guides"
+              className="absolute inset-0 pointer-events-none select-none z-[18]"
+            >
+              {/* 93% Action-Safe Boundary */}
+              <div className="absolute inset-[3.5%] border border-dashed border-cyan-400/55">
+                <span className="absolute top-1 left-1.5 text-[7.5px] font-mono font-bold text-cyan-300/90 bg-black/75 px-1 rounded">
+                  93% ACTION SAFE
+                </span>
+              </div>
+              {/* 90% Title-Safe Boundary + 3x3 Rule-of-Thirds Matrix */}
+              <div className="absolute inset-[5%] border border-amber-400/75 shadow-[inset_0_0_24px_rgba(245,158,11,0.08)]">
+                <span className="absolute bottom-1 right-1.5 text-[7.5px] font-mono font-bold text-[#F59E0B] bg-black/80 px-1 rounded">
+                  90% TITLE SAFE · {activeChoreography.zone9.toUpperCase()}
+                </span>
+                <div className="w-full h-full grid grid-cols-3 grid-rows-3">
+                  {TITLE_ZONE_9_MATRIX.map((cell) => {
+                    const isActive = activeChoreography.zone9 === cell.zone;
+                    return (
+                      <div
+                        key={cell.zone}
+                        className={`border border-white/[0.08] flex items-center justify-center transition-colors duration-150 ${
+                          isActive ? 'bg-[#F59E0B]/12 border-[#F59E0B]/70' : ''
+                        }`}
+                      >
+                        {isActive && (
+                          <span className="px-1.5 py-0.5 rounded bg-[#F59E0B] text-[#0B0B0D] text-[7.5px] font-mono font-black tracking-wider shadow">
+                            {cell.shortLabel}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Ingesting Spinner Overlay */}
         {isIngesting && (
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2.5 z-30">
@@ -2090,7 +2145,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       </div>
 
-      {/* 3. VLC-GRADE STAGE TRANSPORT BAR (Scrubber, A-B Loop, Speed, 200% Preamp, Fit, Playlist) */}
+      {/* 3. ULTRA-SLIM 26px VLC-GRADE STAGE TRANSPORT BAR (Includes Centered Telemetry Bridge) */}
       {!hideFullscreenStageBars && (
         <VlcStageBar
           frames={frames}
@@ -2105,7 +2160,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           loopMode={loopMode}
           abLoop={abLoop}
           fitMode={stageFitMode}
-          aspectRatio={aspectRatio || '16:9'}
+          aspectRatio={aspectRatio || '2.39:1'}
+          lutFilter={frame?.lutFilter}
+          totalRuntimeTimecode={totalRuntimeTimecode}
+          totalShotsCount={frames.length}
           isTitlesActive={isTitlesActive}
           isFullscreen={effectiveFullscreen}
           onTogglePlay={() => onTogglePlay?.()}
@@ -2134,44 +2192,6 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onOpenCinemaPlayer={onOpenCinemaPlayer}
           onToggleFullscreen={toggleFullscreen}
         />
-      )}
-
-      {/* 4. SINGLE COMPACT 20px STEALTH GREY TECHNICAL TELEMETRY BAR (Auto-tucks on playback) */}
-      {!hideFullscreenStageBars && (
-        <div
-          onMouseEnter={() => setIsStageChromeHovered(true)}
-          onMouseLeave={() => setIsStageChromeHovered(false)}
-          className={`w-full shrink-0 transition-all duration-200 overflow-hidden ${
-            isAutoplay && !isStageChromeHovered
-              ? 'max-h-0 opacity-0 pointer-events-none'
-              : 'max-h-[16px] opacity-100'
-          }`}
-        >
-          <StageCaptionStrip
-            shotIndex={currentIndex}
-            sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '00'}
-            aspectRatio={aspectRatio || '2.39:1'}
-            shotType={frame?.shotType}
-            cameraSpec={
-              frame?.cameraSpec
-                ? `${frame.cameraSpec.focalLength || '35mm'} ${frame.cameraSpec.aperture || 'f/1.4'}`
-                : undefined
-            }
-            lutFilter={frame?.lutFilter}
-            dopamineConfig={frame?.dopamineConfig}
-            slideTimeSec={slideTimeSec}
-            durationSec={effectiveShotDurationSec}
-            isTitlesActive={isTitlesActive}
-            onToggleTitles={onToggleTitles}
-            componentsVisibility={componentsVisibility}
-            isWebCodecsEngineActive={isWebCodecsEngineActive}
-            onToggleWebCodecs={() => setIsWebCodecsEngineActive(!isWebCodecsEngineActive)}
-            totalRuntimeTimecode={totalRuntimeTimecode}
-            totalShotsCount={frames.length}
-            onUploadMedia={() => fileInputRef.current?.click()}
-            onToggleFullscreen={toggleFullscreen}
-          />
-        </div>
       )}
 
       {/* Floating 35mm Film Stock & Color Grading Tray */}

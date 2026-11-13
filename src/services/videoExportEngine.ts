@@ -47,6 +47,7 @@ import { AnthologyFrame, DopamineShotConfig, FrameAdjustments, LutPreset, ShotCa
 import type { ShotTitleData, TitlePresetConfig } from '../types/titlePreset';
 import { buildTitlePresetConfigById, resolveShotTitleData, resolveShotTitlePresetConfig } from '../constants/titleTemplates';
 import { renderTitlePresetToCanvas } from './titleCanvasRenderer';
+import { resolveSpatialTitleChoreography } from './titleChoreographyEngine';
 import { renderCanvasBurnInCaption } from './captionEngine';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from './thumbnailEngine';
 import {
@@ -1199,12 +1200,6 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       const remainingFrames = Math.max(1, totalFramesInShot - frameInShot);
       const fadeOut = remainingFrames <= fadeOutFrames ? Math.max(0.15, remainingFrames / fadeOutFrames) : 1.0;
       const titleFade = Math.min(fadeIn, fadeOut);
-      const resolvedAlign = resolveEffectiveTitleAlign(
-        titleAlign ?? resolvedTitleData.alignment ?? storeState.titleAlign ?? 'AUTO',
-        shotIndex,
-        shotType ?? storeShot?.shotType
-      );
-
       const finalPresetConfig: TitlePresetConfig = {
         ...resolvedTitleData.styleConfig,
         fontScale: typeof titleSize === 'number' ? titleSize : resolvedTitleData.fontScale,
@@ -1212,6 +1207,17 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
         letterTracking: resolvedTitleData.letterTracking,
         verticalOffset: typeof verticalOffset === 'number' ? verticalOffset : resolvedTitleData.verticalOffset
       };
+
+      const spatial = resolveSpatialTitleChoreography({
+        titleAlign: titleAlign ?? resolvedTitleData.alignment ?? storeState.titleAlign ?? 'AUTO',
+        zone9: resolvedTitleData.zone9 ?? (storeState.titleConfig?.heroGlobal ? storeState.titleZone : undefined),
+        layoutMode: finalPresetConfig.layoutMode,
+        shotIndex,
+        shotType: shotType ?? storeShot?.shotType,
+        panX: props.panX ?? storeShot?.panX,
+        panY: props.panY ?? storeShot?.panY,
+        smartCropMode: props.smartCropMode ?? storeShot?.smartCropMode
+      });
 
       renderTitlePresetToCanvas(
         ctx,
@@ -1222,7 +1228,9 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
           englishTitle: resolvedTitleData.englishSubtitle || titleEn,
           dialogue: resolvedTitleData.captionNote || tagline || '24.0 FPS RAW • MASTER CINE PROJECTION',
           cameraInfo,
-          effectiveAlign: resolvedAlign,
+          effectiveAlign: spatial.effectiveAlign,
+          zone9: spatial.zone9,
+          kineticEntrance: resolvedTitleData.kineticEntrance ?? spatial.kineticEntrance,
           opacity: titleFade,
           beatSlamScale: beatFx.beatSlamScale
         },
@@ -1361,11 +1369,23 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
           titleAlign
         );
         if (resolvedTitleData.enabled !== false) {
-          const resolvedAlign = resolveEffectiveTitleAlign(
-            titleAlign ?? resolvedTitleData.alignment ?? storeState.titleAlign ?? 'AUTO',
+          const fallbackStyleConfig: TitlePresetConfig = {
+            ...resolvedTitleData.styleConfig,
+            fontScale: typeof titleSize === 'number' ? titleSize : resolvedTitleData.fontScale,
+            glowIntensity: resolvedTitleData.glowIntensity,
+            letterTracking: resolvedTitleData.letterTracking,
+            verticalOffset: typeof verticalOffset === 'number' ? verticalOffset : resolvedTitleData.verticalOffset
+          };
+          const spatial = resolveSpatialTitleChoreography({
+            titleAlign: titleAlign ?? resolvedTitleData.alignment ?? storeState.titleAlign ?? 'AUTO',
+            zone9: resolvedTitleData.zone9 ?? (storeState.titleConfig?.heroGlobal ? storeState.titleZone : undefined),
+            layoutMode: fallbackStyleConfig.layoutMode,
             shotIndex,
-            shotType ?? storeShot?.shotType
-          );
+            shotType: shotType ?? storeShot?.shotType,
+            panX: props.panX ?? storeShot?.panX,
+            panY: props.panY ?? storeShot?.panY,
+            smartCropMode: props.smartCropMode ?? storeShot?.smartCropMode
+          });
           renderTitlePresetToCanvas(
             ctx,
             width,
@@ -1375,16 +1395,12 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
               englishTitle: resolvedTitleData.englishSubtitle || titleEn,
               dialogue: resolvedTitleData.captionNote || tagline,
               cameraInfo: props.cameraInfo,
-              effectiveAlign: resolvedAlign,
+              effectiveAlign: spatial.effectiveAlign,
+              zone9: spatial.zone9,
+              kineticEntrance: resolvedTitleData.kineticEntrance ?? spatial.kineticEntrance,
               opacity: 1.0
             },
-            {
-              ...resolvedTitleData.styleConfig,
-              fontScale: typeof titleSize === 'number' ? titleSize : resolvedTitleData.fontScale,
-              glowIntensity: resolvedTitleData.glowIntensity,
-              letterTracking: resolvedTitleData.letterTracking,
-              verticalOffset: typeof verticalOffset === 'number' ? verticalOffset : resolvedTitleData.verticalOffset
-            },
+            fallbackStyleConfig,
             currentLocalSec
           );
         }

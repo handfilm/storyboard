@@ -1,7 +1,8 @@
 /**
  * @file /src/components/stage/VlcStageBar.tsx
- * @description Sleek VLC-style Transport Scrubber & Playback Control Bar for TactileStage.
- * Subscribes to playbackClock for 60fps timecode/scrubber updates without re-rendering App.
+ * @description Ultra-Slim (~26px) VLC-style Transport Scrubber & Playback Control Bar for TactileStage.
+ * Features centered compact Telemetry Bridge (Aspect Scope + Color LUT badge + Sequence Runtime)
+ * so the redundant middle telemetry strip below the player is cleanly eliminated.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -28,6 +29,9 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
+  RectangleHorizontal,
+  Palette,
+  Clock,
   X
 } from 'lucide-react';
 import {
@@ -37,9 +41,10 @@ import {
   type VlcLoopMode,
   type VlcAbLoop
 } from '../../utils/playbackClock';
-import { AnthologyFrame } from '../../types/anthology';
+import { AnthologyFrame, LutPreset } from '../../types/anthology';
 import type { ShotMediaMap } from '../../services/handfilmMediaVault';
 import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
+import { formatLutPresetLabel } from '../../utils/engine';
 
 export interface VlcStageBarProps {
   frames: AnthologyFrame[];
@@ -55,6 +60,9 @@ export interface VlcStageBarProps {
   abLoop: VlcAbLoop;
   fitMode: 'contain' | 'cover' | 'fill';
   aspectRatio: string;
+  lutFilter?: LutPreset | string;
+  totalRuntimeTimecode?: string;
+  totalShotsCount?: number;
   isTitlesActive: boolean;
   isFullscreen: boolean;
   onTogglePlay: () => void;
@@ -89,7 +97,6 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
   currentIndex,
   shotMediaMap,
   durationSec,
-  fps,
   isPlaying,
   playbackSpeed,
   isMuted,
@@ -98,6 +105,9 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
   abLoop,
   fitMode,
   aspectRatio,
+  lutFilter,
+  totalRuntimeTimecode,
+  totalShotsCount,
   isTitlesActive,
   isFullscreen,
   onTogglePlay,
@@ -225,13 +235,15 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
   };
 
   const volumePct = Math.round((isMuted ? 0 : volume) * 100);
+  const lutDisplayLabel = formatLutPresetLabel(lutFilter ?? frames[currentIndex]?.lutFilter ?? 'cinematic').toUpperCase();
+  const displayRuntime = totalRuntimeTimecode || formatVlcTimecode(safeDuration, false);
 
   return (
     <div
       data-interactive="true"
       data-testid="vlc-stage-bar"
       onClick={(e) => e.stopPropagation()}
-      className="relative w-full h-[34px] min-h-[34px] max-h-[34px] bg-[#0B0B0D]/95 border-t border-white/[0.07] px-2 py-0.5 flex flex-col justify-center select-none shrink-0 z-30"
+      className="relative w-full h-[26px] min-h-[26px] max-h-[26px] bg-[#0B0B0D]/95 border-t border-b border-white/[0.08] px-2 py-0 flex flex-col justify-center gap-[1px] select-none shrink-0 z-30"
     >
       {/* Playlist Queue Drawer Popover */}
       {isPlaylistOpen && (
@@ -295,11 +307,11 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
         </div>
       )}
 
-      {/* Row 1: Full-Width Seek Scrubber with A-B Loop Highlight + Hover Preview */}
-      <div className="flex items-center gap-2 mb-0 leading-none py-0">
+      {/* Row 1: Ultra-Slim 6px Seek Scrubber with A-B Loop Highlight + Hover Preview */}
+      <div className="flex items-center gap-1.5 h-[6px] min-h-[6px] leading-none py-0">
         <span
           ref={currentTimeDomRef}
-          className="text-[8.5px] leading-none font-mono font-semibold text-[#F4F4F5] tabular-nums w-11 shrink-0"
+          className="text-[7.5px] leading-none font-mono font-semibold text-[#F4F4F5] tabular-nums w-10 shrink-0"
         >
           {formatVlcTimecode(safeTime, safeDuration < 60)}
         </span>
@@ -311,19 +323,19 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           onPointerUp={handleScrubPointerUp}
           onPointerCancel={handleScrubPointerUp}
           onPointerLeave={() => setHoverTime(null)}
-          className="relative flex-1 h-2 flex items-center cursor-pointer group touch-none"
+          className="relative flex-1 h-[6px] flex items-center cursor-pointer group touch-none"
         >
           {hoverTime !== null && (
             <div
               style={{ left: `${hoverPct}%` }}
-              className="absolute -top-6 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#0B0B0D]/95 border border-[#F59E0B]/60 text-[9.5px] font-mono font-bold text-[#F4F4F5] tabular-nums pointer-events-none whitespace-nowrap shadow-lg z-40"
+              className="absolute -top-6 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#0B0B0D]/95 border border-[#F59E0B]/60 text-[9px] font-mono font-bold text-[#F4F4F5] tabular-nums pointer-events-none whitespace-nowrap shadow-lg z-40"
             >
               {formatVlcTimecode(hoverTime, true)}
             </div>
           )}
 
           {/* Track groove */}
-          <div className="w-full h-0.5 group-hover:h-1 bg-white/15 rounded-full overflow-hidden relative transition-all">
+          <div className="w-full h-[2px] group-hover:h-[3px] bg-white/15 rounded-full overflow-hidden relative transition-all">
             {/* Buffered */}
             <div
               ref={bufferedFillDomRef}
@@ -368,7 +380,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <div
             ref={scrubThumbDomRef}
             style={{ left: `${initialProgressPct}%` }}
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#F59E0B] border border-[#0B0B0D] shadow-[0_0_8px_rgba(245,158,11,0.7)] opacity-80 group-hover:opacity-100 scale-90 group-hover:scale-110 transition-transform pointer-events-none"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-1.5 group-hover:w-2 group-hover:h-2 rounded-full bg-[#F59E0B] border border-[#0B0B0D] shadow-[0_0_8px_rgba(245,158,11,0.7)] opacity-85 group-hover:opacity-100 transition-all pointer-events-none"
           />
         </div>
 
@@ -376,7 +388,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           ref={remainingTimeDomRef}
           type="button"
           onClick={() => setShowRemaining((r) => !r)}
-          className="text-[8.5px] leading-none font-mono font-semibold text-[#8E8E93] hover:text-[#F4F4F5] tabular-nums w-14 text-right shrink-0 cursor-pointer"
+          className="text-[7.5px] leading-none font-mono font-semibold text-[#8E8E93] hover:text-[#F4F4F5] tabular-nums w-12 text-right shrink-0 cursor-pointer"
           title="Click to toggle remaining time"
         >
           {showRemaining
@@ -385,28 +397,28 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
         </button>
       </div>
 
-      {/* Row 2: Ultra-Slim 20px-height VLC Transport Controls + Preamp + Fit/Aspect/A-B/Playlist */}
-      <div className="flex items-center justify-between gap-1 flex-wrap sm:flex-nowrap min-h-[20px] h-[20px] leading-none">
+      {/* Row 2: Slim 17px Transport Row + Center Telemetry Bridge + Right Utility Strip */}
+      <div className="flex items-center justify-between gap-1.5 min-h-[17px] h-[17px] leading-none">
         {/* Left: Core VLC Transport */}
         <div className="flex items-center gap-0.5 shrink-0">
           <button
             type="button"
             onClick={onTogglePlay}
-            className="w-[19px] h-[19px] rounded bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#0B0B0D] flex items-center justify-center transition-colors cursor-pointer shadow-sm"
+            className="w-[16px] h-[16px] rounded bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#0B0B0D] flex items-center justify-center transition-colors cursor-pointer shadow-sm"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause className="w-[9.5px] h-[9.5px] fill-current" /> : <Play className="w-[9.5px] h-[9.5px] fill-current ml-0.5" />}
+            {isPlaying ? <Pause className="w-[9px] h-[9px] fill-current" /> : <Play className="w-[9px] h-[9px] fill-current ml-0.5" />}
           </button>
 
           <button
             type="button"
             onClick={onStop}
-            className="w-[19px] h-[19px] rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-[16px] h-[16px] rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
             title="Stop (Reset to 00:00)"
             aria-label="Stop"
           >
-            <Square className="w-[9.5px] h-[9.5px] fill-current" />
+            <Square className="w-[8.5px] h-[8.5px] fill-current" />
           </button>
 
           <div className="w-px h-2.5 bg-white/[0.07] mx-0.5" />
@@ -414,61 +426,61 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <button
             type="button"
             onClick={onPrevShot}
-            className="w-[19px] h-[19px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-[16px] h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
             title="Previous Shot"
             aria-label="Previous Shot"
           >
-            <SkipBack className="w-[9.5px] h-[9.5px]" />
+            <SkipBack className="w-[9px] h-[9px]" />
           </button>
 
           <button
             type="button"
             onClick={() => onSkipSeconds(-5)}
-            className="px-1 h-[19px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-0.5 text-[8.5px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-0.5 text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
             title="Skip Back 5s"
           >
-            <RotateCcw className="w-[9.5px] h-[9.5px]" />
+            <RotateCcw className="w-[8.5px] h-[8.5px]" />
             <span>5s</span>
           </button>
 
           <button
             type="button"
             onClick={() => onStepFrame(false)}
-            className="px-1 h-[19px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center text-[8.5px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
             title="Step Back 1 Frame (,)"
           >
-            <ChevronLeft className="w-[9.5px] h-[9.5px]" />
+            <ChevronLeft className="w-[8.5px] h-[8.5px]" />
             <span>1F</span>
           </button>
 
           <button
             type="button"
             onClick={() => onStepFrame(true)}
-            className="px-1 h-[19px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center text-[8.5px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
             title="Step Forward 1 Frame (.)"
           >
             <span>1F</span>
-            <ChevronRight className="w-[9.5px] h-[9.5px]" />
+            <ChevronRight className="w-[8.5px] h-[8.5px]" />
           </button>
 
           <button
             type="button"
             onClick={() => onSkipSeconds(5)}
-            className="px-1 h-[19px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-0.5 text-[8.5px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-0.5 text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
             title="Skip Forward 5s"
           >
             <span>5s</span>
-            <RotateCw className="w-[9.5px] h-[9.5px]" />
+            <RotateCw className="w-[8.5px] h-[8.5px]" />
           </button>
 
           <button
             type="button"
             onClick={onNextShot}
-            className="w-[19px] h-[19px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-[16px] h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
             title="Next Shot"
             aria-label="Next Shot"
           >
-            <SkipForward className="w-[9.5px] h-[9.5px]" />
+            <SkipForward className="w-[9px] h-[9px]" />
           </button>
 
           {/* VLC Volume + 200% Preamp */}
@@ -476,16 +488,16 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
             <button
               type="button"
               onClick={onToggleMute}
-              className="w-[19px] h-[19px] rounded hover:bg-[#141417] flex items-center justify-center cursor-pointer"
+              className="w-[16px] h-[16px] rounded hover:bg-[#141417] flex items-center justify-center cursor-pointer"
               title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
               aria-label={isMuted ? 'Unmute' : 'Mute'}
             >
               {isMuted || volume <= 0.01 ? (
-                <VolumeX className="w-[9.5px] h-[9.5px] text-[#8E8E93]" />
+                <VolumeX className="w-[9px] h-[9px] text-[#8E8E93]" />
               ) : volume < 0.6 ? (
-                <Volume1 className="w-[9.5px] h-[9.5px] text-[#F4F4F5]" />
+                <Volume1 className="w-[9px] h-[9px] text-[#F4F4F5]" />
               ) : (
-                <Volume2 className={`w-[9.5px] h-[9.5px] ${volume > 1.05 ? 'text-[#F59E0B]' : 'text-[#F4F4F5]'}`} />
+                <Volume2 className={`w-[9px] h-[9px] ${volume > 1.05 ? 'text-[#F59E0B]' : 'text-[#F4F4F5]'}`} />
               )}
             </button>
             <input
@@ -496,10 +508,10 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
               value={isMuted ? 0 : volume}
               onChange={(e) => onChangeVolume(parseFloat(e.target.value))}
               aria-label="VLC Volume and 200% Preamp"
-              className="w-14 sm:w-16 h-1 accent-[#F59E0B] cursor-pointer"
+              className="w-12 sm:w-14 h-1 accent-[#F59E0B] cursor-pointer"
             />
             <span
-              className={`text-[8.5px] font-mono tabular-nums w-8 shrink-0 ${
+              className={`text-[8px] font-mono tabular-nums w-7 shrink-0 ${
                 volumePct > 100 && !isMuted ? 'text-[#F59E0B] font-bold' : 'text-[#8E8E93]'
               }`}
             >
@@ -508,14 +520,79 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           </div>
         </div>
 
-        {/* Right: A-B Loop, Loop Mode, Speed, Fit Mode, Aspect, Snapshot, Playlist, Fullscreen */}
-        <div className="flex items-center gap-1 shrink-0 text-[8.5px] font-mono tabular-nums">
+        {/* CENTER TELEMETRY BRIDGE: Aspect Scope Icon + Color LUT Badge + Total Sequence Runtime */}
+        <div
+          data-testid="vlc-center-telemetry-bridge"
+          className="hidden lg:flex items-center gap-1.5 px-2 h-[16px] rounded bg-[#141417]/90 border border-white/[0.07] hover:border-[#F59E0B]/45 hover:shadow-[0_0_12px_rgba(245,158,11,0.18)] text-[8px] font-mono tabular-nums transition-all duration-200 shrink-0"
+        >
+          {/* Active Aspect Scope Dropdown Trigger */}
+          <div className="relative flex items-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAspectOpen((o) => !o);
+                setIsSpeedOpen(false);
+              }}
+              className="flex items-center gap-1 text-[#8E8E93] hover:text-[#F59E0B] font-bold cursor-pointer transition-colors whitespace-nowrap"
+              title="Active Aspect Scope (Click to switch)"
+            >
+              <RectangleHorizontal className="w-[9px] h-[9px] text-[#F59E0B]/85" />
+              <span>{aspectRatio}</span>
+            </button>
+            {isAspectOpen && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 py-1 bg-[#0B0B0D] border border-white/[0.07] rounded-md shadow-2xl min-w-[82px] z-50 flex flex-col">
+                {VLC_ASPECT_OPTIONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => {
+                      onChangeAspectRatio(r);
+                      setIsAspectOpen(false);
+                    }}
+                    className={`px-3 py-1 text-left hover:bg-[#141417] cursor-pointer tabular-nums ${
+                      aspectRatio === r ? 'text-[#F59E0B] font-bold' : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <span className="text-white/15">·</span>
+
+          {/* Color LUT Badge */}
+          <span
+            data-testid="vlc-center-lut-badge"
+            className="flex items-center gap-1 text-[#8E8E93] hover:text-cyan-300 font-bold whitespace-nowrap transition-colors"
+            title={`Active Color LUT: ${lutDisplayLabel}`}
+          >
+            <Palette className="w-[9px] h-[9px] text-cyan-400/80" />
+            <span>{lutDisplayLabel}</span>
+          </span>
+
+          <span className="text-white/15">·</span>
+
+          {/* Total Sequence Runtime */}
+          <span
+            data-testid="vlc-center-runtime-badge"
+            className="flex items-center gap-1 text-[#F4F4F5]/90 hover:text-[#F59E0B] font-bold whitespace-nowrap transition-colors"
+            title={`Total Sequence Runtime${typeof totalShotsCount === 'number' ? ` across ${totalShotsCount} shots` : ''}`}
+          >
+            <Clock className="w-[9px] h-[9px] text-[#F59E0B]/85" />
+            <span>{displayRuntime}</span>
+          </span>
+        </div>
+
+        {/* Right: A-B Loop, Loop Mode, Speed, Fit Mode, Snapshot, Upload, Titles, Playlist, Theater, Fullscreen */}
+        <div className="flex items-center gap-1 shrink-0 text-[8px] font-mono tabular-nums">
           {/* A-B Loop Controls */}
-          <div className="hidden md:flex items-center rounded border border-white/[0.07] bg-[#141417] overflow-hidden h-[19px]">
+          <div className="hidden md:flex items-center rounded border border-white/[0.07] bg-[#141417] overflow-hidden h-[16px]">
             <button
               type="button"
               onClick={() => onSetAbPoint('a')}
-              className={`px-1.5 h-full cursor-pointer transition-colors whitespace-nowrap ${
+              className={`px-1 h-full cursor-pointer transition-colors whitespace-nowrap ${
                 abLoop.a !== null ? 'bg-[#F59E0B]/15 text-[#F59E0B] font-bold' : 'text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
               title="Set Loop Start Point A"
@@ -525,7 +602,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
             <button
               type="button"
               onClick={() => onSetAbPoint('b')}
-              className={`px-1.5 h-full border-l border-white/[0.07] cursor-pointer transition-colors whitespace-nowrap ${
+              className={`px-1 h-full border-l border-white/[0.07] cursor-pointer transition-colors whitespace-nowrap ${
                 abLoop.b !== null ? 'bg-[#F59E0B]/15 text-[#F59E0B] font-bold' : 'text-[#8E8E93] hover:text-[#F4F4F5]'
               }`}
               title="Set Loop End Point B"
@@ -548,7 +625,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <button
             type="button"
             onClick={onCycleLoopMode}
-            className={`px-1.5 h-[19px] rounded border flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
+            className={`px-1.5 h-[16px] rounded border flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
               loopMode === 'repeat-one' || loopMode === 'sequence'
                 ? 'border-[#F59E0B]/65 bg-[#F59E0B]/15 text-[#F4F4F5]'
                 : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5]'
@@ -557,18 +634,18 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           >
             {loopMode === 'repeat-one' ? (
               <>
-                <Repeat1 className="w-[9.5px] h-[9.5px] text-[#F59E0B]" />
-                <span className="hidden lg:inline">LOOP 1</span>
+                <Repeat1 className="w-[9px] h-[9px] text-[#F59E0B]" />
+                <span className="hidden xl:inline">LOOP 1</span>
               </>
             ) : loopMode === 'sequence' ? (
               <>
-                <Repeat className="w-[9.5px] h-[9.5px] text-[#F59E0B]" />
-                <span className="hidden lg:inline">SEQ</span>
+                <Repeat className="w-[9px] h-[9px] text-[#F59E0B]" />
+                <span className="hidden xl:inline">SEQ</span>
               </>
             ) : (
               <>
-                <ArrowRightToLine className="w-[9.5px] h-[9.5px]" />
-                <span className="hidden lg:inline">ONCE</span>
+                <ArrowRightToLine className="w-[9px] h-[9px]" />
+                <span className="hidden xl:inline">ONCE</span>
               </>
             )}
           </button>
@@ -581,7 +658,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
                 setIsSpeedOpen((o) => !o);
                 setIsAspectOpen(false);
               }}
-              className="px-1.5 h-[19px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold tabular-nums cursor-pointer whitespace-nowrap"
+              className="px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold tabular-nums cursor-pointer whitespace-nowrap"
               title="Playback Speed (0.25x - 4x)"
             >
               {playbackSpeed}x
@@ -615,22 +692,22 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
               const next = order[(order.indexOf(fitMode) + 1) % order.length];
               onChangeFitMode(next);
             }}
-            className="hidden sm:flex px-1.5 h-[19px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] items-center gap-1 cursor-pointer uppercase whitespace-nowrap"
+            className="hidden sm:flex px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] items-center gap-1 cursor-pointer uppercase whitespace-nowrap"
             title={`Fit Mode: ${fitMode} (Click to cycle)`}
           >
-            <Monitor className="w-[9.5px] h-[9.5px] text-[#8E8E93]" />
+            <Monitor className="w-[9px] h-[9px] text-[#8E8E93]" />
             <span className="hidden xl:inline">{fitMode}</span>
           </button>
 
-          {/* Aspect Ratio Menu */}
-          <div className="relative hidden sm:block">
+          {/* Compact Mobile/Tablet Aspect Ratio Fallback (hidden on lg+ where Center Telemetry Bridge displays Aspect Scope) */}
+          <div className="relative hidden sm:block lg:hidden">
             <button
               type="button"
               onClick={() => {
                 setIsAspectOpen((o) => !o);
                 setIsSpeedOpen(false);
               }}
-              className="px-1.5 h-[19px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer whitespace-nowrap tabular-nums"
+              className="px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer whitespace-nowrap tabular-nums"
               title="Aspect Ratio Override"
             >
               {aspectRatio}
@@ -660,11 +737,11 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <button
             type="button"
             onClick={onCaptureSnapshot}
-            className="w-[19px] h-[19px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
+            className="w-[16px] h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
             title="Take Snapshot PNG (Current Frame)"
             aria-label="Take Snapshot"
           >
-            <Camera className="w-[9.5px] h-[9.5px]" />
+            <Camera className="w-[9px] h-[9px]" />
           </button>
 
           {/* Upload/Open File */}
@@ -672,11 +749,11 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
             <button
               type="button"
               onClick={onUploadMedia}
-              className="w-[19px] h-[19px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
+              className="w-[16px] h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
               title="Open Local Video / Image"
               aria-label="Open Media File"
             >
-              <Upload className="w-[9.5px] h-[9.5px]" />
+              <Upload className="w-[9px] h-[9px]" />
             </button>
           )}
 
@@ -685,7 +762,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
             <button
               type="button"
               onClick={onToggleTitles}
-              className={`w-[19px] h-[19px] rounded border flex items-center justify-center cursor-pointer ${
+              className={`w-[16px] h-[16px] rounded border flex items-center justify-center cursor-pointer ${
                 isTitlesActive
                   ? 'border-[#F59E0B]/65 bg-[#F59E0B]/15 text-[#F59E0B]'
                   : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
@@ -693,7 +770,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
               title="Toggle Titles / Subtitles (T)"
               aria-label="Toggle Titles"
             >
-              <Subtitles className="w-[9.5px] h-[9.5px]" />
+              <Subtitles className="w-[9px] h-[9px]" />
             </button>
           )}
 
@@ -701,7 +778,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <button
             type="button"
             onClick={() => setIsPlaylistOpen((o) => !o)}
-            className={`w-[19px] h-[19px] rounded border flex items-center justify-center cursor-pointer ${
+            className={`w-[16px] h-[16px] rounded border flex items-center justify-center cursor-pointer ${
               isPlaylistOpen
                 ? 'border-[#F59E0B]/65 bg-[#F59E0B]/15 text-[#F59E0B]'
                 : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
@@ -709,7 +786,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
             title="Toggle Playlist Queue"
             aria-label="Toggle Playlist"
           >
-            <ListVideo className="w-[9.5px] h-[9.5px]" />
+            <ListVideo className="w-[9px] h-[9px]" />
           </button>
 
           {/* Cinema Player / Fullscreen */}
@@ -717,7 +794,7 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
             <button
               type="button"
               onClick={onOpenCinemaPlayer}
-              className="hidden lg:flex px-1.5 h-[19px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] items-center gap-1 cursor-pointer whitespace-nowrap"
+              className="hidden lg:flex px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] items-center gap-1 cursor-pointer whitespace-nowrap"
               title="Open Dedicated Theater Player"
             >
               THEATER
@@ -727,11 +804,11 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <button
             type="button"
             onClick={onToggleFullscreen}
-            className="w-[19px] h-[19px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
+            className="w-[16px] h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
             aria-label="Toggle Fullscreen"
           >
-            {isFullscreen ? <Minimize2 className="w-[9.5px] h-[9.5px] text-[#F59E0B]" /> : <Maximize2 className="w-[9.5px] h-[9.5px]" />}
+            {isFullscreen ? <Minimize2 className="w-[9px] h-[9px] text-[#F59E0B]" /> : <Maximize2 className="w-[9px] h-[9px]" />}
           </button>
         </div>
       </div>

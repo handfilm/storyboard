@@ -112,6 +112,23 @@ export const ShotTitleDataSchema = z.object({
   englishSubtitle: z.string().default(''),
   captionNote: z.string().optional(),
   alignment: z.enum(['LEFT', 'MID', 'RIGHT', 'AUTO']).default('MID'),
+  zone9: z
+    .enum([
+      'AUTO',
+      'top-left',
+      'top-center',
+      'top-right',
+      'mid-left',
+      'center-hero',
+      'mid-right',
+      'lower-left',
+      'lower-center',
+      'lower-right'
+    ])
+    .optional(),
+  kineticEntrance: z
+    .enum(['slide-from-left', 'center-bloom', 'slide-from-right'])
+    .optional(),
   fontScale: z.number().default(72),
   glowIntensity: z.number().default(1.0),
   letterTracking: z.number().default(0.15),
@@ -143,7 +160,9 @@ export const ShotSchema = z.object({
   blobUrl: z.string().optional(),
   previewUrl: z.string().optional(),
   isVideo: z.boolean().default(false),
+  panX: z.number().min(0).max(100).optional(),
   panY: z.number().min(0).max(100).default(50),
+  smartCropMode: z.enum(['LEFT', 'CENTER', 'RIGHT', 'AUTO_ZOOM', 'CUSTOM']).optional(),
   colorAccent: z.string().default('#d4af37'),
   hoverStyle: z.number().default(0),
   lutFilter: LutPresetEnum.default('cinematic'),

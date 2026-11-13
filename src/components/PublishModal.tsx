@@ -31,20 +31,36 @@ import {
   Sliders
 } from 'lucide-react';
 import { exportFullIdbBackup } from '../utils/backup';
+import { useStudioStore } from '../core/store';
+import { ExportLutPreviewCard } from './export/ExportLutPreviewCard';
 
 interface PublishModalProps {
   project: AnthologyProject;
+  currentIndex?: number;
   onClose: () => void;
   onImportProject: (imported: AnthologyProject) => void;
 }
 
 export const PublishModal: React.FC<PublishModalProps> = ({
   project,
+  currentIndex,
   onClose,
   onImportProject
 }) => {
   const [activeTab, setActiveTab] = useState<'git' | 'readme' | 'export' | 'deploy'>('git');
   const [copiedType, setCopiedType] = useState<string | null>(null);
+  const storeShotIndex = useStudioStore((s) => s.activeShotIndex);
+  const storeShotMediaMap = useStudioStore((s) => s.shotMediaMap);
+  const storeActiveLut = useStudioStore((s) => s.activeLut);
+  const titleAlign = useStudioStore((s) => s.titleAlign);
+  const selectedShotIndex = Math.max(
+    0,
+    Math.min(
+      Math.max(0, (project.frames?.length || 1) - 1),
+      typeof currentIndex === 'number' ? currentIndex : storeShotIndex || 0
+    )
+  );
+  const selectedFrame = project.frames?.[selectedShotIndex];
 
   const markdownContent = generateProjectMarkdown(project);
   const jsonContent = generateProjectJSON(project);
@@ -235,7 +251,7 @@ git push -u origin main --force-with-lease`;
 
           {/* TAB 3: HOLLYWOOD EXPORTERS */}
           {activeTab === 'export' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <h3 className="font-cinzel text-sm font-bold text-amber-300 uppercase tracking-wider mb-1">
                   Hollywood Interchange Formats
@@ -244,6 +260,15 @@ git push -u origin main --force-with-lease`;
                   Export to industry-standard NLE and screenplay formats (DaVinci Resolve, Premiere, Avid, Final Draft).
                 </p>
               </div>
+
+              <ExportLutPreviewCard
+                shotIndex={selectedShotIndex}
+                frame={selectedFrame}
+                shotMediaMap={storeShotMediaMap}
+                fallbackLut={storeActiveLut}
+                aspectRatio={selectedFrame?.aspectRatio || '2.39:1'}
+                titleAlign={titleAlign}
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* 0A. Premiere / CapCut XML (FCP 7 XML / xmeml) */}

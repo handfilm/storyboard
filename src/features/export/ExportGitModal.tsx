@@ -19,12 +19,18 @@ import {
   Check, 
   AlertTriangle 
 } from 'lucide-react';
+import { ExportLutPreviewCard } from '../../components/export/ExportLutPreviewCard';
 
 export const ExportGitModal: React.FC = () => {
   const {
     activeModule,
     setActiveModule,
-    project
+    project,
+    activeShotIndex,
+    shotMediaMap,
+    activeLut,
+    aspectRatio,
+    titleAlign
   } = useStudioStore();
 
   const [passphrase, setPassphrase] = useState('');
@@ -32,6 +38,8 @@ export const ExportGitModal: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   if (activeModule !== 'EXPORT') return null;
+
+  const activeShot = project.shots?.[activeShotIndex];
 
   const handleDownloadVaultBundle = async () => {
     try {
@@ -112,6 +120,17 @@ export const ExportGitModal: React.FC = () => {
             <span>{statusMessage}</span>
           </div>
         )}
+
+        {/* Selected Frame LUT Verification Preview */}
+        <ExportLutPreviewCard
+          compact
+          shotIndex={activeShotIndex}
+          storeShot={activeShot}
+          shotMediaMap={shotMediaMap}
+          fallbackLut={activeLut}
+          aspectRatio={aspectRatio}
+          titleAlign={titleAlign}
+        />
 
         {/* Export Formats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

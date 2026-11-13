@@ -27,6 +27,11 @@ import {
   resolveShotTitleData,
   resolveShotTitlePresetConfig
 } from '../constants/titleTemplates';
+import {
+  getKineticEntranceCssClass,
+  resolveSpatialTitleChoreography
+} from '../services/titleChoreographyEngine';
+import { TitleZone9 } from '../types/titlePreset';
 import { Sliders } from 'lucide-react';
 
 export type StageTitleVariant =
@@ -61,6 +66,7 @@ export interface StageTextOverlayProps {
   durationSec?: number;
   variant?: StageTitleVariant | string;
   titleAlign?: TitleAlign;
+  titleZone?: TitleZone9 | 'AUTO';
   shotType?: string;
   className?: string;
   allowQuickControls?: boolean;
@@ -105,6 +111,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   durationSec,
   variant = 'center',
   titleAlign: propTitleAlign,
+  titleZone: propTitleZone,
   shotType,
   className = '',
   allowQuickControls = false,
@@ -115,6 +122,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const storeTitleConfig = useStudioStore((s) => s.titleConfig);
   const storeVisibility = useStudioStore((s) => s.visibility.titlesAll);
   const storeTitleAlign = useStudioStore((s) => s.titleAlign);
+  const storeTitleZone = useStudioStore((s) => s.titleZone);
   const storeShot = useStudioStore((s) => s.project.shots?.[shotIndex]);
   const updateShotTitleData = useStudioStore((s) => s.updateShotTitleData);
   const setTitlePreset = useStudioStore((s) => s.setTitlePreset);
@@ -267,15 +275,24 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const activeTitleAlign: TitleAlign = storeTitleConfig?.heroGlobal
     ? (propTitleAlign || storeTitleAlign || resolvedShotTitle.alignment || 'MID')
     : (resolvedShotTitle.alignment || propTitleAlign || 'MID');
-  const effectiveAlign = resolveEffectiveTitleAlign(activeTitleAlign, shotIndex, shotType);
+  const activeTitleZone: TitleZone9 | 'AUTO' = storeTitleConfig?.heroGlobal
+    ? (propTitleZone ?? storeTitleZone ?? resolvedShotTitle.zone9 ?? 'AUTO')
+    : (propTitleZone ?? resolvedShotTitle.zone9 ?? 'AUTO');
+  const choreography = resolveSpatialTitleChoreography({
+    titleAlign: activeTitleAlign,
+    zone9: activeTitleZone,
+    layoutMode: presetConfig.layoutMode,
+    shotIndex,
+    shotType: shotType ?? storeShot?.shotType,
+    panX: storeShot?.panX,
+    panY: storeShot?.panY,
+    smartCropMode: storeShot?.smartCropMode
+  });
+  const effectiveAlign = choreography.effectiveAlign;
   const procedural = getShotProceduralSpec(shotIndex);
   const { palette: procPalette, architecture: procArch, opticalFx: procFx } = procedural;
 
-  // Lower-third-bar naturally anchors left unless explicitly aligned RIGHT
-  const layoutEffectiveAlign: 'LEFT' | 'MID' | 'RIGHT' =
-    presetConfig.layoutMode === 'lower-third-bar' && activeTitleAlign === 'MID'
-      ? 'LEFT'
-      : effectiveAlign;
+  const layoutEffectiveAlign: 'LEFT' | 'MID' | 'RIGHT' = effectiveAlign;
 
   // Preserve required alignment helper classes for test & layout invariants
   const clusterAlignClasses =
@@ -292,59 +309,23 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         ? 'items-end text-right'
         : 'items-center text-center';
 
-  const horizontalAnchorLeft =
-    layoutEffectiveAlign === 'LEFT'
-      ? presetConfig.layoutMode === 'lower-third-bar'
-        ? '5%'
-        : '3rem'
-      : layoutEffectiveAlign === 'RIGHT'
-        ? presetConfig.layoutMode === 'lower-third-bar'
-          ? '95%'
-          : 'calc(100% - 3rem)'
-        : '50%';
-
-  const horizontalTranslateX =
-    layoutEffectiveAlign === 'LEFT'
-      ? '0%'
-      : layoutEffectiveAlign === 'RIGHT'
-        ? '-100%'
-        : '-50%';
+  const horizontalAnchorLeft = choreography.cssLeft;
+  const horizontalTranslateX = choreography.cssTranslateX;
 
   const getVerticalAnchorStyle = (): React.CSSProperties => {
-    switch (presetConfig.layoutMode) {
-      case 'lower-third-bar':
-        return {
-          bottom: '12%',
-          left: horizontalAnchorLeft,
-          transform: `translate3d(${horizontalTranslateX}, ${verticalOffset}px, 0)`
-        };
-      case 'hud-bracket':
-        return {
-          top: '10%',
-          left: horizontalAnchorLeft,
-          transform: `translate3d(${horizontalTranslateX}, ${verticalOffset}px, 0)`
-        };
-      case 'brutalist-box':
-        return {
-          bottom: '14%',
-          left: horizontalAnchorLeft,
-          transform: `translate3d(${horizontalTranslateX}, ${verticalOffset}px, 0)`
-        };
-      case 'minimal-whisper':
-        return {
-          bottom: '14%',
-          left: horizontalAnchorLeft,
-          transform: `translate3d(${horizontalTranslateX}, ${verticalOffset}px, 0)`
-        };
-      case 'editorial-split':
-      case 'center-hero':
-      default:
-        return {
-          top: '50%',
-          left: horizontalAnchorLeft,
-          transform: `translate3d(${horizontalTranslateX}, calc(-50% + ${verticalOffset}px), 0)`
-        };
+    if (choreography.cssVertical.top !== undefined) {
+      const baseY = choreography.cssVertical.translateY;
+      return {
+        top: choreography.cssVertical.top,
+        left: horizontalAnchorLeft,
+        transform: `translate3d(${horizontalTranslateX}, calc(${baseY} + ${verticalOffset}px), 0)`
+      };
     }
+    return {
+      bottom: choreography.cssVertical.bottom || '12%',
+      left: horizontalAnchorLeft,
+      transform: `translate3d(${horizontalTranslateX}, ${verticalOffset}px, 0)`
+    };
   };
 
   // Use preset's own fontScale directly, tempered gently by architecture multiplier only for default hero
@@ -453,6 +434,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   };
 
   const motionClass = getMotionAnimationClass(presetConfig.motionAnimation);
+  const directionalMotionClass = getKineticEntranceCssClass(choreography.kineticEntrance);
 
   // Smooth 180ms outgoing title dissolve snapshot when crossing shot boundaries
   const [exitingSnapshot, setExitingSnapshot] = useState<{
@@ -570,6 +552,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       data-preset-category={presetConfig.category}
       data-title-align={activeTitleAlign}
       data-effective-align={layoutEffectiveAlign}
+      data-title-zone={choreography.zone9}
+      data-kinetic-entrance={choreography.kineticEntrance}
       data-procedural-palette={procPalette.id}
       data-typography-arch={procArch.id}
       data-optical-fx={procFx.id}
@@ -612,13 +596,17 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       >
         {isEnabled && (
           <>
-            {/* Dynamic Unified Preset Title Cluster (Smooth Morph on Preset Switch + 280ms Shot Reveal) */}
+            {/* Dynamic Unified Preset Title Cluster (Smooth Morph on Preset Switch + Directional Choreography) */}
             <div
               key={`hero-title-cluster-${shotIndex}`}
               data-title-cluster="true"
               className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-[calc(100%-6rem)] flex flex-col py-2 transition-[left,transform] duration-300 ease-out title-morph-smooth animate-title-reveal-in ${clusterAlignClasses} !pl-0 !pr-0`}
               style={getVerticalAnchorStyle()}
             >
+              <div
+                key={`kinetic-entrance-${shotIndex}-${choreography.zone9}`}
+                className={directionalMotionClass}
+              >
               <div
                 className={`relative flex flex-col max-w-5xl ${motionClass} title-morph-smooth ${blockAlignClasses} ${
                   presetConfig.layoutMode === 'lower-third-bar'
@@ -854,8 +842,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                     </div>
                   )}
 
-                  {/* If lower-plate layout is active and dialogue exists, display subtle metadata line inside card */}
-                  {isBottomPlateLayout && showDialogue && displayDialogue && (
+                  {/* If lower-plate or lower-row layout is active and dialogue exists, display subtle metadata line inside card */}
+                  {(isBottomPlateLayout || choreography.row === 'lower') && showDialogue && displayDialogue && (
                     <p
                       className="mt-1.5 text-[11px] italic opacity-85 max-w-md truncate"
                       style={{
@@ -877,10 +865,11 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                   />
                 )}
               </div>
+              </div>
             </div>
 
-            {/* Narrative Line / Dialogue Card (Rendered at bottom-stage for center/HUD layouts) */}
-            {!isBottomPlateLayout && showDialogue && displayDialogue && (
+            {/* Narrative Line / Dialogue Card (Rendered at bottom-stage for top/mid layouts) */}
+            {!isBottomPlateLayout && choreography.row !== 'lower' && showDialogue && displayDialogue && (
               <div
                 className={`absolute bottom-5 sm:bottom-8 z-20 pointer-events-none w-max max-w-[calc(100%-3rem)] sm:max-w-xl px-2 transition-[left,transform] duration-300 ease-out ${
                   effectiveAlign === 'LEFT'

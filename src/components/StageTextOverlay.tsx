@@ -347,12 +347,12 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     }
   };
 
-  // Use preset's own fontScale directly, tempered gently by architecture multiplier only for default hero
+  // Use preset's own fontScale directly, scaled proportionally inside the locked 2.39:1 frame
   const isCustomPreset = presetConfig.presetId !== 'molten-gold' && presetConfig.presetId !== 'titanium-silver' && presetConfig.presetId !== 'neon-crimson';
   const effectiveFontSizePx = isCustomPreset
     ? Math.max(22, Math.min(62, Math.round(presetConfig.fontScale)))
     : Math.max(22, Math.min(68, Math.round(titleSizePx * scale * procArch.scaleMultiplier)));
-  const clampedFontSizeCss = `clamp(18px, 3.8vw, ${effectiveFontSizePx}px)`;
+  const clampedFontSizeCss = `clamp(16px, min(4.2cqw, 3.6vw), ${effectiveFontSizePx}px)`;
   const effectiveTrackingEm = isCustomPreset
     ? Math.max(0.01, tracking)
     : Math.max(0.02, tracking + procArch.trackingBoostEm);

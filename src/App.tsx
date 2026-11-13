@@ -53,7 +53,7 @@ import { ProjectV1 } from './types/projectSchema';
 import { migrateToProjectV1, convertShotV1ToFrame, ensureUniqueFrameIds, getNextUniqueFrameId } from './utils/projectMigration';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
-import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
+import { ManifestoOverlay } from './components/landing/ManifestoOverlay';
 import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
@@ -256,17 +256,14 @@ export default function App() {
   const [isStorageInitialized, setIsStorageInitialized] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
 
-  // Landing Walkthrough Modal State (First-time visitors see full 10-slide walkthrough)
-  const [showWalkthrough, setShowWalkthrough] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('rawx_walkthrough_seen') !== 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Standalone Director's Manifesto Overlay (Opens on cold launch & via HOME -> Director's Manifesto)
+  const [showWalkthrough, setShowWalkthrough] = useState<boolean>(true);
 
   const handleCloseWalkthrough = useCallback(() => {
     setShowWalkthrough(false);
+    setCurrentView('STUDIO');
+    setWorkspaceMode('STAGE');
+    setActiveDualPanel('TACTILE_STAGE');
     try {
       localStorage.setItem('rawx_walkthrough_seen', 'true');
     } catch (e) {
@@ -3377,7 +3374,7 @@ export default function App() {
 
   return (
     <div
-      className={`relative w-screen h-screen bg-[#0B0B0D] text-[#F4F4F5] overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
+      className={`relative w-screen max-w-screen h-screen max-h-screen box-border bg-[#0B0B0D] text-[#F4F4F5] overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -4184,9 +4181,9 @@ export default function App() {
         activeShotIndex={currentIndex}
       />
 
-      {/* 10-Slide Cinematic Walkthrough Manifesto Modal */}
+      {/* Standalone 10-Slide Director's Manifesto Overlay (100% separate from HOME) */}
       {showWalkthrough && (
-        <LandingWalkthrough onLaunchStudio={handleCloseWalkthrough} />
+        <ManifestoOverlay onLaunchStudio={handleCloseWalkthrough} />
       )}
 
       {/* 1-Click Multi-Clip Master Assembler & Compilation Wizard */}

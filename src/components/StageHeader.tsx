@@ -1402,7 +1402,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       }}
                       className="text-[10px] text-[#8E8E93] hover:text-[#F4F4F5] py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
                     >
-                      Manifesto
+                      Director&apos;s Manifesto
                     </button>
                   </div>
                 </div>

@@ -1,32 +1,20 @@
 /**
  * @file /src/components/home/HandfilmHome.tsx
- * @description Master Brutalist & Cinematic Showcase HOME Page for HANDFILM STUDIO.
- * Combines the asymmetric 62/38 Hero Stage (10 permanent Bangla/English manifesto slides +
- * Workspace Deck + 10-slide selector bar) with the full Top 10 Master Shots grid (1–10 giant
- * outlined crimson numbers matching the cinema card deck), High-Throughput Engine Specifications
- * ("More Reasons to Create on HANDFILM"), Interactive FAQs accordion, and 4-column Studio Footer
- * with full copyright & studio metadata.
+ * @description Single-screen 100vh Showcase HOME view for HANDFILM STUDIO:
+ * Wider ~73% Hero Manifesto Slider (10 permanent Bangla/English slides with 60fps
+ * generative cinema bokeh + anamorphic light leaks), compact colorful & animated
+ * ~27% Right Workspace Deck (01 STAGE, 02 12S REELS, 03 SCRUB, 04 COCKPIT),
+ * and compact 10-slide bottom selector strip. Zero vertical scrolling.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ArrowRight,
-  ArrowUp,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  Clock,
-  Cpu,
   FileCode2,
-  Film,
-  HardDrive,
   Keyboard,
-  Monitor,
   Pause,
   Play,
-  Share2,
-  Sliders,
   Zap,
 } from 'lucide-react';
 import { AnthologyFrame } from '../../types/anthology';
@@ -60,16 +48,6 @@ export interface ManifestoSlide {
   lensMeta: string;
   accentHex: string;
   secondaryHex: string;
-}
-
-export interface MasterShotCardDefault {
-  index: number;
-  banglaTitle: string;
-  englishTitle: string;
-  tagline: string;
-  focalLength: string;
-  durationSec: number;
-  aspectRatio: string;
 }
 
 export const MANIFESTO_SLIDES: ManifestoSlide[] = [
@@ -165,1124 +143,514 @@ export const MANIFESTO_SLIDES: ManifestoSlide[] = [
   },
 ];
 
-const MASTER_SHOT_DEFAULTS: MasterShotCardDefault[] = [
-  {
-    index: 0,
-    banglaTitle: 'সূচনা',
-    englishTitle: 'OPENING SEQUENCE // RAW 4K',
-    tagline: 'Split-second optical impact.',
-    focalLength: '18MM CINEMA ULTRA-WIDE',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 1,
-    banglaTitle: 'সীমানা',
-    englishTitle: 'EVENT HORIZON // 35MM FILM',
-    tagline: 'A continuous loop of perfection.',
-    focalLength: '28MM ANAMORPHIC PRIME',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 2,
-    banglaTitle: 'আলো',
-    englishTitle: 'SOLAR CORONA // NOCTILUX',
-    tagline: 'Zero latency kinetic displacement.',
-    focalLength: '35MM HIGH-SPEED MASTER',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 3,
-    banglaTitle: 'সংঘাত',
-    englishTitle: 'VELOCITY IMPACT // ZERO BLUR',
-    tagline: 'Every detail amplified.',
-    focalLength: '50MM F/1.2 NOCTILUX',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 4,
-    banglaTitle: 'দৃষ্টি',
-    englishTitle: 'SILENT GAZE // CLOSER 85MM',
-    tagline: 'Every detail amplified.',
-    focalLength: '85MM F/1.4 PORTRAIT',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 5,
-    banglaTitle: 'উন্মোচন',
-    englishTitle: 'END SEQUENCE // 4K BROADCAST',
-    tagline: 'Visual Physics at Work.',
-    focalLength: '100MM F/2.8 MACRO PROBE',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 6,
-    banglaTitle: 'অন্ধকার',
-    englishTitle: 'SHADOW ARCHITECTURE // NOIR',
-    tagline: 'Split-second optical impact.',
-    focalLength: '135MM F/2.0 TELEPHOTO',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 7,
-    banglaTitle: 'মিশ্রণ',
-    englishTitle: 'SPECTRAL DRIFT // ANAMORPHIC',
-    tagline: 'Split-second optical impact.',
-    focalLength: '18MM CINEMA ULTRA-WIDE',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 8,
-    banglaTitle: 'গতি',
-    englishTitle: 'HYPER CADENCE // RAWX CUT',
-    tagline: 'Zero latency kinetic displacement.',
-    focalLength: '28MM ANAMORPHIC PRIME',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-  {
-    index: 9,
-    banglaTitle: 'গ্রহণ',
-    englishTitle: 'MASTER ARCHIVE // SOVEREIGN',
-    tagline: 'Visual Physics at Work.',
-    focalLength: '35MM HIGH-SPEED MASTER',
-    durationSec: 12.0,
-    aspectRatio: '2.39:1',
-  },
-];
-
-const DIRECTOR_FAQS = [
-  {
-    q: 'Why 12.0 seconds (288 frames @ 24fps) per shot?',
-    a: '12 seconds is the golden temporal anchor for narrative previs and montage pacing. At 24 frames per second, exactly 288 frames give directors enough breathing room to judge cinematic staging, anamorphic blocking, and bilingual typography without losing dramatic momentum.',
-  },
-  {
-    q: 'How does 100% Client-Side WebCodecs export work?',
-    a: 'HANDFILM binds directly to your hardware GPU via the modern W3C WebCodecs and MP4-Muxer APIs. Every frame is rasterized locally at full 2.39:1 resolution with zero cloud uploads, zero remote render farm fees, and instant turnaround.',
-  },
-  {
-    q: 'Can I export native XML timelines to Premiere Pro, CapCut, or DaVinci Resolve?',
-    a: 'Yes. HANDFILM includes a Hollywood-standard FCP 7 XML and FCPXML timeline generator. With a single click, your entire 100-shot montage—complete with audio cue markers, track metadata, and timecodes—is transferred directly into CapCut Desktop, Adobe Premiere Pro, or DaVinci Resolve.',
-  },
-  {
-    q: 'Is any storyboard footage, script data, or audio uploaded to an external server?',
-    a: 'Never. HANDFILM is built with a Sovereign Local Silicon philosophy. All assets, text cues, and color grades live securely in your browser persistent IndexedDB & OPFS storage. Your media never leaves your hardware.',
-  },
-];
-
 interface BokehParticle {
   x: number;
   y: number;
+  r: number;
   vx: number;
   vy: number;
-  radius: number;
   alpha: number;
-  hue: 'amber' | 'crimson' | 'warm';
-  phase: number;
+  warm: boolean;
 }
 
-const SLIDE_INTERVAL_MS = 5500;
-
 export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
-  frames = [],
   onEnterStudio,
   onLaunchStudio,
   onOpenExportXml,
-  onOpenExportRange,
   onOpenShortcuts,
-  onIngestMediaForFrame,
-  onExport,
 }) => {
-  const [activeIndex, setActiveIndex] = useState<number>(0);
-  const [isAutoCycling, setIsAutoCycling] = useState<boolean>(true);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(false);
-  const [cycleSeed, setCycleSeed] = useState<number>(0);
-  const [dragHoverIndex, setDragHoverIndex] = useState<number | null>(null);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
+  const particlesRef = useRef<BokehParticle[]>([]);
 
-  const activeSlide = MANIFESTO_SLIDES[activeIndex] ?? MANIFESTO_SLIDES[0];
+  const currentSlide = MANIFESTO_SLIDES[activeSlideIndex] || MANIFESTO_SLIDES[0];
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const sync = () => setPrefersReducedMotion(mq.matches);
-    sync();
-    mq.addEventListener?.('change', sync);
-    return () => mq.removeEventListener?.('change', sync);
+  const handlePrevSlide = useCallback(() => {
+    setActiveSlideIndex((prev) => (prev - 1 + MANIFESTO_SLIDES.length) % MANIFESTO_SLIDES.length);
   }, []);
 
+  const handleNextSlide = useCallback(() => {
+    setActiveSlideIndex((prev) => (prev + 1) % MANIFESTO_SLIDES.length);
+  }, []);
+
+  // Auto-cycle 10 Manifesto Slides cleanly
   useEffect(() => {
-    if (!isAutoCycling || prefersReducedMotion) return;
+    if (!isAutoPlaying) return;
     const timer = window.setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % MANIFESTO_SLIDES.length);
-    }, SLIDE_INTERVAL_MS);
+      setActiveSlideIndex((prev) => (prev + 1) % MANIFESTO_SLIDES.length);
+    }, 4600);
     return () => window.clearInterval(timer);
-  }, [isAutoCycling, prefersReducedMotion, cycleSeed]);
+  }, [isAutoPlaying]);
 
-  const handleSelectSlide = useCallback((index: number) => {
-    const normalized =
-      ((index % MANIFESTO_SLIDES.length) + MANIFESTO_SLIDES.length) % MANIFESTO_SLIDES.length;
-    setActiveIndex(normalized);
-    setCycleSeed((s) => s + 1);
-  }, []);
-
-  const enterWorkspace = useCallback(() => {
-    if (onLaunchStudio) {
-      onLaunchStudio();
-    } else {
-      onEnterStudio(0);
-    }
-  }, [onEnterStudio, onLaunchStudio]);
-
-  const openPanel = useCallback(
-    (panel: 'TACTILE_STAGE' | 'SPLIT' | 'SEQUENCER' | 'MULTICAM') => {
-      if (onLaunchStudio) {
-        onLaunchStudio();
-      } else {
-        onEnterStudio(0);
-      }
-      eventBus.emit('studio:select_panel', { panel });
-    },
-    [onEnterStudio, onLaunchStudio]
-  );
-
-  const openCockpit = useCallback(() => {
-    enterWorkspace();
-    window.setTimeout(() => {
-      eventBus.emit('cockpit:action', { type: 'open_modal' });
-    }, 60);
-  }, [enterWorkspace]);
-
-  const scrollToTop = useCallback(() => {
-    scrollContainerRef.current?.scrollTo({
-      top: 0,
-      behavior: prefersReducedMotion ? 'auto' : 'smooth',
-    });
-  }, [prefersReducedMotion]);
-
-  // 60fps generative optical bokeh + light-leak canvas backdrop
+  // 60fps Generative Cinema Bokeh + Anamorphic Light Leaks inside Hero Slider
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    if (particlesRef.current.length === 0) {
+      particlesRef.current = Array.from({ length: 28 }, (_, i) => ({
+        x: ((i * 73) % 100) / 100,
+        y: ((i * 41) % 100) / 100,
+        r: 18 + (i % 6) * 16,
+        vx: ((i % 2 === 0 ? 1 : -1) * (0.00018 + (i % 5) * 0.00006)),
+        vy: ((i % 3 === 0 ? -1 : 1) * (0.00012 + (i % 4) * 0.00005)),
+        alpha: 0.06 + (i % 5) * 0.032,
+        warm: i % 3 !== 0,
+      }));
+    }
+
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     let rafId = 0;
-    let width = 0;
-    let height = 0;
+    let phase = 0;
 
-    const particles: BokehParticle[] = Array.from({ length: 24 }, (_, idx) => ({
-      x: ((idx * 173) % 100) / 100,
-      y: ((idx * 97) % 100) / 100,
-      vx: ((idx % 5) - 2) * 0.00018 || 0.00012,
-      vy: ((idx % 7) - 3) * 0.00014 || -0.00011,
-      radius: 26 + (idx % 6) * 22,
-      alpha: 0.06 + (idx % 4) * 0.035,
-      hue: idx % 3 === 0 ? 'crimson' : idx % 3 === 1 ? 'amber' : 'warm',
-      phase: idx * 0.7,
-    }));
+    const renderFrame = () => {
+      const parent = canvas.parentElement;
+      const w = parent ? parent.clientWidth : 960;
+      const h = parent ? parent.clientHeight : 540;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+      if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+      }
 
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = Math.max(1, Math.floor(rect.width));
-      height = Math.max(1, Math.floor(rect.height));
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
+      ctx.clearRect(0, 0, w, h);
 
-    const drawFrame = (timeMs: number) => {
-      if (width === 0 || height === 0) return;
-      const t = timeMs * 0.001;
-
-      ctx.clearRect(0, 0, width, height);
-
-      const baseGrad = ctx.createLinearGradient(0, 0, width, height);
-      baseGrad.addColorStop(0, '#070709');
-      baseGrad.addColorStop(0.55, '#0C0B0F');
-      baseGrad.addColorStop(1, '#08080A');
+      // Deep Obsidian Velvet Base
+      const baseGrad = ctx.createRadialGradient(w * 0.42, h * 0.48, 20, w * 0.5, h * 0.5, Math.max(w, h) * 0.85);
+      baseGrad.addColorStop(0, '#19140E');
+      baseGrad.addColorStop(0.55, '#0D0C10');
+      baseGrad.addColorStop(1, '#070709');
       ctx.fillStyle = baseGrad;
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, w, h);
 
-      const flareX1 = width * (0.24 + Math.sin(t * 0.28) * 0.07);
-      const flareY1 = height * (0.36 + Math.cos(t * 0.22) * 0.06);
-      const amberLeak = ctx.createRadialGradient(
-        flareX1,
-        flareY1,
-        10,
-        flareX1,
-        flareY1,
-        width * 0.56
-      );
-      amberLeak.addColorStop(0, 'rgba(245, 158, 11, 0.24)');
-      amberLeak.addColorStop(0.42, 'rgba(217, 119, 6, 0.09)');
-      amberLeak.addColorStop(1, 'rgba(8, 8, 10, 0)');
-      ctx.fillStyle = amberLeak;
-      ctx.fillRect(0, 0, width, height);
+      // Anamorphic Flare Sweep
+      const sweepX = w * (0.5 + 0.24 * Math.sin(phase * 0.45));
+      const flareGrad = ctx.createLinearGradient(0, h * 0.48, w, h * 0.52);
+      flareGrad.addColorStop(0, 'rgba(245, 158, 11, 0)');
+      flareGrad.addColorStop(0.35, 'rgba(245, 158, 11, 0.08)');
+      flareGrad.addColorStop(0.5, 'rgba(255, 232, 160, 0.16)');
+      flareGrad.addColorStop(0.65, 'rgba(229, 9, 20, 0.09)');
+      flareGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = flareGrad;
+      ctx.fillRect(0, h * 0.44, w, h * 0.12);
 
-      const flareX2 = width * (0.78 + Math.cos(t * 0.25) * 0.08);
-      const flareY2 = height * (0.68 + Math.sin(t * 0.2) * 0.07);
-      const crimsonLeak = ctx.createRadialGradient(
-        flareX2,
-        flareY2,
-        10,
-        flareX2,
-        flareY2,
-        width * 0.52
-      );
-      crimsonLeak.addColorStop(0, 'rgba(229, 9, 20, 0.20)');
-      crimsonLeak.addColorStop(0.45, 'rgba(185, 28, 28, 0.07)');
-      crimsonLeak.addColorStop(1, 'rgba(8, 8, 10, 0)');
-      ctx.fillStyle = crimsonLeak;
-      ctx.fillRect(0, 0, width, height);
+      // Optical Aperture Glow centered behind Title
+      const glow = ctx.createRadialGradient(sweepX, h * 0.5, 4, sweepX, h * 0.5, Math.max(w, h) * 0.42);
+      glow.addColorStop(0, 'rgba(245, 158, 11, 0.16)');
+      glow.addColorStop(0.5, 'rgba(229, 9, 20, 0.06)');
+      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
 
-      for (const p of particles) {
-        if (!prefersReducedMotion) {
+      // Floating Bokeh Circles
+      for (const p of particlesRef.current) {
+        if (!reducedMotion) {
           p.x += p.vx;
           p.y += p.vy;
-          if (p.x < -0.1) p.x = 1.1;
-          if (p.x > 1.1) p.x = -0.1;
-          if (p.y < -0.1) p.y = 1.1;
-          if (p.y > 1.1) p.y = -0.1;
+          if (p.x < -0.05) p.x = 1.05;
+          if (p.x > 1.05) p.x = -0.05;
+          if (p.y < -0.05) p.y = 1.05;
+          if (p.y > 1.05) p.y = -0.05;
         }
-        const px = p.x * width;
-        const py = p.y * height;
-        const pulse = 0.8 + 0.2 * Math.sin(t * 0.9 + p.phase);
-        const r = p.radius * pulse;
-        const g = ctx.createRadialGradient(px, py, 0, px, py, r);
-        const color =
-          p.hue === 'crimson'
-            ? `rgba(229, 9, 20, ${p.alpha})`
-            : p.hue === 'amber'
-            ? `rgba(245, 158, 11, ${p.alpha})`
-            : `rgba(251, 191, 36, ${p.alpha * 0.85})`;
-        g.addColorStop(0, color);
-        g.addColorStop(0.65, color);
-        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = g;
+        const px = p.x * w;
+        const py = p.y * h;
+        const bGrad = ctx.createRadialGradient(px, py, 0, px, py, p.r);
+        if (p.warm) {
+          bGrad.addColorStop(0, `rgba(251, 191, 36, ${p.alpha})`);
+          bGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        } else {
+          bGrad.addColorStop(0, `rgba(229, 9, 20, ${p.alpha * 0.78})`);
+          bGrad.addColorStop(1, 'rgba(229, 9, 20, 0)');
+        }
+        ctx.fillStyle = bGrad;
         ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.arc(px, py, p.r, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      const streakY = height * (0.44 + Math.sin(t * 0.16) * 0.02);
-      const streakGrad = ctx.createLinearGradient(0, streakY, width, streakY);
-      streakGrad.addColorStop(0, 'rgba(245, 158, 11, 0)');
-      streakGrad.addColorStop(0.35, 'rgba(245, 158, 11, 0.10)');
-      streakGrad.addColorStop(0.65, 'rgba(229, 9, 20, 0.08)');
-      streakGrad.addColorStop(1, 'rgba(229, 9, 20, 0)');
-      ctx.fillStyle = streakGrad;
-      ctx.fillRect(0, streakY - 1, width, 2);
+      phase += 0.016;
+      if (!reducedMotion) {
+        rafId = window.requestAnimationFrame(renderFrame);
+      }
     };
 
-    resize();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
-    ro?.observe(canvas);
-
-    if (prefersReducedMotion) {
-      drawFrame(0);
-    } else {
-      const loop = (now: number) => {
-        drawFrame(now);
-        rafId = window.requestAnimationFrame(loop);
-      };
-      rafId = window.requestAnimationFrame(loop);
-    }
-
+    renderFrame();
     return () => {
-      ro?.disconnect();
       if (rafId) window.cancelAnimationFrame(rafId);
     };
-  }, [prefersReducedMotion]);
+  }, [activeSlideIndex]);
 
-  const deckCards = [
-    {
-      index: '01',
-      title: 'STAGE',
-      subtitle: '2.39:1 & 16:9 Cinema Monitor + Real-Time Canvas',
-      icon: Monitor,
-      accent: 'text-[#F59E0B]',
-      onClick: () => openPanel('TACTILE_STAGE'),
-    },
-    {
-      index: '02',
-      title: '12s REELS',
-      subtitle: '9:16 Vertical Split Sequencer & Hyper-Reel Engine',
-      icon: Film,
-      accent: 'text-[#F59E0B]',
-      onClick: () => openPanel('SPLIT'),
-    },
-    {
-      index: '03',
-      title: 'SCRUB',
-      subtitle: 'Sub-Frame Precision Scrubber & Keyframe Curves',
-      icon: Sliders,
-      accent: 'text-[#F59E0B]',
-      onClick: () => openPanel('SEQUENCER'),
-    },
-    {
-      index: '04',
-      title: 'COCKPIT',
-      subtitle: 'Premiere XML, CapCut Pack, Photoshop & Ai Bridge',
-      icon: Cpu,
-      accent: 'text-[#E50914]',
-      onClick: openCockpit,
-    },
-  ];
+  const enterStudioPrimary = () => {
+    if (onLaunchStudio) onLaunchStudio();
+    else onEnterStudio(0);
+  };
 
-  const loadedShotCount = frames.filter((f) =>
-    Boolean(f.videoSrc || f.videoUrl || f.imageUrl || f.blobUrl)
-  ).length;
+  const openPanelInStudio = (panel: 'TACTILE_STAGE' | 'SPLIT' | 'SEQUENCER' | 'MULTICAM') => {
+    eventBus.emit('workspace:select_panel', { panel });
+    if (onLaunchStudio) onLaunchStudio();
+    else onEnterStudio(0);
+  };
 
   return (
-    <main
-      ref={scrollContainerRef}
-      data-testid="handfilm-home-showcase"
-      className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden bg-[#08080A] text-[#F4F4F5] select-none"
+    <section
+      data-testid="handfilm-home-viewport"
+      className="w-full h-[calc(100vh-38px)] max-h-[calc(100vh-38px)] overflow-hidden bg-[#08080A] text-[#F4F4F5] flex flex-col justify-between p-2.5 sm:p-3 gap-2 select-none"
     >
-      {/* SECTION 1: ABOVE-THE-FOLD 62/38 HERO SHOWCASE + 10-SLIDE SELECTOR BAR */}
-      <div className="mx-auto w-full max-w-[1680px] flex flex-col gap-3 p-3 sm:p-4 lg:p-5">
-        <section
-          aria-label="Hero Showcase and Manifesto Slider"
-          className="flex flex-col gap-2.5 lg:min-h-[calc(100vh-76px)]"
-        >
-          <div className="flex-1 min-h-[390px] grid grid-cols-1 lg:grid-cols-[62fr_38fr] gap-3">
-            {/* LEFT / CENTER HERO STAGE (62%) */}
-            <section
-              aria-label="Manifesto Hero Stage"
-              className="relative min-h-[340px] lg:min-h-0 flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0B0B0E] overflow-hidden p-5 sm:p-7"
-            >
-              <canvas
-                ref={canvasRef}
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full pointer-events-none"
-              />
+      {/* UPPER ASYMMETRIC SHOWCASE GRID: ~73% Wider Hero Manifesto Slider + ~27% Compact Animated Deck */}
+      <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-[73fr_27fr] gap-2.5 overflow-hidden">
+        {/* LEFT (~73%): WIDER ANAMORPHIC MANIFESTO SLIDER */}
+        <div className="relative h-full min-h-0 w-full rounded-[6px] border border-white/[0.08] bg-[#0B0B0E] overflow-hidden flex flex-col justify-between p-5 sm:p-7 shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
+          {/* 60fps Generative Cinema Bokeh Canvas */}
+          <canvas
+            ref={canvasRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 w-full h-full"
+          />
 
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 pointer-events-none opacity-[0.045] mix-blend-overlay"
-                style={{
-                  backgroundImage:
-                    'radial-gradient(rgba(255,255,255,0.6) 0.5px, transparent 0.5px)',
-                  backgroundSize: '3px 3px',
-                }}
-              />
+          {/* Subtle Cinema Gate Letterbox Vignette */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 border border-[#F59E0B]/15 rounded-[6px]"
+          />
 
-              <div
-                aria-hidden="true"
-                className="absolute inset-4 pointer-events-none border border-white/[0.04] rounded-lg"
-              />
-
-              {/* Top Slide Telemetry + Controls */}
-              <div className="relative z-10 flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3 font-mono text-[11px] tracking-[0.18em] uppercase text-[#A1A1AA] tabular-nums">
-                  <span className="text-[#F59E0B] font-bold">
-                    SLIDE {activeSlide.number} / 10
-                  </span>
-                  <span className="text-white/20">|</span>
-                  <span className="text-[#D4D4D8]">{activeSlide.lensMeta}</span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSlide(activeIndex - 1)}
-                    aria-label="Previous manifesto slide"
-                    className="w-7 h-7 rounded-md border border-white/[0.1] bg-black/50 hover:border-[#F59E0B]/60 hover:text-[#F59E0B] text-[#D4D4D8] flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAutoCycling((prev) => !prev)}
-                    aria-label={isAutoCycling ? 'Pause slide auto-cycle' : 'Play slide auto-cycle'}
-                    className="h-7 px-2.5 rounded-md border border-white/[0.1] bg-black/50 hover:border-[#F59E0B]/60 text-[10px] font-mono tracking-[0.14em] uppercase text-[#E4E4E7] flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    {isAutoCycling && !prefersReducedMotion ? (
-                      <>
-                        <Pause className="w-3 h-3 text-[#F59E0B]" />
-                        <span>AUTO</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3 h-3 text-[#F59E0B]" />
-                        <span>PAUSED</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSlide(activeIndex + 1)}
-                    aria-label="Next manifesto slide"
-                    className="w-7 h-7 rounded-md border border-white/[0.1] bg-black/50 hover:border-[#F59E0B]/60 hover:text-[#F59E0B] text-[#D4D4D8] flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Center-Lower Editorial Manifesto Stack */}
-              <div
-                key={activeSlide.id}
-                className="relative z-10 my-auto py-4 max-w-3xl flex flex-col items-start gap-3 animate-hero-fade"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="h-[2px] w-7 bg-[#F59E0B]" />
-                  <span className="font-mono text-[10px] tracking-[0.26em] uppercase text-[#F59E0B] tabular-nums">
-                    MANIFESTO #{activeSlide.number}
-                  </span>
-                </div>
-
-                <h1
-                  className="font-bangla font-black tracking-tight text-[#FAFAFA] leading-[1.08] break-words [text-wrap:balance]"
-                  style={{
-                    fontSize: 'clamp(2.15rem, 4vw, 3.85rem)',
-                    textShadow: '0 8px 34px rgba(0,0,0,0.85)',
-                  }}
-                >
-                  {activeSlide.banglaTitle}
-                </h1>
-
-                <div className="w-24 h-px bg-gradient-to-r from-[#F59E0B] via-[#E50914] to-transparent" />
-
-                <p className="font-space-grotesk text-[12px] sm:text-[14px] font-semibold tracking-[0.2em] uppercase text-[#D4D4D8] leading-relaxed break-words">
-                  {activeSlide.englishTagline}
-                </p>
-              </div>
-
-              {/* Bottom Progress Indicators inside Hero Stage */}
-              <div className="relative z-10 flex items-center justify-between gap-4 pt-2 border-t border-white/[0.06]">
-                <div className="flex items-center gap-1.5 flex-1">
-                  {MANIFESTO_SLIDES.map((slide, idx) => {
-                    const isActive = idx === activeIndex;
-                    return (
-                      <button
-                        key={slide.id}
-                        type="button"
-                        onClick={() => handleSelectSlide(idx)}
-                        aria-label={`Select slide ${slide.number}: ${slide.banglaTitle}`}
-                        className={`h-1 rounded-full transition-all cursor-pointer ${
-                          isActive
-                            ? 'flex-[2.4] bg-[#F59E0B]'
-                            : 'flex-1 bg-white/15 hover:bg-white/35'
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-                <span className="font-mono text-[10px] tracking-[0.16em] uppercase text-[#71717A] tabular-nums shrink-0">
-                  {frames.length > 0 ? `${frames.length} SHOTS READY` : 'STUDIO READY'}
-                  {loadedShotCount > 0 ? ` · ${loadedShotCount} BOUND` : ''}
-                </span>
-              </div>
-            </section>
-
-            {/* RIGHT INTERACTIVE SHOWCASE DECK (38%) */}
-            <aside
-              aria-label="Studio Workspace Showcase Deck"
-              className="min-h-0 flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0B0B0E] p-4 sm:p-5 gap-3"
-            >
-              <div className="flex items-start justify-between gap-3 pb-2 border-b border-white/[0.07]">
-                <div>
-                  <div className="font-mono text-[10px] tracking-[0.22em] uppercase text-[#F59E0B]">
-                    WORKSPACE DECK
-                  </div>
-                  <h2 className="font-space-grotesk text-[16px] font-bold tracking-tight text-[#F4F4F5] mt-0.5">
-                    Direct Studio Modules
-                  </h2>
-                </div>
-                <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-[#71717A] tabular-nums pt-1">
-                  4 NODES
-                </span>
-              </div>
-
-              <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 content-stretch">
-                {deckCards.map((card) => {
-                  const Icon = card.icon;
-                  return (
-                    <button
-                      key={card.title}
-                      type="button"
-                      onClick={card.onClick}
-                      className="group w-full text-left rounded-lg border border-white/[0.08] bg-[#101014] hover:bg-[#15151B] hover:border-[#F59E0B]/60 px-3.5 py-2 flex items-center justify-between gap-3 transition-all cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-md border border-white/[0.08] bg-[#08080A] group-hover:border-[#F59E0B]/50 flex items-center justify-center shrink-0 transition-colors">
-                          <Icon className={`w-4 h-4 ${card.accent}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-[10px] text-[#71717A] tabular-nums">
-                              {card.index}
-                            </span>
-                            <span className="font-space-grotesk text-[13px] font-bold tracking-[0.08em] uppercase text-[#F4F4F5] group-hover:text-[#F59E0B] transition-colors">
-                              {card.title}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-[#A1A1AA] truncate mt-0.5">
-                            {card.subtitle}
-                          </p>
-                        </div>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-[#52525B] group-hover:text-[#F59E0B] group-hover:translate-x-0.5 transition-all shrink-0" />
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-col gap-2 pt-2 border-t border-white/[0.07]">
-                <button
-                  type="button"
-                  onClick={enterWorkspace}
-                  className="w-full h-10 px-4 rounded-lg bg-[#F59E0B] hover:bg-[#FBBF24] text-[#08080A] font-space-grotesk font-extrabold text-[12px] tracking-[0.16em] uppercase flex items-center justify-between transition-colors shadow-[0_0_24px_rgba(245,158,11,0.22)] cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 fill-current" />
-                    <span>ENTER STUDIO WORKSPACE</span>
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={onOpenExportXml}
-                    className="h-8 px-2.5 rounded-md border border-white/[0.08] bg-[#101014] hover:border-white/25 text-[10px] font-mono tracking-[0.1em] uppercase text-[#A1A1AA] hover:text-[#F4F4F5] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <FileCode2 className="w-3.5 h-3.5 text-[#F59E0B]" />
-                    <span>PREMIERE XML</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onOpenShortcuts?.()}
-                    className="h-8 px-2.5 rounded-md border border-white/[0.08] bg-[#101014] hover:border-white/25 text-[10px] font-mono tracking-[0.1em] uppercase text-[#A1A1AA] hover:text-[#F4F4F5] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Keyboard className="w-3.5 h-3.5 text-[#A1A1AA]" />
-                    <span>SHORTCUTS</span>
-                  </button>
-                </div>
-              </div>
-            </aside>
-          </div>
-
-          {/* Clean Bottom 10-Slide Selector Bar */}
-          <nav
-            aria-label="10 Manifesto Slides"
-            className="shrink-0 grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-1.5 pb-1"
-          >
-            {MANIFESTO_SLIDES.map((slide, idx) => {
-              const isActive = idx === activeIndex;
-              return (
-                <button
-                  key={slide.id}
-                  type="button"
-                  onClick={() => handleSelectSlide(idx)}
-                  aria-pressed={isActive}
-                  className={`group rounded-lg border px-2.5 py-1.5 text-left transition-all cursor-pointer flex flex-col justify-between gap-0.5 min-w-0 ${
-                    isActive
-                      ? 'border-[#F59E0B] bg-[#F59E0B]/[0.12] text-[#FAFAFA]'
-                      : 'border-white/[0.07] bg-[#0D0D11] hover:border-white/20 hover:bg-[#131319] text-[#A1A1AA]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1 w-full">
-                    <span
-                      className={`font-mono text-[10px] font-bold tabular-nums ${
-                        isActive ? 'text-[#F59E0B]' : 'text-[#71717A] group-hover:text-[#D4D4D8]'
-                      }`}
-                    >
-                      #{slide.number}
-                    </span>
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        isActive ? 'bg-[#F59E0B]' : 'bg-white/10 group-hover:bg-white/25'
-                      }`}
-                    />
-                  </div>
-                  <span
-                    className={`font-bangla text-[12px] font-bold truncate w-full ${
-                      isActive ? 'text-[#FAFAFA]' : 'text-[#D4D4D8]'
-                    }`}
-                  >
-                    {slide.banglaTitle}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        </section>
-      </div>
-
-      {/* SECTION 2: RESTORED TOP 10 MASTER SHOTS GRID (CARDS 1–5 + 6–10) */}
-      <section
-        id="top-10-reels-section"
-        aria-label="Top 10 Master Shots Today"
-        className="relative w-full py-10 md:py-14 border-t border-b border-[#232330] bg-[#070709]"
-      >
-        <div className="max-w-7xl mx-auto px-5 md:px-10">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
-            <div>
-              <div className="text-[#E50914] text-xs font-mono font-bold tracking-widest uppercase mb-1.5">
-                DIRECTOR CUTS &amp; MASTER REEL
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-cinzel">
-                Top 10 Master Shots Today
-              </h2>
-            </div>
-            <p className="text-white/45 text-xs tracking-wider font-mono tabular-nums">
-              STRICT 12.0S (288 FRAMES @ 24FPS) • 2.39:1 OPTICAL SCOPE
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
-            {MASTER_SHOT_DEFAULTS.map((preset, idx) => {
-              const rank = idx + 1;
-              const shot = frames[idx];
-              const mediaUrl = shot?.videoSrc || shot?.videoUrl || shot?.imageUrl || shot?.thumbnailUrl || shot?.blobUrl || '';
-              const isVideoMedia = Boolean(
-                shot?.isVideo || shot?.videoSrc || shot?.videoUrl || /\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl)
-              );
-              const bnTitle = shot?.bengaliTitle?.trim() || preset.banglaTitle;
-              const enTitle = shot?.title?.trim() || preset.englishTitle;
-              const shotTagline = shot?.tagline?.trim() || preset.tagline;
-              const lensLabel = shot?.cameraSpec?.focalLength || preset.focalLength;
-              const durationLabel = `${(shot?.durationSec ?? preset.durationSec).toFixed(1)}s`;
-              const isDragging = dragHoverIndex === idx;
-
-              return (
-                <button
-                  key={`top-shot-${rank}`}
-                  type="button"
-                  data-testid={`master-shot-card-${rank}`}
-                  onClick={() => onEnterStudio(idx)}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (dragHoverIndex !== idx) setDragHoverIndex(idx);
-                  }}
-                  onDragLeave={() => {
-                    setDragHoverIndex((prev) => (prev === idx ? null : prev));
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDragHoverIndex(null);
-                    const file = e.dataTransfer?.files?.[0];
-                    if (file && onIngestMediaForFrame) {
-                      onIngestMediaForFrame(idx, file);
-                    }
-                  }}
-                  className={`group relative bg-[#101016] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_12px_30px_rgba(229,9,20,0.3)] flex flex-col text-left aspect-[2/3] border ${
-                    isDragging
-                      ? 'border-2 border-dashed border-amber-400 ring-2 ring-amber-400/50'
-                      : 'border-[#232330] hover:border-[#E50914]'
-                  }`}
-                >
-                  {/* Visual Media Plate + Outlined Rank Number */}
-                  <div className="relative flex-1 w-full bg-black overflow-hidden">
-                    {mediaUrl ? (
-                      isVideoMedia ? (
-                        <video
-                          src={mediaUrl}
-                          muted
-                          playsInline
-                          preload="metadata"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <img
-                          src={mediaUrl}
-                          alt={enTitle}
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                        />
-                      )
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#161622] via-[#0e0e14] to-black text-zinc-600">
-                        <Film className="w-8 h-8 mb-2 group-hover:text-[#E50914] transition-colors" />
-                        <span className="text-[10px] font-mono tracking-widest uppercase tabular-nums">
-                          SHOT {String(rank).padStart(3, '0')}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Contrast Scrim */}
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90 group-hover:opacity-75 transition-opacity"
-                    />
-
-                    {/* Hover Play Button */}
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-[#E50914] text-white flex items-center justify-center shadow-[0_0_20px_rgba(229,9,20,0.8)] transform scale-75 group-hover:scale-100 transition-transform">
-                        <Play className="w-5 h-5 fill-current ml-0.5" />
-                      </div>
-                    </div>
-
-                    {/* Top Corner Telemetry Stamps (Matching Screenshot) */}
-                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10 text-[9px] font-mono tabular-nums">
-                      <span className="px-2 py-0.5 rounded bg-black/80 text-[#F5A623] font-bold border border-[#F5A623]/30">
-                        {durationLabel}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-[#E50914]/90 text-white font-bold">
-                        4K RAW
-                      </span>
-                    </div>
-
-                    {/* Giant Red Outlined Rank Number 1–10 */}
-                    <div
-                      aria-hidden="true"
-                      className="absolute -bottom-3 left-1 z-10 select-none pointer-events-none text-7xl sm:text-8xl font-black font-cinzel leading-none tracking-tighter tabular-nums"
-                      style={{
-                        WebkitTextStroke: '2px #E50914',
-                        color: 'transparent',
-                        textShadow: '0 0 15px rgba(229,9,20,0.5)',
-                      }}
-                    >
-                      {rank}
-                    </div>
-                  </div>
-
-                  {/* Card Lower Metadata */}
-                  <div className="relative w-full p-3 bg-[#0d0d14] border-t border-[#232330] z-20 space-y-1">
-                    <div className="text-right">
-                      <span className="text-white/45 text-[10px] tracking-wider font-mono uppercase truncate block">
-                        {lensLabel}
-                      </span>
-                    </div>
-                    <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-[#F5A623] transition-colors truncate font-bangla">
-                      {bnTitle} // {enTitle}
-                    </h3>
-                    <p className="text-white/45 text-[11px] tracking-wider truncate font-mono">
-                      {shotTagline}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 3: HIGH-THROUGHPUT ENGINE SPECIFICATIONS — MORE REASONS TO CREATE ON HANDFILM */}
-      <section
-        id="feature-matrix-section"
-        aria-label="More Reasons to Create on HANDFILM"
-        className="w-full py-14 md:py-16 border-b border-[#232330] bg-[#07070A]"
-      >
-        <div className="max-w-7xl mx-auto px-5 md:px-10">
-          <div className="max-w-4xl mx-auto text-center mb-12 space-y-3">
-            <span className="inline-block text-[#F5A623] text-xs font-mono font-bold uppercase tracking-[0.22em]">
-              HIGH-THROUGHPUT ENGINE SPECIFICATIONS
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-cinzel">
-              More Reasons to Create on HANDFILM
-            </h2>
-            <p className="text-zinc-400 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
-              Engineered exclusively for autonomous directors, previz supervisors, and high-fashion
-              cinematographers who require zero-cloud latency.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#E50914]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#E50914]/15 border border-[#E50914]/40 flex items-center justify-center text-[#E50914] group-hover:scale-110 transition-transform">
-                <Cpu className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#E50914] font-bold uppercase tracking-wider">
-                  SILICON CORE
-                </span>
-                <h3 className="text-lg font-bold text-white">Browser-Native Silicon</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Leverages W3C WebCodecs and client GPU hardware acceleration to composite and
-                render 2.39:1 widescreen video without cloud render bills.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#F5A623]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623] group-hover:scale-110 transition-transform">
-                <HardDrive className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#F5A623] font-bold uppercase tracking-wider">
-                  LOCAL DATA SOVEREIGNTY
-                </span>
-                <h3 className="text-lg font-bold text-white">100% Offline IndexedDB</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Every shot draft, typography layer, and camera telemetry parameter persists in
-                sovereign browser storage. Zero corporate telemetry or tracking.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#E50914]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#E50914]/15 border border-[#E50914]/40 flex items-center justify-center text-[#E50914] group-hover:scale-110 transition-transform">
-                <Clock className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#E50914] font-bold uppercase tracking-wider">
-                  TEMPORAL PRECISION
-                </span>
-                <h3 className="text-lg font-bold text-white">Sub-Frame Precision</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Strict 24fps frame stepping with professional J-K-L deck shuttling, audio transient
-                beat sync, and sub-frame accurate timecodes.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#F5A623]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623] group-hover:scale-110 transition-transform">
-                <Share2 className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#F5A623] font-bold uppercase tracking-wider">
-                  NLE PIPELINE
-                </span>
-                <h3 className="text-lg font-bold text-white">Instant NLE Portability</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Direct FCP 7 XML and FCPXML exports formatted for immediate drag-and-drop into
-                CapCut Desktop, Adobe Premiere Pro, and DaVinci Resolve.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 4: FREQUENTLY ASKED QUESTIONS + PRO STUDIO LAUNCH CTA */}
-      <section
-        id="director-faqs-section"
-        aria-label="Frequently Asked Questions"
-        className="w-full py-14 md:py-16 border-b border-[#232330] bg-[#070709]"
-      >
-        <div className="max-w-4xl mx-auto px-5 md:px-10 space-y-8">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-cinzel">
-              Frequently Asked Questions
-            </h2>
-            <p className="text-zinc-400 text-xs sm:text-sm">
-              Answers for autonomous directors, cinematographers, and post-production leads.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {DIRECTOR_FAQS.map((item, idx) => {
-              const isOpen = openFaqIndex === idx;
-              return (
-                <div
-                  key={item.q}
-                  className="border border-[#232330] rounded-xl bg-[#0d0d12] overflow-hidden transition-colors"
-                >
-                  <button
-                    type="button"
-                    aria-expanded={isOpen}
-                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                    className="w-full px-5 py-4 flex items-center justify-between text-left text-sm sm:text-base font-semibold text-zinc-100 hover:text-white cursor-pointer"
-                  >
-                    <span>{item.q}</span>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-[#E50914] shrink-0 ml-3" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0 ml-3" />
-                    )}
-                  </button>
-                  {isOpen && (
-                    <div className="px-5 pb-5 pt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed border-t border-[#1a1a24]">
-                      {item.a}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="pt-6 text-center">
-            <button
-              type="button"
-              onClick={() => onEnterStudio(0)}
-              className="px-8 py-3.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-sm sm:text-base inline-flex items-center gap-3 shadow-[0_0_30px_rgba(229,9,20,0.6)] hover:shadow-[0_0_40px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>OPEN HANDFILM PRO STUDIO NOW</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 5: 4-COLUMN STUDIO FOOTER & COPYRIGHT INFORMATION */}
-      <footer
-        aria-label="Handfilm Studio Footer and Copyright"
-        className="w-full pt-12 pb-14 bg-[#060608] text-xs text-zinc-500"
-      >
-        <div className="max-w-7xl mx-auto px-5 md:px-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-            <div className="space-y-3">
-              <span className="font-bold text-white text-sm font-cinzel block">HANDFILM</span>
-              <ul className="space-y-2">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onEnterStudio(0)}
-                    className="hover:text-zinc-200 transition-colors cursor-pointer"
-                  >
-                    Launch Previs Studio
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={onOpenExportXml}
-                    className="hover:text-zinc-200 transition-colors cursor-pointer"
-                  >
-                    NLE XML Suite
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => (onOpenExportRange ? onOpenExportRange() : onExport?.())}
-                    className="hover:text-zinc-200 transition-colors cursor-pointer"
-                  >
-                    MP4 WebCodecs Muxer
-                  </button>
-                </li>
-                {onOpenShortcuts && (
-                  <li>
-                    <button
-                      type="button"
-                      onClick={onOpenShortcuts}
-                      className="hover:text-[#F5A623] text-left transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span className="text-[10px] px-1 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">
-                        ?
-                      </span>
-                      <span>Keyboard Shortcuts</span>
-                    </button>
-                  </li>
-                )}
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <span className="font-bold text-white text-sm font-cinzel block">PIPELINE</span>
-              <ul className="space-y-2">
-                <li>
-                  <button
-                    type="button"
-                    onClick={onOpenExportXml}
-                    className="text-zinc-400 hover:text-[#F5A623] transition-colors cursor-pointer"
-                  >
-                    CapCut Desktop XML
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={onOpenExportXml}
-                    className="text-zinc-400 hover:text-[#F5A623] transition-colors cursor-pointer"
-                  >
-                    Adobe Premiere Pro FCP7
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={openCockpit}
-                    className="text-zinc-400 hover:text-[#F5A623] transition-colors cursor-pointer"
-                  >
-                    DaVinci Resolve Timeline
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <span className="font-bold text-white text-sm font-cinzel block">OPTICAL SCOPE</span>
-              <ul className="space-y-2">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => openPanel('TACTILE_STAGE')}
-                    className="text-zinc-400 hover:text-[#F5A623] transition-colors cursor-pointer"
-                  >
-                    2.39:1 Cinema Letterbox
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => openPanel('SPLIT')}
-                    className="text-zinc-400 hover:text-[#F5A623] transition-colors cursor-pointer"
-                  >
-                    Bangla Gold Metallic Bloom
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => openPanel('SEQUENCER')}
-                    className="text-zinc-400 hover:text-[#F5A623] transition-colors cursor-pointer"
-                  >
-                    DSP Audio Beat Snap
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <span className="font-bold text-white text-sm font-cinzel block">SOVEREIGN CORE</span>
-              <ul className="space-y-2 text-zinc-400">
-                <li>100% Client-Side Silicon</li>
-                <li>Zero Cloud Uploads</li>
-                <li>Hardware GPU Accelerated</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-[#181822] flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <span className="text-[#E50914] font-bold font-cinzel tracking-wider text-sm">
-                HANDFILM
+          {/* Top Bar: Slide Stamp + Lens Spec + Controls */}
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-[3px] bg-[#F59E0B]/15 border border-[#F59E0B]/40 font-mono text-[10px] font-bold tracking-[0.14em] text-[#FBBF24] tabular-nums">
+                MANIFESTO {currentSlide.number} / 10
               </span>
-              <span>—</span>
-              <span className="text-zinc-300 font-medium">Built for the cut. Not the queue.</span>
-              <span className="text-white/20">·</span>
-              <span className="text-zinc-400">
-                © 2026 HANDFILM STUDIO · HANDS &amp; HEAD CREATIVE GROUP. All Rights Reserved.
+              <span className="hidden sm:inline-block font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-400 truncate">
+                {currentSlide.lensMeta}
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 font-mono text-white/45 text-[11px] tracking-wider">
-              <span>HANDFILM // 12.0S CINEMA PREVIS &amp; NLE ENGINE • Directed by Rakib Himon</span>
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
-                onClick={scrollToTop}
-                className="text-zinc-300 hover:text-[#F5A623] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                onClick={() => setIsAutoPlaying((p) => !p)}
+                aria-label={isAutoPlaying ? 'Pause Manifesto Slider' : 'Play Manifesto Slider'}
+                className="h-7 px-2.5 rounded-[4px] border border-white/10 bg-[#121216]/90 hover:border-[#F59E0B]/50 hover:text-[#FBBF24] text-zinc-300 font-mono text-[10px] uppercase tracking-[0.1em] flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                <ArrowUp className="w-3 h-3" />
-                <span>TOP</span>
+                {isAutoPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                <span>{isAutoPlaying ? 'AUTO' : 'HOLD'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePrevSlide}
+                aria-label="Previous Manifesto Slide"
+                className="w-7 h-7 rounded-[4px] border border-white/10 bg-[#121216]/90 hover:border-[#F59E0B]/50 hover:text-[#FBBF24] text-zinc-300 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextSlide}
+                aria-label="Next Manifesto Slide"
+                className="w-7 h-7 rounded-[4px] border border-white/10 bg-[#121216]/90 hover:border-[#F59E0B]/50 hover:text-[#FBBF24] text-zinc-300 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
+
+          {/* Center Monumental Bilingual Display Headline */}
+          <div className="relative z-10 my-auto py-2 flex flex-col items-start justify-center max-w-4xl">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-[1px] w-7 bg-[#F59E0B]" />
+              <span className="font-mono text-[10px] font-semibold tracking-[0.22em] uppercase text-[#F59E0B]">
+                HANDFILM // RAW. RAPID. CINEMA.
+              </span>
+            </div>
+
+            <h1
+              key={currentSlide.id}
+              className="font-bangla font-black leading-[1.08] tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-[#FFF3C4] via-[#FBBF24] to-[#D97706] drop-shadow-[0_0_28px_rgba(245,158,11,0.32)] animate-hero-entrance"
+              style={{ fontSize: 'clamp(2.25rem, 5.1vw, 4.65rem)' }}
+            >
+              {currentSlide.banglaTitle}
+            </h1>
+
+            <p className="mt-3 font-mono text-xs sm:text-sm md:text-base font-bold tracking-[0.2em] uppercase text-zinc-100/95 max-w-3xl">
+              {currentSlide.englishTagline}
+            </p>
+          </div>
+
+          {/* Bottom Micro Progress Hairline & Launch Prompt */}
+          <div className="relative z-10 flex items-center justify-between gap-4 border-t border-white/[0.07] pt-3">
+            <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] shadow-[0_0_8px_#F59E0B]" />
+              <span>LOCAL-FIRST NLE ENGINE · 2.39:1 ANAMORPHIC GATE</span>
+            </div>
+            <div className="hidden sm:flex items-center gap-1.5 w-40">
+              {MANIFESTO_SLIDES.map((s, idx) => (
+                <span
+                  key={s.id}
+                  className={`h-1 flex-1 rounded-full transition-colors duration-200 ${
+                    idx === activeSlideIndex ? 'bg-[#F59E0B]' : 'bg-white/10'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
-      </footer>
-    </main>
+
+        {/* RIGHT (~27%): COMPACT, COLORFUL & ANIMATED WORKSPACE DECK */}
+        <aside className="h-full min-h-0 w-full flex flex-col justify-between gap-2 overflow-hidden">
+          {/* Deck Cards Container */}
+          <div className="flex-1 min-h-0 flex flex-col justify-between gap-1.5">
+            {/* 01 STAGE — Molten Amber/Gold (#F59E0B) */}
+            <button
+              type="button"
+              onClick={() => openPanelInStudio('TACTILE_STAGE')}
+              className="group relative flex-1 min-h-0 w-full rounded-[6px] border border-[#F59E0B]/30 hover:border-[#F59E0B] bg-[#121216] px-3 py-2 flex items-center justify-between gap-2.5 text-left overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-[0_6px_22px_rgba(245,158,11,0.08)] hover:shadow-[0_10px_28px_rgba(245,158,11,0.22)]"
+            >
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{ background: 'radial-gradient(circle at 92% 50%, rgba(245,158,11,0.18), transparent 62%)' }}
+              />
+              <span
+                aria-hidden="true"
+                className="deck-card-shimmer pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-[#F59E0B]/20 to-transparent"
+              />
+              <div className="relative z-10 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold tracking-[0.16em] uppercase text-[#F59E0B]">
+                  <span className="tabular-nums">01</span>
+                  <span className="text-zinc-500">//</span>
+                  <span>2.39:1 ANAMORPHIC</span>
+                </div>
+                <div className="mt-0.5 text-sm font-black tracking-wide text-[#F4F4F5] group-hover:text-[#FBBF24] transition-colors">
+                  STAGE
+                </div>
+                <div className="font-mono text-[9.5px] text-zinc-400 truncate">
+                  Master Scope Monitor &amp; Title HUD
+                </div>
+              </div>
+
+              {/* Animated Optical Lens Aperture SVG */}
+              <div className="relative z-10 w-11 h-11 shrink-0 rounded-[5px] bg-[#09090C] border border-[#F59E0B]/35 flex items-center justify-center">
+                <svg viewBox="0 0 36 36" className="w-8 h-8 animate-deck-aperture" aria-hidden="true">
+                  <circle cx="18" cy="18" r="14" fill="none" stroke="#F59E0B" strokeOpacity="0.45" strokeWidth="1.2" />
+                  <circle cx="18" cy="18" r="9" fill="none" stroke="#FBBF24" strokeWidth="1.4" strokeDasharray="4 3" />
+                  <rect x="6" y="13.5" width="24" height="9" rx="1" fill="none" stroke="#F59E0B" strokeWidth="1.2" />
+                  <circle cx="18" cy="18" r="2.2" fill="#FBBF24" />
+                </svg>
+              </div>
+            </button>
+
+            {/* 02 12S REELS — Crimson/Magenta (#F43F5E) */}
+            <button
+              type="button"
+              onClick={() => openPanelInStudio('SPLIT')}
+              className="group relative flex-1 min-h-0 w-full rounded-[6px] border border-[#F43F5E]/30 hover:border-[#F43F5E] bg-[#121216] px-3 py-2 flex items-center justify-between gap-2.5 text-left overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-[0_6px_22px_rgba(244,63,94,0.08)] hover:shadow-[0_10px_28px_rgba(244,63,94,0.22)]"
+            >
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{ background: 'radial-gradient(circle at 92% 50%, rgba(244,63,94,0.18), transparent 62%)' }}
+              />
+              <span
+                aria-hidden="true"
+                className="deck-card-shimmer pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-[#F43F5E]/20 to-transparent"
+              />
+              <div className="relative z-10 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold tracking-[0.16em] uppercase text-[#F43F5E]">
+                  <span className="tabular-nums">02</span>
+                  <span className="text-zinc-500">//</span>
+                  <span>9:16 HYPER CADENCE</span>
+                </div>
+                <div className="mt-0.5 text-sm font-black tracking-wide text-[#F4F4F5] group-hover:text-[#FB7185] transition-colors">
+                  12S REELS
+                </div>
+                <div className="font-mono text-[9.5px] text-zinc-400 truncate">
+                  Vertical Beat-Synced Reel Deck
+                </div>
+              </div>
+
+              {/* Animated Vertical 9:16 Frame + Live Equalizer Bars */}
+              <div className="relative z-10 w-11 h-11 shrink-0 rounded-[5px] bg-[#09090C] border border-[#F43F5E]/35 flex items-center justify-center gap-1 px-1.5">
+                <div className="w-3.5 h-6 rounded-[2px] border border-[#F43F5E] bg-[#F43F5E]/15 shrink-0" />
+                <div className="flex items-end gap-[2px] h-6">
+                  <span className="w-[2.5px] h-5 rounded-full bg-[#F43F5E] animate-deck-eq-bar" />
+                  <span className="w-[2.5px] h-6 rounded-full bg-[#FB7185] animate-deck-eq-bar" style={{ animationDelay: '180ms' }} />
+                  <span className="w-[2.5px] h-4 rounded-full bg-[#F43F5E] animate-deck-eq-bar" style={{ animationDelay: '360ms' }} />
+                </div>
+              </div>
+            </button>
+
+            {/* 03 SCRUB — Electric Cyan (#06B6D4) */}
+            <button
+              type="button"
+              onClick={() => openPanelInStudio('SEQUENCER')}
+              className="group relative flex-1 min-h-0 w-full rounded-[6px] border border-[#06B6D4]/30 hover:border-[#06B6D4] bg-[#121216] px-3 py-2 flex items-center justify-between gap-2.5 text-left overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-[0_6px_22px_rgba(6,182,212,0.08)] hover:shadow-[0_10px_28px_rgba(6,182,212,0.22)]"
+            >
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{ background: 'radial-gradient(circle at 92% 50%, rgba(6,182,212,0.18), transparent 62%)' }}
+              />
+              <span
+                aria-hidden="true"
+                className="deck-card-shimmer pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-[#06B6D4]/20 to-transparent"
+              />
+              <div className="relative z-10 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold tracking-[0.16em] uppercase text-[#06B6D4]">
+                  <span className="tabular-nums">03</span>
+                  <span className="text-zinc-500">//</span>
+                  <span>SUB-FRAME RAZOR</span>
+                </div>
+                <div className="mt-0.5 text-sm font-black tracking-wide text-[#F4F4F5] group-hover:text-[#22D3EE] transition-colors">
+                  SCRUB
+                </div>
+                <div className="font-mono text-[9.5px] text-zinc-400 truncate">
+                  Precision Timeline &amp; Slip Editor
+                </div>
+              </div>
+
+              {/* Animated Waveform & Sweeping Playhead SVG */}
+              <div className="relative z-10 w-11 h-11 shrink-0 rounded-[5px] bg-[#09090C] border border-[#06B6D4]/35 flex items-center justify-center overflow-hidden">
+                <svg viewBox="0 0 36 36" className="w-8 h-8" aria-hidden="true">
+                  <path
+                    d="M3 18 L7 13 L11 23 L15 9 L19 26 L23 12 L27 21 L33 18"
+                    fill="none"
+                    stroke="#06B6D4"
+                    strokeOpacity="0.55"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <g className="animate-deck-playhead">
+                    <line x1="14" y1="5" x2="14" y2="31" stroke="#22D3EE" strokeWidth="1.8" />
+                    <polygon points="11.5,5 16.5,5 14,8.5" fill="#22D3EE" />
+                  </g>
+                </svg>
+              </div>
+            </button>
+
+            {/* 04 COCKPIT — Neon Violet (#A855F7) */}
+            <button
+              type="button"
+              onClick={() => openPanelInStudio('MULTICAM')}
+              className="group relative flex-1 min-h-0 w-full rounded-[6px] border border-[#A855F7]/30 hover:border-[#A855F7] bg-[#121216] px-3 py-2 flex items-center justify-between gap-2.5 text-left overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-[0_6px_22px_rgba(168,85,247,0.08)] hover:shadow-[0_10px_28px_rgba(168,85,247,0.22)]"
+            >
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{ background: 'radial-gradient(circle at 92% 50%, rgba(168,85,247,0.18), transparent 62%)' }}
+              />
+              <span
+                aria-hidden="true"
+                className="deck-card-shimmer pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-[#A855F7]/20 to-transparent"
+              />
+              <div className="relative z-10 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold tracking-[0.16em] uppercase text-[#A855F7]">
+                  <span className="tabular-nums">04</span>
+                  <span className="text-zinc-500">//</span>
+                  <span>MULTI-APP SYNC</span>
+                </div>
+                <div className="mt-0.5 text-sm font-black tracking-wide text-[#F4F4F5] group-hover:text-[#C084FC] transition-colors">
+                  COCKPIT
+                </div>
+                <div className="font-mono text-[9.5px] text-zinc-400 truncate">
+                  Ps / Pr / Ai / CapCut Live Bridge
+                </div>
+              </div>
+
+              {/* Animated Multi-App Sync Node Matrix */}
+              <div className="relative z-10 w-11 h-11 shrink-0 rounded-[5px] bg-[#09090C] border border-[#A855F7]/35 grid grid-cols-2 gap-1 p-1.5">
+                <span className="rounded-[2px] bg-[#001E36] border border-[#31A8FF]/70 flex items-center justify-center font-mono text-[7px] font-bold text-[#31A8FF] animate-deck-node">
+                  Ps
+                </span>
+                <span className="rounded-[2px] bg-[#00005B] border border-[#9999FF]/70 flex items-center justify-center font-mono text-[7px] font-bold text-[#9999FF] animate-deck-node" style={{ animationDelay: '250ms' }}>
+                  Pr
+                </span>
+                <span className="rounded-[2px] bg-[#330000] border border-[#FF9A00]/70 flex items-center justify-center font-mono text-[7px] font-bold text-[#FF9A00] animate-deck-node" style={{ animationDelay: '500ms' }}>
+                  Ai
+                </span>
+                <span className="rounded-[2px] bg-[#18181D] border border-white/60 flex items-center justify-center font-mono text-[6.5px] font-bold text-white animate-deck-node" style={{ animationDelay: '750ms' }}>
+                  CC
+                </span>
+              </div>
+            </button>
+          </div>
+
+          {/* Primary Molten-Gold CTA + Compact Utility Bar */}
+          <div className="shrink-0 flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={enterStudioPrimary}
+              className="w-full h-10 rounded-[6px] bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#F59E0B] hover:brightness-110 active:scale-[0.99] text-[#08080A] font-mono text-xs font-black tracking-[0.14em] uppercase flex items-center justify-center gap-2 shadow-[0_0_26px_rgba(245,158,11,0.45)] cursor-pointer transition-all"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>ENTER STUDIO WORKSPACE</span>
+            </button>
+
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={onOpenExportXml}
+                className="h-7 rounded-[4px] border border-white/10 bg-[#121216] hover:border-[#F59E0B]/50 hover:text-[#FBBF24] text-zinc-300 font-mono text-[9.5px] font-semibold tracking-[0.1em] uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <FileCode2 className="w-3 h-3" />
+                <span>PREMIERE XML</span>
+              </button>
+              <button
+                type="button"
+                onClick={onOpenShortcuts}
+                className="h-7 rounded-[4px] border border-white/10 bg-[#121216] hover:border-[#F59E0B]/50 hover:text-[#FBBF24] text-zinc-300 font-mono text-[9.5px] font-semibold tracking-[0.1em] uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Keyboard className="w-3 h-3" />
+                <span>SHORTCUTS</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* BOTTOM 10-SLIDE SELECTOR STRIP */}
+      <nav
+        aria-label="Manifesto Slide Selector"
+        className="shrink-0 w-full grid grid-cols-5 lg:grid-cols-10 gap-1.5"
+      >
+        {MANIFESTO_SLIDES.map((slide, idx) => {
+          const isActive = idx === activeSlideIndex;
+          return (
+            <button
+              key={slide.id}
+              type="button"
+              onClick={() => setActiveSlideIndex(idx)}
+              className={`h-11 px-2 rounded-[4px] border flex flex-col justify-center items-start text-left cursor-pointer transition-all duration-150 overflow-hidden ${
+                isActive
+                  ? 'bg-[#191610] border-[#F59E0B] shadow-[0_0_14px_rgba(245,158,11,0.22)]'
+                  : 'bg-[#111115] border-white/[0.07] hover:border-white/25 hover:bg-[#16161C]'
+              }`}
+            >
+              <div className="w-full flex items-center justify-between gap-1 font-mono text-[9px] tabular-nums">
+                <span className={isActive ? 'font-bold text-[#F59E0B]' : 'text-zinc-500'}>
+                  #{slide.number}
+                </span>
+                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />}
+              </div>
+              <div
+                className={`w-full font-bangla text-[11px] font-bold truncate ${
+                  isActive ? 'text-[#FFF3C4]' : 'text-zinc-300'
+                }`}
+              >
+                {slide.banglaTitle}
+              </div>
+            </button>
+          );
+        })}
+      </nav>
+    </section>
   );
 };
 

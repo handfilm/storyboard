@@ -10,8 +10,80 @@ import { getSupabaseClient, hasSupabaseConfig } from './supabaseClient';
 export type LicenseTier = 'trial' | 'pro' | 'free' | 'unauthenticated';
 export type ProTierName = 'pro' | 'ultra' | 'teams';
 export type SubscriptionPlan = 'monthly' | 'annual';
-export type PaymentProvider = 'stripe' | 'lemonsqueezy' | 'sslcommerz';
+export type PaymentCurrency = 'USD' | 'BDT';
+export type PaymentProvider =
+  | 'paypal'
+  | 'bkash'
+  | 'nagad'
+  | 'manual'
+  | 'stripe'
+  | 'lemonsqueezy'
+  | 'sslcommerz';
 export type OnboardingStep = 1 | 2 | 3;
+
+export interface PaymentTransactionRecord {
+  id: string;
+  userId: string;
+  email: string;
+  provider: PaymentProvider;
+  transactionId: string;
+  plan: SubscriptionPlan;
+  proTier: ProTierName;
+  amount: number;
+  currency: PaymentCurrency;
+  status: 'completed' | 'pending' | 'failed';
+  createdAt: number;
+}
+
+export interface PaymentGatewayConfig {
+  gateways: {
+    bkash: { configured: boolean };
+    nagad: { configured: boolean; merchantNumber?: string };
+    paypal: { configured: boolean; clientId?: string };
+    manual: { configured: boolean; bkashNumber: string; nagadNumber: string };
+  };
+}
+
+export const CLIENT_PRICING_MATRIX: Record<
+  ProTierName,
+  {
+    monthlyUSD: number;
+    annualUSD: number;
+    annualPerMonthUSD: number;
+    monthlyBDT: number;
+    annualBDT: number;
+    annualPerMonthBDT: number;
+    label: string;
+  }
+> = {
+  pro: {
+    monthlyUSD: 19.99,
+    annualUSD: 191,
+    annualPerMonthUSD: 15.99,
+    monthlyBDT: 1490,
+    annualBDT: 14300,
+    annualPerMonthBDT: 1192,
+    label: 'PRO'
+  },
+  ultra: {
+    monthlyUSD: 39.99,
+    annualUSD: 383,
+    annualPerMonthUSD: 31.99,
+    monthlyBDT: 2990,
+    annualBDT: 28700,
+    annualPerMonthBDT: 2392,
+    label: 'ULTRA'
+  },
+  teams: {
+    monthlyUSD: 14.99,
+    annualUSD: 143,
+    annualPerMonthUSD: 11.99,
+    monthlyBDT: 1190,
+    annualBDT: 11400,
+    annualPerMonthBDT: 950,
+    label: 'TEAMS'
+  }
+};
 
 export interface ActiveDeviceRecord {
   deviceId: string;
@@ -183,6 +255,31 @@ async function syncSupabaseProfilePlan(plan: 'trial' | 'pro' | 'ultra' | 'teams'
   }
 }
 
+async function syncSupabasePaymentTransaction(tx?: PaymentTransactionRecord | null) {
+  if (!tx) return;
+  try {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const { data } = await sb.auth.getUser();
+    const user = data?.user;
+    if (!user?.id) return;
+    await sb.from('payment_transactions').insert({
+      id: tx.id,
+      user_id: user.id,
+      email: user.email || tx.email,
+      provider: tx.provider,
+      transaction_id: tx.transactionId,
+      plan: tx.proTier,
+      billing_cycle: tx.plan,
+      amount: tx.amount,
+      currency: tx.currency,
+      status: tx.status
+    });
+  } catch {
+    // Best-effort client replication
+  }
+}
+
 interface LicenseStoreState {
   license: SignedLicenseResponse | null;
   sessionToken: string;
@@ -197,6 +294,7 @@ interface LicenseStoreState {
   deviceLimitConflict: DeviceLimitConflict | null;
   error: string | null;
   magicLinkSentTo: string | null;
+  paymentBannerMessage: string | null;
 
   openOnboardingFlow: (preferredStep?: OnboardingStep, featureContext?: string) => void;
   setOnboardingStep: (step: OnboardingStep) => void;
@@ -208,8 +306,11 @@ interface LicenseStoreState {
   openDownloadModal: () => void;
   closeDownloadModal: () => void;
   clearError: () => void;
+  clearPaymentBanner: () => void;
 
   syncLicenseStatus: () => Promise<SignedLicenseResponse | null>;
+  fetchPaymentGatewayConfig: () => Promise<PaymentGatewayConfig | null>;
+  processPaymentCallbackFromUrl: () => Promise<void>;
   registerTrial: (params: { email: string; password: string; name?: string }) => Promise<boolean>;
   loginWithPassword: (params: { email: string; password: string }) => Promise<boolean>;
   sendMagicLink: (email: string) => Promise<boolean>;
@@ -217,6 +318,37 @@ interface LicenseStoreState {
   revokeDevice: (targetDeviceId: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   activateTrialPlan: () => Promise<{ ok: boolean; error?: string }>;
+  startBkashCheckout: (params: { plan: SubscriptionPlan; planTier: ProTierName }) => Promise<{
+    ok: boolean;
+    checkoutUrl?: string;
+    code?: string;
+    message?: string;
+  }>;
+  startNagadCheckout: (params: { plan: SubscriptionPlan; planTier: ProTierName }) => Promise<{
+    ok: boolean;
+    checkoutUrl?: string;
+    code?: string;
+    message?: string;
+  }>;
+  createPaypalOrder: (params: { plan: SubscriptionPlan; planTier: ProTierName }) => Promise<{
+    ok: boolean;
+    orderId?: string;
+    approveUrl?: string;
+    code?: string;
+    message?: string;
+  }>;
+  capturePaypalOrder: (params: { orderId: string; plan: SubscriptionPlan; planTier: ProTierName }) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
+  verifyManualTrxId: (params: {
+    trxId: string;
+    method: 'bkash' | 'nagad';
+    plan: SubscriptionPlan;
+    planTier: ProTierName;
+    currency?: PaymentCurrency;
+    senderNumber?: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   checkoutPro: (params: {
     plan: SubscriptionPlan;
     planTier?: ProTierName;
@@ -245,6 +377,9 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
   deviceLimitConflict: null,
   error: null,
   magicLinkSentTo: null,
+  paymentBannerMessage: null,
+
+  clearPaymentBanner: () => set({ paymentBannerMessage: null }),
 
   openOnboardingFlow: (preferredStep, featureContext) => {
     const lic = get().license;
@@ -647,6 +782,199 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
     } catch (err: any) {
       set({ isLoading: false, error: err?.message || 'Could not activate trial.' });
       return { ok: false, error: err?.message };
+    }
+  },
+
+  fetchPaymentGatewayConfig: async () => {
+    try {
+      const res = await fetch('/api/payments/config');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) return null;
+      return { gateways: data.gateways };
+    } catch {
+      return null;
+    }
+  },
+
+  processPaymentCallbackFromUrl: async () => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const paymentFlag = params.get('payment');
+    if (!paymentFlag) return;
+
+    const cleanUrl = window.location.pathname + window.location.hash;
+
+    if (paymentFlag === 'paypal_return') {
+      const tokenOrderId = params.get('token') || '';
+      const tier = (params.get('tier') as ProTierName) || 'pro';
+      const plan = (params.get('plan') as SubscriptionPlan) || 'monthly';
+      if (tokenOrderId) {
+        const cap = await get().capturePaypalOrder({ orderId: tokenOrderId, plan, planTier: tier });
+        set({
+          paymentBannerMessage: cap.ok
+            ? `PayPal payment captured — ${tier.toUpperCase()} STUDIO active.`
+            : cap.message || 'PayPal capture incomplete.'
+        });
+      }
+      window.history.replaceState({}, '', cleanUrl);
+      return;
+    }
+
+    if (paymentFlag === 'success') {
+      const provider = (params.get('provider') || '').toUpperCase();
+      const tier = (params.get('tier') || 'pro').toUpperCase();
+      await get().syncLicenseStatus();
+      set({
+        isOnboardingModalOpen: true,
+        onboardingStep: 3,
+        selectedPlanLabel: `${tier} STUDIO`,
+        paymentBannerMessage: `${provider || 'Gateway'} payment verified — ${tier} STUDIO unlocked.`
+      });
+      window.history.replaceState({}, '', cleanUrl);
+      return;
+    }
+
+    if (paymentFlag === 'failed') {
+      const reason = params.get('reason') || 'cancelled';
+      set({
+        isOnboardingModalOpen: true,
+        onboardingStep: 2,
+        error: `Payment was not completed (${reason}). You can retry or use Manual TrxID verification.`
+      });
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  },
+
+  startBkashCheckout: async ({ plan, planTier }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch('/api/payments/bkash/create', {
+        method: 'POST',
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ plan, planTier })
+      });
+      const data = await res.json().catch(() => ({}));
+      set({ isLoading: false });
+      if (!res.ok || !data?.success) {
+        return {
+          ok: false,
+          code: data?.code,
+          message: data?.error || 'Could not start bKash checkout.'
+        };
+      }
+      return { ok: true, checkoutUrl: data.checkoutUrl };
+    } catch (err: any) {
+      set({ isLoading: false });
+      return { ok: false, message: err?.message || 'bKash request failed.' };
+    }
+  },
+
+  startNagadCheckout: async ({ plan, planTier }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch('/api/payments/nagad/create', {
+        method: 'POST',
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ plan, planTier })
+      });
+      const data = await res.json().catch(() => ({}));
+      set({ isLoading: false });
+      if (!res.ok || !data?.success) {
+        return {
+          ok: false,
+          code: data?.code,
+          message: data?.error || 'Could not start Nagad checkout.'
+        };
+      }
+      return { ok: true, checkoutUrl: data.checkoutUrl };
+    } catch (err: any) {
+      set({ isLoading: false });
+      return { ok: false, message: err?.message || 'Nagad request failed.' };
+    }
+  },
+
+  createPaypalOrder: async ({ plan, planTier }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch('/api/payments/paypal/create-order', {
+        method: 'POST',
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ plan, planTier })
+      });
+      const data = await res.json().catch(() => ({}));
+      set({ isLoading: false });
+      if (!res.ok || !data?.success) {
+        return {
+          ok: false,
+          code: data?.code,
+          message: data?.error || 'Could not create PayPal order.'
+        };
+      }
+      return { ok: true, orderId: data.orderId, approveUrl: data.approveUrl };
+    } catch (err: any) {
+      set({ isLoading: false });
+      return { ok: false, message: err?.message || 'PayPal order request failed.' };
+    }
+  },
+
+  capturePaypalOrder: async ({ orderId, plan, planTier }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch('/api/payments/paypal/capture-order', {
+        method: 'POST',
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ orderId, plan, planTier })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        set({ isLoading: false, error: data?.error || 'PayPal capture failed.' });
+        return { ok: false, message: data?.error };
+      }
+      await syncSupabaseProfilePlan(planTier, { trialEndsAt: data.license?.proExpiresAt });
+      await syncSupabasePaymentTransaction(data.transaction);
+      set({
+        isLoading: false,
+        license: data.license,
+        selectedPlanLabel: `${planTier.toUpperCase()} STUDIO`,
+        onboardingStep: 3,
+        error: null
+      });
+      return { ok: true, message: `${planTier.toUpperCase()} STUDIO unlocked via PayPal.` };
+    } catch (err: any) {
+      set({ isLoading: false, error: err?.message || 'PayPal capture failed.' });
+      return { ok: false, message: err?.message };
+    }
+  },
+
+  verifyManualTrxId: async ({ trxId, method, plan, planTier, currency = 'BDT', senderNumber }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch('/api/payments/manual/verify', {
+        method: 'POST',
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ trxId, method, plan, planTier, currency, senderNumber })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        set({ isLoading: false, error: data?.error || 'TrxID verification failed.' });
+        return { ok: false, message: data?.error };
+      }
+      await syncSupabaseProfilePlan(planTier, { trialEndsAt: data.license?.proExpiresAt });
+      await syncSupabasePaymentTransaction(data.transaction);
+      set({
+        isLoading: false,
+        license: data.license,
+        selectedPlanLabel: `${planTier.toUpperCase()} STUDIO`,
+        onboardingStep: 3,
+        error: null
+      });
+      return {
+        ok: true,
+        message: `${method.toUpperCase()} TrxID ${data.transactionId} verified — ${planTier.toUpperCase()} unlocked!`
+      };
+    } catch (err: any) {
+      set({ isLoading: false, error: err?.message || 'Manual verification error.' });
+      return { ok: false, message: err?.message };
     }
   },
 

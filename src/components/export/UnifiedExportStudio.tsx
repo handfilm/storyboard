@@ -49,6 +49,7 @@ import {
 import { eventBus } from '../../core/eventBus';
 import { useStudioStore, resolveEffectiveTitleAlign } from '../../core/store';
 import { useLicenseStore } from '../../services/licenseService';
+import { resolveExportEntitlementPolicy } from '../../services/proSuiteEngine';
 import { getCandidateShotMediaKeys, getShotMediaBlob, resolveShotMediaEntry, ShotMediaMap } from '../../services/handfilmMediaVault';
 import { studioDraftDb } from '../../services/db';
 import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
@@ -171,6 +172,8 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   const titleAlign = useStudioStore((s) => s.titleAlign);
   const titleZone = useStudioStore((s) => s.titleZone);
   const titleConfig = useStudioStore((s) => s.titleConfig);
+  const license = useLicenseStore((s) => s.license);
+  const exportPolicy = useMemo(() => resolveExportEntitlementPolicy(license), [license]);
   const activeShotMediaMap = propShotMediaMap ?? storeShotMediaMap;
 
   // =========================================================================
@@ -229,11 +232,13 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     };
   }, []);
 
-  // 3. MP4 Video Render Settings (Default to 4K for Active Trial/Pro, 1080p for Free Tier)
+  // 3. MP4 Video Render Settings (Default to 4K for Active Trial/Pro, 720p Free Watermarked for Free Tier)
   const [resolutionPreset, setResolutionPreset] = useState<CinemaResolutionPreset>(() =>
-    useLicenseStore.getState().hasActiveProOrTrial() ? '4k_scope' : '1080p_scope'
+    useLicenseStore.getState().hasActiveProOrTrial() ? '4k_scope' : '720p_free'
   );
   const [bitrateProfile, setBitrateProfile] = useState<BitrateProfile>('broadcast');
+  const [targetFps, setTargetFps] = useState<24 | 30 | 60>(24);
+  const [transparentAlpha, setTransparentAlpha] = useState<boolean>(false);
   const [burnInTitles, setBurnInTitles] = useState<boolean>(true);
   const [simulateFlare, setSimulateFlare] = useState<boolean>(true);
   const [includeAudio, setIncludeAudio] = useState<boolean>(true);
@@ -1064,9 +1069,15 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   // Launch Master MP4 Render Pipeline
   const handleStartMp4Export = useCallback(async () => {
     if (
-      (resolutionPreset === '4k_scope' || resolutionPreset === '4k_standard') &&
-      !useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')
+      resolutionPreset !== '720p_free' &&
+      !useLicenseStore.getState().requireProAccess('Pro HD/4K Watermark-Free Export')
     ) {
+      return;
+    }
+    if (targetFps === 60 && !useLicenseStore.getState().requireProAccess('60 FPS Smooth Cinema Export')) {
+      return;
+    }
+    if (transparentAlpha && !useLicenseStore.getState().requireProAccess('Transparent Alpha Export')) {
       return;
     }
     if (activeSelection.totalShots === 0) {
@@ -1098,6 +1109,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         overrideShotIndices: activeSelection.indices,
         resolutionPreset,
         bitrateProfile,
+        targetFps,
+        transparentAlpha,
+        applyFreeWatermark: exportPolicy.watermarkRequired,
         burnInTitles,
         cleanPlates: false,
         simulateFlare,
@@ -1150,6 +1164,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     excludedIndices,
     resolutionPreset,
     bitrateProfile,
+    targetFps,
+    transparentAlpha,
+    exportPolicy.watermarkRequired,
     burnInTitles,
     simulateFlare,
     includeAudio,
@@ -1173,7 +1190,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     // - 80 Mbps Master AVC Level 5.1 high-bitrate encoder
     // - 320 kbps High-Fidelity AAC Stereo Audio (48 kHz)
     // - Anamorphic flare streak simulation
-    // - Frame-accurate 24.0 FPS SMPTE timecode
+    // - Frame-accurate SMPTE timecode
     setResolutionPreset('4k_scope');
     setBitrateProfile('master');
     setSimulateFlare(true);
@@ -1203,6 +1220,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         overrideShotIndices: activeSelection.indices,
         resolutionPreset: '4k_scope',
         bitrateProfile: 'master',
+        targetFps,
+        transparentAlpha: false,
+        applyFreeWatermark: false,
         burnInTitles,
         cleanPlates: false,
         simulateFlare: true,
@@ -1253,6 +1273,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     rangeEnd,
     customListText,
     excludedIndices,
+    targetFps,
     burnInTitles,
     customFilename,
     activeShotMediaMap,
@@ -1646,9 +1667,24 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                 <Film className="w-4 h-4 text-[#F5A623]" />
               </div>
               <div>
-                <h2 className="text-xs md:text-sm font-bold text-white tracking-widest uppercase">
-                  UNIFIED MASTER EXPORT STUDIO <span className="text-[#F5A623] font-normal">// 24FPS NATIVE</span>
-                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xs md:text-sm font-bold text-white tracking-widest uppercase">
+                    UNIFIED MASTER EXPORT STUDIO <span className="text-[#F5A623] font-normal">// {targetFps}FPS NATIVE</span>
+                  </h2>
+                  {exportPolicy.hasProOrTrial ? (
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[9px] font-mono font-bold tracking-wider uppercase">
+                      WATERMARK-FREE 4K 60FPS READY
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => useLicenseStore.getState().requireProAccess('Watermark-Free 4K 60fps Export')}
+                      className="px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-[#F5A623] text-[9px] font-mono font-bold tracking-wider uppercase cursor-pointer transition-colors"
+                    >
+                      FREE TIER · 720p WATERMARKED · UPGRADE
+                    </button>
+                  )}
+                </div>
                 <p className="text-[10px] text-zinc-400 font-sans">
                   Export Video Masters, Hollywood NLE Sequences, Contact Sheets & RAWX Backups
                 </p>
@@ -2092,7 +2128,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                         {isExporting ? (
                           <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-amber-500/20 text-[#F5A623] border border-amber-500/40 animate-pulse flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                            REC • 24 FPS
+                            REC • {targetFps} FPS
                           </span>
                         ) : (
                           <>
@@ -2168,7 +2204,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       </div>
                     ) : (
                       <div className="px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs border border-white/10 text-[8.5px] font-mono text-emerald-400">
-                        24.00 FPS DCI
+                        {targetFps}.00 FPS DCI
                       </div>
                     )}
                   </div>
@@ -2269,6 +2305,23 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     <button
                       type="button"
                       disabled={isExporting}
+                      onClick={() => setResolutionPreset('720p_free')}
+                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                        resolutionPreset === '720p_free'
+                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
+                          : 'bg-[#101118] border-[#222332] text-zinc-400'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center text-xs font-bold text-white">
+                        <span>720p Free (1280 × 720) · FREE</span>
+                        <span className="text-[8.5px] text-amber-400">16:9</span>
+                      </div>
+                      <div className="text-[9px] text-zinc-500 font-sans">Standard HD · Watermarked on Free Tier</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isExporting}
                       onClick={() => {
                         if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
                         setResolutionPreset('4k_scope');
@@ -2283,7 +2336,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                         <span>4K Scope (3840 × 1608) · PRO</span>
                         <span className="text-[8.5px] text-[#F5A623]">2.39:1</span>
                       </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Theatrical Scope Master</div>
+                      <div className="text-[9px] text-zinc-500 font-sans">Theatrical Scope Master · Watermark-Free</div>
                     </button>
 
                     <button
@@ -2303,13 +2356,16 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                         <span>4K UHD (3840 × 2160) · PRO</span>
                         <span className="text-[8.5px] text-zinc-400">16:9</span>
                       </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Ultra HD Standard Cinema</div>
+                      <div className="text-[9px] text-zinc-500 font-sans">Ultra HD Standard Cinema · Watermark-Free</div>
                     </button>
 
                     <button
                       type="button"
                       disabled={isExporting}
-                      onClick={() => setResolutionPreset('1080p_scope')}
+                      onClick={() => {
+                        if (!useLicenseStore.getState().requireProAccess('Pro HD/4K Watermark-Free Export')) return;
+                        setResolutionPreset('1080p_scope');
+                      }}
                       className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
                         resolutionPreset === '1080p_scope'
                           ? 'bg-[#181926] border-[#F5A623] text-white shadow'
@@ -2317,7 +2373,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       }`}
                     >
                       <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>1080p Scope (1920 × 804)</span>
+                        <span>1080p Scope (1920 × 804) · PRO</span>
                         <span className="text-[8.5px] text-zinc-400">2.39:1</span>
                       </div>
                       <div className="text-[9px] text-zinc-500 font-sans">Fast Theatrical Preview</div>
@@ -2326,7 +2382,10 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     <button
                       type="button"
                       disabled={isExporting}
-                      onClick={() => setResolutionPreset('9_16_vertical')}
+                      onClick={() => {
+                        if (!useLicenseStore.getState().requireProAccess('Pro HD/4K Watermark-Free Export')) return;
+                        setResolutionPreset('9_16_vertical');
+                      }}
                       className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
                         resolutionPreset === '9_16_vertical'
                           ? 'bg-[#181926] border-[#F5A623] text-white shadow'
@@ -2336,7 +2395,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       <div className="flex justify-between items-center text-xs font-bold text-white">
                         <span className="flex items-center gap-1">
                           <Smartphone className="w-3 h-3 text-cyan-400" />
-                          <span>Vertical Reel (1080 × 1920)</span>
+                          <span>Vertical Reel (1080 × 1920) · PRO</span>
                         </span>
                         <span className="text-[8.5px] text-cyan-400">9:16</span>
                       </div>
@@ -2345,11 +2404,11 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                   </div>
                 </div>
 
-                {/* Bitrate & Quality */}
-                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-1.5">
-                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                {/* Bitrate & Frame Rate */}
+                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-2">
+                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1">
                     <Cpu className="w-3.5 h-3.5" />
-                    <span>Bitrate Profile</span>
+                    <span>Bitrate &amp; Frame Rate</span>
                   </label>
                   <div className="space-y-1.5">
                     <button
@@ -2402,6 +2461,35 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       </div>
                       <div className="text-[9px] text-zinc-500 font-sans">Pristine DCI archival master</div>
                     </button>
+                  </div>
+
+                  {/* Frame Rate Selector */}
+                  <div className="pt-1 border-t border-white/10 space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">
+                      Target Frame Rate
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([24, 30, 60] as const).map((fpsVal) => (
+                        <button
+                          key={fpsVal}
+                          type="button"
+                          disabled={isExporting}
+                          onClick={() => {
+                            if (fpsVal === 60 && !useLicenseStore.getState().requireProAccess('60 FPS Smooth Cinema Export')) {
+                              return;
+                            }
+                            setTargetFps(fpsVal);
+                          }}
+                          className={`py-1.5 px-1.5 rounded border text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                            targetFps === fpsVal
+                              ? 'bg-[#F5A623] text-black border-[#F5A623]'
+                              : 'bg-[#101118] border-[#222332] text-zinc-300 hover:border-white/25'
+                          }`}
+                        >
+                          {fpsVal} FPS{fpsVal === 60 ? ' · PRO' : ''}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -2462,6 +2550,28 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                         }`}
                       >
                         <div className={`w-3 h-3 rounded-full bg-black transition-transform ${includeAudio ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-cyan-300 text-[11px]">Transparent Alpha (.webm) · PRO</div>
+                        <div className="text-[9px] text-zinc-500">VP9 alpha channel for Smart Cutout</div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isExporting}
+                        onClick={() => {
+                          if (!transparentAlpha && !useLicenseStore.getState().requireProAccess('Transparent Alpha Export')) {
+                            return;
+                          }
+                          setTransparentAlpha(v => !v);
+                        }}
+                        className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer relative ${
+                          transparentAlpha ? 'bg-cyan-400' : 'bg-zinc-700'
+                        }`}
+                      >
+                        <div className={`w-3 h-3 rounded-full bg-black transition-transform ${transparentAlpha ? 'translate-x-4' : 'translate-x-0'}`} />
                       </button>
                     </div>
                   </div>

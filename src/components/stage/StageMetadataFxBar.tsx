@@ -703,6 +703,18 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <span>[ TITLE FX ]</span>
         </button>
 
+        {/* [ PRO FX ] Trigger Button */}
+        <button
+          type="button"
+          data-testid="stage-pro-fx-button"
+          onClick={() => eventBus.emit('studio:open_pro_suite', { tab: 'ai-captions' })}
+          className="px-1.5 py-0 h-[18px] rounded border border-[#22D3EE]/35 bg-[#141417] text-[#22D3EE] hover:bg-[#22D3EE]/15 hover:border-[#22D3EE] text-[8.5px] font-bold flex items-center gap-1 cursor-pointer transition-all duration-200 shrink-0"
+          title="Open CapCut Pro FX Suite (AI Captions, Keyframes, Speed Ramp, 3-Way Color Wheels)"
+        >
+          <Sparkles className="w-2.5 h-2.5" />
+          <span>PRO FX</span>
+        </button>
+
         {/* Zero-Prompt EDIT IN App Strip (Ps, Pr, Ai, CapCut) */}
         <EditInAppStrip shotIndex={shotIndex} frame={frame} variant="hud" />
       </div>

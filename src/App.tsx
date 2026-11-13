@@ -305,7 +305,9 @@ export default function App() {
   }, [workspaceMode, currentView]);
 
   useEffect(() => {
-    void useLicenseStore.getState().syncLicenseStatus();
+    void useLicenseStore.getState().syncLicenseStatus().then(() => {
+      void useLicenseStore.getState().processPaymentCallbackFromUrl();
+    });
   }, []);
 
   const sessionRestoreInputRef = useRef<HTMLInputElement>(null);
@@ -790,6 +792,15 @@ export default function App() {
             activeTitlePreset: 'activeTitlePreset' in partial ? partial.activeTitlePreset : existing.activeTitlePreset,
             titleStyleConfig: 'titleStyleConfig' in partial ? partial.titleStyleConfig : existing.titleStyleConfig,
             titleData: 'titleData' in partial ? partial.titleData : existing.titleData,
+            clipKeyframes: 'clipKeyframes' in partial ? partial.clipKeyframes : existing.clipKeyframes,
+            smartCutout: 'smartCutout' in partial ? partial.smartCutout : existing.smartCutout,
+            colorWheels: 'colorWheels' in partial ? partial.colorWheels : existing.colorWheels,
+            audioFx: 'audioFx' in partial ? partial.audioFx : existing.audioFx,
+            speedRampPreset: 'speedRampPreset' in partial ? partial.speedRampPreset : existing.speedRampPreset,
+            speedRampKeyframes: 'speedRampKeyframes' in partial ? partial.speedRampKeyframes : existing.speedRampKeyframes,
+            opticalFlowMode: 'opticalFlowMode' in partial ? partial.opticalFlowMode : existing.opticalFlowMode,
+            beatMarkersSec: 'beatMarkersSec' in partial ? partial.beatMarkersSec : existing.beatMarkersSec,
+            beatSnapEnabled: 'beatSnapEnabled' in partial ? partial.beatSnapEnabled : existing.beatSnapEnabled,
             slideHoldSec: nextDur !== undefined ? nextDur : existing.slideHoldSec,
             durationSec: nextDur !== undefined ? nextDur : existing.durationSec
           };
@@ -1038,6 +1049,11 @@ export default function App() {
       setActiveModule(module);
       setIsDrawerOpen(true);
     });
+    const unsubOpenProSuite = eventBus.on('studio:open_pro_suite', () => {
+      setCurrentView('STUDIO');
+      setWorkspaceMode('STAGE');
+      setIsDrawerOpen(true);
+    });
     const unsubSelectPanel = eventBus.on('studio:select_panel', ({ panel }: { panel: StagePanelType }) => {
       setCurrentView('STUDIO');
       setWorkspaceMode('STAGE');
@@ -1126,6 +1142,7 @@ export default function App() {
       unsubSaveSnapshot();
       unsubBatchImport();
       unsubWalkthrough();
+      unsubOpenProSuite();
     };
   }, [handleOpenExportStudio, aspectRatio, handleNewAnthologyProject, handleSaveSnapshot]);
 
@@ -3717,6 +3734,22 @@ export default function App() {
               if (lut) {
                 handleUpdateFrame({ ...currentFrame, lutFilter: lut });
               }
+            }}
+            onApplyStoryboardShots={(generatedShots) => {
+              generatedShots.forEach((shot, offset) => {
+                const targetIdx = currentIndex + offset;
+                const existing = project.frames[targetIdx];
+                if (!existing) return;
+                handleUpdateFrameAtIndex(targetIdx, {
+                  ...existing,
+                  title: shot.title || existing.title,
+                  bengaliTitle: shot.bengaliTitle || existing.bengaliTitle,
+                  tagline: shot.tagline || existing.tagline,
+                  directorNotes: shot.directorNotes || existing.directorNotes,
+                  soundCue: shot.soundCue || existing.soundCue,
+                  durationSec: shot.durationSec || existing.durationSec
+                });
+              });
             }}
           />
         )}

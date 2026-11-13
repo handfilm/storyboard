@@ -23,7 +23,18 @@ export interface SlideTextLayer {
   color?: string;
 }
 
-import type { SpeedRampPreset, SmartCropMode, SpeedRampKeyframe, OpticalFlowMode, ShotLightConfig } from './anthology';
+import type {
+  SpeedRampPreset,
+  SmartCropMode,
+  SpeedRampKeyframe,
+  OpticalFlowMode,
+  ShotLightConfig,
+  ClipKeyframe,
+  SmartCutoutConfig,
+  ColorWheelsConfig,
+  ShotAudioFx,
+  ShotCaption
+} from './anthology';
 import type { TitlePresetConfig, ShotTitleData } from '../types/titlePreset';
 
 export interface SlideDraft {
@@ -40,6 +51,12 @@ export interface SlideDraft {
   sfxAudioUrl?: string;
   lightId?: string | null;
   lightConfig?: ShotLightConfig;
+  clipKeyframes?: ClipKeyframe[];
+  smartCutout?: SmartCutoutConfig;
+  colorWheels?: ColorWheelsConfig;
+  audioFx?: ShotAudioFx;
+  caption?: ShotCaption;
+  beatMarkersSec?: number[];
   mediaVaultKey?: string;
   beatSnapEnabled?: boolean;
   mediaBlobId?: string; // Key in media_blobs store

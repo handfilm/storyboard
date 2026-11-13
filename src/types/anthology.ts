@@ -69,7 +69,58 @@ export interface FrameAdjustments {
   vertigoLock?: boolean;   // Dolly zoom inverse coupling
 }
 
-export type CaptionStyle = 'rap_pop' | 'cinematic_minimal' | 'bilingual_dual';
+export type CaptionStyle =
+  | 'rap_pop'
+  | 'cinematic_minimal'
+  | 'bilingual_dual'
+  | 'bounce'
+  | 'karaoke'
+  | 'editorial';
+
+export type ClipKeyframeEasing = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+
+export interface ClipKeyframe {
+  id: string;
+  timeNorm: number; // 0.0 .. 1.0 within clip duration
+  x: number; // px offset or % (-50 .. +50)
+  y: number; // % (-50 .. +50)
+  scale: number; // 0.25 .. 3.0 (default 1.0)
+  rotation: number; // degrees (-180 .. +180)
+  opacity: number; // 0.0 .. 1.0
+  volume: number; // 0.0 .. 2.0
+  easing: ClipKeyframeEasing;
+}
+
+export interface SmartCutoutConfig {
+  enabled: boolean;
+  mode: 'ai-subject' | 'chroma-green' | 'chroma-blue';
+  tolerance: number; // 5 .. 120
+  feather: number; // 0 .. 40
+  backgroundMode: 'transparent' | 'obsidian' | 'blur';
+}
+
+export interface ColorWheelChannel {
+  r: number; // -50 .. +50
+  g: number; // -50 .. +50
+  b: number; // -50 .. +50
+}
+
+export interface ColorWheelsConfig {
+  lift: ColorWheelChannel;
+  gamma: ColorWheelChannel;
+  gain: ColorWheelChannel;
+  grain: number; // 0 .. 100
+  halation: number; // 0 .. 100
+  motionBlur3d: number; // 0 .. 100
+}
+
+export interface ShotAudioFx {
+  normalizeLufs14: boolean;
+  noiseReduction: boolean;
+  pitchSemitones: number; // -12 .. +12
+  emotion: 'neutral' | 'dramatic' | 'warm' | 'intense' | 'whisper' | 'poetic';
+  vocalIsolated?: 'none' | 'instrumental' | 'acapella';
+}
 
 export interface TimedWord {
   word: string;
@@ -110,7 +161,14 @@ export type KineticTypographyArchetype =
   | 'dark-metallic'
   | 'ambient-chill';
 
-export type SpeedRampPreset = 'NONE' | 'BULLET_TIME' | 'WHIP_CUT' | 'HEARTBEAT';
+export type SpeedRampPreset =
+  | 'NONE'
+  | 'BULLET_TIME'
+  | 'WHIP_CUT'
+  | 'HEARTBEAT'
+  | 'HERO'
+  | 'BULLET'
+  | 'MONTAGE';
 export type SmartCropMode = 'LEFT' | 'CENTER' | 'RIGHT' | 'AUTO_ZOOM' | 'CUSTOM';
 export type OpticalFlowMode = 'NONE' | 'FRAME_BLEND' | 'OPTICAL_FLOW';
 
@@ -200,6 +258,11 @@ export interface AnthologyFrame {
   subclipOutSec?: number;
   lightId?: string | null;
   lightConfig?: ShotLightConfig;
+  clipKeyframes?: ClipKeyframe[];
+  smartCutout?: SmartCutoutConfig;
+  colorWheels?: ColorWheelsConfig;
+  audioFx?: ShotAudioFx;
+  beatMarkersSec?: number[];
   shotType?: string;
   proceduralPaletteId?: string;
   typographyArchitecture?: string;

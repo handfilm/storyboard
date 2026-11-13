@@ -25,7 +25,10 @@ export const SPEED_RAMP_PRESETS: ReadonlyArray<{
   curveSummary: string;
 }> = [
   { id: 'NONE', label: 'Linear 1.0x', shortLabel: 'LINEAR', curveSummary: 'Constant 1.0x cadence' },
-  { id: 'BULLET_TIME', label: 'Bullet-Time', shortLabel: 'BULLET', curveSummary: '2.0x -> 0.4x -> 2.0x' },
+  { id: 'HERO', label: 'Hero Ramp', shortLabel: 'HERO', curveSummary: '3.0x -> 0.45x -> 2.8x' },
+  { id: 'BULLET', label: 'Bullet Slow-Mo', shortLabel: 'BULLET', curveSummary: '2.5x -> 0.3x -> 2.5x' },
+  { id: 'MONTAGE', label: 'Montage Beat', shortLabel: 'MONTAGE', curveSummary: '0.8x -> 3.2x -> 0.7x' },
+  { id: 'BULLET_TIME', label: 'Bullet-Time', shortLabel: 'BULLET-T', curveSummary: '2.0x -> 0.4x -> 2.0x' },
   { id: 'WHIP_CUT', label: 'Whip-Cut Accel', shortLabel: 'WHIP', curveSummary: '0.6x -> 2.6x surge' },
   { id: 'HEARTBEAT', label: 'Heartbeat Pulse', shortLabel: 'PULSE', curveSummary: '2x rhythmic pulses' }
 ];
@@ -93,10 +96,23 @@ export function getSpeedRampFactorAtProgress(
 
   const t = Math.max(0, Math.min(1, u));
   switch (preset) {
+    case 'HERO': {
+      // Dramatic 3.0x rush -> 0.45x hero freeze -> 2.8x exit surge
+      const centerDip = Math.exp(-Math.pow((t - 0.5) / 0.22, 2));
+      return Math.max(0.45, 2.9 - 2.45 * centerDip);
+    }
+    case 'BULLET':
     case 'BULLET_TIME': {
-      // Smooth 2.0x -> 0.4x (at u=0.5) -> 2.0x symmetric velocity curve
+      // Smooth 2.0x..2.5x -> 0.35x (at u=0.5) -> 2.0x..2.5x symmetric velocity curve
       const dip = Math.sin(Math.PI * t);
-      return Math.max(0.4, 2.0 - 1.6 * Math.pow(dip, 0.85));
+      const peak = preset === 'BULLET' ? 2.5 : 2.0;
+      const floor = preset === 'BULLET' ? 0.3 : 0.4;
+      return Math.max(floor, peak - (peak - floor) * Math.pow(dip, 0.85));
+    }
+    case 'MONTAGE': {
+      // Fast beat-synced rush peaking around mid-late transition
+      const wave = Math.sin(Math.PI * 1.5 * t);
+      return Math.max(0.7, 1.3 + 1.8 * Math.abs(wave));
     }
     case 'WHIP_CUT': {
       // Exponential whip acceleration from 0.65x entry to 2.55x exit

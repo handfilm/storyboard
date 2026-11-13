@@ -11,7 +11,6 @@ import {
   Mail,
   ArrowRight,
   Check,
-  Crown,
   Zap,
   Monitor,
   Smartphone,
@@ -22,7 +21,6 @@ import {
   Laptop,
   Trash2,
   LogOut,
-  CreditCard,
   CheckCircle2,
   Sparkles,
   Users
@@ -30,13 +28,13 @@ import {
 import {
   getOrCreateDeviceFingerprint,
   OnboardingStep,
-  PaymentProvider,
   ProTierName,
   SubscriptionPlan,
   useLicenseStore
 } from '../../services/licenseService';
 import { hasSupabaseConfig } from '../../services/supabaseClient';
 import { eventBus } from '../../core/eventBus';
+import { CheckoutModal } from './CheckoutModal';
 
 interface DownloadArtifactMeta {
   filename: string;
@@ -109,7 +107,6 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
   const revokeDevice = useLicenseStore((s) => s.revokeDevice);
   const signOut = useLicenseStore((s) => s.signOut);
   const activateTrialPlan = useLicenseStore((s) => s.activateTrialPlan);
-  const checkoutPro = useLicenseStore((s) => s.checkoutPro);
 
   // Step 1 Auth Form States
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -123,7 +120,7 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
   // Step 2 Pricing Grid States
   const [billingCycle, setBillingCycle] = useState<SubscriptionPlan>('monthly');
   const [pendingUpgradeTier, setPendingUpgradeTier] = useState<ProTierName | null>(null);
-  const [provider, setProvider] = useState<PaymentProvider>('stripe');
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   // Step 3 Download Hub States
@@ -204,28 +201,14 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
   const handleStartTrialTier = async () => {
     setCheckoutNotice(null);
     setPendingUpgradeTier(null);
+    setIsCheckoutModalOpen(false);
     await activateTrialPlan();
   };
 
   const handleSelectPaidTier = (tier: ProTierName) => {
     setCheckoutNotice(null);
     setPendingUpgradeTier(tier);
-  };
-
-  const handleConfirmCheckout = async () => {
-    if (!pendingUpgradeTier) return;
-    const res = await checkoutPro({
-      plan: billingCycle,
-      planTier: pendingUpgradeTier,
-      provider
-    });
-    if (res.ok && res.checkoutUrl) {
-      setCheckoutNotice(`Redirecting to ${provider.toUpperCase()} secure checkout...`);
-      window.location.assign(res.checkoutUrl);
-    } else if (res.ok && res.message) {
-      setCheckoutNotice(res.message);
-      setPendingUpgradeTier(null);
-    }
+    setIsCheckoutModalOpen(true);
   };
 
   const handleLaunchWebStudio = () => {
@@ -864,59 +847,11 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
               </div>
             </div>
 
-            {/* Checkout Confirmation Bar for Pro / Ultra / Teams */}
-            {pendingUpgradeTier && (
-              <div className="p-4 rounded-md bg-[#121216] border border-[#F59E0B]/45 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="text-xs font-space-grotesk font-black uppercase tracking-wider text-[#F59E0B] flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5" />
-                    <span>
-                      Activate {pendingUpgradeTier.toUpperCase()} ({billingCycle === 'monthly' ? 'Monthly' : 'Yearly'})
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 font-mono">
-                    {([
-                      { id: 'stripe', label: 'Stripe Card' },
-                      { id: 'lemonsqueezy', label: 'Lemon Squeezy' },
-                      { id: 'sslcommerz', label: 'SSLCommerz (BDT)' }
-                    ] as const).map((gw) => (
-                      <button
-                        key={gw.id}
-                        type="button"
-                        onClick={() => setProvider(gw.id)}
-                        className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase border cursor-pointer transition-colors touch-manipulation ${
-                          provider === gw.id
-                            ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B]'
-                            : 'bg-[#0B0B0D] border-white/[0.12] text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        {gw.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setPendingUpgradeTier(null)}
-                    className="h-10 px-3 rounded border border-white/[0.14] text-xs font-mono text-zinc-400 hover:text-white cursor-pointer touch-manipulation"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="confirm-checkout-btn"
-                    disabled={isLoading}
-                    onClick={handleConfirmCheckout}
-                    className="h-10 px-5 rounded bg-[#F59E0B] hover:bg-amber-400 disabled:opacity-60 text-[#0B0B0D] font-space-grotesk font-black text-xs tracking-wider uppercase flex items-center gap-1.5 cursor-pointer touch-manipulation"
-                  >
-                    <Crown className="w-3.5 h-3.5" />
-                    <span>{isLoading ? 'Activating...' : `Activate ${pendingUpgradeTier.toUpperCase()} & Continue`}</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Multi-Gateway Notice */}
+            <div className="px-3.5 py-2.5 rounded bg-[#121216] border border-white/[0.08] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
+              <span>Supported gateways: bKash · Nagad · Manual TrxID (BDT ৳) &amp; PayPal (USD $)</span>
+              <span className="text-[#F59E0B] font-bold">Instant Auto-Upgrade</span>
+            </div>
 
             {error && (
               <div className="px-3 py-2 rounded bg-red-500/15 border border-red-500/40 text-[11px] font-mono text-red-300">
@@ -1075,6 +1010,21 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
           </div>
         )}
       </div>
+
+      {pendingUpgradeTier && (
+        <CheckoutModal
+          isOpen={isCheckoutModalOpen}
+          planTier={pendingUpgradeTier}
+          billingCycle={billingCycle}
+          onChangeBillingCycle={setBillingCycle}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          onSuccess={(message) => {
+            setIsCheckoutModalOpen(false);
+            setPendingUpgradeTier(null);
+            setCheckoutNotice(message);
+          }}
+        />
+      )}
     </div>,
     document.body
   );

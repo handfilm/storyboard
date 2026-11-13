@@ -111,7 +111,16 @@ export const KineticCaptionOverlay: React.FC<KineticCaptionOverlayProps> = ({
 
           {/* Style Selector */}
           <div className="grid grid-cols-3 gap-1.5 text-[9.5px]">
-            {(['rap_pop', 'cinematic_minimal', 'bilingual_dual'] as CaptionStyle[]).map((st) => (
+            {(
+              [
+                'rap_pop',
+                'bounce',
+                'karaoke',
+                'cinematic_minimal',
+                'editorial',
+                'bilingual_dual'
+              ] as CaptionStyle[]
+            ).map((st) => (
               <button
                 key={st}
                 type="button"
@@ -122,7 +131,17 @@ export const KineticCaptionOverlay: React.FC<KineticCaptionOverlayProps> = ({
                     : 'bg-white/5 hover:bg-white/10 text-zinc-400'
                 }`}
               >
-                {st === 'rap_pop' ? '⚡ RAP POP' : st === 'cinematic_minimal' ? 'MINIMAL PILL' : 'BILINGUAL DUAL'}
+                {st === 'rap_pop'
+                  ? '⚡ RAP POP'
+                  : st === 'bounce'
+                  ? 'BOUNCE'
+                  : st === 'karaoke'
+                  ? 'KARAOKE'
+                  : st === 'cinematic_minimal'
+                  ? 'MINIMAL PILL'
+                  : st === 'editorial'
+                  ? 'EDITORIAL'
+                  : 'BILINGUAL DUAL'}
               </button>
             ))}
           </div>
@@ -149,10 +168,13 @@ export const KineticCaptionOverlay: React.FC<KineticCaptionOverlayProps> = ({
             />
           </div>
 
-          {/* Bengali Line for Dual mode */}
-          {editStyle === 'bilingual_dual' && (
+          {/* Bengali Line for Dual / Bilingual mode */}
+          {(editStyle === 'bilingual_dual' ||
+            editStyle === 'bounce' ||
+            editStyle === 'karaoke' ||
+            editStyle === 'editorial') && (
             <div className="space-y-1">
-              <div className="text-[8.5px] text-zinc-400">BENGALI HERO CALLIGRAPHY (ANEK BANGLA)</div>
+              <div className="text-[8.5px] text-zinc-400">BENGALI HERO SUBTITLE (ANEK BANGLA)</div>
               <input
                 type="text"
                 value={editBnText}
@@ -196,39 +218,72 @@ export const KineticCaptionOverlay: React.FC<KineticCaptionOverlayProps> = ({
             <span>EDIT LYRIC ({style.toUpperCase()})</span>
           </button>
 
-          {/* 1. RAP POP Style */}
-          {style === 'rap_pop' && caption.text && (
-            <div className="px-4 py-2 rounded-md bg-[#06070B]/75 border border-[#f5a623]/35 shadow-[0_4px_24px_rgba(0,0,0,0.85),0_0_14px_rgba(245,166,35,0.18)] backdrop-blur-md flex flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-2xl text-center transition-all">
-              {words.map((w, idx) => {
-                const isActive = idx === activeIndex;
-                const isPast = activeIndex > -1 && idx < activeIndex;
+          {/* 1. RAP POP / BOUNCE / KARAOKE Kinetic Styles */}
+          {(style === 'rap_pop' || style === 'bounce' || style === 'karaoke') && caption.text && (
+            <div className="flex flex-col items-center gap-1">
+              {caption.bengaliText && (
+                <div className="text-sm sm:text-base font-bold text-[#F5E6C8] drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] font-sans">
+                  {caption.bengaliText}
+                </div>
+              )}
+              <div
+                className={`px-4 py-2 rounded-md backdrop-blur-md flex flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-2xl text-center transition-all ${
+                  style === 'karaoke'
+                    ? 'bg-[#060C14]/80 border border-cyan-400/45 shadow-[0_4px_24px_rgba(0,0,0,0.85),0_0_16px_rgba(34,211,238,0.2)]'
+                    : 'bg-[#06070B]/75 border border-[#f5a623]/35 shadow-[0_4px_24px_rgba(0,0,0,0.85),0_0_14px_rgba(245,166,35,0.18)]'
+                }`}
+              >
+                {words.map((w, idx) => {
+                  const isActive = idx === activeIndex;
+                  const isPast = activeIndex > -1 && idx < activeIndex;
+                  const bounceOffset = style === 'bounce' && isActive ? -5 : 0;
 
-                return (
-                  <span
-                    key={idx}
-                    style={{
-                      transform: isActive ? `scale(${punchScale})` : 'scale(1)',
-                      transition: 'transform 80ms cubic-bezier(0.17, 0.67, 0.83, 0.67)'
-                    }}
-                    className={`inline-block font-black tracking-wide text-sm sm:text-base md:text-lg select-none ${
-                      isActive
-                        ? 'text-[#F5A623] drop-shadow-[0_0_12px_rgba(245,166,35,0.9)] scale-110 z-10'
-                        : isPast
-                        ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] opacity-95'
-                        : 'text-zinc-400/60 opacity-60'
-                    }`}
-                  >
-                    {w.word}
-                  </span>
-                );
-              })}
+                  return (
+                    <span
+                      key={idx}
+                      style={{
+                        transform: isActive
+                          ? `translateY(${bounceOffset}px) scale(${style === 'bounce' ? punchScale * 1.06 : punchScale})`
+                          : 'scale(1)',
+                        transition: 'transform 80ms cubic-bezier(0.17, 0.67, 0.83, 0.67)'
+                      }}
+                      className={`inline-block font-black tracking-wide text-sm sm:text-base md:text-lg select-none ${
+                        isActive
+                          ? style === 'karaoke'
+                            ? 'text-cyan-300 drop-shadow-[0_0_12px_rgba(34,211,238,0.9)] z-10'
+                            : 'text-[#F5A623] drop-shadow-[0_0_12px_rgba(245,166,35,0.9)] z-10'
+                          : isPast
+                          ? style === 'karaoke'
+                            ? 'text-amber-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] opacity-95'
+                            : 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] opacity-95'
+                          : 'text-zinc-400/60 opacity-60'
+                      }`}
+                    >
+                      {w.word}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {/* 2. CINEMATIC MINIMAL Style */}
-          {style === 'cinematic_minimal' && caption.text && (
-            <div className="px-4 py-1.5 rounded bg-black/80 border border-white/20 shadow-[0_4px_20px_rgba(0,0,0,0.9)] backdrop-blur-md text-[11px] sm:text-xs font-mono font-bold tracking-widest text-zinc-100 uppercase select-none">
-              {caption.text}
+          {/* 2. CINEMATIC MINIMAL & EDITORIAL Styles */}
+          {(style === 'cinematic_minimal' || style === 'editorial') && caption.text && (
+            <div className="flex flex-col items-center gap-1">
+              {caption.bengaliText && (
+                <div className="text-sm sm:text-base font-bold text-[#F59E0B] drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] font-sans">
+                  {caption.bengaliText}
+                </div>
+              )}
+              <div
+                className={`px-4 py-1.5 rounded bg-black/80 shadow-[0_4px_20px_rgba(0,0,0,0.9)] backdrop-blur-md text-[11px] sm:text-xs font-mono font-bold tracking-widest text-zinc-100 uppercase select-none ${
+                  style === 'editorial'
+                    ? 'border border-[#F59E0B]/55 text-amber-100'
+                    : 'border border-white/20'
+                }`}
+              >
+                {caption.text}
+              </div>
             </div>
           )}
 

@@ -91,6 +91,7 @@ import { applyVlcMediaGain, resumeVlcAudioContext } from '../../utils/vlcAudioPr
 import { videoCacheService } from '../../services/videoCacheService';
 import { getSpeedRampInstantRate, evaluateBeatDropFx } from '../../utils/speedReelsEngine';
 import { TITLE_ZONE_9_MATRIX, resolveSpatialTitleChoreography } from '../../services/titleChoreographyEngine';
+import { interpolateClipKeyframes, DEFAULT_COLOR_WHEELS } from '../../services/proSuiteEngine';
 
 export interface TactileStageProps {
   frames: AnthologyFrame[];
@@ -1039,10 +1040,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       );
 
   const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
+  const colorWheels = frame?.colorWheels || DEFAULT_COLOR_WHEELS;
+  const wheelGainShift = (colorWheels.gain.r + colorWheels.gain.g + colorWheels.gain.b) / 300;
+  const wheelLiftShift = (colorWheels.lift.r + colorWheels.lift.g + colorWheels.lift.b) / 300;
+  const wheelGammaShift = (colorWheels.gamma.r + colorWheels.gamma.g + colorWheels.gamma.b) / 300;
+  const wheelBrightness = Math.max(0.5, Math.min(1.6, 1 + wheelGainShift + wheelLiftShift * 0.5));
+  const wheelContrast = Math.max(0.6, Math.min(1.6, 1 + wheelGammaShift * 0.4));
+  const wheelMotionBlurPx = colorWheels.motionBlur3d > 0 ? Math.min(4, colorWheels.motionBlur3d / 25) : 0;
+
   let baseMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
     ? `${lutFilterStyle} ${zoomTransforms.bgDepthBlur}`
     : lutFilterStyle;
 
+  if (Math.abs(wheelBrightness - 1) > 0.01 || Math.abs(wheelContrast - 1) > 0.01) {
+    baseMediaFilter = `${baseMediaFilter} brightness(${wheelBrightness.toFixed(2)}) contrast(${wheelContrast.toFixed(2)})`.trim();
+  }
+  if (wheelMotionBlurPx > 0.1) {
+    baseMediaFilter = `${baseMediaFilter} blur(${wheelMotionBlurPx.toFixed(1)}px)`.trim();
+  }
   if (barrelDistortion > 0) {
     baseMediaFilter = `${baseMediaFilter} url(#stage-barrel-distortion-filter)`.trim();
   }
@@ -2007,6 +2022,35 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             willChange: 'transform'
           }}
         >
+          {(() => {
+            const normPlayhead =
+              effectiveShotDurationSec > 0
+                ? Math.max(0, Math.min(1, slideTimeSec / effectiveShotDurationSec))
+                : 0;
+            const kf = interpolateClipKeyframes(frame?.clipKeyframes, normPlayhead);
+            const hasKf = Boolean(frame?.clipKeyframes && frame.clipKeyframes.length > 0);
+            const kfTransform = hasKf
+              ? `translate(${kf.x}%, ${kf.y}%) scale(${kf.scale}) rotate(${kf.rotation}deg)`
+              : undefined;
+            const cutoutBg = frame?.smartCutout?.enabled
+              ? frame.smartCutout.backgroundMode === 'transparent'
+                ? 'repeating-conic-gradient(#121318 0% 25%, #090A0E 0% 50%) 50% / 18px 18px'
+                : frame.smartCutout.backgroundMode === 'obsidian'
+                ? '#050507'
+                : undefined
+              : undefined;
+
+            return (
+              <div
+                id="stage-keyframe-layer"
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  transform: kfTransform,
+                  opacity: hasKf ? kf.opacity : 1,
+                  background: cutoutBg,
+                  transition: 'transform 60ms linear, opacity 60ms linear'
+                }}
+              >
           {/* 3-SLOT PRE-WARMED HARDWARE <video> POOL (active & next use preload="auto", prev stays warm for instant reverse switch) */}
           {poolSlots
             .map((slot) => {
@@ -2249,7 +2293,31 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             }`}
             style={{ filter: combinedMediaFilter }}
           />
+          {colorWheels.halation > 0 && (
+            <div
+              className="absolute inset-0 pointer-events-none z-[11] mix-blend-screen"
+              style={{
+                background: `radial-gradient(circle at 50% 45%, rgba(255,110,48,${Math.min(0.45, (colorWheels.halation / 100) * 0.35)}) 0%, rgba(255,60,20,0) 75%)`
+              }}
+            />
+          )}
+          {colorWheels.grain > 0 && (
+            <div
+              className="procedural-film-grain absolute inset-0 pointer-events-none z-[11]"
+              style={{ opacity: Math.min(0.65, colorWheels.grain / 100) }}
+            />
+          )}
+              </div>
+            );
+          })()}
         </div>
+
+        {/* SMART CUTOUT ACTIVE BADGE */}
+        {frame?.smartCutout?.enabled && (
+          <div className="absolute top-2 left-2 z-20 pointer-events-none px-2 py-0.5 rounded bg-cyan-950/85 border border-cyan-400/60 text-cyan-200 font-mono text-[8.5px] font-bold">
+            CUTOUT: {frame.smartCutout.mode.toUpperCase()}
+          </div>
+        )}
 
         {/* STAGE CINEMA TITLE & SUBTITLE OVERLAY LAYER (Inside Stage Canvas Overlay, Default: MID Center) */}
         {isTitlesActive && frame?.titleData?.enabled !== false && (
@@ -2298,6 +2366,16 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             />
           )
         )}
+
+        {/* DYNAMIC KINETIC CAPTIONS & BILINGUAL SUBTITLE OVERLAY */}
+        <KineticCaptionOverlay
+          currentFrame={frame}
+          slideTimeSec={slideTimeSec}
+          durationSec={effectiveShotDurationSec}
+          detectedBpm={detectedBpm}
+          onUpdateFrame={handleUpdateCurrentFrame}
+          showCaptions={Boolean(frame?.caption?.text)}
+        />
 
         {/* 16:9 DIGITAL ZOOM SELECTION MARQUEE */}
         {selectionBox && selectionBox.isSelecting && (

@@ -6,7 +6,29 @@ import type express from 'express';
 export type LicenseTier = 'trial' | 'pro' | 'free';
 export type ProTierName = 'pro' | 'ultra' | 'teams';
 export type SubscriptionPlan = 'monthly' | 'annual';
-export type PaymentProvider = 'stripe' | 'lemonsqueezy' | 'sslcommerz';
+export type PaymentProvider =
+  | 'paypal'
+  | 'bkash'
+  | 'nagad'
+  | 'manual'
+  | 'stripe'
+  | 'lemonsqueezy'
+  | 'sslcommerz';
+
+export interface PaymentTransactionRecord {
+  id: string;
+  userId: string;
+  email: string;
+  provider: PaymentProvider;
+  transactionId: string;
+  plan: SubscriptionPlan;
+  proTier: ProTierName;
+  amount: number;
+  currency: 'USD' | 'BDT';
+  status: 'completed' | 'pending' | 'failed';
+  createdAt: number;
+  metadata?: Record<string, unknown>;
+}
 
 export interface ActiveDeviceRecord {
   deviceId: string;
@@ -75,6 +97,7 @@ const MAX_ACTIVE_DEVICES = 2;
 export function createLicenseSecurityModule(appRootDir: string) {
   const dataDir = path.resolve(appRootDir, '.handfilm-data');
   const dbPath = path.resolve(dataDir, 'licenses.json');
+  const txDbPath = path.resolve(dataDir, 'transactions.json');
   const secretPath = path.resolve(dataDir, '.server-secret');
 
   fs.mkdirSync(dataDir, { recursive: true });
@@ -134,6 +157,185 @@ export function createLicenseSecurityModule(appRootDir: string) {
     } catch (err) {
       console.error('[SecurityLicense] Failed to persist license DB:', err);
     }
+  };
+
+  interface TransactionDatabaseShape {
+    transactions: PaymentTransactionRecord[];
+  }
+
+  let txCache: TransactionDatabaseShape | null = null;
+  let txCacheMtimeMs = 0;
+
+  const loadTransactionsDb = (): TransactionDatabaseShape => {
+    try {
+      if (fs.existsSync(txDbPath)) {
+        const stat = fs.statSync(txDbPath);
+        if (txCache && stat.mtimeMs === txCacheMtimeMs) {
+          return txCache;
+        }
+        const parsed = JSON.parse(fs.readFileSync(txDbPath, 'utf-8'));
+        if (parsed && Array.isArray(parsed.transactions)) {
+          txCache = parsed as TransactionDatabaseShape;
+          txCacheMtimeMs = stat.mtimeMs;
+          return txCache;
+        }
+      } else if (txCache) {
+        return txCache;
+      }
+    } catch {
+      if (txCache) return txCache;
+    }
+    txCache = { transactions: [] };
+    txCacheMtimeMs = 0;
+    return txCache;
+  };
+
+  const saveTransactionsDb = (txDb: TransactionDatabaseShape) => {
+    txCache = txDb;
+    try {
+      const tmp = `${txDbPath}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(txDb, null, 2), 'utf-8');
+      fs.renameSync(tmp, txDbPath);
+      txCacheMtimeMs = fs.statSync(txDbPath).mtimeMs;
+    } catch (err) {
+      console.error('[SecurityLicense] Failed to persist transaction ledger:', err);
+    }
+  };
+
+  const isTransactionUsed = (transactionId: string): boolean => {
+    const clean = String(transactionId || '').trim().toUpperCase();
+    if (!clean) return false;
+    const txDb = loadTransactionsDb();
+    return txDb.transactions.some(
+      (t) => t.status === 'completed' && t.transactionId.trim().toUpperCase() === clean
+    );
+  };
+
+  const listUserTransactions = (userId: string): PaymentTransactionRecord[] => {
+    const txDb = loadTransactionsDb();
+    return txDb.transactions
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 25);
+  };
+
+  const syncSupabaseFulfillment = async (
+    user: StoredUserAccount,
+    tx: PaymentTransactionRecord
+  ): Promise<void> => {
+    const supabaseUrl = String(process.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+    if (!supabaseUrl || !serviceKey) return;
+
+    const headers = {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    };
+
+    try {
+      await fetch(`${supabaseUrl}/rest/v1/payment_transactions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          id: tx.id,
+          user_id: user.id,
+          email: user.email,
+          provider: tx.provider,
+          transaction_id: tx.transactionId,
+          plan: tx.proTier,
+          billing_cycle: tx.plan,
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          created_at: new Date(tx.createdAt).toISOString()
+        })
+      }).catch(() => {});
+
+      await fetch(`${supabaseUrl}/rest/v1/profiles`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          id: user.id,
+          email: user.email,
+          full_name: user.name,
+          plan: user.proTier || 'pro',
+          trial_ends_at: user.proExpiresAt ? new Date(user.proExpiresAt).toISOString() : null,
+          updated_at: new Date().toISOString()
+        })
+      }).catch(() => {});
+    } catch {
+      // Non-blocking best-effort cloud DB replication
+    }
+  };
+
+  const fulfillVerifiedPayment = async (params: {
+    userId?: string;
+    email?: string;
+    deviceId?: string;
+    plan: SubscriptionPlan;
+    proTier: ProTierName;
+    provider: PaymentProvider;
+    transactionId: string;
+    amount: number;
+    currency: 'USD' | 'BDT';
+    metadata?: Record<string, unknown>;
+  }): Promise<{ license: SignedLicenseResponse; transaction: PaymentTransactionRecord } | null> => {
+    const db = loadDb();
+    let user: StoredUserAccount | undefined = params.userId ? db.users[params.userId] : undefined;
+    if (!user && params.email) {
+      const normalizedEmail = sanitizeEmail(params.email);
+      if (normalizedEmail) {
+        user = Object.values(db.users).find((u) => u.email === normalizedEmail);
+      }
+    }
+    if (!user) return null;
+
+    const now = Date.now();
+    const durationDays = params.plan === 'annual' ? 365 : 30;
+    const baseTime =
+      user.proStatus === 'active' && user.proExpiresAt && user.proExpiresAt > now
+        ? user.proExpiresAt
+        : now;
+
+    user.proPlan = params.plan;
+    user.proTier = params.proTier;
+    user.proStatus = 'active';
+    user.proExpiresAt = baseTime + durationDays * 24 * 60 * 60 * 1000;
+    user.trialEndsAt = Math.max(user.trialEndsAt, user.proExpiresAt);
+    saveDb(db);
+
+    const txRecord: PaymentTransactionRecord = {
+      id: `tx_${crypto.randomBytes(10).toString('hex')}`,
+      userId: user.id,
+      email: user.email,
+      provider: params.provider,
+      transactionId: String(params.transactionId || '').trim() || `TRX_${now}`,
+      plan: params.plan,
+      proTier: params.proTier,
+      amount: params.amount,
+      currency: params.currency,
+      status: 'completed',
+      createdAt: now,
+      metadata: params.metadata
+    };
+
+    const txDb = loadTransactionsDb();
+    const alreadyLogged = txDb.transactions.some(
+      (t) => t.transactionId.toUpperCase() === txRecord.transactionId.toUpperCase() && t.status === 'completed'
+    );
+    if (!alreadyLogged) {
+      txDb.transactions.push(txRecord);
+      saveTransactionsDb(txDb);
+    }
+
+    await syncSupabaseFulfillment(user, txRecord);
+
+    const effectiveDeviceId =
+      params.deviceId || user.activeDevices[0]?.deviceId || 'web_studio_device';
+    const license = buildSignedLicenseResponse(user, effectiveDeviceId);
+    return { license, transaction: txRecord };
   };
 
   // =========================================================================
@@ -1062,6 +1264,14 @@ export function createLicenseSecurityModule(appRootDir: string) {
     createRateLimiter,
     requireActiveProOrTrial,
     registerRoutes,
-    verifyLicenseSignature
+    verifyLicenseSignature,
+    resolveSessionFromRequest,
+    buildSignedLicenseResponse,
+    fulfillVerifiedPayment,
+    isTransactionUsed,
+    listUserTransactions,
+    dataDir
   };
 }
+
+export type LicenseSecurityModule = ReturnType<typeof createLicenseSecurityModule>;

@@ -151,8 +151,10 @@ export function renderCanvasBurnInCaption(
   const bottomMargin = isVertical ? height * 0.18 : height * 0.12;
   const centerY = height - bottomMargin;
 
-  if (style === 'rap_pop') {
-    // RAP POP: Word-by-word highlight in molten gold with scale punch
+  if (style === 'rap_pop' || style === 'bounce' || style === 'karaoke') {
+    const isBounce = style === 'bounce';
+    const isKaraoke = style === 'karaoke';
+    // RAP POP / BOUNCE / KARAOKE: Word-by-word kinetic highlight
     const words = caption.words && caption.words.length > 0
       ? caption.words
       : caption.text.split(' ').map((w, i, arr) => ({
@@ -162,7 +164,7 @@ export function renderCanvasBurnInCaption(
         }));
 
     const baseFontSize = Math.round((isVertical ? 32 : 36) * scale);
-    ctx.font = `900 ${baseFontSize}px 'Cabinet Grotesk', -apple-system, sans-serif`;
+    ctx.font = `900 ${baseFontSize}px 'Space Grotesk', 'Cabinet Grotesk', -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -172,7 +174,7 @@ export function renderCanvasBurnInCaption(
     const totalLineW = wordWidths.reduce((a, b) => a + b, 0) + (words.length - 1) * spaceWidth;
 
     // Soft dark backdrop pill
-    ctx.fillStyle = 'rgba(6, 7, 11, 0.72)';
+    ctx.fillStyle = isKaraoke ? 'rgba(6, 12, 20, 0.78)' : 'rgba(6, 7, 11, 0.74)';
     ctx.beginPath();
     const padX = 24 * scale;
     const padY = 14 * scale;
@@ -180,7 +182,7 @@ export function renderCanvasBurnInCaption(
     const pillW = Math.min(width * 0.9, totalLineW + padX * 2);
     ctx.roundRect((width - pillW) / 2, centerY - pillH / 2, pillW, pillH, 8 * scale);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(245, 166, 35, 0.35)';
+    ctx.strokeStyle = isKaraoke ? 'rgba(34, 211, 238, 0.45)' : 'rgba(245, 166, 35, 0.4)';
     ctx.lineWidth = 1.5 * scale;
     ctx.stroke();
 
@@ -191,23 +193,21 @@ export function renderCanvasBurnInCaption(
       const isPast = currentSec > w.endSec;
       const wWidth = wordWidths[i];
       const wordCenterX = curX + wWidth / 2;
+      const bounceOffsetY = isBounce && isActive ? -6 * scale : 0;
 
       ctx.save();
       if (isActive) {
-        // Molten gold punch with glow
-        ctx.fillStyle = '#F5A623';
-        ctx.shadowColor = 'rgba(245, 166, 35, 0.9)';
+        ctx.fillStyle = isKaraoke ? '#22D3EE' : '#F59E0B';
+        ctx.shadowColor = isKaraoke ? 'rgba(34, 211, 238, 0.9)' : 'rgba(245, 158, 11, 0.9)';
         ctx.shadowBlur = 18 * scale;
-        ctx.font = `900 ${Math.round(baseFontSize * 1.12)}px 'Cabinet Grotesk', sans-serif`;
-        ctx.fillText(w.word, wordCenterX, centerY);
+        ctx.font = `900 ${Math.round(baseFontSize * (isBounce ? 1.18 : 1.12))}px 'Space Grotesk', sans-serif`;
+        ctx.fillText(w.word, wordCenterX, centerY + bounceOffsetY);
       } else if (isPast) {
-        // High-contrast clean white
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = isKaraoke ? '#FDE68A' : '#FFFFFF';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
         ctx.shadowBlur = 8 * scale;
         ctx.fillText(w.word, wordCenterX, centerY);
       } else {
-        // Muted incoming lyric
         ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
         ctx.fillText(w.word, wordCenterX, centerY);
       }
@@ -216,8 +216,17 @@ export function renderCanvasBurnInCaption(
       curX += wWidth + spaceWidth;
     });
 
-  } else if (style === 'cinematic_minimal') {
-    // CINEMATIC MINIMAL: Monospace tracked uppercase pill
+    if (caption.bengaliText) {
+      const bnFontSize = Math.round((isVertical ? 20 : 22) * scale);
+      ctx.font = `700 ${bnFontSize}px 'Anek Bangla', 'Noto Sans Bengali', sans-serif`;
+      ctx.fillStyle = '#E2E8F0';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+      ctx.shadowBlur = 8 * scale;
+      ctx.fillText(caption.bengaliText, width / 2, centerY - (pillH / 2) - 18 * scale);
+    }
+
+  } else if (style === 'cinematic_minimal' || style === 'editorial') {
+    // CINEMATIC MINIMAL / EDITORIAL: Monospace tracked uppercase pill
     const fontSize = Math.round((isVertical ? 20 : 22) * scale);
     ctx.font = `700 ${fontSize}px 'JetBrains Mono', monospace`;
     ctx.textAlign = 'center';
@@ -228,11 +237,11 @@ export function renderCanvasBurnInCaption(
     const pillW = textW + 36 * scale;
     const pillH = fontSize + 20 * scale;
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.beginPath();
     ctx.roundRect((width - pillW) / 2, centerY - pillH / 2, pillW, pillH, 4 * scale);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = style === 'editorial' ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.2)';
     ctx.lineWidth = 1 * scale;
     ctx.stroke();
 
@@ -240,6 +249,13 @@ export function renderCanvasBurnInCaption(
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.shadowBlur = 6 * scale;
     ctx.fillText(textToDraw, width / 2, centerY);
+
+    if (caption.bengaliText) {
+      const bnFontSize = Math.round((isVertical ? 20 : 22) * scale);
+      ctx.font = `700 ${bnFontSize}px 'Anek Bangla', 'Noto Sans Bengali', sans-serif`;
+      ctx.fillStyle = '#F59E0B';
+      ctx.fillText(caption.bengaliText, width / 2, centerY - (pillH / 2) - 18 * scale);
+    }
 
   } else if (style === 'bilingual_dual') {
     // BILINGUAL DUAL: Centered Bengali hero calligraphy stacked over English

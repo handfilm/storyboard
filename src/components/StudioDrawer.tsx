@@ -21,6 +21,8 @@ import { AIDirectorSlidePanel } from '../features/ai/AIDirectorSlidePanel';
 import { CloudR2SlidePanel } from '../features/cloud/CloudR2SlidePanel';
 import { LibrarySlidePanel } from '../features/library/LibrarySlidePanel';
 import { SettingsSlidePanel } from '../features/settings/SettingsSlidePanel';
+import { CapCutProSuitePanel, ProSuiteTab, CapCutProSuitePanelProps } from './stage/CapCutProSuitePanel';
+import { eventBus } from '../core/eventBus';
 import { AnthologyFrame, AspectRatio, LutPreset } from '../types/anthology';
 import { 
   X, 
@@ -55,6 +57,7 @@ interface StudioDrawerProps {
   onChangeAspectRatio?: (aspect: AspectRatio) => void;
   onPreviewLut?: (lut: LutPreset | null) => void;
   onOpenMultiCam?: () => void;
+  onApplyStoryboardShots?: CapCutProSuitePanelProps['onApplyStoryboardShots'];
 }
 
 export const StudioDrawer: React.FC<StudioDrawerProps> = ({
@@ -72,8 +75,24 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   aspectRatio = '2.39:1',
   onChangeAspectRatio,
   onPreviewLut,
-  onOpenMultiCam
+  onOpenMultiCam,
+  onApplyStoryboardShots
 }) => {
+  const [showProSuite, setShowProSuite] = React.useState(false);
+  const [proSuiteTab, setProSuiteTab] = React.useState<ProSuiteTab>('ai-captions');
+
+  React.useEffect(() => {
+    const unsub = eventBus.on('studio:open_pro_suite', (payload?: { tab?: ProSuiteTab }) => {
+      if (payload?.tab) setProSuiteTab(payload.tab);
+      setShowProSuite(true);
+    });
+    return () => unsub();
+  }, []);
+
+  React.useEffect(() => {
+    setShowProSuite(false);
+  }, [activeModule]);
+
   if (!isOpen) return null;
 
   const isBottomSix = [
@@ -210,6 +229,18 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              data-testid="drawer-toggle-pro-suite"
+              onClick={() => setShowProSuite((v) => !v)}
+              className={`px-2 py-1 rounded text-[8.5px] font-mono font-bold uppercase tracking-wider cursor-pointer transition-colors border ${
+                showProSuite
+                  ? 'bg-[#22D3EE] text-[#0B0B0D] border-[#22D3EE]'
+                  : 'bg-[#22D3EE]/10 text-[#22D3EE] border-[#22D3EE]/40 hover:bg-[#22D3EE]/20'
+              }`}
+            >
+              {showProSuite ? 'STANDARD' : '⚡ PRO FX'}
+            </button>
             <span className="text-[8px] px-1.5 py-0.5 bg-[#F5A623]/15 border border-[#F5A623]/40 text-[#F5A623] font-mono-tech rounded font-bold uppercase tracking-wider">
               {meta.badge}
             </span>
@@ -225,6 +256,19 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
 
         {/* Slide-Over Body Container */}
         <div className="flex-1 space-y-6">
+          {showProSuite ? (
+            <CapCutProSuitePanel
+              key={`pro-suite-${proSuiteTab}`}
+              currentFrame={currentFrame}
+              currentIndex={currentIndex}
+              slideTimeSec={slideTimeSec}
+              shotDurationSec={currentFrame.durationSec || 12}
+              onUpdateFrame={onUpdateFrame}
+              onApplyStoryboardShots={onApplyStoryboardShots}
+              initialTab={proSuiteTab}
+            />
+          ) : (
+            <>
           {activeModule === 'PRODUCTION' && (
             <ProductionSlidePanel
               onSelectFrame={onSelectFrame}
@@ -262,6 +306,8 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
               onChangeAspectRatio={onChangeAspectRatio}
             />
           )}
+            </>
+          )}
         </div>
       </aside>
     );
@@ -293,6 +339,20 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            data-testid="drawer-toggle-pro-suite"
+            onClick={() => setShowProSuite((v) => !v)}
+            className={`px-2 py-1 rounded text-[9px] font-mono font-bold uppercase cursor-pointer transition-colors border ${
+              showProSuite
+                ? 'bg-[#22D3EE] text-[#0B0B0D] border-[#22D3EE]'
+                : 'bg-[#22D3EE]/10 text-[#22D3EE] border-[#22D3EE]/40 hover:bg-[#22D3EE]/20'
+            }`}
+            title="Switch to CapCut Pro FX Suite (AI Captions, Keyframes, Speed Ramp, Color Wheels)"
+          >
+            {showProSuite ? 'MODULE' : '⚡ PRO FX'}
+          </button>
+
           {activeModule === 'OPTICS' && onOpenMultiCam && (
             <button
               type="button"
@@ -317,33 +377,48 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
       </div>
 
       {/* Drawer Body Container */}
-      <div className="flex-1 overflow-y-auto no-scrollbar relative">
-        {activeModule === 'STORY' && <StoryNotebook />}
-        {activeModule === 'MEDIA' && (
-          <MediaStudio activeShotIndex={currentIndex} currentFrame={currentFrame} />
-        )}
-        {activeModule === 'TEXT' && <TextStudio currentFrame={currentFrame} onUpdateFrame={onUpdateFrame} />}
-        {activeModule === 'SOUND' && <SoundStudio />}
-        {activeModule === 'PLAYER' && <PrevisStudio />}
-        {activeModule === 'LIQUIFY' && (
-          <PhotoLiquifySuite
-            isOpen={true}
-            frame={currentFrame}
-            onClose={onClose}
-            onApplyWarp={(warpedUrl) => onUpdateFrame({ ...currentFrame, imageUrl: warpedUrl })}
-          />
-        )}
-        {activeModule !== 'STORY' && 
-         activeModule !== 'MEDIA' && 
-         activeModule !== 'TEXT' && 
-         activeModule !== 'SOUND' && 
-         activeModule !== 'PLAYER' && 
-         activeModule !== 'LIQUIFY' && (
-          <DirectorInspector
-            frame={currentFrame}
+      <div className="flex-1 overflow-y-auto no-scrollbar relative p-2">
+        {showProSuite ? (
+          <CapCutProSuitePanel
+            key={`pro-suite-${proSuiteTab}`}
+            currentFrame={currentFrame}
+            currentIndex={currentIndex}
+            slideTimeSec={slideTimeSec}
+            shotDurationSec={currentFrame.durationSec || 12}
             onUpdateFrame={onUpdateFrame}
-            onClose={onClose}
+            onApplyStoryboardShots={onApplyStoryboardShots}
+            initialTab={proSuiteTab}
           />
+        ) : (
+          <>
+            {activeModule === 'STORY' && <StoryNotebook />}
+            {activeModule === 'MEDIA' && (
+              <MediaStudio activeShotIndex={currentIndex} currentFrame={currentFrame} />
+            )}
+            {activeModule === 'TEXT' && <TextStudio currentFrame={currentFrame} onUpdateFrame={onUpdateFrame} />}
+            {activeModule === 'SOUND' && <SoundStudio />}
+            {activeModule === 'PLAYER' && <PrevisStudio />}
+            {activeModule === 'LIQUIFY' && (
+              <PhotoLiquifySuite
+                isOpen={true}
+                frame={currentFrame}
+                onClose={onClose}
+                onApplyWarp={(warpedUrl) => onUpdateFrame({ ...currentFrame, imageUrl: warpedUrl })}
+              />
+            )}
+            {activeModule !== 'STORY' && 
+             activeModule !== 'MEDIA' && 
+             activeModule !== 'TEXT' && 
+             activeModule !== 'SOUND' && 
+             activeModule !== 'PLAYER' && 
+             activeModule !== 'LIQUIFY' && (
+              <DirectorInspector
+                frame={currentFrame}
+                onUpdateFrame={onUpdateFrame}
+                onClose={onClose}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

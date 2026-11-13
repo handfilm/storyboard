@@ -268,9 +268,41 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
   );
   const [ttsVoice, setTtsVoice] = useState<'Kore' | 'Puck' | 'Fenrir' | 'Zephyr' | 'Aoede'>('Kore');
   const [ttsStyle, setTtsStyle] = useState<'cinema-narrator' | 'bangla-poetic' | 'hype-trailer' | 'whisper'>('cinema-narrator');
+  const [ttsEmotion, setTtsEmotion] = useState<'neutral' | 'dramatic' | 'warm' | 'intense' | 'whisper' | 'poetic'>('dramatic');
+  const [ttsPitchSemitones, setTtsPitchSemitones] = useState<number>(0);
   const [isGeneratingTts, setIsGeneratingTts] = useState(false);
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string>('');
   const [ttsError, setTtsError] = useState<string | null>(null);
+
+  const normalizeLufs14 = Boolean((targetShot as any)?.audioFx?.normalizeLufs14);
+  const noiseReduction = Boolean((targetShot as any)?.audioFx?.noiseReduction);
+
+  const toggleShotAudioFx = (key: 'normalizeLufs14' | 'noiseReduction') => {
+    if (!useLicenseStore.getState().requireProAccess('Pro Audio DSP (-14 LUFS & Noise Reduction)')) {
+      return;
+    }
+    const prevFx = (targetShot as any)?.audioFx || {
+      normalizeLufs14: false,
+      noiseReduction: false,
+      pitchSemitones: ttsPitchSemitones,
+      emotion: ttsEmotion
+    };
+    const nextVal = !prevFx[key];
+    updateShot(targetShotIndex, {
+      audioFx: { ...prevFx, [key]: nextVal }
+    } as any);
+    if (key === 'normalizeLufs14') {
+      multiTrackAudioBus.setStemGainDb('voice', nextVal ? 2.5 : 0);
+      multiTrackAudioBus.setStemGainDb('music', nextVal ? -3.0 : -6.0);
+    } else {
+      multiTrackAudioBus.setStemEq('voice', 'low', nextVal ? -6 : 0);
+    }
+    flashNotice(
+      key === 'normalizeLufs14'
+        ? `-14 LUFS Normalization ${nextVal ? 'ENABLED' : 'OFF'}`
+        : `Noise Reduction Filter ${nextVal ? 'ENABLED' : 'OFF'}`
+    );
+  };
 
   const [foleyPrompt, setFoleyPrompt] = useState('Heavy anamorphic sub-bass boom with neon rain tail');
   const [isGeneratingFoley, setIsGeneratingFoley] = useState(false);
@@ -292,7 +324,9 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
           mode: 'tts',
           text: ttsText.trim(),
           voiceName: ttsVoice,
-          style: ttsStyle
+          style: ttsStyle,
+          emotion: ttsEmotion,
+          pitchSemitones: ttsPitchSemitones
         })
       });
       const json = await resp.json().catch(() => ({}));
@@ -458,20 +492,50 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
             <span className="text-[8.5px] text-zinc-400 uppercase">WEB AUDIO DSP</span>
           </div>
 
-          <label className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-[#F59E0B]/60 bg-black/50 cursor-pointer transition-colors">
-            <span className="text-[10px] text-zinc-300 truncate">
-              {vrFile ? `Loaded: ${vrFile.name}` : 'Select audio / video track to split vocals...'}
-            </span>
-            <span className="px-2 py-0.5 rounded bg-white/10 text-[9px] font-bold text-white shrink-0">
-              BROWSE
-            </span>
-            <input
-              type="file"
-              accept="audio/*,video/*"
-              className="hidden"
-              onChange={(e) => setVrFile(e.target.files?.[0] || null)}
-            />
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="flex-1 min-w-0 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-[#F59E0B]/60 bg-black/50 cursor-pointer transition-colors">
+              <span className="text-[10px] text-zinc-300 truncate">
+                {vrFile ? `Loaded: ${vrFile.name}` : 'Select audio / video track to split vocals...'}
+              </span>
+              <span className="px-2 py-0.5 rounded bg-white/10 text-[9px] font-bold text-white shrink-0">
+                BROWSE
+              </span>
+              <input
+                type="file"
+                accept="audio/*,video/*"
+                className="hidden"
+                onChange={(e) => setVrFile(e.target.files?.[0] || null)}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={async () => {
+                const candidateUrl =
+                  (targetShot as any)?.audioUrl ||
+                  (targetShot as any)?.voAudioUrl ||
+                  ((targetShot as any)?.isVideo ? targetShot?.imageUrl : '');
+                if (!candidateUrl) {
+                  flashNotice('Active shot has no video/audio track — browse a file.');
+                  return;
+                }
+                try {
+                  const res = await fetch(candidateUrl);
+                  const blob = await res.blob();
+                  const file = new File([blob], `shot_${String(targetShotIndex + 1).padStart(3, '0')}_audio.webm`, {
+                    type: blob.type || 'audio/webm'
+                  });
+                  setVrFile(file);
+                  flashNotice('Loaded active shot audio into Vocal Isolator');
+                } catch {
+                  flashNotice('Could not read active shot media URL; browse file manually.');
+                }
+              }}
+              className="px-2.5 py-2.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-200 text-[9px] font-bold uppercase cursor-pointer shrink-0 whitespace-nowrap"
+              title="One-Click Load Active Shot Audio for Stem Isolation"
+            >
+              ACTIVE SHOT
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 gap-1.5 bg-black/60 p-1 rounded-lg border border-white/10">
             <button
@@ -746,6 +810,40 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
               </select>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select
+                aria-label="Vocal Emotion"
+                data-testid="tts-emotion-select"
+                value={ttsEmotion}
+                onChange={(e) => setTtsEmotion(e.target.value as any)}
+                className="bg-black/80 border border-white/10 rounded px-2 py-1 text-[9.5px] text-cyan-300 outline-none"
+              >
+                <option value="dramatic">Emotion: Dramatic</option>
+                <option value="neutral">Emotion: Neutral</option>
+                <option value="warm">Emotion: Warm</option>
+                <option value="intense">Emotion: Intense</option>
+                <option value="whisper">Emotion: Whisper</option>
+                <option value="poetic">Emotion: Poetic</option>
+              </select>
+
+              <div className="flex items-center gap-2 bg-black/80 border border-white/10 rounded px-2 py-1">
+                <span className="text-[9px] text-zinc-400 shrink-0">PITCH</span>
+                <input
+                  type="range"
+                  min={-12}
+                  max={12}
+                  step={1}
+                  aria-label="Pitch Semitones"
+                  value={ttsPitchSemitones}
+                  onChange={(e) => setTtsPitchSemitones(Number(e.target.value))}
+                  className="flex-1 accent-[#F59E0B] cursor-pointer"
+                />
+                <span className="text-[9px] text-amber-300 font-bold tabular-nums w-8 text-right">
+                  {ttsPitchSemitones > 0 ? `+${ttsPitchSemitones}` : ttsPitchSemitones}st
+                </span>
+              </div>
+            </div>
+
             {ttsError && (
               <div className="px-2.5 py-1.5 rounded bg-red-500/15 border border-red-500/40 text-red-300 text-[9px]">
                 {ttsError}
@@ -768,13 +866,20 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
 
             {ttsAudioUrl && (
               <div className="p-2 rounded-lg bg-black/70 border border-emerald-500/30 space-y-1.5">
-                <audio src={ttsAudioUrl} controls className="w-full h-8" />
+                <audio
+                  src={ttsAudioUrl}
+                  controls
+                  className="w-full h-8"
+                  onPlay={(e) => {
+                    e.currentTarget.playbackRate = Math.max(0.65, Math.min(1.5, Math.pow(2, ttsPitchSemitones / 12)));
+                  }}
+                />
                 <button
                   type="button"
-                  onClick={() => bindAudioToTargetShot('voAudioUrl', ttsAudioUrl, `TTS (${ttsVoice})`)}
+                  onClick={() => bindAudioToTargetShot('voAudioUrl', ttsAudioUrl, `TTS (${ttsVoice} · ${ttsEmotion})`)}
                   className="w-full py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[9px] font-bold uppercase cursor-pointer"
                 >
-                  ✓ BIND TTS TO SHOT VO
+                  ✓ ADD VOICEOVER TO SHOT AUDIO TRACK
                 </button>
               </div>
             )}
@@ -995,6 +1100,37 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
                 </div>
               );
             })}
+          </div>
+
+          {/* -14 LUFS Loudness Normalization + Noise Reduction DSP Strip */}
+          <div className="p-2.5 rounded-xl bg-[#0D0E12] border border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              data-testid="toggle-lufs14-btn"
+              onClick={() => toggleShotAudioFx('normalizeLufs14')}
+              className={`px-3 py-2 rounded-lg border text-[9.5px] font-bold uppercase flex items-center justify-between cursor-pointer transition-colors ${
+                normalizeLufs14
+                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
+                  : 'bg-black/60 border-white/10 text-zinc-300 hover:border-white/25'
+              }`}
+            >
+              <span>Loudness Normalize (-14 LUFS)</span>
+              <span className="text-[8.5px] font-black">{normalizeLufs14 ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="toggle-denoise-btn"
+              onClick={() => toggleShotAudioFx('noiseReduction')}
+              className={`px-3 py-2 rounded-lg border text-[9.5px] font-bold uppercase flex items-center justify-between cursor-pointer transition-colors ${
+                noiseReduction
+                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
+                  : 'bg-black/60 border-white/10 text-zinc-300 hover:border-white/25'
+              }`}
+            >
+              <span>Voice Noise Reduction DSP</span>
+              <span className="text-[8.5px] font-black">{noiseReduction ? 'ON' : 'OFF'}</span>
+            </button>
           </div>
 
           {/* Procedural Sub-Bass Drone & Master Limiter Bar */}

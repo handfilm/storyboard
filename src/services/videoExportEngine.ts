@@ -43,7 +43,7 @@ import {
 } from './handfilmMediaVault';
 import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
-import { AnthologyFrame, DopamineShotConfig, FrameAdjustments, LutPreset, ShotCaption, ShotLightConfig, SmartCropMode, SpeedRampPreset } from '../types/anthology';
+import { AnthologyFrame, ClipKeyframe, ColorWheelsConfig, DopamineShotConfig, FrameAdjustments, LutPreset, ShotCaption, ShotLightConfig, SmartCropMode, SmartCutoutConfig, SpeedRampPreset } from '../types/anthology';
 import type { ShotTitleData, TitlePresetConfig } from '../types/titlePreset';
 import { buildTitlePresetConfigById, resolveShotTitleData, resolveShotTitlePresetConfig } from '../constants/titleTemplates';
 import { renderTitlePresetToCanvas } from './titleCanvasRenderer';
@@ -68,6 +68,14 @@ import {
   evaluateBeatDropFx,
   evaluateSpeedRampSourceTime
 } from '../utils/speedReelsEngine';
+import { useLicenseStore } from './licenseService';
+import {
+  applyChromaOrSubjectCutoutToCanvas,
+  applyColorWheelsToCanvasCtx,
+  interpolateClipKeyframes,
+  renderWatermarkedFreeFrameBadge,
+  resolveExportEntitlementPolicy
+} from './proSuiteEngine';
 
 export interface ResolvedShotMediaCandidate {
   url: string | null;
@@ -243,6 +251,7 @@ export function verifySequenceMediaReadiness(
 export type ShotSelectionMode = 'all' | 'range' | 'custom' | 'current';
 
 export type CinemaResolutionPreset = 
+  | '720p_free'        // 1280 × 720 (16:9) Free Tier Standard
   | '1080p_scope'      // 1920 × 804 (2.39:1)
   | '4k_scope'         // 3840 × 1608 (2.39:1)
   | '1080p_standard'   // 1920 × 1080 (16:9)
@@ -269,6 +278,9 @@ export interface CinemaExportPipelineOptions {
   // Formats & Profiles
   resolutionPreset: CinemaResolutionPreset;
   bitrateProfile: BitrateProfile;
+  targetFps?: 24 | 30 | 60;
+  transparentAlpha?: boolean;
+  applyFreeWatermark?: boolean;
   burnInTitles: boolean;
   cleanPlates: boolean;
   simulateFlare: boolean;
@@ -408,6 +420,8 @@ export function getExportPresetDimensions(preset: CinemaResolutionPreset): {
   name: string;
 } {
   switch (preset) {
+    case '720p_free':
+      return { width: 1280, height: 720, aspectRatio: '16:9', isScope: false, isVertical: false, name: '720p Free Standard (16:9)' };
     case '1080p_scope':
       return { width: 1920, height: 804, aspectRatio: '2.39:1', isScope: true, isVertical: false, name: '1080p Cinema Scope' };
     case '4k_scope':
@@ -914,6 +928,11 @@ export interface FrameCompositeProps {
   beatDropEnabled?: boolean;
   lightId?: string | null;
   lightConfig?: ShotLightConfig | null;
+  clipKeyframes?: ClipKeyframe[];
+  colorWheels?: ColorWheelsConfig;
+  smartCutout?: SmartCutoutConfig;
+  transparentAlpha?: boolean;
+  applyFreeWatermark?: boolean;
 }
 
 export function compositeCinemaFrame(props: FrameCompositeProps): void {
@@ -952,16 +971,26 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     smartCropMode,
     flashCutEnabled,
     flashCutIntervalSec,
-    beatDropEnabled
+    beatDropEnabled,
+    clipKeyframes,
+    colorWheels,
+    smartCutout,
+    transparentAlpha,
+    applyFreeWatermark
   } = props;
 
   const isVertical = preset === '9_16_vertical';
   const is4K = width >= 3840 || height >= 2160;
   const currentLocalSec = frameInShot / Math.max(1, fps);
+  const preserveAlphaBackdrop = Boolean(transparentAlpha && smartCutout?.enabled);
 
-  // 1. Strict Vantablack #050505 base; paint procedural backdrop cleanly if no video/image plate is ready
-  ctx.fillStyle = '#050505';
-  ctx.fillRect(0, 0, width, height);
+  // 1. Strict Vantablack #050505 base (or clearRect for Transparent Alpha export)
+  if (preserveAlphaBackdrop) {
+    ctx.clearRect(0, 0, width, height);
+  } else {
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, width, height);
+  }
 
   const isVideoEl = typeof HTMLVideoElement !== 'undefined' && sourceElement instanceof HTMLVideoElement;
   const isImageEl = typeof HTMLImageElement !== 'undefined' && sourceElement instanceof HTMLImageElement;
@@ -979,12 +1008,25 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
           : (sourceElement as any).width > 0 && (sourceElement as any).height > 0)
   );
 
-  if (!hasReadySource) {
+  if (!hasReadySource && !preserveAlphaBackdrop) {
     renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
   }
 
-  // 2. Render Per-Shot Video/Image Media Layer
+  // 2. Render Per-Shot Video/Image Media Layer with Keyframe Interpolation
+  const kf = interpolateClipKeyframes(
+    clipKeyframes,
+    frameInShot / Math.max(1, totalFramesInShot)
+  );
+  const hasKfTransform = Boolean(clipKeyframes && clipKeyframes.length > 0);
   if (hasReadySource && sourceElement) {
+    ctx.save();
+    if (hasKfTransform) {
+      ctx.translate(width / 2 + (kf.x / 100) * width, height / 2 + (kf.y / 100) * height);
+      ctx.rotate((kf.rotation * Math.PI) / 180);
+      ctx.scale(kf.scale, kf.scale);
+      ctx.translate(-width / 2, -height / 2);
+      ctx.globalAlpha = kf.opacity;
+    }
     let srcW = 1920;
     let srcH = 1080;
     if (isVideoEl) {
@@ -1086,12 +1128,18 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
       }
       ctx.restore();
     }
+    ctx.restore();
   }
 
   applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
+  applyColorWheelsToCanvasCtx(ctx, width, height, colorWheels);
 
   if (props.lightConfig || props.lightId) {
     renderShotLightConfigToCanvas(ctx, width, height, props.lightConfig, props.lightId, currentLocalSec * 1000);
+  }
+
+  if (smartCutout?.enabled) {
+    applyChromaOrSubjectCutoutToCanvas(ctx, width, height, smartCutout);
   }
 
   // 2a. Beat-Drop Chromatic Aberration & 2-Frame Vantablack Flash Cut FX
@@ -1116,7 +1164,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
 
   // 2b. Theatrical 2.39:1 Scope Mattes (Letterbox boundaries) for Standard 16:9 or standalone slates
   const isStandard16_9 = preset === '1080p_standard' || preset === '4k_standard';
-  if (isStandard16_9 && !isVertical) {
+  if (isStandard16_9 && !isVertical && !preserveAlphaBackdrop) {
     const scopeH = Math.round(width / 2.39);
     const matteH = Math.max(0, Math.round((height - scopeH) / 2));
     if (matteH > 0) {
@@ -1138,21 +1186,26 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     }
   }
 
-  // If Clean Plates is toggled ON, skip typography & overlays
+  // If Clean Plates is toggled ON, skip typography & overlays (still apply Free-tier watermark if required)
   if (cleanPlates) {
+    if (applyFreeWatermark) {
+      renderWatermarkedFreeFrameBadge(ctx, width, height);
+    }
     return;
   }
 
   // 3. Cinematic Vignette (Dark edges)
-  const vignette = ctx.createRadialGradient(
-    width / 2, height / 2, Math.min(width, height) * 0.35,
-    width / 2, height / 2, Math.max(width, height) * 0.8
-  );
-  vignette.addColorStop(0, 'rgba(0,0,0,0)');
-  vignette.addColorStop(0.65, 'rgba(0,0,0,0.34)');
-  vignette.addColorStop(1, 'rgba(0,0,0,0.82)');
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, width, height);
+  if (!preserveAlphaBackdrop) {
+    const vignette = ctx.createRadialGradient(
+      width / 2, height / 2, Math.min(width, height) * 0.35,
+      width / 2, height / 2, Math.max(width, height) * 0.8
+    );
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(0.65, 'rgba(0,0,0,0.34)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.82)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+  }
 
   // 4. Anamorphic Flare & Light Streak Simulation
   const shouldRenderFlare = Boolean(simulateFlare || !hasReadySource);
@@ -1303,6 +1356,11 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     const shotTotalSec = totalFramesInShot / activeFps;
     renderCanvasBurnInCaption(ctx, width, height, caption, currentLocalSec, shotTotalSec);
   }
+
+  // 8. Free Tier Watermark Enforcement (omitted for active Trial / Pro / Ultra / Teams)
+  if (applyFreeWatermark) {
+    renderWatermarkedFreeFrameBadge(ctx, width, height);
+  }
 }
 
 /**
@@ -1421,6 +1479,9 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
             currentLocalSec
           );
         }
+      }
+      if (props.applyFreeWatermark) {
+        renderWatermarkedFreeFrameBadge(ctx, width, height);
       }
     }
   } catch {
@@ -1970,7 +2031,15 @@ async function exportCinemaMasterWithMediaRecorder(
     throw new Error('No shots selected for export.');
   }
 
-  const fps = 24;
+  const entitlement = resolveExportEntitlementPolicy(useLicenseStore.getState().license);
+  const fps = options.targetFps && entitlement.allowedFps.includes(options.targetFps)
+    ? options.targetFps
+    : 24;
+  const effectiveWatermark = typeof options.applyFreeWatermark === 'boolean'
+    ? options.applyFreeWatermark
+    : entitlement.watermarkRequired;
+  const allowAlpha = Boolean(options.transparentAlpha && entitlement.allowAlphaExport);
+
   const perShotDurationsSec = shotIndices.map(idx => resolveExportShotDurationSec(slides[idx], frames[idx]));
   const perShotFrameCounts = perShotDurationsSec.map(dur => Math.max(1, Math.round(dur * fps)));
   const shotBoundaryTimesSec: number[] = [];
@@ -1992,7 +2061,7 @@ async function exportCinemaMasterWithMediaRecorder(
   canvas.height = height;
   // Mount capture canvas invisibly in DOM so Chromium/WebView2 captureStream pushes real frames
   mountOffscreenExportElement(canvas);
-  const ctx = canvas.getContext('2d', { alpha: false });
+  const ctx = canvas.getContext('2d', { alpha: allowAlpha });
   if (!ctx) {
     unmountOffscreenExportElement(canvas);
     throw new Error('Could not instantiate 2D Canvas context for export.');
@@ -2203,10 +2272,17 @@ async function exportCinemaMasterWithMediaRecorder(
             flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
             beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled,
             lightId: frame?.lightId ?? slide?.lightId ?? storeShot?.lightId,
-            lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig
+            lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig,
+            clipKeyframes: frame?.clipKeyframes ?? storeShot?.clipKeyframes,
+            colorWheels: frame?.colorWheels ?? storeShot?.colorWheels,
+            smartCutout: frame?.smartCutout ?? storeShot?.smartCutout,
+            transparentAlpha: allowAlpha,
+            applyFreeWatermark: effectiveWatermark
           };
           compositeCinemaFrame(frameProps);
-          ensureNonBlankCanvasFrame(frameProps);
+          if (!allowAlpha) {
+            ensureNonBlankCanvasFrame(frameProps);
+          }
 
           if (hasRequestFrame) {
             try {
@@ -2372,7 +2448,15 @@ async function exportWithWebCodecs(
     throw new Error('No shots selected for export.');
   }
 
-  const fps = 24;
+  const entitlement = resolveExportEntitlementPolicy(useLicenseStore.getState().license);
+  const fps = options.targetFps && entitlement.allowedFps.includes(options.targetFps)
+    ? options.targetFps
+    : 24;
+  const effectiveWatermark = typeof options.applyFreeWatermark === 'boolean'
+    ? options.applyFreeWatermark
+    : entitlement.watermarkRequired;
+  const allowAlpha = Boolean(options.transparentAlpha && entitlement.allowAlphaExport);
+
   const perShotDurationsSec = shotIndices.map(idx => resolveExportShotDurationSec(slides[idx], frames[idx]));
   const perShotFrameCounts = perShotDurationsSec.map(dur => Math.max(1, Math.round(dur * fps)));
   const shotBoundaryTimesSec: number[] = [];
@@ -2602,7 +2686,12 @@ async function exportWithWebCodecs(
         flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
         beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled,
         lightId: frame?.lightId ?? slide?.lightId ?? storeShot?.lightId,
-        lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig
+        lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig,
+        clipKeyframes: frame?.clipKeyframes ?? storeShot?.clipKeyframes,
+        colorWheels: frame?.colorWheels ?? storeShot?.colorWheels,
+        smartCutout: frame?.smartCutout ?? storeShot?.smartCutout,
+        transparentAlpha: allowAlpha,
+        applyFreeWatermark: effectiveWatermark
       };
       compositeCinemaFrame(frameProps);
       ensureNonBlankCanvasFrame(frameProps);
@@ -2791,9 +2880,34 @@ async function exportWithWebCodecs(
 export async function exportCinemaMasterMp4(
   options: CinemaExportPipelineOptions
 ): Promise<{ blob: Blob; filename: string }> {
-  const dimensions = getExportPresetDimensions(options.resolutionPreset);
+  const entitlement = resolveExportEntitlementPolicy(useLicenseStore.getState().license);
+  const requestedAlpha = Boolean(options.transparentAlpha && entitlement.allowAlphaExport);
+  if (requestedAlpha) {
+    return await exportCinemaMasterVp9(options);
+  }
+
+  const effectivePreset: CinemaResolutionPreset =
+    !entitlement.hasProOrTrial &&
+    (options.resolutionPreset === '4k_scope' || options.resolutionPreset === '4k_standard')
+      ? '720p_free'
+      : options.resolutionPreset;
+  const effectiveFps: 24 | 30 | 60 =
+    options.targetFps && entitlement.allowedFps.includes(options.targetFps)
+      ? options.targetFps
+      : 24;
+  const effectiveOptions: CinemaExportPipelineOptions = {
+    ...options,
+    resolutionPreset: effectivePreset,
+    targetFps: effectiveFps,
+    applyFreeWatermark:
+      typeof options.applyFreeWatermark === 'boolean'
+        ? options.applyFreeWatermark
+        : entitlement.watermarkRequired
+  };
+
+  const dimensions = getExportPresetDimensions(effectiveOptions.resolutionPreset);
   const is4K = dimensions.width >= 3840 || dimensions.height >= 2160;
-  const bitrateBps = getBitrateBps(options.bitrateProfile, is4K);
+  const bitrateBps = getBitrateBps(effectiveOptions.bitrateProfile, is4K);
 
   // 1. Run diagnostic capability check (isTypeSupported + isConfigSupported hardware -> software)
   const diag = await checkWebCodecsSupport(
@@ -2801,39 +2915,39 @@ export async function exportCinemaMasterMp4(
     dimensions.width,
     dimensions.height,
     bitrateBps,
-    24,
-    options.onWarning
+    effectiveFps,
+    effectiveOptions.onWarning
   );
 
   if (!diag.selectedCodec || !diag.selectedAcceleration) {
     console.info('[CinemaExport] WebCodecs AVC unavailable for requested format. Seamlessly routing to MediaRecorder fallback.', diag);
-    return await exportCinemaMasterWithMediaRecorder(options);
+    return await exportCinemaMasterWithMediaRecorder(effectiveOptions);
   }
 
   // 2. Execute WebCodecs pipeline with software retry then MediaRecorder recovery fallback
   try {
     return await exportWithWebCodecs(
-      options,
+      effectiveOptions,
       diag.selectedCodec,
       diag.selectedAcceleration
     );
   } catch (webCodecsErr: any) {
-    if (options.abortSignal?.aborted || webCodecsErr?.message?.includes('cancelled')) {
+    if (effectiveOptions.abortSignal?.aborted || webCodecsErr?.message?.includes('cancelled')) {
       throw webCodecsErr;
     }
     const swAlert = `Hardware WebCodecs encode failed (${webCodecsErr?.message || 'unknown error'}); retrying with software H.264 encoder.`;
     console.warn(`[CinemaExport] ${swAlert}`, webCodecsErr);
-    options.onWarning?.(swAlert, { reason: webCodecsErr?.message });
+    effectiveOptions.onWarning?.(swAlert, { reason: webCodecsErr?.message });
     try {
-      return await exportWithWebCodecs(options, 'avc1.4d4028', 'prefer-software');
+      return await exportWithWebCodecs(effectiveOptions, 'avc1.4d4028', 'prefer-software');
     } catch (swErr: any) {
-      if (options.abortSignal?.aborted || swErr?.message?.includes('cancelled')) {
+      if (effectiveOptions.abortSignal?.aborted || swErr?.message?.includes('cancelled')) {
         throw swErr;
       }
       const fallbackAlert = `Software WebCodecs attempt failed (${swErr?.message || 'unknown error'}); recovering via MediaRecorder stream fallback.`;
       console.warn(`[CinemaExport] ${fallbackAlert}`, swErr);
-      options.onWarning?.(fallbackAlert, { reason: swErr?.message });
-      return await exportCinemaMasterWithMediaRecorder(options);
+      effectiveOptions.onWarning?.(fallbackAlert, { reason: swErr?.message });
+      return await exportCinemaMasterWithMediaRecorder(effectiveOptions);
     }
   }
 }
@@ -2870,12 +2984,20 @@ export async function exportCinemaMasterVp9(
     abortSignal
   } = options;
 
+  const entitlement = resolveExportEntitlementPolicy(useLicenseStore.getState().license);
+  const effectiveWatermark = typeof options.applyFreeWatermark === 'boolean'
+    ? options.applyFreeWatermark
+    : entitlement.watermarkRequired;
+  const allowAlpha = Boolean(options.transparentAlpha && entitlement.allowAlphaExport);
+
   const dimensions = getExportPresetDimensions(resolutionPreset);
   const width = dimensions.width;
   const height = dimensions.height;
   const is4K = width >= 3840 || height >= 2160;
   const bitrateBps = getBitrateBps(bitrateProfile, is4K);
-  const fps = 24;
+  const fps = options.targetFps && entitlement.allowedFps.includes(options.targetFps)
+    ? options.targetFps
+    : 24;
 
   let canWebCodecsVp9 = false;
   if (typeof VideoEncoder !== 'undefined' && typeof VideoEncoder.isConfigSupported === 'function') {
@@ -2953,7 +3075,7 @@ export async function exportCinemaMasterVp9(
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d', { alpha: false });
+  const ctx = canvas.getContext('2d', { alpha: allowAlpha });
   if (!ctx) throw new Error('Could not instantiate 2D Canvas context for VP9 export.');
 
   try {
@@ -3105,10 +3227,19 @@ export async function exportCinemaMasterVp9(
           smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode,
           flashCutEnabled: slide?.flashCutEnabled ?? frame?.flashCutEnabled,
           flashCutIntervalSec: slide?.flashCutIntervalSec ?? frame?.flashCutIntervalSec,
-          beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled
+          beatDropEnabled: slide?.beatDropEnabled ?? frame?.beatDropEnabled,
+          lightId: frame?.lightId ?? slide?.lightId ?? storeShot?.lightId,
+          lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig,
+          clipKeyframes: frame?.clipKeyframes ?? storeShot?.clipKeyframes,
+          colorWheels: frame?.colorWheels ?? storeShot?.colorWheels,
+          smartCutout: frame?.smartCutout ?? storeShot?.smartCutout,
+          transparentAlpha: allowAlpha,
+          applyFreeWatermark: effectiveWatermark
         };
         compositeCinemaFrame(frameProps);
-        ensureNonBlankCanvasFrame(frameProps);
+        if (!allowAlpha) {
+          ensureNonBlankCanvasFrame(frameProps);
+        }
 
         const timestampMicros = Math.round((globalFrameIndex / fps) * 1_000_000);
         const durationMicros = Math.round((1 / fps) * 1_000_000);
@@ -3262,13 +3393,19 @@ export async function exportPngSequenceZip(
     throw new Error('No shots selected for PNG Sequence export.');
   }
 
+  const entitlement = resolveExportEntitlementPolicy(useLicenseStore.getState().license);
+  const effectiveWatermark = typeof options.applyFreeWatermark === 'boolean'
+    ? options.applyFreeWatermark
+    : entitlement.watermarkRequired;
+  const allowAlpha = Boolean(options.transparentAlpha && entitlement.allowAlphaExport);
+
   const dimensions = getExportPresetDimensions(resolutionPreset);
   const width = dimensions.width;
   const height = dimensions.height;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d', { alpha: false });
+  const ctx = canvas.getContext('2d', { alpha: allowAlpha });
   if (!ctx) throw new Error('Could not instantiate 2D Canvas context for PNG sequence.');
 
   const zip = new JSZip();
@@ -3349,10 +3486,19 @@ export async function exportPngSequenceZip(
         panX: slide?.panX ?? frame?.panX,
         panY: slide?.panY ?? frame?.panY,
         reframeZoom: slide?.reframeZoom ?? frame?.reframeZoom,
-        smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode
+        smartCropMode: slide?.smartCropMode ?? frame?.smartCropMode,
+        lightId: frame?.lightId ?? slide?.lightId ?? storeShot?.lightId,
+        lightConfig: frame?.lightConfig ?? slide?.lightConfig ?? storeShot?.lightConfig,
+        clipKeyframes: frame?.clipKeyframes ?? storeShot?.clipKeyframes,
+        colorWheels: frame?.colorWheels ?? storeShot?.colorWheels,
+        smartCutout: frame?.smartCutout ?? storeShot?.smartCutout,
+        transparentAlpha: allowAlpha,
+        applyFreeWatermark: effectiveWatermark
       };
       compositeCinemaFrame(frameProps);
-      ensureNonBlankCanvasFrame(frameProps);
+      if (!allowAlpha) {
+        ensureNonBlankCanvasFrame(frameProps);
+      }
 
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       const base64 = dataUrl.split(',')[1];

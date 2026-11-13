@@ -25,10 +25,13 @@ import { useStudioStore, HeroTitlePreset, TitleAlign } from '../../core/store';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { eventBus } from '../../core/eventBus';
 import { playbackClock, formatSmpteTimecode } from '../../utils/playbackClock';
+import { AnthologyFrame } from '../../types/anthology';
+import { EditInAppStrip } from '../bridge/EditInAppStrip';
 
 export interface StageMetadataFxBarProps {
   sceneCode?: string;
   shotIndex: number;
+  frame?: AnthologyFrame | null;
   frameNum: number;
   totalFrames: number;
   smpte?: string;
@@ -56,6 +59,7 @@ export interface StageMetadataFxBarProps {
 export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   sceneCode = '01',
   shotIndex,
+  frame,
   frameNum,
   totalFrames,
   smpte,
@@ -377,6 +381,9 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
           <Sliders className="w-2.5 h-2.5" />
           <span>[ TITLE FX ]</span>
         </button>
+
+        {/* Zero-Prompt EDIT IN App Strip (Ps, Pr, Ai, CapCut) */}
+        <EditInAppStrip shotIndex={shotIndex} frame={frame} variant="hud" />
 
         {/* Optional External Quick Utility Icons */}
         {onToggleMute && (

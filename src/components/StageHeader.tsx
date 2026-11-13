@@ -128,6 +128,7 @@ export interface StageHeaderProps {
   onRestoreProjectJson?: () => void;
   onBatchImportMedia?: () => void;
   onClearOpfsCache?: () => Promise<void> | void;
+  isPlaying?: boolean;
   onOpenColorLab?: () => void;
   onOpenAudioAnalyzer?: () => void;
   onTriggerHyperReelPack?: () => void;
@@ -184,8 +185,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   onTriggerSmartCrop916,
   onJumpToShot,
   isZenMode = false,
-  onToggleZen
+  onToggleZen,
+  isPlaying
 }) => {
+  const storeIsPlaying = useStudioStore((s) => s.isPlaying);
+  const effectiveIsPlaying = typeof isPlaying === 'boolean' ? isPlaying : storeIsPlaying;
   // Interactive Mega-Dropdown State (Hover + Click, auto-closing on Escape, outside click, or route switch)
   const [activeDropdown, setActiveDropdown] = useState<MegaMenuKey | null>(null);
   const closeHoverTimerRef = useRef<number | null>(null);
@@ -1104,7 +1108,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
   const WORKSPACE_TABS: ReadonlyArray<{
     id: string;
-    panel?: StagePanelType;
+    panel: StagePanelType;
     label: string;
     shortcut: string;
     title: string;
@@ -1126,7 +1130,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'REELS',
       shortcut: '2',
       title: '9:16 Reels & Hyper-Reel Engine (Alt+2)',
-      accentHex: '#F59E0B',
+      accentHex: '#FB7185',
       icon: Flame
     },
     {
@@ -1135,7 +1139,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'SCRUB',
       shortcut: '3',
       title: 'Sub-Frame Precision Scrub (Alt+3)',
-      accentHex: '#F59E0B',
+      accentHex: '#38BDF8',
       icon: Scissors
     },
     {
@@ -1144,7 +1148,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'MULTI-CAM',
       shortcut: '4',
       title: 'Multi-Camera Cutting Grid (Alt+4)',
-      accentHex: '#F59E0B',
+      accentHex: '#10B981',
       icon: LayoutGrid
     },
     {
@@ -1153,16 +1157,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       label: 'MONITOR',
       shortcut: '5',
       title: 'Optical Cinema Monitor (Alt+5)',
-      accentHex: '#F59E0B',
+      accentHex: '#A855F7',
       icon: Monitor
-    },
-    {
-      id: 'cockpit',
-      label: 'COCKPIT',
-      shortcut: '6',
-      title: "Director's Cockpit Telemetry Hub (Alt+6)",
-      accentHex: '#F59E0B',
-      icon: Zap
     }
   ];
 
@@ -1174,7 +1170,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   return (
     <>
       <header
-        className={`relative w-full h-12 bg-[#0B0B0D]/95 backdrop-blur-xl border-b border-white/[0.07] px-2.5 xl:px-4 flex items-center justify-between gap-2 xl:gap-3 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
+        data-playing={effectiveIsPlaying ? 'true' : 'false'}
+        className={`nle-focus-bar relative w-full h-12 bg-[#0B0B0D]/95 backdrop-blur-xl border-b border-white/[0.08] px-2.5 xl:px-4 flex items-center justify-between gap-2 xl:gap-3 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
       >
         {/* ================================================================
             LEFT ZONE: Brand Wordmark + Tagline & Mega-Dropdown Menus
@@ -1183,19 +1180,20 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           {/* HANDFILM Wordmark + RAW. RAPID. CINEMA. Tagline (no SYNCED badge) */}
           <button
             type="button"
+            data-transport-sharp="true"
             onClick={handleHomeClick}
             className="group flex flex-col items-start justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-0.5 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 text-left"
             title="HANDFILM STUDIO — Return to Director Home"
           >
             <span className="font-space-grotesk font-black tracking-[0.14em] text-[15px] xl:text-[16px] leading-none text-[#F4F4F5]">
-              HAND<span className="text-[#F4F4F5]">FILM</span>
+              HAND<span className="text-[#F59E0B]">FILM</span>
             </span>
             <span className="mt-[3px] font-mono text-[7px] xl:text-[7.5px] font-semibold tracking-[0.2em] uppercase text-[#8E8E93] group-hover:text-[#F4F4F5] leading-none transition-colors">
               RAW. RAPID. CINEMA.
             </span>
           </button>
 
-          <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-white/[0.07] shrink-0" />
+          <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-white/[0.08] shrink-0" />
 
           {/* Interactive Mega-Dropdown Menus: HOME | FEATURES | APPS */}
           <nav aria-label="Studio Menus" className="flex items-center gap-0.5 xl:gap-1 shrink-0">
@@ -1207,13 +1205,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             >
               <button
                 type="button"
+                data-active={activeDropdown === 'HOME' ? 'true' : 'false'}
+                style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
                 aria-expanded={activeDropdown === 'HOME'}
                 aria-haspopup="menu"
                 onClick={() => toggleDropdown('HOME')}
-                className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                className={`nle-editorial-btn h-7 px-2 xl:px-2.5 rounded-[4px] border font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                   activeDropdown === 'HOME'
-                    ? 'bg-[#141417] text-[#F4F4F5]'
-                    : 'text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-[#141417]/70'
+                    ? 'bg-[#171820] border-[#F59E0B]/60 text-[#F4F4F5]'
+                    : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
                 }`}
               >
                 <span>HOME</span>
@@ -1417,19 +1417,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             >
               <button
                 type="button"
+                data-active={activeDropdown === 'FEATURES' ? 'true' : 'false'}
+                style={{ '--item-accent': '#38BDF8' } as React.CSSProperties}
                 aria-expanded={activeDropdown === 'FEATURES'}
                 aria-haspopup="menu"
                 onClick={() => toggleDropdown('FEATURES')}
-                className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                className={`nle-editorial-btn h-7 px-2 xl:px-2.5 rounded-[4px] border font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#38BDF8] ${
                   activeDropdown === 'FEATURES'
-                    ? 'bg-[#141417] text-[#F4F4F5]'
-                    : 'text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-[#141417]/70'
+                    ? 'bg-[#171820] border-[#38BDF8]/60 text-[#F4F4F5]'
+                    : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
                 }`}
               >
                 <span>FEATURES</span>
                 <ChevronDown
                   className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'FEATURES' ? 'rotate-180 text-[#F59E0B]' : 'text-[#8E8E93]'
+                    activeDropdown === 'FEATURES' ? 'rotate-180 text-[#38BDF8]' : 'text-[#8E8E93]'
                   }`}
                 />
               </button>
@@ -1600,20 +1602,22 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             >
               <button
                 type="button"
+                data-active={activeDropdown === 'APPS' ? 'true' : 'false'}
+                style={{ '--item-accent': '#A855F7' } as React.CSSProperties}
                 aria-expanded={activeDropdown === 'APPS'}
                 aria-haspopup="menu"
                 onClick={() => toggleDropdown('APPS')}
-                className={`h-7 px-2 xl:px-2.5 rounded-[3px] font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                className={`nle-editorial-btn h-7 px-2 xl:px-2.5 rounded-[4px] border font-mono text-[10.5px] xl:text-[11px] font-semibold tracking-[0.09em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#A855F7] ${
                   activeDropdown === 'APPS'
-                    ? 'bg-[#141417] text-[#F4F4F5]'
-                    : 'text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-[#141417]/70'
+                    ? 'bg-[#171820] border-[#A855F7]/60 text-[#F4F4F5]'
+                    : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
                 }`}
               >
-                <LayoutGrid className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeDropdown === 'APPS' ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
+                <LayoutGrid className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeDropdown === 'APPS' ? 'text-[#A855F7]' : 'text-[#F59E0B]'}`} />
                 <span>APPS</span>
                 <ChevronDown
                   className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'APPS' ? 'rotate-180 text-[#F59E0B]' : 'text-[#8E8E93]'
+                    activeDropdown === 'APPS' ? 'rotate-180 text-[#A855F7]' : 'text-[#8E8E93]'
                   }`}
                 />
               </button>
@@ -1755,97 +1759,85 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
 
         {/* ================================================================
-            CENTER ZONE: Monochrome Stealth Workspace Switcher
+            CENTER ZONE: Editorial 5-Tab Workspace Switcher (STAGE..MONITOR)
             ================================================================ */}
         <div
           role="tablist"
           aria-label="Workspace Switcher"
-          className="hidden md:flex items-center bg-[#0B0B0D] border border-white/[0.07] rounded-[7px] p-[3px] gap-1 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+          className="hidden md:flex items-center bg-[#0B0B0D] border border-white/[0.08] rounded-[7px] p-[3px] gap-1 shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
         >
           {WORKSPACE_TABS.map((tab) => {
-            const isCockpitTab = tab.id === 'cockpit';
-            const isActive = isCockpitTab
-              ? isCockpitHudOpen
-              : currentView === 'STUDIO' && currentPanel === tab.panel;
+            const isActive = currentView === 'STUDIO' && currentPanel === tab.panel;
             const TabIcon = tab.icon;
 
             return (
-              <React.Fragment key={tab.id}>
-                {isCockpitTab && (
-                  <span aria-hidden="true" className="w-px h-5 bg-white/[0.07] mx-0.5 shrink-0" />
-                )}
-                <div
-                  ref={isCockpitTab ? cockpitContainerRef : undefined}
-                  className="relative"
+              <div key={tab.id} className="relative">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  data-active={isActive ? 'true' : 'false'}
+                  style={{
+                    '--item-accent': tab.accentHex,
+                    borderColor: isActive ? tab.accentHex : `${tab.accentHex}33`,
+                    boxShadow: isActive
+                      ? `0 0 14px ${tab.accentHex}3D, inset 0 1px 0 rgba(255,255,255,0.12)`
+                      : undefined
+                  } as React.CSSProperties}
+                  onClick={() => handleWorkspacePanelSelect(tab.panel)}
+                  title={tab.title}
+                  className={`nle-editorial-btn studio-workspace-tab relative group/tab h-[32px] px-2 xl:px-2.5 2xl:px-3 rounded-[5px] border font-mono text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] tracking-[0.09em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                    isActive
+                      ? 'bg-[#191A22] text-white font-bold'
+                      : 'bg-[#121318] text-zinc-300 hover:text-white font-semibold'
+                  }`}
                 >
-                  <button
-                    ref={isCockpitTab ? cockpitBtnRef : undefined}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    style={{ '--tab-accent': '#F59E0B' } as React.CSSProperties}
-                    onClick={() => {
-                      if (isCockpitTab) {
-                        toggleCockpitDrawer();
-                      } else if (tab.panel) {
-                        handleWorkspacePanelSelect(tab.panel);
-                      }
-                    }}
-                    title={tab.title}
-                    className={`studio-workspace-tab relative group/tab h-[32px] px-2 xl:px-2.5 2xl:px-3 rounded-[5px] border font-mono text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] tracking-[0.09em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
-                      isActive
-                        ? 'text-[#F4F4F5] font-bold'
-                        : 'text-[#8E8E93] hover:text-[#F4F4F5] font-semibold'
-                    }`}
+                  {/* Inner subtle radial glow */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-[4px] overflow-hidden pointer-events-none"
                   >
-                    {/* Inner clipped subtle amber highlight strictly on active */}
                     <span
-                      aria-hidden="true"
-                      className="absolute inset-0 rounded-[4px] overflow-hidden pointer-events-none"
-                    >
-                      <span
-                        style={{
-                          background: 'radial-gradient(circle at 30% 50%, rgba(245,158,11,0.16) 0%, transparent 72%)'
-                        }}
-                        className={`absolute inset-0 transition-opacity duration-150 ${
-                          isActive ? 'opacity-100' : 'opacity-0'
-                        }`}
-                      />
-                    </span>
-
-                    {/* Neutral matte icon at rest -> Molten Amber (#F59E0B) when active */}
-                    <TabIcon
                       style={{
-                        color: isActive ? '#F59E0B' : undefined
+                        background: `radial-gradient(circle at 30% 50%, ${tab.accentHex}29 0%, transparent 72%)`
                       }}
-                      className={`relative z-10 w-3.5 h-3.5 shrink-0 transition-colors duration-150 ${
-                        isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover/tab:text-[#F4F4F5]'
+                      className={`absolute inset-0 transition-opacity duration-200 ${
+                        isActive ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-75'
                       }`}
                     />
+                  </span>
 
-                    {/* Crisp Label */}
-                    <span className="relative z-10 leading-none">
-                      {tab.label}
-                    </span>
+                  <TabIcon
+                    style={{ color: tab.accentHex }}
+                    className="relative z-10 w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover/tab:scale-110"
+                  />
 
-                    {/* Single Signature Molten Amber Bottom Bar when Active */}
-                    <span
-                      aria-hidden="true"
-                      className={`absolute bottom-0 inset-x-1.5 h-[2px] rounded-t-full bg-[#F59E0B] pointer-events-none transition-opacity duration-150 ${
-                        isActive ? 'opacity-100 shadow-[0_0_8px_rgba(245,158,11,0.65)]' : 'opacity-0'
-                      }`}
-                    />
+                  <span className="relative z-10 leading-none">
+                    {tab.label}
+                  </span>
 
-                    {/* Micro Hover Shortcut Hint [1]..[6] */}
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150 absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-[3px] bg-[#0B0B0D]/95 border border-white/[0.07] text-[#F59E0B] text-[9px] font-mono font-bold tabular-nums whitespace-nowrap z-[9999] shadow-xl"
-                    >
-                      [{tab.shortcut}] · Alt+{tab.shortcut}
-                    </span>
-                  </button>
-                </div>
-              </React.Fragment>
+                  {/* Active bottom accent edge bar */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      backgroundColor: tab.accentHex,
+                      boxShadow: isActive ? `0 0 10px ${tab.accentHex}` : undefined
+                    }}
+                    className={`absolute bottom-0 inset-x-1.5 h-[2px] rounded-t-full pointer-events-none transition-opacity duration-150 ${
+                      isActive ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-50'
+                    }`}
+                  />
+
+                  {/* Micro Hover Shortcut Hint [1]..[5] */}
+                  <span
+                    aria-hidden="true"
+                    style={{ color: tab.accentHex }}
+                    className="pointer-events-none opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150 absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-[3px] bg-[#0B0B0D]/95 border border-white/[0.1] text-[9px] font-mono font-bold tabular-nums whitespace-nowrap z-[9999] shadow-xl"
+                  >
+                    [{tab.shortcut}] · Alt+{tab.shortcut}
+                  </span>
+                </button>
+              </div>
             );
           })}
 
@@ -2571,11 +2563,13 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             </span>
           </div>
 
-          {/* 3. STUDIO Stealth Pill Button (Enters Studio from Home; toggles Focus Mode in Studio) */}
+          {/* 3. STUDIO Red Pill Button (Enters Studio from Home; toggles Focus Mode in Studio) */}
           <button
             type="button"
+            data-transport-sharp="true"
             aria-pressed={currentView === 'STUDIO' ? isZenMode : false}
             onClick={handleStudioOrFocusToggle}
+            style={{ '--item-accent': '#E50914' } as React.CSSProperties}
             title={
               currentView === 'HOME'
                 ? 'Enter Active Cinema Studio'
@@ -2583,25 +2577,27 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 ? 'Focus Mode Active — Click to Restore Side Rail & Dock (Z)'
                 : 'STUDIO — Click to Toggle Focus Mode (Z)'
             }
-            className={`h-8 px-3.5 rounded-full font-mono text-[10.5px] font-bold tracking-[0.12em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+            className={`nle-editorial-btn h-8 px-3.5 rounded-full font-mono text-[10.5px] font-black tracking-[0.12em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914] ${
               currentView === 'STUDIO' && isZenMode
-                ? 'bg-[#F59E0B]/15 border border-[#F59E0B] text-[#F4F4F5]'
-                : 'bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.1] hover:border-[#F59E0B]/60 text-[#F4F4F5]'
+                ? 'bg-[#E50914] border border-red-400 text-white shadow-[0_0_16px_rgba(229,9,20,0.65)]'
+                : 'bg-[#E50914]/90 hover:bg-[#E50914] border border-red-500/70 text-white shadow-[0_0_12px_rgba(229,9,20,0.4)]'
             }`}
           >
             {currentView === 'STUDIO' && isZenMode && (
-              <Minimize2 className="w-3 h-3 text-[#F59E0B] shrink-0" />
+              <Minimize2 className="w-3 h-3 text-white shrink-0" />
             )}
             <span>STUDIO</span>
           </button>
 
-          {/* 4. Circular Monochrome Export Action Button */}
+          {/* 4. Circular Golden Export Action Button */}
           <button
             type="button"
+            data-transport-sharp="true"
             onClick={handleTriggerExport}
             aria-label="Export Master Render"
             title="Open Unified Render & Export Studio (⌘E)"
-            className="w-8 h-8 rounded-full bg-[#141417] hover:bg-[#F59E0B]/15 border border-white/[0.07] hover:border-[#F59E0B]/70 text-[#8E8E93] hover:text-[#F59E0B] flex items-center justify-center transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B]"
+            style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
+            className="nle-editorial-btn w-8 h-8 rounded-full bg-[#18150D] hover:bg-[#F59E0B] border border-[#F59E0B]/55 text-[#F59E0B] hover:text-[#0B0B0D] flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.25)]"
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
           </button>
@@ -2609,6 +2605,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
           {/* 5. Circular Screen & Audio Record Button (Crimson Red reserved strictly for Record trigger) */}
           <button
             type="button"
+            data-transport-sharp="true"
             onClick={() => {
               setActiveDropdown(null);
               if (onOpenRecorder) onOpenRecorder();
@@ -2616,7 +2613,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             }}
             aria-label="Screen and Audio Recorder"
             title="Screen & Audio Recorder Studio (Alt+R)"
-            className="w-8 h-8 rounded-full bg-[#141417] hover:bg-[#E50914]/15 border border-white/[0.07] hover:border-[#E50914]/70 flex items-center justify-center transition-all duration-150 shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
+            style={{ '--item-accent': '#E50914' } as React.CSSProperties}
+            className="nle-editorial-btn w-8 h-8 rounded-full bg-[#141417] hover:bg-[#E50914]/15 border border-white/[0.1] hover:border-[#E50914]/75 flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
           >
             <span
               aria-hidden="true"

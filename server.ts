@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Modality } from '@google/genai';
@@ -18,7 +18,7 @@ const cliPort = portArgIdx !== -1 ? Number(process.argv[portArgIdx + 1]) : NaN;
 const PORT = Number.isFinite(cliPort) && cliPort > 0 ? cliPort : 3000;
 const HOST = '0.0.0.0';
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '120mb' }));
 
 // Lazy-initialize Google GenAI only when an /api/* AI route is invoked
 let cachedAiClient: GoogleGenAI | null = null;
@@ -475,6 +475,473 @@ app.get('/api/git/status', (_req, res) => {
       error: error.message
     });
   }
+});
+
+// =========================================================================
+// ZERO-PROMPT "EDIT IN" EXTERNAL APP BRIDGE & LIVE FILE-WATCHER (SSE)
+// =========================================================================
+type EditInAppId = 'photoshop' | 'premiere' | 'illustrator' | 'capcut';
+
+interface EditInTrackedAsset {
+  shotId: string;
+  shotIndex: number;
+  app: EditInAppId;
+  filename: string;
+  filePath: string;
+  mediaType: 'image' | 'video';
+  mimeType: string;
+  mtimeMs: number;
+  updatedAt: number;
+}
+
+const SCRATCH_ROOT = path.resolve(__dirname, '.handfilm-scratch', 'shots');
+const editInStateMap = new Map<string, EditInTrackedAsset>();
+
+// Valid 1x1 dark PNG fallback when no rendered pixels were supplied
+const FALLBACK_SLATE_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+function sanitizeShotId(raw: unknown): string {
+  const clean = String(raw ?? 'shot_01')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_');
+  return clean || 'shot_01';
+}
+
+function sanitizeFilename(raw: unknown, fallbackExt: string): string {
+  const base = path.basename(String(raw ?? '').trim()).replace(/[^a-zA-Z0-9._-]/g, '_');
+  if (!base || base === '.' || base === '..') {
+    return `master.${fallbackExt}`;
+  }
+  return base;
+}
+
+function inferEditInMime(fileName: string): { mimeType: string; mediaType: 'image' | 'video' } {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return { mimeType: 'video/mp4', mediaType: 'video' };
+  if (lower.endsWith('.webm')) return { mimeType: 'video/webm', mediaType: 'video' };
+  if (lower.endsWith('.mov')) return { mimeType: 'video/quicktime', mediaType: 'video' };
+  if (lower.endsWith('.mkv')) return { mimeType: 'video/x-matroska', mediaType: 'video' };
+  if (lower.endsWith('.webp')) return { mimeType: 'image/webp', mediaType: 'image' };
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return { mimeType: 'image/jpeg', mediaType: 'image' };
+  if (lower.endsWith('.svg')) return { mimeType: 'image/svg+xml', mediaType: 'image' };
+  return { mimeType: 'image/png', mediaType: 'image' };
+}
+
+function extFromMime(mime: string | undefined, app: EditInAppId): string {
+  const lower = (mime || '').toLowerCase();
+  if (lower.includes('video/webm')) return 'webm';
+  if (lower.includes('video/quicktime')) return 'mov';
+  if (lower.includes('video/')) return 'mp4';
+  if (lower.includes('image/jpeg')) return 'jpg';
+  if (lower.includes('image/webp')) return 'webp';
+  if (lower.includes('image/svg')) return 'svg';
+  if (app === 'premiere' || app === 'capcut') return 'png';
+  return 'png';
+}
+
+function findExistingExecutable(candidates: string[]): string | null {
+  for (const candidate of candidates) {
+    try {
+      if (candidate.includes('/') || candidate.includes('\\')) {
+        if (fs.existsSync(candidate)) return candidate;
+      } else {
+        const cmd = process.platform === 'win32' ? `where ${candidate}` : `which ${candidate}`;
+        const found = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
+          .split(/\r?\n/)[0]
+          ?.trim();
+        if (found) return found;
+      }
+    } catch {
+      // Binary not installed in this environment
+    }
+  }
+  return null;
+}
+
+function tryLaunchExternalDesktopApp(appId: EditInAppId, targetFilePath: string): { launched: boolean; executable: string | null } {
+  const platform = process.platform;
+  try {
+    if (platform === 'darwin') {
+      const appNames: Record<EditInAppId, string[]> = {
+        photoshop: ['Adobe Photoshop 2026', 'Adobe Photoshop 2025', 'Adobe Photoshop 2024', 'Adobe Photoshop'],
+        premiere: ['Adobe Premiere Pro 2026', 'Adobe Premiere Pro 2025', 'Adobe Premiere Pro 2024', 'Adobe Premiere Pro'],
+        illustrator: ['Adobe Illustrator 2026', 'Adobe Illustrator 2025', 'Adobe Illustrator 2024', 'Adobe Illustrator'],
+        capcut: ['CapCut']
+      };
+      for (const name of appNames[appId]) {
+        const bundlePath = `/Applications/${name}.app`;
+        const adobeSubPath = `/Applications/${name}/${name}.app`;
+        const resolvedApp = fs.existsSync(bundlePath)
+          ? bundlePath
+          : fs.existsSync(adobeSubPath)
+            ? adobeSubPath
+            : null;
+        if (resolvedApp) {
+          const child = spawn('open', ['-a', resolvedApp, targetFilePath], { detached: true, stdio: 'ignore' });
+          child.on('error', () => {});
+          child.unref();
+          return { launched: true, executable: resolvedApp };
+        }
+      }
+      return { launched: false, executable: null };
+    }
+
+    if (platform === 'win32') {
+      const localAppData = process.env.LOCALAPPDATA || '';
+      const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+      const candidatesMap: Record<EditInAppId, string[]> = {
+        photoshop: [
+          `${programFiles}\\Adobe\\Adobe Photoshop 2026\\Photoshop.exe`,
+          `${programFiles}\\Adobe\\Adobe Photoshop 2025\\Photoshop.exe`,
+          `${programFiles}\\Adobe\\Adobe Photoshop 2024\\Photoshop.exe`,
+          'photoshop'
+        ],
+        premiere: [
+          `${programFiles}\\Adobe\\Adobe Premiere Pro 2026\\Adobe Premiere Pro.exe`,
+          `${programFiles}\\Adobe\\Adobe Premiere Pro 2025\\Adobe Premiere Pro.exe`,
+          `${programFiles}\\Adobe\\Adobe Premiere Pro 2024\\Adobe Premiere Pro.exe`,
+          'Adobe Premiere Pro'
+        ],
+        illustrator: [
+          `${programFiles}\\Adobe\\Adobe Illustrator 2026\\Support Files\\Contents\\Windows\\Illustrator.exe`,
+          `${programFiles}\\Adobe\\Adobe Illustrator 2025\\Support Files\\Contents\\Windows\\Illustrator.exe`,
+          `${programFiles}\\Adobe\\Adobe Illustrator 2024\\Support Files\\Contents\\Windows\\Illustrator.exe`,
+          'illustrator'
+        ],
+        capcut: [
+          `${localAppData}\\CapCut\\Apps\\CapCut.exe`,
+          `${programFiles}\\CapCut\\CapCut.exe`,
+          'CapCut'
+        ]
+      };
+      const exe = findExistingExecutable(candidatesMap[appId]);
+      if (exe) {
+        const child = spawn(exe, [targetFilePath], { detached: true, stdio: 'ignore' });
+        child.on('error', () => {});
+        child.unref();
+        return { launched: true, executable: exe };
+      }
+      return { launched: false, executable: null };
+    }
+
+    // Linux desktop environments (supports custom shims/aliases or native linux builds like CapCut/PhotoGIMP/etc.)
+    const linuxCandidates: Record<EditInAppId, string[]> = {
+      photoshop: ['photoshop', 'adobe-photoshop'],
+      premiere: ['premiere', 'adobe-premiere'],
+      illustrator: ['illustrator', 'adobe-illustrator'],
+      capcut: ['capcut', 'CapCut']
+    };
+    const bin = findExistingExecutable(linuxCandidates[appId]);
+    if (bin) {
+      const child = spawn(bin, [targetFilePath], { detached: true, stdio: 'ignore' });
+      child.on('error', () => {});
+      child.unref();
+      return { launched: true, executable: bin };
+    }
+    return { launched: false, executable: null };
+  } catch {
+    return { launched: false, executable: null };
+  }
+}
+
+app.post('/api/edit-in', (req, res) => {
+  try {
+    const body = req.body || {};
+    const appRaw = String(body.app || 'photoshop').toLowerCase();
+    const appId: EditInAppId =
+      appRaw === 'photoshop' || appRaw === 'premiere' || appRaw === 'illustrator' || appRaw === 'capcut'
+        ? appRaw
+        : 'photoshop';
+
+    const safeShotId = sanitizeShotId(body.shotId || `shot_${String((Number(body.shotIndex) || 0) + 1).padStart(2, '0')}`);
+    const shotIndex = Number.isFinite(Number(body.shotIndex)) ? Math.max(0, Number(body.shotIndex)) : 0;
+    const requestedMime = typeof body.mimeType === 'string' ? body.mimeType : '';
+
+    let buffer: Buffer | null = null;
+    let resolvedMime = requestedMime;
+
+    if (typeof body.dataUrl === 'string' && body.dataUrl.startsWith('data:')) {
+      const match = /^data:([^;,]+)?(?:;charset=[^;,]+)?;base64,(.+)$/i.exec(body.dataUrl);
+      if (match) {
+        if (!resolvedMime && match[1]) resolvedMime = match[1];
+        buffer = Buffer.from(match[2], 'base64');
+      }
+    }
+
+    if (!buffer && typeof body.filePath === 'string' && body.filePath.trim()) {
+      const candidatePath = path.resolve(body.filePath.trim());
+      if (fs.existsSync(candidatePath) && fs.statSync(candidatePath).isFile()) {
+        buffer = fs.readFileSync(candidatePath);
+      }
+    }
+
+    if (!buffer && typeof body.mediaUrl === 'string' && body.mediaUrl.startsWith('/')) {
+      const publicRoot = path.resolve(__dirname, 'public');
+      const relUrl = decodeURIComponent(body.mediaUrl.split('?')[0]).replace(/^\/+/, '');
+      const localAsset = path.resolve(publicRoot, relUrl);
+      if (localAsset.startsWith(publicRoot) && fs.existsSync(localAsset) && fs.statSync(localAsset).isFile()) {
+        buffer = fs.readFileSync(localAsset);
+      }
+    }
+
+    if (!buffer || buffer.length === 0) {
+      buffer = Buffer.from(FALLBACK_SLATE_PNG_BASE64, 'base64');
+      resolvedMime = 'image/png';
+    }
+
+    const fallbackExt = extFromMime(resolvedMime, appId);
+    const defaultName = `${safeShotId}_${appId}.${fallbackExt}`;
+    const safeFileName = sanitizeFilename(body.fileName || defaultName, fallbackExt);
+    const inferred = inferEditInMime(safeFileName);
+
+    const shotDir = path.resolve(SCRATCH_ROOT, safeShotId);
+    if (!shotDir.startsWith(SCRATCH_ROOT)) {
+      return res.status(400).json({ success: false, error: 'Invalid shot path' });
+    }
+    fs.mkdirSync(shotDir, { recursive: true });
+
+    const scratchFilePath = path.resolve(shotDir, safeFileName);
+    if (!scratchFilePath.startsWith(shotDir)) {
+      return res.status(400).json({ success: false, error: 'Invalid filename' });
+    }
+
+    fs.writeFileSync(scratchFilePath, buffer);
+    const stat = fs.statSync(scratchFilePath);
+    const now = Date.now();
+
+    const tracked: EditInTrackedAsset = {
+      shotId: safeShotId,
+      shotIndex,
+      app: appId,
+      filename: safeFileName,
+      filePath: scratchFilePath,
+      mediaType: inferred.mediaType,
+      mimeType: resolvedMime || inferred.mimeType,
+      mtimeMs: stat.mtimeMs,
+      updatedAt: now
+    };
+    editInStateMap.set(safeShotId, tracked);
+
+    const launchInfo = tryLaunchExternalDesktopApp(appId, scratchFilePath);
+    const assetUrl = `/api/edit-in/asset/${encodeURIComponent(safeShotId)}/${encodeURIComponent(safeFileName)}?t=${now}`;
+
+    res.json({
+      success: true,
+      app: appId,
+      shotId: safeShotId,
+      shotIndex,
+      filename: safeFileName,
+      scratchPath: scratchFilePath,
+      mediaType: inferred.mediaType,
+      mimeType: tracked.mimeType,
+      mtimeMs: stat.mtimeMs,
+      launched: launchInfo.launched,
+      executable: launchInfo.executable,
+      assetUrl
+    });
+  } catch (error: any) {
+    console.error('[Edit-In Bridge] Error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Edit-In bridge failure' });
+  }
+});
+
+app.get('/api/edit-in/asset/:shotId/:filename', (req, res) => {
+  try {
+    const safeShotId = sanitizeShotId(req.params.shotId);
+    const safeFileName = sanitizeFilename(req.params.filename, 'png');
+    const shotDir = path.resolve(SCRATCH_ROOT, safeShotId);
+    const targetPath = path.resolve(shotDir, safeFileName);
+
+    if (!targetPath.startsWith(SCRATCH_ROOT) || !fs.existsSync(targetPath)) {
+      return res.status(404).json({ success: false, error: 'Scratch asset not found' });
+    }
+
+    const stat = fs.statSync(targetPath);
+    if (!stat.isFile()) {
+      return res.status(404).json({ success: false, error: 'Asset is not a file' });
+    }
+
+    const { mimeType, mediaType } = inferEditInMime(safeFileName);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Content-Type', mimeType);
+
+    if (mediaType === 'video' && req.headers.range) {
+      const range = req.headers.range;
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10) || 0;
+      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+      const chunkSize = Math.max(0, end - start + 1);
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': mimeType,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+      });
+      fs.createReadStream(targetPath, { start, end }).pipe(res);
+      return;
+    }
+
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Length', stat.size);
+    fs.createReadStream(targetPath).pipe(res);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to read scratch asset' });
+  }
+});
+
+app.get('/api/watch-asset/:shotId/status', (req, res) => {
+  const safeShotId = sanitizeShotId(req.params.shotId);
+  const tracked = editInStateMap.get(safeShotId) || null;
+  if (!tracked) {
+    return res.json({ success: true, active: false, shotId: safeShotId, tracked: null });
+  }
+  let currentMtimeMs = tracked.mtimeMs;
+  let size = 0;
+  try {
+    if (fs.existsSync(tracked.filePath)) {
+      const st = fs.statSync(tracked.filePath);
+      currentMtimeMs = st.mtimeMs;
+      size = st.size;
+    }
+  } catch {}
+  res.json({
+    success: true,
+    active: true,
+    shotId: safeShotId,
+    tracked: {
+      ...tracked,
+      currentMtimeMs,
+      size,
+      assetUrl: `/api/edit-in/asset/${encodeURIComponent(safeShotId)}/${encodeURIComponent(tracked.filename)}?t=${Math.round(currentMtimeMs)}`
+    }
+  });
+});
+
+app.get('/api/watch-asset/:shotId', (req, res) => {
+  const safeShotId = sanitizeShotId(req.params.shotId);
+  const shotDir = path.resolve(SCRATCH_ROOT, safeShotId);
+  if (!shotDir.startsWith(SCRATCH_ROOT)) {
+    return res.status(400).end();
+  }
+  fs.mkdirSync(shotDir, { recursive: true });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  let lastKnownMtime = editInStateMap.get(safeShotId)?.mtimeMs ?? 0;
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let closed = false;
+
+  const writeEvent = (eventName: string, payload: unknown) => {
+    if (closed) return;
+    try {
+      res.write(`event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`);
+    } catch {
+      closed = true;
+    }
+  };
+
+  writeEvent('connected', { shotId: safeShotId, watching: true, mtimeMs: lastKnownMtime });
+
+  const inspectChanges = () => {
+    if (closed) return;
+    try {
+      const tracked = editInStateMap.get(safeShotId);
+      let candidatePath = tracked?.filePath;
+      let candidateName = tracked?.filename;
+
+      if (!candidatePath || !fs.existsSync(candidatePath)) {
+        const files = fs.readdirSync(shotDir).filter((f) => !f.startsWith('.'));
+        if (files.length > 0) {
+          files.sort((a, b) => {
+            const sa = fs.statSync(path.join(shotDir, a)).mtimeMs;
+            const sb = fs.statSync(path.join(shotDir, b)).mtimeMs;
+            return sb - sa;
+          });
+          candidateName = files[0];
+          candidatePath = path.join(shotDir, candidateName);
+        }
+      }
+
+      if (!candidatePath || !candidateName || !fs.existsSync(candidatePath)) return;
+      const st = fs.statSync(candidatePath);
+      if (!st.isFile() || st.size <= 0) return;
+
+      if (st.mtimeMs > lastKnownMtime + 1) {
+        lastKnownMtime = st.mtimeMs;
+        const { mimeType, mediaType } = inferEditInMime(candidateName);
+        const appId: EditInAppId = tracked?.app || 'photoshop';
+        const shotIndex = tracked?.shotIndex ?? 0;
+        const now = Date.now();
+
+        editInStateMap.set(safeShotId, {
+          shotId: safeShotId,
+          shotIndex,
+          app: appId,
+          filename: candidateName,
+          filePath: candidatePath,
+          mediaType,
+          mimeType,
+          mtimeMs: st.mtimeMs,
+          updatedAt: now
+        });
+
+        writeEvent('asset-updated', {
+          shotId: safeShotId,
+          shotIndex,
+          app: appId,
+          filename: candidateName,
+          mtimeMs: st.mtimeMs,
+          mediaType,
+          mimeType,
+          assetUrl: `/api/edit-in/asset/${encodeURIComponent(safeShotId)}/${encodeURIComponent(candidateName)}?t=${now}`
+        });
+      }
+    } catch {
+      // Transient file lock while external app flushes Ctrl+S write; next cycle will catch it
+    }
+  };
+
+  let fsWatcher: fs.FSWatcher | null = null;
+  try {
+    fsWatcher = fs.watch(shotDir, () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(inspectChanges, 80);
+    });
+    fsWatcher.on('error', () => {});
+  } catch {
+    // Polling safety net continues cleanly
+  }
+
+  const pollInterval = setInterval(inspectChanges, 400);
+  const heartbeatInterval = setInterval(() => {
+    if (!closed) {
+      try {
+        res.write(': keepalive\n\n');
+      } catch {
+        closed = true;
+      }
+    }
+  }, 15000);
+
+  req.on('close', () => {
+    closed = true;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    clearInterval(pollInterval);
+    clearInterval(heartbeatInterval);
+    try {
+      fsWatcher?.close();
+    } catch {}
+  });
 });
 
 // Mount Vite in Development

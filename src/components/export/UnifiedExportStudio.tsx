@@ -51,6 +51,7 @@ import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEng
 import { renderAlignedCinemaTitleOverlay } from '../../utils/interchangeExport';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from '../../services/thumbnailEngine';
+import { EditInAppStrip } from '../bridge/EditInAppStrip';
 import { 
   Film, 
   Video, 
@@ -1477,6 +1478,13 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Zero-Prompt EDIT IN App Strip */}
+              <EditInAppStrip
+                shotIndex={currentSlideIndex}
+                frame={frames[currentSlideIndex]}
+                variant="drawer"
+              />
+
               {/* Dynamic Runtime Badge */}
               <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded bg-[#161722] border border-[#26283b] text-xs">
                 <Clock className="w-3.5 h-3.5 text-[#F5A623]" />

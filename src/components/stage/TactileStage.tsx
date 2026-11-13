@@ -1658,6 +1658,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             className="animate-hud-fade-in"
             sceneCode={frame?.epNumber ? frame.epNumber.replace(/^#/, '').slice(0, 2) : '01'}
             shotIndex={currentIndex}
+            frame={frame}
             frameNum={activeFrameNum}
             totalFrames={activeTotalFrames}
             smpte={activeSmpte}

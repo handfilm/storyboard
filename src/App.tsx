@@ -110,6 +110,12 @@ import {
   triggerBrowserDownload
 } from './utils/interchangeExport';
 import { OfflineIndicator } from './components/pwa/PWAComponents';
+import {
+  EditInAssetSyncedPayload,
+  EditInStatusPayload,
+  EXTERNAL_EDIT_APP_LABELS,
+  stopAllEditInWatchers
+} from './services/editInBridge';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -197,6 +203,25 @@ export default function App() {
   const [detectedBpm, setDetectedBpm] = useState(120);
   const [isTelemetryRackOpen, setIsTelemetryRackOpen] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
+  const [editInToast, setEditInToast] = useState<string | null>(null);
+  const editInToastTimerRef = useRef<number | null>(null);
+
+  const showEditInToast = useCallback((msg: string) => {
+    setEditInToast(msg);
+    if (editInToastTimerRef.current !== null) {
+      window.clearTimeout(editInToastTimerRef.current);
+    }
+    editInToastTimerRef.current = window.setTimeout(() => {
+      setEditInToast(null);
+      editInToastTimerRef.current = null;
+    }, 3600);
+  }, []);
+
+  useEffect(() => {
+    try {
+      useStudioStore.setState({ isPlaying });
+    } catch {}
+  }, [isPlaying]);
 
   // Screen Recorder & WebCodecs Trimmer Suite State
   const [isScreenRecorderOpen, setIsScreenRecorderOpen] = useState(false);
@@ -2901,6 +2926,140 @@ export default function App() {
     [aspectRatio, multiCamGroup, project.title]
   );
 
+  // Live "EDIT IN" External App Auto-Sync Watcher & Media Asset Vault Timeline Appender
+  useEffect(() => {
+    const unsubEditInStatus = eventBus.on('edit-in:status', (payload: EditInStatusPayload) => {
+      if (payload?.message) {
+        showEditInToast(payload.message);
+      }
+    });
+
+    const unsubEditInSynced = eventBus.on('edit-in:asset-synced', (payload: EditInAssetSyncedPayload) => {
+      if (!payload || typeof payload.shotIndex !== 'number') return;
+      const idx = payload.shotIndex;
+      const frames = projectFramesRef.current;
+      const target = frames[idx];
+      if (!target) return;
+
+      const shotKey = getShotMediaKey(target, idx);
+      try {
+        if (target.id !== undefined && target.id !== null) {
+          thumbnailMemoryCache.delete(String(target.id));
+        }
+        thumbnailMemoryCache.delete(`shot_${idx}`);
+        thumbnailMemoryCache.delete(String(idx));
+        thumbnailMemoryCache.delete(String(idx + 1));
+        if (target.imageUrl) thumbnailMemoryCache.delete(target.imageUrl);
+      } catch {}
+
+      useStudioStore.getState().setShotMediaEntry(shotKey, {
+        url: payload.assetUrl,
+        type: payload.mediaType,
+        name: payload.filename,
+        mimeType: payload.mimeType
+      });
+
+      const isVid = payload.mediaType === 'video';
+      handleUpdateFrameAtIndex(idx, {
+        ...target,
+        imageUrl: payload.assetUrl,
+        videoSrc: isVid ? payload.assetUrl : target.videoSrc,
+        thumbnailUrl: !isVid ? payload.assetUrl : undefined,
+        isVideo: isVid
+      });
+
+      if (isVid) {
+        void ensureVideoThumbnailUrl([target.id, `shot_${idx}`, idx], payload.assetUrl, 0.15).then((poster) => {
+          if (!poster) return;
+          setProject(prev => {
+            const nextFrames = [...prev.frames];
+            if (nextFrames[idx]) {
+              nextFrames[idx] = { ...nextFrames[idx], thumbnailUrl: poster };
+            }
+            return { ...prev, frames: nextFrames };
+          });
+        });
+      }
+
+      const appLabel = EXTERNAL_EDIT_APP_LABELS[payload.app] || 'EXTERNAL APP';
+      showEditInToast(`SYNCED FROM ${appLabel}`);
+    });
+
+    const unsubAppendMedia = eventBus.on(
+      'media:append_to_timeline',
+      async (payload: { name: string; mimeType: string; blob: Blob; durationSec?: number }) => {
+        if (!payload?.blob) return;
+        const currentFrames = projectFramesRef.current;
+        const nextIdx = currentFrames.length;
+        const nextId = getNextUniqueFrameId(currentFrames);
+        const holdDur = clampShotDuration(payload.durationSec || 12.0);
+        const shotKey = `shot_${nextId}`;
+        const file =
+          payload.blob instanceof File
+            ? payload.blob
+            : new File([payload.blob], payload.name || `vault_shot_${nextIdx + 1}`, {
+                type: payload.mimeType || 'application/octet-stream'
+              });
+        const entry = await saveShotMediaBlob(shotKey, file, file.name);
+        useStudioStore.getState().setShotMediaEntry(shotKey, entry);
+
+        const isVid = entry.type === 'video';
+        const cleanTitle = (payload.name || `Shot ${nextIdx + 1}`).replace(/\.[^/.]+$/, '');
+        const newFrame: AnthologyFrame = {
+          id: nextId,
+          epNumber: `#${String(nextIdx + 1).padStart(3, '0')}`,
+          title: cleanTitle,
+          bengaliTitle: cleanTitle,
+          tagline: 'VAULT INGEST',
+          directorNotes: 'Appended from Media Asset Vault',
+          soundCue: '',
+          cameraSpec: {
+            focalLength: '35mm Anamorphic Master',
+            aperture: 'f/1.4',
+            shutter: '1/48s 180°',
+            iso: 'ISO 400',
+            sensor: 'Full Frame ARRI LF',
+            format: `${aspectRatio} Scope`
+          },
+          imageUrl: entry.url,
+          thumbnailUrl: !isVid ? entry.url : undefined,
+          isVideo: isVid,
+          colorAccent: '#38BDF8',
+          hoverStyle: 1,
+          lutFilter: 'cinematic',
+          aspectRatio: aspectRatio as AspectRatio,
+          adjustments: {
+            brightness: 100,
+            contrast: 100,
+            saturation: 100,
+            bloom: 10,
+            grain: 8,
+            motionBlur: 0,
+            vignette: 10
+          },
+          slideHoldSec: holdDur,
+          durationSec: holdDur,
+          tags: ['VAULT']
+        };
+
+        const nextFrames = [...currentFrames, newFrame];
+        setProject(prev => ({ ...prev, frames: nextFrames }));
+        setCurrentIndex(nextIdx);
+        syncFramesToStoreAndSession(nextFrames, nextIdx);
+      }
+    );
+
+    return () => {
+      unsubEditInStatus();
+      unsubEditInSynced();
+      unsubAppendMedia();
+      stopAllEditInWatchers();
+      if (editInToastTimerRef.current !== null) {
+        window.clearTimeout(editInToastTimerRef.current);
+      }
+    };
+  }, [aspectRatio, handleUpdateFrameAtIndex, showEditInToast, syncFramesToStoreAndSession]);
+
   const handleReorderFrames = useCallback((newFrames: AnthologyFrame[]) => {
     const safeFrames = ensureUniqueFrameIds(newFrames);
     const safeNextIndex = Math.max(0, Math.min(safeFrames.length - 1, currentIndex));
@@ -3146,6 +3305,7 @@ export default function App() {
       <div className={hideFullscreenChrome ? 'hidden' : 'contents'}>
       <StageHeader
         isZenMode={isZenMode}
+        isPlaying={isPlaying}
         onToggleZen={handleToggleFocusMode}
         currentPanel={activeDualPanel}
         onSelectPanel={(panel) => {
@@ -3303,6 +3463,7 @@ export default function App() {
         <div className={`zen-rail-container h-full flex shrink-0 ${hideFullscreenChrome || isZenMode ? 'hidden' : ''}`}>
           <LeftRail
             activeModule={activeModule}
+            isPlaying={isPlaying}
             onSelectModule={(mod) => {
               if (
                 mod === 'PRODUCTION' ||
@@ -4036,6 +4197,19 @@ export default function App() {
           fps={getShotTargetFps(currentFrame, 24) === 30 ? 30 : 24}
           initialTab="interchange"
         />
+      )}
+
+      {/* Non-Intrusive EDIT IN Live Auto-Sync Toast */}
+      {editInToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="edit-in-sync-toast"
+          className="fixed top-14 right-4 z-[9999] px-3.5 py-2 rounded-lg bg-[#0B0B0D]/95 backdrop-blur-xl border border-emerald-400/50 text-[#F4F4F5] font-mono text-[10.5px] font-black tracking-[0.1em] uppercase shadow-[0_12px_36px_rgba(0,0,0,0.92),0_0_20px_rgba(16,185,129,0.22)] flex items-center gap-2 pointer-events-none tabular-nums"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span>{editInToast}</span>
+        </div>
       )}
 
       {/* Offline Status Toast (only rendered when browser loses connectivity) */}

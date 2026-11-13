@@ -43,6 +43,7 @@ import {
   Video
 } from 'lucide-react';
 import { eventBus } from '../core/eventBus';
+import { useStudioStore } from '../core/store';
 
 export type StudioModuleId =
   | 'PLAYER'
@@ -109,6 +110,7 @@ export interface StudioNavRailProps {
   totalShots?: number;
   currentShotIndex?: number;
   saveState?: string;
+  isPlaying?: boolean;
 }
 
 type RailButtonKey =
@@ -166,8 +168,11 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   onSelectProfile,
   totalShots = 100,
   currentShotIndex = 0,
-  saveState = 'SAVED'
+  saveState = 'SAVED',
+  isPlaying
 }) => {
+  const storeIsPlaying = useStudioStore((s) => s.isPlaying);
+  const effectiveIsPlaying = typeof isPlaying === 'boolean' ? isPlaying : storeIsPlaying;
   const [currentProfile, setCurrentProfile] = useState<CameraLensProfile>(activeProfile);
   const [isRailLocked, setIsRailLocked] = useState(false);
   const [openFlyout, setOpenFlyout] = useState<{
@@ -680,7 +685,8 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   return (
     <aside
       aria-label="Director Left Tool Rail"
-      className={`h-full select-none z-30 shrink-0 bg-[#0B0B0D]/95 backdrop-blur-2xl border-r border-white/[0.07] flex flex-col font-mono-tech transition-all duration-200 relative ${
+      data-playing={effectiveIsPlaying ? 'true' : 'false'}
+      className={`nle-focus-bar h-full select-none z-30 shrink-0 bg-[#0B0B0D]/95 backdrop-blur-2xl border-r border-white/[0.07] flex flex-col font-mono-tech transition-all duration-200 relative ${
         isCollapsed ? 'w-[72px]' : 'w-56'
       }`}
     >
@@ -701,42 +707,50 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
               key={btn.key}
               type="button"
               data-testid={`rail-btn-${btn.key.toLowerCase()}`}
+              data-active={isActive ? 'true' : 'false'}
               aria-label={btn.title}
+              style={{
+                '--item-accent': btn.accentHex,
+                borderColor: isActive ? btn.accentHex : `${btn.accentHex}33`,
+                boxShadow: isActive
+                  ? `0 0 14px ${btn.accentHex}40, inset 0 1px 0 rgba(255,255,255,0.12)`
+                  : `0 0 8px ${btn.accentHex}14`
+              } as React.CSSProperties}
               onMouseEnter={(e) => openButtonFlyout(btn.key, e.currentTarget)}
               onMouseLeave={scheduleFlyoutClose}
               onClick={(e) => {
                 openButtonFlyout(btn.key, e.currentTarget);
                 btn.onPrimaryClick();
               }}
-              className={`group relative flex-1 min-h-0 rounded-md cursor-pointer transition-all duration-150 select-none active:scale-95 border ${
+              className={`nle-editorial-btn group relative flex-1 min-h-0 rounded-md cursor-pointer select-none active:scale-95 border ${
                 isActive
-                  ? 'bg-[#18181D] border-[#F59E0B]/55'
-                  : 'bg-[#141417] border-white/[0.07] hover:bg-[#1B1B20] hover:border-white/[0.15]'
+                  ? 'bg-[#181820] text-[#F4F4F5]'
+                  : 'bg-[#121216] hover:bg-[#191920] text-[#E4E4E7]'
               } ${
                 isCollapsed
                   ? 'w-full px-1 py-0.5 flex flex-col items-center justify-center gap-0.5'
                   : 'w-full px-2.5 py-0.5 flex items-center gap-2.5'
               }`}
             >
-              {/* Single Signature Molten Amber Active Indicator Bar */}
+              {/* Luminous Editorial Accent Indicator Bar */}
               <span
-                className={`absolute left-0 top-1.5 bottom-1.5 w-[2.5px] rounded-r transition-opacity ${
+                style={{ backgroundColor: btn.accentHex }}
+                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r transition-opacity duration-200 ${
                   isActive
-                    ? 'bg-[#F59E0B] opacity-100'
-                    : 'bg-[#8E8E93] opacity-0 group-hover:opacity-45'
+                    ? 'opacity-100'
+                    : 'opacity-45 group-hover:opacity-100'
                 }`}
               />
 
               <Icon
-                className={`w-5 h-5 shrink-0 transition-all duration-150 group-hover:scale-105 ${
-                  isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
-                }`}
+                style={{ color: btn.accentHex }}
+                className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
               />
 
               {isCollapsed ? (
                 <span
                   className={`text-[9.5px] leading-none font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
-                    isActive ? 'text-[#F4F4F5]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
+                    isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                   }`}
                 >
                   {btn.label}
@@ -746,18 +760,17 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                   <div className="flex items-center justify-between gap-1">
                     <span
                       className={`text-[11px] font-bold tracking-wider uppercase truncate transition-colors ${
-                        isActive ? 'text-[#F4F4F5]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
+                        isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                       }`}
                     >
                       {btn.label}
                     </span>
                     <ChevronRight
-                      className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                        isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
-                      }`}
+                      style={{ color: isActive ? btn.accentHex : undefined }}
+                      className="w-3.5 h-3.5 shrink-0 text-zinc-400 group-hover:text-white transition-colors"
                     />
                   </div>
-                  <div className="text-[8.5px] text-[#8E8E93] truncate leading-tight">
+                  <div className="text-[8.5px] text-zinc-400 truncate leading-tight">
                     {btn.why}
                   </div>
                 </div>

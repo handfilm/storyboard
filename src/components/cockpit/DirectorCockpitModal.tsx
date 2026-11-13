@@ -30,6 +30,8 @@ import {
   triggerFileDownload 
 } from '../../services/cockpitBridge';
 import { dispatchToExternalApp } from '../../utils/interchangeExport';
+import { EditInAppStrip } from '../bridge/EditInAppStrip';
+import { launchExternalEdit, ExternalEditApp } from '../../services/editInBridge';
 
 interface DirectorCockpitModalProps {
   isOpen: boolean;
@@ -74,28 +76,44 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
 
   const isTauri = isTauriEnvironment();
 
-  // Handler for individual tool dispatch
+  const activeShotIndex = Math.max(
+    0,
+    allShots.findIndex(
+      (s) => s.shotId === activeShot.shotId || String(s.shotNumber) === String(activeShot.shotNumber)
+    )
+  );
+
+  // Handler for individual tool dispatch (uses zero-prompt /api/edit-in bridge + live watcher)
   const handleDispatch = async (target: CockpitDispatchTarget) => {
     setIsProcessing(true);
     setDispatchStatus(`[ DISPATCHING TO ${target.toUpperCase()}... ]`);
 
     try {
-      const res = await dispatchToExternalApp({
-        appName: target,
-        shot: activeShot,
-        allShots,
-        audioTrack,
-        canvas: stageCanvasRef.current,
-        fps: fps === 30 ? 30 : 24,
-        projectName: 'HANDFILM_DIRECTOR_SEQUENCE'
-      });
-      setDispatchStatus(res.message);
+      if (target === 'photoshop' || target === 'premiere' || target === 'illustrator' || target === 'capcut') {
+        await launchExternalEdit({
+          app: target as ExternalEditApp,
+          shotIndex: activeShotIndex,
+          frame: null
+        });
+        setDispatchStatus(`[ ${target.toUpperCase()} DISPATCHED · LIVE AUTO-SYNC ARMED ]`);
+      } else {
+        const res = await dispatchToExternalApp({
+          appName: target,
+          shot: activeShot,
+          allShots,
+          audioTrack,
+          canvas: stageCanvasRef.current,
+          fps: fps === 30 ? 30 : 24,
+          projectName: 'HANDFILM_DIRECTOR_SEQUENCE'
+        });
+        setDispatchStatus(res.message);
+      }
 
       setWatchedFrames(prev => ({
         ...prev,
         [activeShot.shotNumber]: {
           lastModified: Date.now(),
-          path: res.filePath || `./frames/shot_${String(activeShot.shotNumber).padStart(2, '0')}_master.png`
+          path: `./.handfilm-scratch/shots/shot_${String(activeShotIndex + 1).padStart(2, '0')}`
         }
       }));
     } catch (err: any) {
@@ -286,7 +304,7 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
           {/* TAB 1: EXTERNAL APP DISPATCH */}
           {activeTab === 'bridges' && (
             <div className="space-y-4">
-              <div className="p-3 bg-[#0d0e15] border border-white/10 rounded-xl flex items-center justify-between">
+              <div className="p-3 bg-[#0d0e15] border border-white/10 rounded-xl flex flex-wrap items-center justify-between gap-2.5">
                 <div>
                   <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">ACTIVE TARGET SHOT</span>
                   <div className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
@@ -297,86 +315,108 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
                     <span className="text-zinc-500 text-xs font-bangla">// {activeShot.titleBn}</span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-zinc-500 uppercase">STYLE</span>
-                  <div className="text-xs font-bold text-amber-400">{activeShot.personality}</div>
-                </div>
+                <EditInAppStrip shotIndex={activeShotIndex} variant="drawer" />
               </div>
 
-              {/* 3 Main Tactical External Bridges */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 4 Direct Zero-Prompt External App Bridges */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* 1. Photoshop */}
-                <div className="p-3.5 rounded-xl border border-sky-500/30 bg-[#09111c] hover:border-sky-400 transition-all flex flex-col justify-between space-y-3">
+                <div className="p-3.5 rounded-xl border border-sky-500/35 bg-[#09111c] hover:border-sky-400 transition-all flex flex-col justify-between space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/40">
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#001E36] text-[#31A8FF] border border-[#31A8FF]/50">
                         PHOTOSHOP
                       </span>
-                      <span className="text-[9px] text-zinc-500">HOTKEY: Ctrl+Shift+P</span>
+                      <span className="text-[9px] text-zinc-500">LIVE SYNC</span>
                     </div>
                     <h3 className="text-xs font-bold text-white tracking-wide">[ PS // PAINT-OVER ]</h3>
                     <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
-                      Freezes active frame buffer to <code className="text-sky-300">shot_{String(activeShot.shotNumber).padStart(2, '0')}_master.png</code> and launches Photoshop with exact 4K plate.
+                      Writes scratch raster plate and opens Adobe Photoshop directly with instant Ctrl+S auto-reload.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleDispatch('photoshop')}
                     disabled={isProcessing}
-                    className="w-full py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
+                    className="w-full py-2 rounded-lg bg-[#31A8FF] hover:bg-sky-300 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>LAUNCH PHOTOSHOP</span>
+                    <span>OPEN IN PS</span>
                   </button>
                 </div>
 
                 {/* 2. Premiere Pro */}
-                <div className="p-3.5 rounded-xl border border-purple-500/30 bg-[#120a1c] hover:border-purple-400 transition-all flex flex-col justify-between space-y-3">
+                <div className="p-3.5 rounded-xl border border-indigo-400/35 bg-[#0b0a1c] hover:border-indigo-300 transition-all flex flex-col justify-between space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/40">
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#00005B] text-[#9999FF] border border-[#9999FF]/50">
                         PREMIERE PRO
                       </span>
                       <span className="text-[9px] text-zinc-500">NLE SYNC</span>
                     </div>
                     <h3 className="text-xs font-bold text-white tracking-wide">[ PR // TIMELINE ]</h3>
                     <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
-                      Generates XML marker timeline and opens Adobe Premiere Pro with exact in/out cut boundaries.
+                      Dispatches active clip/slate directly to Adobe Premiere Pro with live file-watcher sync.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleDispatch('premiere')}
                     disabled={isProcessing}
-                    className="w-full py-2 rounded-lg bg-purple-500 hover:bg-purple-400 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
+                    className="w-full py-2 rounded-lg bg-[#9999FF] hover:bg-indigo-200 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>LAUNCH PREMIERE</span>
+                    <span>OPEN IN PR</span>
                   </button>
                 </div>
 
-                {/* 3. CapCut */}
-                <div className="p-3.5 rounded-xl border border-amber-500/30 bg-[#140e06] hover:border-amber-400 transition-all flex flex-col justify-between space-y-3">
+                {/* 3. Illustrator */}
+                <div className="p-3.5 rounded-xl border border-orange-500/35 bg-[#190c06] hover:border-orange-400 transition-all flex flex-col justify-between space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#330000] text-[#FF9A00] border border-[#FF9A00]/50">
+                        ILLUSTRATOR
+                      </span>
+                      <span className="text-[9px] text-zinc-500">GFX SYNC</span>
+                    </div>
+                    <h3 className="text-xs font-bold text-white tracking-wide">[ AI // TITLE GFX ]</h3>
+                    <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
+                      Exports plate for vector typography/title overlays in Adobe Illustrator with live save sync.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDispatch('illustrator')}
+                    disabled={isProcessing}
+                    className="w-full py-2 rounded-lg bg-[#FF9A00] hover:bg-amber-300 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>OPEN IN AI</span>
+                  </button>
+                </div>
+
+                {/* 4. CapCut */}
+                <div className="p-3.5 rounded-xl border border-zinc-400/35 bg-[#111216] hover:border-white transition-all flex flex-col justify-between space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#0A0A0C] text-white border border-white/30">
                         CAPCUT DESKTOP
                       </span>
-                      <span className="text-[9px] text-zinc-500">REEL PACK</span>
+                      <span className="text-[9px] text-zinc-500">REEL SYNC</span>
                     </div>
-                    <h3 className="text-xs font-bold text-white tracking-wide">[ CC // REEL PACK ]</h3>
+                    <h3 className="text-xs font-bold text-white tracking-wide">[ CC // REEL EDIT ]</h3>
                     <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
-                      Bundles pre-trimmed clip, audio cue markers, and kinetic caption manifest for immediate CapCut template drop.
+                      Sends bound shot media directly into CapCut Desktop and watches disk saves automatically.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleDispatch('capcut')}
                     disabled={isProcessing}
-                    className="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
+                    className="w-full py-2 rounded-lg bg-white hover:bg-zinc-200 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>DISPATCH CAPCUT</span>
+                    <span>OPEN CAPCUT</span>
                   </button>
                 </div>
               </div>

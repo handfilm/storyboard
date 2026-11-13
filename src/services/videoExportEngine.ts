@@ -33,7 +33,12 @@ import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { Muxer as WebmMuxer, ArrayBufferTarget as WebmArrayBufferTarget } from 'webm-muxer';
 import JSZip from 'jszip';
 import { studioDraftDb } from './db';
-import { getShotMediaBlob, getShotMediaKey, ShotMediaMap } from './handfilmMediaVault';
+import {
+  getCandidateShotMediaKeys,
+  getShotMediaBlob,
+  resolveShotMediaEntry,
+  ShotMediaMap
+} from './handfilmMediaVault';
 import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
 import { renderAlignedCinemaTitleOverlay } from '../utils/interchangeExport';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
@@ -244,32 +249,130 @@ export function getBitrateBps(profile: BitrateProfile, is4K: boolean): number {
 }
 
 /**
- * Awaits `loadeddata` (readyState >= 2) on a dedicated offscreen <video> element.
+ * Awaits `onloadeddata` (readyState >= 2) on a dedicated offscreen <video> element.
  */
-async function waitForVideoLoadedData(video: HTMLVideoElement, timeoutMs: number = 2500): Promise<void> {
-  if (video.readyState >= 2 && video.videoWidth > 0) return;
-  await new Promise<void>((resolve) => {
+async function waitForVideoLoadedData(video: HTMLVideoElement, timeoutMs: number = 2500): Promise<boolean> {
+  if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) return true;
+  return await new Promise<boolean>((resolve) => {
     let done = false;
-    const finish = () => {
+    const finish = (ok: boolean) => {
       if (!done) {
         done = true;
-        video.removeEventListener('loadeddata', onLoaded);
-        video.removeEventListener('canplay', onLoaded);
-        video.removeEventListener('error', finish);
-        resolve();
-      }
-    };
-    const onLoaded = () => {
-      if (video.readyState >= 2) {
         clearTimeout(timer);
-        finish();
+        video.onloadeddata = null;
+        video.onerror = null;
+        resolve(ok);
       }
     };
-    const timer = setTimeout(finish, timeoutMs);
-    video.addEventListener('loadeddata', onLoaded);
-    video.addEventListener('canplay', onLoaded);
-    video.addEventListener('error', finish, { once: true });
+    const timer = setTimeout(
+      () => finish(video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0),
+      timeoutMs
+    );
+    video.onloadeddata = () => {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        finish(true);
+      }
+    };
+    video.onerror = () => finish(false);
+    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+      finish(true);
+    }
   });
+}
+
+function shouldUseAnonymousCors(url: string): boolean {
+  return Boolean(url) && !url.startsWith('blob:') && !url.startsWith('data:');
+}
+
+async function loadVideoElementWithOnLoadedData(
+  url: string,
+  timeoutMs: number = 2500
+): Promise<HTMLVideoElement | null> {
+  if (!url || typeof document === 'undefined') return null;
+  const vid = document.createElement('video');
+  vid.muted = true;
+  vid.playsInline = true;
+  vid.preload = 'auto';
+  if (shouldUseAnonymousCors(url)) {
+    vid.crossOrigin = 'anonymous';
+  }
+
+  const loadedPromise = new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        vid.onloadeddata = null;
+        vid.onerror = null;
+        resolve(ok);
+      }
+    };
+    const timer = setTimeout(
+      () => finish(vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0),
+      timeoutMs
+    );
+    vid.onloadeddata = () => {
+      finish(vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0);
+    };
+    vid.onerror = () => finish(false);
+  });
+
+  vid.src = url;
+  try {
+    vid.load();
+  } catch {
+    // Non-fatal; loadedPromise settles via onloadeddata/onerror/timeout
+  }
+
+  const ok = await loadedPromise;
+  if (ok && vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0) {
+    return vid;
+  }
+  try {
+    vid.src = '';
+  } catch {}
+  return null;
+}
+
+async function loadDecodedImage(
+  url: string,
+  timeoutMs: number = 2000
+): Promise<HTMLImageElement | null> {
+  if (!url) return null;
+  try {
+    const img = new Image();
+    if (shouldUseAnonymousCors(url)) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.src = url;
+    if (typeof img.decode === 'function') {
+      await Promise.race([
+        img.decode(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Image decode timeout')), timeoutMs)
+        )
+      ]);
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Image load timeout')), timeoutMs);
+        img.onload = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          reject(new Error('Image load error'));
+        };
+      });
+    }
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      return img;
+    }
+  } catch {
+    // Fall through cleanly to null -> procedural color gradient fallback
+  }
+  return null;
 }
 
 /**
@@ -776,9 +879,11 @@ function resolveExportShotDurationSec(slide: any, frame: any): number {
  * falling back to `studioDraftDb` only when no Vault entry exists for that shot.
  */
 async function loadShotRawBlob(shotIdx: number, slide: any, frame: any): Promise<Blob | null> {
-  const shotKey = getShotMediaKey(frame || slide, shotIdx);
-  const vaultBlob = await getShotMediaBlob(shotKey);
-  if (vaultBlob) return vaultBlob;
+  const candidateKeys = getCandidateShotMediaKeys(frame, slide, shotIdx);
+  for (const key of candidateKeys) {
+    const vaultBlob = await getShotMediaBlob(key);
+    if (vaultBlob) return vaultBlob;
+  }
 
   const mediaId = slide?.mediaBlobId || slide?.remoteUrl || frame?.imageUrl || '';
   if (mediaId && !mediaId.startsWith('http') && !mediaId.startsWith('data:') && !mediaId.startsWith('blob:')) {
@@ -789,8 +894,9 @@ async function loadShotRawBlob(shotIdx: number, slide: any, frame: any): Promise
 }
 
 /**
- * Decodes per-shot media from `shotMediaMap` (hydrated IndexedDB blob URLs) or `handfilm_media_vault`
- * into a decoded HTMLVideoElement (awaiting `loadeddata`) or HTMLImageElement/ImageBitmap (awaiting `img.decode()`).
+ * Decodes per-shot media from `shotMediaMap` (stored blob URLs) or `handfilm_media_vault`,
+ * explicitly awaiting `onloadeddata` for videos or `img.decode()` for images before capture.
+ * Returns null sources when missing or failed so `compositeCinemaFrame` falls back to the procedural color gradient.
  */
 async function loadShotSourceMedia(
   shotIdx: number,
@@ -803,26 +909,21 @@ async function loadShotSourceMedia(
   activeObjectUrl: string | null;
   ownsObjectUrl: boolean;
 }> {
-  const shotKey = getShotMediaKey(frame || slide, shotIdx);
   const storeMediaMap = useStudioStore.getState().shotMediaMap;
-  const mediaEntry = shotMediaMap?.[shotKey] ?? storeMediaMap?.[shotKey] ?? null;
+  const mediaEntry =
+    resolveShotMediaEntry(shotMediaMap, frame, slide, shotIdx) ??
+    resolveShotMediaEntry(storeMediaMap, frame, slide, shotIdx);
 
   let activeVideoElement: HTMLVideoElement | null = null;
   let activeBitmap: ImageBitmap | HTMLImageElement | null = null;
   let activeObjectUrl: string | null = null;
   let ownsObjectUrl = false;
 
-  // 1. Primary: Resolve directly from live `shotMediaMap[shot.id]` (IndexedDB hydrated blob: URL)
+  // 1. Primary: Resolve directly from `shotMediaMap` stored blob URL
   if (mediaEntry?.url) {
     if (mediaEntry.type === 'video') {
-      const vid = document.createElement('video');
-      vid.muted = true;
-      vid.playsInline = true;
-      vid.preload = 'auto';
-      vid.crossOrigin = 'anonymous';
-      vid.src = mediaEntry.url;
-      await waitForVideoLoadedData(vid, 2500);
-      if (vid.readyState >= 2 && vid.videoWidth > 0) {
+      const vid = await loadVideoElementWithOnLoadedData(mediaEntry.url, 2500);
+      if (vid) {
         return {
           activeVideoElement: vid,
           activeBitmap: null,
@@ -831,29 +932,14 @@ async function loadShotSourceMedia(
         };
       }
     } else {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = mediaEntry.url;
-        if (typeof img.decode === 'function') {
-          await img.decode();
-        } else {
-          await new Promise<void>((res) => {
-            img.onload = () => res();
-            img.onerror = () => res();
-            setTimeout(res, 1800);
-          });
-        }
-        if (img.naturalWidth > 0) {
-          return {
-            activeVideoElement: null,
-            activeBitmap: img,
-            activeObjectUrl: null,
-            ownsObjectUrl: false
-          };
-        }
-      } catch {
-        // Fall through to raw Blob recovery if hydrated blob URL expired
+      const img = await loadDecodedImage(mediaEntry.url, 2000);
+      if (img) {
+        return {
+          activeVideoElement: null,
+          activeBitmap: img,
+          activeObjectUrl: null,
+          ownsObjectUrl: false
+        };
       }
     }
   }
@@ -864,24 +950,33 @@ async function loadShotSourceMedia(
     if (rawBlob.type.startsWith('video/')) {
       activeObjectUrl = URL.createObjectURL(rawBlob);
       ownsObjectUrl = true;
-      activeVideoElement = document.createElement('video');
-      activeVideoElement.muted = true;
-      activeVideoElement.playsInline = true;
-      activeVideoElement.preload = 'auto';
-      activeVideoElement.crossOrigin = 'anonymous';
-      activeVideoElement.src = activeObjectUrl;
-      await waitForVideoLoadedData(activeVideoElement, 2500);
+      activeVideoElement = await loadVideoElementWithOnLoadedData(activeObjectUrl, 2500);
+      if (!activeVideoElement) {
+        URL.revokeObjectURL(activeObjectUrl);
+        activeObjectUrl = null;
+        ownsObjectUrl = false;
+      }
     } else {
-      try {
-        activeBitmap = await createImageBitmap(rawBlob);
-      } catch {
-        // fallback to procedural backdrop if corrupted
+      activeObjectUrl = URL.createObjectURL(rawBlob);
+      ownsObjectUrl = true;
+      activeBitmap = await loadDecodedImage(activeObjectUrl, 2000);
+      if (!activeBitmap) {
+        try {
+          activeBitmap = await createImageBitmap(rawBlob);
+        } catch {
+          activeBitmap = null;
+        }
+        URL.revokeObjectURL(activeObjectUrl);
+        activeObjectUrl = null;
+        ownsObjectUrl = false;
       }
     }
-    return { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl };
+    if (activeVideoElement || activeBitmap) {
+      return { activeVideoElement, activeBitmap, activeObjectUrl, ownsObjectUrl };
+    }
   }
 
-  // 3. Tertiary: Check frame/slide image or video URL
+  // 3. Tertiary: Check frame/slide remote or data URL
   const mediaUrl = frame?.videoSrc || frame?.imageUrl || slide?.remoteUrl || '';
   const isVideoMedia = Boolean(
     frame?.isVideo ||
@@ -892,33 +987,9 @@ async function loadShotSourceMedia(
 
   if (mediaUrl) {
     if (isVideoMedia) {
-      activeVideoElement = document.createElement('video');
-      activeVideoElement.muted = true;
-      activeVideoElement.playsInline = true;
-      activeVideoElement.preload = 'auto';
-      activeVideoElement.crossOrigin = 'anonymous';
-      activeVideoElement.src = mediaUrl;
-      await waitForVideoLoadedData(activeVideoElement, 2500);
+      activeVideoElement = await loadVideoElementWithOnLoadedData(mediaUrl, 2500);
     } else {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = mediaUrl;
-        if (typeof img.decode === 'function') {
-          await img.decode();
-        } else {
-          await new Promise<void>((res) => {
-            img.onload = () => res();
-            img.onerror = () => res();
-            setTimeout(res, 1800);
-          });
-        }
-        if (img.naturalWidth > 0) {
-          activeBitmap = img;
-        }
-      } catch (imgErr) {
-        console.warn('[videoExportEngine] Image load fallback warning:', imgErr);
-      }
+      activeBitmap = await loadDecodedImage(mediaUrl, 2000);
     }
   }
 

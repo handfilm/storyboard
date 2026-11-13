@@ -16,6 +16,9 @@ import JSZip from 'jszip';
 import { AnthologyFrame } from '../types/anthology';
 import { SlideDraft } from '../types/project';
 import { studioDraftDb } from './db';
+import { resolveShotMediaEntry, ShotMediaMap } from './handfilmMediaVault';
+import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
+import { useStudioStore } from '../core/store';
 import { SLIDE_DURATION_SEC } from '../types/editor';
 
 export interface ProductionPackageOptions {
@@ -24,6 +27,7 @@ export interface ProductionPackageOptions {
   aspectRatio: string;
   frames: AnthologyFrame[];
   slides?: SlideDraft[];
+  shotMediaMap?: ShotMediaMap;
   fps?: number;
   customFilename?: string;
   burnInTitles?: boolean;
@@ -66,13 +70,18 @@ async function resolveFrameAssetBlob(
   shotIndex: number,
   burnInTitles: boolean,
   targetWidth: number,
-  targetHeight: number
+  targetHeight: number,
+  shotMediaMap?: ShotMediaMap
 ): Promise<{ blob: Blob; filename: string }> {
   const shotNumPadded = String(shotIndex + 1).padStart(3, '0');
   const filename = `shot_${shotNumPadded}.png`;
 
-  // Check if frame has direct media URL or media_vault item
-  let mediaUrl = frame.imageUrl || slide?.remoteUrl || '';
+  const mediaEntry =
+    resolveShotMediaEntry(shotMediaMap, frame, slide, shotIndex) ??
+    resolveShotMediaEntry(useStudioStore.getState().shotMediaMap, frame, slide, shotIndex);
+
+  let mediaUrl = mediaEntry?.url || frame.imageUrl || slide?.remoteUrl || '';
+  let ownsTempObjectUrl = false;
 
   if (!mediaUrl) {
     try {
@@ -81,6 +90,7 @@ async function resolveFrameAssetBlob(
         const item = await studioDraftDb.getVaultMediaItem(slot.mediaId);
         if (item?.blob) {
           mediaUrl = URL.createObjectURL(item.blob);
+          ownsTempObjectUrl = true;
         }
       }
     } catch {}
@@ -93,62 +103,130 @@ async function resolveFrameAssetBlob(
   const ctx = canvas.getContext('2d');
 
   if (!ctx) {
+    if (ownsTempObjectUrl && mediaUrl) URL.revokeObjectURL(mediaUrl);
     return { blob: new Blob([], { type: 'image/png' }), filename };
   }
 
-  // Draw background fill
-  ctx.fillStyle = '#06070a';
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
+  // Always initialize with procedural color gradient backdrop
+  renderProceduralBackdropToCanvas(ctx, targetWidth, targetHeight, shotIndex, 0);
 
-  let imageRendered = false;
+  let mediaRendered = false;
 
   if (mediaUrl) {
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-        img.src = mediaUrl;
+    const isVideo = mediaEntry
+      ? mediaEntry.type === 'video'
+      : Boolean(
+          frame?.isVideo ||
+            slide?.isVideo ||
+            mediaUrl.startsWith('data:video') ||
+            /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
+        );
+    const useCors = !mediaUrl.startsWith('blob:') && !mediaUrl.startsWith('data:');
+
+    if (isVideo) {
+      const vid = document.createElement('video');
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.preload = 'auto';
+      if (useCors) vid.crossOrigin = 'anonymous';
+
+      const loaded = await new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (ok: boolean) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            vid.onloadeddata = null;
+            vid.onerror = null;
+            resolve(ok);
+          }
+        };
+        const timer = setTimeout(
+          () => finish(vid.readyState >= 2 && vid.videoWidth > 0),
+          2500
+        );
+        vid.onloadeddata = () => finish(vid.readyState >= 2 && vid.videoWidth > 0);
+        vid.onerror = () => finish(false);
+        vid.src = mediaUrl;
+        try {
+          vid.load();
+        } catch {}
       });
 
-      if (img.complete && img.naturalWidth > 0) {
-        // Compute cover crop
-        const imgRatio = img.naturalWidth / img.naturalHeight;
-        const targetRatio = targetWidth / targetHeight;
-        let sW = img.naturalWidth;
-        let sH = img.naturalHeight;
-        let sX = 0;
-        let sY = 0;
+      if (loaded && vid.videoWidth > 0 && vid.videoHeight > 0) {
+        try {
+          const vidRatio = vid.videoWidth / vid.videoHeight;
+          const targetRatio = targetWidth / targetHeight;
+          let sW = vid.videoWidth;
+          let sH = vid.videoHeight;
+          let sX = 0;
+          let sY = 0;
 
-        if (imgRatio > targetRatio) {
-          sW = img.naturalHeight * targetRatio;
-          sX = (img.naturalWidth - sW) / 2;
+          if (vidRatio > targetRatio) {
+            sW = vid.videoHeight * targetRatio;
+            sX = (vid.videoWidth - sW) / 2;
+          } else {
+            sH = vid.videoWidth / targetRatio;
+            const panY = slide?.panY ?? 50;
+            sY = ((vid.videoHeight - sH) * panY) / 100;
+          }
+
+          ctx.drawImage(vid, sX, sY, sW, sH, 0, 0, targetWidth, targetHeight);
+          mediaRendered = true;
+        } catch {}
+      }
+      try {
+        vid.src = '';
+      } catch {}
+    } else {
+      try {
+        const img = new Image();
+        if (useCors) img.crossOrigin = 'anonymous';
+        img.src = mediaUrl;
+        if (typeof img.decode === 'function') {
+          await img.decode();
         } else {
-          sH = img.naturalWidth / targetRatio;
-          const panY = slide?.panY ?? 50;
-          sY = ((img.naturalHeight - sH) * panY) / 100;
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('Image load failed'));
+          });
         }
 
-        ctx.drawImage(img, sX, sY, sW, sH, 0, 0, targetWidth, targetHeight);
-        imageRendered = true;
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+          const imgRatio = img.naturalWidth / img.naturalHeight;
+          const targetRatio = targetWidth / targetHeight;
+          let sW = img.naturalWidth;
+          let sH = img.naturalHeight;
+          let sX = 0;
+          let sY = 0;
+
+          if (imgRatio > targetRatio) {
+            sW = img.naturalHeight * targetRatio;
+            sX = (img.naturalWidth - sW) / 2;
+          } else {
+            sH = img.naturalWidth / targetRatio;
+            const panY = slide?.panY ?? 50;
+            sY = ((img.naturalHeight - sH) * panY) / 100;
+          }
+
+          ctx.drawImage(img, sX, sY, sW, sH, 0, 0, targetWidth, targetHeight);
+          mediaRendered = true;
+        }
+      } catch {
+        // Fallback to procedural backdrop initialized above
       }
-    } catch {
-      // Fallback to stylized cinema canvas plate
     }
   }
 
-  if (!imageRendered) {
-    // Stylized Anamorphic Scope Slate
-    const grad = ctx.createLinearGradient(0, 0, targetWidth, targetHeight);
-    grad.addColorStop(0, '#0a0d14');
-    grad.addColorStop(0.5, '#121622');
-    grad.addColorStop(1, '#06070a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, targetWidth, targetHeight);
+  if (ownsTempObjectUrl && mediaUrl) {
+    URL.revokeObjectURL(mediaUrl);
+  }
 
-    // Subtle Grid pattern
-    ctx.strokeStyle = 'rgba(245, 166, 35, 0.08)';
+  if (!mediaRendered) {
+    renderProceduralBackdropToCanvas(ctx, targetWidth, targetHeight, shotIndex, 0);
+
+    // Subtle framing crosshairs + slate watermark over procedural gradient
+    ctx.strokeStyle = 'rgba(245, 166, 35, 0.12)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(targetWidth * 0.2, 0);
@@ -159,8 +237,7 @@ async function resolveFrameAssetBlob(
     ctx.lineTo(targetWidth, targetHeight * 0.5);
     ctx.stroke();
 
-    // Slate Center Watermark
-    ctx.fillStyle = 'rgba(245, 166, 35, 0.35)';
+    ctx.fillStyle = 'rgba(245, 166, 35, 0.45)';
     ctx.font = `bold ${Math.round(targetHeight * 0.08)}px "JetBrains Mono", monospace`;
     ctx.textAlign = 'center';
     ctx.fillText(`RAWx SHOT ${shotNumPadded} // 2.39:1 CINEMA PLATE`, targetWidth / 2, targetHeight / 2 - 12);
@@ -577,7 +654,8 @@ export async function exportProductionPackageZip(
       i,
       burnInTitles,
       targetWidth,
-      targetHeight
+      targetHeight,
+      options.shotMediaMap
     );
 
     const arrayBuffer = await blob.arrayBuffer();

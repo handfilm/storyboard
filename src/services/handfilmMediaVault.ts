@@ -39,6 +39,40 @@ export function getShotMediaKey(
   return String(Math.max(0, fallbackIndex));
 }
 
+export function getCandidateShotMediaKeys(
+  primaryShot: { id?: string | number | null } | null | undefined,
+  secondaryShot: { id?: string | number | null } | null | undefined,
+  fallbackIndex: number = 0
+): string[] {
+  const keys: string[] = [];
+  const pushUnique = (val: string) => {
+    if (val && !keys.includes(val)) keys.push(val);
+  };
+  if (primaryShot && primaryShot.id !== undefined && primaryShot.id !== null && String(primaryShot.id).trim() !== '') {
+    pushUnique(String(primaryShot.id));
+  }
+  if (secondaryShot && secondaryShot.id !== undefined && secondaryShot.id !== null && String(secondaryShot.id).trim() !== '') {
+    pushUnique(String(secondaryShot.id));
+  }
+  pushUnique(String(Math.max(0, fallbackIndex)));
+  return keys;
+}
+
+export function resolveShotMediaEntry(
+  shotMediaMap: ShotMediaMap | null | undefined,
+  primaryShot: { id?: string | number | null } | null | undefined,
+  secondaryShot: { id?: string | number | null } | null | undefined,
+  fallbackIndex: number = 0
+): ShotMediaEntry | null {
+  if (!shotMediaMap) return null;
+  const candidates = getCandidateShotMediaKeys(primaryShot, secondaryShot, fallbackIndex);
+  for (const key of candidates) {
+    const entry = shotMediaMap[key];
+    if (entry?.url) return entry;
+  }
+  return null;
+}
+
 export function inferShotMediaType(fileOrBlob: Blob, name?: string): ShotMediaType {
   const mime = (fileOrBlob.type || '').toLowerCase();
   if (mime.startsWith('video/')) return 'video';

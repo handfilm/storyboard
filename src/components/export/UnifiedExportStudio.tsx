@@ -46,7 +46,7 @@ import {
 } from '../../utils/pdfExport';
 import { eventBus } from '../../core/eventBus';
 import { useStudioStore, resolveEffectiveTitleAlign } from '../../core/store';
-import { getShotMediaKey, ShotMediaMap } from '../../services/handfilmMediaVault';
+import { resolveShotMediaEntry, ShotMediaMap } from '../../services/handfilmMediaVault';
 import { getShotProceduralSpec, renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
 import { renderAlignedCinemaTitleOverlay } from '../../utils/interchangeExport';
 import { 
@@ -277,6 +277,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
   // 9. Interactive Shot Preview Selection (for dedicated canvas monitor)
   const [previewShotIdx, setPreviewShotIdx] = useState<number>(currentSlideIndex || 0);
+  const [failedThumbUrls, setFailedThumbUrls] = useState<Record<string, boolean>>({});
 
   // Synchronize Tab when initialTab changes
   useEffect(() => {
@@ -473,7 +474,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     }
   }, []);
 
-  // Idle Frame Preview Effect: Renders per-shot media from shotMediaMap (or procedural palette) with decoded image/video
+  // Idle Frame Preview Effect: Resolves per-shot media from shotMediaMap (stored blob URLs) and
+  // explicitly awaits `onloadeddata` / `img.decode()` before drawing onto the capture canvas,
+  // falling back to the shot's procedural color gradient when missing or failed.
   useEffect(() => {
     if (!isOpen || isExporting) return;
     const canvas = dedicatedCanvasRef.current;
@@ -494,11 +497,11 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     const titleEn = slide?.titleEn || frame?.title || `SHOT ${String(shotNum).padStart(3, '0')}`;
     const titleBn = slide?.titleBn || frame?.bengaliTitle || 'আলোর স্মৃতি';
     const tagline = slide?.tagline || frame?.tagline || '24.0 FPS RAW • MASTER CINE PROJECTION';
-    const shotKey = getShotMediaKey(frame || slide, validShotIdx);
-    const mediaEntry = activeShotMediaMap[shotKey];
+    const mediaEntry = resolveShotMediaEntry(activeShotMediaMap, frame, slide, validShotIdx);
     const thumbUrl = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
 
     let isCancelled = false;
+    let activePreviewVideo: HTMLVideoElement | null = null;
 
     const drawCompositingOverlay = () => {
       if (isCancelled) return;
@@ -605,10 +608,41 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       ctx.stroke();
     };
 
-    // Always initialize monitor with shot's exact procedural color gradient backdrop
-    renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+    const drawCoveredSource = (source: HTMLVideoElement | HTMLImageElement, srcW: number, srcH: number): boolean => {
+      if (srcW <= 0 || srcH <= 0) return false;
+      const iRatio = srcW / srcH;
+      const dRatio = w / h;
+      let dW = w;
+      let dH = h;
+      let dX = 0;
+      let dY = 0;
 
-    if (thumbUrl) {
+      if (iRatio > dRatio) {
+        dH = Math.round(w / iRatio);
+        dY = Math.round((h - dH) / 2);
+      } else {
+        dW = Math.round(h * iRatio);
+        dX = Math.round((w - dW) / 2);
+      }
+
+      try {
+        renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+        ctx.drawImage(source, dX, dY, dW, dH);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const renderPreviewFrame = async () => {
+      // Always initialize monitor with shot's exact procedural color gradient backdrop
+      renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+
+      if (!thumbUrl) {
+        drawCompositingOverlay();
+        return;
+      }
+
       const isVideo = mediaEntry
         ? mediaEntry.type === 'video'
         : Boolean(
@@ -618,91 +652,87 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
               /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumbUrl)
           );
 
+      const useCors = !thumbUrl.startsWith('blob:') && !thumbUrl.startsWith('data:');
+
       if (isVideo) {
         const vid = document.createElement('video');
-        vid.crossOrigin = 'anonymous';
+        activePreviewVideo = vid;
+        if (useCors) vid.crossOrigin = 'anonymous';
         vid.muted = true;
         vid.playsInline = true;
         vid.preload = 'auto';
-        vid.src = thumbUrl;
-        vid.onloadeddata = () => {
-          if (isCancelled || !dedicatedCanvasRef.current || vid.readyState < 2) return;
-          const iRatio = (vid.videoWidth || 16) / (vid.videoHeight || 9);
-          const dRatio = w / h;
-          let dW = w;
-          let dH = h;
-          let dX = 0;
-          let dY = 0;
 
-          if (iRatio > dRatio) {
-            dH = Math.round(w / iRatio);
-            dY = Math.round((h - dH) / 2);
-          } else {
-            dW = Math.round(h * iRatio);
-            dX = Math.round((w - dW) / 2);
-          }
-
-          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
-          ctx.drawImage(vid, dX, dY, dW, dH);
-          drawCompositingOverlay();
-        };
-        vid.onerror = () => {
-          if (!isCancelled) {
-            renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
-            drawCompositingOverlay();
-          }
-        };
-      } else {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = thumbUrl;
-        const paintDecodedImage = () => {
-          if (isCancelled || !dedicatedCanvasRef.current || !img.naturalWidth) return;
-          const iRatio = img.naturalWidth / Math.max(1, img.naturalHeight);
-          const dRatio = w / h;
-          let dW = w;
-          let dH = h;
-          let dX = 0;
-          let dY = 0;
-
-          if (iRatio > dRatio) {
-            dH = Math.round(w / iRatio);
-            dY = Math.round((h - dH) / 2);
-          } else {
-            dW = Math.round(h * iRatio);
-            dX = Math.round((w - dW) / 2);
-          }
-
-          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
-          ctx.drawImage(img, dX, dY, dW, dH);
-          drawCompositingOverlay();
-        };
-
-        if (typeof img.decode === 'function') {
-          img.decode().then(paintDecodedImage).catch(() => {
-            if (img.complete && img.naturalWidth > 0) {
-              paintDecodedImage();
-            } else if (!isCancelled) {
-              renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
-              drawCompositingOverlay();
-            }
-          });
-        } else {
-          img.onload = paintDecodedImage;
-          img.onerror = () => {
-            if (!isCancelled) {
-              renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
-              drawCompositingOverlay();
+        const loaded = await new Promise<boolean>((resolve) => {
+          let settled = false;
+          const finish = (ok: boolean) => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              vid.onloadeddata = null;
+              vid.onerror = null;
+              resolve(ok);
             }
           };
+          const timer = setTimeout(
+            () => finish(vid.readyState >= 2 && vid.videoWidth > 0),
+            2500
+          );
+          vid.onloadeddata = () => finish(vid.readyState >= 2 && vid.videoWidth > 0);
+          vid.onerror = () => finish(false);
+          vid.src = thumbUrl;
+          try {
+            vid.load();
+          } catch {}
+        });
+
+        if (isCancelled || !dedicatedCanvasRef.current) return;
+
+        if (!loaded || !drawCoveredSource(vid, vid.videoWidth, vid.videoHeight)) {
+          renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
         }
+        drawCompositingOverlay();
+        return;
       }
-    } else {
+
+      const img = new Image();
+      if (useCors) img.crossOrigin = 'anonymous';
+      img.src = thumbUrl;
+
+      let decoded = false;
+      try {
+        if (typeof img.decode === 'function') {
+          await img.decode();
+        } else {
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('Preview image failed to load'));
+          });
+        }
+        decoded = img.naturalWidth > 0 && img.naturalHeight > 0;
+      } catch {
+        decoded = img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+      }
+
+      if (isCancelled || !dedicatedCanvasRef.current) return;
+
+      if (!decoded || !drawCoveredSource(img, img.naturalWidth, img.naturalHeight)) {
+        renderProceduralBackdropToCanvas(ctx, w, h, validShotIdx, 0);
+      }
       drawCompositingOverlay();
-    }
+    };
+
+    void renderPreviewFrame();
 
     return () => {
       isCancelled = true;
+      if (activePreviewVideo) {
+        activePreviewVideo.onloadeddata = null;
+        activePreviewVideo.onerror = null;
+        try {
+          activePreviewVideo.src = '';
+        } catch {}
+        activePreviewVideo = null;
+      }
     };
   }, [
     isOpen,
@@ -1204,6 +1234,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         aspectRatio,
         frames: selectedFrames.length > 0 ? selectedFrames : (frames || []),
         slides,
+        shotMediaMap: activeShotMediaMap,
         fps: xmlFps,
         customFilename: customFilename ? `${customFilename}_ProductionPackage` : undefined,
         burnInTitles: packageBurnInTitles,
@@ -1232,6 +1263,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     selectedFrames,
     frames,
     slides,
+    activeShotMediaMap,
     xmlFps,
     customFilename,
     packageBurnInTitles,
@@ -1585,9 +1617,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                   const shotNumber = shotIdx + 1;
                   const shotLabel = `SH${String(shotNumber).padStart(3, '0')}`;
                   const title = slide?.titleEn || frame?.title || `Shot ${shotNumber}`;
-                  const shotKey = getShotMediaKey(frame || slide, shotIdx);
-                  const mediaEntry = activeShotMediaMap[shotKey];
-                  const thumb = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
+                  const mediaEntry = resolveShotMediaEntry(activeShotMediaMap, frame, slide, shotIdx);
+                  const rawThumb = mediaEntry?.url || slide?.remoteUrl || frame?.imageUrl || '';
+                  const thumb = rawThumb && !failedThumbUrls[rawThumb] ? rawThumb : '';
                   const isVideoThumb = mediaEntry
                     ? mediaEntry.type === 'video'
                     : Boolean(frame?.isVideo || slide?.isVideo || /\.(mp4|webm|mov|m4v)($|\?)/i.test(thumb));
@@ -1617,12 +1649,14 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                               muted
                               playsInline
                               preload="metadata"
+                              onError={() => setFailedThumbUrls((prev) => ({ ...prev, [thumb]: true }))}
                               className={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
                             />
                           ) : (
                             <img
                               src={thumb}
                               alt={shotLabel}
+                              onError={() => setFailedThumbUrls((prev) => ({ ...prev, [thumb]: true }))}
                               className={`w-full h-full object-cover ${isExcluded ? 'grayscale' : ''}`}
                             />
                           )

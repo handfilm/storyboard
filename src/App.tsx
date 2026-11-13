@@ -53,7 +53,7 @@ import { ProjectV1 } from './types/projectSchema';
 import { migrateToProjectV1, convertShotV1ToFrame, ensureUniqueFrameIds, getNextUniqueFrameId } from './utils/projectMigration';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
-import { ManifestoOverlay } from './components/landing/ManifestoOverlay';
+import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
 import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
@@ -256,16 +256,35 @@ export default function App() {
   const [isStorageInitialized, setIsStorageInitialized] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
 
-  // Standalone Director's Manifesto Overlay (Opens on cold launch & via HOME -> Director's Manifesto)
+  // Standalone Director's Manifesto Overlay State (shown on initial app launch and /manifesto route)
   const [showWalkthrough, setShowWalkthrough] = useState<boolean>(true);
+
+  useEffect(() => {
+    const syncManifestoRoute = () => {
+      if (typeof window === 'undefined') return;
+      if (window.location.hash === '#/manifesto' || window.location.pathname === '/manifesto') {
+        setShowWalkthrough(true);
+      }
+    };
+    syncManifestoRoute();
+    window.addEventListener('hashchange', syncManifestoRoute);
+    window.addEventListener('popstate', syncManifestoRoute);
+    return () => {
+      window.removeEventListener('hashchange', syncManifestoRoute);
+      window.removeEventListener('popstate', syncManifestoRoute);
+    };
+  }, []);
 
   const handleCloseWalkthrough = useCallback(() => {
     setShowWalkthrough(false);
-    setCurrentView('STUDIO');
-    setWorkspaceMode('STAGE');
-    setActiveDualPanel('TACTILE_STAGE');
     try {
       localStorage.setItem('rawx_walkthrough_seen', 'true');
+      if (
+        typeof window !== 'undefined' &&
+        (window.location.hash === '#/manifesto' || window.location.pathname === '/manifesto')
+      ) {
+        window.history.replaceState(null, '', '/');
+      }
     } catch (e) {
       console.warn('Could not save rawx_walkthrough_seen to localStorage', e);
     }
@@ -2742,6 +2761,7 @@ export default function App() {
   // Keyboard Navigation: NLE Shuttle, 1/24s Nudge, Loop Audition & Instant Purge
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showWalkthrough) return;
       // Don't intercept if user is typing in an input, textarea, select, or contentEditable
       const target = e.target as HTMLElement | null;
       if (
@@ -2906,7 +2926,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleStepFrame, isPlaying, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio, handleToggleMultiCam, handleToggleFocusMode, isShortcutsOpen, isCommandPaletteOpen]);
+  }, [showWalkthrough, handleStepFrame, isPlaying, workspaceMode, currentIndex, project, handleToggleTitles, handlePurgeMedia, handleOpenExportStudio, handleToggleMultiCam, handleToggleFocusMode, isShortcutsOpen, isCommandPaletteOpen]);
 
   // Touch Swipe on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -3374,7 +3394,7 @@ export default function App() {
 
   return (
     <div
-      className={`relative w-screen max-w-screen h-screen max-h-screen box-border bg-[#0B0B0D] text-[#F4F4F5] overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
+      className={`relative w-screen h-screen bg-[#0B0B0D] text-[#F4F4F5] overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -4181,9 +4201,9 @@ export default function App() {
         activeShotIndex={currentIndex}
       />
 
-      {/* Standalone 10-Slide Director's Manifesto Overlay (100% separate from HOME) */}
+      {/* 10-Slide Cinematic Walkthrough Manifesto Modal */}
       {showWalkthrough && (
-        <ManifestoOverlay onLaunchStudio={handleCloseWalkthrough} />
+        <LandingWalkthrough onLaunchStudio={handleCloseWalkthrough} />
       )}
 
       {/* 1-Click Multi-Clip Master Assembler & Compilation Wizard */}

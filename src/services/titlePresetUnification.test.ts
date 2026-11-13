@@ -379,28 +379,14 @@ test('StudioNavRail has exact 10 ordered tools (STORY..SYSTEM with LIGHT above F
   assert.ok(dockSource.includes('opacity-50'), 'Inactive thumbnail cards must dim to opacity-50');
 });
 
-test('Compact chrome proportions, decoupled ManifestoOverlay, single-screen 73/27 HandfilmHome, and 2.39:1 Stage aspect lock', () => {
+test('Compact chrome proportions and HandfilmHome 10 permanent manifesto slides', () => {
   const headerSource = readFileSync(new URL('../components/StageHeader.tsx', import.meta.url), 'utf8');
   assert.ok(headerSource.includes('h-[38px]'), 'StageHeader must render at compact 38px height');
-  assert.ok(headerSource.includes("Director&apos;s Manifesto"), 'StageHeader HOME dropdown must expose Director\'s Manifesto separately');
-
-  const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-  assert.ok(appSource.includes('<ManifestoOverlay onLaunchStudio={handleCloseWalkthrough} />'), 'App must render standalone ManifestoOverlay decoupled from HandfilmHome');
-  assert.ok(appSource.includes('max-w-screen h-screen max-h-screen'), 'App root shell must enforce 100vw/100vh bounds');
-
-  const manifestoSource = readFileSync(new URL('../components/landing/ManifestoOverlay.tsx', import.meta.url), 'utf8');
-  assert.ok(manifestoSource.includes("DIRECTOR'S MANIFESTO"), 'ManifestoOverlay must retain original RAWx // DIRECTOR\'S MANIFESTO header');
-  assert.ok(manifestoSource.includes('SKIP TO STUDIO'), 'ManifestoOverlay must retain SKIP TO STUDIO trigger');
-  assert.ok(manifestoSource.includes('ACTIVE PROBE'), 'ManifestoOverlay must retain original SYSTEM TELEMETRY / ACTIVE PROBE widget');
 
   const overlaySource = readFileSync(new URL('../components/StageTextOverlay.tsx', import.meta.url), 'utf8');
   assert.ok(overlaySource.includes('clamp('), 'StageTextOverlay must clamp hero font size responsively');
-  assert.ok(overlaySource.includes('cqw'), 'StageTextOverlay must scale proportionally inside locked stage container');
 
   const homeSource = readFileSync(new URL('../components/home/HandfilmHome.tsx', import.meta.url), 'utf8');
-  assert.ok(homeSource.includes('h-[calc(100vh-38px)] max-h-[calc(100vh-38px)] overflow-hidden'), 'HandfilmHome must fit cleanly in a single screen with zero vertical scroll');
-  assert.ok(homeSource.includes('lg:grid-cols-[73fr_27fr]'), 'HandfilmHome must use wider 73% slider + 27% compact workspace deck layout');
-
   const expectedSlides = [
     'দৃষ্টির সীমানা',
     'BEYOND THE FRAME // RAW 4K ANAMORPHIC ARCHITECTURE',
@@ -426,16 +412,31 @@ test('Compact chrome proportions, decoupled ManifestoOverlay, single-screen 73/2
   for (const text of expectedSlides) {
     assert.ok(homeSource.includes(text), `Missing manifesto slide string: ${text}`);
   }
-  for (const label of ['STAGE', '12S REELS', 'SCRUB', 'COCKPIT', 'ENTER STUDIO WORKSPACE', '#F59E0B', '#F43F5E', '#06B6D4', '#A855F7']) {
-    assert.ok(homeSource.includes(label), `Missing compact animated deck token: ${label}`);
+  for (const label of ['STAGE', '12s REELS', 'SCRUB', 'COCKPIT', 'ENTER STUDIO WORKSPACE']) {
+    assert.ok(homeSource.includes(label), `Missing showcase deck label: ${label}`);
   }
-
-  const stageSource = readFileSync(new URL('../components/stage/TactileStage.tsx', import.meta.url), 'utf8');
-  assert.ok(stageSource.includes('computeLockedStageBoxStyle'), 'TactileStage must lock stage canvas using computeLockedStageBoxStyle');
-  assert.ok(stageSource.includes('bg-[#050505]'), 'TactileStage must center locked frame inside #050505 matte theater well');
-
-  const aspectSource = readFileSync(new URL('../utils/stageAspect.ts', import.meta.url), 'utf8');
-  assert.ok(aspectSource.includes('aspectRatio:'), 'stageAspect must apply explicit CSS aspectRatio lock');
-  assert.ok(aspectSource.includes('2.39'), 'stageAspect must default to 2.39:1 anamorphic gate');
+  for (const cardString of [
+    'Top 10 Master Shots Today',
+    'OPENING SEQUENCE // RAW 4K',
+    'EVENT HORIZON // 35MM FILM',
+    'SOLAR CORONA // NOCTILUX',
+    'VELOCITY IMPACT // ZERO BLUR',
+    'SILENT GAZE // CLOSER 85MM',
+    'END SEQUENCE // 4K BROADCAST',
+    'More Reasons to Create on HANDFILM',
+    'LOCAL DATA SOVEREIGNTY',
+    'TEMPORAL PRECISION',
+    'NLE PIPELINE',
+    'Frequently Asked Questions',
+    'OPEN HANDFILM PRO STUDIO NOW',
+    'HANDS &amp; HEAD CREATIVE GROUP',
+    'All Rights Reserved',
+    'Rakib Himon',
+  ]) {
+    assert.ok(homeSource.includes(cardString), `Missing restored Home content: ${cardString}`);
+  }
+  assert.strictEqual(homeSource.includes('CHOPPER 140 BPM'), false);
+  assert.strictEqual(homeSource.includes('DROP 4K MEDIA HERE'), false);
 });
+
 

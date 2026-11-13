@@ -22,7 +22,6 @@ import {
   computeThreeSlotIndices,
   createSeekGuardController
 } from '../../utils/stagePlaybackMath';
-import { computeLockedStageBoxStyle } from '../../utils/stageAspect';
 import {
   Play,
   Pause,
@@ -1408,10 +1407,24 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     }
   };
 
-  // True Mathematical Aspect-Ratio Containment (2.39:1 default, or selected ratio)
-  // Prevents stretching across ultrawide viewports and centers cleanly in a matte #050505 theater well.
-  const getStageBoxStyle = (): React.CSSProperties =>
-    computeLockedStageBoxStyle(aspectRatio || '2.39:1', stageScale);
+  // Dynamic Aspect Ratio Auto-Fitting:
+  // - Clean, responsive framing flush to top with no blank gap
+  // - Leaves dedicated clearance at bottom for bezel ribbon and control dock
+  // Tight Edge-to-Edge Stage Sizing: fills 100% of available stage width & height at 100% scale,
+  // or scales cleanly to 70% when toggled in the Stage Metadata Bar.
+  const getStageBoxStyle = (): React.CSSProperties => {
+    if (stageScale === 0.7) {
+      return {
+        width: '70%',
+        height: '70%',
+        margin: '0 auto'
+      };
+    }
+    return {
+      width: '100%',
+      height: '100%'
+    };
+  };
 
   const fitModeClass =
     stageFitMode === 'contain'
@@ -1664,11 +1677,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
       )}
 
-      {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (TRUE 2.39:1 ASPECT-LOCKED THEATER WELL) */}
-      <div
-        style={{ containerType: 'size' }}
-        className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden bg-[#050505] p-1 sm:p-2"
-      >
+      {/* 2. PURE ZERO-OVERLAY CINEMA VIDEO BOX (TIGHT EDGE-TO-EDGE FIT) */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden p-0">
         <div
           id="stage-media-container"
           ref={stageMediaContainerRef}
@@ -1683,7 +1693,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onPointerUp={handleStagePointerUp}
           onPointerCancel={handleStagePointerCancel}
           style={getStageBoxStyle()}
-          className="relative bg-[#000000] rounded-none overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair transition-[width,height] duration-200 ease-out shadow-[0_0_48px_rgba(0,0,0,0.9)]"
+          className="relative bg-[#000000] border-y border-white/10 rounded-none overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair transition-[width,height] duration-200 ease-out"
         >
         {/* DYNAMIC CANVAS SVG BARREL DISTORTION FILTER */}
         <svg

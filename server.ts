@@ -14,7 +14,12 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const portArgIdx = process.argv.indexOf('--port');
-const cliPort = portArgIdx !== -1 ? Number(process.argv[portArgIdx + 1]) : NaN;
+const eqPortArg = process.argv.find((arg) => arg.startsWith('--port='));
+const cliPort = portArgIdx !== -1
+  ? Number(process.argv[portArgIdx + 1])
+  : eqPortArg
+    ? Number(eqPortArg.slice('--port='.length))
+    : Number(process.env.PORT);
 const PORT = Number.isFinite(cliPort) && cliPort > 0 ? cliPort : 3000;
 const HOST = '0.0.0.0';
 
@@ -947,10 +952,11 @@ app.get('/api/watch-asset/:shotId', (req, res) => {
 // Mount Vite in Development
 async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
+  let vite: { middlewares: any; close: () => Promise<void> } | null = null;
 
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
+    vite = await createViteServer({
       server: { middlewareMode: true, hmr: false, ws: false },
       appType: 'spa',
     });
@@ -963,9 +969,30 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, HOST, () => {
+  const httpServer = app.listen(PORT, HOST, () => {
     console.log(`[RAWx ENGINE] Full-Stack server running on http://${HOST}:${PORT}`);
   });
+
+  httpServer.on('error', (err) => {
+    console.error('[RAWx ENGINE] Server error:', err);
+    process.exit(1);
+  });
+
+  const shutdown = async () => {
+    try {
+      if (vite) await vite.close();
+      httpServer.close(() => process.exit(0));
+      setTimeout(() => process.exit(0), 2000).unref();
+    } catch {
+      process.exit(0);
+    }
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('[RAWx ENGINE] Fatal startup error:', err);
+  process.exit(1);
+});

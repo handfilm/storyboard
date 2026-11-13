@@ -37,7 +37,6 @@ import { TactileTransport } from '../controls/TactileTransport';
 import { StageTextOverlay } from '../StageTextOverlay';
 import { useVideoPlaybackEngine, JklVelocity } from '../../hooks/useVideoPlaybackEngine';
 import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcuts';
-import { computeLockedStageBoxStyle } from '../../utils/stageAspect';
 import { 
   Film, 
   Upload, 
@@ -535,8 +534,19 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     }
   }, [onUploadMedia]);
 
-  const getStageBoxStyle = (): React.CSSProperties =>
-    computeLockedStageBoxStyle(aspectRatio || '2.39:1', stageScale);
+  const getStageBoxStyle = (): React.CSSProperties => {
+    if (stageScale === 0.7) {
+      return {
+        width: '70%',
+        height: '70%',
+        margin: '0 auto'
+      };
+    }
+    return {
+      width: '100%',
+      height: '100%'
+    };
+  };
 
   // Telemetry velocity label
   const velocityBadge = useMemo(() => {
@@ -595,14 +605,11 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
         onToggleFullscreen={toggleFullscreen}
       />
 
-      {/* Primary Pure Zero-Overlay Cinema Playback Canvas (True Aspect-Locked Theater Well) */}
-      <div
-        style={{ containerType: 'size' }}
-        className="flex-1 w-full flex items-center justify-center min-h-0 relative overflow-hidden bg-[#050505] p-1 sm:p-2"
-      >
+      {/* Primary Pure Zero-Overlay Cinema Playback Canvas */}
+      <div className="flex-1 w-full flex items-center justify-center min-h-0 relative overflow-hidden p-0">
         <div
           style={getStageBoxStyle()}
-          className="relative bg-[#0E0E12] overflow-hidden flex items-center justify-center transition-[width,height,background-color] duration-200 ease-out"
+          className="relative bg-[#0E0E12] border-y border-[#1C1C24] overflow-hidden flex items-center justify-center transition-[width,height,background-color] duration-200 ease-out"
         >
           
           {/* Active Media Display - Ultra Clean Display with Multi-Layer Zoom & Cross-Dissolve */}

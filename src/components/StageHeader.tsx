@@ -1205,13 +1205,19 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             >
               <button
                 type="button"
-                data-active={activeDropdown === 'HOME' ? 'true' : 'false'}
+                data-active={activeDropdown === 'HOME' || currentView === 'HOME' ? 'true' : 'false'}
                 style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
                 aria-expanded={activeDropdown === 'HOME'}
                 aria-haspopup="menu"
-                onClick={() => toggleDropdown('HOME')}
+                onClick={() => {
+                  if (currentView !== 'HOME') {
+                    handleHomeClick();
+                  } else {
+                    toggleDropdown('HOME');
+                  }
+                }}
                 className={`nle-editorial-btn h-[26px] px-2 rounded-[4px] border font-mono text-[10px] xl:text-[11px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
-                  activeDropdown === 'HOME'
+                  activeDropdown === 'HOME' || currentView === 'HOME'
                     ? 'bg-[#171820] border-[#F59E0B]/60 text-[#F4F4F5]'
                     : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
                 }`}
@@ -1395,14 +1401,15 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     </button>
                     <button
                       type="button"
+                      role="menuitem"
                       onClick={() => {
                         setActiveDropdown(null);
                         if (onOpenManifesto) onOpenManifesto();
                         else eventBus.emit('walkthrough:open');
                       }}
-                      className="text-[10px] text-[#8E8E93] hover:text-[#F4F4F5] py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
+                      className="text-[10px] text-[#8E8E93] hover:text-[#F59E0B] py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
                     >
-                      Director&apos;s Manifesto
+                      Director's Manifesto
                     </button>
                   </div>
                 </div>

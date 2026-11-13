@@ -105,6 +105,24 @@ export const TitlePresetConfigSchema = z.object({
   uppercase: z.boolean().optional()
 });
 
+export const ShotTitleDataSchema = z.object({
+  enabled: z.boolean().default(true),
+  presetId: z.string().default('molten-gold'),
+  banglaTitle: z.string().default(''),
+  englishSubtitle: z.string().default(''),
+  captionNote: z.string().optional(),
+  alignment: z.enum(['LEFT', 'MID', 'RIGHT', 'AUTO']).default('MID'),
+  fontScale: z.number().default(72),
+  glowIntensity: z.number().default(1.0),
+  letterTracking: z.number().default(0.15),
+  verticalOffset: z.number().default(0),
+  entranceAnim: z.string().optional(),
+  exitAnim: z.enum(['dissolve-out', 'slide-out', 'none']).optional(),
+  styleConfig: TitlePresetConfigSchema.optional()
+});
+
+export type ShotTitleData = z.infer<typeof ShotTitleDataSchema>;
+
 export const ShotSchema = z.object({
   id: z.number(),
   epNumber: z.string(),
@@ -140,6 +158,7 @@ export const ShotSchema = z.object({
   titleAnimation: z.string().optional(),
   activeTitlePreset: z.string().optional(),
   titleStyleConfig: TitlePresetConfigSchema.optional(),
+  titleData: ShotTitleDataSchema.optional(),
   dopamineConfig: z
     .object({
       presetId: z.string().optional(),

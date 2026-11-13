@@ -7,7 +7,9 @@
 import { AnthologyFrame } from '../types/anthology';
 import {
   TitlePresetCategory,
-  TitlePresetConfig
+  TitlePresetConfig,
+  ShotTitleData,
+  ShotTitleAlignment
 } from '../types/titlePreset';
 import { CORPORATE_PROFILES } from './corporateData';
 
@@ -918,13 +920,14 @@ export function stripDopamineDirectorNote(notes?: string): string {
 /**
  * Applies a TitleTemplatePreset onto an existing AnthologyFrame cleanly:
  * - Clears `dopamineConfig` and strips stale Dopamine director notes
- * - Writes `activeTitlePreset` and full `titleStyleConfig`
+ * - Writes `activeTitlePreset`, `titleStyleConfig`, and isolated `titleData`
  * - Preserves media (`imageUrl`, `videoUrl`, `videoSrc`) and duration
  */
 export function applyTitleTemplateToFrame(
   frame: AnthologyFrame,
   preset: TitleTemplatePreset,
-  overrides?: Partial<TitlePresetConfig>
+  overrides?: Partial<TitlePresetConfig>,
+  options?: { preserveCustomText?: boolean }
 ): AnthologyFrame {
   const styleConfig = buildTitlePresetConfig(preset, overrides);
   const cleanedNotes = stripDopamineDirectorNote(frame.directorNotes);
@@ -932,10 +935,33 @@ export function applyTitleTemplateToFrame(
     ? `[CTA: ${preset.callToAction}] ${cleanedNotes}`.trim()
     : cleanedNotes;
 
+  const preserveText = Boolean(options?.preserveCustomText);
+  const existingBn = frame.titleData?.banglaTitle || frame.bengaliTitle;
+  const existingEn = frame.titleData?.englishSubtitle || frame.title;
+  const nextBangla = preserveText && existingBn ? existingBn : (preset.bengaliText || frame.bengaliTitle || preset.primaryText);
+  const nextEnglish = preserveText && existingEn ? existingEn : preset.primaryText;
+  const nextCaption = frame.titleData?.captionNote ?? (nextNotes || preset.secondaryText || frame.tagline || '');
+
+  const nextTitleData: ShotTitleData = {
+    enabled: frame.titleData?.enabled ?? true,
+    presetId: preset.id,
+    banglaTitle: nextBangla,
+    englishSubtitle: nextEnglish,
+    captionNote: nextCaption,
+    alignment: frame.titleData?.alignment ?? 'MID',
+    fontScale: styleConfig.fontScale,
+    glowIntensity: styleConfig.glowIntensity,
+    letterTracking: styleConfig.letterTracking,
+    verticalOffset: styleConfig.verticalOffset,
+    entranceAnim: styleConfig.motionAnimation,
+    exitAnim: frame.titleData?.exitAnim ?? 'dissolve-out',
+    styleConfig
+  };
+
   return {
     ...frame,
-    title: preset.primaryText,
-    bengaliTitle: preset.bengaliText || frame.bengaliTitle,
+    title: nextEnglish,
+    bengaliTitle: nextBangla,
     tagline: preset.secondaryText || frame.tagline,
     colorAccent: preset.color,
     imageUrl: frame.imageUrl || preset.mockImage,
@@ -943,12 +969,13 @@ export function applyTitleTemplateToFrame(
     dopamineConfig: undefined,
     activeTitlePreset: preset.id,
     titleStyleConfig: styleConfig,
+    titleData: nextTitleData,
     directorNotes: nextNotes,
     tags: (frame.tags || []).filter((t) => t !== 'dopamine'),
     titleAnimation: preset.animationStyle,
     caption: {
-      text: preset.primaryText,
-      bengaliText: preset.bengaliText || frame.bengaliTitle,
+      text: nextEnglish,
+      bengaliText: nextBangla,
       style: preset.category === 'rap' ? 'rap_pop' : 'cinematic_minimal',
       color: preset.color,
       fontFamily: preset.fontFamily,
@@ -957,12 +984,191 @@ export function applyTitleTemplateToFrame(
   };
 }
 
+const DEFAULT_FALLBACK_BANGLA_HEADLINES = ['শূন্য', 'আলো', 'সংঘাত', 'দৃষ্টির সীমানা'];
+
+export function createDefaultShotTitleData(
+  shotOrFrame:
+    | {
+        title?: string;
+        titleEn?: string;
+        bengaliTitle?: string;
+        titleBn?: string;
+        tagline?: string;
+        directorNotes?: string;
+        activeTitlePreset?: string;
+        titleStyleConfig?: TitlePresetConfig;
+        dopamineConfig?: {
+          presetId?: string;
+          presetName?: string;
+          hookText?: string;
+          subText?: string;
+          accentColor?: string;
+          glitchIntensity?: number;
+        };
+      }
+    | null
+    | undefined,
+  index: number = 0
+): ShotTitleData & { styleConfig: TitlePresetConfig } {
+  const fallbackBn = DEFAULT_FALLBACK_BANGLA_HEADLINES[Math.abs(index) % DEFAULT_FALLBACK_BANGLA_HEADLINES.length];
+  const presetId =
+    shotOrFrame?.dopamineConfig?.presetId ||
+    shotOrFrame?.titleStyleConfig?.presetId ||
+    shotOrFrame?.activeTitlePreset ||
+    'molten-gold';
+
+  const baseStyleConfig = shotOrFrame?.dopamineConfig
+    ? (shotOrFrame.titleStyleConfig?.category === 'DOPAMINE'
+        ? shotOrFrame.titleStyleConfig
+        : buildDopamineTitlePresetConfig(shotOrFrame.dopamineConfig))
+    : shotOrFrame?.titleStyleConfig || buildTitlePresetConfigById(presetId);
+
+  const rawBn = shotOrFrame?.bengaliTitle ?? shotOrFrame?.titleBn;
+  const rawEn = shotOrFrame?.title ?? shotOrFrame?.titleEn;
+  const rawCaption = shotOrFrame?.directorNotes || shotOrFrame?.tagline || '';
+
+  return {
+    enabled: true,
+    presetId: baseStyleConfig.presetId || presetId,
+    banglaTitle: rawBn && rawBn.trim().length > 0 ? rawBn : fallbackBn,
+    englishSubtitle:
+      rawEn && rawEn.trim().length > 0
+        ? rawEn
+        : `SHOT ${String(index + 1).padStart(3, '0')} // MASTER SEQUENCE`,
+    captionNote: rawCaption,
+    alignment: 'MID',
+    fontScale: baseStyleConfig.fontScale ?? 72,
+    glowIntensity: baseStyleConfig.glowIntensity ?? 1.0,
+    letterTracking: baseStyleConfig.letterTracking ?? 0.15,
+    verticalOffset: baseStyleConfig.verticalOffset ?? 0,
+    entranceAnim: baseStyleConfig.motionAnimation || 'slow-cinema-fade',
+    exitAnim: 'dissolve-out',
+    styleConfig: baseStyleConfig
+  };
+}
+
 /**
- * Resolves the active TitlePresetConfig for any shot/frame/slide with store fallback.
+ * Resolves strict per-shot isolated ShotTitleData.
+ * Never inherits another shot's global preset/text unless `fallbackStoreConfig.heroGlobal === true`
+ * and the shot lacks an explicit `titleData` / `titleStyleConfig` / `activeTitlePreset`.
+ */
+export function resolveShotTitleData(
+  shotOrFrame:
+    | {
+        titleData?: ShotTitleData;
+        title?: string;
+        titleEn?: string;
+        bengaliTitle?: string;
+        titleBn?: string;
+        tagline?: string;
+        directorNotes?: string;
+        activeTitlePreset?: string;
+        titleStyleConfig?: TitlePresetConfig;
+        dopamineConfig?: {
+          presetId?: string;
+          presetName?: string;
+          hookText?: string;
+          subText?: string;
+          accentColor?: string;
+          glitchIntensity?: number;
+        };
+      }
+    | null
+    | undefined,
+  index: number = 0,
+  fallbackStoreConfig?: {
+    heroGlobal?: boolean;
+    preset?: string;
+    activePresetConfig?: TitlePresetConfig;
+    titleSize?: number;
+    glowIntensity?: number;
+    tracking?: number;
+    verticalOffset?: number;
+    showTitles?: boolean;
+  },
+  fallbackAlignment?: ShotTitleAlignment
+): ShotTitleData & { styleConfig: TitlePresetConfig } {
+  const defaults = createDefaultShotTitleData(shotOrFrame, index);
+  const existing = shotOrFrame?.titleData;
+
+  if (existing) {
+    const resolvedStyle: TitlePresetConfig = existing.styleConfig
+      ? {
+          ...existing.styleConfig,
+          fontScale: existing.fontScale ?? existing.styleConfig.fontScale,
+          glowIntensity: existing.glowIntensity ?? existing.styleConfig.glowIntensity,
+          letterTracking: existing.letterTracking ?? existing.styleConfig.letterTracking,
+          verticalOffset: existing.verticalOffset ?? existing.styleConfig.verticalOffset
+        }
+      : buildTitlePresetConfigById(existing.presetId || defaults.presetId, {
+          fontScale: existing.fontScale,
+          glowIntensity: existing.glowIntensity,
+          letterTracking: existing.letterTracking,
+          verticalOffset: existing.verticalOffset
+        });
+
+    return {
+      ...defaults,
+      ...existing,
+      banglaTitle:
+        typeof existing.banglaTitle === 'string' && existing.banglaTitle.length > 0
+          ? existing.banglaTitle
+          : defaults.banglaTitle,
+      englishSubtitle:
+        typeof existing.englishSubtitle === 'string' && existing.englishSubtitle.length > 0
+          ? existing.englishSubtitle
+          : defaults.englishSubtitle,
+      alignment: existing.alignment ?? fallbackAlignment ?? 'MID',
+      fontScale: existing.fontScale ?? resolvedStyle.fontScale,
+      glowIntensity: existing.glowIntensity ?? resolvedStyle.glowIntensity,
+      letterTracking: existing.letterTracking ?? resolvedStyle.letterTracking,
+      verticalOffset: existing.verticalOffset ?? resolvedStyle.verticalOffset,
+      styleConfig: resolvedStyle
+    };
+  }
+
+  // If heroGlobal is explicitly enabled by user AND shot has no shot-level override, allow global style template
+  const hasExplicitShotStyle = Boolean(
+    shotOrFrame?.dopamineConfig ||
+      shotOrFrame?.titleStyleConfig ||
+      shotOrFrame?.activeTitlePreset
+  );
+
+  if (!hasExplicitShotStyle && fallbackStoreConfig?.heroGlobal && fallbackStoreConfig.activePresetConfig) {
+    const g = fallbackStoreConfig.activePresetConfig;
+    const syncedStyle: TitlePresetConfig = {
+      ...g,
+      fontScale: fallbackStoreConfig.titleSize ?? g.fontScale,
+      glowIntensity: fallbackStoreConfig.glowIntensity ?? g.glowIntensity,
+      letterTracking: fallbackStoreConfig.tracking ?? g.letterTracking,
+      verticalOffset: fallbackStoreConfig.verticalOffset ?? g.verticalOffset
+    };
+    return {
+      ...defaults,
+      presetId: syncedStyle.presetId,
+      alignment: fallbackAlignment ?? 'MID',
+      fontScale: syncedStyle.fontScale,
+      glowIntensity: syncedStyle.glowIntensity,
+      letterTracking: syncedStyle.letterTracking,
+      verticalOffset: syncedStyle.verticalOffset,
+      entranceAnim: syncedStyle.motionAnimation,
+      styleConfig: syncedStyle
+    };
+  }
+
+  return {
+    ...defaults,
+    alignment: fallbackAlignment ?? defaults.alignment
+  };
+}
+
+/**
+ * Resolves the active TitlePresetConfig for any shot/frame/slide.
  */
 export function resolveShotTitlePresetConfig(
   shotOrFrame:
     | {
+        titleData?: ShotTitleData;
         titleStyleConfig?: TitlePresetConfig;
         activeTitlePreset?: string;
         dopamineConfig?: {
@@ -975,6 +1181,7 @@ export function resolveShotTitlePresetConfig(
     | null
     | undefined,
   heroTitleConfig?: {
+    heroGlobal?: boolean;
     preset?: string;
     activePresetConfig?: TitlePresetConfig;
     titleSize?: number;
@@ -983,6 +1190,18 @@ export function resolveShotTitlePresetConfig(
     verticalOffset?: number;
   }
 ): TitlePresetConfig {
+  if (shotOrFrame?.titleData?.styleConfig) {
+    return {
+      ...shotOrFrame.titleData.styleConfig,
+      fontScale: shotOrFrame.titleData.fontScale ?? shotOrFrame.titleData.styleConfig.fontScale,
+      glowIntensity:
+        shotOrFrame.titleData.glowIntensity ?? shotOrFrame.titleData.styleConfig.glowIntensity,
+      letterTracking:
+        shotOrFrame.titleData.letterTracking ?? shotOrFrame.titleData.styleConfig.letterTracking,
+      verticalOffset:
+        shotOrFrame.titleData.verticalOffset ?? shotOrFrame.titleData.styleConfig.verticalOffset
+    };
+  }
   if (shotOrFrame?.dopamineConfig) {
     if (shotOrFrame.titleStyleConfig?.category === 'DOPAMINE') {
       return shotOrFrame.titleStyleConfig;
@@ -995,7 +1214,7 @@ export function resolveShotTitlePresetConfig(
   if (shotOrFrame?.activeTitlePreset) {
     return buildTitlePresetConfigById(shotOrFrame.activeTitlePreset);
   }
-  if (heroTitleConfig?.activePresetConfig) {
+  if (heroTitleConfig?.heroGlobal && heroTitleConfig?.activePresetConfig) {
     return {
       ...heroTitleConfig.activePresetConfig,
       fontScale: heroTitleConfig.titleSize ?? heroTitleConfig.activePresetConfig.fontScale,
@@ -1004,11 +1223,19 @@ export function resolveShotTitlePresetConfig(
       verticalOffset: heroTitleConfig.verticalOffset ?? heroTitleConfig.activePresetConfig.verticalOffset
     };
   }
-  return buildTitlePresetConfigById(heroTitleConfig?.preset || 'molten-gold', {
-    ...(typeof heroTitleConfig?.titleSize === 'number' ? { fontScale: heroTitleConfig.titleSize } : {}),
-    ...(typeof heroTitleConfig?.glowIntensity === 'number' ? { glowIntensity: heroTitleConfig.glowIntensity } : {}),
-    ...(typeof heroTitleConfig?.tracking === 'number' ? { letterTracking: heroTitleConfig.tracking } : {}),
-    ...(typeof heroTitleConfig?.verticalOffset === 'number' ? { verticalOffset: heroTitleConfig.verticalOffset } : {})
+  return buildTitlePresetConfigById(heroTitleConfig?.heroGlobal ? heroTitleConfig?.preset || 'molten-gold' : 'molten-gold', {
+    ...(heroTitleConfig?.heroGlobal && typeof heroTitleConfig?.titleSize === 'number'
+      ? { fontScale: heroTitleConfig.titleSize }
+      : {}),
+    ...(heroTitleConfig?.heroGlobal && typeof heroTitleConfig?.glowIntensity === 'number'
+      ? { glowIntensity: heroTitleConfig.glowIntensity }
+      : {}),
+    ...(heroTitleConfig?.heroGlobal && typeof heroTitleConfig?.tracking === 'number'
+      ? { letterTracking: heroTitleConfig.tracking }
+      : {}),
+    ...(heroTitleConfig?.heroGlobal && typeof heroTitleConfig?.verticalOffset === 'number'
+      ? { verticalOffset: heroTitleConfig.verticalOffset }
+      : {})
   });
 }
 

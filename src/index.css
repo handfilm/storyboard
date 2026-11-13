@@ -971,9 +971,61 @@
   .animate-title-neon-glitch,
   .animate-title-slow-fade,
   .animate-title-chopper-staccato,
-  .animate-title-lower-third {
+  .animate-title-lower-third,
+  .animate-title-reveal-in,
+  .animate-title-exit-dissolve,
+  .title-morph-smooth {
     animation: none !important;
+    transition-duration: 0ms !important;
   }
 }
+
+/* =========================================================================
+   PER-SHOT FLUID PRESET MORPH & BOUNDARY DISSOLVE CHOREOGRAPHY
+   ========================================================================= */
+.title-morph-smooth {
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    left 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 220ms ease,
+    letter-spacing 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 240ms ease,
+    border-color 240ms ease;
+  will-change: transform, opacity;
+}
+
+@keyframes titleRevealIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-title-reveal-in {
+  animation: titleRevealIn 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes titleExitDissolve {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.98);
+  }
+}
+
+.animate-title-exit-dissolve {
+  animation: titleExitDissolve 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
 
 

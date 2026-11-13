@@ -44,8 +44,8 @@ import {
 import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
 import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
 import { AnthologyFrame, DopamineShotConfig, FrameAdjustments, LutPreset, ShotCaption, SmartCropMode, SpeedRampPreset } from '../types/anthology';
-import type { TitlePresetConfig } from '../types/titlePreset';
-import { buildTitlePresetConfigById, resolveShotTitlePresetConfig } from '../constants/titleTemplates';
+import type { ShotTitleData, TitlePresetConfig } from '../types/titlePreset';
+import { buildTitlePresetConfigById, resolveShotTitleData, resolveShotTitlePresetConfig } from '../constants/titleTemplates';
 import { renderTitlePresetToCanvas } from './titleCanvasRenderer';
 import { renderCanvasBurnInCaption } from './captionEngine';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from './thumbnailEngine';
@@ -206,21 +206,26 @@ export function verifySequenceMediaReadiness(
     else if (resolved.sourceKind === 'image') imageOnlyCount++;
     else proceduralSlateCount++;
 
-    const presetCfg = resolveShotTitlePresetConfig(
+    const resolvedTitle = resolveShotTitleData(
       {
+        titleData: frame?.titleData ?? slide?.titleData ?? shot?.titleData,
+        title: slide?.titleEn || frame?.title || shot?.title,
+        bengaliTitle: slide?.titleBn || frame?.bengaliTitle || shot?.bengaliTitle,
+        tagline: slide?.tagline || frame?.tagline || shot?.tagline,
         titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? shot?.titleStyleConfig,
         activeTitlePreset: frame?.activeTitlePreset ?? shot?.activeTitlePreset,
         dopamineConfig: frame?.dopamineConfig ?? shot?.dopamineConfig
       },
+      idx,
       storeState.titleConfig
     );
 
     return {
       shotIndex: idx,
-      title: slide?.titleEn || frame?.title || shot?.title || `SH${String(idx + 1).padStart(3, '0')}`,
+      title: resolvedTitle.englishSubtitle || slide?.titleEn || frame?.title || shot?.title || `SH${String(idx + 1).padStart(3, '0')}`,
       mediaKind: resolved.sourceKind,
-      presetName: presetCfg.presetName,
-      layoutMode: presetCfg.layoutMode
+      presetName: resolvedTitle.styleConfig.presetName,
+      layoutMode: resolvedTitle.styleConfig.layoutMode
     };
   });
 
@@ -893,6 +898,7 @@ export interface FrameCompositeProps {
   titleAlign?: TitleAlign;
   titlePreset?: HeroTitlePreset | string;
   titleStyleConfig?: TitlePresetConfig;
+  titleData?: ShotTitleData;
   dopamineConfig?: DopamineShotConfig;
   cameraInfo?: string;
   titleSize?: number;
@@ -931,6 +937,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     titleAlign,
     titlePreset,
     titleStyleConfig,
+    titleData,
     dopamineConfig,
     cameraInfo,
     titleSize,
@@ -1166,54 +1173,63 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
 
-  // 5. Unified 1:1 WYSIWYG Preset Title Compositor (Supports all 15 Presets + Dopamine)
+  // 5. Unified 1:1 WYSIWYG Preset Title Compositor (Strictly Isolated Per-Shot)
   if (burnInTitles) {
-    const rampFrames = Math.min(16, Math.max(3, Math.floor(totalFramesInShot * 0.25)));
-    const fadeIn = Math.min(1.0, Math.max(0.08, (frameInShot + 1) / rampFrames));
-    const fadeOutFrames = Math.min(8, Math.max(2, Math.floor(totalFramesInShot * 0.12)));
-    const remainingFrames = Math.max(1, totalFramesInShot - frameInShot);
-    const fadeOut = remainingFrames <= fadeOutFrames ? Math.max(0.15, remainingFrames / fadeOutFrames) : 1.0;
-    const titleFade = Math.min(fadeIn, fadeOut);
     const storeState = useStudioStore.getState();
     const storeShot = storeState.project?.shots?.[shotIndex];
-    const resolvedAlign = resolveEffectiveTitleAlign(
-      titleAlign ?? storeState.titleAlign ?? 'AUTO',
-      shotIndex,
-      shotType ?? storeShot?.shotType
-    );
-
-    const basePresetConfig = resolveShotTitlePresetConfig(
+    const resolvedTitleData = resolveShotTitleData(
       {
+        titleData: titleData ?? storeShot?.titleData,
+        title: titleEn,
+        bengaliTitle: titleBn,
+        tagline,
         titleStyleConfig: titleStyleConfig ?? storeShot?.titleStyleConfig,
-        activeTitlePreset:
-          typeof titlePreset === 'string' ? titlePreset : storeShot?.activeTitlePreset,
+        activeTitlePreset: typeof titlePreset === 'string' ? titlePreset : storeShot?.activeTitlePreset,
         dopamineConfig: dopamineConfig ?? storeShot?.dopamineConfig
       },
-      storeState.titleConfig
+      shotIndex,
+      storeState.titleConfig,
+      titleAlign
     );
 
-    const finalPresetConfig: TitlePresetConfig = {
-      ...basePresetConfig,
-      ...(typeof titleSize === 'number' ? { fontScale: titleSize } : {}),
-      ...(typeof verticalOffset === 'number' ? { verticalOffset } : {})
-    };
+    if (resolvedTitleData.enabled !== false) {
+      const rampFrames = Math.min(16, Math.max(3, Math.floor(totalFramesInShot * 0.25)));
+      const fadeIn = Math.min(1.0, Math.max(0.08, (frameInShot + 1) / rampFrames));
+      const fadeOutFrames = Math.min(8, Math.max(2, Math.floor(totalFramesInShot * 0.12)));
+      const remainingFrames = Math.max(1, totalFramesInShot - frameInShot);
+      const fadeOut = remainingFrames <= fadeOutFrames ? Math.max(0.15, remainingFrames / fadeOutFrames) : 1.0;
+      const titleFade = Math.min(fadeIn, fadeOut);
+      const resolvedAlign = resolveEffectiveTitleAlign(
+        titleAlign ?? resolvedTitleData.alignment ?? storeState.titleAlign ?? 'AUTO',
+        shotIndex,
+        shotType ?? storeShot?.shotType
+      );
 
-    renderTitlePresetToCanvas(
-      ctx,
-      width,
-      height,
-      {
-        banglaTitle: titleBn,
-        englishTitle: titleEn,
-        dialogue: tagline || '24.0 FPS RAW • MASTER CINE PROJECTION',
-        cameraInfo,
-        effectiveAlign: resolvedAlign,
-        opacity: titleFade,
-        beatSlamScale: beatFx.beatSlamScale
-      },
-      finalPresetConfig,
-      currentLocalSec
-    );
+      const finalPresetConfig: TitlePresetConfig = {
+        ...resolvedTitleData.styleConfig,
+        fontScale: typeof titleSize === 'number' ? titleSize : resolvedTitleData.fontScale,
+        glowIntensity: resolvedTitleData.glowIntensity,
+        letterTracking: resolvedTitleData.letterTracking,
+        verticalOffset: typeof verticalOffset === 'number' ? verticalOffset : resolvedTitleData.verticalOffset
+      };
+
+      renderTitlePresetToCanvas(
+        ctx,
+        width,
+        height,
+        {
+          banglaTitle: resolvedTitleData.banglaTitle || titleBn,
+          englishTitle: resolvedTitleData.englishSubtitle || titleEn,
+          dialogue: resolvedTitleData.captionNote || tagline || '24.0 FPS RAW • MASTER CINE PROJECTION',
+          cameraInfo,
+          effectiveAlign: resolvedAlign,
+          opacity: titleFade,
+          beatSlamScale: beatFx.beatSlamScale
+        },
+        finalPresetConfig,
+        currentLocalSec
+      );
+    }
   }
 
   // 6. Top Telemetry Slates & Corner Reticles (Variable-Duration SMPTE Sync)
@@ -1330,38 +1346,48 @@ function ensureNonBlankCanvasFrame(props: FrameCompositeProps): void {
       if (burnInTitles && !cleanPlates) {
         const storeState = useStudioStore.getState();
         const storeShot = storeState.project?.shots?.[shotIndex];
-        const resolvedAlign = resolveEffectiveTitleAlign(
-          titleAlign ?? storeState.titleAlign ?? 'AUTO',
-          shotIndex,
-          shotType ?? storeShot?.shotType
-        );
-        const baseCfg = resolveShotTitlePresetConfig(
+        const resolvedTitleData = resolveShotTitleData(
           {
+            titleData: props.titleData ?? storeShot?.titleData,
+            title: titleEn,
+            bengaliTitle: titleBn,
+            tagline,
             titleStyleConfig: props.titleStyleConfig ?? storeShot?.titleStyleConfig,
             activeTitlePreset: typeof titlePreset === 'string' ? titlePreset : storeShot?.activeTitlePreset,
             dopamineConfig: props.dopamineConfig ?? storeShot?.dopamineConfig
           },
-          storeState.titleConfig
+          shotIndex,
+          storeState.titleConfig,
+          titleAlign
         );
-        renderTitlePresetToCanvas(
-          ctx,
-          width,
-          height,
-          {
-            banglaTitle: titleBn,
-            englishTitle: titleEn,
-            dialogue: tagline,
-            cameraInfo: props.cameraInfo,
-            effectiveAlign: resolvedAlign,
-            opacity: 1.0
-          },
-          {
-            ...baseCfg,
-            ...(typeof titleSize === 'number' ? { fontScale: titleSize } : {}),
-            ...(typeof verticalOffset === 'number' ? { verticalOffset } : {})
-          },
-          currentLocalSec
-        );
+        if (resolvedTitleData.enabled !== false) {
+          const resolvedAlign = resolveEffectiveTitleAlign(
+            titleAlign ?? resolvedTitleData.alignment ?? storeState.titleAlign ?? 'AUTO',
+            shotIndex,
+            shotType ?? storeShot?.shotType
+          );
+          renderTitlePresetToCanvas(
+            ctx,
+            width,
+            height,
+            {
+              banglaTitle: resolvedTitleData.banglaTitle || titleBn,
+              englishTitle: resolvedTitleData.englishSubtitle || titleEn,
+              dialogue: resolvedTitleData.captionNote || tagline,
+              cameraInfo: props.cameraInfo,
+              effectiveAlign: resolvedAlign,
+              opacity: 1.0
+            },
+            {
+              ...resolvedTitleData.styleConfig,
+              fontScale: typeof titleSize === 'number' ? titleSize : resolvedTitleData.fontScale,
+              glowIntensity: resolvedTitleData.glowIntensity,
+              letterTracking: resolvedTitleData.letterTracking,
+              verticalOffset: typeof verticalOffset === 'number' ? verticalOffset : resolvedTitleData.verticalOffset
+            },
+            currentLocalSec
+          );
+        }
       }
     }
   } catch {
@@ -2028,6 +2054,7 @@ async function exportCinemaMasterWithMediaRecorder(
             shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
             titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
             titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+            titleData: frame?.titleData ?? slide?.titleData ?? storeShot?.titleData,
             dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
             cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
             panX: slide?.panX ?? frame?.panX,
@@ -2409,6 +2436,7 @@ async function exportWithWebCodecs(
         shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
         titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
         titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+        titleData: frame?.titleData ?? slide?.titleData ?? storeShot?.titleData,
         dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
         cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
         panX: slide?.panX ?? frame?.panX,
@@ -2911,6 +2939,7 @@ export async function exportCinemaMasterVp9(
           shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
           titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
           titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+          titleData: frame?.titleData ?? slide?.titleData ?? storeShot?.titleData,
           dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
           cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
           panX: slide?.panX ?? frame?.panX,
@@ -3157,6 +3186,7 @@ export async function exportPngSequenceZip(
         shotType: slide?.shotType ?? frame?.shotType ?? storeShot?.shotType,
         titlePreset: frame?.activeTitlePreset ?? storeShot?.activeTitlePreset,
         titleStyleConfig: frame?.titleStyleConfig ?? slide?.titleStyleConfig ?? storeShot?.titleStyleConfig,
+        titleData: frame?.titleData ?? slide?.titleData ?? storeShot?.titleData,
         dopamineConfig: frame?.dopamineConfig ?? storeShot?.dopamineConfig,
         cameraInfo: frame?.cameraSpec ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}` : undefined,
         panX: slide?.panX ?? frame?.panX,

@@ -23,7 +23,7 @@ import { TextTypographyDrawer } from '../../components/drawers/TextTypographyDra
 import { BrutalistKineticHudStrip } from '../../components/drawers/BrutalistKineticHudStrip';
 import { KineticTributeSequence } from '../../components/stage/templates/KineticTributeSequence';
 import { TributeProfile, TRIBUTE_PROFILES } from '../../constants/tributeData';
-import { resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
+import { resolveShotTitleData, resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
 import { 
   Type, 
   Sliders, 
@@ -52,22 +52,29 @@ export const TextStudio: React.FC<TextStudioProps> = ({
   const activeShotIndex = useStudioStore((s) => s.activeShotIndex);
   const currentShot = useStudioStore((s) => s.project.shots[s.activeShotIndex] || {});
   const updateShot = useStudioStore((s) => s.updateShot);
+  const updateShotTitleData = useStudioStore((s) => s.updateShotTitleData);
   const titleConfig = useStudioStore((s) => s.titleConfig);
   const setTitlePreset = useStudioStore((s) => s.setTitlePreset);
   const setTitleSize = useStudioStore((s) => s.setTitleSize);
   const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
   const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
   const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
-  const toggleTitles = useStudioStore((s) => s.toggleTitles);
 
   const currentTheme = baseThemesData[activeShotIndex % baseThemesData.length];
+  const shotTitleData = resolveShotTitleData(currentFrame || currentShot, activeShotIndex, titleConfig);
 
-  // Derive active frame values with zero-lag fallback
-  const titleEn = currentFrame ? currentFrame.title : (currentShot.title ?? currentTheme.title);
-  const titleBn = currentFrame ? currentFrame.bengaliTitle : (currentShot.bengaliTitle ?? currentTheme.sub);
-  const caption = currentFrame ? currentFrame.tagline : (currentShot.tagline ?? currentTheme.tag);
+  // Derive active frame values strictly from the active shot's isolated titleData
+  const titleEn = shotTitleData.englishSubtitle || (currentFrame ? currentFrame.title : (currentShot.title ?? currentTheme.title));
+  const titleBn = shotTitleData.banglaTitle || (currentFrame ? currentFrame.bengaliTitle : (currentShot.bengaliTitle ?? currentTheme.sub));
+  const caption = shotTitleData.captionNote || (currentFrame ? currentFrame.tagline : (currentShot.tagline ?? currentTheme.tag));
   const dialogue = currentFrame ? (currentFrame.directorNotes || '') : (currentShot.directorNotes || '');
   const soundCue = currentFrame ? (currentFrame.soundCue || '') : (currentShot.soundCue || '');
+
+  const shotTitleSize = shotTitleData.fontScale ?? titleConfig.titleSize ?? 72;
+  const shotGlowIntensity = shotTitleData.glowIntensity ?? titleConfig.glowIntensity ?? 1.0;
+  const shotVerticalOffset = shotTitleData.verticalOffset ?? titleConfig.verticalOffset ?? 0;
+  const shotTracking = shotTitleData.letterTracking ?? titleConfig.tracking ?? 0.15;
+  const shotPresetId = shotTitleData.presetId;
 
   const [activeTab, setActiveTab] = useState<'presets' | 'tributes' | 'editor'>('presets');
   const [selectedFont, setSelectedFont] = useState('Cinzel');
@@ -117,18 +124,29 @@ export const TextStudio: React.FC<TextStudioProps> = ({
       ...partial
     };
 
+    const nextTitleData = {
+      ...shotTitleData,
+      banglaTitle: updatedFrame.bengaliTitle ?? shotTitleData.banglaTitle,
+      englishSubtitle: updatedFrame.title ?? shotTitleData.englishSubtitle,
+      captionNote: updatedFrame.tagline ?? shotTitleData.captionNote,
+      styleConfig: updatedFrame.titleStyleConfig ?? shotTitleData.styleConfig
+    };
+    updatedFrame.titleData = nextTitleData;
+
     // 1. Notify stage & App.tsx for visual repaint
     if (onUpdateFrame) {
       onUpdateFrame(updatedFrame);
     } else {
-      // Emit global event only if direct parent callback is not provided
       eventBus.emit('shot:updated', {
         index: activeShotIndex,
-        partial
+        partial: {
+          ...partial,
+          titleData: nextTitleData
+        }
       });
     }
 
-    // 2. Synchronize useStudioStore
+    // 2. Synchronize useStudioStore strictly on activeShotIndex
     updateShot(activeShotIndex, {
       title: updatedFrame.title,
       bengaliTitle: updatedFrame.bengaliTitle,
@@ -136,6 +154,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
       directorNotes: updatedFrame.directorNotes,
       soundCue: updatedFrame.soundCue,
       titleAnimation: updatedFrame.titleAnimation,
+      titleData: nextTitleData,
       ...(updatedFrame.activeTitlePreset ? { activeTitlePreset: updatedFrame.activeTitlePreset } : {}),
       ...(updatedFrame.titleStyleConfig ? { titleStyleConfig: updatedFrame.titleStyleConfig } : {})
     });
@@ -179,10 +198,8 @@ export const TextStudio: React.FC<TextStudioProps> = ({
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
   };
 
-  const resolvedSimulatorConfig = resolveShotTitlePresetConfig(
-    currentFrame || currentShot,
-    titleConfig
-  );
+  const resolvedSimulatorConfig =
+    shotTitleData.styleConfig ?? resolveShotTitlePresetConfig(currentFrame || currentShot, titleConfig);
 
   // Preview styling based on resolved TitlePresetConfig
   const getPreviewPresetInfo = () => {
@@ -197,12 +214,12 @@ export const TextStudio: React.FC<TextStudioProps> = ({
             WebkitBackgroundClip: 'text',
             backgroundClip: 'text',
             color: 'transparent',
-            filter: `drop-shadow(0 0 ${Math.round(18 * titleConfig.glowIntensity)}px ${c.glowColor})`
+            filter: `drop-shadow(0 0 ${Math.round(18 * shotGlowIntensity)}px ${c.glowColor})`
           }
         : {
             color: c.primaryColor,
             WebkitTextStroke: c.strokeWidth > 0 ? `1px ${c.strokeColor}` : undefined,
-            textShadow: `0 0 ${Math.round(18 * titleConfig.glowIntensity)}px ${c.glowColor}`
+            textShadow: `0 0 ${Math.round(18 * shotGlowIntensity)}px ${c.glowColor}`
           }
     };
   };
@@ -224,19 +241,19 @@ export const TextStudio: React.FC<TextStudioProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quick [ T TITLES: ON/OFF ] Toggle */}
+          {/* Quick [ T TITLES: ON/OFF ] Per-Shot Toggle */}
           <button
             type="button"
-            onClick={toggleTitles}
+            onClick={() => updateShotTitleData(activeShotIndex, { enabled: !shotTitleData.enabled })}
             className={`px-2.5 py-1 rounded-[2px] border text-[9.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              titleConfig.showTitles
+              shotTitleData.enabled
                 ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,166,35,0.3)]'
                 : 'bg-black/80 border-white/15 text-zinc-500 hover:text-white'
             }`}
-            title="Toggle Stage Hero Typography (T)"
+            title="Toggle Title for This Shot"
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${titleConfig.showTitles ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'}`} />
-            <span>{titleConfig.showTitles ? 'T TITLES: ON' : 'T TITLES: OFF'}</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${shotTitleData.enabled ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'}`} />
+            <span>{shotTitleData.enabled ? 'T TITLES: ON' : 'T TITLES: OFF'}</span>
           </button>
 
           <button
@@ -398,9 +415,9 @@ export const TextStudio: React.FC<TextStudioProps> = ({
             className="font-black select-none leading-none transition-all drop-shadow-2xl relative z-10"
             style={{ 
               fontFamily: previewInfo.config.banglaFontFamily,
-              fontSize: `${Math.round(titleConfig.titleSize * 0.42)}px`,
-              letterSpacing: `${titleConfig.tracking}em`,
-              transform: `translateY(${titleConfig.verticalOffset * 0.15}px)`,
+              fontSize: `${Math.round(shotTitleSize * 0.42)}px`,
+              letterSpacing: `${shotTracking}em`,
+              transform: `translateY(${shotVerticalOffset * 0.15}px)`,
               ...previewInfo.glowStyle
             }}
           >
@@ -413,8 +430,8 @@ export const TextStudio: React.FC<TextStudioProps> = ({
             style={{ 
               fontFamily: previewInfo.config.englishFontFamily,
               color: previewInfo.config.secondaryColor,
-              fontSize: `${Math.max(9, Math.round(titleConfig.titleSize * 0.16))}px`,
-              letterSpacing: `${(titleConfig.tracking + 0.15).toFixed(2)}em`
+              fontSize: `${Math.max(9, Math.round(shotTitleSize * 0.16))}px`,
+              letterSpacing: `${(shotTracking + 0.15).toFixed(2)}em`
             }}
           >
             {titleEn || 'THE SINGULARITY'}
@@ -438,7 +455,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
           </div>
           <div className="absolute top-2 right-2 flex items-center gap-1.5 text-[8px] text-zinc-500 font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>0ms LIVE STAGE COMPOSITED</span>
+            <span>0ms PER-SHOT SYNC</span>
           </div>
         </div>
 
@@ -460,7 +477,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
               type="button"
               onClick={() => setTitlePreset('molten-gold')}
               className={`p-2.5 rounded-[2px] border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                titleConfig.preset === 'molten-gold'
+                shotPresetId === 'molten-gold'
                   ? 'bg-amber-950/40 border-amber-400 text-amber-300 shadow-[0_0_15px_rgba(245,166,35,0.35)] ring-1 ring-amber-400/50'
                   : 'bg-[#121218] border-[#272732] text-zinc-400 hover:text-white hover:border-zinc-600'
               }`}
@@ -470,7 +487,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                   <Flame className="w-3.5 h-3.5" />
                   ⚡ MOLTEN GOLD
                 </span>
-                {titleConfig.preset === 'molten-gold' && (
+                {shotPresetId === 'molten-gold' && (
                   <span className="text-[8px] bg-amber-400/20 text-amber-300 px-1 rounded font-mono">ACTIVE</span>
                 )}
               </div>
@@ -484,7 +501,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
               type="button"
               onClick={() => setTitlePreset('titanium-silver')}
               className={`p-2.5 rounded-[2px] border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                titleConfig.preset === 'titanium-silver'
+                shotPresetId === 'titanium-silver'
                   ? 'bg-cyan-950/40 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(56,189,248,0.35)] ring-1 ring-cyan-400/50'
                   : 'bg-[#121218] border-[#272732] text-zinc-400 hover:text-white hover:border-zinc-600'
               }`}
@@ -494,7 +511,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                   <Snowflake className="w-3.5 h-3.5" />
                   ❄ TITANIUM SILVER
                 </span>
-                {titleConfig.preset === 'titanium-silver' && (
+                {shotPresetId === 'titanium-silver' && (
                   <span className="text-[8px] bg-cyan-400/20 text-cyan-300 px-1 rounded font-mono">ACTIVE</span>
                 )}
               </div>
@@ -508,7 +525,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
               type="button"
               onClick={() => setTitlePreset('neon-crimson')}
               className={`p-2.5 rounded-[2px] border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                titleConfig.preset === 'neon-crimson'
+                shotPresetId === 'neon-crimson'
                   ? 'bg-rose-950/40 border-rose-500 text-rose-300 shadow-[0_0_15px_rgba(239,68,68,0.35)] ring-1 ring-rose-500/50'
                   : 'bg-[#121218] border-[#272732] text-zinc-400 hover:text-white hover:border-zinc-600'
               }`}
@@ -518,7 +535,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                   <Activity className="w-3.5 h-3.5" />
                   🩸 NEON CRIMSON
                 </span>
-                {titleConfig.preset === 'neon-crimson' && (
+                {shotPresetId === 'neon-crimson' && (
                   <span className="text-[8px] bg-rose-500/20 text-rose-300 px-1 rounded font-mono">ACTIVE</span>
                 )}
               </div>
@@ -548,14 +565,14 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                 <Type className="w-3 h-3 text-[#F5A623]" />
                 TITLE SCALE (PRIMARY HERO)
               </span>
-              <span className="text-[#F5A623] font-bold font-mono">{titleConfig.titleSize}px</span>
+              <span className="text-[#F5A623] font-bold font-mono">{shotTitleSize}px</span>
             </div>
             <input
               type="range"
               min="48"
               max="120"
               step="2"
-              value={titleConfig.titleSize}
+              value={shotTitleSize}
               onChange={(e) => setTitleSize(parseInt(e.target.value, 10))}
               className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
             />
@@ -569,7 +586,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                 GLOW INTENSITY (BLOOM & RIM)
               </span>
               <span className="text-[#F5A623] font-bold font-mono">
-                {Math.round(titleConfig.glowIntensity * 100)}%
+                {Math.round(shotGlowIntensity * 100)}%
               </span>
             </div>
             <input
@@ -577,7 +594,7 @@ export const TextStudio: React.FC<TextStudioProps> = ({
               min="0.0"
               max="2.0"
               step="0.05"
-              value={titleConfig.glowIntensity}
+              value={shotGlowIntensity}
               onChange={(e) => setTitleGlowIntensity(parseFloat(e.target.value))}
               className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
             />
@@ -590,14 +607,14 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                 <MoveVertical className="w-3 h-3 text-[#F5A623]" />
                 VERTICAL OFFSET (Y-AXIS POSITION)
               </span>
-              <span className="text-[#F5A623] font-bold font-mono">{titleConfig.verticalOffset}px</span>
+              <span className="text-[#F5A623] font-bold font-mono">{shotVerticalOffset}px</span>
             </div>
             <input
               type="range"
               min="-150"
               max="150"
               step="5"
-              value={titleConfig.verticalOffset}
+              value={shotVerticalOffset}
               onChange={(e) => setTitleVerticalOffset(parseInt(e.target.value, 10))}
               className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
             />
@@ -610,14 +627,14 @@ export const TextStudio: React.FC<TextStudioProps> = ({
                 <SlidersHorizontal className="w-3 h-3 text-[#F5A623]" />
                 LETTER TRACKING (MONOSPACE SPREAD)
               </span>
-              <span className="text-[#F5A623] font-bold font-mono">{titleConfig.tracking.toFixed(2)}em</span>
+              <span className="text-[#F5A623] font-bold font-mono">{shotTracking.toFixed(2)}em</span>
             </div>
             <input
               type="range"
               min="0.05"
               max="0.45"
               step="0.02"
-              value={titleConfig.tracking}
+              value={shotTracking}
               onChange={(e) => setTitleTracking(parseFloat(e.target.value))}
               className="w-full h-1.5 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded"
             />

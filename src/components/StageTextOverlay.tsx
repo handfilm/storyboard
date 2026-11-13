@@ -24,6 +24,7 @@ import { getShotProceduralSpec } from '../data/proceduralCinemaEngine';
 import { TitlePresetConfig } from '../types/titlePreset';
 import {
   buildTitlePresetConfigById,
+  resolveShotTitleData,
   resolveShotTitlePresetConfig
 } from '../constants/titleTemplates';
 import { Sliders } from 'lucide-react';
@@ -57,6 +58,7 @@ export interface StageTextOverlayProps {
   activeTitlePreset?: string;
   titlePresetConfig?: TitlePresetConfig;
   currentTimeSec?: number;
+  durationSec?: number;
   variant?: StageTitleVariant | string;
   titleAlign?: TitleAlign;
   shotType?: string;
@@ -99,6 +101,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   preset: propPreset,
   activeTitlePreset: propActivePresetId,
   titlePresetConfig: propTitlePresetConfig,
+  currentTimeSec = 0,
+  durationSec,
   variant = 'center',
   titleAlign: propTitleAlign,
   shotType,
@@ -112,6 +116,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const storeVisibility = useStudioStore((s) => s.visibility.titlesAll);
   const storeTitleAlign = useStudioStore((s) => s.titleAlign);
   const storeShot = useStudioStore((s) => s.project.shots?.[shotIndex]);
+  const updateShotTitleData = useStudioStore((s) => s.updateShotTitleData);
   const setTitlePreset = useStudioStore((s) => s.setTitlePreset);
   const setTitleSize = useStudioStore((s) => s.setTitleSize);
   const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
@@ -120,58 +125,68 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   const [showQuickHud, setShowQuickHud] = useState(false);
 
-  // Resolve unified TitlePresetConfig for this shot:
-  // 1. Explicit `propPreset` override if supplied
-  // 2. Store's synchronously-updated `shot.titleStyleConfig` when same preset or no prop config
-  // 3. `propTitlePresetConfig` passed from parent frame
-  // 4. `resolveShotTitlePresetConfig(...)` fallback
-  const basePresetConfig: TitlePresetConfig = React.useMemo(() => {
-    if (propPreset) {
-      return buildTitlePresetConfigById(propPreset);
-    }
-    if (
-      storeShot?.titleStyleConfig &&
-      (!propTitlePresetConfig || storeShot.titleStyleConfig.presetId === propTitlePresetConfig.presetId)
-    ) {
-      return storeShot.titleStyleConfig;
-    }
-    if (propTitlePresetConfig) {
-      return propTitlePresetConfig;
-    }
-    return resolveShotTitlePresetConfig(
-      {
-        titleStyleConfig: storeShot?.titleStyleConfig,
-        activeTitlePreset: propActivePresetId ?? storeShot?.activeTitlePreset,
-        dopamineConfig: storeShot?.dopamineConfig
-      },
-      storeTitleConfig
-    );
-  }, [propPreset, propTitlePresetConfig, propActivePresetId, storeShot, storeTitleConfig]);
+  // Direct double-click inline canvas editing state
+  const [editingField, setEditingField] = useState<'bangla' | 'english' | null>(null);
+  const [draftValue, setDraftValue] = useState<string>('');
+  const inlineInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Apply live slider synchronization (when active preset matches hero sliders) and explicit prop overrides
-  const isSliderSynced =
-    !propPreset &&
-    storeTitleConfig?.activePresetConfig?.presetId === basePresetConfig.presetId;
+  useEffect(() => {
+    setEditingField(null);
+  }, [shotIndex]);
 
-  const activePresetId = basePresetConfig.presetId;
-  const glow =
-    propGlow ??
-    (isSliderSynced ? storeTitleConfig?.glowIntensity : basePresetConfig.glowIntensity) ??
-    1.0;
-  const tracking =
-    propTracking ??
-    (isSliderSynced ? storeTitleConfig?.tracking : basePresetConfig.letterTracking) ??
-    0.15;
-  const verticalOffset =
-    propOffset ??
-    (isSliderSynced ? storeTitleConfig?.verticalOffset : basePresetConfig.verticalOffset) ??
-    0;
-  const titleSizePx =
-    (isSliderSynced ? storeTitleConfig?.titleSize : basePresetConfig.fontScale) ?? 72;
+  useEffect(() => {
+    if (editingField && inlineInputRef.current) {
+      inlineInputRef.current.focus();
+      inlineInputRef.current.select();
+    }
+  }, [editingField]);
+
+  // Resolve unified per-shot ShotTitleData (100% isolated per shot)
+  const effectiveAlignInput: TitleAlign | undefined = propTitleAlign || (storeTitleConfig?.heroGlobal ? storeTitleAlign : undefined);
+  const resolvedShotTitle = React.useMemo(
+    () =>
+      resolveShotTitleData(
+        {
+          titleData: storeShot?.titleData,
+          title: storeShot?.title ?? englishTitle,
+          bengaliTitle: storeShot?.bengaliTitle ?? banglaTitle,
+          tagline: storeShot?.tagline ?? subtitle,
+          directorNotes: storeShot?.directorNotes ?? directorNotes,
+          activeTitlePreset: propActivePresetId ?? storeShot?.activeTitlePreset,
+          titleStyleConfig: propPreset
+            ? buildTitlePresetConfigById(propPreset)
+            : (storeShot?.titleStyleConfig ?? propTitlePresetConfig),
+          dopamineConfig: storeShot?.dopamineConfig
+        },
+        shotIndex,
+        storeTitleConfig,
+        effectiveAlignInput
+      ),
+    [
+      storeShot,
+      englishTitle,
+      banglaTitle,
+      subtitle,
+      directorNotes,
+      propActivePresetId,
+      propPreset,
+      propTitlePresetConfig,
+      shotIndex,
+      storeTitleConfig,
+      effectiveAlignInput
+    ]
+  );
+
+  // Apply explicit prop overrides if supplied cleanly
+  const activePresetId = resolvedShotTitle.presetId;
+  const glow = propGlow ?? resolvedShotTitle.glowIntensity ?? 1.0;
+  const tracking = propTracking ?? resolvedShotTitle.letterTracking ?? 0.15;
+  const verticalOffset = propOffset ?? resolvedShotTitle.verticalOffset ?? 0;
+  const titleSizePx = resolvedShotTitle.fontScale ?? 72;
   const scale = propScale ?? titleSizePx / 72;
 
   const presetConfig: TitlePresetConfig = {
-    ...basePresetConfig,
+    ...resolvedShotTitle.styleConfig,
     fontScale: titleSizePx,
     glowIntensity: glow,
     letterTracking: tracking,
@@ -189,7 +204,13 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleConfig?.titleOpacity ?? 1.0)
   );
 
-  // Explicit component visibility check for title elements
+  // Near-end dissolve opacity during playback/scrubbing within final 0.20s of shot duration
+  const boundaryOpacityMultiplier =
+    typeof durationSec === 'number' && durationSec > 0.6 && currentTimeSec > durationSec - 0.2
+      ? Math.max(0.08, (durationSec - currentTimeSec) / 0.2)
+      : 1;
+
+  // Explicit component visibility check for title elements + per-shot toggle
   const showBangla = componentsVisibility ? componentsVisibility.titleBn !== false : true;
   const showEnglish = componentsVisibility ? componentsVisibility.titleEn !== false : true;
   const showDialogue = componentsVisibility
@@ -200,18 +221,30 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       ? Boolean(componentsVisibility.titlesAll && (showBangla || showEnglish || showDialogue))
       : Boolean((storeTitleConfig?.showTitles ?? true) && storeVisibility);
 
-  const isEnabled = Boolean(isVisible && effectiveTitlesAll);
+  const isEnabled = Boolean(isVisible && effectiveTitlesAll && resolvedShotTitle.enabled !== false);
 
   // Iconic headline fallbacks for dynamic Bangla hero typography
   const DEFAULT_BANGLA_HEADLINES = ['শূন্য', 'আলো', 'সংঘাত', 'দৃষ্টির সীমানা'];
   const fallbackHeadline = DEFAULT_BANGLA_HEADLINES[shotIndex % DEFAULT_BANGLA_HEADLINES.length];
 
-  const displayBangla = banglaTitle && banglaTitle.trim().length > 0 ? banglaTitle : fallbackHeadline;
+  const resolvedBanglaSource =
+    storeShot?.titleData?.banglaTitle !== undefined
+      ? storeShot.titleData.banglaTitle
+      : (banglaTitle ?? resolvedShotTitle.banglaTitle);
+  const resolvedEnglishSource =
+    storeShot?.titleData?.englishSubtitle !== undefined
+      ? storeShot.titleData.englishSubtitle
+      : (englishTitle ?? resolvedShotTitle.englishSubtitle);
+
+  const displayBangla =
+    resolvedBanglaSource && resolvedBanglaSource.trim().length > 0
+      ? resolvedBanglaSource
+      : fallbackHeadline;
   const displayEnglish =
-    englishTitle && englishTitle.trim().length > 0
-      ? englishTitle
+    resolvedEnglishSource && resolvedEnglishSource.trim().length > 0
+      ? resolvedEnglishSource
       : `SHOT ${String(shotIndex + 1).padStart(3, '0')} // MASTER SEQUENCE`;
-  const rawDialogue = directorNotes || subtitle;
+  const rawDialogue = directorNotes || subtitle || resolvedShotTitle.captionNote;
   const displayDialogue =
     rawDialogue && /^\[(?:🌪️\s*)?DOPAMINE:/i.test(rawDialogue.trim()) && presetConfig.category !== 'DOPAMINE'
       ? subtitle && subtitle !== rawDialogue
@@ -231,7 +264,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     applyTitleBlockOpacityCssVar(titleOpacity);
   }, [titleOpacity]);
 
-  const activeTitleAlign: TitleAlign = propTitleAlign || storeTitleAlign || 'MID';
+  const activeTitleAlign: TitleAlign = storeTitleConfig?.heroGlobal
+    ? (propTitleAlign || storeTitleAlign || resolvedShotTitle.alignment || 'MID')
+    : (resolvedShotTitle.alignment || propTitleAlign || 'MID');
   const effectiveAlign = resolveEffectiveTitleAlign(activeTitleAlign, shotIndex, shotType);
   const procedural = getShotProceduralSpec(shotIndex);
   const { palette: procPalette, architecture: procArch, opticalFx: procFx } = procedural;
@@ -418,6 +453,71 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
 
   const motionClass = getMotionAnimationClass(presetConfig.motionAnimation);
 
+  // Smooth 180ms outgoing title dissolve snapshot when crossing shot boundaries
+  const [exitingSnapshot, setExitingSnapshot] = useState<{
+    key: string;
+    bangla: string;
+    english: string;
+    primaryTitleStyle: React.CSSProperties;
+    englishSubtitleStyle: React.CSSProperties;
+    anchorStyle: React.CSSProperties;
+    clusterAlignClasses: string;
+    blockAlignClasses: string;
+  } | null>(null);
+  const prevShotSnapshotRef = useRef<{
+    shotIndex: number;
+    enabled: boolean;
+    bangla: string;
+    english: string;
+    primaryTitleStyle: React.CSSProperties;
+    englishSubtitleStyle: React.CSSProperties;
+    anchorStyle: React.CSSProperties;
+    clusterAlignClasses: string;
+    blockAlignClasses: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const prev = prevShotSnapshotRef.current;
+    if (prev && prev.shotIndex !== shotIndex && prev.enabled) {
+      setExitingSnapshot({
+        key: `${prev.shotIndex}-${Date.now()}`,
+        bangla: prev.bangla,
+        english: prev.english,
+        primaryTitleStyle: prev.primaryTitleStyle,
+        englishSubtitleStyle: prev.englishSubtitleStyle,
+        anchorStyle: prev.anchorStyle,
+        clusterAlignClasses: prev.clusterAlignClasses,
+        blockAlignClasses: prev.blockAlignClasses
+      });
+      const timer = window.setTimeout(() => {
+        setExitingSnapshot(null);
+      }, 190);
+      prevShotSnapshotRef.current = {
+        shotIndex,
+        enabled: isEnabled,
+        bangla: displayBangla,
+        english: displayEnglish,
+        primaryTitleStyle,
+        englishSubtitleStyle,
+        anchorStyle: getVerticalAnchorStyle(),
+        clusterAlignClasses,
+        blockAlignClasses
+      };
+      return () => window.clearTimeout(timer);
+    }
+    prevShotSnapshotRef.current = {
+      shotIndex,
+      enabled: isEnabled,
+      bangla: displayBangla,
+      english: displayEnglish,
+      primaryTitleStyle,
+      englishSubtitleStyle,
+      anchorStyle: getVerticalAnchorStyle(),
+      clusterAlignClasses,
+      blockAlignClasses
+    };
+  });
+
   // Plate styling for container layouts (`lower-third-bar`, `hud-bracket`, `brutalist-box`, `editorial-split`)
   const plateEnabled = Boolean(presetConfig.backdropPlate?.enabled);
   const plateStyle: React.CSSProperties = plateEnabled
@@ -446,6 +546,17 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     presetConfig.layoutMode === 'brutalist-box' ||
     presetConfig.layoutMode === 'minimal-whisper';
 
+  const commitInlineEdit = () => {
+    if (!editingField) return;
+    const trimmed = draftValue.trim();
+    if (editingField === 'bangla' && trimmed.length > 0) {
+      updateShotTitleData(shotIndex, { banglaTitle: trimmed });
+    } else if (editingField === 'english' && trimmed.length > 0) {
+      updateShotTitleData(shotIndex, { englishSubtitle: trimmed });
+    }
+    setEditingField(null);
+  };
+
   return (
     <div
       data-testid="stage-text-overlay"
@@ -464,6 +575,25 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       data-variant={variant}
       aria-hidden={!isEnabled}
     >
+      {/* Outgoing 180ms Shot Exit Dissolve Layer */}
+      {exitingSnapshot && (
+        <div
+          key={`exiting-cluster-${exitingSnapshot.key}`}
+          aria-hidden="true"
+          className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-[calc(100%-6rem)] flex flex-col py-2 pointer-events-none animate-title-exit-dissolve ${exitingSnapshot.clusterAlignClasses} !pl-0 !pr-0`}
+          style={exitingSnapshot.anchorStyle}
+        >
+          <div className={`flex flex-col max-w-5xl ${exitingSnapshot.blockAlignClasses}`}>
+            <span className="font-black leading-tight" style={exitingSnapshot.primaryTitleStyle}>
+              {exitingSnapshot.bangla}
+            </span>
+            <span className="text-xs sm:text-sm md:text-base font-bold mt-1.5" style={exitingSnapshot.englishSubtitleStyle}>
+              {exitingSnapshot.english}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* .title-block container controlled by Components Matrix Title Block Opacity slider */}
       <div
         ref={titleContainerRef}
@@ -474,21 +604,22 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         data-dialogue={showDialogue && displayDialogue ? displayDialogue : ''}
         data-effective-align={layoutEffectiveAlign}
         data-preset={activePresetId}
+        style={{ opacity: boundaryOpacityMultiplier }}
         className={`title-block relative w-full h-full ${
           isEnabled ? 'flex flex-col' : 'hidden opacity-0'
         }`}
       >
         {isEnabled && (
           <>
-            {/* Dynamic Unified Preset Title Cluster */}
+            {/* Dynamic Unified Preset Title Cluster (Smooth Morph on Preset Switch + 280ms Shot Reveal) */}
             <div
-              key={`hero-title-cluster-${shotIndex}-${activePresetId}-${repaintRevision}`}
+              key={`hero-title-cluster-${shotIndex}`}
               data-title-cluster="true"
-              className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-[calc(100%-6rem)] flex flex-col py-2 transition-[left,transform] duration-300 ease-out ${clusterAlignClasses} !pl-0 !pr-0`}
+              className={`absolute w-max max-w-[calc(100%-3rem)] sm:max-w-[calc(100%-6rem)] flex flex-col py-2 transition-[left,transform] duration-300 ease-out title-morph-smooth animate-title-reveal-in ${clusterAlignClasses} !pl-0 !pr-0`}
               style={getVerticalAnchorStyle()}
             >
               <div
-                className={`relative flex flex-col max-w-5xl ${motionClass} transition-all duration-300 ${blockAlignClasses} ${
+                className={`relative flex flex-col max-w-5xl ${motionClass} title-morph-smooth ${blockAlignClasses} ${
                   presetConfig.layoutMode === 'lower-third-bar'
                     ? 'rounded-r-lg rounded-l-xs'
                     : presetConfig.layoutMode === 'editorial-split'
@@ -559,64 +690,155 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                     presetConfig.layoutMode === 'lower-third-bar' ? 'pl-3' : ''
                   }`}
                 >
-                  {/* Primary Title (Unified Preset Typography + Optional Chromatic RGB Split) */}
+                  {/* Primary Title (Double-click directly on Stage to inline edit) */}
                   {showBangla && (
                     <div className="relative inline-block">
-                      {hasRgbSplit && (
+                      {editingField === 'bangla' ? (
+                        <input
+                          ref={inlineInputRef}
+                          type="text"
+                          data-interactive="true"
+                          data-testid="inline-edit-bangla"
+                          aria-label="Edit Bangla Title Inline"
+                          value={draftValue}
+                          onChange={(e) => {
+                            setDraftValue(e.target.value);
+                            updateShotTitleData(shotIndex, { banglaTitle: e.target.value });
+                          }}
+                          onBlur={commitInlineEdit}
+                          onKeyDown={(e) => {
+                            e.stopPropagation();
+                            if (e.key === 'Enter') commitInlineEdit();
+                            if (e.key === 'Escape') setEditingField(null);
+                          }}
+                          onDoubleClick={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onPointerUp={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                          className="pointer-events-auto cursor-text bg-[#0B0B0D]/85 border border-[#F59E0B] rounded px-3 py-1 font-bangla font-black text-[#F4F4F5] outline-none min-w-[220px] shadow-[0_0_24px_rgba(245,158,11,0.45)]"
+                          style={{
+                            fontSize: `${Math.max(22, Math.round(effectiveFontSizePx * 0.72))}px`,
+                            textAlign: layoutEffectiveAlign === 'LEFT' ? 'left' : layoutEffectiveAlign === 'RIGHT' ? 'right' : 'center'
+                          }}
+                        />
+                      ) : (
                         <>
-                          <span
-                            aria-hidden="true"
-                            className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60"
-                            style={{
-                              fontFamily: presetConfig.banglaFontFamily,
-                              fontSize: `${effectiveFontSizePx}px`,
-                              letterSpacing: `${effectiveTrackingEm}em`,
-                              textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
-                              color: '#00F0FF',
-                              transform: `translate3d(-${rgbShiftPx}px, 1px, 0)`
+                          {hasRgbSplit && (
+                            <>
+                              <span
+                                aria-hidden="true"
+                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60"
+                                style={{
+                                  fontFamily: presetConfig.banglaFontFamily,
+                                  fontSize: `${effectiveFontSizePx}px`,
+                                  letterSpacing: `${effectiveTrackingEm}em`,
+                                  textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
+                                  color: '#00F0FF',
+                                  transform: `translate3d(-${rgbShiftPx}px, 1px, 0)`
+                                }}
+                              >
+                                {displayBangla}
+                              </span>
+                              <span
+                                aria-hidden="true"
+                                className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60"
+                                style={{
+                                  fontFamily: presetConfig.banglaFontFamily,
+                                  fontSize: `${effectiveFontSizePx}px`,
+                                  letterSpacing: `${effectiveTrackingEm}em`,
+                                  textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
+                                  color: '#FF0055',
+                                  transform: `translate3d(${rgbShiftPx}px, -1px, 0)`
+                                }}
+                              >
+                                {displayBangla}
+                              </span>
+                            </>
+                          )}
+                          <h1
+                            key={`bangla-title-${shotIndex}`}
+                            data-interactive="true"
+                            data-testid="stage-bangla-title-heading"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setDraftValue(displayBangla);
+                              setEditingField('bangla');
                             }}
+                            onPointerDown={(e) => {
+                              if (e.detail >= 2) e.stopPropagation();
+                            }}
+                            onPointerUp={(e) => {
+                              if (e.detail >= 2) e.stopPropagation();
+                            }}
+                            title="Double-click to edit Bangla title directly on Stage"
+                            className={`relative font-black leading-tight select-none pointer-events-auto cursor-text title-morph-smooth ${
+                              procFx.hasStrobePulse || presetConfig.category === 'DOPAMINE'
+                                ? 'animate-pulse'
+                                : ''
+                            }`}
+                            style={primaryTitleStyle}
                           >
                             {displayBangla}
-                          </span>
-                          <span
-                            aria-hidden="true"
-                            className="font-bold leading-tight select-none absolute inset-0 pointer-events-none opacity-60"
-                            style={{
-                              fontFamily: presetConfig.banglaFontFamily,
-                              fontSize: `${effectiveFontSizePx}px`,
-                              letterSpacing: `${effectiveTrackingEm}em`,
-                              textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
-                              color: '#FF0055',
-                              transform: `translate3d(${rgbShiftPx}px, -1px, 0)`
-                            }}
-                          >
-                            {displayBangla}
-                          </span>
+                          </h1>
                         </>
                       )}
-                      <h1
-                        key={`bangla-title-${shotIndex}-${activePresetId}`}
-                        className={`relative font-black leading-tight select-none ${
-                          procFx.hasStrobePulse || presetConfig.category === 'DOPAMINE'
-                            ? 'animate-pulse'
-                            : ''
-                        }`}
-                        style={primaryTitleStyle}
-                      >
-                        {displayBangla}
-                      </h1>
                     </div>
                   )}
 
-                  {/* Secondary Subtitle + Preset Divider */}
+                  {/* Secondary Subtitle + Preset Divider (Double-click directly on Stage to inline edit) */}
                   {showEnglish && (
-                    <div className={`mt-1.5 sm:mt-2.5 flex flex-col transition-all duration-300 ${blockAlignClasses}`}>
-                      <p
-                        className="text-xs sm:text-sm md:text-base font-bold"
-                        style={englishSubtitleStyle}
-                      >
-                        {displayEnglish}
-                      </p>
+                    <div className={`mt-1.5 sm:mt-2.5 flex flex-col title-morph-smooth ${blockAlignClasses}`}>
+                      {editingField === 'english' ? (
+                        <input
+                          ref={inlineInputRef}
+                          type="text"
+                          data-interactive="true"
+                          data-testid="inline-edit-english"
+                          aria-label="Edit English Subtitle Inline"
+                          value={draftValue}
+                          onChange={(e) => {
+                            setDraftValue(e.target.value);
+                            updateShotTitleData(shotIndex, { englishSubtitle: e.target.value });
+                          }}
+                          onBlur={commitInlineEdit}
+                          onKeyDown={(e) => {
+                            e.stopPropagation();
+                            if (e.key === 'Enter') commitInlineEdit();
+                            if (e.key === 'Escape') setEditingField(null);
+                          }}
+                          onDoubleClick={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onPointerUp={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                          className="pointer-events-auto cursor-text bg-[#0B0B0D]/85 border border-[#F59E0B] rounded px-3 py-1 text-xs sm:text-sm md:text-base font-bold text-[#F4F4F5] outline-none min-w-[200px] shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+                          style={{
+                            fontFamily: presetConfig.englishFontFamily,
+                            textTransform: presetConfig.uppercase ? 'uppercase' : 'none',
+                            textAlign: layoutEffectiveAlign === 'LEFT' ? 'left' : layoutEffectiveAlign === 'RIGHT' ? 'right' : 'center'
+                          }}
+                        />
+                      ) : (
+                        <p
+                          data-interactive="true"
+                          data-testid="stage-english-subtitle"
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setDraftValue(displayEnglish);
+                            setEditingField('english');
+                          }}
+                          onPointerDown={(e) => {
+                            if (e.detail >= 2) e.stopPropagation();
+                          }}
+                          onPointerUp={(e) => {
+                            if (e.detail >= 2) e.stopPropagation();
+                          }}
+                          title="Double-click to edit English subtitle directly on Stage"
+                          className="text-xs sm:text-sm md:text-base font-bold pointer-events-auto cursor-text title-morph-smooth"
+                          style={englishSubtitleStyle}
+                        >
+                          {displayEnglish}
+                        </p>
+                      )}
 
                       {renderAccentDivider()}
 

@@ -1,6 +1,6 @@
 /**
  * @file /src/components/StudioNavRail.tsx
- * @description 10-Button Full-Height Colorful Tactical Left Rail ("10 BUTTONS, 100 SHOTS")
+ * @description 9-Button Full-Height Colorful Tactical Left Rail
  * for HANDFILM Creative Suite with Advanced Glassmorphic Brutalist Flyout Menus.
  */
 
@@ -15,6 +15,7 @@ import {
   Wand2,
   Volume2,
   Cloud,
+  HardDrive,
   Zap,
   Settings,
   Camera,
@@ -115,13 +116,12 @@ export interface StudioNavRailProps {
 
 type RailButtonKey =
   | 'STORY'
+  | 'MEDIA'
+  | 'TEXT'
+  | 'AUDIO'
   | 'CUT'
   | 'CROP'
-  | 'TEXT'
-  | 'LIGHT'
   | 'FX'
-  | 'AUDIO'
-  | 'CLOUD'
   | 'BRIDGE'
   | 'SYSTEM';
 
@@ -258,9 +258,123 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       ]
     },
     {
+      key: 'MEDIA',
+      label: 'MEDIA',
+      title: 'MEDIA ASSET VAULT & OPFS BROWSER',
+      why: 'Full Media Asset Vault, OPFS Browser, and Cloudflare R2 edge sync',
+      accentHex: '#38BDF8',
+      icon: HardDrive,
+      activeModules: ['MEDIA', 'R2_STORAGE'],
+      onPrimaryClick: () => onSelectModule('MEDIA'),
+      subTools: [
+        {
+          id: 'media-vault',
+          label: 'Media Asset Vault & OPFS Browser',
+          sub: `Ingest & manage frames (${saveState.toUpperCase()})`,
+          icon: HardDrive,
+          badge: 'OPFS',
+          isActive: activeModule === 'MEDIA',
+          onSelect: () => onSelectModule('MEDIA')
+        },
+        {
+          id: 'r2-cloud',
+          label: 'Cloudflare R2 Edge Sync',
+          sub: 'S3 byte-range cloud archive & snapshots',
+          icon: Cloud,
+          isActive: activeModule === 'R2_STORAGE',
+          onSelect: () => onSelectModule('R2_STORAGE')
+        },
+        ...(onOpenVaultMode
+          ? [
+              {
+                id: 'idb-projects',
+                label: 'Project Vault Manager',
+                sub: 'Switch or clone local IDB anthology vaults',
+                icon: FolderOpen,
+                badge: 'IDB',
+                onSelect: () => onOpenVaultMode()
+              }
+            ]
+          : [])
+      ]
+    },
+    {
+      key: 'TEXT',
+      label: 'TEXT',
+      title: 'SUPER TITLE & SUBTITLE STUDIO',
+      why: 'Per-shot kinetic Bangla & English titles, preset styles, SRT burn-in',
+      accentHex: '#FF6B00',
+      icon: Type,
+      activeModules: ['TEXT'],
+      onPrimaryClick: () => onSelectModule('TEXT'),
+      subTools: [
+        {
+          id: 'text-drawer',
+          label: 'Super Title & Subtitle Studio',
+          sub: 'Per-shot Bangla + English kinetic title cards',
+          icon: Type,
+          isActive: activeModule === 'TEXT',
+          onSelect: () => onSelectModule('TEXT')
+        },
+        {
+          id: 'toggle-titles',
+          label: 'Toggle Stage Titles Layer',
+          sub: 'Show or hide live kinetic title overlays',
+          icon: Eye,
+          shortcut: 'T',
+          onSelect: () => eventBus.emit('studio:toggle_titles')
+        }
+      ]
+    },
+    {
+      key: 'AUDIO',
+      label: 'AUDIO',
+      title: 'WAVEFORM & SUB-HARMONIC AUDIO MIXER',
+      why: '48kHz DSP mixer, waveform beat detection, scopes & telemetry',
+      accentHex: '#10B981',
+      icon: Volume2,
+      activeModules: ['SOUND'],
+      onPrimaryClick: () => onSelectModule('SOUND'),
+      subTools: [
+        {
+          id: 'sound-studio',
+          label: 'Sound DSP Studio',
+          sub: 'Master stems, beat sync & audio track cueing',
+          icon: Volume2,
+          isActive: activeModule === 'SOUND',
+          onSelect: () => onSelectModule('SOUND')
+        },
+        ...(onOpenVideoScopes
+          ? [
+              {
+                id: 'video-scopes',
+                label: 'IRE & RGB Scopes',
+                sub: 'Waveform, RGB parade & vectorscope monitor',
+                icon: BarChart3,
+                onSelect: () => onOpenVideoScopes()
+              }
+            ]
+          : []),
+        {
+          id: 'spectral-analyzer',
+          label: 'Spectral Energy Visualizer',
+          sub: 'Toggle live multi-band frequency HUD',
+          icon: Activity,
+          onSelect: () => eventBus.emit('cockpit:toggle_spectrum')
+        },
+        {
+          id: 'modular-telemetry',
+          label: 'Modular Telemetry Rack',
+          sub: 'Audio sync, voice cue & 3D LUT rack',
+          icon: SlidersHorizontal,
+          onSelect: () => eventBus.emit('cockpit:toggle_telemetry')
+        }
+      ]
+    },
+    {
       key: 'CUT',
       label: 'CUT',
-      title: 'TIMELINE CUT & MULTI-CAM',
+      title: 'PRECISION RAZOR & MULTI-CAM CUT',
       why: 'Multi-track NLE razor cuts, storyboard grid, and multi-cam desk',
       accentHex: '#E50914',
       icon: Scissors,
@@ -311,9 +425,9 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'CROP',
       label: 'CROP',
-      title: 'FRAMING, OPTICS & CAMERA RIG',
+      title: 'ASPECT RATIO & SMART REFRAME',
       why: 'Aspect ratios, safe composition guides, lens crop & cine body rig',
-      accentHex: '#00F0FF',
+      accentHex: '#14B8A6',
       icon: Crop,
       activeModules: ['OPTICS'],
       onPrimaryClick: () => onSelectModule('OPTICS'),
@@ -344,51 +458,15 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       ]
     },
     {
-      key: 'TEXT',
-      label: 'TEXT',
-      title: 'BILINGUAL TYPOGRAPHY',
-      why: 'Kinetic Bangla & English titles, molten gold shaders, SRT burn-in',
-      accentHex: '#FF6B00',
-      icon: Type,
-      activeModules: ['TEXT'],
-      onPrimaryClick: () => onSelectModule('TEXT'),
+      key: 'FX',
+      label: 'FX',
+      title: 'COLOR LUT, HALATION & OPTICAL FX',
+      why: 'Color LUTs, 34-preset lighting rig, halation/bloom, warp & AI prompts',
+      accentHex: '#A855F7',
+      icon: Wand2,
+      activeModules: ['LIQUIFY', 'LIBRARY', 'BLOOM', 'AI', 'REVIEW'],
+      onPrimaryClick: () => onSelectModule('LIBRARY'),
       subTools: [
-        {
-          id: 'text-drawer',
-          label: 'Text & Title Drawer',
-          sub: 'Bangla + English kinetic title cards',
-          icon: Type,
-          isActive: activeModule === 'TEXT',
-          onSelect: () => onSelectModule('TEXT')
-        },
-        {
-          id: 'toggle-titles',
-          label: 'Toggle Stage Titles Layer',
-          sub: 'Show or hide live kinetic title overlays',
-          icon: Eye,
-          shortcut: 'T',
-          onSelect: () => eventBus.emit('studio:toggle_titles')
-        }
-      ]
-    },
-    {
-      key: 'LIGHT',
-      label: 'LIGHT',
-      title: '34-PRESET LIGHTING RIG & LUTS',
-      why: 'Volumetric 34-preset cinema lighting rig, Hollywood LUTs & bloom',
-      accentHex: '#FFE066',
-      icon: Lightbulb,
-      activeModules: ['LIBRARY', 'BLOOM'],
-      onPrimaryClick: () => eventBus.emit('lighting:open'),
-      subTools: [
-        {
-          id: 'light-rig-34',
-          label: '34-Preset Lighting Rig',
-          sub: 'Anamorphic flares, rim lights & volumetric haze',
-          icon: Lightbulb,
-          badge: '34 RIGS',
-          onSelect: () => eventBus.emit('lighting:open')
-        },
         {
           id: 'lut-library',
           label: 'Cinema LUT Registry',
@@ -398,25 +476,21 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           onSelect: () => onSelectModule('LIBRARY')
         },
         {
+          id: 'light-rig-34',
+          label: '34-Preset Lighting Rig',
+          sub: 'Anamorphic flares, rim lights & volumetric haze',
+          icon: Lightbulb,
+          badge: '34 RIGS',
+          onSelect: () => eventBus.emit('lighting:open')
+        },
+        {
           id: 'bloom-stage',
           label: 'Bloom Interactive Stage',
           sub: 'Live optical halation & lens bloom canvas',
           icon: Sparkles,
           isActive: activeModule === 'BLOOM',
           onSelect: () => onSelectModule('BLOOM')
-        }
-      ]
-    },
-    {
-      key: 'FX',
-      label: 'FX',
-      title: 'OPTICAL FX, WARP & AI STUDIO',
-      why: 'Mesh liquify warp, 35mm grain/halation sliders & AI prompts',
-      accentHex: '#A855F7',
-      icon: Wand2,
-      activeModules: ['LIQUIFY', 'AI', 'REVIEW'],
-      onPrimaryClick: () => onSelectModule('LIQUIFY'),
-      subTools: [
+        },
         {
           id: 'liquify-warp',
           label: 'Liquify & Mesh Warp',
@@ -442,91 +516,6 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           isActive: activeModule === 'REVIEW',
           onSelect: () => onSelectModule('REVIEW')
         }
-      ]
-    },
-    {
-      key: 'AUDIO',
-      label: 'AUDIO',
-      title: 'MASTER AUDIO, VU & SCOPES',
-      why: '48kHz DSP mixer, waveform beat detection, scopes & telemetry',
-      accentHex: '#10B981',
-      icon: Volume2,
-      activeModules: ['SOUND'],
-      onPrimaryClick: () => onSelectModule('SOUND'),
-      subTools: [
-        {
-          id: 'sound-studio',
-          label: 'Sound DSP Studio',
-          sub: 'Master stems, beat sync & audio track cueing',
-          icon: Volume2,
-          isActive: activeModule === 'SOUND',
-          onSelect: () => onSelectModule('SOUND')
-        },
-        ...(onOpenVideoScopes
-          ? [
-              {
-                id: 'video-scopes',
-                label: 'IRE & RGB Scopes',
-                sub: 'Waveform, RGB parade & vectorscope monitor',
-                icon: BarChart3,
-                onSelect: () => onOpenVideoScopes()
-              }
-            ]
-          : []),
-        {
-          id: 'spectral-analyzer',
-          label: 'Spectral Energy Visualizer',
-          sub: 'Toggle live multi-band frequency HUD',
-          icon: Activity,
-          onSelect: () => eventBus.emit('cockpit:toggle_spectrum')
-        },
-        {
-          id: 'modular-telemetry',
-          label: 'Modular Telemetry Rack',
-          sub: 'Audio sync, voice cue & 3D LUT rack',
-          icon: SlidersHorizontal,
-          onSelect: () => eventBus.emit('cockpit:toggle_telemetry')
-        }
-      ]
-    },
-    {
-      key: 'CLOUD',
-      label: 'CLOUD',
-      title: 'MEDIA VAULT & R2 CLOUD ARCHIVE',
-      why: 'Resilient IndexedDB vault, Cloudflare R2 edge sync, snapshots',
-      accentHex: '#38BDF8',
-      icon: Cloud,
-      activeModules: ['MEDIA', 'R2_STORAGE'],
-      onPrimaryClick: () => onSelectModule('MEDIA'),
-      subTools: [
-        {
-          id: 'media-vault',
-          label: 'Media Asset Vault',
-          sub: `Ingest & manage frames (${saveState.toUpperCase()})`,
-          icon: FolderOpen,
-          isActive: activeModule === 'MEDIA',
-          onSelect: () => onSelectModule('MEDIA')
-        },
-        {
-          id: 'r2-cloud',
-          label: 'Cloudflare R2 Edge Sync',
-          sub: 'S3 byte-range cloud archive & snapshots',
-          icon: Cloud,
-          isActive: activeModule === 'R2_STORAGE',
-          onSelect: () => onSelectModule('R2_STORAGE')
-        },
-        ...(onOpenVaultMode
-          ? [
-              {
-                id: 'idb-projects',
-                label: 'Project Vault Manager',
-                sub: 'Switch or clone local IDB anthology vaults',
-                icon: FolderOpen,
-                badge: 'IDB',
-                onSelect: () => onOpenVaultMode()
-              }
-            ]
-          : [])
       ]
     },
     {
@@ -690,9 +679,9 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         isCollapsed ? 'w-[72px]' : 'w-56'
       }`}
     >
-      {/* Full-Height 10-Button Evenly Distributed Vertical Spine */}
+      {/* Full-Height 9-Button Evenly Distributed Vertical Spine */}
       <nav
-        aria-label="10 Studio Tools"
+        aria-label="9 Studio Tools"
         className="flex-1 min-h-0 py-1.5 px-1.5 flex flex-col justify-between gap-1 overflow-hidden"
       >
         {railButtons.map((btn) => {
@@ -744,12 +733,12 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
 
               <Icon
                 style={{ color: btn.accentHex }}
-                className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+                className="w-6 h-6 shrink-0 transition-transform duration-200 group-hover:scale-110"
               />
 
               {isCollapsed ? (
                 <span
-                  className={`text-[9.5px] leading-none font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                  className={`text-[9.5px] leading-none font-black uppercase tracking-wider whitespace-nowrap transition-colors ${
                     isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                   }`}
                 >
@@ -759,7 +748,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 <div className="min-w-0 flex-1 text-left">
                   <div className="flex items-center justify-between gap-1">
                     <span
-                      className={`text-[11px] font-bold tracking-wider uppercase truncate transition-colors ${
+                      className={`text-[11px] font-black tracking-wider uppercase truncate transition-colors ${
                         isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                       }`}
                     >
@@ -854,8 +843,8 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
             })}
           </div>
 
-          {/* Live Interactive Optical/Grading Sliders in LIGHT & FX Flyouts */}
-          {(activeFlyoutConfig.key === 'LIGHT' || activeFlyoutConfig.key === 'FX') && onUpdateActiveAdjustments && (
+          {/* Live Interactive Optical/Grading Sliders in FX Flyout */}
+          {activeFlyoutConfig.key === 'FX' && onUpdateActiveAdjustments && (
             <div className="pt-2 border-t border-white/[0.07] space-y-2 px-1">
               <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-[#F59E0B]">
                 <span className="tabular-nums">LIVE SHOT SHADERS (SH{String(currentShotIndex + 1).padStart(2, '0')})</span>

@@ -766,12 +766,66 @@ export default function App() {
             dopamineConfig: 'dopamineConfig' in partial ? partial.dopamineConfig : existing.dopamineConfig,
             activeTitlePreset: 'activeTitlePreset' in partial ? partial.activeTitlePreset : existing.activeTitlePreset,
             titleStyleConfig: 'titleStyleConfig' in partial ? partial.titleStyleConfig : existing.titleStyleConfig,
+            titleData: 'titleData' in partial ? partial.titleData : existing.titleData,
             slideHoldSec: nextDur !== undefined ? nextDur : existing.slideHoldSec,
             durationSec: nextDur !== undefined ? nextDur : existing.durationSec
           };
         }
         return { ...prev, frames: nextFrames };
       });
+    });
+
+    const unsubStyleCopied = eventBus.on('shots:style_copied', ({ stylePatch }: { stylePatch: any }) => {
+      if (!stylePatch) return;
+      setProject(prev => ({
+        ...prev,
+        frames: prev.frames.map((existing) => {
+          const prevTitleData = existing.titleData;
+          const nextTitleData = prevTitleData
+            ? {
+                ...prevTitleData,
+                enabled: stylePatch.enabled ?? prevTitleData.enabled,
+                presetId: stylePatch.presetId,
+                alignment: stylePatch.alignment,
+                fontScale: stylePatch.fontScale,
+                glowIntensity: stylePatch.glowIntensity,
+                letterTracking: stylePatch.letterTracking,
+                verticalOffset: stylePatch.verticalOffset,
+                entranceAnim: stylePatch.entranceAnim,
+                exitAnim: stylePatch.exitAnim,
+                styleConfig: { ...stylePatch.styleConfig }
+              }
+            : {
+                enabled: stylePatch.enabled ?? true,
+                presetId: stylePatch.presetId,
+                banglaTitle: existing.bengaliTitle || '',
+                englishSubtitle: existing.title || '',
+                captionNote: existing.tagline || existing.directorNotes || '',
+                alignment: stylePatch.alignment,
+                fontScale: stylePatch.fontScale,
+                glowIntensity: stylePatch.glowIntensity,
+                letterTracking: stylePatch.letterTracking,
+                verticalOffset: stylePatch.verticalOffset,
+                entranceAnim: stylePatch.entranceAnim,
+                exitAnim: stylePatch.exitAnim,
+                styleConfig: { ...stylePatch.styleConfig }
+              };
+          const isDopamine = stylePatch.styleConfig?.category === 'DOPAMINE';
+          return {
+            ...existing,
+            activeTitlePreset: stylePatch.presetId,
+            titleStyleConfig: { ...stylePatch.styleConfig },
+            colorAccent: stylePatch.styleConfig?.primaryColor || existing.colorAccent,
+            titleData: nextTitleData,
+            ...(isDopamine
+              ? {}
+              : {
+                  dopamineConfig: undefined,
+                  tags: (existing.tags || []).filter((t) => t !== 'dopamine')
+                })
+          };
+        })
+      }));
     });
 
     const unsubAsset = eventBus.on('asset_assigned_to_shot', async ({ assetId, shotIndex, blob, blobUrl, thumbnailUrl, meta }: any) => {
@@ -1019,6 +1073,7 @@ export default function App() {
 
     return () => {
       unsub();
+      unsubStyleCopied();
       unsubAsset();
       unsubJumpToShot();
       unsubRecorder();
@@ -2250,6 +2305,7 @@ export default function App() {
           dopamineConfig: updated.dopamineConfig,
           activeTitlePreset: updated.activeTitlePreset,
           titleStyleConfig: updated.titleStyleConfig,
+          titleData: updated.titleData,
           durationSeconds: nextDur,
           adjustments: updated.adjustments ? {
             halations: 0,
@@ -2301,6 +2357,7 @@ export default function App() {
         dopamineConfig: updated.dopamineConfig,
         activeTitlePreset: updated.activeTitlePreset,
         titleStyleConfig: updated.titleStyleConfig,
+        titleData: updated.titleData,
         durationSeconds: nextDur,
         lutFilter: updated.lutFilter
       });

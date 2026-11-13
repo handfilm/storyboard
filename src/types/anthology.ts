@@ -3,7 +3,9 @@ import type {
   TitleLayoutMode,
   TitleMotionAnimation,
   TitleBackdropPlate,
-  TitlePresetConfig
+  TitlePresetConfig,
+  ShotTitleData,
+  ShotTitleAlignment
 } from './titlePreset';
 
 export type {
@@ -11,7 +13,9 @@ export type {
   TitleLayoutMode,
   TitleMotionAnimation,
   TitleBackdropPlate,
-  TitlePresetConfig
+  TitlePresetConfig,
+  ShotTitleData,
+  ShotTitleAlignment
 };
 
 export type LutPreset = 
@@ -145,6 +149,7 @@ export interface AnthologyFrame {
   dopamineConfig?: DopamineShotConfig;
   activeTitlePreset?: string;
   titleStyleConfig?: TitlePresetConfig;
+  titleData?: ShotTitleData;
   kineticArchetype?: KineticTypographyArchetype;
   tags: string[];
   panX?: number;

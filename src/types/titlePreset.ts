@@ -60,3 +60,22 @@ export interface TitlePresetConfig {
   verticalOffset: number; // -200 to +200 px
   uppercase?: boolean;
 }
+
+export type ShotTitleAlignment = 'LEFT' | 'MID' | 'RIGHT' | 'AUTO';
+
+export interface ShotTitleData {
+  enabled: boolean;
+  presetId: string;
+  banglaTitle: string;
+  englishSubtitle: string;
+  captionNote?: string;
+  alignment: ShotTitleAlignment;
+  fontScale: number;
+  glowIntensity: number;
+  letterTracking: number;
+  verticalOffset: number;
+  entranceAnim?: TitleMotionAnimation | string;
+  exitAnim?: 'dissolve-out' | 'slide-out' | 'none';
+  styleConfig?: TitlePresetConfig;
+}
+

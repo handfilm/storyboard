@@ -1060,15 +1060,22 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   }
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
-                className={`group relative min-w-[88px] w-[88px] h-[48px] flex-shrink-0 snap-start rounded-md overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-150 ease-out will-change-transform ${
+                className={`group relative min-w-[88px] w-[88px] h-[48px] flex-shrink-0 snap-start rounded-md overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-[240ms] ease-out will-change-transform ${
                   dropTargetIndex === idx
                     ? 'border-2 border-dashed border-[#F59E0B] shadow-[0_0_16px_rgba(245,158,11,0.4)] scale-[1.04] z-30 bg-[#141417]'
                     : isActive
-                    ? 'border-2 border-[#F59E0B] shadow-[0_0_14px_rgba(245,158,11,0.28)] scale-[1.02] z-20 bg-[#141417]'
-                    : 'border border-white/[0.07] opacity-80 hover:opacity-100 hover:border-white/[0.16] bg-[#141417]'
+                    ? 'border-2 border-[#F59E0B] shadow-[0_0_18px_rgba(245,158,11,0.45)] scale-[1.04] z-20 bg-[#141417] opacity-100'
+                    : 'border border-white/[0.07] hover:border-[#F59E0B]/55 bg-[#141417]'
                 }`}
               >
-                {/* Virtualized Persistent Media Thumbnail Preview */}
+                {/* Visual Preview Wrapper: Active Shot = 100% Full-Color Sharpness; Inactive Shots = Blurred & Grayscale Stealth */}
+                <div
+                  className={`absolute inset-0 w-full h-full overflow-hidden pointer-events-none transition-all duration-[240ms] ease-out ${
+                    isActive
+                      ? '[filter:grayscale(0%)_blur(0px)_brightness(1)] opacity-100'
+                      : '[filter:grayscale(100%)_blur(1.5px)_brightness(0.55)] opacity-50 group-hover:[filter:grayscale(0%)_blur(0px)_brightness(0.95)] group-hover:opacity-85'
+                  }`}
+                >
                 {hasMedia ? (
                   <ShotMediaThumbnail
                     shotIndex={idx}
@@ -1086,7 +1093,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     compactProcedural
                     disableLiveVideoElement
                     className="absolute inset-0 w-full h-full overflow-hidden"
-                    mediaClassName="w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 transition-all duration-200 group-hover:scale-105"
+                    mediaClassName="w-full h-full object-cover transition-transform duration-[240ms] group-hover:scale-105"
                     alt={`Shot ${shotNumber}`}
                   />
                 ) : (() => {
@@ -1130,6 +1137,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     </div>
                   );
                 })()}
+                </div>
 
                 {/* Contrast scrim overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/55 pointer-events-none" />
@@ -1137,10 +1145,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 {/* Top Metadata Bar: #01 + Duration / Relative TC (leaves room for top-right dispatch button) */}
                 <div className="relative z-10 pl-1 pr-6 pt-0.5 flex items-center justify-between gap-1 font-mono pointer-events-none">
                   <span
-                    className={`px-1 py-0.5 rounded text-[8.5px] font-black leading-none tabular-nums ${
-                      isActive ? 'bg-[#F59E0B] text-[#0B0B0D]' : 'bg-[#0B0B0D]/85 text-[#F4F4F5]'
+                    className={`px-1 py-0.5 rounded text-[8.5px] font-black leading-none tabular-nums inline-flex items-center gap-1 ${
+                      isActive ? 'bg-[#F59E0B] text-[#0B0B0D]' : 'bg-[#0B0B0D]/85 text-[#8E8E93] group-hover:text-[#F4F4F5]'
                     }`}
                   >
+                    {isActive && <span className="w-1 h-1 rounded-full bg-[#0B0B0D] animate-pulse" />}
                     {shotBadge}
                   </span>
                   <span

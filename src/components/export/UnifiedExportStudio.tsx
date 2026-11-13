@@ -52,7 +52,7 @@ import { getCandidateShotMediaKeys, getShotMediaBlob, resolveShotMediaEntry, Sho
 import { studioDraftDb } from '../../services/db';
 import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
 import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
-import { resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
+import { resolveShotTitleData, resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
 import { renderTitlePresetToCanvas } from '../../services/titleCanvasRenderer';
 import { ShotMediaThumbnail } from '../ShotMediaThumbnail';
 import { isSvgPlaceholderUrl, isVideoSourceUrl } from '../../services/thumbnailEngine';
@@ -527,19 +527,27 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     ? previewShotIdx
     : (activeSelection.indices[0] ?? currentSlideIndex ?? 0);
 
-  const activeMonitorPresetConfig = useMemo(() => {
+  const activeMonitorTitleData = useMemo(() => {
     const f = frames[activeMonitorShotIdx] as any;
     const s = slides[activeMonitorShotIdx] as any;
     const st = projectShots?.[activeMonitorShotIdx] as any;
-    return resolveShotTitlePresetConfig(
+    return resolveShotTitleData(
       {
+        titleData: f?.titleData ?? s?.titleData ?? st?.titleData,
+        title: s?.titleEn || f?.title || st?.title,
+        bengaliTitle: s?.titleBn || f?.bengaliTitle || st?.bengaliTitle,
+        tagline: s?.tagline || f?.tagline || st?.tagline,
         titleStyleConfig: f?.titleStyleConfig ?? s?.titleStyleConfig ?? st?.titleStyleConfig,
         activeTitlePreset: f?.activeTitlePreset ?? st?.activeTitlePreset,
         dopamineConfig: f?.dopamineConfig ?? st?.dopamineConfig
       },
-      titleConfig
+      activeMonitorShotIdx,
+      titleConfig,
+      titleAlign
     );
-  }, [activeMonitorShotIdx, frames, slides, projectShots, titleConfig]);
+  }, [activeMonitorShotIdx, frames, slides, projectShots, titleConfig, titleAlign]);
+
+  const activeMonitorPresetConfig = activeMonitorTitleData.styleConfig;
 
   // Idle Frame Preview Effect: Resolves per-shot media via unified video/image candidate resolver,
   // IndexedDB vaults, and OPFS — explicitly awaiting `onloadeddata` / `img.decode()` before compositing.
@@ -614,9 +622,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       }
 
       // 1:1 WYSIWYG Preset Title Burn-in Preview matching exact exported MP4 canvas compositor
-      if (burnInTitles) {
+      if (burnInTitles && activeMonitorTitleData.enabled !== false) {
         const resolvedAlign = resolveEffectiveTitleAlign(
-          titleAlign ?? 'AUTO',
+          activeMonitorTitleData.alignment ?? titleAlign ?? 'AUTO',
           validShotIdx,
           frame?.cameraSpec?.focalLength ?? storeShot?.cameraSpec?.focalLength
         );
@@ -630,9 +638,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
           w,
           h,
           {
-            banglaTitle: titleBn,
-            englishTitle: titleEn,
-            dialogue: tagline,
+            banglaTitle: activeMonitorTitleData.banglaTitle || titleBn,
+            englishTitle: activeMonitorTitleData.englishSubtitle || titleEn,
+            dialogue: activeMonitorTitleData.captionNote || tagline,
             cameraInfo: camInfo,
             effectiveAlign: resolvedAlign,
             opacity: 1.0

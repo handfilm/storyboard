@@ -1984,7 +1984,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         </div>
 
         {/* STAGE CINEMA TITLE & SUBTITLE OVERLAY LAYER (Inside Stage Canvas Overlay, Default: MID Center) */}
-        {isTitlesActive && (
+        {isTitlesActive && frame?.titleData?.enabled !== false && (
           frame?.dopamineConfig &&
           (!frame?.titleStyleConfig || frame.titleStyleConfig.category === 'DOPAMINE') ? (
             <div
@@ -2018,6 +2018,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               activeTitlePreset={frame?.activeTitlePreset}
               titlePresetConfig={frame?.titleStyleConfig}
               currentTimeSec={slideTimeSec}
+              durationSec={effectiveShotDurationSec}
               cameraInfo={
                 frame?.cameraSpec
                   ? `${frame.cameraSpec.focalLength || '35mm'} • ${frame.cameraSpec.aperture || 'f/1.4'}`

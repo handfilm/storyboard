@@ -27,7 +27,7 @@ import { eventBus } from '../../core/eventBus';
 import { playbackClock, formatSmpteTimecode } from '../../utils/playbackClock';
 import { AnthologyFrame } from '../../types/anthology';
 import { EditInAppStrip } from '../bridge/EditInAppStrip';
-import { resolveShotTitlePresetConfig } from '../../constants/titleTemplates';
+import { resolveShotTitleData } from '../../constants/titleTemplates';
 
 export interface StageMetadataFxBarProps {
   sceneCode?: string;
@@ -109,12 +109,21 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   const [titleFxAnchor, setTitleFxAnchor] = useState<{ right: number; top: number } | null>(null);
 
   const storeShot = useStudioStore((s) => s.project.shots?.[shotIndex]);
-  const resolvedPresetConfig = resolveShotTitlePresetConfig(frame || storeShot, storeTitleConfig);
-  const activePreset: HeroTitlePreset = storeTitleConfig?.preset || 'molten-gold';
-  const glow = resolvedPresetConfig.glowIntensity ?? storeTitleConfig?.glowIntensity ?? 1.0;
-  const tracking = resolvedPresetConfig.letterTracking ?? storeTitleConfig?.tracking ?? 0.15;
-  const verticalOffset = resolvedPresetConfig.verticalOffset ?? storeTitleConfig?.verticalOffset ?? 0;
-  const titleSizePx = resolvedPresetConfig.fontScale ?? storeTitleConfig?.titleSize ?? 72;
+  const shotTitleData = resolveShotTitleData(frame || storeShot, shotIndex, storeTitleConfig, titleAlign);
+  const resolvedPresetConfig = shotTitleData.styleConfig;
+  const activeShotAlign: TitleAlign = storeTitleConfig?.heroGlobal
+    ? titleAlign
+    : shotTitleData.alignment;
+  const activePreset: HeroTitlePreset =
+    shotTitleData.presetId === 'molten-gold' ||
+    shotTitleData.presetId === 'titanium-silver' ||
+    shotTitleData.presetId === 'neon-crimson'
+      ? shotTitleData.presetId
+      : (storeTitleConfig?.preset || 'molten-gold');
+  const glow = shotTitleData.glowIntensity ?? 1.0;
+  const tracking = shotTitleData.letterTracking ?? 0.15;
+  const verticalOffset = shotTitleData.verticalOffset ?? 0;
+  const titleSizePx = shotTitleData.fontScale ?? 72;
 
   useEffect(() => {
     const closeAll = () => {
@@ -289,10 +298,10 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
               key={align}
               type="button"
               data-testid={`title-align-${align}`}
-              aria-pressed={titleAlign === align}
+              aria-pressed={activeShotAlign === align}
               onClick={() => setTitleAlign(align)}
               className={`px-1.5 py-0.2 rounded cursor-pointer transition-colors duration-200 ${
-                titleAlign === align
+                activeShotAlign === align
                   ? 'bg-[#1D1D22] text-[#F4F4F5] font-bold group-hover:bg-amber-400 group-hover:text-black'
                   : 'text-[#8E8E93] hover:!text-[#F4F4F5]'
               }`}

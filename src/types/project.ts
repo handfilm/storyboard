@@ -24,7 +24,7 @@ export interface SlideTextLayer {
 }
 
 import type { SpeedRampPreset, SmartCropMode, SpeedRampKeyframe, OpticalFlowMode } from './anthology';
-import type { TitlePresetConfig } from '../types/titlePreset';
+import type { TitlePresetConfig, ShotTitleData } from '../types/titlePreset';
 
 export interface SlideDraft {
   id: string; // e.g. "slide_001" or "sh_001"
@@ -50,6 +50,7 @@ export interface SlideDraft {
   dopamineConfig?: any;
   activeTitlePreset?: string;
   titleStyleConfig?: TitlePresetConfig;
+  titleData?: ShotTitleData;
   titleBn?: string;
   titleEn?: string;
   tagline?: string;

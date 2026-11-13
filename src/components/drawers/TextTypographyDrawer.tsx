@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { AnthologyFrame } from '../../types/anthology';
-import { useStudioStore } from '../../core/store';
+import { useStudioStore, TitleAlign } from '../../core/store';
 import { db } from '../../services/db';
 import { eventBus } from '../../core/eventBus';
 import { 
@@ -17,7 +17,8 @@ import {
   buildTitlePresetConfig,
   buildDopamineTitlePresetConfig,
   stripDopamineDirectorNote,
-  resolveShotTitlePresetConfig
+  resolveShotTitlePresetConfig,
+  resolveShotTitleData
 } from '../../constants/titleTemplates';
 import { 
   COMPILATION_PRESETS, 
@@ -40,7 +41,10 @@ import {
   Activity,
   Film,
   Radio,
-  RotateCcw
+  RotateCcw,
+  Copy,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export interface TextTypographyDrawerProps {
@@ -57,19 +61,26 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
   hideAutonomousStrip = false
 }) => {
   const activeShotIndex = useStudioStore((s) => s.activeShotIndex);
-  const storeTitleConfig = useStudioStore((s) => s.titleConfig);
-  const storeShot = useStudioStore((s) => s.project.shots?.[s.activeShotIndex]);
-  const titleSize = useStudioStore((s) => s.titleConfig?.titleSize ?? 72);
-  const glowIntensity = useStudioStore((s) => s.titleConfig?.glowIntensity ?? 1.0);
-  const tracking = useStudioStore((s) => s.titleConfig?.tracking ?? 0.15);
-  const verticalOffset = useStudioStore((s) => s.titleConfig?.verticalOffset ?? 0);
-  const setTitleSize = useStudioStore((s) => s.setTitleSize);
-  const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
-  const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
-  const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
+  const targetShotIndex =
+    typeof currentFrame?.id === 'number' && currentFrame.id >= 1
+      ? currentFrame.id - 1
+      : activeShotIndex;
 
-  const activePresetConfig = resolveShotTitlePresetConfig(currentFrame || storeShot, storeTitleConfig);
-  const activePresetId = activePresetConfig.presetId;
+  const storeTitleConfig = useStudioStore((s) => s.titleConfig);
+  const storeShot = useStudioStore((s) => s.project.shots?.[targetShotIndex]);
+  const updateShotTitleData = useStudioStore((s) => s.updateShotTitleData);
+  const copyTitleStyleToAllShots = useStudioStore((s) => s.copyTitleStyleToAllShots);
+
+  const shotTitleData = resolveShotTitleData(currentFrame || storeShot, targetShotIndex, storeTitleConfig);
+  const titleSize = shotTitleData.fontScale ?? 72;
+  const glowIntensity = shotTitleData.glowIntensity ?? 1.0;
+  const tracking = shotTitleData.letterTracking ?? 0.15;
+  const verticalOffset = shotTitleData.verticalOffset ?? 0;
+
+  const activePresetConfig = shotTitleData.styleConfig ?? resolveShotTitlePresetConfig(currentFrame || storeShot, storeTitleConfig);
+  const activePresetId = shotTitleData.presetId || activePresetConfig.presetId;
+
+  const [copiedAllSuccess, setCopiedAllSuccess] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'dopamine' | 'cinematic' | 'rap' | 'docu' | 'retro' | 'corporate'>('all');
   const [hoveredPresetId, setHoveredPresetId] = useState<string | null>(null);
@@ -185,11 +196,6 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     setAppliedPresetId(preset.id);
     setTimeout(() => setAppliedPresetId(null), 2000);
 
-    const targetShotIndex =
-      typeof currentFrame?.id === 'number' && currentFrame.id >= 1
-        ? currentFrame.id - 1
-        : activeShotIndex;
-
     if (onApplyPreset) {
       onApplyPreset(preset);
     }
@@ -197,7 +203,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     // Build complete, self-contained TitlePresetConfig for this preset
     const styleConfig = buildTitlePresetConfig(preset);
 
-    // Sync store & eventBus without overwriting existing shot media or duration
+    // Sync ONLY this shot without overwriting other shots or existing shot media/duration
     const store = useStudioStore.getState();
     const existingShot = store.project.shots[targetShotIndex];
     const baseNotes = currentFrame?.directorNotes ?? existingShot?.directorNotes;
@@ -209,56 +215,59 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       (t) => t !== 'dopamine'
     );
 
-    store.setTitleConfig({
-      activePresetConfig: styleConfig,
-      titleSize: styleConfig.fontScale,
+    const hasOwnCustomText = Boolean(
+      (shotTitleData.banglaTitle && shotTitleData.banglaTitle.trim()) ||
+      (shotTitleData.englishSubtitle && shotTitleData.englishSubtitle.trim())
+    );
+    const nextBangla = hasOwnCustomText
+      ? shotTitleData.banglaTitle
+      : preset.bengaliText || currentFrame?.bengaliTitle || existingShot?.bengaliTitle || '';
+    const nextEnglish = hasOwnCustomText
+      ? shotTitleData.englishSubtitle
+      : preset.primaryText;
+    const nextCaption = hasOwnCustomText
+      ? shotTitleData.captionNote
+      : preset.secondaryText || currentFrame?.tagline || existingShot?.tagline || '';
+
+    if (store.titleConfig?.heroGlobal) {
+      store.setTitleConfig({
+        activePresetConfig: styleConfig,
+        titleSize: styleConfig.fontScale,
+        glowIntensity: styleConfig.glowIntensity,
+        tracking: styleConfig.letterTracking,
+        verticalOffset: styleConfig.verticalOffset,
+        showTitles: true
+      });
+    }
+
+    store.updateShotTitleData(targetShotIndex, {
+      enabled: true,
+      presetId: preset.id,
+      banglaTitle: nextBangla,
+      englishSubtitle: nextEnglish,
+      captionNote: nextCaption,
+      fontScale: styleConfig.fontScale,
       glowIntensity: styleConfig.glowIntensity,
-      tracking: styleConfig.letterTracking,
+      letterTracking: styleConfig.letterTracking,
       verticalOffset: styleConfig.verticalOffset,
-      showTitles: true
+      styleConfig
     });
 
     store.updateShot(targetShotIndex, {
-      title: preset.primaryText,
-      bengaliTitle: preset.bengaliText || currentFrame?.bengaliTitle || existingShot?.bengaliTitle,
-      tagline: preset.secondaryText || currentFrame?.tagline || existingShot?.tagline,
       directorNotes: nextNotes,
       tags: cleanedTags,
       colorAccent: preset.color,
       titleAnimation: preset.animationStyle,
-      dopamineConfig: undefined,
-      activeTitlePreset: preset.id,
-      titleStyleConfig: styleConfig
+      dopamineConfig: undefined
     });
-    eventBus.emit('titles:toggle', true);
 
     if (currentFrame && onUpdateFrame) {
-      const updated = applyTitleTemplateToFrame(currentFrame, preset, styleConfig);
-      onUpdateFrame(updated);
-    } else {
-      eventBus.emit('shot:updated', {
-        index: targetShotIndex,
-        partial: {
-          title: preset.primaryText,
-          bengaliTitle: preset.bengaliText,
-          tagline: preset.secondaryText,
-          directorNotes: nextNotes,
-          tags: cleanedTags,
-          colorAccent: preset.color,
-          titleAnimation: preset.animationStyle,
-          dopamineConfig: undefined,
-          activeTitlePreset: preset.id,
-          titleStyleConfig: styleConfig,
-          caption: {
-            text: preset.primaryText,
-            bengaliText: preset.bengaliText,
-            style: preset.category === 'rap' ? 'rap_pop' : 'cinematic_minimal',
-            color: preset.color,
-            fontFamily: preset.fontFamily,
-            position: preset.position
-          }
-        }
+      const updated = applyTitleTemplateToFrame(currentFrame, preset, styleConfig, {
+        preserveCustomText: hasOwnCustomText
       });
+      updated.directorNotes = nextNotes;
+      updated.tags = cleanedTags;
+      onUpdateFrame(updated);
     }
   };
 
@@ -332,9 +341,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       }
     }
 
-    // (b) Update local studio store shot
+    // (b) Update local studio store shot strictly scoped to targetShotIndex
     const store = useStudioStore.getState();
-    const currentShot = store.project.shots[activeShotIndex] || {};
+    const currentShot = store.project.shots[targetShotIndex] || {};
     const styleConfig = buildTitlePresetConfig(preset);
     const updatedShotPartial: any = {
       title: preset.primaryText,
@@ -349,20 +358,29 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       updatedShotPartial.imageUrl = mediaUrl;
       updatedShotPartial.isVideo = isVideo;
     }
-    store.setTitleConfig({
-      activePresetConfig: styleConfig,
-      titleSize: styleConfig.fontScale,
+    store.updateShotTitleData(targetShotIndex, {
+      enabled: true,
+      presetId: preset.id,
+      banglaTitle: updatedShotPartial.bengaliTitle,
+      englishSubtitle: updatedShotPartial.title,
+      captionNote: updatedShotPartial.tagline || '',
+      fontScale: styleConfig.fontScale,
       glowIntensity: styleConfig.glowIntensity,
-      tracking: styleConfig.letterTracking,
+      letterTracking: styleConfig.letterTracking,
       verticalOffset: styleConfig.verticalOffset,
-      showTitles: true
+      styleConfig
     });
-    store.updateShot(activeShotIndex, updatedShotPartial);
+    if (mediaUrl) {
+      store.updateShot(targetShotIndex, {
+        imageUrl: mediaUrl,
+        isVideo
+      });
+    }
 
     // (c) Apply preset typography & styles to active frame
     const baseFrame: AnthologyFrame = currentFrame || {
-      id: activeShotIndex + 1,
-      epNumber: String(activeShotIndex + 1).padStart(3, '0'),
+      id: targetShotIndex + 1,
+      epNumber: String(targetShotIndex + 1).padStart(3, '0'),
       title: preset.primaryText,
       bengaliTitle: preset.bengaliText || 'দৃষ্টির সীমানা',
       tagline: preset.secondaryText || '',
@@ -395,7 +413,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       tags: ['Scene', '12s']
     };
 
-    const updatedFrame = applyTitleTemplateToFrame(baseFrame, preset);
+    const updatedFrame = applyTitleTemplateToFrame(baseFrame, preset, styleConfig);
     if (mediaUrl) {
       updatedFrame.imageUrl = mediaUrl;
       updatedFrame.isVideo = isVideo;
@@ -404,10 +422,12 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     if (onUpdateFrame) {
       onUpdateFrame(updatedFrame);
     } else {
-      // (d) Emit global events for timeline and stage canvas sync only if direct callback not present
       eventBus.emit('shot:updated', {
-        index: activeShotIndex,
-        partial: updatedShotPartial
+        index: targetShotIndex,
+        partial: {
+          ...updatedShotPartial,
+          titleData: updatedFrame.titleData
+        }
       });
     }
     if (onApplyPreset) {
@@ -417,7 +437,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     if (mediaUrl) {
       eventBus.emit('asset_assigned_to_shot', {
         assetId: assetId || `temp-${Date.now()}`,
-        shotIndex: activeShotIndex,
+        shotIndex: targetShotIndex,
         blobUrl: mediaUrl,
         meta: {
           mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
@@ -434,9 +454,97 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
     }, 1200);
   };
 
+  const handleCopyStyleToAll = () => {
+    copyTitleStyleToAllShots(targetShotIndex);
+    setCopiedAllSuccess(true);
+    window.setTimeout(() => setCopiedAllSuccess(false), 1800);
+  };
+
   return (
     <div className="w-full flex flex-col space-y-5 p-4 sm:p-5 text-white font-mono select-none">
       {!hideAutonomousStrip && <BrutalistKineticHudStrip />}
+
+      {/* Per-Shot Isolated Title Inspector + Copy Style To All Action */}
+      <div className="p-3 rounded-xl bg-[#0D0E12] border border-white/10 space-y-2.5">
+        <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="px-1.5 py-0.5 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] text-[9px] font-black tracking-wider shrink-0 tabular-nums">
+              SH{String(targetShotIndex + 1).padStart(3, '0')}
+            </span>
+            <span className="text-[9.5px] font-bold text-zinc-200 uppercase tracking-wider truncate">
+              PER-SHOT ISOLATED TITLE
+            </span>
+          </div>
+          <button
+            type="button"
+            data-testid="toggle-shot-title-btn"
+            onClick={() => updateShotTitleData(targetShotIndex, { enabled: !shotTitleData.enabled })}
+            className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors shrink-0 ${
+              shotTitleData.enabled
+                ? 'bg-[#F59E0B]/20 border-[#F59E0B]/60 text-[#F59E0B]'
+                : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
+            }`}
+          >
+            {shotTitleData.enabled ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+            <span>{shotTitleData.enabled ? 'TITLE ON' : 'TITLE OFF'}</span>
+          </button>
+        </div>
+
+        {/* Direct Bangla Title & English Subtitle Inputs scoped to this shot */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input
+            type="text"
+            aria-label="Shot Bangla Title"
+            value={shotTitleData.banglaTitle}
+            onChange={(e) => updateShotTitleData(targetShotIndex, { banglaTitle: e.target.value })}
+            placeholder="বাংলা শিরোনাম..."
+            className="w-full px-2.5 py-1.5 rounded bg-black/70 border border-white/10 focus:border-[#F59E0B] text-xs font-bangla font-bold text-[#FFE066] outline-none"
+          />
+          <input
+            type="text"
+            aria-label="Shot English Subtitle"
+            value={shotTitleData.englishSubtitle}
+            onChange={(e) => updateShotTitleData(targetShotIndex, { englishSubtitle: e.target.value })}
+            placeholder="ENGLISH SUBTITLE..."
+            className="w-full px-2.5 py-1.5 rounded bg-black/70 border border-white/10 focus:border-[#F59E0B] text-[11px] font-mono font-bold text-white uppercase outline-none"
+          />
+        </div>
+
+        {/* Per-Shot Alignment + Copy Style to All Shots */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div className="flex items-center gap-1 bg-black/60 border border-white/10 rounded p-0.5">
+            {(['LEFT', 'MID', 'RIGHT', 'AUTO'] as TitleAlign[]).map((align) => (
+              <button
+                key={align}
+                type="button"
+                onClick={() => updateShotTitleData(targetShotIndex, { alignment: align })}
+                className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold cursor-pointer transition-colors ${
+                  shotTitleData.alignment === align
+                    ? 'bg-[#F59E0B] text-[#0B0B0D]'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {align}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            data-testid="copy-style-to-all-btn"
+            onClick={handleCopyStyleToAll}
+            className={`px-2.5 py-1 rounded border text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-colors ${
+              copiedAllSuccess
+                ? 'bg-emerald-600/30 border-emerald-400 text-emerald-300'
+                : 'bg-[#141417] hover:bg-[#F59E0B]/15 border-white/15 hover:border-[#F59E0B]/60 text-zinc-200 hover:text-[#F59E0B]'
+            }`}
+            title="Copy visual style (preset, font, colors, glow, layout, alignment) to all shots while preserving each shot's unique text"
+          >
+            {copiedAllSuccess ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            <span>{copiedAllSuccess ? 'STYLE COPIED TO ALL SHOTS' : 'COPY STYLE TO ALL SHOTS'}</span>
+          </button>
+        </div>
+      </div>
 
       {/* Category Filter Chips */}
       <div>
@@ -890,8 +998,8 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
             {/* Title Size Slider */}
             <div className="space-y-1.5">
               <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>Font Scale</span>
-                <span className="text-[#FFE066] font-mono">{titleSize}px</span>
+                <span>Font Scale (SH{String(targetShotIndex + 1).padStart(3, '0')})</span>
+                <span className="text-[#FFE066] font-mono tabular-nums">{titleSize}px</span>
               </div>
               <input
                 type="range"
@@ -899,7 +1007,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 max={120}
                 step={2}
                 value={titleSize}
-                onChange={(e) => setTitleSize(Number(e.target.value))}
+                onChange={(e) => updateShotTitleData(targetShotIndex, { fontScale: Number(e.target.value) })}
                 className="w-full accent-[#F5A623] cursor-pointer"
               />
             </div>
@@ -908,7 +1016,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
             <div className="space-y-1.5">
               <div className="flex justify-between text-[10px] text-zinc-400">
                 <span>Anamorphic Glow</span>
-                <span className="text-[#FFE066] font-mono">{Math.round(glowIntensity * 100)}%</span>
+                <span className="text-[#FFE066] font-mono tabular-nums">{Math.round(glowIntensity * 100)}%</span>
               </div>
               <input
                 type="range"
@@ -916,7 +1024,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 max={2.0}
                 step={0.05}
                 value={glowIntensity}
-                onChange={(e) => setTitleGlowIntensity(Number(e.target.value))}
+                onChange={(e) => updateShotTitleData(targetShotIndex, { glowIntensity: Number(e.target.value) })}
                 className="w-full accent-[#F5A623] cursor-pointer"
               />
             </div>
@@ -925,7 +1033,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
             <div className="space-y-1.5">
               <div className="flex justify-between text-[10px] text-zinc-400">
                 <span>Letter Tracking</span>
-                <span className="text-[#FFE066] font-mono">{tracking.toFixed(2)}em</span>
+                <span className="text-[#FFE066] font-mono tabular-nums">{tracking.toFixed(2)}em</span>
               </div>
               <input
                 type="range"
@@ -933,7 +1041,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 max={0.5}
                 step={0.02}
                 value={tracking}
-                onChange={(e) => setTitleTracking(Number(e.target.value))}
+                onChange={(e) => updateShotTitleData(targetShotIndex, { letterTracking: Number(e.target.value) })}
                 className="w-full accent-[#F5A623] cursor-pointer"
               />
             </div>
@@ -942,7 +1050,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
             <div className="space-y-1.5">
               <div className="flex justify-between text-[10px] text-zinc-400">
                 <span>Vertical Offset</span>
-                <span className="text-[#FFE066] font-mono">{verticalOffset}px</span>
+                <span className="text-[#FFE066] font-mono tabular-nums">{verticalOffset}px</span>
               </div>
               <input
                 type="range"
@@ -950,7 +1058,7 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 max={120}
                 step={5}
                 value={verticalOffset}
-                onChange={(e) => setTitleVerticalOffset(Number(e.target.value))}
+                onChange={(e) => updateShotTitleData(targetShotIndex, { verticalOffset: Number(e.target.value) })}
                 className="w-full accent-[#F5A623] cursor-pointer"
               />
             </div>

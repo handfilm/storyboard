@@ -14,8 +14,13 @@ import { depthOcclusionService, DepthLayerMode } from '../services/depthOcclusio
 import { AudioPunchMode } from '../services/transientPunchEngine';
 import { AutonomousKineticPreset } from '../services/kineticTypographyStyles';
 import type { ShotMediaEntry, ShotMediaMap } from '../services/handfilmMediaVault';
-import type { TitlePresetConfig } from '../types/titlePreset';
-import { buildTitlePresetConfigById, stripDopamineDirectorNote } from '../constants/titleTemplates';
+import type { TitlePresetConfig, ShotTitleData } from '../types/titlePreset';
+import {
+  buildTitlePresetConfigById,
+  createDefaultShotTitleData,
+  resolveShotTitleData,
+  stripDopamineDirectorNote
+} from '../constants/titleTemplates';
 
 export type StudioModule =
   | 'STORY'
@@ -173,6 +178,8 @@ export interface StudioState {
   toggleTitles: () => void;
   setTitleConfig: (partial: Partial<HeroTitleConfig>) => void;
   setShotTitlePresetConfig: (shotIndex: number, config: TitlePresetConfig, syncGlobal?: boolean) => void;
+  updateShotTitleData: (shotIndex: number, partial: Partial<ShotTitleData>) => void;
+  copyTitleStyleToAllShots: (sourceIndex?: number) => void;
 
   // Autonomous Kinetic Typography & 3D Depth Occlusion Engine
   kineticOcclusion: {
@@ -369,6 +376,7 @@ export function createDefaultStoreShots(): Shot[] {
     tags: bf.tags,
     activeLens: '50mm f/1.4 Human Eye',
     dof: '1.8cm',
+    titleData: createDefaultShotTitleData(bf, i),
     updatedAt: Date.now()
   }));
 }
@@ -475,11 +483,11 @@ export const useStudioStore = create<StudioState>()(
     saveStatus: 'IDB SYNCED',
     credits: 12500,
 
-    // Kinetic Hero Title Typography Engine
+    // Kinetic Hero Title Typography Engine (Strict Per-Shot Mode by Default)
     titleConfig: {
       preset: 'molten-gold',
       activePresetConfig: buildTitlePresetConfigById('molten-gold'),
-      heroGlobal: true,
+      heroGlobal: false,
       titleSize: 72,
       glowIntensity: 1.0,
       verticalOffset: 0,
@@ -489,36 +497,54 @@ export const useStudioStore = create<StudioState>()(
     },
     titleAlign: 'MID',
     setTitleAlign: (align: TitleAlign) => {
+      let targetIdx = 0;
+      let nextTitleData: ShotTitleData | undefined;
       set((state) => {
         state.titleAlign = align;
         state.titlePosition = titleAlignToPosition(align);
+        targetIdx = state.activeShotIndex;
+        const shot = state.project.shots?.[targetIdx];
+        if (shot) {
+          const resolved = resolveShotTitleData(shot, targetIdx);
+          nextTitleData = {
+            ...resolved,
+            alignment: align
+          };
+          shot.titleData = nextTitleData;
+          shot.updatedAt = Date.now();
+        }
       });
       eventBus.emit('title:align', align);
+      if (nextTitleData) {
+        eventBus.emit('shot:updated', {
+          index: targetIdx,
+          partial: { titleData: nextTitleData }
+        });
+      }
     },
     titlePosition: 'mid-bottom',
     setTitlePosition: (position: TitlePosition) => {
-      set((state) => {
-        state.titlePosition = position;
-        state.titleAlign = positionToTitleAlign(position);
-      });
-      eventBus.emit('title:align', get().titleAlign);
+      const nextAlign = positionToTitleAlign(position);
+      get().setTitleAlign(nextAlign);
     },
     setTitlePreset: (preset: HeroTitlePreset) => {
       let updatedShotIdx = 0;
       let builtConfig: TitlePresetConfig | undefined;
+      let nextTitleData: ShotTitleData | undefined;
       let cleanedNotes = '';
       let cleanedTags: string[] = [];
       set((state) => {
         state.titleConfig.preset = preset;
-        builtConfig = buildTitlePresetConfigById(preset, {
-          fontScale: state.titleConfig.titleSize,
-          glowIntensity: state.titleConfig.glowIntensity,
-          letterTracking: state.titleConfig.tracking,
-          verticalOffset: state.titleConfig.verticalOffset
-        });
-        state.titleConfig.activePresetConfig = builtConfig;
         updatedShotIdx = state.activeShotIndex;
         const shot = state.project.shots?.[updatedShotIdx];
+        const currentData = resolveShotTitleData(shot, updatedShotIdx);
+        builtConfig = buildTitlePresetConfigById(preset, {
+          fontScale: currentData.fontScale,
+          glowIntensity: currentData.glowIntensity,
+          letterTracking: currentData.letterTracking,
+          verticalOffset: currentData.verticalOffset
+        });
+        state.titleConfig.activePresetConfig = builtConfig;
         if (shot) {
           cleanedNotes = stripDopamineDirectorNote(shot.directorNotes);
           cleanedTags = (shot.tags || []).filter((t) => t !== 'dopamine');
@@ -528,6 +554,13 @@ export const useStudioStore = create<StudioState>()(
           shot.directorNotes = cleanedNotes;
           shot.tags = cleanedTags;
           shot.colorAccent = builtConfig.primaryColor;
+          nextTitleData = {
+            ...currentData,
+            presetId: builtConfig.presetId,
+            entranceAnim: builtConfig.motionAnimation,
+            styleConfig: builtConfig
+          };
+          shot.titleData = nextTitleData;
           shot.updatedAt = Date.now();
         }
       });
@@ -538,6 +571,7 @@ export const useStudioStore = create<StudioState>()(
           partial: {
             activeTitlePreset: builtConfig.presetId,
             titleStyleConfig: builtConfig,
+            ...(nextTitleData ? { titleData: nextTitleData } : {}),
             dopamineConfig: undefined,
             directorNotes: cleanedNotes,
             tags: cleanedTags,
@@ -547,9 +581,10 @@ export const useStudioStore = create<StudioState>()(
       }
     },
     setTitleSize: (size: number) => {
-      const nextSize = Math.max(28, Math.min(140, Math.round(size)));
+      const nextSize = Math.max(24, Math.min(140, Math.round(size)));
       let targetIdx = 0;
       let nextShotConfig: TitlePresetConfig | undefined;
+      let nextTitleData: ShotTitleData | undefined;
       set((state) => {
         state.titleConfig.titleSize = nextSize;
         if (state.titleConfig.activePresetConfig) {
@@ -558,23 +593,37 @@ export const useStudioStore = create<StudioState>()(
         targetIdx = state.activeShotIndex;
         const shot = state.project.shots?.[targetIdx];
         if (shot) {
+          const currentData = resolveShotTitleData(shot, targetIdx);
           const baseConfig =
+            currentData.styleConfig ||
             shot.titleStyleConfig ||
-            state.titleConfig.activePresetConfig ||
-            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+            buildTitlePresetConfigById(shot.activeTitlePreset || 'molten-gold');
           nextShotConfig = { ...baseConfig, fontScale: nextSize };
           shot.titleStyleConfig = nextShotConfig;
+          nextTitleData = {
+            ...currentData,
+            fontScale: nextSize,
+            styleConfig: nextShotConfig
+          };
+          shot.titleData = nextTitleData;
           shot.updatedAt = Date.now();
         }
       });
       if (nextShotConfig) {
-        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+        eventBus.emit('shot:updated', {
+          index: targetIdx,
+          partial: {
+            titleStyleConfig: nextShotConfig,
+            ...(nextTitleData ? { titleData: nextTitleData } : {})
+          }
+        });
       }
     },
     setTitleGlowIntensity: (intensity: number) => {
       const nextGlow = Math.max(0, Math.min(2.0, intensity));
       let targetIdx = 0;
       let nextShotConfig: TitlePresetConfig | undefined;
+      let nextTitleData: ShotTitleData | undefined;
       set((state) => {
         state.titleConfig.glowIntensity = nextGlow;
         if (state.titleConfig.activePresetConfig) {
@@ -583,23 +632,37 @@ export const useStudioStore = create<StudioState>()(
         targetIdx = state.activeShotIndex;
         const shot = state.project.shots?.[targetIdx];
         if (shot) {
+          const currentData = resolveShotTitleData(shot, targetIdx);
           const baseConfig =
+            currentData.styleConfig ||
             shot.titleStyleConfig ||
-            state.titleConfig.activePresetConfig ||
-            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+            buildTitlePresetConfigById(shot.activeTitlePreset || 'molten-gold');
           nextShotConfig = { ...baseConfig, glowIntensity: nextGlow };
           shot.titleStyleConfig = nextShotConfig;
+          nextTitleData = {
+            ...currentData,
+            glowIntensity: nextGlow,
+            styleConfig: nextShotConfig
+          };
+          shot.titleData = nextTitleData;
           shot.updatedAt = Date.now();
         }
       });
       if (nextShotConfig) {
-        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+        eventBus.emit('shot:updated', {
+          index: targetIdx,
+          partial: {
+            titleStyleConfig: nextShotConfig,
+            ...(nextTitleData ? { titleData: nextTitleData } : {})
+          }
+        });
       }
     },
     setTitleVerticalOffset: (offset: number) => {
       const nextOffset = Math.max(-200, Math.min(200, Math.round(offset)));
       let targetIdx = 0;
       let nextShotConfig: TitlePresetConfig | undefined;
+      let nextTitleData: ShotTitleData | undefined;
       set((state) => {
         state.titleConfig.verticalOffset = nextOffset;
         if (state.titleConfig.activePresetConfig) {
@@ -608,23 +671,37 @@ export const useStudioStore = create<StudioState>()(
         targetIdx = state.activeShotIndex;
         const shot = state.project.shots?.[targetIdx];
         if (shot) {
+          const currentData = resolveShotTitleData(shot, targetIdx);
           const baseConfig =
+            currentData.styleConfig ||
             shot.titleStyleConfig ||
-            state.titleConfig.activePresetConfig ||
-            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+            buildTitlePresetConfigById(shot.activeTitlePreset || 'molten-gold');
           nextShotConfig = { ...baseConfig, verticalOffset: nextOffset };
           shot.titleStyleConfig = nextShotConfig;
+          nextTitleData = {
+            ...currentData,
+            verticalOffset: nextOffset,
+            styleConfig: nextShotConfig
+          };
+          shot.titleData = nextTitleData;
           shot.updatedAt = Date.now();
         }
       });
       if (nextShotConfig) {
-        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+        eventBus.emit('shot:updated', {
+          index: targetIdx,
+          partial: {
+            titleStyleConfig: nextShotConfig,
+            ...(nextTitleData ? { titleData: nextTitleData } : {})
+          }
+        });
       }
     },
     setTitleTracking: (tracking: number) => {
-      const nextTracking = Math.max(0.02, Math.min(0.6, tracking));
+      const nextTracking = Math.max(0.0, Math.min(0.6, tracking));
       let targetIdx = 0;
       let nextShotConfig: TitlePresetConfig | undefined;
+      let nextTitleData: ShotTitleData | undefined;
       set((state) => {
         state.titleConfig.tracking = nextTracking;
         if (state.titleConfig.activePresetConfig) {
@@ -633,17 +710,30 @@ export const useStudioStore = create<StudioState>()(
         targetIdx = state.activeShotIndex;
         const shot = state.project.shots?.[targetIdx];
         if (shot) {
+          const currentData = resolveShotTitleData(shot, targetIdx);
           const baseConfig =
+            currentData.styleConfig ||
             shot.titleStyleConfig ||
-            state.titleConfig.activePresetConfig ||
-            buildTitlePresetConfigById(shot.activeTitlePreset || state.titleConfig.preset);
+            buildTitlePresetConfigById(shot.activeTitlePreset || 'molten-gold');
           nextShotConfig = { ...baseConfig, letterTracking: nextTracking };
           shot.titleStyleConfig = nextShotConfig;
+          nextTitleData = {
+            ...currentData,
+            letterTracking: nextTracking,
+            styleConfig: nextShotConfig
+          };
+          shot.titleData = nextTitleData;
           shot.updatedAt = Date.now();
         }
       });
       if (nextShotConfig) {
-        eventBus.emit('shot:updated', { index: targetIdx, partial: { titleStyleConfig: nextShotConfig } });
+        eventBus.emit('shot:updated', {
+          index: targetIdx,
+          partial: {
+            titleStyleConfig: nextShotConfig,
+            ...(nextTitleData ? { titleData: nextTitleData } : {})
+          }
+        });
       }
     },
     setTitleOpacity: (opacity: number) => {
@@ -680,10 +770,12 @@ export const useStudioStore = create<StudioState>()(
         }
       });
     },
-    setShotTitlePresetConfig: (shotIndex: number, config: TitlePresetConfig, syncGlobal: boolean = true) => {
+    setShotTitlePresetConfig: (shotIndex: number, config: TitlePresetConfig, syncGlobal: boolean = false) => {
+      let nextTitleData: ShotTitleData | undefined;
       set((state) => {
         const shot = state.project.shots?.[shotIndex];
         if (shot) {
+          const currentData = resolveShotTitleData(shot, shotIndex);
           shot.activeTitlePreset = config.presetId;
           shot.titleStyleConfig = config;
           if (config.category !== 'DOPAMINE') {
@@ -692,6 +784,17 @@ export const useStudioStore = create<StudioState>()(
             shot.tags = (shot.tags || []).filter((t) => t !== 'dopamine');
           }
           shot.colorAccent = config.primaryColor;
+          nextTitleData = {
+            ...currentData,
+            presetId: config.presetId,
+            fontScale: config.fontScale,
+            glowIntensity: config.glowIntensity,
+            letterTracking: config.letterTracking,
+            verticalOffset: config.verticalOffset,
+            entranceAnim: config.motionAnimation,
+            styleConfig: config
+          };
+          shot.titleData = nextTitleData;
           shot.updatedAt = Date.now();
         }
         if (syncGlobal) {
@@ -714,10 +817,180 @@ export const useStudioStore = create<StudioState>()(
         partial: {
           activeTitlePreset: config.presetId,
           titleStyleConfig: config,
+          ...(nextTitleData ? { titleData: nextTitleData } : {}),
           ...(config.category !== 'DOPAMINE' ? { dopamineConfig: undefined } : {}),
           colorAccent: config.primaryColor
         }
       });
+    },
+    updateShotTitleData: (shotIndex: number, partial: Partial<ShotTitleData>) => {
+      let nextTitleData: ShotTitleData | undefined;
+      let nextStyleConfig: TitlePresetConfig | undefined;
+      let emitPartial: Record<string, any> = {};
+
+      set((state) => {
+        if (!state.project.shots || state.project.shots.length === 0) {
+          state.project.shots = createDefaultStoreShots();
+        }
+        const defaults = createDefaultStoreShots();
+        while (state.project.shots.length <= shotIndex) {
+          const i = state.project.shots.length;
+          state.project.shots.push({ ...defaults[i % defaults.length], id: i });
+        }
+        const shot = state.project.shots[shotIndex];
+        if (!shot) return;
+
+        const base = resolveShotTitleData(shot, shotIndex);
+        const mergedStyleBase =
+          partial.styleConfig ||
+          (partial.presetId && partial.presetId !== base.presetId
+            ? buildTitlePresetConfigById(partial.presetId)
+            : base.styleConfig || buildTitlePresetConfigById(base.presetId));
+
+        const nextFontScale = partial.fontScale ?? mergedStyleBase.fontScale ?? base.fontScale;
+        const nextGlow = partial.glowIntensity ?? mergedStyleBase.glowIntensity ?? base.glowIntensity;
+        const nextTracking = partial.letterTracking ?? mergedStyleBase.letterTracking ?? base.letterTracking;
+        const nextOffset = partial.verticalOffset ?? mergedStyleBase.verticalOffset ?? base.verticalOffset;
+
+        nextStyleConfig = {
+          ...mergedStyleBase,
+          fontScale: nextFontScale,
+          glowIntensity: nextGlow,
+          letterTracking: nextTracking,
+          verticalOffset: nextOffset
+        };
+
+        nextTitleData = {
+          ...base,
+          ...partial,
+          presetId: partial.presetId ?? nextStyleConfig.presetId,
+          fontScale: nextFontScale,
+          glowIntensity: nextGlow,
+          letterTracking: nextTracking,
+          verticalOffset: nextOffset,
+          entranceAnim: partial.entranceAnim ?? nextStyleConfig.motionAnimation,
+          styleConfig: nextStyleConfig
+        };
+
+        shot.titleData = nextTitleData;
+        shot.activeTitlePreset = nextTitleData.presetId;
+        shot.titleStyleConfig = nextStyleConfig;
+        shot.colorAccent = nextStyleConfig.primaryColor;
+        if (partial.banglaTitle !== undefined) {
+          shot.bengaliTitle = partial.banglaTitle;
+        }
+        if (partial.englishSubtitle !== undefined) {
+          shot.title = partial.englishSubtitle;
+        }
+        if (partial.captionNote !== undefined) {
+          shot.directorNotes = partial.captionNote;
+          shot.tagline = partial.captionNote;
+        }
+        if (nextStyleConfig.category !== 'DOPAMINE') {
+          shot.dopamineConfig = undefined;
+          shot.tags = (shot.tags || []).filter((t) => t !== 'dopamine');
+        }
+        shot.updatedAt = Date.now();
+
+        emitPartial = {
+          titleData: nextTitleData,
+          activeTitlePreset: nextTitleData.presetId,
+          titleStyleConfig: nextStyleConfig,
+          colorAccent: nextStyleConfig.primaryColor,
+          ...(partial.banglaTitle !== undefined ? { bengaliTitle: partial.banglaTitle } : {}),
+          ...(partial.englishSubtitle !== undefined ? { title: partial.englishSubtitle } : {}),
+          ...(partial.captionNote !== undefined
+            ? { directorNotes: partial.captionNote, tagline: partial.captionNote }
+            : {}),
+          ...(nextStyleConfig.category !== 'DOPAMINE' ? { dopamineConfig: undefined } : {})
+        };
+      });
+
+      if (nextTitleData) {
+        eventBus.emit('shot:updated', {
+          index: shotIndex,
+          partial: emitPartial
+        });
+      }
+    },
+    copyTitleStyleToAllShots: (sourceIndex?: number) => {
+      let copiedStylePatch: {
+        enabled: boolean;
+        presetId: string;
+        alignment: ShotTitleData['alignment'];
+        fontScale: number;
+        glowIntensity: number;
+        letterTracking: number;
+        verticalOffset: number;
+        entranceAnim?: ShotTitleData['entranceAnim'];
+        exitAnim?: ShotTitleData['exitAnim'];
+        styleConfig?: TitlePresetConfig;
+      } | null = null;
+      let resolvedSourceIdx = 0;
+
+      set((state) => {
+        resolvedSourceIdx =
+          typeof sourceIndex === 'number' && Number.isFinite(sourceIndex)
+            ? Math.max(0, Math.min(state.project.shots.length - 1, sourceIndex))
+            : state.activeShotIndex;
+        const sourceShot = state.project.shots[resolvedSourceIdx];
+        const sourceData = resolveShotTitleData(sourceShot, resolvedSourceIdx);
+        const clonedStyle = sourceData.styleConfig
+          ? {
+              ...sourceData.styleConfig,
+              backdropPlate: { ...sourceData.styleConfig.backdropPlate },
+              ...(sourceData.styleConfig.primaryGradient
+                ? { primaryGradient: [...sourceData.styleConfig.primaryGradient] as [string, string, string] }
+                : {})
+            }
+          : buildTitlePresetConfigById(sourceData.presetId);
+
+        copiedStylePatch = {
+          enabled: sourceData.enabled,
+          presetId: sourceData.presetId,
+          alignment: sourceData.alignment,
+          fontScale: sourceData.fontScale,
+          glowIntensity: sourceData.glowIntensity,
+          letterTracking: sourceData.letterTracking,
+          verticalOffset: sourceData.verticalOffset,
+          entranceAnim: sourceData.entranceAnim,
+          exitAnim: sourceData.exitAnim,
+          styleConfig: clonedStyle
+        };
+
+        state.project.shots.forEach((shot, idx) => {
+          const existingData = resolveShotTitleData(shot, idx);
+          const perShotStyle: TitlePresetConfig = {
+            ...clonedStyle,
+            backdropPlate: { ...clonedStyle.backdropPlate },
+            ...(clonedStyle.primaryGradient
+              ? { primaryGradient: [...clonedStyle.primaryGradient] as [string, string, string] }
+              : {})
+          };
+          shot.titleData = {
+            ...copiedStylePatch!,
+            banglaTitle: existingData.banglaTitle,
+            englishSubtitle: existingData.englishSubtitle,
+            captionNote: existingData.captionNote,
+            styleConfig: perShotStyle
+          };
+          shot.activeTitlePreset = copiedStylePatch!.presetId;
+          shot.titleStyleConfig = perShotStyle;
+          shot.colorAccent = perShotStyle.primaryColor;
+          if (perShotStyle.category !== 'DOPAMINE') {
+            shot.dopamineConfig = undefined;
+            shot.tags = (shot.tags || []).filter((t) => t !== 'dopamine');
+          }
+          shot.updatedAt = Date.now();
+        });
+      });
+
+      if (copiedStylePatch) {
+        eventBus.emit('shots:style_copied', {
+          sourceIndex: resolvedSourceIdx,
+          stylePatch: copiedStylePatch
+        });
+      }
     },
 
     // Autonomous Kinetic Typography & 3D Depth Occlusion Engine

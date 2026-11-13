@@ -10,7 +10,7 @@ import { Shot } from '../schemas';
 import { AnthologyFrame } from '../../types/anthology';
 import { useStudioStore, createDefaultStoreShots } from '../store';
 import { eventBus } from '../eventBus';
-import { buildDopamineTitlePresetConfig } from '../../constants/titleTemplates';
+import { buildDopamineTitlePresetConfig, createDefaultShotTitleData, resolveShotTitleData } from '../../constants/titleTemplates';
 
 export const DEFAULT_SHOT_DURATION = 12.0;
 export const MIN_SHOT_DURATION = 0.5;
@@ -151,6 +151,12 @@ export function addShotToTimeline(newClip: TimelineClipPayload): Shot {
     tags: ['AI_GENERATED', 'NEURAL_DIFFUSION', newClip.type || 'ai_generated', newClip.model || 'VEO'].filter(Boolean),
     activeLens: '35mm f/1.4 Master Anamorphic',
     dof: '1.2cm',
+    titleData: createDefaultShotTitleData({
+      title: newClip.title || `AI_SHOT_${String(newIndex + 1).padStart(3, '0')}`,
+      bengaliTitle: newClip.bengaliTitle || 'কৃত্রিম নিউরাল দৃশ্য',
+      tagline: newClip.tagline || (newClip.prompt ? `PROMPT: ${newClip.prompt.slice(0, 48)}...` : 'AI Generated Neural Asset'),
+      directorNotes: newClip.directorNotes || (newClip.prompt ? `[AI FORGE: ${newClip.model || 'OMNI-AI'}] ${newClip.prompt}` : 'Synthesized via Omni-AI Forge')
+    }, newIndex),
     updatedAt: Date.now()
   };
 
@@ -349,6 +355,22 @@ export function applyTemplateToShot(
     glitchIntensity: dopamineConfig.glitchIntensity
   });
 
+  const currentData = resolveShotTitleData(existingShot, targetIndex);
+  const nextTitleData = {
+    ...currentData,
+    enabled: true,
+    presetId: dopamineConfig.presetId,
+    banglaTitle: existingShot?.bengaliTitle || currentData.banglaTitle,
+    englishSubtitle: dopamineConfig.hookText,
+    captionNote: dopamineConfig.subText,
+    fontScale: dopamineStyleConfig.fontScale,
+    glowIntensity: dopamineStyleConfig.glowIntensity,
+    letterTracking: dopamineStyleConfig.letterTracking,
+    verticalOffset: dopamineStyleConfig.verticalOffset,
+    entranceAnim: dopamineStyleConfig.motionAnimation,
+    styleConfig: dopamineStyleConfig
+  };
+
   // Mutate ONLY typography & template fields on the single target shot; preserve media & duration!
   useStudioStore.setState((state) => {
     const target = state.project.shots[targetIndex];
@@ -362,9 +384,9 @@ export function applyTemplateToShot(
       target.dopamineConfig = dopamineConfig;
       target.activeTitlePreset = dopamineConfig.presetId;
       target.titleStyleConfig = dopamineStyleConfig;
+      target.titleData = nextTitleData;
       target.updatedAt = Date.now();
     }
-    state.titleConfig.activePresetConfig = dopamineStyleConfig;
     state.titleConfig.showTitles = true;
     state.visibility.titlesAll = true;
   });
@@ -379,6 +401,7 @@ export function applyTemplateToShot(
     dopamineConfig,
     activeTitlePreset: dopamineConfig.presetId,
     titleStyleConfig: dopamineStyleConfig,
+    titleData: nextTitleData,
     caption: {
       text: dopamineConfig.subText,
       style: 'rap_pop',

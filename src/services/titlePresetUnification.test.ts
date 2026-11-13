@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 import {
   CINEMATIC_TITLE_PRESETS,
   buildTitlePresetConfig,
   buildDopamineTitlePresetConfig,
   applyTitleTemplateToFrame,
   stripDopamineDirectorNote,
+  resolveShotTitleData,
   resolveShotTitlePresetConfig
 } from '../constants/titleTemplates';
 import { useStudioStore } from '../core/store';
@@ -309,3 +311,71 @@ test('renderTitlePresetToCanvas renders all 6 layoutModes + DOPAMINE cleanly wit
   });
   assert.strictEqual(resolvedNonDopamine.layoutMode, 'hud-bracket');
 });
+
+test('Per-shot ShotTitleData isolation & Copy Style To All preserve unique shot text', () => {
+  const store = useStudioStore.getState();
+  assert.strictEqual(store.titleConfig.heroGlobal, false, 'heroGlobal should default to false for strict per-shot isolation');
+
+  // Customize Shot 0 and Shot 1 text independently
+  store.updateShotTitleData(0, {
+    banglaTitle: 'প্রথম শট বাংলা',
+    englishSubtitle: 'SHOT ONE TITLE',
+    captionNote: 'Note One'
+  });
+  store.updateShotTitleData(1, {
+    banglaTitle: 'দ্বিতীয় শট বাংলা',
+    englishSubtitle: 'SHOT TWO TITLE',
+    captionNote: 'Note Two'
+  });
+
+  // Update Shot 2 typography & preset ONLY
+  const glitchPreset = CINEMATIC_TITLE_PRESETS.find((p) => p.id === 'neon-glitch-pulse')!;
+  const glitchConfig = buildTitlePresetConfig(glitchPreset);
+  store.updateShotTitleData(2, {
+    enabled: false,
+    presetId: glitchPreset.id,
+    banglaTitle: 'তৃতীয় শট বাংলা',
+    englishSubtitle: 'SHOT THREE UNIQUE',
+    alignment: 'RIGHT',
+    fontScale: 84,
+    glowIntensity: 1.75,
+    letterTracking: 0.32,
+    verticalOffset: -30,
+    styleConfig: glitchConfig
+  });
+
+  let state = useStudioStore.getState();
+  assert.strictEqual(state.project.shots[0]?.titleData?.banglaTitle, 'প্রথম শট বাংলা');
+  assert.strictEqual(state.project.shots[1]?.titleData?.banglaTitle, 'দ্বিতীয় শট বাংলা');
+  assert.strictEqual(state.project.shots[2]?.titleData?.banglaTitle, 'তৃতীয় শট বাংলা');
+  assert.strictEqual(state.project.shots[2]?.titleData?.enabled, false);
+  assert.notStrictEqual(state.project.shots[0]?.titleData?.presetId, glitchPreset.id);
+
+  // Copy style from Shot 2 to all shots -> visual style propagates, Shot 0 & 1 text stays intact
+  store.copyTitleStyleToAllShots(2);
+  state = useStudioStore.getState();
+  assert.strictEqual(state.project.shots[0]?.titleData?.presetId, glitchPreset.id);
+  assert.strictEqual(state.project.shots[0]?.titleData?.alignment, 'RIGHT');
+  assert.strictEqual(state.project.shots[0]?.titleData?.fontScale, 84);
+  assert.strictEqual(state.project.shots[0]?.titleData?.banglaTitle, 'প্রথম শট বাংলা');
+  assert.strictEqual(state.project.shots[1]?.titleData?.englishSubtitle, 'SHOT TWO TITLE');
+
+  const resolvedShot2 = resolveShotTitleData(state.project.shots[2], 2);
+  assert.strictEqual(resolvedShot2.enabled, false);
+});
+
+test('StudioNavRail has exact 9 ordered tools (STORY..SYSTEM with MEDIA) and ControlDock applies active-only color', () => {
+  const railSource = readFileSync(new URL('../components/StudioNavRail.tsx', import.meta.url), 'utf8');
+  const keys = Array.from(railSource.matchAll(/key:\s*'([A-Z]+)'/g)).map((m) => m[1]);
+  assert.deepStrictEqual(keys, ['STORY', 'MEDIA', 'TEXT', 'AUDIO', 'CUT', 'CROP', 'FX', 'BRIDGE', 'SYSTEM']);
+  assert.ok(railSource.includes('w-6 h-6'), 'StudioNavRail must render 24px (w-6 h-6) icons');
+  assert.strictEqual(keys.includes('CLOUD'), false);
+  assert.strictEqual(keys.includes('LIGHT'), false);
+
+  const dockSource = readFileSync(new URL('../components/ControlDock.tsx', import.meta.url), 'utf8');
+  assert.ok(dockSource.includes('scale-[1.04]'), 'Active thumbnail card must lift with scale-[1.04]');
+  assert.ok(dockSource.includes('grayscale(100%)'), 'Inactive thumbnail cards must render monochrome stealth filter');
+  assert.ok(dockSource.includes('blur(1.5px)'), 'Inactive thumbnail cards must render subtle blur(1.5px)');
+  assert.ok(dockSource.includes('opacity-50'), 'Inactive thumbnail cards must dim to opacity-50');
+});
+

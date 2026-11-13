@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
 import { eventBus } from '../../core/eventBus';
+import { getLicenseAuthHeaders, useLicenseStore } from '../../services/licenseService';
 import { audioEngine } from '../../services/audioEngine';
 import {
   multiTrackAudioBus,
@@ -86,6 +87,9 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
   } | null>(null);
 
   const handleRunVocalRemover = async () => {
+    if (!useLicenseStore.getState().requireProAccess('AI Vocal Remover & Gemini Voice Studio')) {
+      return;
+    }
     if (!vrFile) {
       flashNotice('Select an audio or video file first.');
       return;
@@ -274,14 +278,18 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
   const [activeFoleyName, setActiveFoleyName] = useState<string>('');
 
   const handleGenerateTts = async () => {
+    if (!useLicenseStore.getState().requireProAccess('AI Vocal Remover & Gemini Voice Studio')) {
+      return;
+    }
     if (!ttsText.trim()) return;
     setIsGeneratingTts(true);
     setTtsError(null);
     try {
-      const resp = await fetch('/api/ai/audio/tts', {
+      const resp = await fetch('/api/ai/generate-audio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
+          mode: 'tts',
           text: ttsText.trim(),
           voiceName: ttsVoice,
           style: ttsStyle
@@ -289,6 +297,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       });
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok || !json?.success || !json?.audioDataUrl) {
+        useLicenseStore.getState().handleApiLicenseError(resp.status, json, 'AI Vocal Remover & Gemini Voice Studio');
         throw new Error(json?.error || `TTS generation failed (${resp.status})`);
       }
       setTtsAudioUrl(json.audioDataUrl);
@@ -316,15 +325,21 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
   };
 
   const handleGenerateFoley = async () => {
+    if (!useLicenseStore.getState().requireProAccess('AI Vocal Remover & Gemini Voice Studio')) {
+      return;
+    }
     if (!foleyPrompt.trim()) return;
     setIsGeneratingFoley(true);
     try {
-      const resp = await fetch('/api/ai/audio/foley-design', {
+      const resp = await fetch('/api/ai/generate-audio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: foleyPrompt.trim(), durationSec: 4.0 })
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mode: 'foley', prompt: foleyPrompt.trim(), durationSec: 4.0 })
       });
       const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        useLicenseStore.getState().handleApiLicenseError(resp.status, json, 'AI Vocal Remover & Gemini Voice Studio');
+      }
       if (json?.success && json?.recipe) {
         applyFoleyRecipe(json.recipe);
       } else {

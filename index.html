@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title>RAWx Storyboard Engine</title>
     <meta name="description" content="Next-level cinematic film anthology and storyboard engine with multi-layer optical lens simulation, Depth of Field aperture control, audio synthesizer, and Git-ready publication suite." />
     <meta property="og:title" content="RAWx Storyboard Engine" />
@@ -35,18 +35,21 @@
         }
 
         body, html {
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
             background-color: #050505;
             color: #ffffff;
             font-family: 'JetBrains Mono', monospace;
             overflow: hidden;
             overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #root {
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
             overflow: hidden;
         }
     </style>

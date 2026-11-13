@@ -51,7 +51,7 @@ if (hasPrecachedIndex) {
     const handler = createHandlerBoundToURL('index.html');
     registerRoute(
       new NavigationRoute(handler, {
-        denylist: [/^\/api\//, /^\/@vite\//, /^\/@fs\//]
+        denylist: [/^\/api\//, /^\/downloads\//, /^\/@vite\//, /^\/@fs\//]
       })
     );
   } catch {
@@ -59,6 +59,7 @@ if (hasPrecachedIndex) {
       ({ request, url }) =>
         request.mode === 'navigate' &&
         !url.pathname.startsWith('/api/') &&
+        !url.pathname.startsWith('/downloads/') &&
         !url.pathname.includes('/@vite/'),
       new NetworkFirst({
         cacheName: STORYBOARD_PAGES_CACHE,
@@ -72,6 +73,7 @@ if (hasPrecachedIndex) {
     ({ request, url }) =>
       request.mode === 'navigate' &&
       !url.pathname.startsWith('/api/') &&
+      !url.pathname.startsWith('/downloads/') &&
       !url.pathname.includes('/@vite/'),
     new NetworkFirst({
       cacheName: STORYBOARD_PAGES_CACHE,

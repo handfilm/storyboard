@@ -56,6 +56,10 @@ import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { LandingWalkthrough } from './components/landing/LandingWalkthrough';
 import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
+import { useLicenseStore } from './services/licenseService';
+import { DownloadHubModal } from './components/modals/DownloadHubModal';
+import { AuthTrialModal } from './components/modals/AuthTrialModal';
+import { ProPaywallModal } from './components/modals/ProPaywallModal';
 import { eventBus } from './core/eventBus';
 import { playbackClock } from './utils/playbackClock';
 import { studioDraftDb } from './services/db';
@@ -295,11 +299,16 @@ export default function App() {
   const [multiCamLayoutConfig, setMultiCamLayoutConfig] = useState<MultiCamGridConfig>('2x2');
 
   const handleToggleMultiCam = useCallback(() => {
+    if (!useLicenseStore.getState().requireProAccess('Multi-Cam Sync')) return;
     setCurrentView('STUDIO');
     setWorkspaceMode('STAGE');
     setIsDrawerOpen(false);
     setActiveDualPanel(prev => (prev === 'MULTICAM' && workspaceMode === 'STAGE' && currentView === 'STUDIO' ? 'TACTILE_STAGE' : 'MULTICAM'));
   }, [workspaceMode, currentView]);
+
+  useEffect(() => {
+    void useLicenseStore.getState().syncLicenseStatus();
+  }, []);
 
   const sessionRestoreInputRef = useRef<HTMLInputElement>(null);
   const batchMediaInputRef = useRef<HTMLInputElement>(null);
@@ -2788,10 +2797,7 @@ export default function App() {
       // Global Multi-Cam Mode Trigger: Shift+M (Instantly activates Multi-Cam viewport with MultiCamGridMonitor and MultiCamTimelineTrack)
       if (e.shiftKey && (e.key === 'M' || e.key === 'm' || e.code === 'KeyM')) {
         e.preventDefault();
-        setCurrentView('STUDIO');
-        setWorkspaceMode('STAGE');
-        setIsDrawerOpen(false);
-        setActiveDualPanel('MULTICAM');
+        handleToggleMultiCam();
         return;
       }
 
@@ -3428,7 +3434,7 @@ export default function App() {
 
   return (
     <div
-      className={`relative w-screen h-screen bg-[#0B0B0D] text-[#F4F4F5] overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
+      className={`safe-area-shell relative w-full h-[100dvh] bg-[#0B0B0D] text-[#F4F4F5] overflow-hidden select-none flex flex-col font-mono-tech ${isZenMode ? 'console-zen-mode' : ''}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -3598,9 +3604,9 @@ export default function App() {
         />
       ) : (
         <>
-          {/* Main Studio Body: LeftRail + StudioDrawer + MainWorkspace */}
-          <div className="flex-1 min-h-0 w-full flex overflow-hidden relative">
-        <div className={`zen-rail-container h-full flex shrink-0 ${hideFullscreenChrome || isZenMode ? 'hidden' : ''}`}>
+          {/* Main Studio Body: LeftRail (left on desktop, bottom thumb dock on mobile) + StudioDrawer + MainWorkspace */}
+          <div className="flex-1 min-h-0 w-full flex flex-col-reverse md:flex-row overflow-hidden relative">
+        <div className={`zen-rail-container w-full md:w-auto h-auto md:h-full flex shrink-0 ${hideFullscreenChrome || isZenMode ? 'hidden' : ''}`}>
           <LeftRail
             activeModule={activeModule}
             isPlaying={isPlaying}
@@ -3928,6 +3934,7 @@ export default function App() {
         onPrev={prevFrame}
         onNext={nextFrame}
         onSelectFrame={goToFrame}
+        onReorderFrames={handleReorderFrames}
         onUpdateFrameAtIndex={handleUpdateFrameAtIndex}
         onApplyDurationToAll={handleApplyDurationToAll}
         onMatchAudioBeats={handleMatchAudioBeats}
@@ -4352,6 +4359,11 @@ export default function App() {
           <span>{editInToast}</span>
         </div>
       )}
+
+      {/* Commercial Cross-Platform Download Hub, Auth Trial & Pro Paywall Modals */}
+      <DownloadHubModal />
+      <AuthTrialModal />
+      <ProPaywallModal />
 
       {/* Offline Status Toast (only rendered when browser loses connectivity) */}
       <OfflineIndicator />

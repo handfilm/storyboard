@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { execSync, spawn } from 'child_process';
@@ -6,6 +7,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { createLocalVideoRangeMiddleware } from './src/server/localVideoRangeServer.ts';
+import { createLicenseSecurityModule } from './src/server/securityAndLicense.ts';
 
 dotenv.config();
 
@@ -29,32 +31,33 @@ const HOST = '0.0.0.0';
 
 app.use(express.json({ limit: '120mb' }));
 
-// Lazy-initialize Google GenAI only when an /api/* AI route is invoked
+// Security Headers, CSP, HMAC-SHA256 Licensing, 30-Day Trial & Rate Limiting
+const licenseSecurity = createLicenseSecurityModule(__dirname);
+app.use(licenseSecurity.securityHeadersMiddleware);
+licenseSecurity.registerRoutes(app);
+
+const aiRateLimiter = licenseSecurity.createRateLimiter({
+  bucketName: 'ai',
+  windowMs: 60_000,
+  maxRequests: 25
+});
+
+// Lazy-initialize Google GenAI strictly from server-side process.env.GEMINI_API_KEY
 let cachedAiClient: GoogleGenAI | null = null;
 let cachedApiKey: string = '';
 
-function extractRequestOverrideKey(req?: express.Request): { key: string; isBearer: boolean } {
-  const headerAuth = String(req?.headers?.authorization || '').trim();
-  if (headerAuth.toLowerCase().startsWith('bearer ')) {
-    const token = headerAuth.slice(7).trim();
-    if (token) return { key: token, isBearer: true };
-  }
-  const headerKey = String(req?.headers?.['x-gemini-api-key'] || '').trim();
-  if (headerKey) {
-    const isBearer = /^AQ\./i.test(headerKey) || /^ya29\./i.test(headerKey);
-    return { key: headerKey, isBearer };
-  }
+function getServerGeminiKey(): { key: string; isBearer: boolean } {
   const envKey = (process.env.GEMINI_API_KEY || '').trim();
   const isBearer = /^AQ\./i.test(envKey) || /^ya29\./i.test(envKey);
   return { key: envKey, isBearer };
 }
 
-function getConfiguredGeminiKey(req?: express.Request): string {
-  return extractRequestOverrideKey(req).key;
+function getConfiguredGeminiKey(): string {
+  return getServerGeminiKey().key;
 }
 
-function getAiClient(req?: express.Request): GoogleGenAI {
-  const { key: apiKey, isBearer } = extractRequestOverrideKey(req);
+function getAiClient(): GoogleGenAI {
+  const { key: apiKey, isBearer } = getServerGeminiKey();
   const cacheTag = `${isBearer ? 'bearer' : 'key'}:${apiKey}`;
   if (!cachedAiClient || cachedApiKey !== cacheTag) {
     cachedApiKey = cacheTag;
@@ -71,12 +74,12 @@ function getAiClient(req?: express.Request): GoogleGenAI {
   return cachedAiClient;
 }
 
-function parseGeminiHttpError(error: any, fallbackMessage: string, req?: express.Request): { status: number; code: string; error: string } {
-  if (!getConfiguredGeminiKey(req)) {
+function parseGeminiHttpError(error: any, fallbackMessage: string): { status: number; code: string; error: string } {
+  if (!getConfiguredGeminiKey()) {
     return {
-      status: 401,
+      status: 503,
       code: 'KEY_REQUIRED',
-      error: 'GEMINI_API_KEY is missing. Add GEMINI_API_KEY in AI Studio Settings > Secrets or .env.'
+      error: 'Server GEMINI_API_KEY is missing. Configure GEMINI_API_KEY in server environment secrets.'
     };
   }
   const rawMessage = String(error?.status?.message || error?.error?.message || error?.message || fallbackMessage || 'AI request failed');
@@ -128,7 +131,7 @@ app.get('/api/config', (_req, res) => {
 });
 
 // Gemini TTS API Hook (Cinematic Voiceover Synthesis)
-app.post('/api/tts', async (req, res) => {
+app.post('/api/tts', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
     const { text, lang = 'bn', frameNumber = '001', title = '' } = req.body;
     if (!text) {
@@ -167,7 +170,7 @@ Provide a JSON object response with:
 });
 
 // Gemini Omni API Hook for Video Editing & Motion Vector Generation
-app.post('/api/omni-video', async (req, res) => {
+app.post('/api/omni-video', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
     const { frameIndex, title, sub, currentDirective } = req.body;
 
@@ -205,16 +208,18 @@ Generate intelligent video editing decisions for a 10-second sequence:
 });
 
 // Gemini Script Breakdown / Assistant Proxy
-app.post('/api/breakdown', async (req, res) => {
+app.post('/api/breakdown', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
     const { prompt, context } = req.body;
-    if (!prompt) {
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ success: false, error: 'Prompt is required' });
     }
+    const safePrompt = prompt.trim().slice(0, 4000);
+    const safeContext = typeof context === 'string' ? context.trim().slice(0, 4000) : '';
 
     const response = await getAiClient().models.generateContent({
       model: 'gemini-3.8-flash',
-      contents: `${context ? `Context: ${context}\n\n` : ''}${prompt}`
+      contents: `${safeContext ? `Context: ${safeContext}\n\n` : ''}${safePrompt}`
     });
 
     res.json({
@@ -228,7 +233,7 @@ app.post('/api/breakdown', async (req, res) => {
 });
 
 // AI Screenplay Assistant Hook (Streaming & Unary with 4 modes)
-app.post('/api/story/assistant', async (req, res) => {
+app.post('/api/story/assistant', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   const { mode = 'expand_beat', prompt = '', scriptContext = '', stream = false } = req.body;
 
   let systemDirective = '';
@@ -312,12 +317,12 @@ Add high-contrast visual juxtaposition and specify exact camera tilt or lighting
 });
 
 // 0. Server-Side Gemini Engine Readiness Status & Config (Never exposes secret key material)
-function buildAiConfigPayload(req: express.Request) {
-  const connected = getConfiguredGeminiKey(req).length > 0;
+function buildAiConfigPayload() {
+  const hasServerKey = getConfiguredGeminiKey().length > 0;
   return {
     success: true,
-    connected,
-    hasServerKey: Boolean((process.env.GEMINI_API_KEY || '').trim()),
+    connected: hasServerKey,
+    hasServerKey,
     models: {
       imageFast: 'gemini-2.5-flash-image',
       imageFallback: 'imagen-3.0-generate-002',
@@ -327,16 +332,16 @@ function buildAiConfigPayload(req: express.Request) {
   };
 }
 
-app.get('/api/ai/status', (req, res) => {
-  res.json(buildAiConfigPayload(req));
+app.get('/api/ai/status', (_req, res) => {
+  res.json(buildAiConfigPayload());
 });
 
-app.get('/api/ai-config', (req, res) => {
-  res.json(buildAiConfigPayload(req));
+app.get('/api/ai-config', (_req, res) => {
+  res.json(buildAiConfigPayload());
 });
 
-app.get('/api/ai-key', (req, res) => {
-  res.json(buildAiConfigPayload(req));
+app.get('/api/ai-key', (_req, res) => {
+  res.json(buildAiConfigPayload());
 });
 
 function resolveImageAspectRatio(aspectRatio: string | undefined, allowExtended: boolean): { aspect: string; isAnamorphicScope: boolean } {
@@ -365,13 +370,13 @@ function extractImageFromGenerateContentResponse(response: any): string {
 // 1. Image Creation & Img2Img Reference Conditioning with Dual-Model Fallback Chain:
 //    Primary: gemini-2.5-flash-image (or requested tier -> gemini-2.5-flash-image) via generateContent(responseModalities: ['IMAGE'])
 //    Fallback: imagen-3.0-generate-002 via generateImages
-app.post('/api/ai/image/generate', async (req, res) => {
+const handleGenerateImage: express.RequestHandler = async (req, res) => {
   try {
-    if (!getConfiguredGeminiKey(req)) {
-      return res.status(401).json({
+    if (!getConfiguredGeminiKey()) {
+      return res.status(503).json({
         success: false,
         code: 'KEY_REQUIRED',
-        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+        error: 'Server GEMINI_API_KEY is not configured. Configure GEMINI_API_KEY in server secrets.'
       });
     }
 
@@ -387,6 +392,7 @@ app.post('/api/ai/image/generate', async (req, res) => {
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ success: false, code: 'INVALID_ARGUMENT', error: 'Prompt is required' });
     }
+    const cleanPrompt = prompt.trim().slice(0, 4000);
 
     const requestedModel = String(model || 'gemini-2.5-flash-image').trim();
     const isProTier = requestedModel === 'gemini-nano-banana-2.1';
@@ -395,8 +401,8 @@ app.post('/api/ai/image/generate', async (req, res) => {
     const validSize = isProTier && ['512', '1K', '2K', '4K'].includes(String(imageSize)) ? String(imageSize) : '1K';
 
     const enhancedPrompt = isAnamorphicScope && aspect !== '21:9'
-      ? `${prompt.trim()}. Frame composition for 2.39:1 anamorphic cinema scope widescreen.`
-      : prompt.trim();
+      ? `${cleanPrompt}. Frame composition for 2.39:1 anamorphic cinema scope widescreen.`
+      : cleanPrompt;
 
     const parts: any[] = [];
     if (referenceImageBase64 && typeof referenceImageBase64 === 'string') {
@@ -412,7 +418,7 @@ app.post('/api/ai/image/generate', async (req, res) => {
     }
     parts.push({ text: enhancedPrompt });
 
-    const ai = getAiClient(req);
+    const ai = getAiClient();
     const primaryCandidates = Array.from(
       new Set(
         isProTier
@@ -481,23 +487,26 @@ app.post('/api/ai/image/generate', async (req, res) => {
       lastError = imagenErr || lastError;
     }
 
-    const parsed = parseGeminiHttpError(lastError, 'Image generation failed', req);
+    const parsed = parseGeminiHttpError(lastError, 'Image generation failed');
     res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   } catch (error: any) {
     console.error('Image generation error:', error);
-    const parsed = parseGeminiHttpError(error, 'Image generation failed', req);
+    const parsed = parseGeminiHttpError(error, 'Image generation failed');
     res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
-});
+};
+
+app.post('/api/ai/image/generate', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, handleGenerateImage);
+app.post('/api/ai/generate-image', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, handleGenerateImage);
 
 // 2. Image Editing / Continuation (gemini-2.5-flash-image / gemini-nano-banana-2.1)
-app.post('/api/ai/image/edit', async (req, res) => {
+app.post('/api/ai/image/edit', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
-    if (!getConfiguredGeminiKey(req)) {
-      return res.status(401).json({
+    if (!getConfiguredGeminiKey()) {
+      return res.status(503).json({
         success: false,
         code: 'KEY_REQUIRED',
-        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+        error: 'Server GEMINI_API_KEY is not configured. Configure GEMINI_API_KEY in server secrets.'
       });
     }
 
@@ -519,7 +528,7 @@ app.post('/api/ai/image/edit', async (req, res) => {
       : 'gemini-2.5-flash-image';
     const { aspect } = resolveImageAspectRatio(aspectRatio, selectedModel === 'gemini-nano-banana-2.1');
 
-    const response = await getAiClient(req).models.generateContent({
+    const response = await getAiClient().models.generateContent({
       model: selectedModel,
       contents: {
         parts: [
@@ -530,7 +539,7 @@ app.post('/api/ai/image/edit', async (req, res) => {
             }
           },
           {
-            text: String(editPrompt)
+            text: String(editPrompt).slice(0, 4000)
           }
         ]
       },
@@ -550,7 +559,7 @@ app.post('/api/ai/image/edit', async (req, res) => {
     res.json({ success: true, imageUrl, model: selectedModel });
   } catch (error: any) {
     console.error('Image edit error:', error);
-    const parsed = parseGeminiHttpError(error, 'Image edit failed', req);
+    const parsed = parseGeminiHttpError(error, 'Image edit failed');
     res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
 });
@@ -583,13 +592,13 @@ const veoOperationsMap = new Map<string, any>();
 const veoCompletedVideoUriMap = new Map<string, { uri: string; mimeType: string; bytesBase64?: string }>();
 
 // 3A. Google Flow / Veo Motion Async Start (veo-2.0-generate-001 -> fallback gemini-omni-1.2-flash)
-app.post('/api/ai/video/generate', async (req, res) => {
+const handleGenerateVideo: express.RequestHandler = async (req, res) => {
   try {
-    if (!getConfiguredGeminiKey(req)) {
-      return res.status(401).json({
+    if (!getConfiguredGeminiKey()) {
+      return res.status(503).json({
         success: false,
         code: 'KEY_REQUIRED',
-        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+        error: 'Server GEMINI_API_KEY is not configured. Configure GEMINI_API_KEY in server secrets.'
       });
     }
 
@@ -619,15 +628,15 @@ app.post('/api/ai/video/generate', async (req, res) => {
     const isScope = aspectRatio === '21:9' || aspectRatio === '2.39:1';
 
     const motionDirectives = [
-      String(prompt).trim() || 'Subtle cinematic camera choreography and atmospheric film lighting.',
-      `Camera Movement: ${cameraMovement}.`,
-      `Motion Intensity: ${motionIntensity}.`,
+      String(prompt).trim().slice(0, 4000) || 'Subtle cinematic camera choreography and atmospheric film lighting.',
+      `Camera Movement: ${String(cameraMovement).slice(0, 80)}.`,
+      `Motion Intensity: ${String(motionIntensity).slice(0, 40)}.`,
       '24fps cinema cadence, rich anamorphic depth of field, temporal coherence.',
       isScope ? '2.39:1 widescreen anamorphic letterbox cinema framing.' : '',
-      seed !== undefined && seed !== null && String(seed).trim() !== '' ? `Deterministic visual seed: ${seed}.` : ''
+      seed !== undefined && seed !== null && String(seed).trim() !== '' ? `Deterministic visual seed: ${String(seed).slice(0, 32)}.` : ''
     ].filter(Boolean).join(' ');
 
-    const ai = getAiClient(req);
+    const ai = getAiClient();
     const cleanStart = startFrameBase64 && typeof startFrameBase64 === 'string'
       ? startFrameBase64.replace(/^data:[^;]+;base64,/, '')
       : '';
@@ -705,19 +714,22 @@ app.post('/api/ai/video/generate', async (req, res) => {
     }
   } catch (error: any) {
     console.error('Google Flow video generation start error:', error);
-    const parsed = parseGeminiHttpError(error, 'Failed to start Flow video generation', req);
+    const parsed = parseGeminiHttpError(error, 'Failed to start Flow video generation');
     res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
-});
+};
+
+app.post('/api/ai/video/generate', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, handleGenerateVideo);
+app.post('/api/ai/generate-video', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, handleGenerateVideo);
 
 // 3B. Google Flow / Veo Motion Async Polling Endpoint
-app.get('/api/ai/video/status/:id(*)', async (req, res) => {
+app.get('/api/ai/video/status/:id(*)', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
-    if (!getConfiguredGeminiKey(req)) {
-      return res.status(401).json({
+    if (!getConfiguredGeminiKey()) {
+      return res.status(503).json({
         success: false,
         code: 'KEY_REQUIRED',
-        error: 'GEMINI_API_KEY is not configured on the server.'
+        error: 'Server GEMINI_API_KEY is not configured.'
       });
     }
 
@@ -726,7 +738,7 @@ app.get('/api/ai/video/status/:id(*)', async (req, res) => {
       return res.status(400).json({ success: false, code: 'INVALID_ARGUMENT', error: 'interactionId is required' });
     }
 
-    const ai = getAiClient(req);
+    const ai = getAiClient();
     const isVeoOp = veoOperationsMap.has(interactionId) || interactionId.includes('operations/');
 
     if (isVeoOp) {
@@ -827,20 +839,20 @@ app.get('/api/ai/video/status/:id(*)', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Google Flow video status polling error:', error);
-    const parsed = parseGeminiHttpError(error, 'Failed to poll Flow video status', req);
+    const parsed = parseGeminiHttpError(error, 'Failed to poll Flow video status');
     res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
 });
 
 // 3B-2. Server-Proxied Veo MP4 Blob Download (keeps API key on server & avoids browser CORS)
-app.get('/api/ai/video/blob/:id(*)', async (req, res) => {
+app.get('/api/ai/video/blob/:id(*)', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
     const record = veoCompletedVideoUriMap.get(id);
     if (!record) {
       return res.status(404).json({ success: false, error: 'Video asset not found or expired' });
     }
-    const { key, isBearer } = extractRequestOverrideKey(req);
+    const { key, isBearer } = getServerGeminiKey();
     const separator = record.uri.includes('?') ? '&' : '?';
     const targetUrl = isBearer || !key ? record.uri : `${record.uri}${separator}key=${encodeURIComponent(key)}`;
     const upstream = await fetch(targetUrl, {
@@ -864,7 +876,7 @@ app.get('/api/ai/video/blob/:id(*)', async (req, res) => {
 });
 
 // 3C. Cancel In-Flight Flow Video Job
-app.post('/api/ai/video/cancel/:id(*)', async (req, res) => {
+app.post('/api/ai/video/cancel/:id(*)', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
     const interactionId = String(req.params.id || '').trim();
     if (!interactionId) {
@@ -872,8 +884,8 @@ app.post('/api/ai/video/cancel/:id(*)', async (req, res) => {
     }
     veoOperationsMap.delete(interactionId);
     veoCompletedVideoUriMap.delete(interactionId);
-    if (getConfiguredGeminiKey(req) && !interactionId.includes('operations/')) {
-      await getAiClient(req).interactions.cancel(interactionId).catch(() => null);
+    if (getConfiguredGeminiKey() && !interactionId.includes('operations/')) {
+      await getAiClient().interactions.cancel(interactionId).catch(() => null);
     }
     res.json({ success: true, status: 'cancelled' });
   } catch (error: any) {
@@ -882,13 +894,13 @@ app.post('/api/ai/video/cancel/:id(*)', async (req, res) => {
 });
 
 // 3D. Legacy Synchronous Photo Animate Hook (upgraded to gemini-omni-1.2-flash)
-app.post('/api/ai/video/animate', async (req, res) => {
+app.post('/api/ai/video/animate', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, async (req, res) => {
   try {
     if (!getConfiguredGeminiKey()) {
-      return res.status(401).json({
+      return res.status(503).json({
         success: false,
         code: 'KEY_REQUIRED',
-        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+        error: 'Server GEMINI_API_KEY is not configured. Configure GEMINI_API_KEY in server secrets.'
       });
     }
     const { imageBase64, mimeType = 'image/png', motionPrompt, aspectRatio = '16:9' } = req.body;
@@ -909,7 +921,7 @@ app.post('/api/ai/video/animate', async (req, res) => {
         },
         {
           type: 'text',
-          text: motionPrompt || 'Cinematic camera movement with natural atmospheric dynamics and subtle depth motion.'
+          text: String(motionPrompt || 'Cinematic camera movement with natural atmospheric dynamics and subtle depth motion.').slice(0, 4000)
         }
       ],
       background: false,
@@ -936,14 +948,21 @@ app.post('/api/ai/video/animate', async (req, res) => {
 });
 
 // 4. Music Generation (lyria-3-clip-preview for 12s-30s soundtrack stems)
-app.post('/api/ai/music/generate', async (req, res) => {
+const handleGenerateMusic: express.RequestHandler = async (req, res) => {
   try {
+    if (!getConfiguredGeminiKey()) {
+      return res.status(503).json({
+        success: false,
+        code: 'KEY_REQUIRED',
+        error: 'Server GEMINI_API_KEY is not configured.'
+      });
+    }
     const { prompt, durationSec = 12.0 } = req.body;
-    if (!prompt) {
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ success: false, error: 'Prompt is required for film score generation' });
     }
 
-    const cinematicPrompt = `Generate a cinematic film score cue lasting approx ${Math.min(30, Math.max(12, Math.round(durationSec)))} seconds: ${prompt}`;
+    const cinematicPrompt = `Generate a cinematic film score cue lasting approx ${Math.min(30, Math.max(12, Math.round(Number(durationSec) || 12)))} seconds: ${prompt.trim().slice(0, 4000)}`;
 
     const stream = await getAiClient().models.generateContentStream({
       model: 'lyria-3-clip-preview',
@@ -982,23 +1001,26 @@ app.post('/api/ai/music/generate', async (req, res) => {
     res.json({ success: true, audioUrl, lyrics });
   } catch (error: any) {
     console.error('Music generation error:', error);
-    res.status(500).json({ success: false, error: error.message || 'Film score generation failed' });
+    const parsed = parseGeminiHttpError(error, 'Film score generation failed');
+    res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
-});
+};
+
+app.post('/api/ai/music/generate', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, handleGenerateMusic);
 
 // 4B. Gemini Neural Voiceover TTS (Unary WAV generation)
-app.post('/api/ai/audio/tts', async (req, res) => {
+const handleGenerateTts: express.RequestHandler = async (req, res) => {
   try {
-    if (!getConfiguredGeminiKey(req)) {
-      return res.status(401).json({
+    if (!getConfiguredGeminiKey()) {
+      return res.status(503).json({
         success: false,
         code: 'KEY_REQUIRED',
-        error: 'GEMINI_API_KEY is not configured on the server. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
+        error: 'Server GEMINI_API_KEY is not configured. Configure GEMINI_API_KEY in server secrets.'
       });
     }
 
-    const { text, voiceName = 'Kore', style = 'cinema-narrator' } = req.body || {};
-    const cleanText = String(text || '').trim();
+    const { text, prompt, voiceName = 'Kore', style = 'cinema-narrator' } = req.body || {};
+    const cleanText = String(text || prompt || '').trim().slice(0, 4000);
     if (!cleanText) {
       return res.status(400).json({ success: false, error: 'Narration text prompt is required for TTS synthesis.' });
     }
@@ -1015,7 +1037,7 @@ app.post('/api/ai/audio/tts', async (req, res) => {
     const styleDirective = stylePrefixMap[String(style)] || '';
     const promptInput = styleDirective ? `${styleDirective} ${cleanText}` : cleanText;
 
-    const ai = getAiClient(req);
+    const ai = getAiClient();
     const ttsModels = ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts'];
     let audioBase64 = '';
     let mimeType = 'audio/wav';
@@ -1053,7 +1075,7 @@ app.post('/api/ai/audio/tts', async (req, res) => {
 
     if (!audioBase64) {
       if (lastError) {
-        const parsed = parseGeminiHttpError(lastError, 'Gemini TTS synthesis failed', req);
+        const parsed = parseGeminiHttpError(lastError, 'Gemini TTS synthesis failed');
         return res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
       }
       return res.status(500).json({ success: false, error: 'TTS model returned empty audio payload.' });
@@ -1064,10 +1086,12 @@ app.post('/api/ai/audio/tts', async (req, res) => {
     res.json({ success: true, audioDataUrl, voiceName: safeVoice, model: usedModel });
   } catch (error: any) {
     console.error('Gemini TTS error:', error);
-    const parsed = parseGeminiHttpError(error, 'Gemini TTS synthesis failed', req);
+    const parsed = parseGeminiHttpError(error, 'Gemini TTS synthesis failed');
     res.status(parsed.status).json({ success: false, code: parsed.code, error: parsed.error });
   }
-});
+};
+
+app.post('/api/ai/audio/tts', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, handleGenerateTts);
 
 // 4C. Gemini AI Foley & Soundscape Recipe Generator
 function buildDeterministicFoleyRecipeServer(promptText: string, durationSec: number) {
@@ -1143,20 +1167,20 @@ function buildDeterministicFoleyRecipeServer(promptText: string, durationSec: nu
   };
 }
 
-app.post('/api/ai/audio/foley-design', async (req, res) => {
+const handleFoleyDesign: express.RequestHandler = async (req, res) => {
   const { prompt = '', durationSec = 4.0 } = req.body || {};
-  const cleanPrompt = String(prompt || '').trim();
+  const cleanPrompt = String(prompt || '').trim().slice(0, 4000);
   if (!cleanPrompt) {
     return res.status(400).json({ success: false, error: 'Prompt is required for Foley sound design.' });
   }
 
   const fallbackRecipe = buildDeterministicFoleyRecipeServer(cleanPrompt, Number(durationSec) || 4.0);
-  if (!getConfiguredGeminiKey(req)) {
+  if (!getConfiguredGeminiKey()) {
     return res.json({ success: true, recipe: fallbackRecipe, source: 'offline-dsp' });
   }
 
   try {
-    const ai = getAiClient(req);
+    const ai = getAiClient();
     const systemPrompt = `Design a Web Audio synthesizer Foley soundscape recipe for the cinematic prompt: "${cleanPrompt}".
 Return a strict JSON object with these exact keys and numeric ranges:
 {
@@ -1206,6 +1230,16 @@ Return a strict JSON object with these exact keys and numeric ranges:
     console.warn('[foley-design] Falling back to offline recipe:', (err as any)?.message);
     res.json({ success: true, recipe: fallbackRecipe, source: 'offline-dsp' });
   }
+};
+
+app.post('/api/ai/audio/foley-design', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, handleFoleyDesign);
+
+// Unified Authenticated Audio Proxy (/api/ai/generate-audio) supporting tts | music | foley
+app.post('/api/ai/generate-audio', aiRateLimiter, licenseSecurity.requireActiveProOrTrial, (req, res, next) => {
+  const mode = String(req.body?.mode || (req.body?.text ? 'tts' : 'music')).toLowerCase();
+  if (mode === 'tts') return handleGenerateTts(req, res, next);
+  if (mode === 'foley') return handleFoleyDesign(req, res, next);
+  return handleGenerateMusic(req, res, next);
 });
 
 // Local File HTTP 206 Partial Content Byte-Range Streamer + LRU 1MB RAM Block Cache (VLC-grade 4K seeking)
@@ -1708,6 +1742,78 @@ app.get('/api/watch-asset/:shotId', (req, res) => {
       fsWatcher?.close();
     } catch {}
   });
+});
+
+// =========================================================================
+// CROSS-PLATFORM BINARY DOWNLOAD HUB (WINDOWS .EXE + ANDROID .APK)
+// =========================================================================
+const ALLOWED_DOWNLOAD_BINARIES: Record<
+  string,
+  { filename: string; platform: 'windows' | 'android'; mime: string; badge: string; version: string }
+> = {
+  'HandFilm-Studio-Setup.exe': {
+    filename: 'HandFilm-Studio-Setup.exe',
+    platform: 'windows',
+    mime: 'application/vnd.microsoft.portable-executable',
+    badge: '64-BIT NATIVE · GPU ACCELERATED · v1.0.0',
+    version: '1.0.0'
+  },
+  'HandFilm-Studio.apk': {
+    filename: 'HandFilm-Studio.apk',
+    platform: 'android',
+    mime: 'application/vnd.android.package-archive',
+    badge: 'ANDROID 10+ · ARM64 · 60FPS TOUCH ENGINE',
+    version: '1.0.0'
+  }
+};
+
+function resolveDownloadBinaryPath(filename: string): string | null {
+  const publicCandidate = path.resolve(__dirname, 'public', 'downloads', filename);
+  if (fs.existsSync(publicCandidate) && fs.statSync(publicCandidate).isFile()) {
+    return publicCandidate;
+  }
+  const distCandidate = path.resolve(__dirname, 'dist', 'downloads', filename);
+  if (fs.existsSync(distCandidate) && fs.statSync(distCandidate).isFile()) {
+    return distCandidate;
+  }
+  return null;
+}
+
+app.get('/api/downloads/manifest', (_req, res) => {
+  const items = Object.values(ALLOWED_DOWNLOAD_BINARIES).map((meta) => {
+    const filePath = resolveDownloadBinaryPath(meta.filename);
+    let sizeBytes = 0;
+    let sha256 = '';
+    if (filePath) {
+      const buf = fs.readFileSync(filePath);
+      sizeBytes = buf.length;
+      sha256 = crypto.createHash('sha256').update(buf).digest('hex');
+    }
+    return {
+      ...meta,
+      url: `/downloads/${meta.filename}`,
+      available: Boolean(filePath),
+      sizeBytes,
+      sha256
+    };
+  });
+  res.json({ success: true, version: '1.0.0', artifacts: items });
+});
+
+app.get('/downloads/:filename', (req, res) => {
+  const rawName = String(req.params.filename || '').trim();
+  const meta = ALLOWED_DOWNLOAD_BINARIES[rawName];
+  if (!meta) {
+    return res.status(404).json({ success: false, error: 'Download artifact not found' });
+  }
+  const resolved = resolveDownloadBinaryPath(meta.filename);
+  if (!resolved) {
+    return res.status(404).json({ success: false, error: 'Installer binary not built yet' });
+  }
+  res.setHeader('Content-Type', meta.mime);
+  res.setHeader('Content-Disposition', `attachment; filename="${meta.filename}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(resolved);
 });
 
 // Mount Vite in Development

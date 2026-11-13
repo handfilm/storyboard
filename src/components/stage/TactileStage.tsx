@@ -595,6 +595,114 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     setSelectionBox(null);
   };
 
+  // Android / Tablet 2-Finger Pinch-to-Zoom + Touch Pan / Horizontal Swipe Shot Step
+  const pinchGestureRef = useRef<{
+    mode: 'none' | 'pinch' | 'pan' | 'swipe';
+    startDist: number;
+    startZoom: number;
+    startX: number;
+    startY: number;
+    startPanX: number;
+    startPanY: number;
+    lastTapMs: number;
+  }>({
+    mode: 'none',
+    startDist: 0,
+    startZoom: 1,
+    startX: 0,
+    startY: 0,
+    startPanX: 0,
+    startPanY: 0,
+    lastTapMs: 0
+  });
+
+  const handleStageTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('button, input, select, a, [data-interactive="true"]')) return;
+
+    if (e.touches.length === 2) {
+      e.stopPropagation();
+      const [t0, t1] = [e.touches[0], e.touches[1]];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      pinchGestureRef.current = {
+        ...pinchGestureRef.current,
+        mode: 'pinch',
+        startDist: Math.max(10, dist),
+        startZoom: gpuZoomRef.current.zoom,
+        startPanX: gpuZoomRef.current.panX,
+        startPanY: gpuZoomRef.current.panY
+      };
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      const now = Date.now();
+      if (now - pinchGestureRef.current.lastTapMs < 260) {
+        // Double-tap zoom toggle (1.0x <-> 2.0x)
+        const nextZoom = gpuZoomRef.current.zoom > 1.25 ? 1.0 : 2.0;
+        applyGpuTransformImmediate(nextZoom, 0, 0, true);
+        pinchGestureRef.current.lastTapMs = 0;
+        e.stopPropagation();
+        return;
+      }
+      pinchGestureRef.current.lastTapMs = now;
+      pinchGestureRef.current.mode = gpuZoomRef.current.zoom > 1.05 ? 'pan' : 'swipe';
+      pinchGestureRef.current.startX = t.clientX;
+      pinchGestureRef.current.startY = t.clientY;
+      pinchGestureRef.current.startPanX = gpuZoomRef.current.panX;
+      pinchGestureRef.current.startPanY = gpuZoomRef.current.panY;
+    }
+  };
+
+  const handleStageTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const g = pinchGestureRef.current;
+    if (e.touches.length === 2 && g.mode === 'pinch') {
+      e.stopPropagation();
+      const [t0, t1] = [e.touches[0], e.touches[1]];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      const nextZoom = Math.max(1.0, Math.min(4.0, g.startZoom * (dist / g.startDist)));
+      const ratio = g.startZoom > 0 ? nextZoom / g.startZoom : 1;
+      applyGpuTransformImmediate(nextZoom, g.startPanX * ratio, g.startPanY * ratio, false);
+      return;
+    }
+    if (e.touches.length === 1 && g.mode === 'pan') {
+      e.stopPropagation();
+      const t = e.touches[0];
+      applyGpuTransformImmediate(
+        gpuZoomRef.current.zoom,
+        g.startPanX + (t.clientX - g.startX),
+        g.startPanY + (t.clientY - g.startY),
+        false
+      );
+    }
+  };
+
+  const handleStageTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const g = pinchGestureRef.current;
+    if (g.mode === 'pinch' || g.mode === 'pan') {
+      e.stopPropagation();
+      applyGpuTransformImmediate(
+        gpuZoomRef.current.zoom,
+        gpuZoomRef.current.panX,
+        gpuZoomRef.current.panY,
+        true
+      );
+    } else if (g.mode === 'swipe' && e.changedTouches.length > 0 && gpuZoomRef.current.zoom <= 1.05) {
+      const dx = g.startX - e.changedTouches[0].clientX;
+      const dy = Math.abs(g.startY - e.changedTouches[0].clientY);
+      if (Math.abs(dx) > 48 && Math.abs(dx) > dy) {
+        e.stopPropagation();
+        const total = Math.max(1, frames.length);
+        if (dx > 0) onSelectFrame(Math.min(total - 1, currentIndex + 1));
+        else onSelectFrame(Math.max(0, currentIndex - 1));
+      }
+    }
+    if (e.touches.length === 0) {
+      pinchGestureRef.current.mode = 'none';
+    }
+  };
+
   const storeTitleConfig = useStudioStore(s => s.titleConfig);
   const storeVisibility = useStudioStore(s => s.visibility.titlesAll);
   const toggleTitlesStore = useStudioStore(s => s.toggleTitles);
@@ -1849,7 +1957,10 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           onPointerMove={handleStagePointerMove}
           onPointerUp={handleStagePointerUp}
           onPointerCancel={handleStagePointerCancel}
-          style={getStageBoxStyle()}
+          onTouchStart={handleStageTouchStart}
+          onTouchMove={handleStageTouchMove}
+          onTouchEnd={handleStageTouchEnd}
+          style={{ ...getStageBoxStyle(), touchAction: 'none' }}
           className="relative bg-[#000000] rounded-none overflow-hidden flex items-center justify-center select-none shrink-0 cursor-crosshair transition-[width,height] duration-200 ease-out"
         >
         {/* DYNAMIC CANVAS SVG BARREL DISTORTION FILTER */}

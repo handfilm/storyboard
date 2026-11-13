@@ -25,6 +25,8 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   LayoutGrid,
   PlaySquare,
   Sparkles,
@@ -176,6 +178,7 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   const effectiveIsPlaying = typeof isPlaying === 'boolean' ? isPlaying : storeIsPlaying;
   const [currentProfile, setCurrentProfile] = useState<CameraLensProfile>(activeProfile);
   const [isRailLocked, setIsRailLocked] = useState(false);
+  const [isMobileDockCollapsed, setIsMobileDockCollapsed] = useState(false);
   const [openFlyout, setOpenFlyout] = useState<{
     key: RailButtonKey;
     top: number;
@@ -220,6 +223,13 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   const openButtonFlyout = (key: RailButtonKey, targetEl: HTMLElement) => {
     clearCloseTimer();
     const rect = targetEl.getBoundingClientRect();
+    const isNarrow = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (isNarrow) {
+      const clampedLeft = Math.max(8, Math.min(window.innerWidth - 296, rect.left));
+      const flyoutTop = Math.max(52, rect.top - 320);
+      setOpenFlyout({ key, top: flyoutTop, left: clampedLeft });
+      return;
+    }
     const maxTop = typeof window !== 'undefined' ? Math.max(52, window.innerHeight - 360) : rect.top;
     setOpenFlyout({
       key,
@@ -693,13 +703,79 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   const vignetteVal = activeFrameAdjustments?.vignette ?? 15;
 
   return (
-    <aside
-      aria-label="Director Left Tool Rail"
-      data-playing={effectiveIsPlaying ? 'true' : 'false'}
-      className={`nle-focus-bar h-full select-none z-30 shrink-0 bg-[#0B0B0D]/95 backdrop-blur-2xl border-r border-white/[0.07] flex flex-col font-mono-tech transition-all duration-200 relative ${
-        isCollapsed ? 'w-[50px]' : 'w-48'
-      }`}
-    >
+    <>
+      {/* MOBILE COLLAPSIBLE THUMB-FRIENDLY BOTTOM TOOL DOCK (< 768px) */}
+      <div
+        aria-label="Mobile Studio Tool Dock"
+        className="md:hidden w-full shrink-0 bg-[#0B0B0D]/96 border-t border-white/[0.08] font-mono-tech select-none z-30"
+      >
+        <div className="flex items-center justify-between px-2 py-0.5 border-b border-white/[0.06]">
+          <span className="text-[8.5px] font-bold tracking-[0.12em] uppercase text-[#8E8E93]">
+            STUDIO TOOLS // SH{String(currentShotIndex + 1).padStart(2, '0')}
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsMobileDockCollapsed((v) => !v)}
+            aria-label={isMobileDockCollapsed ? 'Expand Mobile Tool Dock' : 'Collapse Mobile Tool Dock'}
+            className="touch-manipulation px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[8.5px] font-bold text-[#F59E0B] flex items-center gap-1 cursor-pointer"
+          >
+            {isMobileDockCollapsed ? (
+              <>
+                <ChevronUp className="w-3 h-3" />
+                <span>TOOLS</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3 h-3" />
+                <span>HIDE</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {!isMobileDockCollapsed && (
+          <nav
+            aria-label="Mobile Horizontal Studio Tools"
+            className="flex items-center gap-1.5 px-2 py-1.5 overflow-x-auto no-scrollbar touch-pan-x"
+          >
+            {railButtons.map((btn) => {
+              const Icon = btn.icon;
+              const isActive =
+                btn.activeModules.includes(activeModule) ||
+                (btn.key === 'SYSTEM' && isRailLocked) ||
+                openFlyout?.key === btn.key;
+              return (
+                <button
+                  key={`mob-${btn.key}`}
+                  type="button"
+                  data-testid={`mobile-rail-btn-${btn.key.toLowerCase()}`}
+                  onClick={() => btn.onPrimaryClick()}
+                  style={{
+                    borderColor: isActive ? btn.accentHex : `${btn.accentHex}33`
+                  }}
+                  className={`touch-manipulation shrink-0 min-w-[52px] min-h-[42px] px-2 py-1 rounded border flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition-all ${
+                    isActive ? 'bg-[#181820] text-white' : 'bg-[#121216] text-zinc-300'
+                  }`}
+                >
+                  <Icon style={{ color: btn.accentHex }} className="w-4 h-4 shrink-0" />
+                  <span className="text-[8px] font-black uppercase tracking-tight leading-none whitespace-nowrap">
+                    {btn.label}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
+      </div>
+
+      {/* DESKTOP VERTICAL LEFT TOOL RAIL (>= 768px) */}
+      <aside
+        aria-label="Director Left Tool Rail"
+        data-playing={effectiveIsPlaying ? 'true' : 'false'}
+        className={`hidden md:flex nle-focus-bar h-full select-none z-30 shrink-0 bg-[#0B0B0D]/95 backdrop-blur-2xl border-r border-white/[0.07] flex-col font-mono-tech transition-all duration-200 relative ${
+          isCollapsed ? 'w-[50px]' : 'w-48'
+        }`}
+      >
       {/* Full-Height 10-Button Evenly Distributed Vertical Spine */}
       <nav
         aria-label="10 Studio Tools"
@@ -964,5 +1040,6 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         document.body
       )}
     </aside>
+    </>
   );
 };

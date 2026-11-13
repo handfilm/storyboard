@@ -108,6 +108,7 @@ export interface ControlDockProps {
   onPrev: () => void;
   onNext: () => void;
   onSelectFrame: (index: number) => void;
+  onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
   onUploadMediaForIndex?: (index: number, file: File) => void;
   onUpdateFrameAtIndex?: (index: number, updatedFrame: AnthologyFrame) => void;
   onApplyDurationToAll?: (durationSec: number) => void;
@@ -170,6 +171,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onPrev,
   onNext,
   onSelectFrame,
+  onReorderFrames,
   onUploadMediaForIndex,
   onUpdateFrameAtIndex,
   onApplyDurationToAll,
@@ -261,6 +263,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const titleAlign = useStudioStore((s) => s.titleAlign);
   const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [draggedShotIndex, setDraggedShotIndex] = useState<number | null>(null);
+  const touchReorderTimerRef = useRef<number | null>(null);
+  const touchDragStateRef = useRef<{
+    active: boolean;
+    fromIdx: number | null;
+    startX: number;
+    startY: number;
+  }>({ active: false, fromIdx: null, startX: 0, startY: 0 });
   const [isStripCollapsed, setIsStripCollapsed] = useState(false);
   const hoverLeaveTimerRef = useRef<number | null>(null);
   const replaceFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -664,6 +674,74 @@ export const ControlDock: React.FC<ControlDockProps> = ({
     window.addEventListener('mouseup', onUp);
   };
 
+  const handleStartShotTouchResize = (idx: number, e: React.TouchEvent) => {
+    if (!onUpdateFrameAtIndex || e.touches.length === 0) return;
+    e.stopPropagation();
+    const targetFrame = safeFrames[idx];
+    if (!targetFrame) return;
+
+    const startX = e.touches[0].clientX;
+    const startDuration = getShotDurationSec(targetFrame, 12.0);
+    const shotStartSec = shotOffsets[idx]?.startSec ?? idx * 12.0;
+    const snapActive =
+      effectiveSnapToBeat || Boolean(targetFrame.beatSnapEnabled) || audioEngine.getIsSnapToBeatEnabled();
+
+    setDragShotState({
+      index: idx,
+      durationSec: startDuration,
+      clientX: e.touches[0].clientX,
+      clientY: e.touches[0].clientY
+    });
+
+    const onTouchMove = (moveEv: TouchEvent) => {
+      if (moveEv.touches.length === 0) return;
+      const t = moveEv.touches[0];
+      const deltaPx = t.clientX - startX;
+      const secPerPx = startDuration >= 30 ? 0.25 : 0.06;
+      let candidate = clampShotDuration(startDuration + deltaPx * secPerPx);
+      if (snapActive) {
+        candidate = audioEngine.snapDurationToNearestBeat(shotStartSec, candidate, 0.5, 0.45);
+      } else {
+        candidate = clampShotDuration(Math.round(candidate * 20) / 20);
+      }
+      setDragShotState({
+        index: idx,
+        durationSec: candidate,
+        clientX: t.clientX,
+        clientY: t.clientY
+      });
+      onUpdateFrameAtIndex(idx, {
+        ...targetFrame,
+        slideHoldSec: candidate,
+        durationSec: candidate
+      });
+    };
+
+    const onTouchEnd = () => {
+      setDragShotState(null);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+    };
+
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
+  };
+
+  const commitShotReorder = useCallback(
+    (fromIdx: number, toIdx: number) => {
+      if (!onReorderFrames || fromIdx === toIdx) return;
+      if (fromIdx < 0 || toIdx < 0 || fromIdx >= safeFrames.length || toIdx >= safeFrames.length) return;
+      const reordered = [...safeFrames];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, moved);
+      onReorderFrames(reordered);
+      onSelectFrame(toIdx);
+    },
+    [onReorderFrames, onSelectFrame, safeFrames]
+  );
+
   const hoveredPreviewData = useMemo(() => {
     if (!hoveredMarker || dragShotState) return null;
     const frame = safeFrames[hoveredMarker.index];
@@ -993,6 +1071,80 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 data-testid={`scrubber-index-marker-${idx}`}
                 data-shot-id={shotKey}
                 data-shot-drop-index={idx}
+                draggable={Boolean(onReorderFrames)}
+                onDragStart={(e) => {
+                  if (!onReorderFrames) return;
+                  setDraggedShotIndex(idx);
+                  try {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('application/x-handfilm-shot-idx', String(idx));
+                  } catch {}
+                }}
+                onDragEnd={() => {
+                  setDraggedShotIndex(null);
+                  setDropTargetIndex(null);
+                }}
+                onTouchStart={(e) => {
+                  if (!onReorderFrames || e.touches.length !== 1) return;
+                  const t = e.touches[0];
+                  touchDragStateRef.current = {
+                    active: false,
+                    fromIdx: idx,
+                    startX: t.clientX,
+                    startY: t.clientY
+                  };
+                  if (touchReorderTimerRef.current !== null) {
+                    window.clearTimeout(touchReorderTimerRef.current);
+                  }
+                  touchReorderTimerRef.current = window.setTimeout(() => {
+                    touchDragStateRef.current.active = true;
+                    setDraggedShotIndex(idx);
+                    setDropTargetIndex(idx);
+                  }, 260);
+                }}
+                onTouchMove={(e) => {
+                  if (!touchDragStateRef.current.active) {
+                    const t = e.touches[0];
+                    if (
+                      t &&
+                      Math.hypot(
+                        t.clientX - touchDragStateRef.current.startX,
+                        t.clientY - touchDragStateRef.current.startY
+                      ) > 10
+                    ) {
+                      if (touchReorderTimerRef.current !== null) {
+                        window.clearTimeout(touchReorderTimerRef.current);
+                        touchReorderTimerRef.current = null;
+                      }
+                    }
+                    return;
+                  }
+                  const t = e.touches[0];
+                  if (!t || typeof document === 'undefined') return;
+                  const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
+                  const card = el?.closest('[data-shot-drop-index]') as HTMLElement | null;
+                  const targetRaw = card?.getAttribute('data-shot-drop-index');
+                  if (targetRaw !== null && targetRaw !== undefined) {
+                    const parsed = Number(targetRaw);
+                    if (Number.isInteger(parsed)) setDropTargetIndex(parsed);
+                  }
+                }}
+                onTouchEnd={() => {
+                  if (touchReorderTimerRef.current !== null) {
+                    window.clearTimeout(touchReorderTimerRef.current);
+                    touchReorderTimerRef.current = null;
+                  }
+                  if (touchDragStateRef.current.active && touchDragStateRef.current.fromIdx !== null) {
+                    const fromIdx = touchDragStateRef.current.fromIdx;
+                    const toIdx = dropTargetIndex;
+                    if (toIdx !== null && toIdx !== fromIdx) {
+                      commitShotReorder(fromIdx, toIdx);
+                    }
+                  }
+                  touchDragStateRef.current = { active: false, fromIdx: null, startX: 0, startY: 0 };
+                  setDraggedShotIndex(null);
+                  setDropTargetIndex(null);
+                }}
                 onClick={() => onSelectFrame(idx)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -1015,7 +1167,20 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 onDrop={async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  const sourceRaw = e.dataTransfer.getData('application/x-handfilm-shot-idx');
                   setDropTargetIndex(null);
+                  setDraggedShotIndex(null);
+                  if (sourceRaw && onReorderFrames) {
+                    const fromIdx = Number(sourceRaw);
+                    if (Number.isInteger(fromIdx) && fromIdx !== idx) {
+                      commitShotReorder(fromIdx, idx);
+                      return;
+                    }
+                  }
+                  if (draggedShotIndex !== null && draggedShotIndex !== idx && onReorderFrames) {
+                    commitShotReorder(draggedShotIndex, idx);
+                    return;
+                  }
                   const droppedFile = e.dataTransfer.files?.[0];
                   if (!droppedFile) return;
                   if (onUploadMediaForIndex) {
@@ -1221,9 +1386,10 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 {onUpdateFrameAtIndex && (
                   <div
                     onMouseDown={(e) => handleStartShotResize(idx, e)}
+                    onTouchStart={(e) => handleStartShotTouchResize(idx, e)}
                     onClick={(e) => e.stopPropagation()}
                     title={`Drag right edge to resize SH${String(shotNumber).padStart(3, '0')} (${holdSec.toFixed(2)}s // ${shotFrames}F)`}
-                    className={`absolute top-0 bottom-0 right-0 w-1.5 z-30 cursor-ew-resize transition-colors ${
+                    className={`touch-manipulation absolute top-0 bottom-0 right-0 w-2 z-30 cursor-ew-resize transition-colors ${
                       dragShotState?.index === idx
                         ? 'bg-[#F59E0B]'
                         : 'bg-transparent group-hover:bg-[#F59E0B]/70 hover:!bg-[#F59E0B]'

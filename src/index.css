@@ -1223,5 +1223,31 @@
   will-change: transform, opacity;
 }
 
+/* =========================================================================
+   ANDROID / CAPACITOR TOUCH ERGONOMICS & SAFE-AREA INSETS (60FPS WEBVIEW)
+   ========================================================================= */
+button,
+[role="button"],
+[role="tab"],
+input[type="range"],
+.nle-editorial-btn,
+.nle-touch-control {
+  touch-action: manipulation;
+}
+
+.safe-area-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@media (max-width: 767px) {
+  .nle-focus-bar {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
 
 

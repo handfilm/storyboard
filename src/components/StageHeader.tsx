@@ -45,13 +45,16 @@ import {
   Monitor,
   Cloud,
   BarChart2,
-  Cpu
+  Cpu,
+  Crown,
+  Lock
 } from 'lucide-react';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
 import { SaveState } from '../core/storage';
 import { eventBus } from '../core/eventBus';
 import { useStudioStore } from '../core/store';
+import { useLicenseStore } from '../services/licenseService';
 import { studioDraftDb } from '../services/db';
 import { opfsMediaStorage } from '../services/media/opfsMediaStorage';
 import { DirectorInspector } from './DirectorInspector';
@@ -190,6 +193,10 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 }) => {
   const storeIsPlaying = useStudioStore((s) => s.isPlaying);
   const effectiveIsPlaying = typeof isPlaying === 'boolean' ? isPlaying : storeIsPlaying;
+  const license = useLicenseStore((s) => s.license);
+  const openDownloadModal = useLicenseStore((s) => s.openDownloadModal);
+  const openAuthModal = useLicenseStore((s) => s.openAuthModal);
+  const openPaywallModal = useLicenseStore((s) => s.openPaywallModal);
   // Interactive Mega-Dropdown State (Hover + Click, auto-closing on Escape, outside click, or route switch)
   const [activeDropdown, setActiveDropdown] = useState<MegaMenuKey | null>(null);
   const closeHoverTimerRef = useRef<number | null>(null);
@@ -892,6 +899,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   };
 
   const handleWorkspacePanelSelect = (panel: StagePanelType) => {
+    if (panel === 'MULTICAM' && !useLicenseStore.getState().requireProAccess('Multi-Cam Sync')) {
+      setActiveDropdown(null);
+      setIsCockpitHudOpen(false);
+      return;
+    }
     setActiveDropdown(null);
     setIsCockpitHudOpen(false);
     const isCoreDissolveMode =
@@ -2594,6 +2606,73 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               <Minimize2 className="w-2.5 h-2.5 text-white shrink-0" />
             )}
             <span>STUDIO</span>
+          </button>
+
+          {/* 3b. Top Bar DOWNLOAD Hub Button (Windows EXE + Android APK) */}
+          <button
+            type="button"
+            data-testid="header-download-btn"
+            data-transport-sharp="true"
+            onClick={() => openDownloadModal()}
+            title="Download HandFilm Studio for Windows (.exe) & Android (.apk)"
+            style={{ '--item-accent': '#F4F4F5' } as React.CSSProperties}
+            className="nle-editorial-btn h-[22px] px-2 rounded-[4px] bg-[#141417] hover:bg-white hover:text-[#0B0B0D] border border-white/[0.16] text-[#F4F4F5] font-mono text-[9.5px] font-black tracking-[0.09em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] transition-colors"
+          >
+            <Download className="w-2.5 h-2.5 shrink-0" />
+            <span>DOWNLOAD</span>
+          </button>
+
+          {/* 3c. Commercial SaaS License / 30-Day Free Trial Status Pill */}
+          <button
+            type="button"
+            data-testid="header-license-pill"
+            data-transport-sharp="true"
+            onClick={() => {
+              if (license?.authenticated && license.tier === 'free') {
+                openPaywallModal('PRO STUDIO');
+              } else {
+                openAuthModal();
+              }
+            }}
+            title={
+              license?.authenticated
+                ? `Account: ${license.email} (${license.tier.toUpperCase()})`
+                : 'Sign In or Start Server-Verified 30-Day Pro Trial'
+            }
+            className={`h-[22px] px-2 rounded-full border font-mono text-[9px] font-black tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] transition-all tabular-nums ${
+              license?.authenticated && license.tier === 'pro'
+                ? 'bg-[#F59E0B] border-[#FCD34D] text-[#0B0B0D] shadow-[0_0_12px_rgba(245,158,11,0.45)]'
+                : license?.authenticated && license.tier === 'trial'
+                ? 'bg-[#18150D] border-[#F59E0B]/60 text-[#F59E0B] hover:bg-[#F59E0B]/15'
+                : license?.authenticated && license.tier === 'free'
+                ? 'bg-red-950/50 border-red-500/60 text-red-300 hover:bg-red-900/50'
+                : 'bg-[#141417] border-[#F59E0B]/40 text-[#F59E0B] hover:border-[#F59E0B]'
+            }`}
+          >
+            {license?.authenticated && license.tier === 'pro' ? (
+              <>
+                <Crown className="w-2.5 h-2.5 shrink-0" />
+                <span>PRO STUDIO</span>
+              </>
+            ) : license?.authenticated && license.tier === 'trial' ? (
+              <>
+                <Zap className="w-2.5 h-2.5 shrink-0" />
+                <span className="hidden xl:inline">PRO TRIAL: {license.daysRemaining}D LEFT</span>
+                <span className="xl:hidden">{license.daysRemaining}D TRIAL</span>
+              </>
+            ) : license?.authenticated && license.tier === 'free' ? (
+              <>
+                <Lock className="w-2.5 h-2.5 shrink-0" />
+                <span className="hidden xl:inline">FREE TIER · UPGRADE</span>
+                <span className="xl:hidden">UPGRADE</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-2.5 h-2.5 shrink-0" />
+                <span className="hidden xl:inline">START 30D TRIAL</span>
+                <span className="xl:hidden">30D TRIAL</span>
+              </>
+            )}
           </button>
 
           {/* 4. Circular Golden Export Action Button */}

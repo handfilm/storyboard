@@ -30,6 +30,7 @@ import {
 import { AnthologyFrame } from '../../types/anthology';
 import { eventBus } from '../../core/eventBus';
 import { useStudioStore } from '../../core/store';
+import { useLicenseStore } from '../../services/licenseService';
 import { launchExternalEdit, ExternalEditApp } from '../../services/editInBridge';
 import {
   AiAspectRatio,
@@ -280,6 +281,9 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
   };
 
   const handleGenerateImages = async () => {
+    if (!useLicenseStore.getState().requireProAccess('Gemini Image & Google Flow Video AI')) {
+      return;
+    }
     if (!imagePrompt.trim()) {
       showBanner('error', 'Enter a cinematic prompt or pull metadata from the active shot.');
       return;
@@ -346,6 +350,9 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
   };
 
   const handleStartFlowVideo = async () => {
+    if (!useLicenseStore.getState().requireProAccess('Gemini Image & Google Flow Video AI')) {
+      return;
+    }
     if (!flowPrompt.trim() && !flowStartFrame) {
       showBanner('error', 'Provide a motion prompt or attach a Start Frame for Google Flow.');
       return;
@@ -616,13 +623,9 @@ export const GeminiFlowStudio: React.FC<GeminiFlowStudioProps> = ({
 
           <div className="flex items-center gap-2 text-[9.5px] text-[#8E8E93]">
             <span>
-              Engine Key:{' '}
+              Engine Route:{' '}
               <strong className="text-[#F4F4F5]">
-                {engineStatus?.source === 'local-storage'
-                  ? 'localStorage Vault'
-                  : engineStatus?.source === 'vite-env'
-                    ? 'Vite Env'
-                    : 'Settings > Secrets (GEMINI_API_KEY)'}
+                {engineStatus?.connected ? 'Authenticated Server Proxy (GEMINI_API_KEY)' : 'Server Proxy Offline'}
               </strong>{' '}
               · Video: <strong className="text-[#38BDF8]">veo-2.0-generate-001</strong>
             </span>

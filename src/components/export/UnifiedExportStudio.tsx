@@ -48,6 +48,7 @@ import {
 } from '../../utils/pdfExport';
 import { eventBus } from '../../core/eventBus';
 import { useStudioStore, resolveEffectiveTitleAlign } from '../../core/store';
+import { useLicenseStore } from '../../services/licenseService';
 import { getCandidateShotMediaKeys, getShotMediaBlob, resolveShotMediaEntry, ShotMediaMap } from '../../services/handfilmMediaVault';
 import { studioDraftDb } from '../../services/db';
 import { opfsMediaStorage } from '../../services/media/opfsMediaStorage';
@@ -228,8 +229,10 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
     };
   }, []);
 
-  // 3. MP4 Video Render Settings
-  const [resolutionPreset, setResolutionPreset] = useState<CinemaResolutionPreset>('4k_scope');
+  // 3. MP4 Video Render Settings (Default to 4K for Active Trial/Pro, 1080p for Free Tier)
+  const [resolutionPreset, setResolutionPreset] = useState<CinemaResolutionPreset>(() =>
+    useLicenseStore.getState().hasActiveProOrTrial() ? '4k_scope' : '1080p_scope'
+  );
   const [bitrateProfile, setBitrateProfile] = useState<BitrateProfile>('broadcast');
   const [burnInTitles, setBurnInTitles] = useState<boolean>(true);
   const [simulateFlare, setSimulateFlare] = useState<boolean>(true);
@@ -1060,6 +1063,12 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
   // Launch Master MP4 Render Pipeline
   const handleStartMp4Export = useCallback(async () => {
+    if (
+      (resolutionPreset === '4k_scope' || resolutionPreset === '4k_standard') &&
+      !useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')
+    ) {
+      return;
+    }
     if (activeSelection.totalShots === 0) {
       setExportError('At least one shot must be included in the sequence.');
       return;
@@ -1151,6 +1160,9 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
   // Launch Professional Cinematography 4K Master MP4 Render Pipeline (3840×1608 4K DCI Scope @ 80 Mbps)
   const handleStart4KMasterExport = useCallback(async () => {
+    if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) {
+      return;
+    }
     if (activeSelection.totalShots === 0) {
       setExportError('At least one shot must be included in the sequence.');
       return;
@@ -1534,6 +1546,12 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
   // Export Production Package ZIP (frame assets, NLE JSON manifest, CMX 3600 EDL, FCP7 XML)
   const handleExportProductionPackage = useCallback(async () => {
+    if (
+      packageResolution === '4k_scope' &&
+      !useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')
+    ) {
+      return;
+    }
     try {
       setIsExporting(true);
       setExportError(null);
@@ -2251,7 +2269,10 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     <button
                       type="button"
                       disabled={isExporting}
-                      onClick={() => setResolutionPreset('4k_scope')}
+                      onClick={() => {
+                        if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
+                        setResolutionPreset('4k_scope');
+                      }}
                       className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
                         resolutionPreset === '4k_scope'
                           ? 'bg-[#181926] border-[#F5A623] text-white shadow'
@@ -2259,7 +2280,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       }`}
                     >
                       <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>4K Scope (3840 × 1608)</span>
+                        <span>4K Scope (3840 × 1608) · PRO</span>
                         <span className="text-[8.5px] text-[#F5A623]">2.39:1</span>
                       </div>
                       <div className="text-[9px] text-zinc-500 font-sans">Theatrical Scope Master</div>
@@ -2268,7 +2289,10 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     <button
                       type="button"
                       disabled={isExporting}
-                      onClick={() => setResolutionPreset('4k_standard')}
+                      onClick={() => {
+                        if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
+                        setResolutionPreset('4k_standard');
+                      }}
                       className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
                         resolutionPreset === '4k_standard'
                           ? 'bg-[#181926] border-[#F5A623] text-white shadow'
@@ -2276,7 +2300,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       }`}
                     >
                       <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>4K UHD (3840 × 2160)</span>
+                        <span>4K UHD (3840 × 2160) · PRO</span>
                         <span className="text-[8.5px] text-zinc-400">16:9</span>
                       </div>
                       <div className="text-[9px] text-zinc-500 font-sans">Ultra HD Standard Cinema</div>
@@ -2627,14 +2651,17 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPackageResolution('4k_scope')}
+                        onClick={() => {
+                          if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
+                          setPackageResolution('4k_scope');
+                        }}
                         className={`flex-1 py-1.5 px-2 rounded border text-xs font-bold transition-all cursor-pointer ${
                           packageResolution === '4k_scope'
                             ? 'bg-[#F5A623] text-black border-[#F5A623]'
                             : 'bg-black border-zinc-700 text-zinc-400'
                         }`}
                       >
-                        4K Scope
+                        4K Scope · PRO
                       </button>
                     </div>
                   </div>

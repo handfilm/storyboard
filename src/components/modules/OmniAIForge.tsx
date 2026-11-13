@@ -26,6 +26,7 @@ import {
   Radio
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
+import { useLicenseStore } from '../../services/licenseService';
 import { addShotToTimeline } from '../../core/store/timelineState';
 import { eventBus } from '../../core/eventBus';
 import { COMPILATION_PRESETS, CompilationPreset } from '../../constants/compilationData';
@@ -275,6 +276,7 @@ export const OmniAIForge: React.FC<OmniAIForgeProps> = ({
   };
 
   const handleGenerate = () => {
+    if (!useLicenseStore.getState().requireProAccess('Gemini Image & Google Flow Video AI')) return;
     if (isGenerating || !prompt.trim() || credits < 25) return;
 
     setIsGenerating(true);

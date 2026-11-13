@@ -28,6 +28,7 @@ import {
   renderShotLightConfigToCanvas
 } from '../../services/lightingRelightingService';
 import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
+import { useLicenseStore } from '../../services/licenseService';
 
 export type LightingFilterTabId = 'ALL' | 'ATMO' | 'GORO' | 'TONE' | 'STUDIO';
 
@@ -154,6 +155,7 @@ export const LightingRelightingWorkbench: React.FC<LightingRelightingWorkbenchPr
   }, [activePreset, selectedLightId, lightConfig, shotIndex, frame?.imageUrl]);
 
   const handleSelectPreset = (preset: LightingPreset) => {
+    if (!useLicenseStore.getState().requireProAccess('34 Pro Light Rigs')) return;
     onSelectLightId(preset.id);
     setLightConfig(buildPresetRelightDefaults(preset));
   };
@@ -291,7 +293,10 @@ export const LightingRelightingWorkbench: React.FC<LightingRelightingWorkbenchPr
           <button
             type="button"
             data-testid="apply-lighting-to-shot-btn"
-            onClick={() => onApplyToShot(selectedLightId, lightConfig)}
+            onClick={() => {
+              if (!useLicenseStore.getState().requireProAccess('34 Pro Light Rigs')) return;
+              onApplyToShot(selectedLightId, lightConfig);
+            }}
             className="w-full py-2 rounded bg-[#F59E0B] hover:bg-amber-400 active:scale-[0.99] text-black font-black text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
           >
             <Check className="w-3.5 h-3.5" />
@@ -300,7 +305,10 @@ export const LightingRelightingWorkbench: React.FC<LightingRelightingWorkbenchPr
           <button
             type="button"
             data-testid="apply-lighting-to-all-btn"
-            onClick={() => onApplyToAllShots(selectedLightId, lightConfig)}
+            onClick={() => {
+              if (!useLicenseStore.getState().requireProAccess('34 Pro Light Rigs')) return;
+              onApplyToAllShots(selectedLightId, lightConfig);
+            }}
             className="w-full py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-[#F59E0B]/50 text-amber-300 font-bold text-[9.5px] tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
           >
             <Zap className="w-3.5 h-3.5 text-[#F59E0B]" />

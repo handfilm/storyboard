@@ -5,6 +5,8 @@
  * with @google/genai integration, intelligent storyboard breakdown, and camera prompts.
  */
 
+import { getLicenseAuthHeaders, useLicenseStore } from '../services/licenseService';
+
 export interface FlowGenerationResult {
   text: string;
   shots?: Array<{
@@ -55,28 +57,30 @@ class FlowSdk {
 
   /**
    * Flow.generate.image()
-   * Generates cinematic director stills based on shot description and camera specs.
+   * Generates cinematic director stills via authenticated server proxy /api/ai/generate-image.
    */
   public async generateImage(prompt: string, options?: { aspectRatio?: string; style?: string }): Promise<FlowImageResult> {
     const seed = Math.floor(Math.random() * 1000000);
-    // Dynamic cinematic unspash/canvas visual generation aligned with prompt
-    const cinemaCurated = [
-      "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1519638399535-1b036603ac77?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1920&q=80",
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1920&q=80"
-    ];
+    const enrichedPrompt = options?.style ? `${prompt}. Style: ${options.style}` : prompt;
 
-    const pickedUrl = cinemaCurated[Math.abs(seed) % cinemaCurated.length];
+    const res = await fetch('/api/ai/generate-image', {
+      method: 'POST',
+      headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        prompt: enrichedPrompt,
+        aspectRatio: options?.aspectRatio || '16:9',
+        model: 'gemini-2.5-flash-image'
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.success || !data?.imageUrl) {
+      useLicenseStore.getState().handleApiLicenseError(res.status, data, 'Gemini Image & Google Flow Video AI');
+      throw new Error(data?.error || `Server image proxy failed (${res.status})`);
+    }
 
     return {
-      imageUrl: pickedUrl,
+      imageUrl: String(data.imageUrl),
       prompt,
       seed
     };
@@ -90,14 +94,15 @@ class FlowSdk {
     try {
       const res = await fetch('/api/breakdown', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ prompt, context }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.text) {
-          return { text: data.text };
-        }
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && data?.text) {
+        return { text: data.text };
+      }
+      if (res.status === 401 || res.status === 402) {
+        useLicenseStore.getState().handleApiLicenseError(res.status, data, 'Gemini Image & Google Flow Video AI');
       }
     } catch (err) {
       console.warn('[RAWx Flow] Server breakdown API call fallback:', err);

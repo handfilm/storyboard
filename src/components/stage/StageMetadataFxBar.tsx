@@ -500,7 +500,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         {/* Stage Viewport Scale: 50% | 75% | 100% | FIT */}
         <div
           data-testid="stage-scale-selector"
-          className="hidden sm:flex items-center gap-0.5 px-1 h-[18px] rounded bg-[#141417] border border-white/[0.07] text-[8px] font-bold tabular-nums shrink-0"
+          className="flex items-center gap-0.5 px-1 h-[18px] rounded bg-[#141417] border border-white/[0.07] text-[8px] font-bold tabular-nums shrink-0 touch-manipulation"
           role="group"
           aria-label="Viewport Scale"
         >

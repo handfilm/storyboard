@@ -147,10 +147,10 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
     >
       {/* Ambient Film Plate Preview for current slide - 2.39:1 Ultra-Widescreen Artwork Frame */}
       <div className="absolute inset-0 z-0 overflow-hidden flex items-center justify-center bg-black">
-        {activeSlide.backgroundImage || frames[currentSlideIndex % frames.length]?.imageUrl ? (
+        {(frames[currentSlideIndex]?.imageUrl || activeSlide.backgroundImage) ? (
           <img 
             key={`hero-plate-${slideTransitionKey}-${currentSlideIndex}`}
-            src={activeSlide.backgroundImage || frames[currentSlideIndex % frames.length]?.imageUrl} 
+            src={frames[currentSlideIndex]?.imageUrl || activeSlide.backgroundImage} 
             alt={activeSlide.imageAlt || activeSlide.title} 
             className={`w-full h-full object-cover object-center opacity-65 md:opacity-75 scale-100 transition-transform duration-1000 ease-out ${
               isTransitionActive ? 'animate-hero-plate' : 'opacity-0'
@@ -189,41 +189,31 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
           >
             {isHeroTitleVisible && (
               <>
-                {/* Eyebrow */}
-                <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#F5A623] mb-3 flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 font-bold">
-                    {activeSlide.tag}
-                  </span>
-                  <span className="text-zinc-600 font-bold">•</span>
-                  <span className="text-zinc-300 font-mono text-[11px] tracking-widest">
-                    SLIDE {String(activeSlide.id).padStart(2, '0')} / 10
-                  </span>
-                  {(componentsVisibility?.titleBn ?? true) && activeFrame?.bengaliTitle && (
-                    <>
-                      <span className="text-zinc-600 font-bold">•</span>
-                      <span className="font-bangla text-sm text-[#FFE066] font-bold tracking-normal glow-gold">
-                        {activeFrame.bengaliTitle}
-                      </span>
-                    </>
-                  )}
+                {/* Top Kicker: {STYLE_TAG} · SLIDE {01..10} / 10 · {BANGLA_TAG} */}
+                <div className="text-[11px] font-mono uppercase tracking-[0.22em] text-amber-400 mb-3">
+                  {activeSlide.styleTag || activeSlide.tag} · SLIDE {String(activeSlide.id).padStart(2, '0')} / 10 ·{' '}
+                  <span className="font-bangla">{activeSlide.banglaTag || activeFrame?.bengaliTitle || 'সূচনা'}</span>
                 </div>
 
-                {/* Main Headline */}
+                {/* Main Display Headline */}
                 {(componentsVisibility?.titleEn ?? true) && (
-                  <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight font-cinzel leading-none drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
+                  <h1
+                    style={{ fontFamily: "'Playfair Display', 'Cinzel', Georgia, serif" }}
+                    className="font-serif font-extrabold uppercase tracking-tight text-white text-4xl md:text-6xl leading-[0.95] drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]"
+                  >
                     {activeSlide.title}
                   </h1>
                 )}
 
-                {/* Subtitle */}
+                {/* Bangla & Cadence Line */}
                 {(componentsVisibility?.tagline ?? true) && (
-                  <div className="mt-3 mb-4 text-lg md:text-xl font-semibold text-zinc-200 font-sans tracking-wide">
-                    // <span className="bg-gradient-to-r from-[#FFF2B2] via-[#F5A623] to-[#E50914] bg-clip-text text-transparent font-medium">{activeSlide.subtitle}</span>
+                  <div className="mt-3 mb-4 text-base md:text-lg font-medium tracking-[0.18em] text-neutral-200 uppercase">
+                    // <span className="font-bangla">{activeSlide.banglaSubtitle || activeFrame?.bengaliTitle}</span> // {activeSlide.cadenceMode || activeSlide.subtitle}
                   </div>
                 )}
 
-                {/* Description */}
-                <p className="max-w-xl text-zinc-300 text-sm md:text-base leading-relaxed mb-6 font-sans line-clamp-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
+                {/* Technical Motion Caption (Two-line camera, lighting, and audio sync summary) */}
+                <p className="text-xs md:text-sm text-neutral-400 max-w-xl leading-relaxed mb-6 line-clamp-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
                   {activeSlide.body}
                 </p>
               </>
@@ -332,7 +322,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                       aria-current={isActiveMarker ? 'true' : undefined}
                       className={`px-2 py-1 px-2! py-1! rounded-[3px] font-mono text-[10px] tabular-nums transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A623] ${
                         isActiveMarker
-                          ? 'bg-[#E50914] text-white font-bold shadow-[0_0_12px_rgba(229,9,20,0.75)]'
+                          ? 'bg-red-600 text-white font-bold shadow-[0_0_12px_rgba(220,38,38,0.75)]'
                           : 'bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-[#FFE066]'
                       }`}
                     >

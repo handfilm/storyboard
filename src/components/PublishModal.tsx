@@ -78,21 +78,19 @@ export const PublishModal: React.FC<PublishModalProps> = ({
     }
   };
 
-  const gitCommands = `# 1. Initialize local Git repository
-git init
+  const gitCommands = `# Recommended: Run Autonomous Handfilm Git Push Engine
+./scripts/git-push.sh https://github.com/YOUR_GITHUB_USERNAME/rawx-storyboard-engine.git
 
-# 2. Stage all codebase files & anthology assets
+# Or with GitHub Personal Access Token (PAT):
+./scripts/git-push.sh ghp_YOUR_TOKEN https://github.com/YOUR_GITHUB_USERNAME/rawx-storyboard-engine.git
+
+# Manual fallback commands:
+git config --global --add safe.directory "$PWD"
 git add .
-
-# 3. Create initial commit
-git commit -m "feat: complete RAWx Master Anthology Engine 100 with optical shaders and audio"
-
-# 4. Set main branch & attach your remote repository
+git commit -m "feat(core): unified workstation stabilization, showcase pipeline & git recovery"
 git branch -M main
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/rawx-anthology-engine.git
-
-# 5. Push to GitHub!
-git push -u origin main`;
+git remote add origin https://github.com/YOUR_GITHUB_USERNAME/rawx-storyboard-engine.git
+git push -u origin main --force-with-lease`;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4">

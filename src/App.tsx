@@ -58,6 +58,12 @@ import { HandfilmHome } from './components/home/HandfilmHome';
 import { useStudioStore } from './core/store';
 import { eventBus } from './core/eventBus';
 import { studioDraftDb } from './services/db';
+import {
+  loadAllShotMedia,
+  saveShotMediaBlob,
+  deleteShotMedia,
+  getShotMediaKey
+} from './services/handfilmMediaVault';
 import { thumbnailMemoryCache } from './services/thumbnailEngine';
 import { opfsMediaStorage } from './services/media/opfsMediaStorage';
 import { handleFileUpload } from './services/mediaIngestService';
@@ -105,6 +111,10 @@ export default function App() {
   }));
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const projectFramesRef = useRef<AnthologyFrame[]>(project.frames);
+  projectFramesRef.current = project.frames;
+  const activeReelIndex = useStudioStore((s) => s.activeReelIndex);
+  const reelLoopActive = useStudioStore((s) => s.reelLoopActive);
   const [currentView, setCurrentView] = useState<'HOME' | 'STUDIO'>('STUDIO');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('STAGE');
   const [activeModule, setActiveModule] = useState<StudioModuleId>('PLAYER');
@@ -593,10 +603,30 @@ export default function App() {
       });
     });
 
-    const unsubAsset = eventBus.on('asset_assigned_to_shot', ({ assetId, shotIndex, blobUrl, thumbnailUrl, meta }: any) => {
-      if (typeof shotIndex === 'number' && blobUrl) {
-        const isVid = meta?.mimeType?.startsWith('video') ?? false;
-        const resolvedThumb = thumbnailUrl || (!isVid ? blobUrl : undefined);
+    const unsubAsset = eventBus.on('asset_assigned_to_shot', async ({ assetId, shotIndex, blob, blobUrl, thumbnailUrl, meta }: any) => {
+      if (typeof shotIndex === 'number' && (blob || blobUrl)) {
+        const targetFrame = projectFramesRef.current[shotIndex];
+        const shotKey = getShotMediaKey(targetFrame, shotIndex);
+        let resolvedUrl = blobUrl;
+        let isVid = meta?.mimeType?.startsWith('video') ?? false;
+
+        try {
+          let sourceBlob: Blob | null = blob instanceof Blob ? blob : null;
+          if (!sourceBlob && assetId) {
+            const vaultItem = await studioDraftDb.getVaultMediaItem(assetId);
+            if (vaultItem?.blob) sourceBlob = vaultItem.blob;
+          }
+          if (sourceBlob) {
+            const entry = await saveShotMediaBlob(shotKey, sourceBlob, meta?.name || `shot_${shotIndex + 1}`);
+            useStudioStore.getState().setShotMediaEntry(shotKey, entry);
+            resolvedUrl = entry.url;
+            isVid = entry.type === 'video';
+          }
+        } catch (err) {
+          console.warn('[App] handfilm_media_vault save warning:', err);
+        }
+
+        const resolvedThumb = thumbnailUrl || (!isVid ? resolvedUrl : undefined);
         if (resolvedThumb) {
           thumbnailMemoryCache.set(String(shotIndex + 1), resolvedThumb);
           thumbnailMemoryCache.set(`shot_${shotIndex}`, resolvedThumb);
@@ -606,7 +636,7 @@ export default function App() {
           if (nextFrames[shotIndex]) {
             nextFrames[shotIndex] = {
               ...nextFrames[shotIndex],
-              imageUrl: blobUrl,
+              imageUrl: resolvedUrl,
               thumbnailUrl: resolvedThumb || nextFrames[shotIndex].thumbnailUrl,
               isVideo: isVid
             };
@@ -615,10 +645,23 @@ export default function App() {
         });
         try {
           useStudioStore.getState().updateShot(shotIndex, {
-            imageUrl: blobUrl,
+            imageUrl: resolvedUrl,
             thumbnailUrl: resolvedThumb,
             isVideo: isVid
           });
+        } catch {}
+      }
+    });
+
+    const unsubJumpToShot = eventBus.on('studio:jump_to_shot', ({ shotIndex }: { shotIndex: number }) => {
+      if (typeof shotIndex === 'number' && Number.isFinite(shotIndex)) {
+        const total = Math.max(1, projectFramesRef.current.length);
+        const clamped = Math.max(0, Math.min(total - 1, Math.floor(shotIndex)));
+        setCurrentIndex(clamped);
+        setSlideTimeSec(0);
+        try {
+          useStudioStore.getState().setActiveShotIndex(clamped);
+          useStudioStore.getState().setSlideTimeSec(0);
         } catch {}
       }
     });
@@ -771,6 +814,7 @@ export default function App() {
     return () => {
       unsub();
       unsubAsset();
+      unsubJumpToShot();
       unsubRecorder();
       unsubExport();
       unsubShortcuts();
@@ -796,6 +840,19 @@ export default function App() {
       unsubExportFcpxml();
     };
   }, [handleOpenExportStudio, aspectRatio]);
+
+  // Global browser navigation guard for OS drag-and-drop (never stopPropagation so card/stage onDrop receive drops)
+  useEffect(() => {
+    const preventFileNav = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('dragover', preventFileNav);
+    window.addEventListener('drop', preventFileNav);
+    return () => {
+      window.removeEventListener('dragover', preventFileNav);
+      window.removeEventListener('drop', preventFileNav);
+    };
+  }, []);
 
   // Initialize Storage Core & Check Crash Status on Mount
   useEffect(() => {
@@ -838,43 +895,63 @@ export default function App() {
         setCrashRecoveredProject(null);
       }
 
-      // 3. Auto-hydrate bulletproof media_vault and timeline_slots on mount
+      // 3. Auto-hydrate isolated per-shot media from handfilm_media_vault IndexedDB first, then timeline_slots
       try {
-        let vaultItems = await studioDraftDb.getAllVaultMedia();
-        if (vaultItems.length === 0) {
-          await studioDraftDb.seedDefaultVaultAssets();
-          vaultItems = await studioDraftDb.getAllVaultMedia();
-        }
+        const restoredMap = await loadAllShotMedia();
+        if (!isMounted) return;
+        useStudioStore.getState().setShotMediaMap(restoredMap);
+
+        const vaultItems = await studioDraftDb.getAllVaultMedia();
         const slots = await studioDraftDb.getAllTimelineSlots();
-        for (const slot of slots) {
-          const item = vaultItems.find(v => v.id === slot.mediaId);
-          if (item && item.blob) {
-            const url = studioDraftDb.getActiveMediaUrl(item.id, item.blob);
-            const isVid = item.mimeType.startsWith('video');
-            const thumb = item.thumbnailUrl || (!isVid ? url : undefined);
-            if (thumb) {
-              thumbnailMemoryCache.set(String(slot.slotIndex + 1), thumb);
-              thumbnailMemoryCache.set(`shot_${slot.slotIndex}`, thumb);
-            }
-            setProject(prev => {
-              const nextFrames = [...prev.frames];
-              if (nextFrames[slot.slotIndex]) {
-                nextFrames[slot.slotIndex] = {
-                  ...nextFrames[slot.slotIndex],
-                  imageUrl: url,
-                  thumbnailUrl: thumb || nextFrames[slot.slotIndex].thumbnailUrl,
-                  isVideo: isVid
-                };
+
+        setProject(prev => {
+          const nextFrames = [...prev.frames];
+          // Hydrate timeline_slots only for explicitly mapped slots
+          for (const slot of slots) {
+            const item = vaultItems.find(v => v.id === slot.mediaId);
+            if (item && item.blob && nextFrames[slot.slotIndex]) {
+              const url = studioDraftDb.getActiveMediaUrl(item.id, item.blob);
+              const isVid = item.mimeType.startsWith('video');
+              const thumb = item.thumbnailUrl || (!isVid ? url : undefined);
+              if (thumb) {
+                thumbnailMemoryCache.set(String(slot.slotIndex + 1), thumb);
+                thumbnailMemoryCache.set(`shot_${slot.slotIndex}`, thumb);
               }
-              return { ...prev, frames: nextFrames };
-            });
-            useStudioStore.getState().updateShot(slot.slotIndex, {
-              imageUrl: url,
-              thumbnailUrl: thumb,
-              isVideo: isVid
-            });
+              nextFrames[slot.slotIndex] = {
+                ...nextFrames[slot.slotIndex],
+                imageUrl: url,
+                thumbnailUrl: thumb || nextFrames[slot.slotIndex].thumbnailUrl,
+                isVideo: isVid
+              };
+              useStudioStore.getState().updateShot(slot.slotIndex, {
+                imageUrl: url,
+                thumbnailUrl: thumb,
+                isVideo: isVid
+              });
+            }
           }
-        }
+          // Hydrate per-shot isolated blobs from handfilm_media_vault (authoritative per-shot store)
+          nextFrames.forEach((f, idx) => {
+            const shotKey = getShotMediaKey(f, idx);
+            const entry = restoredMap[shotKey];
+            if (entry) {
+              const isVid = entry.type === 'video';
+              const thumb = !isVid ? entry.url : f.thumbnailUrl;
+              nextFrames[idx] = {
+                ...f,
+                imageUrl: entry.url,
+                thumbnailUrl: thumb,
+                isVideo: isVid
+              };
+              useStudioStore.getState().updateShot(idx, {
+                imageUrl: entry.url,
+                thumbnailUrl: thumb,
+                isVideo: isVid
+              });
+            }
+          });
+          return { ...prev, frames: nextFrames };
+        });
       } catch (err) {
         console.warn('[App] Vault hydration error on mount:', err);
       }
@@ -1081,7 +1158,7 @@ export default function App() {
   const nextFrame = useCallback(() => goToFrame(currentIndex + 1), [goToFrame, currentIndex]);
   const prevFrame = useCallback(() => goToFrame(currentIndex - 1), [goToFrame, currentIndex]);
 
-  // Frame Stepping (-1F / +1F at active shot's targetFps)
+  // Frame Stepping (-1F / +1F at active shot's targetFps, respecting 10x10 Reel Loop Boundaries)
   const handleStepFrame = useCallback((forward: boolean) => {
     setIsPlaying(false);
 
@@ -1090,6 +1167,9 @@ export default function App() {
     const FRAME_DELTA = 1 / shotFps;
     const SLIDE_DURATION = getShotDurationSec(activeShot, project.defaultSlideHoldSec ?? 12.0);
     const totalCount = Math.max(1, project.frames.length);
+    const reelStart = reelLoopActive ? Math.min(totalCount - 1, activeReelIndex * 10) : 0;
+    const reelEnd = reelLoopActive ? Math.min(totalCount - 1, reelStart + 9) : totalCount - 1;
+    const reelLen = Math.max(1, reelEnd - reelStart + 1);
     const currentTime = slideTimeSecRef.current;
 
     if (playbackMode === 'solo') {
@@ -1104,7 +1184,10 @@ export default function App() {
     } else {
       const updated = forward ? currentTime + FRAME_DELTA : currentTime - FRAME_DELTA;
       if (updated >= SLIDE_DURATION) {
-        const nextIdx = (currentIndex + 1) % totalCount;
+        const nextIdx =
+          currentIndex >= reelStart && currentIndex <= reelEnd
+            ? reelStart + ((currentIndex - reelStart + 1) % reelLen)
+            : reelStart;
         slideTimeSecRef.current = 0;
         setCurrentIndex(nextIdx);
         setSlideTimeSec(0);
@@ -1113,7 +1196,10 @@ export default function App() {
           useStudioStore.getState().setSlideTimeSec(0);
         } catch {}
       } else if (updated < 0) {
-        const prevIdx = (currentIndex - 1 + totalCount) % totalCount;
+        const prevIdx =
+          currentIndex >= reelStart && currentIndex <= reelEnd
+            ? reelStart + ((currentIndex - reelStart - 1 + reelLen) % reelLen)
+            : reelEnd;
         const prevShot = project.frames[prevIdx] || activeShot;
         const prevShotDur = getShotDurationSec(prevShot, project.defaultSlideHoldSec ?? 12.0);
         const prevShotFps = getShotTargetFps(prevShot, 24);
@@ -1134,7 +1220,7 @@ export default function App() {
       }
     }
     audioEngine.playShutterClick();
-  }, [playbackMode, project.frames, project.defaultSlideHoldSec, currentIndex]);
+  }, [playbackMode, project.frames, project.defaultSlideHoldSec, currentIndex, activeReelIndex, reelLoopActive]);
 
   // Local slide time scrubbing (0 to active shot's durationSec)
   const handleScrubSlideTime = useCallback((timeSec: number) => {
@@ -1208,7 +1294,13 @@ export default function App() {
 
           if (nextTime >= boundaryDuration) {
             const framesLength = Math.max(1, project.frames.length);
-            const nextIdx = (currentIndex + 1) % framesLength;
+            const reelStart = reelLoopActive ? Math.min(framesLength - 1, activeReelIndex * 10) : 0;
+            const reelEnd = reelLoopActive ? Math.min(framesLength - 1, reelStart + 9) : framesLength - 1;
+            const reelLen = Math.max(1, reelEnd - reelStart + 1);
+            const nextIdx =
+              currentIndex >= reelStart && currentIndex <= reelEnd
+                ? reelStart + ((currentIndex - reelStart + 1) % reelLen)
+                : reelStart;
             const nextShotDur = shotOffsets[nextIdx]?.durationSec ?? 12.0;
             const remainderTime = Math.min(nextShotDur * 0.5, Math.max(0, nextTime - boundaryDuration));
             slideTimeSecRef.current = remainderTime;
@@ -1250,7 +1342,7 @@ export default function App() {
         animFrameRef.current = null;
       }
     };
-  }, [isPlaying, playbackMode, project.frames, project.defaultSlideHoldSec, playbackSpeed, isAudioMuted, currentIndex, isSnapToBeat]);
+  }, [isPlaying, playbackMode, project.frames, project.defaultSlideHoldSec, playbackSpeed, isAudioMuted, currentIndex, isSnapToBeat, activeReelIndex, reelLoopActive]);
 
   // Milestone D1: Single Source of Truth Key Scope Manager Initialization & Sync
   useEffect(() => {
@@ -1775,49 +1867,62 @@ export default function App() {
     }
   }, []);
 
-  // Universal Ingestion Pipeline: Direct Synchronous Preview + Background Persistence for any shot index
+  // Universal Per-Shot Isolated Ingestion Pipeline: Saves binary Blob into handfilm_media_vault keyed by shot.id & updates ONLY targetIndex
   const handleUploadMediaForIndex = useCallback(async (targetIndex: number, file: File) => {
     try {
+      const targetFrame = projectFramesRef.current[targetIndex];
+      const shotKey = getShotMediaKey(targetFrame, targetIndex);
+      const vaultEntry = await saveShotMediaBlob(shotKey, file, file.name);
+      useStudioStore.getState().setShotMediaEntry(shotKey, vaultEntry);
+
+      const shotNum = String(targetIndex + 1).padStart(3, '0');
+      const isVid = vaultEntry.type === 'video';
+
+      setProject(prev => {
+        const nextFrames = [...prev.frames];
+        const current = nextFrames[targetIndex];
+        if (!current) return prev;
+        const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
+          ? `SH${shotNum} // KINETIC FLOW`
+          : current.title;
+        const titleBn = (!current.bengaliTitle || current.bengaliTitle.includes('নতুন ফ্রেম'))
+          ? `দৃশ্য ${shotNum} // গতিশীল দৃষ্টিভঙ্গি`
+          : current.bengaliTitle;
+        const soundCue = current.soundCue || 'Cinematic Tension Bass // 24fps Stem';
+        nextFrames[targetIndex] = {
+          ...current,
+          imageUrl: vaultEntry.url,
+          thumbnailUrl: !isVid ? vaultEntry.url : current.thumbnailUrl,
+          isVideo: isVid,
+          title: titleEn,
+          bengaliTitle: titleBn,
+          soundCue
+        };
+        return { ...prev, frames: nextFrames };
+      });
+
+      useStudioStore.getState().updateShot(targetIndex, {
+        imageUrl: vaultEntry.url,
+        thumbnailUrl: !isVid ? vaultEntry.url : targetFrame?.thumbnailUrl,
+        isVideo: isVid
+      });
+
+      // Non-blocking poster extraction & vault backup without overwriting the authoritative per-shot blob URL
       await handleFileUpload(file, {
         shotIndex: targetIndex,
-        onImmediatePreview: (item) => {
-          const current = project.frames[targetIndex] || { id: targetIndex + 1 };
-          const shotNum = String(targetIndex + 1).padStart(3, '0');
-          const titleEn = (!current.title || current.title.startsWith('Shot ') || current.title.startsWith('Scene Shot') || current.title.startsWith('New Scene'))
-            ? `SH${shotNum} // KINETIC FLOW`
-            : current.title;
-          const titleBn = (!current.bengaliTitle || current.bengaliTitle.includes('নতুন ফ্রেম'))
-            ? `দৃশ্য ${shotNum} // গতিশীল দৃষ্টিভঙ্গি`
-            : current.bengaliTitle;
-          const soundCue = current.soundCue || 'Cinematic Tension Bass // 24fps Stem';
-
-          handleUpdateFrame({
-            ...current,
-            imageUrl: item.objectUrl,
-            thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
-            isVideo: item.isVideo,
-            title: titleEn,
-            bengaliTitle: titleBn,
-            soundCue: soundCue
-          });
-
-          useStudioStore.getState().updateShot(targetIndex, {
-            imageUrl: item.objectUrl,
-            thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
-            isVideo: item.isVideo,
-            title: titleEn,
-            bengaliTitle: titleBn,
-            soundCue: soundCue
-          });
-        },
         onMetadataReady: (item) => {
-          const current = project.frames[targetIndex];
-          if (item.thumbnailUrl && current) {
-            thumbnailMemoryCache.set(String(current.id ?? targetIndex + 1), item.thumbnailUrl);
+          if (item.thumbnailUrl) {
+            thumbnailMemoryCache.set(String(targetFrame?.id ?? targetIndex + 1), item.thumbnailUrl);
             thumbnailMemoryCache.set(`shot_${targetIndex}`, item.thumbnailUrl);
-            handleUpdateFrame({
-              ...current,
-              thumbnailUrl: item.thumbnailUrl
+            setProject(prev => {
+              const nextFrames = [...prev.frames];
+              if (nextFrames[targetIndex]) {
+                nextFrames[targetIndex] = {
+                  ...nextFrames[targetIndex],
+                  thumbnailUrl: item.thumbnailUrl
+                };
+              }
+              return { ...prev, frames: nextFrames };
             });
             useStudioStore.getState().updateShot(targetIndex, {
               thumbnailUrl: item.thumbnailUrl
@@ -1828,34 +1933,45 @@ export default function App() {
     } catch (err) {
       console.warn('[RECOVERY FALLBACK] handleUploadMediaForIndex error:', err);
     }
-  }, [project.frames, handleUpdateFrame]);
+  }, []);
 
   // Rapid Ingestion Pipeline: Direct Synchronous Preview + Background Persistence
   const handleUploadImage = useCallback(async (file: File) => {
     await handleUploadMediaForIndex(currentIndex, file);
   }, [currentIndex, handleUploadMediaForIndex]);
 
-  // Instant Decision Purge (Shift + Delete): zero-loss RAM cleanup
+  // Instant Decision Purge (Shift + Delete): zero-loss RAM & per-shot Vault cleanup
   const handlePurgeMedia = useCallback(() => {
-    const current = project.frames[currentIndex];
+    const current = projectFramesRef.current[currentIndex];
     if (!current) return;
+    const shotKey = getShotMediaKey(current, currentIndex);
+    deleteShotMedia(shotKey).catch(() => {});
+    useStudioStore.getState().removeShotMediaEntry(shotKey);
+
     if (current.imageUrl && current.imageUrl.startsWith('blob:')) {
       studioDraftDb.revokeTrackedUrl(current.imageUrl);
     }
-    handleUpdateFrame({
-      ...current,
-      imageUrl: '',
-      isVideo: false
+    setProject(prev => {
+      const nextFrames = [...prev.frames];
+      if (!nextFrames[currentIndex]) return prev;
+      nextFrames[currentIndex] = {
+        ...nextFrames[currentIndex],
+        imageUrl: '',
+        thumbnailUrl: undefined,
+        isVideo: false
+      };
+      return { ...prev, frames: nextFrames };
     });
     try {
       useStudioStore.getState().updateShot(currentIndex, {
         imageUrl: '',
+        thumbnailUrl: undefined,
         isVideo: false
       });
     } catch {
       // safe fallback
     }
-  }, [currentIndex, project.frames, handleUpdateFrame]);
+  }, [currentIndex]);
 
   // Keyboard Navigation: NLE Shuttle, 1/24s Nudge, Loop Audition & Instant Purge
   useEffect(() => {
@@ -2652,6 +2768,8 @@ export default function App() {
         speed={speed}
         showHud={showHud}
         aspectRatio={aspectRatio}
+        playbackMode={playbackMode}
+        onSelectPlaybackMode={setPlaybackMode}
         isFullscreen={isFullscreen}
         isAudioMuted={isAudioMuted}
         audioVolume={audioVolume}
@@ -2690,8 +2808,7 @@ export default function App() {
         onCaptureStill={handleCaptureStill}
         onToggleZen={() => setIsZenMode(z => !z)}
         isZenMode={isZenMode}
-        playbackMode={playbackMode}
-        onSelectPlaybackMode={setPlaybackMode}
+        onUploadMediaForIndex={handleUploadMediaForIndex}
         onStepFrame={handleStepFrame}
         isTelemetryRackOpen={isTelemetryRackOpen}
         onToggleTelemetryRack={() => setIsTelemetryRackOpen(o => !o)}

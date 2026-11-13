@@ -73,6 +73,7 @@ import {
 } from 'lucide-react';
 import { ToolTooltip } from '../ui/ToolTooltip';
 import { useStudioStore } from '../../core/store';
+import { getShotMediaKey } from '../../services/handfilmMediaVault';
 import { db } from '../../services/db';
 import { MediaBinDrawer } from '../MediaBinDrawer';
 import { serviceWorkerManager } from '../../services/serviceWorkerManager';
@@ -728,6 +729,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   onRecordToggle,
   onZenToggle,
   onAspectChange,
+  onIngestMediaForFrame,
   initialViewMode = 'desktop'
 }) => {
   // ─────────────────────────────────────────────────────────────
@@ -800,6 +802,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
   const [ingestStatus, setIngestStatus] = useState<string | null>(null);
   const [isDraggingOverStage, setIsDraggingOverStage] = useState<boolean>(false);
   const [dragTargetShotIdx, setDragTargetShotIdx] = useState<number | null>(null);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
 
   // 34-Preset Cinematic Lighting Engine State
   const [customLights, setCustomLights] = useState<Record<number, string | null>>({});
@@ -1856,8 +1859,8 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
 
     setVaultAssets(prev => [...newAssets, ...prev]);
 
-    // Auto-Sequence: Auto-populate shots sequentially (Asset 0 to Shot 01, Asset 1 to Shot 02, etc.)
-    const shouldAutoSequence = mediaFiles.length > 1 || isReelTemplateActive || targetShotIndex === undefined;
+    // Auto-Sequence only when multiple files are dropped onto global zone (never overwrite other 99 shots when dropping onto a target shot)
+    const shouldAutoSequence = mediaFiles.length > 1 && targetShotIndex === undefined;
 
     if (shouldAutoSequence) {
       const updatedMedia: Record<number, any> = {};
@@ -1886,15 +1889,19 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           customMediaImagesRef.current.set(i, img);
         }
 
-        try {
-          useStudioStore.getState().updateShot(i, {
-            imageUrl: asset.url,
-            videoSrc: asset.url,
-            blobUrl: asset.url,
-            isVideo: asset.isVideo,
-            title: asset.name.replace(/\.[^/.]+$/, "")
-          });
-        } catch {}
+        if (onIngestMediaForFrame && asset.fileRef) {
+          onIngestMediaForFrame(i, asset.fileRef);
+        } else {
+          try {
+            useStudioStore.getState().updateShot(i, {
+              imageUrl: asset.url,
+              videoSrc: asset.url,
+              blobUrl: asset.url,
+              isVideo: asset.isVideo,
+              title: asset.name.replace(/\.[^/.]+$/, "")
+            });
+          } catch {}
+        }
       });
 
       setCustomMedia(prev => ({ ...prev, ...updatedMedia }));
@@ -1933,10 +1940,14 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         img.src = primary.url;
         customMediaImagesRef.current.set(slotIdx, img);
       }
+      if (onIngestMediaForFrame && primary.fileRef) {
+        onIngestMediaForFrame(slotIdx, primary.fileRef);
+      }
       if (slotIdx === activeShotIndexRef.current) {
         switchShotMedia(primary.url, trimPointsRef.current[slotIdx]?.in ?? 0);
       }
-      setIngestStatus(`[ READY // SHOT ${SHOWCASE_PRESETS[slotIdx].shotNumber} POPULATED ]`);
+      const presetShotNum = SHOWCASE_PRESETS[slotIdx]?.shotNumber || String(slotIdx + 1).padStart(3, '0');
+      setIngestStatus(`[ READY // SHOT ${presetShotNum} POPULATED ]`);
     }
 
     setTimeout(() => setIngestStatus(null), 4000);
@@ -1944,12 +1955,15 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
     // Defer thumbnail extraction to offscreen canvas using requestIdleCallback
     const extractThumbnailsInBackground = () => {
       newAssets.forEach((asset, idx) => {
-        if (asset.isVideo) {
+        const resolvedSlotIdx = shouldAutoSequence
+          ? idx
+          : (targetShotIndex !== undefined ? targetShotIndex : activeShotIndexRef.current);
+        if (asset.isVideo && (shouldAutoSequence || idx === 0)) {
           generateVideoThumbnailFast(asset.url).then(thumb => {
             setCustomMedia(prev => {
-              const current = prev[idx];
+              const current = prev[resolvedSlotIdx];
               if (current && current.url === asset.url) {
-                return { ...prev, [idx]: { ...current, thumbnailUrl: thumb } };
+                return { ...prev, [resolvedSlotIdx]: { ...current, thumbnailUrl: thumb } };
               }
               return prev;
             });
@@ -4280,21 +4294,60 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
             {top10Shots.map((frame, index) => {
               const rank = index + 1;
+              const shotKey = getShotMediaKey(frame, index);
+              const vaultEntry = shotMediaMap?.[shotKey] ?? null;
+              const localCustom = customMedia[index];
+              const cardMediaUrl = vaultEntry?.url || localCustom?.url || frame.imageUrl || '';
+              const isCardVideo = vaultEntry
+                ? vaultEntry.type === 'video'
+                : localCustom
+                  ? localCustom.isVideo
+                  : Boolean(frame.isVideo);
               return (
                 <div
                   key={`top-shot-${index}-${frame?.id ?? 'none'}`}
                   onClick={() => onEnterStudio(index)}
-                  className="group relative bg-[#101016] border border-[#232330] hover:border-[#E50914] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_12px_30px_rgba(229,9,20,0.3)] flex flex-col aspect-[2/3]"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (dragTargetShotIdx !== index) setDragTargetShotIdx(index);
+                  }}
+                  onDragLeave={() => {
+                    setDragTargetShotIdx((prev) => (prev === index ? null : prev));
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragTargetShotIdx(null);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      handleIngestFiles(e.dataTransfer.files, index);
+                    }
+                  }}
+                  className={`group relative bg-[#101016] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_12px_30px_rgba(229,9,20,0.3)] flex flex-col aspect-[2/3] border ${
+                    dragTargetShotIdx === index
+                      ? 'border-2 border-dashed border-amber-400 ring-2 ring-amber-400/50'
+                      : 'border-[#232330] hover:border-[#E50914]'
+                  }`}
                 >
                   {/* Poster Media Image Plate */}
                   <div className="relative flex-1 bg-black overflow-hidden">
-                    {frame.imageUrl ? (
-                      <img
-                        src={frame.imageUrl}
-                        alt={frame.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                        loading="lazy"
-                      />
+                    {cardMediaUrl ? (
+                      isCardVideo ? (
+                        <video
+                          src={cardMediaUrl}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={cardMediaUrl}
+                          alt={frame.title}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                          loading="lazy"
+                        />
+                      )
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#161622] via-[#0e0e14] to-black text-zinc-600">
                         <Film className="w-8 h-8 mb-2 group-hover:text-[#E50914] transition-colors" />
@@ -4707,7 +4760,7 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
             motionBlur: 0,
             vignette: 0
           },
-          imageUrl: customMedia[activeShotIndex]?.url || activeShot.imageUrl || activeShot.videoSrc || 'https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1280&q=80',
+          imageUrl: customMedia[activeShotIndex]?.url || activeShot.imageUrl || activeShot.videoSrc || '',
           durationSec: activeShot.durationSec || 3,
           tags: ['handfilm', 'shot', activeShot.lensSpec || 'lens'],
           lightId: activeShotLightId,

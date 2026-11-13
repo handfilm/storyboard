@@ -76,6 +76,7 @@ import {
 import { resolveEffectiveTitleAlign } from '../core/store';
 import { getLightingPresetById } from '../data/lightingPresets';
 import { getShotProceduralSpec } from '../data/proceduralCinemaEngine';
+import { getShotMediaKey, saveShotMediaBlob } from '../services/handfilmMediaVault';
 
 export interface ControlDockProps {
   frames: AnthologyFrame[];
@@ -98,6 +99,7 @@ export interface ControlDockProps {
   onPrev: () => void;
   onNext: () => void;
   onSelectFrame: (index: number) => void;
+  onUploadMediaForIndex?: (index: number, file: File) => void;
   onUpdateFrameAtIndex?: (index: number, updatedFrame: AnthologyFrame) => void;
   onApplyDurationToAll?: (durationSec: number) => void;
   onMatchAudioBeats?: () => void;
@@ -159,6 +161,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   onPrev,
   onNext,
   onSelectFrame,
+  onUploadMediaForIndex,
   onUpdateFrameAtIndex,
   onApplyDurationToAll,
   onMatchAudioBeats,
@@ -247,6 +250,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
   const digitalZoom = useStudioStore((s) => s.digitalZoom);
   const resetDigitalZoomStore = useStudioStore((s) => s.resetDigitalZoom);
   const titleAlign = useStudioStore((s) => s.titleAlign);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
   const isAnyZoomActive = Boolean(
     (digitalZoom && digitalZoom.isZoomed && digitalZoom.scale > 1.01) ||
@@ -786,6 +791,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
         >
           {safeFrames.map((frame, idx) => {
             const isActive = idx === currentIndex;
+            const shotKey = getShotMediaKey(frame, idx);
+            const vaultEntry = shotMediaMap?.[shotKey] ?? null;
+            const resolvedUrl = vaultEntry?.url || frame?.imageUrl || '';
             const cachedThumb =
               frame?.thumbnailUrl ||
               frame?.thumbnail ||
@@ -793,12 +801,14 @@ export const ControlDock: React.FC<ControlDockProps> = ({
               thumbnailMemoryCache.get(`shot_${idx}`) ||
               thumbnailMemoryCache.get(String(idx)) ||
               '';
-            const isVideoMedia = Boolean(
-              frame?.isVideo ||
-              (frame?.imageUrl && /\.(mp4|webm|mov|m4v)(\?|$)/i.test(frame.imageUrl))
-            );
-            const primaryImgSrc = cachedThumb || (!isVideoMedia ? frame?.imageUrl || '' : '');
-            const hasMedia = Boolean(primaryImgSrc || frame?.imageUrl || frame?.isVideo);
+            const isVideoMedia = vaultEntry
+              ? vaultEntry.type === 'video'
+              : Boolean(
+                  frame?.isVideo ||
+                  (resolvedUrl && /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolvedUrl))
+                );
+            const primaryImgSrc = !isVideoMedia ? (resolvedUrl || cachedThumb) : cachedThumb;
+            const hasMedia = Boolean(primaryImgSrc || resolvedUrl || isVideoMedia);
             const isThumbnailVisible = idx >= visibleStartShot && idx <= visibleEndShot;
             const shotNumber = idx + 1;
             const shotBadge = `#${String(shotNumber).padStart(2, '0')}`;
@@ -823,6 +833,35 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 key={`shot-strip-${idx}-${frame?.id ?? 'none'}`}
                 data-testid={`scrubber-index-marker-${idx}`}
                 onClick={() => onSelectFrame(idx)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (dropTargetIndex !== idx) setDropTargetIndex(idx);
+                }}
+                onDragLeave={() => {
+                  setDropTargetIndex((prev) => (prev === idx ? null : prev));
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDropTargetIndex(null);
+                  const droppedFile = e.dataTransfer.files?.[0];
+                  if (!droppedFile) return;
+                  if (onUploadMediaForIndex) {
+                    onUploadMediaForIndex(idx, droppedFile);
+                  } else {
+                    const entry = await saveShotMediaBlob(shotKey, droppedFile, droppedFile.name);
+                    useStudioStore.getState().setShotMediaEntry(shotKey, entry);
+                    if (onUpdateFrameAtIndex && frame) {
+                      onUpdateFrameAtIndex(idx, {
+                        ...frame,
+                        imageUrl: entry.url,
+                        thumbnailUrl: entry.type === 'image' ? entry.url : frame.thumbnailUrl,
+                        isVideo: entry.type === 'video'
+                      });
+                    }
+                  }
+                }}
                 onMouseEnter={(e) => {
                   const target = e.target as HTMLElement | null;
                   if (target?.closest?.('[data-dispatch-trigger="true"]')) return;
@@ -855,7 +894,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 }}
                 aria-label={`Shot ${shotNumber}: ${title}${bn ? ` (${bn})` : ''} — ${holdSec.toFixed(2)}s`}
                 className={`group relative min-w-[88px] w-[88px] h-[48px] flex-shrink-0 snap-start rounded-md overflow-hidden flex flex-col justify-between cursor-pointer select-none transition-all duration-150 ease-out will-change-transform ${
-                  isActive
+                  dropTargetIndex === idx
+                    ? 'border-2 border-dashed border-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.55)] scale-[1.04] z-30 bg-[#0d1f18]'
+                    : isActive
                     ? 'border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-[1.02] z-20 bg-[#121218]'
                     : 'border border-neutral-800/90 opacity-80 hover:opacity-100 hover:border-neutral-600 bg-[#0e0e14]'
                 }`}
@@ -872,9 +913,9 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                     }
                     className="absolute inset-0 w-full h-full object-cover filter brightness-[0.82] group-hover:brightness-100 transition-all duration-200 group-hover:scale-105"
                   />
-                ) : hasMedia && isThumbnailVisible && isVideoMedia && frame?.imageUrl ? (
+                ) : hasMedia && isThumbnailVisible && isVideoMedia && resolvedUrl ? (
                   <video
-                    src={frame.imageUrl}
+                    src={resolvedUrl}
                     muted
                     playsInline
                     preload="metadata"

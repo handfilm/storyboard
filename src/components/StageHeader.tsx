@@ -52,10 +52,18 @@ import { CockpitManifestStats, CockpitShotBridge } from '../types/cockpit';
 import {
   isTauriRuntime,
   generateNLETimelineXML,
+  generatePremiereXml,
+  generateCapCutDraftJson,
   buildCapCutQuickPackZip,
   triggerBrowserDownload,
   freezeAllShotFrames
 } from '../utils/interchangeExport';
+import {
+  exportCinemaMasterMp4,
+  exportCinemaMasterVp9,
+  exportPngSequenceZip,
+  RenderTelemetry
+} from '../services/videoExportEngine';
 import { getLightingPresetById } from '../data/lightingPresets';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
@@ -161,9 +169,18 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   const [cockpitFeedback, setCockpitFeedback] = useState<string | null>(null);
   const [liveCockpitStats, setLiveCockpitStats] = useState<CockpitManifestStats | null>(null);
   const [cockpitDrawerPos, setCockpitDrawerPos] = useState<{ top: number; left: number } | null>(null);
+  const [renderScope, setRenderScope] = useState<'reel' | 'master'>('reel');
+  const [isRenderingOffline, setIsRenderingOffline] = useState(false);
+  const [renderTelemetry, setRenderTelemetry] = useState<RenderTelemetry | null>(null);
+  const renderAbortRef = useRef<AbortController | null>(null);
   const cockpitContainerRef = useRef<HTMLDivElement>(null);
   const cockpitBtnRef = useRef<HTMLButtonElement>(null);
   const cockpitDrawerRef = useRef<HTMLDivElement>(null);
+
+  const activeReelIndex = useStudioStore((s) => s.activeReelIndex);
+  const reelLoopActive = useStudioStore((s) => s.reelLoopActive);
+  const selectReel = useStudioStore((s) => s.selectReel);
+  const setReelLoopActive = useStudioStore((s) => s.setReelLoopActive);
 
   // Cumulative shot offsets for timing
   const shotOffsets = useMemo(() => getCumulativeShotOffsets(frames), [frames]);
@@ -1230,7 +1247,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   ? { top: `${cockpitDrawerPos.top}px`, left: `${cockpitDrawerPos.left}px`, zIndex: 9999 }
                   : { zIndex: 9999 }
               }
-              className="fixed top-12 left-72 w-80 bg-neutral-950/95 border border-amber-500/50 shadow-2xl backdrop-blur-md p-4 rounded-lg z-[9999] font-mono text-xs text-zinc-200 space-y-3"
+              className="fixed top-12 left-72 w-80 sm:w-[356px] max-h-[82vh] overflow-y-auto bg-neutral-950/95 border border-amber-500/50 shadow-2xl backdrop-blur-md p-4 rounded-lg z-[9999] font-mono text-xs text-zinc-200 space-y-3"
             >
               {/* Bridge Environment Status */}
               <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -1244,8 +1261,51 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       : 'bg-amber-950/80 border-amber-500/40 text-amber-300'
                   }`}
                 >
-                  {resolvedCockpitStats.isTauriActive ? 'TAURI NATIVE IPC' : 'WEB SANDBOX FALLBACK'}
+                  {resolvedCockpitStats.isTauriActive ? 'TAURI NATIVE IPC' : 'OFFLINE READY'}
                 </span>
+              </div>
+
+              {/* 10x10 Modular Reel Engine Quick-Jump */}
+              <div className="space-y-1.5 pb-2 border-b border-white/10">
+                <div className="flex items-center justify-between text-[9px] font-bold tracking-wider uppercase">
+                  <span className="text-zinc-400">
+                    10×10 MODULAR REEL ({reelLoopActive ? `REEL ${String(activeReelIndex + 1).padStart(2, '0')} · ${activeReelIndex * 10 + 1}-${Math.min(frames.length || 100, activeReelIndex * 10 + 10)}` : 'MASTER 100'})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setReelLoopActive(!reelLoopActive)}
+                    className={`px-1.5 py-0.5 rounded border text-[9px] cursor-pointer transition-colors ${
+                      !reelLoopActive
+                        ? 'bg-red-600/80 border-red-500 text-white'
+                        : 'bg-neutral-900 border-white/15 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {reelLoopActive ? 'MASTER ALL' : 'REEL LOOP ON'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {Array.from({ length: 10 }, (_, rIdx) => {
+                    const isSelected = reelLoopActive && activeReelIndex === rIdx;
+                    return (
+                      <button
+                        key={rIdx}
+                        type="button"
+                        onClick={() => {
+                          selectReel(rIdx);
+                          setRenderScope('reel');
+                          eventBus.emit('studio:jump_to_shot', { shotIndex: rIdx * 10 });
+                        }}
+                        className={`py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-red-600 border-red-400 text-white shadow-[0_0_8px_rgba(220,38,38,0.45)]'
+                            : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white hover:border-amber-400/50'
+                        }`}
+                      >
+                        R{String(rIdx + 1).padStart(2, '0')}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Live Project Manifest Stats */}
@@ -1273,6 +1333,211 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Offline Render & Export Engine */}
+              {(() => {
+                const totalCount = Math.max(1, frames.length || 100);
+                const scopeStartIdx = renderScope === 'reel' ? Math.min(totalCount - 1, activeReelIndex * 10) : 0;
+                const scopeEndIdx = renderScope === 'reel' ? Math.min(totalCount - 1, scopeStartIdx + 9) : totalCount - 1;
+                const scopedSlice = frames.slice(scopeStartIdx, scopeEndIdx + 1);
+                const buildScopedBridgeShots = (): CockpitShotBridge[] =>
+                  scopedSlice.map((f, localIdx) => {
+                    const absIdx = scopeStartIdx + localIdx;
+                    return {
+                      shotId: `shot_${String(absIdx + 1).padStart(2, '0')}`,
+                      shotNumber: String(absIdx + 1).padStart(2, '0'),
+                      titleEn: f.title || `Shot ${absIdx + 1}`,
+                      titleBn: f.bengaliTitle || '',
+                      personality: 'KINETIC',
+                      inPoint: 0,
+                      outPoint: f.durationSec || f.slideHoldSec || 12.0,
+                      durationSec: f.durationSec || f.slideHoldSec || 12.0,
+                      mediaUrl: f.videoSrc || f.imageUrl,
+                      lutFilter: f.lutFilter,
+                      lensSpec: f.cameraSpec?.focalLength,
+                      directorNotes: f.directorNotes,
+                      lightId: f.lightId,
+                      lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+                    };
+                  });
+
+                const runOfflineVideoRender = async (format: 'mp4' | 'vp9' | 'png') => {
+                  if (isRenderingOffline) return;
+                  const controller = new AbortController();
+                  renderAbortRef.current = controller;
+                  setIsRenderingOffline(true);
+                  setRenderTelemetry({
+                    currentShotIndex: 1,
+                    totalShots: Math.max(1, scopeEndIdx - scopeStartIdx + 1),
+                    currentFrameNum: 0,
+                    totalFrames: Math.max(1, scopeEndIdx - scopeStartIdx + 1),
+                    percent: 1,
+                    fps: 24,
+                    statusText: `RENDERING SHOT 01/${String(Math.max(1, scopeEndIdx - scopeStartIdx + 1)).padStart(2, '0')}...`
+                  });
+                  try {
+                    const pipelineOpts = {
+                      projectTitle: renderScope === 'reel' ? `REEL_${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER_100',
+                      frames,
+                      totalSlides: totalCount,
+                      selectionMode: 'range' as const,
+                      rangeStart: scopeStartIdx + 1,
+                      rangeEnd: scopeEndIdx + 1,
+                      resolutionPreset: '1080p_standard' as const,
+                      bitrateProfile: 'broadcast' as const,
+                      burnInTitles: true,
+                      cleanPlates: false,
+                      simulateFlare: true,
+                      includeAudio: true,
+                      onProgress: (t: RenderTelemetry) => setRenderTelemetry(t),
+                      abortSignal: controller.signal
+                    };
+                    if (format === 'mp4') {
+                      const res = await exportCinemaMasterMp4(pipelineOpts);
+                      triggerBrowserDownload(res.blob, res.filename, res.blob.type || 'video/mp4');
+                      setCockpitFeedback(`EXPORTED ${res.filename}`);
+                    } else if (format === 'vp9') {
+                      const res = await exportCinemaMasterVp9(pipelineOpts);
+                      triggerBrowserDownload(res.blob, res.filename, 'video/webm');
+                      setCockpitFeedback(`EXPORTED ${res.filename}`);
+                    } else {
+                      const res = await exportPngSequenceZip({ ...pipelineOpts, framesPerShot: 1 });
+                      triggerBrowserDownload(res.blob, res.filename, 'application/zip');
+                      setCockpitFeedback(`EXPORTED ${res.frameCount} PNG FRAMES`);
+                    }
+                    setTimeout(() => setCockpitFeedback(null), 5000);
+                  } catch (err: any) {
+                    setCockpitFeedback(err?.message?.includes('cancelled') ? 'RENDER CANCELLED' : `RENDER NOTICE: ${err?.message || 'Fallback ready'}`);
+                    setTimeout(() => setCockpitFeedback(null), 4000);
+                  } finally {
+                    setIsRenderingOffline(false);
+                    renderAbortRef.current = null;
+                    setRenderTelemetry(null);
+                  }
+                };
+
+                return (
+                  <div className="pt-2 border-t border-white/10 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold tracking-wider uppercase text-amber-300">
+                        OFFLINE RENDER PIPELINE
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setRenderScope('reel')}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
+                            renderScope === 'reel'
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                              : 'bg-black/50 border-white/10 text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          REEL {String(activeReelIndex + 1).padStart(2, '0')} (10)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRenderScope('master')}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
+                            renderScope === 'master'
+                              ? 'bg-red-600/80 border-red-400 text-white'
+                              : 'bg-black/50 border-white/10 text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          MASTER ({totalCount})
+                        </button>
+                      </div>
+                    </div>
+
+                    {isRenderingOffline && renderTelemetry && (
+                      <div className="p-2 rounded bg-black/80 border border-amber-400/50 space-y-1.5">
+                        <div className="flex items-center justify-between text-[9px] font-bold text-amber-300">
+                          <span className="truncate pr-2">
+                            {`RENDERING SHOT ${String(renderTelemetry.currentShotIndex).padStart(2, '0')}/${String(renderTelemetry.totalShots).padStart(2, '0')}...`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => renderAbortRef.current?.abort()}
+                            className="text-red-400 hover:text-red-300 underline shrink-0 cursor-pointer"
+                          >
+                            ABORT
+                          </button>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 transition-all duration-150"
+                            style={{ width: `${Math.max(4, Math.min(100, renderTelemetry.percent))}%` }}
+                          />
+                        </div>
+                        <div className="text-[8.5px] text-zinc-400 truncate">
+                          {renderTelemetry.statusText}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isRenderingOffline}
+                        onClick={() => runOfflineVideoRender('mp4')}
+                        className="px-2 py-1.5 rounded bg-red-600/20 hover:bg-red-600/35 disabled:opacity-40 border border-red-500/50 text-red-200 font-bold text-[10px] cursor-pointer transition-colors"
+                      >
+                        MP4
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isRenderingOffline}
+                        onClick={() => runOfflineVideoRender('vp9')}
+                        className="px-2 py-1.5 rounded bg-emerald-600/20 hover:bg-emerald-600/35 disabled:opacity-40 border border-emerald-500/50 text-emerald-200 font-bold text-[10px] cursor-pointer transition-colors"
+                      >
+                        VP9 WEBM
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isRenderingOffline}
+                        onClick={() => runOfflineVideoRender('png')}
+                        className="px-2 py-1.5 rounded bg-sky-600/20 hover:bg-sky-600/35 disabled:opacity-40 border border-sky-500/50 text-sky-200 font-bold text-[10px] cursor-pointer transition-colors"
+                      >
+                        PNG SEQ
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const bridgeShots = buildScopedBridgeShots();
+                          const xml = generatePremiereXml(bridgeShots, null, {
+                            fps: 24,
+                            projectName: renderScope === 'reel' ? `HANDFILM_REEL_${String(activeReelIndex + 1).padStart(2, '0')}` : 'HANDFILM_MASTER_100'
+                          });
+                          triggerBrowserDownload(xml, `HANDFILM_${renderScope === 'reel' ? `REEL_${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER'}_Premiere.xml`, 'application/xml');
+                          setCockpitFeedback('PREMIERE XMEML EXPORTED');
+                          setTimeout(() => setCockpitFeedback(null), 4000);
+                        }}
+                        className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] cursor-pointer transition-colors"
+                      >
+                        PREMIERE XML
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const bridgeShots = buildScopedBridgeShots();
+                          const json = generateCapCutDraftJson(bridgeShots, null, {
+                            fps: 24,
+                            projectName: renderScope === 'reel' ? `HANDFILM_REEL_${String(activeReelIndex + 1).padStart(2, '0')}` : 'HANDFILM_MASTER_100'
+                          });
+                          triggerBrowserDownload(json, `draft_content_${renderScope === 'reel' ? `R${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER'}.json`, 'application/json');
+                          setCockpitFeedback('CAPCUT DRAFT JSON EXPORTED');
+                          setTimeout(() => setCockpitFeedback(null), 4000);
+                        }}
+                        className="px-2 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-bold text-[10px] cursor-pointer transition-colors"
+                      >
+                        CAPCUT JSON
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {cockpitFeedback && (
                 <div className="px-2.5 py-1.5 rounded bg-amber-500/15 border border-amber-400/50 text-[10px] font-bold text-amber-300">
@@ -1315,8 +1580,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   }}
                   className="w-full px-3 py-2 rounded bg-neutral-900 hover:bg-neutral-800 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
                 >
-                  <span>[ 📤 NLE XML ]</span>
-                  <span className="text-[9px] text-zinc-400">FCPXML v1.9</span>
+                  <span>[ 📤 FCPXML v1.9 ]</span>
+                  <span className="text-[9px] text-zinc-400">ALL SHOTS</span>
                 </button>
 
                 <button

@@ -35,6 +35,8 @@ import {
 } from '../../types/storyboard';
 import { CadenceSelectorPill } from '../controls/CadenceSelectorPill';
 import { audioEngine } from '../../utils/audioEngine';
+import { useStudioStore } from '../../core/store';
+import { getShotMediaKey } from '../../services/handfilmMediaVault';
 import { 
   Play, 
   Pause, 
@@ -127,6 +129,8 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isMagneticSnap, setIsMagneticSnap] = useState(true);
   const [jogRotation, setJogRotation] = useState(0);
+  const [dropCardIndex, setDropCardIndex] = useState<number | null>(null);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
 
   // In-line Edit State
   const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
@@ -662,16 +666,45 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
               const isSelected = originalIndex === safeIndex;
               const isEditing = editingCardIndex === originalIndex;
               const shotNumStr = String(originalIndex + 1).padStart(3, '0');
+              const shotKey = getShotMediaKey(slide as any, originalIndex);
+              const vaultEntry = shotMediaMap?.[shotKey] ?? null;
+              const cardMediaUrl = vaultEntry?.url || slide.remoteUrl || '';
+              const isCardVideo = vaultEntry
+                ? vaultEntry.type === 'video'
+                : Boolean(
+                    slide.isVideo ||
+                    /\.(mp4|webm|mov|m4v|mkv)(\?|$)/i.test(cardMediaUrl) ||
+                    cardMediaUrl.startsWith('data:video')
+                  );
 
               return (
                 <div
                   key={slide.id || `slide_${originalIndex}`}
                   data-shot-card={originalIndex}
                   onClick={() => onSelectSlide(originalIndex)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (dropCardIndex !== originalIndex) setDropCardIndex(originalIndex);
+                  }}
+                  onDragLeave={() => {
+                    setDropCardIndex((prev) => (prev === originalIndex ? null : prev));
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDropCardIndex(null);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && onUploadMedia) {
+                      onUploadMedia(originalIndex, file);
+                    }
+                  }}
                   className={`relative rounded-xl border transition-all duration-150 cursor-pointer flex flex-col overflow-hidden ${
                     cardLayout === 'FILMSTRIP' ? 'w-64 sm:w-72 shrink-0' : 'w-full'
                   } ${
-                    isSelected
+                    dropCardIndex === originalIndex
+                      ? 'bg-[#0d1f18] border-emerald-400 border-dashed ring-2 ring-emerald-400/50'
+                      : isSelected
                       ? 'bg-[#15130f] border-[#F5A623] shadow-[0_0_16px_rgba(245,166,35,0.35)] ring-1 ring-[#F5A623]/50'
                       : 'bg-[#0E0F14] border-white/10 hover:border-white/30 hover:bg-[#12131A]'
                   }`}
@@ -737,16 +770,16 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
                   {/* Card Thumbnail Box with Scope Frame */}
                   <div className="relative aspect-[2.39/1] bg-black overflow-hidden flex items-center justify-center group/card-thumb">
-                    {slide.remoteUrl ? (
-                      slide.isVideo ? (
+                    {cardMediaUrl ? (
+                      isCardVideo ? (
                         <video
-                          src={slide.remoteUrl}
+                          src={cardMediaUrl}
                           className="w-full h-full object-cover"
                           muted
                         />
                       ) : (
                         <img
-                          src={slide.remoteUrl}
+                          src={cardMediaUrl}
                           alt={slide.titleEn || `Shot ${shotNumStr}`}
                           className="w-full h-full object-cover"
                         />

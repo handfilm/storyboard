@@ -435,6 +435,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onMatchAudioBeats={onMatchAudioBeats}
               onReorderFrames={onReorderFrames}
               onUploadImage={onUploadImage}
+              onUploadMediaForIndex={onUploadMediaForIndex}
               onOpenAnimatic={onOpenAnimatic}
               onOpenInspector={onOpenInspector}
               onToggleTitles={onToggleTitles}
@@ -499,6 +500,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 showTitles={isTitleVisible}
                 componentsVisibility={componentsVisibility}
                 defaultSafeZone="bottom"
+                onJumpToShot={onSelectFrame}
+                onSelectReel={(reelIdx) => onSelectFrame(reelIdx * 10)}
               />
             </div>
 
@@ -637,7 +640,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               onToggleSnapToBeat={onToggleSnapToBeat}
               onUploadMedia={(idx, file) => {
                 onSelectFrame(idx);
-                onUploadImage(file);
+                if (onUploadMediaForIndex) {
+                  onUploadMediaForIndex(idx, file);
+                } else {
+                  onUploadImage(file);
+                }
               }}
               playbackSpeed={playbackSpeed}
               onChangePlaybackSpeed={onChangePlaybackSpeed}

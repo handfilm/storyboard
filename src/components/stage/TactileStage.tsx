@@ -16,6 +16,7 @@ import { StageTextOverlay } from '../StageTextOverlay';
 import { studioDraftDb } from '../../services/db';
 import { getLutFilterCSS, calculateMultiLayerZoom } from '../../utils/engine';
 import { useStudioStore } from '../../core/store';
+import { getShotMediaKey } from '../../services/handfilmMediaVault';
 import {
   Play,
   Pause,
@@ -94,6 +95,7 @@ export interface TactileStageProps {
   onMatchAudioBeats?: () => void;
   onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
   onUploadImage?: (file: File) => void;
+  onUploadMediaForIndex?: (index: number, file: File) => void;
   onOpenAnimatic?: () => void;
   onOpenInspector?: () => void;
   onToggleTitles?: () => void;
@@ -138,6 +140,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onApplyDurationToAll,
   onMatchAudioBeats,
   onUploadImage,
+  onUploadMediaForIndex,
   onOpenInspector,
   onToggleTitles,
   showTitles = true,
@@ -218,6 +221,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const resetDigitalZoom = useStudioStore((s) => s.resetDigitalZoom);
   const stageScale = useStudioStore((s) => s.stageScale);
   const titleAlign = useStudioStore((s) => s.titleAlign);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
 
   const [distortionMapUrl, setDistortionMapUrl] = useState<string>('');
   useEffect(() => {
@@ -529,60 +533,59 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     activeKey: currentIndex
   });
 
-  // Resolve sourceBlob vs proxyBlob for Adaptive Dual-Stream switching & cached poster fallback
+  const activeShotKey = getShotMediaKey(frame, currentIndex);
+  const vaultEntry = shotMediaMap?.[activeShotKey] ?? null;
+
+  // Resolve strict per-shot media streams without leaking across unassigned shots
   useEffect(() => {
     let isCancelled = false;
 
-    // Check memory cache or frame thumbnail first to instantly prevent black slate
-    const initialPoster = thumbnailMemoryCache.get(String(frame?.id)) || frame?.thumbnailUrl;
-    if (initialPoster) {
-      setCachedPosterUrl(initialPoster);
-    }
+    const initialPoster = thumbnailMemoryCache.get(String(frame?.id)) || frame?.thumbnailUrl || null;
+    setCachedPosterUrl(initialPoster);
+    setSourceUrl(null);
+    setProxyUrl(null);
 
-    const resolveMediaStreams = async () => {
-      if (!frame) return;
+    const resolvedDirectUrl = vaultEntry?.url || (frame?.imageUrl ? frame.imageUrl : null);
 
-      // 1. Direct image or video URL on frame
-      if (frame.imageUrl) {
-        if (!isCancelled) {
-          setSourceUrl(frame.imageUrl);
-          setProxyUrl(frame.imageUrl);
-        }
+    if (resolvedDirectUrl) {
+      if (!isCancelled) {
+        setSourceUrl(resolvedDirectUrl);
+        setProxyUrl(resolvedDirectUrl);
       }
+    } else if (frame) {
+      const resolveFromLegacySlot = async () => {
+        try {
+          const slot = await studioDraftDb.getTimelineSlot(currentIndex);
+          if (slot?.mediaId) {
+            const vaultItem = await studioDraftDb.getVaultMediaItem(slot.mediaId);
+            if (vaultItem && !isCancelled && frame.imageUrl) {
+              if (vaultItem.thumbnailUrl) {
+                setCachedPosterUrl(vaultItem.thumbnailUrl);
+                thumbnailMemoryCache.set(slot.mediaId, vaultItem.thumbnailUrl);
+              }
+              const rawUrl = URL.createObjectURL(vaultItem.blob);
+              setSourceUrl(rawUrl);
 
-      // 2. Check IndexedDB media vault
-      try {
-        const slot = await studioDraftDb.getTimelineSlot(currentIndex);
-        if (slot?.mediaId) {
-          const vaultItem = await studioDraftDb.getVaultMediaItem(slot.mediaId);
-          if (vaultItem && !isCancelled) {
-            if (vaultItem.thumbnailUrl) {
-              setCachedPosterUrl(vaultItem.thumbnailUrl);
-              thumbnailMemoryCache.set(slot.mediaId, vaultItem.thumbnailUrl);
-            }
-            const rawUrl = URL.createObjectURL(vaultItem.blob);
-            setSourceUrl(rawUrl);
-
-            const proxy = await studioDraftDb.getMediaProxy(slot.mediaId);
-            if (proxy && !isCancelled) {
-              const pUrl = URL.createObjectURL(proxy.blob);
-              setProxyUrl(pUrl);
-            } else if (!isCancelled) {
-              setProxyUrl(rawUrl);
+              const proxy = await studioDraftDb.getMediaProxy(slot.mediaId);
+              if (proxy && !isCancelled) {
+                const pUrl = URL.createObjectURL(proxy.blob);
+                setProxyUrl(pUrl);
+              } else if (!isCancelled) {
+                setProxyUrl(rawUrl);
+              }
             }
           }
+        } catch (err) {
+          console.warn('Error resolving media streams from vault:', err);
         }
-      } catch (err) {
-        console.warn('Error resolving media streams from vault:', err);
-      }
-    };
-
-    resolveMediaStreams();
+      };
+      void resolveFromLegacySlot();
+    }
 
     return () => {
       isCancelled = true;
     };
-  }, [currentIndex, frame?.imageUrl, frame?.thumbnailUrl, frame?.id]);
+  }, [currentIndex, frame?.imageUrl, frame?.thumbnailUrl, frame?.id, vaultEntry?.url]);
 
   // Video decoder teardown on unmount (4GB Guard)
   useEffect(() => {
@@ -593,20 +596,21 @@ export const TactileStage: React.FC<TactileStageProps> = ({
     };
   }, []);
 
-  // Determine active media URL based on playback state machine:
-  // - While Scrubbing / Dragging -> Fast proxyUrl (540p for zero-latency 24fps)
-  // - While Playing / Fullscreen -> Pristine full-resolution sourceUrl
-  const activeMediaUrl = (isScrubbing && proxyUrl) ? proxyUrl : (sourceUrl || frame?.imageUrl || null);
+  // Determine active media URL strictly for activeShot.id
+  const activeMediaUrl = (isScrubbing && proxyUrl)
+    ? proxyUrl
+    : (vaultEntry?.url || sourceUrl || (frame?.imageUrl ? frame.imageUrl : null));
 
-  const isVideoMedia = Boolean(
-    frame?.isVideo ||
-    (frame as any)?.mimeType?.startsWith('video/') ||
-    (activeMediaUrl && (
-      /\.(mp4|webm|mov|m4v|mkv)(\?|$)/i.test(activeMediaUrl) ||
-      activeMediaUrl.includes('video') ||
-      activeMediaUrl.startsWith('data:video')
-    ))
-  );
+  const isVideoMedia = vaultEntry
+    ? vaultEntry.type === 'video'
+    : Boolean(
+        frame?.isVideo ||
+        (frame as any)?.mimeType?.startsWith('video/') ||
+        (activeMediaUrl && (
+          /\.(mp4|webm|mov|m4v|mkv)(\?|$)/i.test(activeMediaUrl) ||
+          activeMediaUrl.startsWith('data:video')
+        ))
+      );
 
   const lutFilterStyle = getLutFilterCSS(frame?.lutFilter, frame?.adjustments);
   let baseMediaFilter = zoomTransforms.bgDepthBlur !== 'none'
@@ -969,14 +973,22 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setIsIngesting(true);
-      const safetyTimeout = window.setTimeout(() => {
-        setIsIngesting(false);
-      }, 2500);
+    e.stopPropagation();
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (!droppedFile) return;
 
-      try {
-        await handleFileUpload(e.dataTransfer.files, {
+    setIsIngesting(true);
+    const safetyTimeout = window.setTimeout(() => {
+      setIsIngesting(false);
+    }, 2500);
+
+    try {
+      if (onUploadMediaForIndex) {
+        await Promise.resolve(onUploadMediaForIndex(currentIndex, droppedFile));
+      } else if (onUploadImage) {
+        await Promise.resolve(onUploadImage(droppedFile));
+      } else {
+        await handleFileUpload([droppedFile], {
           shotIndex: currentIndex,
           onImmediatePreview: (item) => {
             setSourceUrl(item.objectUrl);
@@ -1005,12 +1017,12 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             }
           }
         });
-      } catch (err) {
-        console.warn('[RECOVERY FALLBACK] Failed to ingest dropped media:', err);
-      } finally {
-        window.clearTimeout(safetyTimeout);
-        setIsIngesting(false);
       }
+    } catch (err) {
+      console.warn('[RECOVERY FALLBACK] Failed to ingest dropped media:', err);
+    } finally {
+      window.clearTimeout(safetyTimeout);
+      setIsIngesting(false);
     }
   };
 
@@ -1061,9 +1073,15 @@ export const TactileStage: React.FC<TactileStageProps> = ({
         accept="video/*,image/*,.mp4,.mov,.webm,.m4v,.avi,.mkv"
         className="hidden"
         onChange={async (e) => {
-          if (e.target.files && e.target.files.length > 0) {
-            try {
-              await handleFileUpload(e.target.files, {
+          const pickedFile = e.target.files?.[0];
+          if (!pickedFile) return;
+          try {
+            if (onUploadMediaForIndex) {
+              await Promise.resolve(onUploadMediaForIndex(currentIndex, pickedFile));
+            } else if (onUploadImage) {
+              await Promise.resolve(onUploadImage(pickedFile));
+            } else {
+              await handleFileUpload([pickedFile], {
                 shotIndex: currentIndex,
                 onImmediatePreview: (item) => {
                   setSourceUrl(item.objectUrl);
@@ -1092,9 +1110,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
                   }
                 }
               });
-            } catch (err) {
-              console.warn('[RECOVERY FALLBACK] File upload input error:', err);
             }
+          } catch (err) {
+            console.warn('[RECOVERY FALLBACK] File upload input error:', err);
+          } finally {
+            e.target.value = '';
           }
         }}
       />

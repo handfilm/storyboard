@@ -13,13 +13,20 @@ set -e
 echo "🎬 HANDFILM // Git Synchronization Engine"
 echo "=========================================="
 
+# 0. Global safe directory configuration to prevent dubious ownership fatal errors
+git config --global --add safe.directory "$PWD" 2>/dev/null || true
+git config --global --add safe.directory '*' 2>/dev/null || true
+
 # Ensure inside repository
 if [ ! -d ".git" ]; then
   echo "⚡ Initializing git repository..."
   git init -b main
-  git config user.name "${GIT_AUTHOR_NAME:-HANDFILM Studio}"
-  git config user.email "${GIT_AUTHOR_EMAIL:-bumbeat1@gmail.com}"
 fi
+
+git config user.name "${GIT_AUTHOR_NAME:-Rakib Himon}"
+git config user.email "${GIT_AUTHOR_EMAIL:-nitambini.one@gmail.com}"
+git config --global user.name "${GIT_AUTHOR_NAME:-Rakib Himon}" 2>/dev/null || true
+git config --global user.email "${GIT_AUTHOR_EMAIL:-nitambini.one@gmail.com}" 2>/dev/null || true
 
 ARG1="$1"
 ARG2="$2"
@@ -82,6 +89,14 @@ else
   echo "✅ Remote 'origin' updated."
 fi
 
+# Purge monolithic files (>100MB) from git tracking
+echo "🧹 Purging monolithic media files from git tracking index..."
+git rm -r --cached public/assets/videos/*.mp4 2>/dev/null || true
+git rm -r --cached src/assets/mockups/*.mov 2>/dev/null || true
+git rm -r --cached assets/*.mp4 2>/dev/null || true
+git rm -r --cached *.cube 2>/dev/null || true
+git rm -r --cached *.bin 2>/dev/null || true
+
 # Build static production bundle and synchronize all assets
 echo "🔨 Running production build & static asset sync..."
 npm run build
@@ -94,24 +109,39 @@ git add .
 if git diff-index --quiet HEAD -- 2>/dev/null; then
   echo "ℹ️  Working tree clean; no new changes to commit."
 else
-  COMMIT_MSG="chore(sync): automated master build $(date -u +'%Y-%m-%d %H:%M:%SZ')"
+  COMMIT_MSG="fix(core): declutter UI, inject 6-shot showcase presets, purge heavy media $(date -u +'%Y-%m-%d %H:%M:%SZ')"
   git commit -m "$COMMIT_MSG"
   echo "✅ Committed changes: $COMMIT_MSG"
 fi
 
-# Push to destination
-echo "🚀 Pushing to origin $BRANCH..."
-if git push -u origin "$BRANCH"; then
+# Align branch pointer to target branch
+git branch -M "$BRANCH"
+
+# Fetch & rebase against remote origin to resolve divergence
+echo "🔄 Fetching remote origin..."
+if git fetch origin "$BRANCH" 2>/dev/null; then
+  echo "🔀 Rebasing against origin/$BRANCH..."
+  git rebase "origin/$BRANCH" || git rebase --skip || true
+fi
+
+# Push to destination cleanly (using force-with-lease to protect history if rebased)
+echo "🚀 Pushing cleanly to origin $BRANCH..."
+if git push -u origin "$BRANCH" --force-with-lease; then
   echo ""
   echo "🎉 SUCCESS: Pushed to GitHub repository successfully!"
   echo "Branch: $BRANCH"
 else
   echo ""
-  echo "❌ PUSH FAILED. Common causes:"
-  echo "  1. Authentication Required: GitHub requires a Personal Access Token (PAT) with 'repo' scope."
-  echo "     Run: ./scripts/git-push.sh <YOUR_GITHUB_PAT> $REMOTE_URL"
-  echo "  2. Non-fast-forward: Remote has commits that do not exist locally."
-  echo "     Run: git pull --rebase origin $BRANCH"
-  echo "  3. Repository does not exist or user lacks write permissions."
-  exit 1
+  echo "⚠️ Standard push failed; attempting fallback push..."
+  if git push -u origin "$BRANCH"; then
+    echo "🎉 SUCCESS: Pushed to GitHub repository successfully!"
+  else
+    echo "❌ PUSH FAILED. Common causes:"
+    echo "  1. Authentication Required: GitHub requires a Personal Access Token (PAT) with 'repo' scope."
+    echo "     Run: ./scripts/git-push.sh <YOUR_GITHUB_PAT> $REMOTE_URL"
+    echo "  2. Branch protection: Target branch '$BRANCH' may require pull request reviews."
+    echo "  3. Repository does not exist or user lacks write permissions."
+    exit 1
+  fi
 fi
+

@@ -1,4 +1,5 @@
 node_modules/
+dist/
 build/
 coverage/
 .DS_Store
@@ -6,3 +7,9 @@ coverage/
 .env*
 !.env.example
 .aistudio/
+*.mp4
+*.mov
+*.cube
+*.bin
+*.zip
+*.tar.gz

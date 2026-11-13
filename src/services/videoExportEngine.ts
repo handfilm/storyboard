@@ -30,7 +30,13 @@
  */
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
+import { Muxer as WebmMuxer, ArrayBufferTarget as WebmArrayBufferTarget } from 'webm-muxer';
+import JSZip from 'jszip';
 import { studioDraftDb } from './db';
+import { getShotMediaBlob, getShotMediaKey } from './handfilmMediaVault';
+import { renderProceduralBackdropToCanvas } from '../data/proceduralCinemaEngine';
+import { renderAlignedCinemaTitleOverlay } from '../utils/interchangeExport';
+import { HeroTitlePreset, resolveEffectiveTitleAlign, TitleAlign, useStudioStore } from '../core/store';
 import { AnthologyFrame, FrameAdjustments, LutPreset, ShotCaption } from '../types/anthology';
 import { SlideDraft } from '../types/project';
 import { buildFilmStockCssFilter, applyCinematicPostProcess } from './cinematicFilterEngine';
@@ -320,6 +326,11 @@ export interface FrameCompositeProps {
   lutFilter?: LutPreset;
   adjustments?: Partial<FrameAdjustments>;
   caption?: ShotCaption;
+  shotType?: string;
+  titleAlign?: TitleAlign;
+  titlePreset?: HeroTitlePreset;
+  titleSize?: number;
+  verticalOffset?: number;
 }
 
 export function compositeCinemaFrame(props: FrameCompositeProps): void {
@@ -343,7 +354,12 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     projectTitle,
     lutFilter,
     adjustments,
-    caption
+    caption,
+    shotType,
+    titleAlign,
+    titlePreset,
+    titleSize,
+    verticalOffset
   } = props;
 
   const isVertical = preset === '9_16_vertical';
@@ -469,42 +485,12 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
         ctx.restore();
       }
 
-      const currentLocalSec = frameInShot / fps;
+      const currentLocalSec = frameInShot / Math.max(1, fps);
       applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
     } else {
-      const grad = ctx.createRadialGradient(
-        width / 2, height / 2, Math.min(width, height) * 0.2,
-        width / 2, height / 2, Math.max(width, height) * 0.7
-      );
-      grad.addColorStop(0, '#10121C');
-      grad.addColorStop(0.7, '#07080C');
-      grad.addColorStop(1, '#020305');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.strokeStyle = 'rgba(212, 175, 55, 0.06)';
-      ctx.lineWidth = 1;
-      const step = Math.round(width / 24);
-      for (let x = 0; x < width; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < height; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-
-      ctx.save();
-      ctx.strokeStyle = 'rgba(245, 166, 35, 0.25)';
-      ctx.lineWidth = 1;
-      const centerBadgeW = is4K ? 360 : 180;
-      const centerBadgeH = is4K ? 160 : 80;
-      ctx.strokeRect((width - centerBadgeW) / 2, (height - centerBadgeH) / 2, centerBadgeW, centerBadgeH);
-      ctx.restore();
+      const currentLocalSec = frameInShot / Math.max(1, fps);
+      renderProceduralBackdropToCanvas(ctx, width, height, shotIndex, currentLocalSec);
+      applyCinematicPostProcess(ctx, width, height, lutFilter || 'kodak_vision3', adjustments, currentLocalSec);
     }
 
     if (useAutonomousOcclusion && isVertical) {
@@ -595,7 +581,7 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     ctx.fillRect(width * 0.15, flareY - coreH / 2, width * 0.7, coreH);
   }
 
-  // 5. Legacy Burn-In Typography Fallback (when Autonomous Occlusion Compositor is bypassed)
+  // 5. Aligned Dopamine & Kinetics Title Overlay (LEFT | MID | RIGHT | AUTO)
   if (burnInTitles && !useAutonomousOcclusion) {
     const rampFrames = Math.min(16, Math.max(3, Math.floor(totalFramesInShot * 0.25)));
     const fadeIn = Math.min(1.0, Math.max(0.08, (frameInShot + 1) / rampFrames));
@@ -603,94 +589,26 @@ export function compositeCinemaFrame(props: FrameCompositeProps): void {
     const remainingFrames = Math.max(1, totalFramesInShot - frameInShot);
     const fadeOut = remainingFrames <= fadeOutFrames ? Math.max(0.15, remainingFrames / fadeOutFrames) : 1.0;
     const titleFade = Math.min(fadeIn, fadeOut);
-    const scaleFactor = is4K ? 2.0 : (width / 1920);
-    const fontSize = isVertical ? Math.round(52 * (width / 1080)) : Math.round(68 * scaleFactor);
-    const subFontSize = isVertical ? Math.round(18 * (width / 1080)) : Math.round(20 * scaleFactor);
+    const storeState = useStudioStore.getState();
+    const resolvedAlign = resolveEffectiveTitleAlign(
+      titleAlign ?? storeState.titleAlign ?? 'AUTO',
+      shotIndex,
+      shotType
+    );
+    const resolvedPreset = titlePreset ?? storeState.titleConfig?.preset ?? 'molten-gold';
+    const resolvedSize = titleSize ?? storeState.titleConfig?.titleSize ?? 72;
+    const resolvedVerticalOffset = verticalOffset ?? storeState.titleConfig?.verticalOffset ?? 0;
 
-    const entranceProgress = Math.min(1.0, frameInShot / Math.max(1, rampFrames - 1));
-    const easeScale = 0.95 + 0.05 * Math.sin((entranceProgress * Math.PI) / 2);
-
-    ctx.save();
-    ctx.globalAlpha = titleFade;
-
-    const centerY = isVertical ? height * 0.48 : height / 2;
-    const titleY = centerY - 20 * scaleFactor;
-    const subTitleY = centerY + 40 * scaleFactor;
-
-    const scale = scaleFactor;
-    ctx.save();
-    ctx.shadowColor = 'rgba(245, 166, 35, 0.45)';
-    ctx.shadowBlur = 48 * scale;
-    ctx.fillStyle = '#FFD54F';
-    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText(titleBn, width / 2, titleY);
-    ctx.restore();
-
-    ctx.save();
-    ctx.shadowColor = 'rgba(255, 213, 79, 0.95)';
-    ctx.shadowBlur = 12 * scale;
-    ctx.fillStyle = '#FFF8E1';
-    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText(titleBn, width / 2, titleY);
-    ctx.restore();
-
-    ctx.save();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${Math.round(fontSize * easeScale)}px "CinematicBangla", "Anek Bangla", "Noto Serif Bengali", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText(titleBn, width / 2, titleY);
-    ctx.restore();
-
-    ctx.save();
-    ctx.fillStyle = '#E2E8F0';
-    ctx.shadowColor = 'rgba(0,0,0,0.9)';
-    ctx.shadowBlur = 10 * scaleFactor;
-    ctx.font = `600 ${Math.round(subFontSize * easeScale)}px "JetBrains Mono", monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText(titleEn.toUpperCase(), width / 2, subTitleY);
-    ctx.restore();
-
-    const flareW = Math.min(width * 0.45, 420 * scaleFactor);
-    const flareY = centerY + 58 * scaleFactor;
-    const flareGrad = ctx.createLinearGradient((width - flareW) / 2, flareY, (width + flareW) / 2, flareY);
-    flareGrad.addColorStop(0, 'rgba(245, 166, 35, 0)');
-    flareGrad.addColorStop(0.5, 'rgba(245, 166, 35, 0.85)');
-    flareGrad.addColorStop(1, 'rgba(245, 166, 35, 0)');
-    ctx.fillStyle = flareGrad;
-    ctx.fillRect((width - flareW) / 2, flareY, flareW, Math.max(2, 2.5 * scaleFactor));
-
-    const dialogueLine = tagline || '24.0 FPS RAW • MASTER CINE PROJECTION';
-    if (dialogueLine) {
-      ctx.save();
-      const cardFontSize = Math.round(14 * scaleFactor);
-      ctx.font = `italic ${cardFontSize}px "JetBrains Mono", monospace`;
-      const lineText = `"${dialogueLine}"`;
-      const textW = ctx.measureText(lineText).width;
-      const capW = textW + (44 * scaleFactor);
-      const capH = 34 * scaleFactor;
-      const capX = (width - capW) / 2;
-      const capY = height - (isVertical ? 160 * scaleFactor : (is4K ? 180 : 96));
-      const radius = 17 * scaleFactor;
-
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-      ctx.beginPath();
-      ctx.roundRect(capX, capY, capW, capH, radius);
-      ctx.fill();
-
-      ctx.strokeStyle = 'rgba(245, 166, 35, 0.25)';
-      ctx.lineWidth = 1 * scaleFactor;
-      ctx.stroke();
-
-      ctx.fillStyle = 'rgba(245, 166, 35, 0.92)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(lineText, width / 2, capY + (capH / 2));
-      ctx.restore();
-    }
-
-    ctx.restore();
+    renderAlignedCinemaTitleOverlay(ctx, width, height, {
+      banglaTitle: titleBn,
+      englishTitle: titleEn,
+      dialogue: tagline || '24.0 FPS RAW • MASTER CINE PROJECTION',
+      effectiveAlign: resolvedAlign,
+      preset: resolvedPreset,
+      titleSize: resolvedSize,
+      verticalOffset: resolvedVerticalOffset,
+      opacity: titleFade
+    });
   }
 
   // 6. Top Telemetry Slates & Corner Reticles (Variable-Duration SMPTE Sync)
@@ -830,6 +748,115 @@ function resolveExportShotDurationSec(slide: any, frame: any): number {
     }
   }
   return 12.0;
+}
+
+/**
+ * Resolves the raw per-shot Blob from `handfilm_media_vault` first (isolated per shot key),
+ * falling back to `studioDraftDb` only when no Vault entry exists for that shot.
+ */
+async function loadShotRawBlob(shotIdx: number, slide: any, frame: any): Promise<Blob | null> {
+  const shotKey = getShotMediaKey(frame || slide, shotIdx);
+  const vaultBlob = await getShotMediaBlob(shotKey);
+  if (vaultBlob) return vaultBlob;
+
+  const mediaId = slide?.mediaBlobId || slide?.remoteUrl || frame?.imageUrl || '';
+  if (mediaId && !mediaId.startsWith('http') && !mediaId.startsWith('data:') && !mediaId.startsWith('blob:')) {
+    const dbBlob = await studioDraftDb.getSourceMediaBlob(mediaId);
+    if (dbBlob) return dbBlob;
+  }
+  return await studioDraftDb.getSourceMediaBlobForShot(shotIdx);
+}
+
+/**
+ * Decodes per-shot media (Blob or URL) into a ready-to-composite HTMLVideoElement or ImageBitmap.
+ */
+async function loadShotSourceMedia(
+  shotIdx: number,
+  slide: any,
+  frame: any
+): Promise<{
+  activeVideoElement: HTMLVideoElement | null;
+  activeBitmap: ImageBitmap | null;
+  activeObjectUrl: string | null;
+}> {
+  const rawBlob = await loadShotRawBlob(shotIdx, slide, frame);
+  let activeVideoElement: HTMLVideoElement | null = null;
+  let activeBitmap: ImageBitmap | null = null;
+  let activeObjectUrl: string | null = null;
+
+  if (rawBlob) {
+    if (rawBlob.type.startsWith('video/')) {
+      activeObjectUrl = URL.createObjectURL(rawBlob);
+      activeVideoElement = document.createElement('video');
+      activeVideoElement.crossOrigin = 'anonymous';
+      activeVideoElement.muted = true;
+      activeVideoElement.playsInline = true;
+      activeVideoElement.preload = 'auto';
+      activeVideoElement.src = activeObjectUrl;
+
+      await new Promise<void>((res) => {
+        activeVideoElement!.onloadeddata = () => res();
+        activeVideoElement!.oncanplay = () => res();
+        activeVideoElement!.onerror = () => res();
+        setTimeout(res, 2000);
+      });
+    } else {
+      try {
+        activeBitmap = await createImageBitmap(rawBlob);
+      } catch {
+        // fallback to procedural backdrop if corrupted
+      }
+    }
+    return { activeVideoElement, activeBitmap, activeObjectUrl };
+  }
+
+  const shotKey = getShotMediaKey(frame || slide, shotIdx);
+  const vaultMapEntry = useStudioStore.getState().shotMediaMap?.[shotKey];
+  const mediaUrl = vaultMapEntry?.url || frame?.imageUrl || slide?.remoteUrl || '';
+  const isVideoMedia = Boolean(
+    vaultMapEntry
+      ? vaultMapEntry.type === 'video'
+      : frame?.isVideo ||
+        slide?.isVideo ||
+        mediaUrl.startsWith('data:video') ||
+        /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
+  );
+
+  if (mediaUrl) {
+    if (isVideoMedia) {
+      activeVideoElement = document.createElement('video');
+      activeVideoElement.crossOrigin = 'anonymous';
+      activeVideoElement.muted = true;
+      activeVideoElement.playsInline = true;
+      activeVideoElement.preload = 'auto';
+      activeVideoElement.src = mediaUrl;
+
+      await new Promise<void>((res) => {
+        activeVideoElement!.onloadeddata = () => res();
+        activeVideoElement!.oncanplay = () => res();
+        activeVideoElement!.onerror = () => res();
+        setTimeout(res, 2500);
+      });
+    } else {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise<void>((res) => {
+          img.onload = () => res();
+          img.onerror = () => res();
+          img.src = mediaUrl;
+          setTimeout(res, 1800);
+        });
+        if (img.complete && img.naturalWidth > 0) {
+          activeBitmap = await createImageBitmap(img);
+        }
+      } catch (imgErr) {
+        console.warn('[videoExportEngine] Image load fallback warning:', imgErr);
+      }
+    }
+  }
+
+  return { activeVideoElement, activeBitmap, activeObjectUrl };
 }
 
 /**
@@ -1084,83 +1111,11 @@ async function exportCinemaMasterWithMediaRecorder(
         const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
         const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
-        const mediaId = slide?.mediaBlobId || slide?.remoteUrl || frame?.imageUrl || '';
-        let rawBlob: Blob | null = null;
-        if (mediaId && !mediaId.startsWith('http') && !mediaId.startsWith('data:')) {
-          rawBlob = await studioDraftDb.getSourceMediaBlob(mediaId);
-        }
-        if (!rawBlob) {
-          rawBlob = await studioDraftDb.getSourceMediaBlobForShot(shotIdx);
-        }
-
-        let activeVideoElement: HTMLVideoElement | null = null;
-        let activeBitmap: ImageBitmap | null = null;
-        let activeObjectUrl: string | null = null;
-
-        if (rawBlob) {
-          if (rawBlob.type.startsWith('video/')) {
-            activeObjectUrl = URL.createObjectURL(rawBlob);
-            activeVideoElement = document.createElement('video');
-            activeVideoElement.crossOrigin = 'anonymous';
-            activeVideoElement.muted = true;
-            activeVideoElement.playsInline = true;
-            activeVideoElement.preload = 'auto';
-            activeVideoElement.src = activeObjectUrl;
-
-            await new Promise<void>((res) => {
-              activeVideoElement!.onloadeddata = () => res();
-              activeVideoElement!.oncanplay = () => res();
-              activeVideoElement!.onerror = () => res();
-              setTimeout(res, 2000);
-            });
-          } else {
-            try {
-              activeBitmap = await createImageBitmap(rawBlob);
-            } catch {}
-          }
-        } else {
-          const mediaUrl = frame?.imageUrl || slide?.remoteUrl || '';
-          const isVideoMedia = Boolean(
-            frame?.isVideo ||
-            slide?.isVideo ||
-            mediaUrl.startsWith('data:video') ||
-            /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
-          );
-
-          if (mediaUrl) {
-            if (isVideoMedia) {
-              activeVideoElement = document.createElement('video');
-              activeVideoElement.crossOrigin = 'anonymous';
-              activeVideoElement.muted = true;
-              activeVideoElement.playsInline = true;
-              activeVideoElement.preload = 'auto';
-              activeVideoElement.src = mediaUrl;
-
-              await new Promise<void>((res) => {
-                activeVideoElement!.onloadeddata = () => res();
-                activeVideoElement!.oncanplay = () => res();
-                activeVideoElement!.onerror = () => res();
-                setTimeout(res, 2500);
-              });
-            } else {
-              try {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                await new Promise<void>((res) => {
-                  img.onload = () => res();
-                  img.onerror = () => res();
-                  img.src = mediaUrl;
-                  setTimeout(res, 1800);
-                });
-                if (img.complete && img.naturalWidth > 0) {
-                  activeBitmap = await createImageBitmap(img);
-                }
-              } catch (imgErr) {
-                console.warn('[MediaRecorder Fallback] Image load warning:', imgErr);
-              }
-            }
-          }
-        }
+        const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl } =
+          await loadShotSourceMedia(shotIdx, slide, frame);
+        let activeVideoElement = loadedVid;
+        let activeBitmap = loadedBmp;
+        let activeObjectUrl = loadedUrl;
 
         const shotDurationSec = perShotDurationsSec[shotListIdx];
         const shotFramesCount = perShotFrameCounts[shotListIdx];
@@ -1528,83 +1483,11 @@ async function exportWithWebCodecs(
     const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
     const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
 
-    const mediaId = slide?.mediaBlobId || slide?.remoteUrl || frame?.imageUrl || '';
-    let rawBlob: Blob | null = null;
-    if (mediaId && !mediaId.startsWith('http') && !mediaId.startsWith('data:')) {
-      rawBlob = await studioDraftDb.getSourceMediaBlob(mediaId);
-    }
-    if (!rawBlob) {
-      rawBlob = await studioDraftDb.getSourceMediaBlobForShot(shotIdx);
-    }
-
-    let activeVideoElement: HTMLVideoElement | null = null;
-    let activeBitmap: ImageBitmap | null = null;
-    let activeObjectUrl: string | null = null;
-
-    if (rawBlob) {
-      if (rawBlob.type.startsWith('video/')) {
-        activeObjectUrl = URL.createObjectURL(rawBlob);
-        activeVideoElement = document.createElement('video');
-        activeVideoElement.crossOrigin = 'anonymous';
-        activeVideoElement.muted = true;
-        activeVideoElement.playsInline = true;
-        activeVideoElement.preload = 'auto';
-        activeVideoElement.src = activeObjectUrl;
-
-        await new Promise<void>((res) => {
-          activeVideoElement!.onloadeddata = () => res();
-          activeVideoElement!.oncanplay = () => res();
-          activeVideoElement!.onerror = () => res();
-          setTimeout(res, 2000);
-        });
-      } else {
-        try {
-          activeBitmap = await createImageBitmap(rawBlob);
-        } catch {}
-      }
-    } else {
-      const mediaUrl = frame?.imageUrl || slide?.remoteUrl || '';
-      const isVideoMedia = Boolean(
-        frame?.isVideo ||
-        slide?.isVideo ||
-        mediaUrl.startsWith('data:video') ||
-        /\.(mp4|webm|mov|m4v)($|\?)/i.test(mediaUrl)
-      );
-
-      if (mediaUrl) {
-        if (isVideoMedia) {
-          activeVideoElement = document.createElement('video');
-          activeVideoElement.crossOrigin = 'anonymous';
-          activeVideoElement.muted = true;
-          activeVideoElement.playsInline = true;
-          activeVideoElement.preload = 'auto';
-          activeVideoElement.src = mediaUrl;
-
-          await new Promise<void>((res) => {
-            activeVideoElement!.onloadeddata = () => res();
-            activeVideoElement!.oncanplay = () => res();
-            activeVideoElement!.onerror = () => res();
-            setTimeout(res, 2500);
-          });
-        } else {
-          try {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            await new Promise<void>((res) => {
-              img.onload = () => res();
-              img.onerror = () => res();
-              img.src = mediaUrl;
-              setTimeout(res, 1800);
-            });
-            if (img.complete && img.naturalWidth > 0) {
-              activeBitmap = await createImageBitmap(img);
-            }
-          } catch (imgErr) {
-            console.warn('[exportWithWebCodecs] Image load fallback warning:', imgErr);
-          }
-        }
-      }
-    }
+    const { activeVideoElement: loadedVid, activeBitmap: loadedBmp, activeObjectUrl: loadedUrl } =
+      await loadShotSourceMedia(shotIdx, slide, frame);
+    let activeVideoElement = loadedVid;
+    let activeBitmap = loadedBmp;
+    let activeObjectUrl = loadedUrl;
 
     const shotDurationSec = perShotDurationsSec[shotListIdx];
     const shotFramesCount = perShotFrameCounts[shotListIdx];
@@ -1855,4 +1738,499 @@ export async function exportCinemaMasterMp4(
     return await exportCinemaMasterWithMediaRecorder(options);
   }
 }
+
+/**
+ * MASTER OFFLINE VP9 WEBM EXPORT PIPELINE:
+ * Uses WebCodecs VideoEncoder (`vp09.00.10.08`) + `webm-muxer` when supported,
+ * with seamless fallback to MediaRecorder (`video/webm;codecs=vp9,opus` / `video/webm`).
+ */
+export async function exportCinemaMasterVp9(
+  options: CinemaExportPipelineOptions
+): Promise<{ blob: Blob; filename: string }> {
+  const {
+    projectTitle,
+    frames = [],
+    slides = [],
+    currentSlideIndex = 0,
+    totalSlides = 1,
+    selectionMode,
+    rangeStart = 1,
+    rangeEnd = 1,
+    customListText = '',
+    excludedShotIndices = [],
+    overrideShotIndices,
+    resolutionPreset,
+    bitrateProfile,
+    burnInTitles,
+    cleanPlates,
+    simulateFlare,
+    includeAudio,
+    onProgress,
+    onFrameRendered,
+    abortSignal
+  } = options;
+
+  const dimensions = getExportPresetDimensions(resolutionPreset);
+  const width = dimensions.width;
+  const height = dimensions.height;
+  const is4K = width >= 3840 || height >= 2160;
+  const bitrateBps = getBitrateBps(bitrateProfile, is4K);
+  const fps = 24;
+
+  let canWebCodecsVp9 = false;
+  if (typeof VideoEncoder !== 'undefined' && typeof VideoEncoder.isConfigSupported === 'function') {
+    try {
+      const support = await VideoEncoder.isConfigSupported({
+        codec: 'vp09.00.10.08',
+        width,
+        height,
+        bitrate: bitrateBps,
+        framerate: fps
+      });
+      canWebCodecsVp9 = Boolean(support?.supported);
+    } catch {
+      canWebCodecsVp9 = false;
+    }
+  }
+
+  if (!canWebCodecsVp9) {
+    return await exportCinemaMasterWithMediaRecorder(options);
+  }
+
+  const count = Math.max(1, totalSlides || slides.length || frames.length || 1);
+  const allShotDurations = Array.from({ length: count }, (_, idx) =>
+    resolveExportShotDurationSec(slides[idx], frames[idx])
+  );
+
+  const parsedRange =
+    overrideShotIndices && overrideShotIndices.length > 0
+      ? (() => {
+          const totalOverrideFrames = overrideShotIndices.reduce(
+            (sum, idx) => sum + Math.max(1, Math.round((allShotDurations[idx] ?? 12.0) * fps)),
+            0
+          );
+          return {
+            indices: overrideShotIndices,
+            totalShots: overrideShotIndices.length,
+            totalFrames: totalOverrideFrames,
+            durationSec: totalOverrideFrames / fps,
+            label:
+              overrideShotIndices.length === 1
+                ? `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}`
+                : `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}-SH${String(
+                    overrideShotIndices[overrideShotIndices.length - 1] + 1
+                  ).padStart(3, '0')}`
+          };
+        })()
+      : parseShotSelection(
+          selectionMode,
+          rangeStart,
+          rangeEnd,
+          customListText,
+          count,
+          currentSlideIndex,
+          288,
+          excludedShotIndices,
+          allShotDurations
+        );
+
+  const shotIndices = parsedRange.indices;
+  if (shotIndices.length === 0) {
+    throw new Error('No shots selected for VP9 export.');
+  }
+
+  const perShotDurationsSec = shotIndices.map((idx) => resolveExportShotDurationSec(slides[idx], frames[idx]));
+  const perShotFrameCounts = perShotDurationsSec.map((dur) => Math.max(1, Math.round(dur * fps)));
+  const shotBoundaryTimesSec: number[] = [];
+  let runningSec = 0;
+  for (let i = 0; i < perShotFrameCounts.length; i++) {
+    shotBoundaryTimesSec.push(runningSec);
+    runningSec += perShotFrameCounts[i] / fps;
+  }
+  const totalFrames = perShotFrameCounts.reduce((acc, n) => acc + n, 0);
+  const totalExportDurationSec = totalFrames / fps;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Could not instantiate 2D Canvas context for VP9 export.');
+
+  try {
+    const target = new WebmArrayBufferTarget();
+    let audioBuffer: AudioBuffer | null = null;
+    let audioEncoder: AudioEncoder | null = null;
+    let useAudio = false;
+
+    if (includeAudio && typeof AudioEncoder !== 'undefined' && typeof AudioEncoder.isConfigSupported === 'function') {
+      try {
+        const opusSupport = await AudioEncoder.isConfigSupported({
+          codec: 'opus',
+          numberOfChannels: 2,
+          sampleRate: 48000,
+          bitrate: 192000
+        });
+        if (opusSupport?.supported) {
+          useAudio = true;
+          audioBuffer = synthesizeAmbientAudioBuffer(totalExportDurationSec, 48000, shotBoundaryTimesSec);
+        }
+      } catch {
+        useAudio = false;
+      }
+    }
+
+    const muxer = new WebmMuxer({
+      target,
+      video: { codec: 'V_VP9', width, height, frameRate: fps },
+      ...(useAudio ? { audio: { codec: 'A_OPUS', numberOfChannels: 2, sampleRate: 48000 } } : {})
+    });
+
+    if (useAudio) {
+      audioEncoder = new AudioEncoder({
+        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+        error: (e) => console.warn('[VP9 AudioEncoder warning]', e)
+      });
+      audioEncoder.configure({
+        codec: 'opus',
+        numberOfChannels: 2,
+        sampleRate: 48000,
+        bitrate: 192000
+      });
+    }
+
+    let vp9Chunks = 0;
+    let vp9Error: any = null;
+    const videoEncoder = new VideoEncoder({
+      output: (chunk, meta) => {
+        vp9Chunks++;
+        muxer.addVideoChunk(chunk, meta);
+      },
+      error: (e) => {
+        vp9Error = e;
+        console.warn('[VP9 VideoEncoder error]', e);
+      }
+    });
+
+    videoEncoder.configure({
+      codec: 'vp09.00.10.08',
+      width,
+      height,
+      bitrate: bitrateBps,
+      framerate: fps
+    });
+
+    let globalFrameIndex = 0;
+    const startTimeMs = performance.now();
+
+    for (let shotListIdx = 0; shotListIdx < shotIndices.length; shotListIdx++) {
+      if (abortSignal?.aborted) {
+        throw new Error('Export cancelled by user.');
+      }
+
+      const shotIdx = shotIndices[shotListIdx];
+      const slide = slides[shotIdx];
+      const frame = frames[shotIdx];
+      const currentShotNum = shotListIdx + 1;
+      const totalShots = shotIndices.length;
+
+      const bTitle = slide?.titleBn || frame?.bengaliTitle || 'দৃষ্টি // THE SINGULARITY';
+      const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
+      const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
+
+      const { activeVideoElement, activeBitmap, activeObjectUrl } = await loadShotSourceMedia(shotIdx, slide, frame);
+      const shotDurationSec = perShotDurationsSec[shotListIdx];
+      const shotFramesCount = perShotFrameCounts[shotListIdx];
+      const shotStartTimeSec = shotBoundaryTimesSec[shotListIdx] ?? 0;
+
+      for (let f = 0; f < shotFramesCount; f++) {
+        if (abortSignal?.aborted) {
+          if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+          if (activeBitmap) activeBitmap.close();
+          throw new Error('Export cancelled by user.');
+        }
+
+        if (activeVideoElement && activeVideoElement.duration > 0) {
+          const localSec = f / fps;
+          const targetVideoSec = localSec % activeVideoElement.duration;
+          await waitForSeek(activeVideoElement, targetVideoSec, 800);
+        }
+
+        compositeCinemaFrame({
+          ctx,
+          width,
+          height,
+          preset: resolutionPreset,
+          shotIndex: shotIdx,
+          frameInShot: f,
+          totalFramesInShot: shotFramesCount,
+          shotStartTimeSec,
+          fps,
+          sourceElement: activeVideoElement || activeBitmap,
+          titleBn: bTitle,
+          titleEn: eTitle,
+          tagline: subTitle,
+          burnInTitles,
+          cleanPlates,
+          simulateFlare,
+          projectTitle,
+          lutFilter: frame?.lutFilter,
+          adjustments: frame?.adjustments,
+          caption: frame?.caption
+        });
+
+        const timestampMicros = Math.round((globalFrameIndex / fps) * 1_000_000);
+        const durationMicros = Math.round((1 / fps) * 1_000_000);
+        const videoFrame = new VideoFrame(canvas, { timestamp: timestampMicros, duration: durationMicros });
+        videoEncoder.encode(videoFrame, { keyFrame: globalFrameIndex % 24 === 0 });
+        videoFrame.close();
+
+        globalFrameIndex++;
+        const elapsedSec = (performance.now() - startTimeMs) / 1000;
+        const currentFps = elapsedSec > 0 ? Math.round((globalFrameIndex / elapsedSec) * 10) / 10 : 24.0;
+        const percent = Math.min(98, Math.round((globalFrameIndex / totalFrames) * 100));
+
+        if (onProgress) {
+          onProgress({
+            currentShotIndex: currentShotNum,
+            totalShots,
+            currentFrameNum: globalFrameIndex,
+            totalFrames,
+            percent,
+            fps: currentFps,
+            statusText: `RENDERING SHOT ${String(currentShotNum).padStart(2, '0')}/${String(totalShots).padStart(2, '0')}... (${percent}%)`
+          });
+        }
+        if (onFrameRendered) onFrameRendered(canvas, globalFrameIndex, totalFrames);
+        if (globalFrameIndex % 4 === 0) await new Promise((r) => setTimeout(r, 0));
+      }
+
+      if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+      if (activeBitmap) activeBitmap.close();
+      if (activeVideoElement) activeVideoElement.src = '';
+    }
+
+    if (audioEncoder && audioBuffer) {
+      try {
+        const sampleRate = audioBuffer.sampleRate;
+        const numChannels = audioBuffer.numberOfChannels;
+        const left = audioBuffer.getChannelData(0);
+        const right = audioBuffer.getChannelData(1);
+        const chunkSize = 1024;
+        for (let offset = 0; offset < audioBuffer.length; offset += chunkSize) {
+          const countNow = Math.min(chunkSize, audioBuffer.length - offset);
+          const planar = new Float32Array(countNow * numChannels);
+          planar.set(left.subarray(offset, offset + countNow), 0);
+          planar.set(right.subarray(offset, offset + countNow), countNow);
+          const audioData = new (window as any).AudioData({
+            format: 'f32-planar',
+            sampleRate,
+            numberOfFrames: countNow,
+            numberOfChannels: numChannels,
+            timestamp: Math.round((offset / sampleRate) * 1_000_000),
+            data: planar
+          });
+          audioEncoder.encode(audioData);
+          audioData.close();
+        }
+        await audioEncoder.flush();
+        audioEncoder.close();
+      } catch {}
+    }
+
+    await videoEncoder.flush();
+    videoEncoder.close();
+
+    if (vp9Chunks === 0 || vp9Error) {
+      throw new Error('VP9 encoder produced 0 chunks');
+    }
+
+    muxer.finalize();
+    const webmBlob = new Blob([target.buffer], { type: 'video/webm' });
+    const cleanProject = (projectTitle || 'PROJECT').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    return {
+      blob: webmBlob,
+      filename: `HANDFILM_${cleanProject}_${parsedRange.label}_VP9_${timestamp}.webm`
+    };
+  } catch (err: any) {
+    if (abortSignal?.aborted || err?.message?.includes('cancelled')) throw err;
+    console.warn('[CinemaExport VP9] Falling back to MediaRecorder WebM:', err);
+    return await exportCinemaMasterWithMediaRecorder(options);
+  }
+}
+
+/**
+ * OFFLINE PNG SEQUENCE ZIP EXPORTER:
+ * Composites representative key frames (or multi-frame sub-steps) per shot onto HTML5 <canvas>
+ * using per-shot `handfilm_media_vault` blobs or procedural backdrops and packs them into a ZIP archive.
+ */
+export async function exportPngSequenceZip(
+  options: CinemaExportPipelineOptions & { framesPerShot?: number }
+): Promise<{ blob: Blob; filename: string; frameCount: number }> {
+  const {
+    projectTitle,
+    frames = [],
+    slides = [],
+    currentSlideIndex = 0,
+    totalSlides = 1,
+    selectionMode,
+    rangeStart = 1,
+    rangeEnd = 1,
+    customListText = '',
+    excludedShotIndices = [],
+    overrideShotIndices,
+    resolutionPreset,
+    burnInTitles,
+    cleanPlates,
+    simulateFlare,
+    framesPerShot = 1,
+    onProgress,
+    onFrameRendered,
+    abortSignal
+  } = options;
+
+  const count = Math.max(1, totalSlides || slides.length || frames.length || 1);
+  const allShotDurations = Array.from({ length: count }, (_, idx) =>
+    resolveExportShotDurationSec(slides[idx], frames[idx])
+  );
+
+  const parsedRange =
+    overrideShotIndices && overrideShotIndices.length > 0
+      ? {
+          indices: overrideShotIndices,
+          totalShots: overrideShotIndices.length,
+          totalFrames: overrideShotIndices.length * Math.max(1, framesPerShot),
+          durationSec: 0,
+          label:
+            overrideShotIndices.length === 1
+              ? `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}`
+              : `SH${String(overrideShotIndices[0] + 1).padStart(3, '0')}-SH${String(
+                  overrideShotIndices[overrideShotIndices.length - 1] + 1
+                ).padStart(3, '0')}`
+        }
+      : parseShotSelection(
+          selectionMode,
+          rangeStart,
+          rangeEnd,
+          customListText,
+          count,
+          currentSlideIndex,
+          288,
+          excludedShotIndices,
+          allShotDurations
+        );
+
+  const shotIndices = parsedRange.indices;
+  if (shotIndices.length === 0) {
+    throw new Error('No shots selected for PNG Sequence export.');
+  }
+
+  const dimensions = getExportPresetDimensions(resolutionPreset);
+  const width = dimensions.width;
+  const height = dimensions.height;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Could not instantiate 2D Canvas context for PNG sequence.');
+
+  const zip = new JSZip();
+  const folder = zip.folder('png_sequence') || zip;
+  const samplesPerShot = Math.max(1, Math.min(24, Math.floor(framesPerShot)));
+  const totalPngCount = shotIndices.length * samplesPerShot;
+  let capturedCount = 0;
+
+  let runningStartSec = 0;
+  for (let i = 0; i < shotIndices.length; i++) {
+    if (abortSignal?.aborted) throw new Error('Export cancelled by user.');
+    const shotIdx = shotIndices[i];
+    const slide = slides[shotIdx];
+    const frame = frames[shotIdx];
+    const shotDurSec = resolveExportShotDurationSec(slide, frame);
+    const totalShotFrames = Math.max(1, Math.round(shotDurSec * 24));
+    const bTitle = slide?.titleBn || frame?.bengaliTitle || 'দৃষ্টি // THE SINGULARITY';
+    const eTitle = slide?.titleEn || frame?.title || `THE SINGULARITY // SHOT ${String(shotIdx + 1).padStart(3, '0')}`;
+    const subTitle = slide?.tagline || frame?.tagline || '24.0 FPS UNCOMPRESSED MASTER';
+
+    const { activeVideoElement, activeBitmap, activeObjectUrl } = await loadShotSourceMedia(shotIdx, slide, frame);
+
+    for (let s = 0; s < samplesPerShot; s++) {
+      if (abortSignal?.aborted) {
+        if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+        if (activeBitmap) activeBitmap.close();
+        throw new Error('Export cancelled by user.');
+      }
+
+      const sampleRatio = samplesPerShot === 1 ? 0.25 : s / samplesPerShot;
+      const frameInShot = Math.min(totalShotFrames - 1, Math.round(sampleRatio * totalShotFrames));
+
+      if (activeVideoElement && activeVideoElement.duration > 0) {
+        const targetSec = (frameInShot / 24) % activeVideoElement.duration;
+        await waitForSeek(activeVideoElement, targetSec, 800);
+      }
+
+      compositeCinemaFrame({
+        ctx,
+        width,
+        height,
+        preset: resolutionPreset,
+        shotIndex: shotIdx,
+        frameInShot,
+        totalFramesInShot: totalShotFrames,
+        shotStartTimeSec: runningStartSec,
+        fps: 24,
+        sourceElement: activeVideoElement || activeBitmap,
+        titleBn: bTitle,
+        titleEn: eTitle,
+        tagline: subTitle,
+        burnInTitles,
+        cleanPlates,
+        simulateFlare,
+        projectTitle,
+        lutFilter: frame?.lutFilter,
+        adjustments: frame?.adjustments,
+        caption: frame?.caption
+      });
+
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      const base64 = dataUrl.split(',')[1];
+      if (base64) {
+        const shotPadded = String(shotIdx + 1).padStart(3, '0');
+        const framePadded = String(s + 1).padStart(4, '0');
+        folder.file(`shot_${shotPadded}_f${framePadded}.png`, base64, { base64: true });
+      }
+
+      capturedCount++;
+      const percent = Math.min(99, Math.round((capturedCount / totalPngCount) * 100));
+      if (onProgress) {
+        onProgress({
+          currentShotIndex: i + 1,
+          totalShots: shotIndices.length,
+          currentFrameNum: capturedCount,
+          totalFrames: totalPngCount,
+          percent,
+          fps: 24,
+          statusText: `RENDERING SHOT ${String(i + 1).padStart(2, '0')}/${String(shotIndices.length).padStart(2, '0')}... (${percent}%)`
+        });
+      }
+      if (onFrameRendered) onFrameRendered(canvas, capturedCount, totalPngCount);
+      await new Promise((r) => setTimeout(r, 0));
+    }
+
+    runningStartSec += shotDurSec;
+    if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+    if (activeBitmap) activeBitmap.close();
+    if (activeVideoElement) activeVideoElement.src = '';
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  const cleanProject = (projectTitle || 'PROJECT').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  return {
+    blob,
+    filename: `HANDFILM_${cleanProject}_${parsedRange.label}_PNG_SEQ_${timestamp}.zip`,
+    frameCount: capturedCount
+  };
+}
+
 

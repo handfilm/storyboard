@@ -28,6 +28,8 @@ import {
   getShotTargetFps
 } from '../types/storyboard';
 import { audioEngine } from '../services/audioEngine';
+import { useStudioStore } from '../core/store';
+import { getShotMediaKey } from '../services/handfilmMediaVault';
 import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import {
   formatSMPTETimecode,
@@ -127,26 +129,32 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
   const liveDurationSec = dragDurationSec !== null ? dragDurationSec : baseDurationSec;
   const liveFrameCount = getShotFrameCount(liveDurationSec, targetFps);
 
-  // Determine media type
-  const isVideo = Boolean(
-    slide.isVideo ||
-      slide.remoteUrl?.includes('.mp4') ||
-      slide.remoteUrl?.includes('.webm') ||
-      slide.remoteUrl?.includes('video') ||
-      slide.remoteUrl?.startsWith('blob:')
-  );
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
+  const vaultEntry = shotMediaMap?.[getShotMediaKey(slide as any, index)] ?? null;
+  const resolvedMediaUrl = vaultEntry?.url || slide.remoteUrl || '';
+
+  // Determine media type (never assume generic blob: URLs are videos)
+  const isVideo = vaultEntry
+    ? vaultEntry.type === 'video'
+    : Boolean(
+        slide.isVideo ||
+          resolvedMediaUrl.includes('.mp4') ||
+          resolvedMediaUrl.includes('.webm') ||
+          resolvedMediaUrl.includes('.mov') ||
+          resolvedMediaUrl.startsWith('data:video')
+      );
 
   // Cached fallback thumbnail (never pure black)
   const fallbackThumbnail = useMemo(() => {
     if (slide.thumbnailUrl) return slide.thumbnailUrl;
-    if (slide.remoteUrl && !isVideo) return slide.remoteUrl;
+    if (resolvedMediaUrl && !isVideo) return resolvedMediaUrl;
     const cached =
       thumbnailMemoryCache.get(slide.id || `shot_${index}`) ||
       thumbnailMemoryCache.get(String(index + 1)) ||
       thumbnailMemoryCache.get(`shot_${index}`);
     if (cached) return cached;
     return '';
-  }, [slide.thumbnailUrl, slide.remoteUrl, isVideo, slide.id, index]);
+  }, [slide.thumbnailUrl, resolvedMediaUrl, isVideo, slide.id, index]);
 
   // Viewport-aware origin clamping
   const updateOrigin = useCallback(() => {
@@ -328,10 +336,10 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
         }`}
       >
         {/* RAM Virtualization: Mount Video ONLY if card is within active viewport buffer */}
-        {isWithinBuffer && isVideo && slide.remoteUrl ? (
+        {isWithinBuffer && isVideo && resolvedMediaUrl ? (
           <video
             ref={videoRef}
-            src={slide.remoteUrl}
+            src={resolvedMediaUrl}
             muted
             playsInline
             preload="metadata"

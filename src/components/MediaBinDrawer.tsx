@@ -292,10 +292,12 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
         onAssignToShot(firstItem.id, targetShot, firstItem.name);
       }
       eventBus.emit('asset_assigned_to_shot', {
-        id: firstItem.id,
+        assetId: firstItem.id,
         shotIndex: targetShot,
-        mediaUrl: firstItem.url,
-        filename: firstItem.name
+        blob: firstItem.blob,
+        blobUrl: firstItem.url,
+        thumbnailUrl: firstItem.thumbnailUrl,
+        meta: { name: firstItem.name, mimeType: firstItem.mimeType }
       });
     }
 
@@ -432,21 +434,20 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
     }
   };
 
-  // Single Tap / Click to Assign directly to target shot
+  // Single Tap / Click to Assign directly to target shot (strictly isolated)
   const handleAssignToShot = async (item: VaultMediaItem, explicitShotIndex?: number) => {
     const targetShot = explicitShotIndex !== undefined ? explicitShotIndex : activeShotIndex;
     await db.assignMediaToShot(item.id, targetShot);
-    
-    // Resolve durable Object URL using LRU cache
+
     const blobUrl = db.getActiveMediaUrl(item.id, item.blob);
     const isVid = item.mimeType?.startsWith('video') || /\.(mp4|webm|mov|mkv|ogg|m4v)$/i.test(item.name);
-    
-    // Update active slide in Zustand store
+
     try {
       useStudioStore.getState().updateShot(targetShot, {
         imageUrl: blobUrl,
+        thumbnailUrl: item.thumbnailUrl || (!isVid ? blobUrl : undefined),
         isVideo: isVid,
-        title: item.name.replace(/\.[^/.]+$/, "")
+        title: item.name.replace(/\.[^/.]+$/, '')
       });
     } catch (err) {
       console.warn('[MediaBin] updateShot error:', err);
@@ -456,7 +457,15 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
       onAssignToShot(item.id, targetShot, item.name);
     }
 
-    // Re-hydrate vault items to update assigned badges
+    eventBus.emit('asset_assigned_to_shot', {
+      assetId: item.id,
+      shotIndex: targetShot,
+      blob: item.blob,
+      blobUrl,
+      thumbnailUrl: item.thumbnailUrl,
+      meta: { name: item.name, mimeType: item.mimeType }
+    });
+
     const updated = await db.getAllVaultMedia();
     setVaultItems(updated);
   };

@@ -30,6 +30,8 @@ import { filterFrames, getLutFilterCSS } from '../utils/engine';
 import { downloadStoryboardPdf, StoryboardPdfOptions } from '../utils/pdfExport';
 import { handleFileUpload } from '../services/mediaIngestService';
 import { thumbnailMemoryCache } from '../services/thumbnailEngine';
+import { useStudioStore } from '../core/store';
+import { getShotMediaKey, saveShotMediaBlob } from '../services/handfilmMediaVault';
 
 const ALL_LUT_OPTIONS: { id: LutPreset; label: string; desc: string; color: string }[] = [
   { id: 'cinematic', label: 'RAWx Cinema 35', desc: 'Warm shadows, golden skin tones', color: '#D4AF37' },
@@ -54,6 +56,7 @@ interface GridViewProps {
   onPopulateSamplePack: () => void;
   onReorderFrames?: (newFrames: AnthologyFrame[]) => void;
   onUpdateFrame?: (frame: AnthologyFrame) => void;
+  onUploadMediaForIndex?: (index: number, file: File) => void;
   projectTitle?: string;
   directorName?: string;
   aspectRatio?: string;
@@ -66,10 +69,12 @@ export const GridView: React.FC<GridViewProps> = ({
   onPopulateSamplePack,
   onReorderFrames,
   onUpdateFrame,
+  onUploadMediaForIndex,
   projectTitle = 'Master Storyboard',
   directorName = 'Directorial Team',
   aspectRatio = '2.39:1'
 }) => {
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | undefined>();
 
@@ -186,34 +191,25 @@ export const GridView: React.FC<GridViewProps> = ({
 
       const targetIdx = frames.findIndex(f => f.id === targetFrameId);
       if (targetIdx !== -1) {
-        const droppedFiles = Array.from(e.dataTransfer.files);
-        setReorderFeedback(`Importing ${droppedFiles[0].name} to SH${String(targetIdx + 1).padStart(3, '0')}...`);
+        const droppedFile = e.dataTransfer.files[0];
+        const targetFrame = frames[targetIdx];
+        const shotKey = getShotMediaKey(targetFrame, targetIdx);
+        setReorderFeedback(`Importing ${droppedFile.name} to SH${String(targetIdx + 1).padStart(3, '0')}...`);
         try {
-          await handleFileUpload(droppedFiles, {
-            shotIndex: targetIdx,
-            onImmediatePreview: (item) => {
-              const current = frames[targetIdx];
-              if (current && onUpdateFrame) {
-                onUpdateFrame({
-                  ...current,
-                  imageUrl: item.objectUrl,
-                  thumbnailUrl: item.thumbnailUrl || current.thumbnailUrl,
-                  isVideo: item.isVideo
-                });
-              }
-            },
-            onMetadataReady: (item) => {
-              const current = frames[targetIdx];
-              if (current && item.thumbnailUrl && onUpdateFrame) {
-                thumbnailMemoryCache.set(String(current.id ?? targetIdx + 1), item.thumbnailUrl);
-                thumbnailMemoryCache.set(`shot_${targetIdx}`, item.thumbnailUrl);
-                onUpdateFrame({
-                  ...current,
-                  thumbnailUrl: item.thumbnailUrl
-                });
-              }
+          if (onUploadMediaForIndex) {
+            await Promise.resolve(onUploadMediaForIndex(targetIdx, droppedFile));
+          } else {
+            const entry = await saveShotMediaBlob(shotKey, droppedFile, droppedFile.name);
+            useStudioStore.getState().setShotMediaEntry(shotKey, entry);
+            if (targetFrame && onUpdateFrame) {
+              onUpdateFrame({
+                ...targetFrame,
+                imageUrl: entry.url,
+                thumbnailUrl: entry.type === 'image' ? entry.url : targetFrame.thumbnailUrl,
+                isVideo: entry.type === 'video'
+              });
             }
-          });
+          }
           setReorderFeedback(`✓ Media assigned to SH${String(targetIdx + 1).padStart(3, '0')}`);
           setTimeout(() => setReorderFeedback(null), 3500);
         } catch (err) {
@@ -934,7 +930,11 @@ export const GridView: React.FC<GridViewProps> = ({
       <div className="max-w-7xl mx-auto w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 pb-24">
         {filtered.map((frame, index) => {
           const isSelected = frame.id === currentFrameIndex;
-          const hasImage = Boolean(frame.imageUrl);
+          const actualIdx = frames.findIndex(f => f.id === frame.id);
+          const resolvedIdx = actualIdx !== -1 ? actualIdx : index;
+          const vaultEntry = shotMediaMap?.[getShotMediaKey(frame, resolvedIdx)] ?? null;
+          const cardImgUrl = vaultEntry?.url || frame.imageUrl || '';
+          const hasImage = Boolean(cardImgUrl);
           const isBeingDragged = draggedFrameId === frame.id;
           const isDropTarget = dragOverFrameId === frame.id;
 
@@ -1007,7 +1007,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 <div
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
                   style={{ 
-                    backgroundImage: `url(${frame.imageUrl})`,
+                    backgroundImage: `url(${cardImgUrl})`,
                     filter: getLutFilterCSS(frame.lutFilter || 'cinematic', frame.adjustments)
                   }}
                 />

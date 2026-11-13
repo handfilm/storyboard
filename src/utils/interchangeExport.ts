@@ -930,3 +930,259 @@ export async function freezeAllShotFrames(
     message: `[SANDBOX MODE] ${capturedCount} composite frames exported — Tauri IPC ready for Windows .exe`
   };
 }
+
+/**
+ * Generates Premiere Pro / FCP7 XMEML v4 sequence XML (`Premiere.xml`) with frame-accurate
+ * video clips, optical/lighting metadata, and optional master audio bed track.
+ */
+export function generatePremiereXml(
+  shots: CockpitShotBridge[],
+  audioTrack: { name: string; duration: number; url?: string; offsetSec?: number } | null = null,
+  options: NLEExportOptions = {}
+): string {
+  const safeFps = options.fps === 30 ? 30 : 24;
+  const projectName = options.projectName || 'HANDFILM_SEQUENCE';
+  const width = options.width || 1920;
+  const height = options.height || 1080;
+
+  let cursorFrames = 0;
+  const videoClipItems: string[] = [];
+
+  shots.forEach((shot, idx) => {
+    const inSec = Math.max(0, Number(shot.inPoint) || 0);
+    const durSec = Math.max(0.1, Number(shot.durationSec) || (Number(shot.outPoint) ? Math.max(0.1, Number(shot.outPoint) - inSec) : 12.0));
+    const clipFrames = Math.max(1, Math.round(durSec * safeFps));
+    const inFrames = Math.max(0, Math.round(inSec * safeFps));
+    const outFrames = inFrames + clipFrames;
+    const startFrame = cursorFrames;
+    const endFrame = cursorFrames + clipFrames;
+    cursorFrames = endFrame;
+
+    const padded = String(shot.shotNumber || idx + 1).padStart(2, '0');
+    const clipId = `clipitem-${padded}`;
+    const fileId = `file-${padded}`;
+    const clipName = `SH${padded} ${shot.titleEn || `Shot ${padded}`}`;
+    const pathUrl = shot.mediaUrl || `file://localhost/Media/SH${padded}.mp4`;
+    const lightLabel = resolveShotLightLabel(shot);
+    const titleLabel = resolveShotTitleLabel(shot);
+
+    videoClipItems.push(`          <clipitem id="${clipId}">
+            <name>${escapeXml(clipName)}</name>
+            <enabled>TRUE</enabled>
+            <duration>${clipFrames}</duration>
+            <rate><timebase>${safeFps}</timebase><ntsc>FALSE</ntsc></rate>
+            <start>${startFrame}</start>
+            <end>${endFrame}</end>
+            <in>${inFrames}</in>
+            <out>${outFrames}</out>
+            <file id="${fileId}">
+              <name>${escapeXml(`SH${padded}.mp4`)}</name>
+              <pathurl>${escapeXml(pathUrl)}</pathurl>
+              <rate><timebase>${safeFps}</timebase><ntsc>FALSE</ntsc></rate>
+              <duration>${outFrames}</duration>
+              <media>
+                <video>
+                  <samplecharacteristics>
+                    <width>${width}</width>
+                    <height>${height}</height>
+                  </samplecharacteristics>
+                </video>
+              </media>
+            </file>
+            <marker>
+              <comment>${escapeXml(`LIGHT: ${lightLabel} | TITLE: ${titleLabel}`)}</comment>
+              <name>${escapeXml(`SH${padded} CUE`)}</name>
+              <in>0</in>
+              <out>-1</out>
+            </marker>
+          </clipitem>`);
+  });
+
+  const totalFrames = Math.max(1, cursorFrames);
+  let audioTrackXml = '';
+  if (audioTrack) {
+    const audioOffsetFrames = Math.max(0, Math.round((audioTrack.offsetSec || 0) * safeFps));
+    const audioFrames = Math.max(1, Math.min(totalFrames, Math.round((audioTrack.duration || totalFrames / safeFps) * safeFps)));
+    audioTrackXml = `
+      <audio>
+        <numOutputChannels>2</numOutputChannels>
+        <format>
+          <samplecharacteristics>
+            <depth>16</depth>
+            <samplerate>48000</samplerate>
+          </samplecharacteristics>
+        </format>
+        <track>
+          <clipitem id="clipitem-audio-master">
+            <name>${escapeXml(audioTrack.name)}</name>
+            <enabled>TRUE</enabled>
+            <duration>${audioFrames}</duration>
+            <rate><timebase>${safeFps}</timebase><ntsc>FALSE</ntsc></rate>
+            <start>${audioOffsetFrames}</start>
+            <end>${audioOffsetFrames + audioFrames}</end>
+            <in>0</in>
+            <out>${audioFrames}</out>
+            <file id="file-audio-master">
+              <name>${escapeXml(audioTrack.name)}</name>
+              <pathurl>${escapeXml(audioTrack.url || `file://localhost/Audio/${audioTrack.name}`)}</pathurl>
+              <media><audio><channelcount>2</channelcount></audio></media>
+            </file>
+          </clipitem>
+        </track>
+      </audio>`;
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+  <sequence id="sequence-handfilm">
+    <name>${escapeXml(projectName)}</name>
+    <duration>${totalFrames}</duration>
+    <rate>
+      <timebase>${safeFps}</timebase>
+      <ntsc>FALSE</ntsc>
+    </rate>
+    <timecode>
+      <rate><timebase>${safeFps}</timebase><ntsc>FALSE</ntsc></rate>
+      <string>00:00:00:00</string>
+      <frame>0</frame>
+      <displayformat>NDF</displayformat>
+    </timecode>
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <rate><timebase>${safeFps}</timebase><ntsc>FALSE</ntsc></rate>
+            <width>${width}</width>
+            <height>${height}</height>
+            <anamorphic>FALSE</anamorphic>
+            <pixelaspectratio>square</pixelaspectratio>
+          </samplecharacteristics>
+        </format>
+        <track>
+${videoClipItems.join('\n')}
+        </track>
+      </video>${audioTrackXml}
+    </media>
+  </sequence>
+</xmeml>`;
+}
+
+/**
+ * Generates a CapCut-compatible `draft_content.json` string containing canvas dimensions,
+ * FPS, materials (videos, texts, audios), and time-aligned video/text/audio tracks in microseconds.
+ */
+export function generateCapCutDraftJson(
+  shots: CockpitShotBridge[],
+  audioTrack: { name: string; duration: number } | null = null,
+  options: NLEExportOptions = {}
+): string {
+  const safeFps = options.fps === 30 ? 30 : 24;
+  const width = options.width || 1920;
+  const height = options.height || 1080;
+  const projectName = options.projectName || 'HANDFILM_REEL';
+
+  let cursorUs = 0;
+  const videoMaterials: any[] = [];
+  const textMaterials: any[] = [];
+  const videoSegments: any[] = [];
+  const textSegments: any[] = [];
+
+  shots.forEach((shot, idx) => {
+    const inSec = Math.max(0, Number(shot.inPoint) || 0);
+    const durSec = Math.max(0.1, Number(shot.durationSec) || (Number(shot.outPoint) ? Math.max(0.1, Number(shot.outPoint) - inSec) : 12.0));
+    const durUs = Math.round(durSec * 1_000_000);
+    const sourceStartUs = Math.round(inSec * 1_000_000);
+    const startUs = cursorUs;
+    cursorUs += durUs;
+
+    const padded = String(shot.shotNumber || idx + 1).padStart(2, '0');
+    const vidMatId = `mat-video-${padded}`;
+    const txtMatId = `mat-text-${padded}`;
+
+    videoMaterials.push({
+      id: vidMatId,
+      material_name: `SH${padded}_${shot.titleEn || 'SHOT'}.mp4`,
+      type: 'video',
+      path: shot.mediaUrl || `Media/SH${padded}.mp4`,
+      width,
+      height,
+      duration: durUs,
+      lut_filter: shot.lutFilter || 'RAWx Cinema 35',
+      light_rig: resolveShotLightLabel(shot)
+    });
+
+    textMaterials.push({
+      id: txtMatId,
+      type: 'text',
+      content: JSON.stringify({
+        text: resolveShotTitleLabel(shot),
+        bangla: shot.titleBn || '',
+        english: shot.titleEn || ''
+      })
+    });
+
+    videoSegments.push({
+      id: `seg-video-${padded}`,
+      material_id: vidMatId,
+      target_timerange: { start: startUs, duration: durUs },
+      source_timerange: { start: sourceStartUs, duration: durUs },
+      visible: true,
+      speed: 1.0
+    });
+
+    textSegments.push({
+      id: `seg-text-${padded}`,
+      material_id: txtMatId,
+      target_timerange: { start: startUs, duration: durUs },
+      source_timerange: { start: 0, duration: durUs },
+      visible: true
+    });
+  });
+
+  const audioMaterials: any[] = [];
+  const audioSegments: any[] = [];
+  if (audioTrack) {
+    const audioDurUs = Math.max(100_000, Math.min(cursorUs, Math.round((audioTrack.duration || cursorUs / 1_000_000) * 1_000_000)));
+    audioMaterials.push({
+      id: 'mat-audio-master',
+      name: audioTrack.name,
+      type: 'music',
+      path: `Audio/${audioTrack.name}`,
+      duration: audioDurUs
+    });
+    audioSegments.push({
+      id: 'seg-audio-master',
+      material_id: 'mat-audio-master',
+      target_timerange: { start: 0, duration: audioDurUs },
+      source_timerange: { start: 0, duration: audioDurUs },
+      volume: 1.0
+    });
+  }
+
+  const draftContent = {
+    id: `handfilm-${Date.now()}`,
+    name: projectName,
+    version: 360000,
+    fps: safeFps,
+    duration: cursorUs,
+    canvas_config: {
+      width,
+      height,
+      ratio: width > height ? '16:9' : width < height ? '9:16' : '1:1'
+    },
+    materials: {
+      videos: videoMaterials,
+      texts: textMaterials,
+      audios: audioMaterials
+    },
+    tracks: [
+      { id: 'track-video-main', type: 'video', segments: videoSegments },
+      { id: 'track-text-kinetic', type: 'text', segments: textSegments },
+      ...(audioSegments.length > 0 ? [{ id: 'track-audio-master', type: 'audio', segments: audioSegments }] : [])
+    ]
+  };
+
+  return JSON.stringify(draftContent, null, 2);
+}
+

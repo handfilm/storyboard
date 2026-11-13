@@ -13,6 +13,7 @@ import { generateInitialFrames } from '../data/frames';
 import { depthOcclusionService, DepthLayerMode } from '../services/depthOcclusionService';
 import { AudioPunchMode } from '../services/transientPunchEngine';
 import { AutonomousKineticPreset } from '../services/kineticTypographyStyles';
+import type { ShotMediaEntry, ShotMediaMap } from '../services/handfilmMediaVault';
 
 export type StudioModule =
   | 'STORY'
@@ -142,6 +143,16 @@ export interface StudioState {
   // Project & Content
   project: StudioProject;
   activeShotIndex: number;
+  shotMediaMap: ShotMediaMap;
+  setShotMediaMap: (map: ShotMediaMap) => void;
+  setShotMediaEntry: (shotId: string, entry: ShotMediaEntry) => void;
+  removeShotMediaEntry: (shotId: string) => void;
+
+  // 10x10 Modular Reel Engine
+  activeReelIndex: number;
+  reelLoopActive: boolean;
+  selectReel: (reelIdx: number) => void;
+  setReelLoopActive: (active: boolean) => void;
   
   // Kinetic Hero Title Typography Engine
   titleConfig: HeroTitleConfig;
@@ -377,6 +388,41 @@ export const useStudioStore = create<StudioState>()(
       version: '5.0.0'
     },
     activeShotIndex: 0,
+    shotMediaMap: {},
+    setShotMediaMap: (map: ShotMediaMap) => {
+      set((state) => {
+        state.shotMediaMap = { ...map };
+      });
+    },
+    setShotMediaEntry: (shotId: string, entry: ShotMediaEntry) => {
+      set((state) => {
+        state.shotMediaMap[String(shotId)] = entry;
+      });
+    },
+    removeShotMediaEntry: (shotId: string) => {
+      set((state) => {
+        delete state.shotMediaMap[String(shotId)];
+      });
+    },
+    activeReelIndex: 0,
+    reelLoopActive: false,
+    selectReel: (reelIdx: number) => {
+      const clampedReel = Math.max(0, Math.min(9, Math.floor(reelIdx)));
+      const targetShot = clampedReel * 10;
+      set((state) => {
+        const total = state.project.shots.length || 100;
+        state.activeReelIndex = clampedReel;
+        state.reelLoopActive = true;
+        state.activeShotIndex = Math.min(total - 1, targetShot);
+        state.slideTimeSec = 0;
+      });
+      eventBus.emit('shot:change', get().activeShotIndex);
+    },
+    setReelLoopActive: (active: boolean) => {
+      set((state) => {
+        state.reelLoopActive = active;
+      });
+    },
     activeModule: 'PLAYER',
     boardView: 'grid',
     workspacePreset: 'Director',

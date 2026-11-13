@@ -28,6 +28,7 @@ import { CadenceSelectorPill } from './controls/CadenceSelectorPill';
 import { ComponentVisibility, applyTitleBlockOpacityCssVar } from './ComponentsMatrixPopover';
 import { useTitleContainerRepaint } from '../hooks/useTitleContainerRepaint';
 import { useStudioStore } from '../core/store';
+import { getShotMediaKey } from '../services/handfilmMediaVault';
 import { StageMetadataFxBar } from './stage/StageMetadataFxBar';
 import { StageCaptionStrip } from './stage/StageCaptionStrip';
 import { StageTextOverlay } from './StageTextOverlay';
@@ -76,6 +77,8 @@ export interface ReelsViewProps {
   showTitles?: boolean;
   componentsVisibility?: ComponentVisibility;
   defaultSafeZone?: ReelsSafeZonePosition;
+  onSelectReel?: (reelIndex: number) => void;
+  onJumpToShot?: (shotIndex: number) => void;
 }
 
 export const ReelsView: React.FC<ReelsViewProps> = ({
@@ -96,11 +99,14 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   onToggleLoop,
   onStepFrame,
   onScrubSlideTime,
+  onSelectPlaybackMode,
   onUploadMedia,
   onOpenCinemaPlayer,
   showTitles = true,
   componentsVisibility,
-  defaultSafeZone = 'bottom'
+  defaultSafeZone = 'bottom',
+  onSelectReel,
+  onJumpToShot
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -109,6 +115,11 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
   const storeTitleOpacity = useStudioStore((s) => s.titleConfig?.titleOpacity ?? 1.0);
   const stageScale = useStudioStore((s) => s.stageScale);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
+  const activeReelIndex = useStudioStore((s) => s.activeReelIndex);
+  const reelLoopActive = useStudioStore((s) => s.reelLoopActive);
+  const selectStoreReel = useStudioStore((s) => s.selectReel);
+  const setReelLoopActive = useStudioStore((s) => s.setReelLoopActive);
   const titleOpacity = Math.max(
     0,
     Math.min(1.0, componentsVisibility?.titleOpacity ?? storeTitleOpacity ?? 1.0)
@@ -162,12 +173,16 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     return Math.min(100, Math.max(0, (slideTimeSec / activeDurationSec) * 100));
   }, [slideTimeSec, activeDurationSec]);
 
-  // Media source resolution
-  const mediaUrl = currentSlide?.remoteUrl || (currentSlide as any)?.imageUrl;
-  const isVideo = Boolean(
-    currentSlide?.isVideo ||
-    (mediaUrl && (mediaUrl.startsWith('data:video') || /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(mediaUrl)))
-  );
+  // Per-shot isolated media source resolution
+  const activeShotKey = getShotMediaKey(currentSlide as any, currentIndex);
+  const vaultEntry = shotMediaMap?.[activeShotKey] ?? null;
+  const mediaUrl = vaultEntry?.url || currentSlide?.remoteUrl || (currentSlide as any)?.imageUrl || '';
+  const isVideo = vaultEntry
+    ? vaultEntry.type === 'video'
+    : Boolean(
+        currentSlide?.isVideo ||
+        (mediaUrl && (mediaUrl.startsWith('data:video') || /\.(mp4|webm|mov|ogg|m4v)($|\?)/i.test(mediaUrl)))
+      );
 
   const displayBangla = currentSlide?.titleBn || 'আলোর স্মৃতি';
   const displayEnglish = currentSlide?.titleEn || `SHOT ${String(currentIndex + 1).padStart(3, '0')} // MASTER REEL`;
@@ -527,8 +542,54 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-zinc-500 text-[10px] hidden sm:inline">REELS EDITORIAL</span>
+        {/* 10x10 Modular Reel Block Selector + Aspect Badge */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="hidden lg:flex items-center gap-0.5 bg-black/60 border border-white/10 rounded-md px-1 py-0.5">
+            {Array.from({ length: 10 }, (_, rIdx) => {
+              const isSelectedReel = reelLoopActive && activeReelIndex === rIdx;
+              const reelLabel = String(rIdx + 1).padStart(2, '0');
+              return (
+                <button
+                  key={`reel-pill-${rIdx}`}
+                  type="button"
+                  onClick={() => {
+                    selectStoreReel(rIdx);
+                    setReelLoopActive(true);
+                    onSelectPlaybackMode('sequence');
+                    const targetShotIdx = Math.min(Math.max(0, totalSlides - 1), rIdx * 10);
+                    if (onSelectReel) {
+                      onSelectReel(rIdx);
+                    } else if (onJumpToShot) {
+                      onJumpToShot(targetShotIdx);
+                    }
+                  }}
+                  title={`REEL ${reelLabel}: Shots ${rIdx * 10 + 1}–${rIdx * 10 + 10}`}
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors cursor-pointer tabular-nums ${
+                    isSelectedReel
+                      ? 'bg-[#E50914] text-white'
+                      : 'text-zinc-400 hover:text-amber-300 hover:bg-white/10'
+                  }`}
+                >
+                  {reelLabel}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                setReelLoopActive(false);
+                onSelectPlaybackMode('sequence');
+              }}
+              title="Play All 100 Shots Continuously (MASTER)"
+              className={`ml-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors cursor-pointer ${
+                !reelLoopActive
+                  ? 'bg-amber-500 text-black'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              ALL
+            </button>
+          </div>
           <span className="px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300 text-[10px] border border-zinc-700">
             {aspectRatio}
           </span>

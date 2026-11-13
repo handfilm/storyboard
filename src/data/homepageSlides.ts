@@ -1,13 +1,7 @@
 /**
  * @file /src/data/homepageSlides.ts
- * @description Curated Cinema Hero Slides with 5 Ultra-Widescreen Cinematic Artworks.
- * 
- * Mappings:
- * - Slide 01: 'The Death of Bloat // Zero-Cloud Sovereign Core' -> 02.jpg (Server room / Cyberpunk terminal)
- * - Slide 02: 'The 15s Dopamine Filter // Instant Creative Pulse' -> 01.jpg (Rain-slicked neon street portrait)
- * - Slide 03: 'The 12.0s Cinematic Meter // 288 Frames @ 24fps Locked' -> 03.jpg (Editor at grading monitor / Timeline grid)
- * - Slide 04: 'Dual-Mode Playback Engine // Sequence Animatic vs Solo Inspector' -> 04.jpg (Dual-monitor setup with console wheel)
- * - Slide 05: '2.39:1 Optical Scope // The Director's True Aspect' -> 05 (2).jpg (Film set with anamorphic camera and light flares)
+ * @description Locked 10-Slide Home Hero Editorial Sequence (01 to 10)
+ * synced to Master Shots #01-#10.
  */
 
 export type SlideWidgetKey =
@@ -26,6 +20,10 @@ export interface HomepageSlide {
   id: number;
   title: string;
   subtitle: string;
+  styleTag: string;
+  banglaTag: string;
+  banglaSubtitle: string;
+  cadenceMode: string;
   body: string;
   tag: string;
   widget: SlideWidgetKey;
@@ -37,112 +35,152 @@ export interface HomepageSlide {
 export const HOMEPAGE_SLIDES: readonly HomepageSlide[] = [
   {
     id: 1,
-    title: 'THE DEATH OF BLOAT',
-    subtitle: 'Zero-Cloud Sovereign Core',
-    tag: 'LOCAL-FIRST ARCHITECTURE',
+    styleTag: 'ANAMORPHIC GENESIS',
+    banglaTag: 'সূচনা',
+    title: 'OPENING SEQUENCE // RAW 4K',
+    banglaSubtitle: 'অভ্যুদয়',
+    cadenceMode: 'HIGH CADENCE URBAN',
+    subtitle: 'অভ্যুদয় // HIGH CADENCE URBAN',
+    tag: 'ANAMORPHIC GENESIS',
     widget: 'telemetry',
     backgroundImage: '/assets/aistudio/02_4487d60a.jpg',
-    imageAlt: 'Server room and sovereign cyberpunk terminal station',
+    imageAlt: 'Opening Sequence RAW 4K tungsten station',
     aspectRatio: '2.39:1',
-    body: "Reject multi-gigabyte desktop software, render queues, and cloud subscriptions. Your browser's GPU and IndexedDB run the entire studio.",
+    body: 'Razor-sharp 18mm ultra-wide push through tungsten haze, crisp transient shutter lock, and sub-harmonic pulse.'
   },
   {
     id: 2,
-    title: 'THE 15S DOPAMINE FILTER',
-    subtitle: 'Instant Creative Pulse',
-    tag: 'RAPID CREATIVE VALIDATION',
+    styleTag: 'OPTICAL PERIMETER',
+    banglaTag: 'সীমানা',
+    title: 'EVENT HORIZON // 35MM FILM',
+    banglaSubtitle: 'প্রান্তরেখা',
+    cadenceMode: 'FAST CHOPPER CLEAN',
+    subtitle: 'প্রান্তরেখা // FAST CHOPPER CLEAN',
+    tag: 'OPTICAL PERIMETER',
     widget: 'vibe',
     backgroundImage: '/assets/aistudio/01_5fdc96be.jpg',
-    imageAlt: 'Rain-slicked neon street cinematic anamorphic portrait',
+    imageAlt: 'Event Horizon 35mm film molten amber rim light frame',
     aspectRatio: '2.39:1',
-    body: "Drop raw footage onto the stage. If it doesn't give you chills with music and title within three seconds, kill the shot instantly.",
+    body: 'Boundary definition between observer and subject with molten amber rim light and rhythmic frame gating.'
   },
   {
     id: 3,
-    title: 'THE 12.0S CINEMATIC METER',
-    subtitle: '288 Frames @ 24fps Locked',
-    tag: 'TEMPORAL PRECISION',
+    styleTag: 'PHOTON FIELD',
+    banglaTag: 'আলো',
+    title: 'SOLAR CORONA // NOCTILUX',
+    banglaSubtitle: 'দীপ্তি',
+    cadenceMode: 'EXECUTIVE & SHARP',
+    subtitle: 'দীপ্তি // EXECUTIVE & SHARP',
+    tag: 'PHOTON FIELD',
     widget: 'meter',
     backgroundImage: '/assets/aistudio/03_307d68f5.jpg',
-    imageAlt: 'Director and editor at ultra-wide grading monitor with timeline grid',
+    imageAlt: 'Solar Corona Noctilux specular flare highlight composition',
     aspectRatio: '2.39:1',
-    body: 'Every storyboard frame is constrained to a strict 12.000s temporal block. Master your pacing before committing to deep assembly.',
+    body: 'High-contrast specular highlight roll-off across brutalist steel textures with precision optical flare.'
   },
   {
     id: 4,
-    title: 'DUAL-MODE PLAYBACK ENGINE',
-    subtitle: 'Sequence Animatic vs Solo Inspector',
-    tag: 'MACRO / MICRO CONTROL',
+    styleTag: 'KINETIC TENSION',
+    banglaTag: 'সংঘাত',
+    title: 'VELOCITY IMPACT // ZERO BLUR',
+    banglaSubtitle: 'কম্পন',
+    cadenceMode: 'CINEMATIC FILM',
+    subtitle: 'কম্পন // CINEMATIC FILM',
+    tag: 'KINETIC TENSION',
     widget: 'playback',
     backgroundImage: '/assets/aistudio/04_a108e8eb.jpg',
-    imageAlt: 'Dual-monitor editing bay with console jog-shuttle control wheel',
+    imageAlt: 'Velocity Impact high-shutter kinetic freeze console frame',
     aspectRatio: '2.39:1',
-    body: 'Switch seamlessly between macro sequence flow (continuous 100-slide playback) and micro sub-frame scrubbing with J-K-L shuttling.',
+    body: '1/1000s high-shutter kinetic freeze paired with rapid whip-pan transitions and low-end punch.'
   },
   {
     id: 5,
-    title: '2.39:1 OPTICAL SCOPE',
-    subtitle: "The Director's True Aspect",
-    tag: 'CINEMATIC COMPOSITION',
+    styleTag: 'MACRO PORTRAIT',
+    banglaTag: 'দৃষ্টি',
+    title: 'SILENT GAZE // CLOSER 85MM',
+    banglaSubtitle: 'অন্তর্দৃষ্টি',
+    cadenceMode: 'DOPAMINE PULSE',
+    subtitle: 'অন্তর্দৃষ্টি // DOPAMINE PULSE',
+    tag: 'MACRO PORTRAIT',
     widget: 'scope',
     backgroundImage: '/assets/aistudio/05__2__6d814b04.jpg',
-    imageAlt: 'Film set production with anamorphic cinema camera and horizontal lens flares',
+    imageAlt: 'Silent Gaze shallow depth of field 85mm cinema portrait',
     aspectRatio: '2.39:1',
-    body: 'True theatrical widescreen letterboxing with real-time anamorphic lens streaks and zero hover clutter.',
+    body: 'Shallow f/1.2 depth-of-field isolation capturing micro-expressions under warm studio key light.'
   },
   {
     id: 6,
-    title: 'BILINGUAL TYPOGRAPHIC ART',
-    subtitle: 'Real-Time Gold Metallic Bloom',
-    tag: 'TYPE / LIGHT / LANGUAGE',
+    styleTag: 'FLOATING GLASS OUTRO',
+    banglaTag: 'উন্মোচন',
+    title: 'END SEQUENCE // 4K BROADCAST',
+    banglaSubtitle: 'নির্বাণ',
+    cadenceMode: 'AMBIENT CHILL',
+    subtitle: 'নির্বাণ // AMBIENT CHILL',
+    tag: 'FLOATING GLASS OUTRO',
     widget: 'type',
     backgroundImage: '/assets/aistudio/image_5ea6c84c.png',
-    imageAlt: 'Bilingual typography with gold metallic bloom on cinema plate',
+    imageAlt: 'End Sequence 4K broadcast floating glass outro',
     aspectRatio: '2.39:1',
-    body: 'Elevate native Bangla and English titles into high-fashion cinema graphics with real-time bidirectional inspector synchronization.',
+    body: 'Soft diffusion blur fade in a floating frosted glass capsule, gentle vertical drift, and sub-bass ducking synchronization.'
   },
   {
     id: 7,
-    title: 'AUDIO TRANSIENT BEAT-SYNC',
-    subtitle: 'DSP Waveform Intelligence',
-    tag: 'RHYTHM-AWARE EDITING',
+    styleTag: 'OBSIDIAN GRADE',
+    banglaTag: 'অন্ধকার',
+    title: 'SHADOW ARCHITECTURE // NOIR',
+    banglaSubtitle: 'ছায়াপথ',
+    cadenceMode: 'DEEP CONTRAST',
+    subtitle: 'ছায়াপথ // DEEP CONTRAST',
+    tag: 'OBSIDIAN GRADE',
     widget: 'audio',
     backgroundImage: '/assets/aistudio/image_7e972830.png',
-    imageAlt: 'DSP audio transient waveform synchronized to video cuts',
+    imageAlt: 'Shadow Architecture noir chiaroscuro edge illumination',
     aspectRatio: '2.39:1',
-    body: 'Built-in Web Audio API peak detection marks kick and snare downbeats, snapping shot cuts automatically to musical rhythm.',
+    body: 'Crushed 16-bit ARRI blacks with sculpted single-source chiaroscuro edge illumination.'
   },
   {
     id: 8,
-    title: 'SOVEREIGN LOCAL SILICON',
-    subtitle: 'Your Machine Is The Server',
-    tag: 'LOCAL DATA OWNERSHIP',
+    styleTag: 'CHROMATIC FUSION',
+    banglaTag: 'মিশ্রণ',
+    title: 'SPECTRAL DRIFT // ANAMORPHIC',
+    banglaSubtitle: 'তরঙ্গ',
+    cadenceMode: 'HYPNOTIC FLOW',
+    subtitle: 'তরঙ্গ // HYPNOTIC FLOW',
+    tag: 'CHROMATIC FUSION',
     widget: 'silicon',
     backgroundImage: '/assets/aistudio/image_a4619b66.png',
-    imageAlt: 'Hardware GPU and sovereign IndexedDB local silicon node',
+    imageAlt: 'Spectral Drift dual-tone cyan and molten gold anamorphic study',
     aspectRatio: '2.39:1',
-    body: '100% client-side persistence via IndexedDB. Your footage never leaves your local drive. Complete operational security.',
+    body: 'Dual-tone cyan and molten gold color separation gliding across slow-motion 120fps frames.'
   },
   {
     id: 9,
-    title: 'ONE-CLICK NLE HANDOVER',
-    subtitle: 'Premiere & CapCut XML Pipeline',
-    tag: 'PORTABLE EDIT DECISIONS',
+    styleTag: 'MOMENTUM LOCK',
+    banglaTag: 'গতি',
+    title: 'HYPER CADENCE // RAWX CUT',
+    banglaSubtitle: 'বেগ',
+    cadenceMode: 'INDUSTRIAL DRIVE',
+    subtitle: 'বেগ // INDUSTRIAL DRIVE',
+    tag: 'MOMENTUM LOCK',
     widget: 'xml',
     backgroundImage: '/assets/aistudio/image_b3398899.png',
-    imageAlt: 'Hollywood NLE XML timeline export for CapCut and Premiere Pro',
+    imageAlt: 'Hyper Cadence beat-locked jump cuts montage',
     aspectRatio: '2.39:1',
-    body: 'Export native FCP 7 XML and FCPXML directly to CapCut Desktop or Premiere Pro with complete timecodes, titles, and track metadata.',
+    body: 'Beat-locked jump cuts engineered for maximum visual retention and relentless forward momentum.'
   },
   {
     id: 10,
-    title: 'CLIENT-SIDE MP4 EXPORTER',
-    subtitle: 'Local WebCodecs Hardware Muxer',
-    tag: 'FROM IDEA TO DELIVERABLE',
+    styleTag: 'TOTAL ECLIPSE',
+    banglaTag: 'গ্রহণ',
+    title: 'MASTER ARCHIVE // SOVEREIGN',
+    banglaSubtitle: 'সমাপ্তি',
+    cadenceMode: 'ZERO-CLOUD CORE',
+    subtitle: 'সমাপ্তি // ZERO-CLOUD CORE',
+    tag: 'TOTAL ECLIPSE',
     widget: 'launch',
     backgroundImage: '/assets/aistudio/image_c26145a7.png',
-    imageAlt: 'WebCodecs hardware MP4 muxer exporting master cut',
+    imageAlt: 'Master Archive Sovereign 4K frame integrity lock',
     aspectRatio: '2.39:1',
-    body: 'Render selected frame ranges directly into high-fidelity H.264 MP4 files straight from your canvas, completely in-browser.',
-  },
+    body: 'Final master lock with full-resolution 4K frame integrity and direct multi-platform interchange readiness.'
+  }
 ];

@@ -82,6 +82,14 @@ export interface DopamineShotConfig {
   audioBeatSync?: boolean;
 }
 
+export type KineticTypographyArchetype =
+  | 'dopamine-explosion'
+  | 'kinetic-minimalist'
+  | 'b2b-industrial'
+  | 'retro-anamorphic'
+  | 'dark-metallic'
+  | 'ambient-chill';
+
 export interface AnthologyFrame {
   id: number;
   epNumber: string;
@@ -106,6 +114,7 @@ export interface AnthologyFrame {
   adjustments: FrameAdjustments;
   caption?: ShotCaption;
   dopamineConfig?: DopamineShotConfig;
+  kineticArchetype?: KineticTypographyArchetype;
   tags: string[];
   panY?: number;
   activeLens?: string;

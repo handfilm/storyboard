@@ -1882,47 +1882,53 @@ class StudioDraftDbService {
     const db = await this.getDb();
     if (!db.objectStoreNames.contains('media_vault')) return;
 
-    // 1. Starter 4K video asset
-    const vidThumb = createFallbackSvgThumbnail('cyberpunk_flight_4k.mp4', true, 24.5 * 1024 * 1024, 'MP4');
-    const vidBlob = new Blob(['RAWX_CYBERPUNK_FLIGHT_4K_VIDEO_STREAM'], { type: 'video/mp4' });
-    const vidItem: VaultMediaItem = {
-      id: 'cyberpunk_flight_4k',
-      name: 'cyberpunk_flight_4k.mp4',
-      mimeType: 'video/mp4',
-      size: 24.5 * 1024 * 1024,
-      blob: vidBlob,
-      thumbnailUrl: vidThumb,
-      duration: 12.0,
-      resolution: '4K',
-      createdAt: Date.now() - 3600000
-    };
+    try {
+      const resp = await fetch('/assets/aistudio/01_5fdc96be.jpg');
+      if (resp.ok) {
+        const plateBlob = await resp.blob();
+        const starterItem: VaultMediaItem = {
+          id: 'showcase_shot_01',
+          name: 'cyberpunk_singularity_4k.jpg',
+          mimeType: 'image/jpeg',
+          size: plateBlob.size,
+          blob: plateBlob,
+          thumbnailUrl: '/assets/aistudio/01_5fdc96be.jpg',
+          duration: 12.0,
+          resolution: '4K',
+          createdAt: Date.now()
+        };
+        const tx = db.transaction('media_vault', 'readwrite');
+        tx.objectStore('media_vault').put(starterItem);
+        await new Promise<void>((resolve, reject) => {
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        this.getOrCreateObjectUrl(starterItem.id, plateBlob);
+        return;
+      }
+    } catch {}
 
-    // 2. Starter Dhaka neon alley still plate
-    const stillThumb = createFallbackSvgThumbnail('dhaka_neon_alley.png', false, 8.2 * 1024 * 1024, 'PNG');
-    const stillBlob = new Blob(['RAWX_DHAKA_NEON_ALLEY_RAW_14BIT'], { type: 'image/png' });
+    // Fallback image asset
+    const stillThumb = '/assets/aistudio/01_5fdc96be.jpg';
+    const stillBlob = new Blob(['RAWX_SHOWCASE_PLATE_4K'], { type: 'image/jpeg' });
     const stillItem: VaultMediaItem = {
-      id: 'dhaka_neon_alley',
-      name: 'dhaka_neon_alley.png',
-      mimeType: 'image/png',
-      size: 8.2 * 1024 * 1024,
+      id: 'showcase_shot_01',
+      name: 'cyberpunk_singularity_4k.jpg',
+      mimeType: 'image/jpeg',
+      size: 4.2 * 1024 * 1024,
       blob: stillBlob,
       thumbnailUrl: stillThumb,
-      duration: undefined,
+      duration: 12.0,
       resolution: '4K',
-      createdAt: Date.now() - 7200000
+      createdAt: Date.now()
     };
 
     const tx = db.transaction('media_vault', 'readwrite');
-    const store = tx.objectStore('media_vault');
-    store.put(vidItem);
-    store.put(stillItem);
-
+    tx.objectStore('media_vault').put(stillItem);
     await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-
-    this.getOrCreateObjectUrl(vidItem.id, vidBlob);
     this.getOrCreateObjectUrl(stillItem.id, stillBlob);
   }
 

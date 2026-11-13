@@ -56,6 +56,7 @@ import {
   ZoomIn
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
+import { getShotMediaKey } from '../../services/handfilmMediaVault';
 import { calculateMultiLayerZoom } from '../../utils/engine';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
@@ -249,6 +250,7 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const bgZoom = useStudioStore((s) => s.backgroundZoom);
   const isVertigo = useStudioStore((s) => s.isVertigoLinked);
   const stageScale = useStudioStore((s) => s.stageScale);
+  const shotMediaMap = useStudioStore((s) => s.shotMediaMap);
   const zoomTransforms = calculateMultiLayerZoom(bgZoom, fgZoom, isVertigo);
 
   // Elastic frame calculation per active slide
@@ -380,11 +382,16 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
     }
   });
 
-  const isVideo = Boolean(
-    currentSlide?.isVideo ||
-    (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl)) ||
-    (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl))
-  );
+  const activeShotKey = getShotMediaKey(currentSlide as any, currentIndex);
+  const vaultEntry = shotMediaMap?.[activeShotKey] ?? null;
+
+  const isVideo = vaultEntry
+    ? vaultEntry.type === 'video'
+    : Boolean(
+        currentSlide?.isVideo ||
+        (currentSlide?.remoteUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.remoteUrl)) ||
+        (currentSlide?.imageUrl && /\.(mp4|webm|mov|m4v)($|\?)/i.test(currentSlide.imageUrl))
+      );
 
   // Dynamic Dual-Stream Engine State:
   // - proxyUrl: Lightweight 540p for 24fps zero-latency scrubbing
@@ -393,10 +400,10 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
   const [proxyUrl, setProxyUrl] = useState<string>('');
   const previousUrlRef = useRef<string | null>(null);
 
-  // Hydrate dual streams for active shot and pre-buffer source
+  // Hydrate dual streams strictly for active shot
   useEffect(() => {
     let isMounted = true;
-    const mediaId = currentSlide?.mediaBlobId || currentSlide?.remoteUrl || currentSlide?.imageUrl || currentSlide?.thumbnailUrl;
+    const mediaId = vaultEntry?.url || currentSlide?.mediaBlobId || currentSlide?.remoteUrl || currentSlide?.imageUrl || currentSlide?.thumbnailUrl;
     if (mediaId) {
       if (mediaId.startsWith('http') || mediaId.startsWith('data:') || mediaId.startsWith('blob:')) {
         setSourceUrl(mediaId);
@@ -414,19 +421,17 @@ export const OpticalMonitor: React.FC<OpticalMonitorProps> = ({
       setProxyUrl('');
     }
     return () => { isMounted = false; };
-  }, [currentSlide?.mediaBlobId, currentSlide?.remoteUrl, currentSlide?.imageUrl, currentSlide?.thumbnailUrl]);
+  }, [currentIndex, vaultEntry?.url, currentSlide?.mediaBlobId, currentSlide?.remoteUrl, currentSlide?.imageUrl, currentSlide?.thumbnailUrl]);
 
   // Adaptive Playback State Machine:
-  // - Dragging / Scrubbing Playhead: feed stage <video> with proxyUrl (540p)
-  // - Playing (Play button, Spacebar, JKL) or Fullscreen or Idle: feed uncompressed sourceUrl
   const isPlayingActive = isPlaying || engine.jklVelocity !== 0;
   const activeStreamType: 'proxy' | 'source' = (engine.isScrubbing && !isFullscreen && proxyUrl) ? 'proxy' : 'source';
-  
-  const rawMediaUrl = activeStreamType === 'proxy' 
-    ? (proxyUrl || sourceUrl) 
+
+  const rawMediaUrl = activeStreamType === 'proxy'
+    ? (proxyUrl || sourceUrl)
     : (sourceUrl || proxyUrl);
 
-  const mediaUrl = rawMediaUrl || (currentSlide?.remoteUrl
+  const mediaUrl = vaultEntry?.url || rawMediaUrl || (currentSlide?.remoteUrl
     ? r2StorageService.getStreamUrl(currentSlide.remoteUrl, isVideo)
     : '');
 

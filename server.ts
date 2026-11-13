@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Modality } from '@google/genai';
@@ -11,20 +12,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 5173;
+const portArgIdx = process.argv.indexOf('--port');
+const cliPort = portArgIdx !== -1 ? Number(process.argv[portArgIdx + 1]) : NaN;
+const PORT = Number.isFinite(cliPort) && cliPort > 0 ? cliPort : 3000;
 const HOST = '0.0.0.0';
 
 app.use(express.json({ limit: '50mb' }));
 
-// Initialize Google GenAI with User-Agent header as required by SDK guidelines
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+// Lazy-initialize Google GenAI only when an /api/* AI route is invoked
+let cachedAiClient: GoogleGenAI | null = null;
+function getAiClient(): GoogleGenAI {
+  if (!cachedAiClient) {
+    cachedAiClient = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY || '',
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
   }
-});
+  return cachedAiClient;
+}
 
 // Safe Config Endpoint for Client-Side Initialization
 app.get('/api/config', (_req, res) => {
@@ -63,7 +72,7 @@ Provide a JSON object response with:
 3. "audioFrequencies": (e.g. "Low cut 80Hz, peak warmth at 220Hz, atmospheric breath at 8kHz")
 4. "ssmlScript": A clean SSML-compatible script text with appropriate <break time="400ms"/> pauses for dramatic cinematic weight.`;
 
-    const response = await ai.models.generateContent({
+    const response = await getAiClient().models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
@@ -102,7 +111,7 @@ Generate intelligent video editing decisions for a 10-second sequence:
 5. "opticalBloomLevel": number 0-100
 6. "suggestedAudioTransition": (e.g. "Sub-bass 36Hz swell crossfading into analog tape flutter")`;
 
-    const response = await ai.models.generateContent({
+    const response = await getAiClient().models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
@@ -129,7 +138,7 @@ app.post('/api/breakdown', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Prompt is required' });
     }
 
-    const response = await ai.models.generateContent({
+    const response = await getAiClient().models.generateContent({
       model: 'gemini-3.8-flash',
       contents: `${context ? `Context: ${context}\n\n` : ''}${prompt}`
     });
@@ -193,7 +202,7 @@ Add high-contrast visual juxtaposition and specify exact camera tilt or lighting
     res.setHeader('Connection', 'keep-alive');
 
     try {
-      const responseStream = await ai.models.generateContentStream({
+      const responseStream = await getAiClient().models.generateContentStream({
         model: 'gemini-3.8-flash',
         contents: fullPrompt
       });
@@ -213,7 +222,7 @@ Add high-contrast visual juxtaposition and specify exact camera tilt or lighting
     }
   } else {
     try {
-      const response = await ai.models.generateContent({
+      const response = await getAiClient().models.generateContent({
         model: 'gemini-3.8-flash',
         contents: fullPrompt
       });
@@ -243,7 +252,7 @@ app.post('/api/ai/image/generate', async (req, res) => {
     else if (aspectRatio === '3:4') validAspect = '3:4';
     else if (aspectRatio === '2.39:1' || aspectRatio === '21:9') validAspect = '16:9';
 
-    const interaction = await ai.interactions.create({
+    const interaction = await getAiClient().interactions.create({
       model: 'gemini-nano-banana-2.1',
       input: prompt,
       response_modalities: ['image', 'text'],
@@ -288,7 +297,7 @@ app.post('/api/ai/image/edit', async (req, res) => {
 
     const cleanData = imageBase64.replace(/^data:[^;]+;base64,/, '');
 
-    const interaction = await ai.interactions.create({
+    const interaction = await getAiClient().interactions.create({
       model: 'gemini-nano-banana-2.1',
       input: [
         {
@@ -338,7 +347,7 @@ app.post('/api/ai/video/animate', async (req, res) => {
     const cleanData = imageBase64.replace(/^data:[^;]+;base64,/, '');
     const validAspect = aspectRatio === '9:16' ? '9:16' : '16:9';
 
-    const interaction = await ai.interactions.create({
+    const interaction = await getAiClient().interactions.create({
       model: 'gemini-omni-1.1-flash',
       input: [
         {
@@ -391,7 +400,7 @@ app.post('/api/ai/music/generate', async (req, res) => {
 
     const cinematicPrompt = `Generate a cinematic film score cue lasting approx ${Math.min(30, Math.max(12, Math.round(durationSec)))} seconds: ${prompt}`;
 
-    const stream = await ai.models.generateContentStream({
+    const stream = await getAiClient().models.generateContentStream({
       model: 'lyria-3-clip-preview',
       contents: cinematicPrompt,
       config: {
@@ -437,6 +446,28 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', engine: 'RAWx Storyboard Engine Enterprise', time: new Date().toISOString() });
 });
 
+// Git Telemetry & Repository Status API
+app.get('/api/git/status', (_req, res) => {
+  try {
+    const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8', cwd: __dirname }).trim();
+    const commit = execSync('git rev-parse --short HEAD', { encoding: 'utf-8', cwd: __dirname }).trim();
+    const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd: __dirname }).trim();
+    const remotes = execSync('git remote -v', { encoding: 'utf-8', cwd: __dirname }).trim();
+    res.json({
+      success: true,
+      branch,
+      commit,
+      isClean: status.length === 0,
+      remotes: remotes ? remotes.split('\n') : []
+    });
+  } catch (error: any) {
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Mount Vite in Development
 async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
@@ -444,7 +475,7 @@ async function startServer() {
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: process.env.DISABLE_HMR !== 'true' },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);

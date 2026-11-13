@@ -58,7 +58,10 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
   const targetShot = useStudioStore((s) => s.project.shots?.[targetShotIndex]);
   const updateShot = useStudioStore((s) => s.updateShot);
   const isStagePlaying = useStudioStore((s) => s.isPlaying);
-  const setStagePlaying = useStudioStore((s) => s.setIsPlaying);
+  const setStagePlaying = (playing: boolean) => {
+    const cur = useStudioStore.getState();
+    if (cur.isPlaying !== playing) cur.togglePlay();
+  };
 
   const [activeTab, setActiveTab] = useState<ProAudioTab>(initialTab);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);

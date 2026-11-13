@@ -68,8 +68,8 @@ function createMockCanvasContext(): {
   return { ctx, drawnTexts, operations };
 }
 
-test('CINEMATIC_TITLE_PRESETS builds 15 distinct TitlePresetConfig objects across diverse layoutModes', () => {
-  assert.strictEqual(CINEMATIC_TITLE_PRESETS.length, 15);
+test('CINEMATIC_TITLE_PRESETS builds 24 distinct TitlePresetConfig objects across diverse layoutModes', () => {
+  assert.strictEqual(CINEMATIC_TITLE_PRESETS.length, 24);
   const configs = CINEMATIC_TITLE_PRESETS.map((p) => buildTitlePresetConfig(p));
 
   const presetIds = new Set(configs.map((c) => c.presetId));
@@ -77,7 +77,7 @@ test('CINEMATIC_TITLE_PRESETS builds 15 distinct TitlePresetConfig objects acros
   const animations = new Set(configs.map((c) => c.motionAnimation));
   const primaryColors = new Set(configs.map((c) => c.primaryColor));
 
-  assert.strictEqual(presetIds.size, 15, 'Every preset must produce a unique presetId');
+  assert.strictEqual(presetIds.size, 24, 'Every preset must produce a unique presetId');
   assert.ok(layoutModes.size >= 5, `Expected at least 5 distinct layoutModes, got ${Array.from(layoutModes).join(', ')}`);
   assert.ok(animations.size >= 4, `Expected at least 4 distinct animations, got ${Array.from(animations).join(', ')}`);
   assert.ok(primaryColors.size >= 5, 'Expected distinct color palettes across presets');

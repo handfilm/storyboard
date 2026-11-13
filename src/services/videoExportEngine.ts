@@ -1543,7 +1543,7 @@ async function buildExportMasterAudioBuffer(
 
       const voUrl = slide?.voAudioUrl ?? frame?.voAudioUrl ?? storeShot?.voAudioUrl;
       const sfxUrl = slide?.sfxAudioUrl ?? frame?.sfxAudioUrl ?? storeShot?.sfxAudioUrl;
-      const musicUrl = slide?.audioUrl ?? frame?.audioUrl ?? storeShot?.audioUrl;
+      const musicUrl = slide?.audioUrl ?? frame?.audioUrl ?? (storeShot as any)?.audioUrl;
       const isRev = Boolean(slide?.isReversed ?? frame?.isReversed ?? storeShot?.isReversed);
 
       // Duck ambient bed by -12dB (~0.25x) whenever this shot carries VO
@@ -1601,7 +1601,7 @@ function resolveExportShotDurationSec(slide: any, frame: any): number {
  * Resolves exact source <video> seek timestamp accounting for NLE inPointMs, playbackSpeed,
  * Velocity Speed-Ramp curves, and non-destructive `isReversed` clip playback.
  */
-function resolveExportVideoSeekSec(
+export function resolveExportVideoSeekSec(
   slide: any,
   frame: any,
   frameInShot: number,

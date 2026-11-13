@@ -28,8 +28,8 @@ test('Corporate B2B Data & Title Templates Registry', async (t) => {
   });
 
   await t.test('CINEMATIC_TITLE_PRESETS should include corporate templates without disrupting existing ones', () => {
-    // Total is now 15 (10 original + 5 corporate)
-    assert.equal(CINEMATIC_TITLE_PRESETS.length, 15);
+    // Total is now 24 (15 core + 4 viral-hooks + 4 end-credits + 1 dopamine)
+    assert.equal(CINEMATIC_TITLE_PRESETS.length, 24);
 
     const corporatePresets = CINEMATIC_TITLE_PRESETS.filter(p => p.category === 'corporate');
     assert.equal(corporatePresets.length, 5);

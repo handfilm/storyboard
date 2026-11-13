@@ -800,16 +800,16 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                       style={{
                         fontFamily: eyebrowLayer.fontFamily,
                         fontWeight: eyebrowLayer.fontWeight,
-                        fontSize: `${Math.max(9, Math.min(28, eyebrowLayer.fontSize))}px`,
+                        fontSize: `${Math.max(9, Math.min(28, eyebrowLayer.fontSize ?? 12))}px`,
                         letterSpacing: `${eyebrowLayer.letterSpacing}em`,
                         textTransform: eyebrowLayer.textTransform,
                         color: eyebrowLayer.color,
                         textShadow: eyebrowLayer.dropShadow,
-                        ...(eyebrowLayer.plate.enabled
+                        ...(eyebrowLayer.plate?.enabled
                           ? {
                               background: eyebrowLayer.plate.background,
                               border: eyebrowLayer.plate.border,
-                              borderRadius: `${eyebrowLayer.plate.borderRadius}px`,
+                              borderRadius: `${eyebrowLayer.plate.borderRadius ?? 6}px`,
                               padding: eyebrowLayer.plate.padding,
                             }
                           : {}),
@@ -1002,7 +1002,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                       style={{
                         fontFamily: creditsLayer.fontFamily,
                         fontWeight: creditsLayer.fontWeight,
-                        fontSize: `${Math.max(9, Math.min(24, creditsLayer.fontSize))}px`,
+                        fontSize: `${Math.max(9, Math.min(24, creditsLayer.fontSize ?? 11))}px`,
                         lineHeight: creditsLayer.lineHeight,
                         letterSpacing: `${creditsLayer.letterSpacing}em`,
                         textTransform: creditsLayer.textTransform,

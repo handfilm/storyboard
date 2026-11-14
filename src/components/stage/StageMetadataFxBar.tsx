@@ -1396,7 +1396,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
               </div>
             </div>
 
-            {/* ROW 4: Bilingual Typography Drawer + SAVE TO ALL Multi-Shot Propagate */}
+            {/* ROW 4: Bilingual Typography Drawer + SYNC ALL Multi-Shot Propagate */}
             <div className="flex items-center gap-1.5 pt-0.5">
               <button
                 type="button"
@@ -1413,17 +1413,17 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
               <button
                 type="button"
                 data-testid="title-fx-sync-all"
-                aria-label="Save current grid, film role, and optical settings to all shots"
+                aria-label="Sync current grid, film role, optical finish, and safe-zone lock across all shots"
                 onClick={handleSyncAllShots}
                 className={`py-1.5 px-2 rounded border font-bold text-[8px] flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap shrink-0 ${
                   syncAllConfirmed
                     ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_12px_rgba(245,158,11,0.45)]'
                     : 'bg-[#141417] hover:bg-[#F59E0B]/15 border-[#F59E0B]/50 text-[#F59E0B]'
                 }`}
-                title="Capture current grid, film role, and optical settings and apply instantly to all shots"
+                title="Propagate current title styling, safe-zone lock, film role, and optical finish across all timeline shots"
               >
                 {syncAllConfirmed ? <Check className="w-2.5 h-2.5" /> : <CopyCheck className="w-2.5 h-2.5" />}
-                <span>{syncAllConfirmed ? 'SAVED' : 'SAVE TO ALL'}</span>
+                <span>{syncAllConfirmed ? 'SYNCED' : 'SYNC ALL'}</span>
               </button>
             </div>
           </div>

@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && node scripts/sync-static.js",
+    "sync:mobile": "npm run build && npx cap sync android",
+    "build:desktop": "npx tauri build",
+    "build:all": "npm run lint && npm run sync:mobile && npx tauri build",
     "start": "node server.ts",
     "preview": "vite preview --port=3000 --host=0.0.0.0",
     "clean": "rm -rf dist",

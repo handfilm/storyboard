@@ -440,7 +440,7 @@ test('Zero-Slider [ TITLE FX ] Cinema Typography & Framing Deck structure, Safe 
     "id: 'kinetic'",
     'title-fx-open-drawer',
     'title-fx-sync-all',
-    'SAVE TO ALL',
+    'SYNC ALL',
     'ArrowUp',
     'ArrowDown',
     'ArrowLeft',
@@ -457,7 +457,7 @@ test('Zero-Slider [ TITLE FX ] Cinema Typography & Framing Deck structure, Safe 
     'quick-hud-nudge-right',
     'quick-hud-nudge-reset',
     'quick-hud-save-all',
-    'SAVE TO ALL',
+    'SYNC ALL',
     'e.shiftKey ? 2 : 12'
   ]) {
     assert.ok(overlaySrc.includes(needle), `Missing StageTextOverlay Quick Deck needle: ${needle}`);

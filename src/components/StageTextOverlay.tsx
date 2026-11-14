@@ -1319,10 +1319,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                         ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D]'
                         : 'bg-[#141417] hover:bg-[#F59E0B]/15 border-[#F59E0B]/50 text-[#F59E0B]'
                     }`}
-                    title="Save current grid, film role, and optical settings to all shots"
+                    title="Sync current title styling, safe-zone lock, and optical finish across all shots"
                   >
                     {quickSaveConfirmed ? <Check className="w-2.5 h-2.5" /> : <CopyCheck className="w-2.5 h-2.5" />}
-                    <span>{quickSaveConfirmed ? 'SAVED' : 'SAVE TO ALL'}</span>
+                    <span>{quickSaveConfirmed ? 'SYNCED' : 'SYNC ALL'}</span>
                   </button>
                 </div>
               </div>

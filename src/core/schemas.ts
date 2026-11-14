@@ -290,6 +290,40 @@ export const ShotSchema = z.object({
     })
     .optional(),
   liquifyData: z.string().optional(),
+  clipKeyframes: z
+    .array(
+      z.object({
+        id: z.string(),
+        timeNorm: z.number(),
+        x: z.number(),
+        y: z.number(),
+        scale: z.number(),
+        rotation: z.number(),
+        opacity: z.number(),
+        volume: z.number(),
+        easing: z.enum(['linear', 'ease-in', 'ease-out', 'ease-in-out'])
+      })
+    )
+    .optional(),
+  smartCutout: z
+    .object({
+      enabled: z.boolean(),
+      mode: z.enum(['ai-subject', 'chroma-green', 'chroma-blue']),
+      tolerance: z.number(),
+      feather: z.number(),
+      backgroundMode: z.enum(['transparent', 'obsidian', 'blur'])
+    })
+    .optional(),
+  colorWheels: z
+    .object({
+      lift: z.object({ r: z.number(), g: z.number(), b: z.number() }),
+      gamma: z.object({ r: z.number(), g: z.number(), b: z.number() }),
+      gain: z.object({ r: z.number(), g: z.number(), b: z.number() }),
+      grain: z.number(),
+      halation: z.number(),
+      motionBlur3d: z.number()
+    })
+    .optional(),
   updatedAt: z.number().default(() => Date.now())
 });
 

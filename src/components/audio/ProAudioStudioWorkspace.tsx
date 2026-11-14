@@ -292,8 +292,8 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       audioFx: { ...prevFx, [key]: nextVal }
     } as any);
     if (key === 'normalizeLufs14') {
-      multiTrackAudioBus.setStemGainDb('voice', nextVal ? 2.5 : 0);
-      multiTrackAudioBus.setStemGainDb('music', nextVal ? -3.0 : -6.0);
+      multiTrackAudioBus.setStemDb('voice', nextVal ? 2.5 : 0);
+      multiTrackAudioBus.setStemDb('music', nextVal ? -3.0 : -6.0);
     } else {
       multiTrackAudioBus.setStemEq('voice', 'low', nextVal ? -6 : 0);
     }

@@ -183,13 +183,15 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const storeVisibility = useStudioStore((s) => s.visibility.titlesAll);
   const storeTitleAlign = useStudioStore((s) => s.titleAlign);
   const storeTitleZone = useStudioStore((s) => s.titleZone);
+  const kineticReplayTick = useStudioStore((s) => s.kineticReplayTick);
   const storeShot = useStudioStore((s) => s.project.shots?.[shotIndex]);
   const updateShotTitleData = useStudioStore((s) => s.updateShotTitleData);
-  const setTitlePreset = useStudioStore((s) => s.setTitlePreset);
+  const setTitleMaterialSwatch = useStudioStore((s) => s.setTitleMaterialSwatch);
   const setTitleSize = useStudioStore((s) => s.setTitleSize);
-  const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
-  const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
   const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
+  const setTitleOpticalFinish = useStudioStore((s) => s.setTitleOpticalFinish);
+  const nudgeTitleOffset = useStudioStore((s) => s.nudgeTitleOffset);
+  const toggleTitleSafeGuard = useStudioStore((s) => s.toggleTitleSafeGuard);
 
   const [showQuickHud, setShowQuickHud] = useState(false);
 
@@ -250,6 +252,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const glow = propGlow ?? resolvedShotTitle.glowIntensity ?? 1.0;
   const tracking = propTracking ?? resolvedShotTitle.letterTracking ?? 0.15;
   const verticalOffset = propOffset ?? resolvedShotTitle.verticalOffset ?? 0;
+  const horizontalOffset = resolvedShotTitle.horizontalOffset ?? 0;
+  const safeGuardEnabled = Boolean(resolvedShotTitle.safeGuard);
+  const opticalFinish = resolvedShotTitle.opticalFinish;
   const titleSizePx = resolvedShotTitle.fontScale ?? 72;
   const scale = propScale ?? titleSizePx / 72;
 
@@ -258,12 +263,18 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     fontScale: titleSizePx,
     glowIntensity: glow,
     letterTracking: tracking,
-    verticalOffset
+    verticalOffset,
+    horizontalOffset,
+    safeGuard: safeGuardEnabled,
+    opticalFinish
   };
 
   const activeHeroPreset: HeroTitlePreset =
     propPreset ||
-    (presetConfig.presetId === 'titanium-silver' || presetConfig.presetId === 'neon-crimson'
+    (presetConfig.presetId === 'titanium-silver' ||
+    presetConfig.presetId === 'neon-crimson' ||
+    presetConfig.presetId === 'pure-white' ||
+    presetConfig.presetId === 'amber'
       ? presetConfig.presetId
       : 'molten-gold');
 
@@ -362,9 +373,14 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     shotType: shotType ?? storeShot?.shotType,
     panX: storeShot?.panX,
     panY: storeShot?.panY,
-    smartCropMode: storeShot?.smartCropMode
+    smartCropMode: storeShot?.smartCropMode,
+    safeGuard: safeGuardEnabled,
+    horizontalOffset,
+    verticalOffset
   });
   const effectiveAlign = choreography.effectiveAlign;
+  const effectiveVerticalOffset = choreography.clampedVerticalOffset;
+  const effectiveHorizontalOffset = choreography.clampedHorizontalOffset;
   const procedural = getShotProceduralSpec(shotIndex);
   const { palette: procPalette, architecture: procArch, opticalFx: procFx } = procedural;
 
@@ -391,6 +407,10 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const zoneMaxWidth = choreography.cssMaxWidth;
 
   const getVerticalAnchorStyle = (): React.CSSProperties => {
+    const xExpr =
+      effectiveHorizontalOffset === 0
+        ? horizontalTranslateX
+        : `calc(${horizontalTranslateX} + ${effectiveHorizontalOffset}px)`;
     if (choreography.cssVertical.top !== undefined) {
       const baseY = choreography.cssVertical.translateY;
       return {
@@ -398,7 +418,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
         left: horizontalAnchorLeft,
         right: horizontalAnchorRight,
         maxWidth: zoneMaxWidth,
-        transform: `translate3d(${horizontalTranslateX}, calc(${baseY} + ${verticalOffset}px), 0)`
+        transform: `translate3d(${xExpr}, calc(${baseY} + ${effectiveVerticalOffset}px), 0)`
       };
     }
     return {
@@ -406,7 +426,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       left: horizontalAnchorLeft,
       right: horizontalAnchorRight,
       maxWidth: zoneMaxWidth,
-      transform: `translate3d(${horizontalTranslateX}, ${verticalOffset}px, 0)`
+      transform: `translate3d(${xExpr}, ${effectiveVerticalOffset}px, 0)`
     };
   };
 
@@ -416,7 +436,12 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const subLayer: TitleLayerStyle = layerStyles.subtitle;
   const creditsLayer: TitleLayerStyle = layerStyles.credits;
 
-  const isCustomPreset = presetConfig.presetId !== 'molten-gold' && presetConfig.presetId !== 'titanium-silver' && presetConfig.presetId !== 'neon-crimson';
+  const isCustomPreset =
+    presetConfig.presetId !== 'molten-gold' &&
+    presetConfig.presetId !== 'titanium-silver' &&
+    presetConfig.presetId !== 'neon-crimson' &&
+    presetConfig.presetId !== 'pure-white' &&
+    presetConfig.presetId !== 'amber';
   const effectiveFontSizePx = isCustomPreset
     ? Math.max(20, Math.min(96, Math.round(bnLayer.fontSize || presetConfig.fontScale)))
     : Math.max(20, Math.min(96, Math.round((bnLayer.fontSize || titleSizePx) * scale * procArch.scaleMultiplier)));
@@ -434,6 +459,22 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const bnBloom = bnLayer.bloomIntensity ?? glow;
   const glowBlurPrimary = Math.max(0, Math.round(22 * bnBloom));
   const glowBlurAmbient = Math.max(0, Math.round(44 * bnBloom));
+  const isHalation = opticalFinish === 'halation';
+  const isCleanFinish = opticalFinish === 'clean';
+  const gradientFilter = isHalation
+    ? `drop-shadow(0 0 ${Math.max(10, glowBlurPrimary)}px rgba(239,68,68,0.88)) drop-shadow(0 0 ${Math.max(24, glowBlurAmbient)}px rgba(245,158,11,0.58))`
+    : isCleanFinish
+      ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.92))'
+      : bnBloom > 0.02
+        ? `drop-shadow(0 0 ${glowBlurPrimary}px ${presetConfig.glowColor}) drop-shadow(0 0 ${glowBlurAmbient}px ${presetConfig.glowColor})`
+        : bnLayer.dropShadow || 'drop-shadow(0 2px 6px rgba(0,0,0,0.85))';
+  const solidTextShadow = isHalation
+    ? `0 2px 8px rgba(0,0,0,0.9), 0 0 ${Math.max(12, glowBlurPrimary)}px rgba(239,68,68,0.88), 0 0 ${Math.max(28, glowBlurAmbient)}px rgba(245,158,11,0.58)`
+    : isCleanFinish
+      ? '0 2px 8px rgba(0,0,0,0.95)'
+      : bnBloom > 0.02
+        ? `0 2px 8px rgba(0,0,0,0.85), 0 0 ${glowBlurPrimary}px ${presetConfig.glowColor}, 0 0 ${glowBlurAmbient}px ${presetConfig.glowColor}`
+        : bnLayer.dropShadow || '0 2px 10px rgba(0,0,0,0.9)';
 
   const primaryTitleStyle: React.CSSProperties = {
     fontFamily: bnLayer.fontFamily || presetConfig.banglaFontFamily,
@@ -449,10 +490,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
           backgroundClip: 'text',
           color: 'transparent',
           WebkitTextFillColor: 'transparent',
-          filter:
-            bnBloom > 0.02
-              ? `drop-shadow(0 0 ${glowBlurPrimary}px ${presetConfig.glowColor}) drop-shadow(0 0 ${glowBlurAmbient}px ${presetConfig.glowColor})`
-              : bnLayer.dropShadow || 'drop-shadow(0 2px 6px rgba(0,0,0,0.85))'
+          filter: gradientFilter
         }
       : {
           color: bnLayer.color || presetConfig.primaryColor,
@@ -461,10 +499,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
             (bnLayer.strokeWidth ?? presetConfig.strokeWidth) > 0
               ? `${bnLayer.strokeWidth ?? presetConfig.strokeWidth}px ${bnLayer.strokeColor || presetConfig.strokeColor}`
               : undefined,
-          textShadow:
-            bnBloom > 0.02
-              ? `0 2px 8px rgba(0,0,0,0.85), 0 0 ${glowBlurPrimary}px ${presetConfig.glowColor}, 0 0 ${glowBlurAmbient}px ${presetConfig.glowColor}`
-              : bnLayer.dropShadow || '0 2px 10px rgba(0,0,0,0.9)'
+          textShadow: solidTextShadow
         }),
     transformOrigin:
       layoutEffectiveAlign === 'LEFT'
@@ -712,10 +747,11 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
               style={getVerticalAnchorStyle()}
             >
               <div
-                key={`kinetic-entrance-${shotIndex}-${choreography.zone9}`}
+                key={`kinetic-entrance-${shotIndex}-${choreography.zone9}-${kineticReplayTick}`}
                 className={`w-full max-w-full ${directionalMotionClass}`}
               >
               <div
+                key={`motion-finish-${shotIndex}-${opticalFinish || presetConfig.motionAnimation}-${kineticReplayTick}`}
                 className={`relative flex flex-col w-full max-w-full ${motionClass} title-morph-smooth ${blockAlignClasses} ${
                   presetConfig.layoutMode === 'lower-third-bar'
                     ? 'rounded-r-lg rounded-l-xs'
@@ -725,7 +761,9 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                         ? 'rounded-none'
                         : presetConfig.layoutMode === 'hud-bracket'
                           ? 'rounded-xs'
-                          : ''
+                          : opticalFinish === 'scrim'
+                            ? 'rounded-md'
+                            : ''
                 }`}
                 style={{
                   ...plateStyle,
@@ -1089,117 +1127,105 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
           </button>
 
           {showQuickHud && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-[#0B0B0D]/95 border border-white/[0.07] rounded-md p-3 font-mono text-[10px] text-[#8E8E93] space-y-2.5 backdrop-blur-2xl shadow-2xl animate-in fade-in duration-150 tabular-nums">
-              <div className="flex items-center justify-between text-[#F4F4F5] font-bold text-[9px] border-b border-white/[0.07] pb-1.5">
-                <span>HERO TITLE ENGINE</span>
-                <span className="text-[8px] bg-[#F59E0B]/15 border border-[#F59E0B]/40 px-1 py-0.2 rounded text-[#F59E0B] font-mono truncate max-w-[120px]">
-                  {presetConfig.presetName}
-                </span>
-              </div>
-
-              {/* Preset Selector */}
-              <div className="grid grid-cols-3 gap-1 pt-0.5">
+            <div className="absolute right-0 top-full mt-2 w-64 bg-[#0B0B0D]/95 border border-white/[0.07] rounded-md p-2.5 font-mono text-[9.5px] text-[#8E8E93] space-y-2 backdrop-blur-2xl shadow-2xl animate-in fade-in duration-150 tabular-nums">
+              <div className="flex items-center justify-between text-[#F4F4F5] font-bold text-[9px] border-b border-white/[0.07] pb-1">
+                <span>QUICK DECK</span>
                 <button
                   type="button"
-                  onClick={() => setTitlePreset('molten-gold')}
-                  className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
-                    activeHeroPreset === 'molten-gold' && activePresetId === 'molten-gold'
-                      ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                      : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
+                  onClick={toggleTitleSafeGuard}
+                  className={`px-1.5 py-0.5 rounded border text-[8px] font-bold cursor-pointer ${
+                    safeGuardEnabled
+                      ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D]'
+                      : 'bg-[#141417] border-white/[0.08] text-[#8E8E93]'
                   }`}
                 >
-                  GOLD
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTitlePreset('titanium-silver')}
-                  className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
-                    activeHeroPreset === 'titanium-silver'
-                      ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                      : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                  }`}
-                >
-                  SILVER
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTitlePreset('neon-crimson')}
-                  className={`p-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
-                    activeHeroPreset === 'neon-crimson'
-                      ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                      : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                  }`}
-                >
-                  CRIMSON
+                  SAFE {safeGuardEnabled ? 'ON' : 'OFF'}
                 </button>
               </div>
 
-              {/* Title Size Slider */}
-              <div>
-                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                  <span>TITLE SIZE</span>
-                  <span className="text-[#F59E0B] font-bold tabular-nums">{titleSizePx}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="36"
-                  max="120"
-                  step="2"
-                  value={titleSizePx}
-                  onChange={(e) => setTitleSize(parseInt(e.target.value, 10))}
-                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-                />
+              <div className="grid grid-cols-5 gap-1">
+                {(
+                  [
+                    { id: 'molten-gold', label: 'GLD' },
+                    { id: 'titanium-silver', label: 'SLV' },
+                    { id: 'neon-crimson', label: 'CRM' },
+                    { id: 'pure-white', label: 'WHT' },
+                    { id: 'amber', label: 'AMB' }
+                  ] as const
+                ).map((sw) => (
+                  <button
+                    key={sw.id}
+                    type="button"
+                    onClick={() => setTitleMaterialSwatch(sw.id)}
+                    className={`py-1 text-[8px] font-bold rounded border cursor-pointer transition-colors ${
+                      activeHeroPreset === sw.id
+                        ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
+                        : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
+                    }`}
+                  >
+                    {sw.label}
+                  </button>
+                ))}
               </div>
 
-              {/* Glow Intensity Slider */}
-              <div>
-                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                  <span>GLOW INTENSITY</span>
-                  <span className="text-[#F59E0B] font-bold tabular-nums">{Math.round(glow * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="2.0"
-                  step="0.05"
-                  value={glow}
-                  onChange={(e) => setTitleGlowIntensity(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-                />
+              <div className="grid grid-cols-4 gap-1">
+                {(['S', 'M', 'L', 'XL'] as const).map((lbl, idx) => {
+                  const px = [44, 60, 74, 92][idx];
+                  return (
+                    <button
+                      key={lbl}
+                      type="button"
+                      onClick={() => setTitleSize(px)}
+                      className={`py-1 text-[8px] font-bold rounded border cursor-pointer ${
+                        Math.abs(titleSizePx - px) <= 6
+                          ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D]'
+                          : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
+                      }`}
+                    >
+                      {lbl}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Vertical Offset Slider */}
-              <div>
-                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                  <span>VERTICAL OFFSET</span>
-                  <span className="text-[#F59E0B] font-bold tabular-nums">{verticalOffset}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="-120"
-                  max="120"
-                  step="5"
-                  value={verticalOffset}
-                  onChange={(e) => setTitleVerticalOffset(parseInt(e.target.value, 10))}
-                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-                />
+              <div className="grid grid-cols-4 gap-1">
+                {(
+                  [
+                    { id: 'clean', label: 'CLEAN' },
+                    { id: 'halation', label: 'HALO' },
+                    { id: 'scrim', label: 'SCRIM' },
+                    { id: 'kinetic', label: 'KINETIC' }
+                  ] as const
+                ).map((fin) => (
+                  <button
+                    key={fin.id}
+                    type="button"
+                    onClick={() => setTitleOpticalFinish(fin.id)}
+                    className={`py-1 text-[7.5px] font-bold rounded border cursor-pointer ${
+                      opticalFinish === fin.id
+                        ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B]'
+                        : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
+                    }`}
+                  >
+                    {fin.label}
+                  </button>
+                ))}
               </div>
 
-              {/* Tracking Slider */}
-              <div>
-                <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                  <span>TRACKING</span>
-                  <span className="text-[#F59E0B] font-bold tabular-nums">{tracking.toFixed(2)}em</span>
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex gap-1">
+                  <button type="button" onClick={(e) => nudgeTitleOffset(-(e.shiftKey ? 2 : 12), 0)} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">←</button>
+                  <button type="button" onClick={(e) => nudgeTitleOffset(0, -(e.shiftKey ? 2 : 12))} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">↑</button>
+                  <button type="button" onClick={(e) => nudgeTitleOffset(0, e.shiftKey ? 2 : 12)} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">↓</button>
+                  <button type="button" onClick={(e) => nudgeTitleOffset(e.shiftKey ? 2 : 12, 0)} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">→</button>
                 </div>
-                <input
-                  type="range"
-                  min="0.02"
-                  max="0.50"
-                  step="0.02"
-                  value={tracking}
-                  onChange={(e) => setTitleTracking(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-                />
+                <button
+                  type="button"
+                  onClick={() => setTitleTracking(tracking >= 0.2 ? 0.12 : 0.24)}
+                  className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F59E0B] text-[8px] cursor-pointer"
+                >
+                  TRK {tracking.toFixed(2)}em
+                </button>
               </div>
             </div>
           )}

@@ -248,6 +248,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   const setStoreAspectRatio = useStudioStore((s) => s.setAspectRatio);
   const setStoreFitMode = useStudioStore((s) => s.setFitMode);
   const isSafeZoneOverlayVisible = useStudioStore((s) => s.isSafeZoneOverlayVisible);
+  const isSafeGuardGuideHover = useStudioStore((s) => s.isSafeGuardGuideHover);
   const monitorGuidesVisible = useStudioStore((s) => s.monitorGuidesVisible);
   const monitorFocusPeaking = useStudioStore((s) => s.monitorFocusPeaking);
   const monitorZebraExposure = useStudioStore((s) => s.monitorZebraExposure);
@@ -2574,8 +2575,11 @@ export const TactileStage: React.FC<TactileStageProps> = ({
           </div>
         )}
 
-        {/* LIVE 90% TITLE-SAFE & 93% ACTION-SAFE GUIDE OVERLAY */}
-        {(isSafeZoneOverlayVisible || monitorGuidesVisible) && (() => {
+        {/* LIVE 90% TITLE-SAFE, 93% ACTION-SAFE & MULTI-PLATFORM SAFE GUARD OVERLAY */}
+        {(isSafeZoneOverlayVisible || monitorGuidesVisible || isSafeGuardGuideHover) && (() => {
+          const isSafeGuardLocked = Boolean(
+            frame?.titleData?.safeGuard ?? frame?.titleStyleConfig?.safeGuard
+          );
           const activeChoreography = resolveSpatialTitleChoreography({
             titleAlign,
             zone9: frame?.titleData?.zone9 ?? titleZone,
@@ -2584,13 +2588,41 @@ export const TactileStage: React.FC<TactileStageProps> = ({
             shotType: frame?.shotType,
             panX: frame?.panX,
             panY: frame?.panY,
-            smartCropMode: frame?.smartCropMode
+            smartCropMode: frame?.smartCropMode,
+            safeGuard: isSafeGuardLocked
           });
           return (
             <div
               data-testid="stage-safe-zone-guides"
               className="absolute inset-0 pointer-events-none select-none z-[18]"
             >
+              {/* 2.39:1 Letterbox Matte Bar Boundaries (Top/Bottom 12.5%) */}
+              {(isSafeGuardGuideHover || isSafeGuardLocked) && (
+                <>
+                  <div className="absolute inset-x-0 top-0 h-[12.5%] border-b border-dashed border-[#F59E0B]/70 bg-black/30">
+                    <span className="absolute bottom-1 left-2 text-[7.5px] font-mono font-bold text-[#F59E0B] bg-black/80 px-1 rounded">
+                      2.39:1 MATTE BAR (TOP)
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 h-[12.5%] border-t border-dashed border-[#F59E0B]/70 bg-black/30">
+                    <span className="absolute top-1 left-2 text-[7.5px] font-mono font-bold text-[#F59E0B] bg-black/80 px-1 rounded">
+                      2.39:1 MATTE BAR (BOTTOM)
+                    </span>
+                  </div>
+                  {/* 9:16 Reels / TikTok UI Dead-Zones (Right Engagement Icons + Bottom Caption Shelf) */}
+                  <div className="absolute top-[14%] right-0 bottom-[24%] w-[15.5%] border-l border-dashed border-rose-400/75 bg-rose-500/[0.06] flex items-center justify-center">
+                    <span className="text-[7px] font-mono font-bold text-rose-300 bg-black/80 px-1 py-0.5 rounded -rotate-90 whitespace-nowrap">
+                      9:16 ICONS DEAD-ZONE
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 h-[23.5%] border-t border-dashed border-rose-400/70 bg-rose-500/[0.05]">
+                    <span className="absolute top-1 right-2 text-[7px] font-mono font-bold text-rose-300 bg-black/80 px-1 rounded">
+                      9:16 REELS / TIKTOK CAPTION DEAD-ZONE
+                    </span>
+                  </div>
+                </>
+              )}
+
               {/* 93% Action-Safe Boundary */}
               <div className="absolute inset-[3.5%] border border-dashed border-cyan-400/55">
                 <span className="absolute top-1 left-1.5 text-[7.5px] font-mono font-bold text-cyan-300/90 bg-black/75 px-1 rounded">
@@ -2600,7 +2632,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
               {/* 90% Title-Safe Boundary + 3x3 Rule-of-Thirds Matrix */}
               <div className="absolute inset-[5%] border border-amber-400/75 shadow-[inset_0_0_24px_rgba(245,158,11,0.08)]">
                 <span className="absolute bottom-1 right-1.5 text-[7.5px] font-mono font-bold text-[#F59E0B] bg-black/80 px-1 rounded">
-                  90% TITLE SAFE · {activeChoreography.zone9.toUpperCase()}
+                  {isSafeGuardLocked ? 'SAFE GUARD LOCKED' : '90% TITLE SAFE'} · {activeChoreography.zone9.toUpperCase()}
                 </span>
                 <div className="w-full h-full grid grid-cols-3 grid-rows-3">
                   {TITLE_ZONE_9_MATRIX.map((cell) => {

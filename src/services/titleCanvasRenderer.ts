@@ -22,7 +22,11 @@ import {
   TitleKeyframeConfig,
   TitleMotionAnimation
 } from '../types/titlePreset';
-import { getZone9Metadata, isValidTitleZone9 } from './titleChoreographyEngine';
+import {
+  clampTitleOffsetsForSafeGuard,
+  getZone9Metadata,
+  isValidTitleZone9
+} from './titleChoreographyEngine';
 import {
   buildDefaultTitleLayers,
   DEFAULT_TITLE_KEYFRAMES,
@@ -149,8 +153,16 @@ function drawHeadlineText(
   ctx.save();
   ctx.font = fontSpec;
   setCanvasLetterSpacing(ctx, Math.min(0.28, config.letterTracking || 0.08));
-  ctx.shadowColor = config.glowColor || 'rgba(245, 166, 35, 0.75)';
-  ctx.shadowBlur = Math.max(0, Math.round(24 * (config.glowIntensity ?? 1.0) * scaleFactor));
+  if (config.opticalFinish === 'halation') {
+    ctx.shadowColor = 'rgba(239, 68, 68, 0.88)';
+    ctx.shadowBlur = Math.max(12, Math.round(28 * scaleFactor));
+  } else if (config.opticalFinish === 'clean') {
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = Math.round(6 * scaleFactor);
+  } else {
+    ctx.shadowColor = config.glowColor || 'rgba(245, 166, 35, 0.75)';
+    ctx.shadowBlur = Math.max(0, Math.round(24 * (config.glowIntensity ?? 1.0) * scaleFactor));
+  }
 
   // Vector outline stroke if configured (e.g. Rap/Brutalist)
   if (config.strokeWidth > 0 && config.strokeColor && config.strokeColor !== 'transparent') {
@@ -368,42 +380,53 @@ export function renderTitlePresetToCanvas(
       ? 'LEFT'
       : rawAlign;
 
-  // 90% Title-Safe horizontal margins (5.5% inset from edges, 50% center)
-  const padX = Math.round(width * 0.055);
+  const isSafeGuard = Boolean(config.safeGuard);
+  const resolvedZoneKey: TitleZone9 = explicitZoneMeta ? explicitZoneMeta.zone : 'center-hero';
+  const clampedOffsets = clampTitleOffsetsForSafeGuard(
+    resolvedZoneKey,
+    config.horizontalOffset || 0,
+    config.verticalOffset || 0,
+    isSafeGuard
+  );
+
+  // 90% Title-Safe horizontal margins (or Safe Guard 2.39:1 + 9:16 margins when enabled)
+  const leftInsetRatio = isSafeGuard ? 0.08 : 0.055;
+  const rightInsetRatio = isSafeGuard ? 0.16 : 0.055;
+  const offsetX = clampedOffsets.x * scaleFactor;
   const anchorX =
-    effectiveAlign === 'LEFT'
-      ? padX
+    (effectiveAlign === 'LEFT'
+      ? Math.round(width * leftInsetRatio)
       : effectiveAlign === 'RIGHT'
-        ? width - padX
-        : Math.round(width * 0.5);
+        ? width - Math.round(width * rightInsetRatio)
+        : Math.round(width * (isSafeGuard ? 0.48 : 0.5))) + offsetX;
   const textAlign: CanvasTextAlign =
     effectiveAlign === 'LEFT' ? 'left' : effectiveAlign === 'RIGHT' ? 'right' : 'center';
 
   const banglaFontPx = Math.max(20, Math.round((config.fontScale || 72) * scaleFactor * 0.72));
   const englishFontPx = Math.max(11, Math.round(17 * scaleFactor));
   const dialogueFontPx = Math.max(10, Math.round(14 * scaleFactor));
-  const maxTextW = Math.round(width * 0.84);
-  const offsetY = (config.verticalOffset || 0) * scaleFactor;
+  const maxTextW = Math.round(width * (isSafeGuard ? 0.72 : 0.84));
+  const offsetY = clampedOffsets.y * scaleFactor;
   const accentHex = config.backdropPlate?.accentBarColor || config.primaryColor || '#F5A623';
 
   // Vertical anchor from explicit 9-zone grid OR per layoutMode (1:1 parity with Stage)
-  let anchorY = Math.round(height * 0.48 + offsetY);
+  let anchorY = Math.round(height * (isSafeGuard ? 0.47 : 0.48) + offsetY);
   if (explicitZoneMeta) {
     if (explicitZoneMeta.row === 'top') {
-      anchorY = Math.round(height * 0.165 + offsetY);
+      anchorY = Math.round(height * (isSafeGuard ? 0.19 : 0.165) + offsetY);
     } else if (explicitZoneMeta.row === 'lower') {
-      anchorY = Math.round(height * 0.81 + offsetY);
+      anchorY = Math.round(height * (isSafeGuard ? 0.72 : 0.81) + offsetY);
     } else {
-      anchorY = Math.round(height * 0.48 + offsetY);
+      anchorY = Math.round(height * (isSafeGuard ? 0.47 : 0.48) + offsetY);
     }
   } else if (config.layoutMode === 'lower-third-bar') {
-    anchorY = Math.round(height * 0.81 + offsetY);
+    anchorY = Math.round(height * (isSafeGuard ? 0.72 : 0.81) + offsetY);
   } else if (config.layoutMode === 'hud-bracket') {
-    anchorY = Math.round(height * 0.17 + offsetY);
+    anchorY = Math.round(height * (isSafeGuard ? 0.19 : 0.17) + offsetY);
   } else if (config.layoutMode === 'brutalist-box') {
-    anchorY = Math.round(height * 0.79 + offsetY);
+    anchorY = Math.round(height * (isSafeGuard ? 0.72 : 0.79) + offsetY);
   } else if (config.layoutMode === 'minimal-whisper') {
-    anchorY = Math.round(height * 0.82 + offsetY);
+    anchorY = Math.round(height * (isSafeGuard ? 0.72 : 0.82) + offsetY);
   }
 
   ctx.save();

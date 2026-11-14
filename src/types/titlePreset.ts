@@ -100,6 +100,10 @@ export interface TitleBackdropPlate {
   borderRadius?: number;
 }
 
+export type TitleDirectorRole = 'imax-card' | 'lower-3rd' | 'subtitle' | 'credit';
+
+export type TitleOpticalFinish = 'clean' | 'halation' | 'scrim' | 'kinetic';
+
 export interface TitlePresetConfig {
   presetId: string;
   presetName: string;
@@ -120,6 +124,10 @@ export interface TitlePresetConfig {
   letterTracking: number; // 0.0 to 0.60 em
   fontScale: number; // 24 to 160 px
   verticalOffset: number; // -200 to +200 px
+  horizontalOffset?: number; // -240 to +240 px
+  safeGuard?: boolean;
+  directorRole?: TitleDirectorRole;
+  opticalFinish?: TitleOpticalFinish;
   uppercase?: boolean;
   layers?: Partial<Record<TitleLayerKey, TitleLayerStyle>>;
   keyframes?: Partial<TitleKeyframeConfig>;
@@ -158,6 +166,10 @@ export interface ShotTitleData {
   glowIntensity: number;
   letterTracking: number;
   verticalOffset: number;
+  horizontalOffset?: number;
+  safeGuard?: boolean;
+  directorRole?: TitleDirectorRole;
+  opticalFinish?: TitleOpticalFinish;
   entranceAnim?: TitleMotionAnimation | string;
   exitAnim?: 'dissolve-out' | 'slide-out' | 'glitch-slice' | '3d-flip' | 'none';
   layers?: Partial<Record<TitleLayerKey, TitleLayerStyle>>;

@@ -131,8 +131,11 @@ class KeyScopeManager {
     if (this.isListening || typeof window === 'undefined') return () => {};
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Universal input suppression
+      // 1. Universal input suppression & active Title FX Framing Deck focus lock
       if (this.isInputElement(e.target)) return;
+      if (typeof document !== 'undefined' && document.querySelector('[data-title-fx-deck="true"]')) {
+        return;
+      }
 
       // 2. Global Shortcut Cheat Sheet: '?' or Shift+/
       if (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'))) {

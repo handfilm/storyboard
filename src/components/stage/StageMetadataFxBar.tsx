@@ -21,14 +21,26 @@ import {
   LayoutGrid,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
   Sparkles,
   Crosshair,
   Frame,
   Activity,
   SplitSquareHorizontal,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ShieldCheck,
+  CopyCheck,
+  Check
 } from 'lucide-react';
-import { useStudioStore, HeroTitlePreset, TitleAlign, StageViewportScale } from '../../core/store';
+import {
+  useStudioStore,
+  HeroTitlePreset,
+  TitleAlign,
+  StageViewportScale,
+  TitleDirectorRole,
+  TitleOpticalFinish
+} from '../../core/store';
 import { MultiLayerZoomControls } from '../optics/MultiLayerZoomControls';
 import { eventBus } from '../../core/eventBus';
 import { playbackClock, formatSmpteTimecode } from '../../utils/playbackClock';
@@ -112,11 +124,16 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   const resetDigitalZoom = useStudioStore((s) => s.resetDigitalZoom);
 
   const storeTitleConfig = useStudioStore((s) => s.titleConfig);
-  const setTitlePreset = useStudioStore((s) => s.setTitlePreset);
+  const setTitleMaterialSwatch = useStudioStore((s) => s.setTitleMaterialSwatch);
   const setTitleSize = useStudioStore((s) => s.setTitleSize);
-  const setTitleGlowIntensity = useStudioStore((s) => s.setTitleGlowIntensity);
-  const setTitleVerticalOffset = useStudioStore((s) => s.setTitleVerticalOffset);
   const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
+  const nudgeTitleOffset = useStudioStore((s) => s.nudgeTitleOffset);
+  const resetTitleOffset = useStudioStore((s) => s.resetTitleOffset);
+  const toggleTitleSafeGuard = useStudioStore((s) => s.toggleTitleSafeGuard);
+  const applyDirectorTitleRole = useStudioStore((s) => s.applyDirectorTitleRole);
+  const setTitleOpticalFinish = useStudioStore((s) => s.setTitleOpticalFinish);
+  const copyTitleStyleToAllShots = useStudioStore((s) => s.copyTitleStyleToAllShots);
+  const setIsSafeGuardGuideHover = useStudioStore((s) => s.setIsSafeGuardGuideHover);
 
   const stageScale = useStudioStore((s) => s.stageScale);
   const setStageScale = useStudioStore((s) => s.setStageScale);
@@ -134,11 +151,14 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   const [isTitleFxOpen, setIsTitleFxOpen] = useState(false);
   const [isMatrixOpen, setIsMatrixOpen] = useState(false);
   const [isMatrixPinned, setIsMatrixPinned] = useState(false);
+  const [syncAllConfirmed, setSyncAllConfirmed] = useState(false);
 
   const zoomBtnRef = useRef<HTMLButtonElement | null>(null);
   const titleFxBtnRef = useRef<HTMLButtonElement | null>(null);
+  const titleFxDeckRef = useRef<HTMLDivElement | null>(null);
   const matrixBtnRef = useRef<HTMLButtonElement | null>(null);
   const matrixCloseTimerRef = useRef<number | null>(null);
+  const syncFeedbackTimerRef = useRef<number | null>(null);
 
   const [zoomAnchor, setZoomAnchor] = useState<{ right: number; top: number } | null>(null);
   const [titleFxAnchor, setTitleFxAnchor] = useState<{ right: number; top: number } | null>(null);
@@ -155,6 +175,14 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
     ? titleZone
     : (shotTitleData.zone9 ?? 'AUTO');
 
+  const safeGuardEnabled = Boolean(shotTitleData.safeGuard ?? resolvedPresetConfig.safeGuard);
+  const verticalOffset = shotTitleData.verticalOffset ?? 0;
+  const horizontalOffset = shotTitleData.horizontalOffset ?? 0;
+  const activeDirectorRole: TitleDirectorRole | undefined =
+    shotTitleData.directorRole ?? resolvedPresetConfig.directorRole;
+  const activeOpticalFinish: TitleOpticalFinish | undefined =
+    shotTitleData.opticalFinish ?? resolvedPresetConfig.opticalFinish;
+
   const choreography = resolveSpatialTitleChoreography({
     titleAlign: activeShotAlign,
     zone9: activeShotZone,
@@ -164,18 +192,21 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
     panX: activeFrame?.panX,
     panY: activeFrame?.panY,
     smartCropMode: activeFrame?.smartCropMode,
-    aspectRatio
+    aspectRatio,
+    safeGuard: safeGuardEnabled,
+    horizontalOffset,
+    verticalOffset
   });
 
   const activePreset: HeroTitlePreset =
     shotTitleData.presetId === 'molten-gold' ||
     shotTitleData.presetId === 'titanium-silver' ||
-    shotTitleData.presetId === 'neon-crimson'
+    shotTitleData.presetId === 'neon-crimson' ||
+    shotTitleData.presetId === 'pure-white' ||
+    shotTitleData.presetId === 'amber'
       ? shotTitleData.presetId
       : (storeTitleConfig?.preset || 'molten-gold');
-  const glow = shotTitleData.glowIntensity ?? 1.0;
   const tracking = shotTitleData.letterTracking ?? 0.15;
-  const verticalOffset = shotTitleData.verticalOffset ?? 0;
   const titleSizePx = shotTitleData.fontScale ?? 72;
 
   useEffect(() => {
@@ -185,18 +216,102 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
       setIsMatrixOpen(false);
       setIsMatrixPinned(false);
       setIsSafeZoneOverlayVisible(false);
+      setIsSafeGuardGuideHover(false);
     };
     window.addEventListener('resize', closeAll);
     return () => {
       window.removeEventListener('resize', closeAll);
       if (matrixCloseTimerRef.current) window.clearTimeout(matrixCloseTimerRef.current);
+      if (syncFeedbackTimerRef.current) window.clearTimeout(syncFeedbackTimerRef.current);
       setIsSafeZoneOverlayVisible(false);
+      setIsSafeGuardGuideHover(false);
     };
-  }, [setIsSafeZoneOverlayVisible]);
+  }, [setIsSafeZoneOverlayVisible, setIsSafeGuardGuideHover]);
 
   useEffect(() => {
     setIsSafeZoneOverlayVisible(isMatrixOpen);
   }, [isMatrixOpen, setIsSafeZoneOverlayVisible]);
+
+  useEffect(() => {
+    if (!isTitleFxOpen) {
+      setIsSafeGuardGuideHover(false);
+      return;
+    }
+    const raf = window.requestAnimationFrame(() => {
+      titleFxDeckRef.current?.focus({ preventScroll: true });
+    });
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      const step = e.shiftKey ? 2 : 12;
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          e.stopPropagation();
+          setIsTitleFxOpen(false);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          e.stopPropagation();
+          nudgeTitleOffset(0, -step);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          e.stopPropagation();
+          nudgeTitleOffset(0, step);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          e.stopPropagation();
+          nudgeTitleOffset(-step, 0);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          e.stopPropagation();
+          nudgeTitleOffset(step, 0);
+          break;
+        case 'g':
+        case 'G':
+          e.preventDefault();
+          e.stopPropagation();
+          toggleTitleSafeGuard();
+          break;
+        case '1':
+          e.preventDefault();
+          e.stopPropagation();
+          applyDirectorTitleRole('imax-card');
+          break;
+        case '2':
+          e.preventDefault();
+          e.stopPropagation();
+          applyDirectorTitleRole('lower-3rd');
+          break;
+        case '3':
+          e.preventDefault();
+          e.stopPropagation();
+          applyDirectorTitleRole('subtitle');
+          break;
+        case '4':
+          e.preventDefault();
+          e.stopPropagation();
+          applyDirectorTitleRole('credit');
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [
+    isTitleFxOpen,
+    nudgeTitleOffset,
+    toggleTitleSafeGuard,
+    applyDirectorTitleRole,
+    setIsSafeGuardGuideHover
+  ]);
 
   const clearMatrixCloseTimer = () => {
     if (matrixCloseTimerRef.current) {
@@ -268,6 +383,15 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
       });
     }
     setIsTitleFxOpen((v) => !v);
+  };
+
+  const handleSyncAllShots = () => {
+    copyTitleStyleToAllShots(shotIndex);
+    setSyncAllConfirmed(true);
+    if (syncFeedbackTimerRef.current) window.clearTimeout(syncFeedbackTimerRef.current);
+    syncFeedbackTimerRef.current = window.setTimeout(() => {
+      setSyncAllConfirmed(false);
+    }, 1600);
   };
 
   const frameTagDomRef = useRef<HTMLSpanElement | null>(null);
@@ -848,14 +972,23 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
         document.body
       )}
 
-      {/* PORTALED [ TITLE FX ] POPOVER */}
+      {/* PORTALED [ TITLE FX ] ZERO-SLIDER CINEMA TYPOGRAPHY & FRAMING DECK */}
       {isTitleFxOpen && titleFxAnchor && typeof document !== 'undefined' && createPortal(
         <>
           <div
             className="fixed inset-0 z-[9998]"
-            onClick={() => setIsTitleFxOpen(false)}
+            onClick={() => {
+              setIsSafeGuardGuideHover(false);
+              setIsTitleFxOpen(false);
+            }}
           />
           <div
+            ref={titleFxDeckRef}
+            role="dialog"
+            aria-label="Cinema Typography & Framing Deck"
+            data-testid="title-fx-popover"
+            data-title-fx-deck="true"
+            tabIndex={-1}
             style={{
               position: 'fixed',
               top: `${titleFxAnchor.top}px`,
@@ -863,136 +996,407 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
               zIndex: 9999
             }}
             onClick={(e) => e.stopPropagation()}
-            className="w-72 bg-[#0B0B0D]/96 border border-white/[0.07] rounded-lg p-3 font-mono text-[10px] text-[#F4F4F5] space-y-2.5 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.95)] animate-in fade-in duration-150 tabular-nums"
+            className="w-[344px] bg-[#0B0B0D]/98 border border-white/[0.1] rounded-lg p-2.5 font-mono text-[9.5px] text-[#F4F4F5] space-y-2 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.96)] animate-in fade-in duration-150 tabular-nums outline-none"
           >
-            <div className="flex items-center justify-between text-[#F59E0B] font-bold text-[9.5px] border-b border-white/[0.07] pb-1.5 gap-1">
-              <span className="truncate">{resolvedPresetConfig.presetName}</span>
-              {onToggleTitles && (
+            {/* Deck Header */}
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-1.5 gap-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[#F59E0B] font-bold text-[9px] tracking-wider whitespace-nowrap">
+                  TITLE FX DECK
+                </span>
+                <span className="text-white/20">·</span>
+                <span className="text-[8.5px] text-[#8E8E93] truncate">
+                  {resolvedPresetConfig.presetName}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[8px] text-[#8E8E93] tabular-nums whitespace-nowrap">
+                  {titleSizePx}px · {tracking.toFixed(2)}em
+                </span>
+                {onToggleTitles && (
+                  <button
+                    type="button"
+                    data-testid="title-fx-strip-toggle"
+                    onClick={onToggleTitles}
+                    className={`px-1.5 py-0.5 rounded border text-[8px] font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
+                      isTitlesActive
+                        ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F59E0B]'
+                        : 'bg-[#141417] border-white/[0.08] text-[#8E8E93] hover:text-[#F4F4F5]'
+                    }`}
+                    title="Toggle Title Visibility (T)"
+                  >
+                    {isTitlesActive ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                    <span>{isTitlesActive ? 'ON' : 'OFF'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ROW 1: 9-Zone Cinema Rule-of-Thirds Matrix + Micro-Nudge D-Pad + SAFE GUARD */}
+            <div className="grid grid-cols-[108px_1fr_84px] gap-1.5 items-stretch bg-[#141417]/75 border border-white/[0.07] rounded-md p-1.5">
+              {/* 3x3 Tactical Anchor Grid (TL TC TR / ML MC MR / BL BC BR) */}
+              <div className="flex flex-col justify-between gap-1">
+                <div className="flex items-center justify-between text-[7.5px] text-[#8E8E93] px-0.5">
+                  <span>9-ZONE</span>
+                  <button
+                    type="button"
+                    data-testid="title-fx-zone-auto"
+                    onClick={() => setTitleZone('AUTO')}
+                    className={`px-1 rounded text-[7px] font-bold cursor-pointer transition-colors ${
+                      activeShotZone === 'AUTO'
+                        ? 'bg-[#F59E0B] text-[#0B0B0D]'
+                        : 'bg-[#0B0B0D] text-[#8E8E93] hover:text-[#F4F4F5]'
+                    }`}
+                    title="Auto Subject-Aware Negative Space"
+                  >
+                    AUTO
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-0.5">
+                  {(
+                    [
+                      { zone: 'top-left', lbl: 'TL' },
+                      { zone: 'top-center', lbl: 'TC' },
+                      { zone: 'top-right', lbl: 'TR' },
+                      { zone: 'mid-left', lbl: 'ML' },
+                      { zone: 'center-hero', lbl: 'MC' },
+                      { zone: 'mid-right', lbl: 'MR' },
+                      { zone: 'lower-left', lbl: 'BL' },
+                      { zone: 'lower-center', lbl: 'BC' },
+                      { zone: 'lower-right', lbl: 'BR' }
+                    ] as Array<{ zone: TitleZone9; lbl: string }>
+                  ).map((cell) => {
+                    const isCellActive = choreography.zone9 === cell.zone;
+                    const isLocked = activeShotZone === cell.zone;
+                    return (
+                      <button
+                        key={cell.zone}
+                        type="button"
+                        data-testid={`title-fx-zone-${cell.lbl}`}
+                        onClick={() => setTitleZone(cell.zone)}
+                        className={`h-[20px] rounded border text-[7.5px] font-bold flex items-center justify-center cursor-pointer transition-all ${
+                          isCellActive
+                            ? isLocked
+                              ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+                              : 'bg-[#F59E0B]/20 border-[#F59E0B]/80 text-[#F59E0B]'
+                            : 'bg-[#0B0B0D] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/40'
+                        }`}
+                        title={`Lock Zone: ${cell.lbl}`}
+                      >
+                        {cell.lbl}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Micro-Nudge D-Pad (±12px click, ±2px Shift+click) */}
+              <div className="flex flex-col items-center justify-between border-x border-white/[0.06] px-1.5">
+                <div className="w-full flex items-center justify-between text-[7.5px] text-[#8E8E93]">
+                  <span>NUDGE</span>
+                  <span className="text-[#F59E0B] tabular-nums">
+                    {choreography.clampedHorizontalOffset >= 0 ? '+' : ''}
+                    {choreography.clampedHorizontalOffset},{choreography.clampedVerticalOffset >= 0 ? '+' : ''}
+                    {choreography.clampedVerticalOffset}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-0.5 w-[74px]">
+                  <span />
+                  <button
+                    type="button"
+                    data-testid="title-fx-nudge-up"
+                    onClick={(e) => nudgeTitleOffset(0, -(e.shiftKey ? 2 : 12))}
+                    className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
+                    title="Nudge Up 12px (Shift: 2px)"
+                  >
+                    <ArrowUp className="w-2.5 h-2.5" />
+                  </button>
+                  <span />
+                  <button
+                    type="button"
+                    data-testid="title-fx-nudge-left"
+                    onClick={(e) => nudgeTitleOffset(-(e.shiftKey ? 2 : 12), 0)}
+                    className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
+                    title="Nudge Left 12px (Shift: 2px)"
+                  >
+                    <ArrowLeft className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="title-fx-nudge-reset"
+                    onClick={resetTitleOffset}
+                    className={`h-[20px] rounded border text-[7px] font-bold flex items-center justify-center cursor-pointer transition-colors ${
+                      horizontalOffset === 0 && verticalOffset === 0
+                        ? 'bg-[#1C1C22] border-white/[0.07] text-[#8E8E93]'
+                        : 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F59E0B]'
+                    }`}
+                    title="Reset X/Y Nudge to 0,0"
+                  >
+                    0,0
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="title-fx-nudge-right"
+                    onClick={(e) => nudgeTitleOffset(e.shiftKey ? 2 : 12, 0)}
+                    className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
+                    title="Nudge Right 12px (Shift: 2px)"
+                  >
+                    <ArrowRight className="w-2.5 h-2.5" />
+                  </button>
+                  <span />
+                  <button
+                    type="button"
+                    data-testid="title-fx-nudge-down"
+                    onClick={(e) => nudgeTitleOffset(0, e.shiftKey ? 2 : 12)}
+                    className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
+                    title="Nudge Down 12px (Shift: 2px)"
+                  >
+                    <ArrowDown className="w-2.5 h-2.5" />
+                  </button>
+                  <span />
+                </div>
+              </div>
+
+              {/* SAFE GUARD Toggle (Clamps 2.39:1 Matte + 9:16 Reels Dead-Zones; Shows Guides on Hover) */}
+              <div className="flex flex-col justify-between gap-1">
+                <span className="text-[7.5px] text-[#8E8E93] text-center">MULTI-FRAME</span>
                 <button
                   type="button"
-                  onClick={onToggleTitles}
-                  className={`px-1.5 py-0.5 rounded border text-[8.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
-                    isTitlesActive
-                      ? 'bg-[#F59E0B]/15 border-[#F59E0B]/60 text-[#F4F4F5]'
-                      : 'bg-[#141417] border-white/[0.07] text-[#8E8E93]'
+                  data-testid="title-fx-safe-guard"
+                  aria-pressed={safeGuardEnabled}
+                  onMouseEnter={() => setIsSafeGuardGuideHover(true)}
+                  onMouseLeave={() => setIsSafeGuardGuideHover(false)}
+                  onClick={toggleTitleSafeGuard}
+                  className={`flex-1 rounded border flex flex-col items-center justify-center gap-0.5 px-1 cursor-pointer transition-all ${
+                    safeGuardEnabled
+                      ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_14px_rgba(245,158,11,0.4)]'
+                      : 'bg-[#0B0B0D] border-white/[0.08] text-[#8E8E93] hover:border-[#F59E0B]/60 hover:text-[#F4F4F5]'
                   }`}
+                  title="Auto-clamp out of 2.39:1 Matte bars & 9:16 Reels/TikTok UI dead-zones (Shortcut: G)"
                 >
-                  {isTitlesActive ? <Eye className="w-2.5 h-2.5 text-[#F59E0B]" /> : <EyeOff className="w-2.5 h-2.5" />}
-                  <span>{isTitlesActive ? 'STRIP ON' : 'STRIP OFF'}</span>
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="text-[8px] font-bold leading-tight whitespace-nowrap">SAFE GUARD</span>
+                  <span className={`text-[7px] leading-none font-bold ${safeGuardEnabled ? 'text-[#0B0B0D]/80' : 'text-[#F59E0B]'}`}>
+                    {safeGuardEnabled ? '2.39+9:16' : 'LOCK OFF'}
+                  </span>
                 </button>
-              )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1">
+            {/* ROW 2: Director Role Presets + Scale (S/M/L/XL, -/+) & Tracking Steppers */}
+            <div className="space-y-1.5 bg-[#141417]/75 border border-white/[0.07] rounded-md p-1.5">
+              {/* 4 Director Role Presets */}
+              <div className="grid grid-cols-4 gap-1">
+                {(
+                  [
+                    { id: 'imax-card', label: 'IMAX CARD', hint: 'Hero Bold · 0.22em Tracking (Key 1)' },
+                    { id: 'lower-3rd', label: 'LOWER 3RD', hint: 'Broadcast Left Plate + Scrim (Key 2)' },
+                    { id: 'subtitle', label: 'SUBTITLE', hint: 'Bottom-Safe Dialogue Lockup (Key 3)' },
+                    { id: 'credit', label: 'CREDIT', hint: 'Minimalist End-Card / Chapter (Key 4)' }
+                  ] as Array<{ id: TitleDirectorRole; label: string; hint: string }>
+                ).map((role) => {
+                  const isActive = activeDirectorRole === role.id;
+                  return (
+                    <button
+                      key={role.id}
+                      type="button"
+                      data-testid={`title-fx-role-${role.id}`}
+                      aria-pressed={isActive}
+                      onClick={() => applyDirectorTitleRole(role.id)}
+                      title={role.hint}
+                      className={`h-[22px] px-1 rounded border text-[7.5px] font-bold whitespace-nowrap cursor-pointer transition-all ${
+                        isActive
+                          ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_10px_rgba(245,158,11,0.35)]'
+                          : 'bg-[#0B0B0D] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/40'
+                      }`}
+                    >
+                      {role.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Scale & Tracking Pill Steppers */}
+              <div className="grid grid-cols-[148px_1fr] gap-1.5">
+                {/* SCALE - | S M L XL | SCALE + */}
+                <div className="flex items-center gap-0.5 bg-[#0B0B0D] border border-white/[0.07] rounded p-0.5">
+                  <button
+                    type="button"
+                    data-testid="title-fx-scale-minus"
+                    onClick={(e) => setTitleSize(titleSizePx - (e.shiftKey ? 2 : 6))}
+                    className="px-1 h-[18px] rounded text-[8.5px] font-bold text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-white/[0.06] cursor-pointer shrink-0"
+                    title="SCALE - (6px, Shift: 2px)"
+                  >
+                    −
+                  </button>
+                  {(
+                    [
+                      { lbl: 'S', px: 44 },
+                      { lbl: 'M', px: 60 },
+                      { lbl: 'L', px: 74 },
+                      { lbl: 'XL', px: 92 }
+                    ] as const
+                  ).map((sz) => {
+                    const isCurrent = Math.abs(titleSizePx - sz.px) <= 5;
+                    return (
+                      <button
+                        key={sz.lbl}
+                        type="button"
+                        data-testid={`title-fx-scale-${sz.lbl}`}
+                        onClick={() => setTitleSize(sz.px)}
+                        className={`flex-1 h-[18px] rounded text-[7.5px] font-bold cursor-pointer transition-colors ${
+                          isCurrent
+                            ? 'bg-[#F59E0B] text-[#0B0B0D]'
+                            : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+                        }`}
+                        title={`Size ${sz.lbl} (${sz.px}px)`}
+                      >
+                        {sz.lbl}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    data-testid="title-fx-scale-plus"
+                    onClick={(e) => setTitleSize(titleSizePx + (e.shiftKey ? 2 : 6))}
+                    className="px-1 h-[18px] rounded text-[8.5px] font-bold text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-white/[0.06] cursor-pointer shrink-0"
+                    title="SCALE + (6px, Shift: 2px)"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* TRACKING: TIGHT | NORM | WIDE | ANAMORPHIC */}
+                <div className="flex items-center gap-0.5 bg-[#0B0B0D] border border-white/[0.07] rounded p-0.5">
+                  {(
+                    [
+                      { lbl: 'TIGHT', short: 'TIGHT', val: 0.04 },
+                      { lbl: 'NORM', short: 'NORM', val: 0.12 },
+                      { lbl: 'WIDE', short: 'WIDE', val: 0.22 },
+                      { lbl: 'ANAMORPHIC', short: 'ANAM', val: 0.34 }
+                    ] as const
+                  ).map((trk) => {
+                    const isCurrent = Math.abs(tracking - trk.val) <= 0.035;
+                    return (
+                      <button
+                        key={trk.lbl}
+                        type="button"
+                        data-testid={`title-fx-tracking-${trk.lbl}`}
+                        onClick={() => setTitleTracking(trk.val)}
+                        className={`flex-1 h-[18px] px-0.5 rounded text-[6.8px] font-bold cursor-pointer transition-colors whitespace-nowrap ${
+                          isCurrent
+                            ? 'bg-[#F59E0B] text-[#0B0B0D]'
+                            : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+                        }`}
+                        title={`${trk.lbl} Tracking (${trk.val.toFixed(2)}em)`}
+                      >
+                        {trk.short}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* ROW 3: Material Swatches (5) + Optical Finish & Contrast Protection (4) */}
+            <div className="space-y-1.5 bg-[#141417]/75 border border-white/[0.07] rounded-md p-1.5">
+              {/* 5 Material Swatches */}
+              <div className="grid grid-cols-5 gap-1">
+                {(
+                  [
+                    { id: 'molten-gold', label: 'GOLD', hex: '#F5A623' },
+                    { id: 'titanium-silver', label: 'SILVER', hex: '#CBD5E1' },
+                    { id: 'neon-crimson', label: 'CRIMSON', hex: '#EF4444' },
+                    { id: 'pure-white', label: 'WHITE', hex: '#FFFFFF' },
+                    { id: 'amber', label: 'AMBER', hex: '#F59E0B' }
+                  ] as Array<{ id: HeroTitlePreset; label: string; hex: string }>
+                ).map((sw) => {
+                  const isActive = activePreset === sw.id;
+                  return (
+                    <button
+                      key={sw.id}
+                      type="button"
+                      data-testid={`title-fx-swatch-${sw.id}`}
+                      aria-pressed={isActive}
+                      onClick={() => setTitleMaterialSwatch(sw.id)}
+                      className={`h-[22px] px-1 rounded border text-[7px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all whitespace-nowrap ${
+                        isActive
+                          ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F4F4F5]'
+                          : 'bg-[#0B0B0D] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
+                      }`}
+                      title={`Material Swatch: ${sw.label}`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0 border border-black/40"
+                        style={{ backgroundColor: sw.hex }}
+                      />
+                      <span>{sw.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 4 Optical Finish & Contrast Protection Buttons */}
+              <div className="grid grid-cols-4 gap-1">
+                {(
+                  [
+                    { id: 'clean', label: 'CLEAN', hint: 'Crisp vector edge, zero bloom' },
+                    { id: 'halation', label: 'HALATION', hint: '35mm film red-amber edge bloom' },
+                    { id: 'scrim', label: 'SCRIM', hint: 'Auto-adaptive dark backdrop scrim for bright footage' },
+                    { id: 'kinetic', label: 'KINETIC', hint: 'Snappy cinema entrance/exit motion replay' }
+                  ] as Array<{ id: TitleOpticalFinish; label: string; hint: string }>
+                ).map((fin) => {
+                  const isActive = activeOpticalFinish === fin.id;
+                  return (
+                    <button
+                      key={fin.id}
+                      type="button"
+                      data-testid={`title-fx-finish-${fin.id}`}
+                      aria-pressed={isActive}
+                      onClick={() => setTitleOpticalFinish(fin.id)}
+                      title={fin.hint}
+                      className={`h-[22px] px-1 rounded border text-[7.5px] font-bold cursor-pointer transition-all whitespace-nowrap ${
+                        isActive
+                          ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_10px_rgba(245,158,11,0.35)]'
+                          : 'bg-[#0B0B0D] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/40'
+                      }`}
+                    >
+                      {fin.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ROW 4: Bilingual Typography Drawer + SYNC ALL Multi-Shot Propagate */}
+            <div className="flex items-center gap-1.5 pt-0.5">
               <button
                 type="button"
-                onClick={() => setTitlePreset('molten-gold')}
-                className={`p-1.5 text-[8.5px] font-bold rounded border cursor-pointer transition-colors ${
-                  activePreset === 'molten-gold'
-                    ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                    : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                }`}
+                data-testid="title-fx-open-drawer"
+                onClick={() => {
+                  setIsTitleFxOpen(false);
+                  eventBus.emit('studio:open_module', { module: 'TEXT' });
+                }}
+                className="flex-1 py-1.5 px-2 rounded bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 border border-[#F59E0B]/50 text-[#F4F4F5] font-bold text-[8px] cursor-pointer transition-colors truncate whitespace-nowrap"
+                title="Open Bilingual Typography & Dopamine FX Drawer"
               >
-                GOLD
+                OPEN BILINGUAL TYPOGRAPHY &amp; DOPAMINE FX DRAWER
               </button>
               <button
                 type="button"
-                onClick={() => setTitlePreset('titanium-silver')}
-                className={`p-1.5 text-[8.5px] font-bold rounded border cursor-pointer transition-colors ${
-                  activePreset === 'titanium-silver'
-                    ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                    : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
+                data-testid="title-fx-sync-all"
+                onClick={handleSyncAllShots}
+                className={`py-1.5 px-2 rounded border font-bold text-[8px] flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap shrink-0 ${
+                  syncAllConfirmed
+                    ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_12px_rgba(245,158,11,0.45)]'
+                    : 'bg-[#141417] hover:bg-[#F59E0B]/15 border-[#F59E0B]/50 text-[#F59E0B]'
                 }`}
+                title="Propagate current title style, safe-zone lock, and optical finish across all shots"
               >
-                SILVER
-              </button>
-              <button
-                type="button"
-                onClick={() => setTitlePreset('neon-crimson')}
-                className={`p-1.5 text-[8.5px] font-bold rounded border cursor-pointer transition-colors ${
-                  activePreset === 'neon-crimson'
-                    ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                    : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                }`}
-              >
-                CRIMSON
+                {syncAllConfirmed ? <Check className="w-2.5 h-2.5" /> : <CopyCheck className="w-2.5 h-2.5" />}
+                <span>{syncAllConfirmed ? 'SYNCED' : 'SYNC ALL'}</span>
               </button>
             </div>
-
-            <div>
-              <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                <span>TITLE SIZE</span>
-                <span className="text-[#F59E0B] font-bold tabular-nums">{titleSizePx}px</span>
-              </div>
-              <input
-                type="range"
-                min="48"
-                max="120"
-                step="2"
-                value={titleSizePx}
-                onChange={(e) => setTitleSize(parseInt(e.target.value, 10))}
-                className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                <span>GLOW INTENSITY</span>
-                <span className="text-[#F59E0B] font-bold tabular-nums">{Math.round(glow * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.05"
-                value={glow}
-                onChange={(e) => setTitleGlowIntensity(parseFloat(e.target.value))}
-                className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                <span>VERTICAL OFFSET</span>
-                <span className="text-[#F59E0B] font-bold tabular-nums">{verticalOffset}px</span>
-              </div>
-              <input
-                type="range"
-                min="-120"
-                max="120"
-                step="5"
-                value={verticalOffset}
-                onChange={(e) => setTitleVerticalOffset(parseInt(e.target.value, 10))}
-                className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[8.5px] text-[#8E8E93]">
-                <span>TRACKING</span>
-                <span className="text-[#F59E0B] font-bold tabular-nums">{tracking.toFixed(2)}em</span>
-              </div>
-              <input
-                type="range"
-                min="0.05"
-                max="0.45"
-                step="0.02"
-                value={tracking}
-                onChange={(e) => setTitleTracking(parseFloat(e.target.value))}
-                className="w-full h-1 bg-[#141417] accent-[#F59E0B] cursor-pointer"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsTitleFxOpen(false);
-                eventBus.emit('studio:open_module', { module: 'TEXT' });
-              }}
-              className="w-full py-1.5 rounded bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 border border-[#F59E0B]/50 text-[#F4F4F5] font-bold text-[9px] cursor-pointer transition-colors"
-            >
-              OPEN BILINGUAL TYPOGRAPHY &amp; DOPAMINE FX DRAWER
-            </button>
           </div>
         </>,
         document.body

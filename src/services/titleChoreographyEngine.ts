@@ -202,6 +202,9 @@ export interface SpatialChoreographyInput {
   panY?: number;
   smartCropMode?: string;
   aspectRatio?: string;
+  safeGuard?: boolean;
+  horizontalOffset?: number;
+  verticalOffset?: number;
 }
 
 export interface SpatialTitleChoreography {
@@ -211,6 +214,9 @@ export interface SpatialTitleChoreography {
   kineticEntrance: TitleKineticEntrance;
   isAutoResolved: boolean;
   safeReason: string;
+  safeGuardApplied: boolean;
+  clampedHorizontalOffset: number;
+  clampedVerticalOffset: number;
   // 90% Title-Safe normalized anchor ratios (0..1 of stage width/height)
   anchorXRatio: number;
   anchorYRatio: number;
@@ -220,6 +226,35 @@ export interface SpatialTitleChoreography {
   cssTranslateX: string;
   cssMaxWidth: string;
   cssVertical: { top?: string; bottom?: string; translateY: string };
+}
+
+/**
+ * Clamps horizontal & vertical pixel offsets so titles never collide with
+ * 2.39:1 Letterbox Matte bars or 9:16 Reels/TikTok right/bottom UI dead-zones when Safe Guard is ON.
+ */
+export function clampTitleOffsetsForSafeGuard(
+  zone9: TitleZone9,
+  horizontalOffset: number = 0,
+  verticalOffset: number = 0,
+  safeGuard: boolean = false
+): { x: number; y: number } {
+  const h = Number.isFinite(horizontalOffset) ? Math.round(horizontalOffset) : 0;
+  const v = Number.isFinite(verticalOffset) ? Math.round(verticalOffset) : 0;
+  if (!safeGuard) {
+    return {
+      x: Math.max(-240, Math.min(240, h)),
+      y: Math.max(-200, Math.min(200, v))
+    };
+  }
+  const meta = getZone9Metadata(zone9);
+  const minX = meta.col === 'LEFT' ? -12 : meta.col === 'RIGHT' ? -96 : -72;
+  const maxX = meta.col === 'RIGHT' ? 0 : meta.col === 'LEFT' ? 96 : 48;
+  const minY = meta.row === 'top' ? -8 : meta.row === 'lower' ? -64 : -68;
+  const maxY = meta.row === 'lower' ? 8 : meta.row === 'top' ? 64 : 44;
+  return {
+    x: Math.max(minX, Math.min(maxX, h)),
+    y: Math.max(minY, Math.min(maxY, v))
+  };
 }
 
 /**
@@ -237,7 +272,10 @@ export function resolveSpatialTitleChoreography(
     shotType,
     panX,
     panY,
-    smartCropMode
+    smartCropMode,
+    safeGuard = false,
+    horizontalOffset = 0,
+    verticalOffset = 0
   } = input;
 
   let resolvedZone: TitleZone9;
@@ -305,29 +343,65 @@ export function resolveSpatialTitleChoreography(
   }
 
   const meta = getZone9Metadata(resolvedZone);
-  const anchorXRatio = meta.col === 'LEFT' ? 0.055 : meta.col === 'RIGHT' ? 0.945 : 0.5;
-  const anchorYRatio = meta.row === 'top' ? 0.165 : meta.row === 'lower' ? 0.81 : 0.48;
+  const clamped = clampTitleOffsetsForSafeGuard(resolvedZone, horizontalOffset, verticalOffset, safeGuard);
 
-  // Bounded 90% Title-Safe CSS anchors:
-  // LEFT: left 5%, right auto, max-width 55%
-  // MID:  left 50%, translateX -50%, max-width 82%
-  // RIGHT: right 5%, left auto, translateX 0%, max-width 55% (prevents right-edge clipping)
+  // When Safe Guard is active:
+  // - Vertical insets clear 2.39:1 Letterbox Matte bars (top/bottom >= 14%) AND 9:16 Reels bottom caption dead-zone (bottom >= 24%)
+  // - Right inset clears 9:16 Reels/TikTok right engagement column (>= 16%)
+  const anchorXRatio = safeGuard
+    ? meta.col === 'LEFT'
+      ? 0.08
+      : meta.col === 'RIGHT'
+        ? 0.84
+        : 0.48
+    : meta.col === 'LEFT'
+      ? 0.055
+      : meta.col === 'RIGHT'
+        ? 0.945
+        : 0.5;
+
+  const anchorYRatio = safeGuard
+    ? meta.row === 'top'
+      ? 0.19
+      : meta.row === 'lower'
+        ? 0.72
+        : 0.47
+    : meta.row === 'top'
+      ? 0.165
+      : meta.row === 'lower'
+        ? 0.81
+        : 0.48;
+
   const cssLeft =
     meta.col === 'LEFT'
-      ? '5%'
+      ? safeGuard
+        ? '8%'
+        : '5%'
       : meta.col === 'RIGHT'
         ? 'auto'
-        : '50%';
-  const cssRight = meta.col === 'RIGHT' ? '5%' : 'auto';
+        : safeGuard
+          ? '48%'
+          : '50%';
+  const cssRight = meta.col === 'RIGHT' ? (safeGuard ? '16%' : '5%') : 'auto';
   const cssTranslateX = meta.col === 'MID' ? '-50%' : '0%';
-  const cssMaxWidth = meta.col === 'MID' ? '82%' : '55%';
+  const cssMaxWidth = safeGuard
+    ? meta.col === 'MID'
+      ? '72%'
+      : '52%'
+    : meta.col === 'MID'
+      ? '82%'
+      : '55%';
 
   const cssVertical =
     meta.row === 'top'
-      ? { top: '10%', translateY: '0px' }
+      ? { top: safeGuard ? '15%' : '10%', translateY: '0px' }
       : meta.row === 'lower'
-        ? { bottom: '12%', translateY: '0px' }
-        : { top: '50%', translateY: '-50%' };
+        ? { bottom: safeGuard ? '24%' : '12%', translateY: '0px' }
+        : { top: safeGuard ? '47%' : '50%', translateY: '-50%' };
+
+  if (safeGuard) {
+    safeReason = `SAFE GUARD · ${meta.label} (2.39:1 + 9:16 Clamped)`;
+  }
 
   return {
     zone9: resolvedZone,
@@ -336,6 +410,9 @@ export function resolveSpatialTitleChoreography(
     kineticEntrance: meta.entrance,
     isAutoResolved,
     safeReason,
+    safeGuardApplied: Boolean(safeGuard),
+    clampedHorizontalOffset: clamped.x,
+    clampedVerticalOffset: clamped.y,
     anchorXRatio,
     anchorYRatio,
     cssLeft,

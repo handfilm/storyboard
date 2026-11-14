@@ -1074,6 +1074,64 @@ const PRESET_CONFIG_OVERRIDES: Record<string, Partial<TitlePresetConfig>> = {
     verticalOffset: 0,
     uppercase: true
   },
+  'pure-white': {
+    presetId: 'pure-white',
+    presetName: 'PURE WHITE',
+    category: 'CINEMATIC',
+    layoutMode: 'center-hero',
+    banglaFontFamily: '"Anek Bangla", "Noto Serif Bengali", sans-serif',
+    englishFontFamily: '"JetBrains Mono", monospace',
+    primaryColor: '#FFFFFF',
+    primaryGradient: ['#FFFFFF', '#F8FAFC', '#E2E8F0'],
+    secondaryColor: '#F1F5F9',
+    strokeColor: '#000000',
+    strokeWidth: 0,
+    glowColor: 'rgba(255, 255, 255, 0.55)',
+    glowIntensity: 0.35,
+    backdropPlate: {
+      enabled: false,
+      background: 'transparent',
+      border: 'none',
+      backdropBlur: 0,
+      padding: '0px',
+      accentBarColor: '#FFFFFF'
+    },
+    motionAnimation: 'slow-cinema-fade',
+    chromaticAberration: 0,
+    letterTracking: 0.14,
+    fontScale: 72,
+    verticalOffset: 0,
+    uppercase: true
+  },
+  'amber': {
+    presetId: 'amber',
+    presetName: 'CINEMA AMBER',
+    category: 'CINEMATIC',
+    layoutMode: 'center-hero',
+    banglaFontFamily: '"Noto Serif Bengali", "Anek Bangla", serif',
+    englishFontFamily: '"JetBrains Mono", monospace',
+    primaryColor: '#F59E0B',
+    primaryGradient: ['#FEF3C7', '#F59E0B', '#B45309'],
+    secondaryColor: '#FDE68A',
+    strokeColor: '#000000',
+    strokeWidth: 0,
+    glowColor: 'rgba(245, 158, 11, 0.85)',
+    glowIntensity: 0.95,
+    backdropPlate: {
+      enabled: false,
+      background: 'transparent',
+      border: 'none',
+      backdropBlur: 0,
+      padding: '0px',
+      accentBarColor: '#F59E0B'
+    },
+    motionAnimation: 'anamorphic-sweep',
+    chromaticAberration: 0,
+    letterTracking: 0.16,
+    fontScale: 72,
+    verticalOffset: 0,
+    uppercase: true
+  },
   'viral-retention-pop': {
     category: 'VIRAL_HOOKS',
     layoutMode: 'brutalist-box',
@@ -1623,6 +1681,10 @@ export function createDefaultShotTitleData(
     glowIntensity: baseStyleConfig.glowIntensity ?? 1.0,
     letterTracking: baseStyleConfig.letterTracking ?? 0.15,
     verticalOffset: baseStyleConfig.verticalOffset ?? 0,
+    horizontalOffset: baseStyleConfig.horizontalOffset ?? 0,
+    safeGuard: baseStyleConfig.safeGuard ?? false,
+    directorRole: baseStyleConfig.directorRole,
+    opticalFinish: baseStyleConfig.opticalFinish,
     entranceAnim: baseStyleConfig.motionAnimation || 'slow-cinema-fade',
     exitAnim: 'dissolve-out',
     layers: buildDefaultTitleLayers(baseStyleConfig),
@@ -1685,13 +1747,21 @@ export function resolveShotTitleData(
           fontScale: existing.fontScale ?? existing.styleConfig.fontScale,
           glowIntensity: existing.glowIntensity ?? existing.styleConfig.glowIntensity,
           letterTracking: existing.letterTracking ?? existing.styleConfig.letterTracking,
-          verticalOffset: existing.verticalOffset ?? existing.styleConfig.verticalOffset
+          verticalOffset: existing.verticalOffset ?? existing.styleConfig.verticalOffset,
+          horizontalOffset: existing.horizontalOffset ?? existing.styleConfig.horizontalOffset ?? 0,
+          safeGuard: existing.safeGuard ?? existing.styleConfig.safeGuard ?? false,
+          directorRole: existing.directorRole ?? existing.styleConfig.directorRole,
+          opticalFinish: existing.opticalFinish ?? existing.styleConfig.opticalFinish
         }
       : buildTitlePresetConfigById(existing.presetId || defaults.presetId, {
           fontScale: existing.fontScale,
           glowIntensity: existing.glowIntensity,
           letterTracking: existing.letterTracking,
-          verticalOffset: existing.verticalOffset
+          verticalOffset: existing.verticalOffset,
+          horizontalOffset: existing.horizontalOffset ?? 0,
+          safeGuard: existing.safeGuard ?? false,
+          directorRole: existing.directorRole,
+          opticalFinish: existing.opticalFinish
         });
 
     return {
@@ -1714,6 +1784,10 @@ export function resolveShotTitleData(
       glowIntensity: existing.glowIntensity ?? resolvedStyle.glowIntensity,
       letterTracking: existing.letterTracking ?? resolvedStyle.letterTracking,
       verticalOffset: existing.verticalOffset ?? resolvedStyle.verticalOffset,
+      horizontalOffset: existing.horizontalOffset ?? resolvedStyle.horizontalOffset ?? 0,
+      safeGuard: existing.safeGuard ?? resolvedStyle.safeGuard ?? false,
+      directorRole: existing.directorRole ?? resolvedStyle.directorRole,
+      opticalFinish: existing.opticalFinish ?? resolvedStyle.opticalFinish,
       layers: existing.layers ? { ...buildDefaultTitleLayers(resolvedStyle), ...existing.layers } : buildDefaultTitleLayers(resolvedStyle),
       keyframes: existing.keyframes
         ? { ...DEFAULT_TITLE_KEYFRAMES, inAnim: resolvedStyle.motionAnimation, ...existing.keyframes }
@@ -1736,7 +1810,9 @@ export function resolveShotTitleData(
       fontScale: fallbackStoreConfig.titleSize ?? g.fontScale,
       glowIntensity: fallbackStoreConfig.glowIntensity ?? g.glowIntensity,
       letterTracking: fallbackStoreConfig.tracking ?? g.letterTracking,
-      verticalOffset: fallbackStoreConfig.verticalOffset ?? g.verticalOffset
+      verticalOffset: fallbackStoreConfig.verticalOffset ?? g.verticalOffset,
+      horizontalOffset: g.horizontalOffset ?? 0,
+      safeGuard: g.safeGuard ?? false
     };
     return {
       ...defaults,
@@ -1746,6 +1822,10 @@ export function resolveShotTitleData(
       glowIntensity: syncedStyle.glowIntensity,
       letterTracking: syncedStyle.letterTracking,
       verticalOffset: syncedStyle.verticalOffset,
+      horizontalOffset: syncedStyle.horizontalOffset ?? 0,
+      safeGuard: syncedStyle.safeGuard ?? false,
+      directorRole: syncedStyle.directorRole,
+      opticalFinish: syncedStyle.opticalFinish,
       entranceAnim: syncedStyle.motionAnimation,
       styleConfig: syncedStyle
     };
@@ -1794,7 +1874,15 @@ export function resolveShotTitlePresetConfig(
       letterTracking:
         shotOrFrame.titleData.letterTracking ?? shotOrFrame.titleData.styleConfig.letterTracking,
       verticalOffset:
-        shotOrFrame.titleData.verticalOffset ?? shotOrFrame.titleData.styleConfig.verticalOffset
+        shotOrFrame.titleData.verticalOffset ?? shotOrFrame.titleData.styleConfig.verticalOffset,
+      horizontalOffset:
+        shotOrFrame.titleData.horizontalOffset ?? shotOrFrame.titleData.styleConfig.horizontalOffset ?? 0,
+      safeGuard:
+        shotOrFrame.titleData.safeGuard ?? shotOrFrame.titleData.styleConfig.safeGuard ?? false,
+      directorRole:
+        shotOrFrame.titleData.directorRole ?? shotOrFrame.titleData.styleConfig.directorRole,
+      opticalFinish:
+        shotOrFrame.titleData.opticalFinish ?? shotOrFrame.titleData.styleConfig.opticalFinish
     };
   }
   if (shotOrFrame?.dopamineConfig) {

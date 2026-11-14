@@ -821,12 +821,19 @@ export default function App() {
                 enabled: stylePatch.enabled ?? prevTitleData.enabled,
                 presetId: stylePatch.presetId,
                 alignment: stylePatch.alignment,
+                ...(stylePatch.zone9 ? { zone9: stylePatch.zone9 } : {}),
+                ...(stylePatch.kineticEntrance ? { kineticEntrance: stylePatch.kineticEntrance } : {}),
                 fontScale: stylePatch.fontScale,
                 glowIntensity: stylePatch.glowIntensity,
                 letterTracking: stylePatch.letterTracking,
                 verticalOffset: stylePatch.verticalOffset,
+                horizontalOffset: stylePatch.horizontalOffset ?? 0,
+                safeGuard: Boolean(stylePatch.safeGuard),
+                ...(stylePatch.directorRole ? { directorRole: stylePatch.directorRole } : {}),
+                ...(stylePatch.opticalFinish ? { opticalFinish: stylePatch.opticalFinish } : {}),
                 entranceAnim: stylePatch.entranceAnim,
                 exitAnim: stylePatch.exitAnim,
+                ...(stylePatch.keyframes ? { keyframes: { ...stylePatch.keyframes } } : {}),
                 styleConfig: { ...stylePatch.styleConfig }
               }
             : {
@@ -836,12 +843,19 @@ export default function App() {
                 englishSubtitle: existing.title || '',
                 captionNote: existing.tagline || existing.directorNotes || '',
                 alignment: stylePatch.alignment,
+                ...(stylePatch.zone9 ? { zone9: stylePatch.zone9 } : {}),
+                ...(stylePatch.kineticEntrance ? { kineticEntrance: stylePatch.kineticEntrance } : {}),
                 fontScale: stylePatch.fontScale,
                 glowIntensity: stylePatch.glowIntensity,
                 letterTracking: stylePatch.letterTracking,
                 verticalOffset: stylePatch.verticalOffset,
+                horizontalOffset: stylePatch.horizontalOffset ?? 0,
+                safeGuard: Boolean(stylePatch.safeGuard),
+                ...(stylePatch.directorRole ? { directorRole: stylePatch.directorRole } : {}),
+                ...(stylePatch.opticalFinish ? { opticalFinish: stylePatch.opticalFinish } : {}),
                 entranceAnim: stylePatch.entranceAnim,
                 exitAnim: stylePatch.exitAnim,
+                ...(stylePatch.keyframes ? { keyframes: { ...stylePatch.keyframes } } : {}),
                 styleConfig: { ...stylePatch.styleConfig }
               };
           const isDopamine = stylePatch.styleConfig?.category === 'DOPAMINE';

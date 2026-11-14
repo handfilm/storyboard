@@ -143,6 +143,7 @@ export interface TactileStageProps {
   isBorderlessFullscreen?: boolean;
   isCursorAwake?: boolean;
   onToggleBorderlessFullscreen?: () => void;
+  hideChrome?: boolean;
 }
 
 export const TactileStage: React.FC<TactileStageProps> = ({
@@ -188,7 +189,8 @@ export const TactileStage: React.FC<TactileStageProps> = ({
   onSelectPlaybackMode,
   onChangePlaybackSpeed,
   onToggleMute,
-  onOpenCinemaPlayer
+  onOpenCinemaPlayer,
+  hideChrome = false
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const slotVideoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
@@ -1921,7 +1923,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       />
 
       {/* 1. UNIFIED 24px SINGLE-ROW TOP STAGE HEADER (Auto-collapses during active playback unless hovered) */}
-      {!hideFullscreenStageBars && (
+      {!hideChrome && !hideFullscreenStageBars && (
         <div
           onMouseEnter={() => setIsStageChromeHovered(true)}
           onMouseLeave={() => setIsStageChromeHovered(false)}
@@ -1958,7 +1960,9 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       {/* 2. BOUNDED 2.39:1 CINEMA VIEWPORT GATE (Flush fit, matte #050505 surround, zero dead-space) */}
       <div
         ref={stageSlotWrapperRef}
-        className="flex-1 min-h-0 w-full flex items-center justify-center bg-[#050505] overflow-hidden p-0"
+        className={`flex-1 min-h-0 w-full flex items-center justify-center bg-[#050505] overflow-hidden ${
+          hideChrome ? 'px-3 py-2' : 'p-0'
+        }`}
       >
         <div
           id="stage-media-container"
@@ -2625,14 +2629,14 @@ export const TactileStage: React.FC<TactileStageProps> = ({
 
               {/* 93% Action-Safe Boundary */}
               <div className="absolute inset-[3.5%] border border-dashed border-cyan-400/55">
-                <span className="absolute top-1 left-1.5 text-[7.5px] font-mono font-bold text-cyan-300/90 bg-black/75 px-1 rounded">
+                <span className="hidden md:inline-block absolute top-1 left-1.5 text-[7.5px] font-mono font-bold text-cyan-300/90 bg-black/75 px-1 rounded">
                   93% ACTION SAFE
                 </span>
               </div>
               {/* 90% Title-Safe Boundary + 3x3 Rule-of-Thirds Matrix */}
               <div className="absolute inset-[5%] border border-amber-400/75 shadow-[inset_0_0_24px_rgba(245,158,11,0.08)]">
-                <span className="absolute bottom-1 right-1.5 text-[7.5px] font-mono font-bold text-[#F59E0B] bg-black/80 px-1 rounded">
-                  {isSafeGuardLocked ? 'SAFE GUARD LOCKED' : '90% TITLE SAFE'} · {activeChoreography.zone9.toUpperCase()}
+                <span className="absolute bottom-0.5 right-1 md:bottom-1 md:right-1.5 text-[6px] md:text-[7.5px] font-mono font-bold text-[#F59E0B] bg-black/80 px-1 rounded">
+                  {isSafeGuardLocked ? 'SAFE GUARD' : '90% SAFE'} · {activeChoreography.zone9.toUpperCase()}
                 </span>
                 <div className="w-full h-full grid grid-cols-3 grid-rows-3">
                   {TITLE_ZONE_9_MATRIX.map((cell) => {
@@ -2671,7 +2675,7 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       </div>
 
       {/* 3. ULTRA-SLIM 26px VLC-GRADE STAGE TRANSPORT BAR (Includes Centered Telemetry Bridge) */}
-      {!hideFullscreenStageBars && (
+      {!hideChrome && !hideFullscreenStageBars && (
         <VlcStageBar
           frames={frames}
           currentIndex={currentIndex}
@@ -2722,15 +2726,17 @@ export const TactileStage: React.FC<TactileStageProps> = ({
       )}
 
       {/* Floating 35mm Film Stock & Color Grading Tray */}
-      <FilterGradingTray
-        isOpen={isFilterTrayOpen}
-        currentFrame={frame}
-        currentIndex={currentIndex}
-        totalShots={frames.length}
-        onUpdateFrame={handleUpdateCurrentFrame}
-        onApplyGradeToAll={handleApplyGradeToAll}
-        onClose={() => setIsFilterTrayOpen(false)}
-      />
+      {!hideChrome && (
+        <FilterGradingTray
+          isOpen={isFilterTrayOpen}
+          currentFrame={frame}
+          currentIndex={currentIndex}
+          totalShots={frames.length}
+          onUpdateFrame={handleUpdateCurrentFrame}
+          onApplyGradeToAll={handleApplyGradeToAll}
+          onClose={() => setIsFilterTrayOpen(false)}
+        />
+      )}
 
       {/* Module 11: Review Visual Markup Canvas Overlay */}
       {activeModule === 'REVIEW' && (

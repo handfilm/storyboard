@@ -118,6 +118,7 @@ import {
   EXTERNAL_EDIT_APP_LABELS,
   stopAllEditInWatchers
 } from './services/editInBridge';
+import { MobilePortraitWorkspace } from './components/mobile/MobilePortraitWorkspace';
 
 export default function App() {
   const [project, setProject] = useState<AnthologyProject>(() => ({
@@ -147,6 +148,17 @@ export default function App() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('2.39:1');
   const [fitMode, setFitMode] = useState<'cover' | 'contain' | 'fill'>('cover');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobilePortrait, setIsMobilePortrait] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobilePortrait(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
   const [isCursorAwake, setIsCursorAwake] = useState(true);
   const [seekVersion, setSeekVersion] = useState(0);
   const currentIndexRef = useRef<number>(0);
@@ -2046,10 +2058,20 @@ export default function App() {
   }, [isScreenRecorderOpen, handleSaveSnapshot]);
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+    if (!document.fullscreenElement && !isFullscreen) {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {
+          setIsFullscreen(true);
+        });
+      } else {
+        setIsFullscreen(true);
+      }
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        setIsFullscreen(false);
+      });
     } else {
-      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
     }
   };
 
@@ -2377,6 +2399,17 @@ export default function App() {
       }
     }
   }, []);
+
+  const lastMobileHistoryTsRef = useRef<number>(0);
+  const handleUpdateFrameWithHistory = useCallback((updated: AnthologyFrame) => {
+    const now = Date.now();
+    if (now - lastMobileHistoryTsRef.current > 800) {
+      lastMobileHistoryTsRef.current = now;
+      setHistoryStack(h => [...h.slice(-19), project]);
+      setRedoStack([]);
+    }
+    handleUpdateFrame(updated);
+  }, [project, handleUpdateFrame]);
 
   const handleUpdateFrameAtIndex = useCallback((index: number, updated: AnthologyFrame) => {
     const currentFrames = projectFramesRef.current;
@@ -3480,8 +3513,8 @@ export default function App() {
         />
       )}
 
-      {/* Sleek Single-Tier Master Header (Hidden in Borderless Fullscreen until cursor wake) */}
-      <div className={hideFullscreenChrome ? 'hidden' : 'contents'}>
+      {/* Sleek Single-Tier Master Header (Hidden on mobile portrait and in Borderless Fullscreen until cursor wake) */}
+      <div className={hideFullscreenChrome || isMobilePortrait ? 'hidden' : 'contents'}>
       <StageHeader
         isZenMode={isZenMode}
         isPlaying={isPlaying}
@@ -3634,6 +3667,83 @@ export default function App() {
           onRecordToggle={() => setIsScreenRecorderOpen(prev => !prev)}
           onZenToggle={() => setIsZenMode(prev => !prev)}
           onAspectChange={(ratio) => setAspectRatio(ratio as any)}
+        />
+      ) : isMobilePortrait ? (
+        <MobilePortraitWorkspace
+          projectTitle={project.title}
+          directorName={project.director}
+          nodeLocation={project.nodeLocation}
+          frames={project.frames}
+          currentIndex={currentIndex}
+          currentFrame={currentFrame}
+          workspaceMode={workspaceMode}
+          activeModule={activeModule}
+          isPlaying={isPlaying}
+          showHud={showHud}
+          aspectRatio={aspectRatio}
+          fitMode={fitMode}
+          playbackMode={playbackMode}
+          slideTimeSec={slideTimeSec}
+          playbackSpeed={playbackSpeed}
+          seekVersion={seekVersion}
+          isFullscreen={isFullscreen}
+          isAudioMuted={isAudioMuted}
+          audioVolume={audioVolume}
+          isSnapToBeat={isSnapToBeat}
+          detectedBpm={detectedBpm}
+          componentsVisibility={componentsVisibility}
+          canUndo={historyStack.length > 0}
+          canRedo={redoStack.length > 0}
+          onSelectFrame={goToFrame}
+          onUpdateFrame={handleUpdateFrameWithHistory}
+          onUpdateFrameAtIndex={handleUpdateFrameAtIndex}
+          onCommitSlidesNle={handleCommitSlidesNle}
+          onTogglePlay={() => setIsPlaying((p) => !p)}
+          onStepFrame={handleStepFrame}
+          onScrubSlideTime={handleScrubSlideTime}
+          onScrubGlobalTime={handleScrubGlobalTime}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onToggleFullscreen={toggleFullscreen}
+          onChangeAspectRatio={(r) => {
+            setAspectRatio(r);
+            try {
+              useStudioStore.getState().setAspectRatio(r as any);
+            } catch {}
+          }}
+          onChangeFitMode={setFitMode}
+          onSelectPlaybackMode={setPlaybackMode}
+          onChangePlaybackSpeed={setPlaybackSpeed}
+          onToggleTitles={handleToggleTitles}
+          onToggleAudio={toggleAudio}
+          onChangeVolume={(vol) => {
+            setAudioVolume(vol);
+            try {
+              audioEngine.setVolume(vol);
+              if (vol > 0 && isAudioMuted) {
+                audioEngine.setMuted(false);
+                setIsAudioMuted(false);
+              }
+            } catch {}
+          }}
+          onToggleSnapToBeat={handleToggleSnapToBeat}
+          onLoadAudioFile={handleLoadAudioFile}
+          onUploadImage={handleUploadImage}
+          onUploadMediaForIndex={handleUploadMediaForIndex}
+          onBatchImportMedia={() => batchMediaInputRef.current?.click()}
+          onPurgeMedia={handlePurgeMedia}
+          onOpenExportStudio={() => handleOpenExportStudio('mp4')}
+          onGoHome={handleGoHome}
+          onSelectWorkspaceMode={(mode) => {
+            setWorkspaceMode(mode);
+            setIsDrawerOpen(false);
+          }}
+          onOpenVideoScopes={() => setIsVideoScopesOpen(true)}
+          onOpenProjectManager={() => setIsProjectManagerOpen(true)}
+          onOpenInspector={() => setIsInspectorOpen(true)}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onSyncVideoTime={handleHardwareVideoTimeSync}
+          onAdvanceFromVideoClock={handleAdvanceFromVideoClock}
         />
       ) : (
         <>

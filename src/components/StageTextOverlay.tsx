@@ -463,7 +463,8 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const effectiveFontSizePx = isCustomPreset
     ? Math.max(20, Math.min(96, Math.round(bnLayer.fontSize || presetConfig.fontScale)))
     : Math.max(20, Math.min(96, Math.round((bnLayer.fontSize || titleSizePx) * scale * procArch.scaleMultiplier)));
-  const clampedFontSizeCss = `clamp(16px, ${(effectiveFontSizePx / 16).toFixed(2)}cqw, ${effectiveFontSizePx}px)`;
+  const clampedFontSizeCss = `clamp(14px, ${(effectiveFontSizePx / 15.5).toFixed(2)}cqw, ${effectiveFontSizePx}px)`;
+  const clampedEnglishFontSizeCss = `clamp(9px, 2.35cqw, 16px)`;
   const effectiveTrackingEm = isCustomPreset
     ? Math.max(0.01, bnLayer.letterSpacing ?? tracking)
     : Math.max(0.02, (bnLayer.letterSpacing ?? tracking) + procArch.trackingBoostEm);
@@ -530,6 +531,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const englishSubtitleStyle: React.CSSProperties = {
     fontFamily: enLayer.fontFamily || presetConfig.englishFontFamily,
     fontWeight: enLayer.fontWeight || 700,
+    fontSize: clampedEnglishFontSizeCss,
     lineHeight: enLayer.lineHeight || 1.25,
     color: enLayer.color || presetConfig.secondaryColor,
     textTransform: enLayer.textTransform || (presetConfig.uppercase ? 'uppercase' : 'none'),
@@ -550,7 +552,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       return (
         <div
           key={`editorial-rule-${shotIndex}-${activePresetId}`}
-          className="h-[1px] mt-2.5 w-32 animate-streak-expand"
+          className="h-[1px] mt-1.5 md:mt-2.5 w-20 md:w-32 animate-streak-expand"
           style={{
             background: `linear-gradient(90deg, transparent, ${presetConfig.primaryColor}, transparent)`
           }}
@@ -561,7 +563,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
       return (
         <div
           key={`whisper-rule-${shotIndex}-${activePresetId}`}
-          className="h-[1px] mt-2 w-16 opacity-60"
+          className="h-[1px] mt-1.5 md:mt-2 w-12 md:w-16 opacity-60"
           style={{ backgroundColor: presetConfig.secondaryColor }}
         />
       );
@@ -569,7 +571,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
     return (
       <div
         key={`anamorphic-streak-${shotIndex}-${activePresetId}`}
-        className="h-[2px] mt-2.5 min-w-[8rem] rounded-full animate-streak-expand"
+        className="h-[2px] mt-1.5 md:mt-2.5 min-w-[4rem] md:min-w-[8rem] max-w-full rounded-full animate-streak-expand"
         style={{
           background: `linear-gradient(90deg, transparent, ${accentHex}, transparent)`,
           boxShadow: glow > 0.05 ? `0 0 ${Math.round(18 * glow)}px ${presetConfig.glowColor}` : 'none'
@@ -856,7 +858,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                       style={{
                         fontFamily: eyebrowLayer.fontFamily,
                         fontWeight: eyebrowLayer.fontWeight,
-                        fontSize: `${Math.max(9, Math.min(28, eyebrowLayer.fontSize ?? 12))}px`,
+                        fontSize: `clamp(8px, 1.9cqw, ${Math.max(9, Math.min(28, eyebrowLayer.fontSize ?? 12))}px)`,
                         letterSpacing: `${eyebrowLayer.letterSpacing}em`,
                         textTransform: eyebrowLayer.textTransform,
                         color: eyebrowLayer.color,
@@ -1058,7 +1060,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                       style={{
                         fontFamily: creditsLayer.fontFamily,
                         fontWeight: creditsLayer.fontWeight,
-                        fontSize: `${Math.max(9, Math.min(24, creditsLayer.fontSize ?? 11))}px`,
+                        fontSize: `clamp(8px, 1.8cqw, ${Math.max(9, Math.min(24, creditsLayer.fontSize ?? 11))}px)`,
                         lineHeight: creditsLayer.lineHeight,
                         letterSpacing: `${creditsLayer.letterSpacing}em`,
                         textTransform: creditsLayer.textTransform,
@@ -1101,7 +1103,7 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
             {/* Narrative Line / Dialogue Card (Rendered at bottom-stage for top/mid layouts) */}
             {!isBottomPlateLayout && choreography.row !== 'lower' && showDialogue && displayDialogue && (
               <div
-                className={`absolute bottom-5 sm:bottom-8 z-20 pointer-events-none w-fit px-1 transition-[left,transform] duration-300 ease-out ${
+                className={`absolute bottom-2 md:bottom-5 sm:bottom-8 z-20 pointer-events-none w-fit px-1 transition-[left,transform] duration-300 ease-out ${
                   effectiveAlign === 'LEFT'
                     ? 'text-left'
                     : effectiveAlign === 'RIGHT'
@@ -1116,14 +1118,14 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                 }}
               >
                 <div
-                  className="inline-flex items-center gap-2 max-w-full bg-[#141417]/55 backdrop-blur-xl backdrop-saturate-150 border text-[#F4F4F5]/95 px-4 py-1.5 rounded-full text-xs sm:text-sm italic shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] animate-in fade-in slide-in-from-bottom-2 duration-300"
+                  className="inline-flex items-center gap-1.5 md:gap-2 max-w-full bg-[#141417]/55 backdrop-blur-xl backdrop-saturate-150 border text-[#F4F4F5]/95 px-2.5 md:px-4 py-0.5 md:py-1.5 rounded-full text-[10px] md:text-xs sm:text-sm italic shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] animate-in fade-in slide-in-from-bottom-2 duration-300"
                   style={{
                     borderColor: `${accentHex}44`,
                     wordBreak: 'keep-all',
                     overflowWrap: 'break-word'
                   }}
                 >
-                  <span className="max-w-full">"{displayDialogue}"</span>
+                  <span className="max-w-full truncate md:whitespace-normal">"{displayDialogue}"</span>
                 </div>
               </div>
             )}

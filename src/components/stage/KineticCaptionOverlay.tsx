@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import { Type, Edit3, Check, Sparkles, Music, Wand2, X } from 'lucide-react';
 import { AnthologyFrame, CaptionStyle, ShotCaption, TimedWord } from '../../types/anthology';
 import { autoDistributeLyrics, getActiveCaptionWord } from '../../services/captionEngine';
+import { useLicenseStore } from '../../services/licenseService';
 
 export interface KineticCaptionOverlayProps {
   currentFrame: AnthologyFrame;
@@ -54,6 +55,7 @@ export const KineticCaptionOverlay: React.FC<KineticCaptionOverlayProps> = ({
   const { activeIndex, punchScale } = getActiveCaptionWord(words, slideTimeSec);
 
   const handleOpenEdit = () => {
+    if (!useLicenseStore.getState().requireProAccess('Auto Bilingual Captions & Kinetic Lyrics')) return;
     setEditText(caption.text || '');
     setEditBnText(caption.bengaliText || '');
     setEditStyle(style);
@@ -61,6 +63,7 @@ export const KineticCaptionOverlay: React.FC<KineticCaptionOverlayProps> = ({
   };
 
   const handleSaveLyrics = () => {
+    if (!useLicenseStore.getState().requireProAccess('Auto Bilingual Captions & Kinetic Lyrics')) return;
     const updatedCaption = autoDistributeLyrics(editText, {
       shotDurationSec: durationSec,
       bpm: detectedBpm,
@@ -78,6 +81,7 @@ export const KineticCaptionOverlay: React.FC<KineticCaptionOverlayProps> = ({
   };
 
   const handleAutoDistributeSample = () => {
+    if (!useLicenseStore.getState().requireProAccess('Auto Bilingual Captions & Kinetic Lyrics')) return;
     const sampleLyrics = [
       'RAWX ON THE BEAT // BARS DROP HEAVY',
       'CHASING SHADOWS THROUGH THE MIDNIGHT CITY',

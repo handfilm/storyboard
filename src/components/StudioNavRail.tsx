@@ -328,6 +328,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           onSelect: () => onSelectModule('TEXT')
         },
         {
+          id: 'pro-ai-captions',
+          label: 'AI Bilingual Captions (Pro)',
+          sub: 'Auto Bangla+English karaoke, bounce & kinetic bars',
+          icon: Sparkles,
+          badge: 'PRO FX',
+          onSelect: () => eventBus.emit('studio:open_pro_suite', { tab: 'ai-captions' })
+        },
+        {
           id: 'toggle-titles',
           label: 'Toggle Stage Titles Layer',
           sub: 'Show or hide live kinetic title overlays',
@@ -410,6 +418,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           shortcut: 'G',
           isActive: activeModule === 'BOARD',
           onSelect: () => onSelectModule('BOARD')
+        },
+        {
+          id: 'pro-keyframes-speed',
+          label: 'Keyframes & Speed Ramps (Pro)',
+          sub: 'Cubic keyframes, velocity curves & optical flow',
+          icon: Zap,
+          badge: 'PRO FX',
+          onSelect: () => eventBus.emit('studio:open_pro_suite', { tab: 'keyframes' })
         },
         {
           id: 'stage-player',
@@ -538,6 +554,14 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           icon: Sparkles,
           isActive: activeModule === 'AI',
           onSelect: () => onSelectModule('AI')
+        },
+        {
+          id: 'pro-fx-suite',
+          label: 'Pro FX Suite (Color / Speed / Cutout)',
+          sub: '3-wheel color grade, smart cutout & speed ramps',
+          icon: Zap,
+          badge: 'PRO FX',
+          onSelect: () => eventBus.emit('studio:open_pro_suite', { tab: 'color-fx' })
         },
         {
           id: 'review-pins',

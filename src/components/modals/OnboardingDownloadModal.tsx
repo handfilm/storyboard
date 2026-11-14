@@ -242,8 +242,11 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
   ];
 
   const proPrice = billingCycle === 'monthly' ? '$19.99' : '$15.99';
+  const proBdtPrice = billingCycle === 'monthly' ? '৳1,490' : '৳1,192';
   const ultraPrice = billingCycle === 'monthly' ? '$39.99' : '$31.99';
+  const ultraBdtPrice = billingCycle === 'monthly' ? '৳2,990' : '৳2,392';
   const teamsPrice = billingCycle === 'monthly' ? '$14.99' : '$11.99';
+  const teamsBdtPrice = billingCycle === 'monthly' ? '৳1,190' : '৳950';
 
   return createPortal(
     <div
@@ -704,9 +707,9 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                       <span className="text-3xl font-black text-white">{proPrice}</span>
                       <span className="text-xs font-mono text-zinc-400">/ month</span>
                     </div>
-                    {billingCycle === 'annual' && (
-                      <div className="text-[10px] font-mono text-zinc-500 mt-0.5">$191 billed yearly</div>
-                    )}
+                    <div className="text-[11px] font-mono text-cyan-300/90 mt-0.5">
+                      or {proBdtPrice}/mo {billingCycle === 'annual' ? '(৳14,300/yr · $191/yr)' : 'BDT'}
+                    </div>
                   </div>
 
                   <ul className="space-y-2 pt-2 border-t border-white/[0.08] text-xs text-zinc-300">
@@ -760,9 +763,9 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                       <span className="text-3xl font-black text-white">{ultraPrice}</span>
                       <span className="text-xs font-mono text-zinc-400">/ month</span>
                     </div>
-                    {billingCycle === 'annual' && (
-                      <div className="text-[10px] font-mono text-amber-300/80 mt-0.5">$383 billed yearly</div>
-                    )}
+                    <div className="text-[11px] font-mono text-amber-300/90 mt-0.5">
+                      or {ultraBdtPrice}/mo {billingCycle === 'annual' ? '(৳28,700/yr · $383/yr)' : 'BDT'}
+                    </div>
                   </div>
 
                   <ul className="space-y-2 pt-2 border-t border-white/[0.1] text-xs text-zinc-200">
@@ -814,9 +817,9 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                       <span className="text-3xl font-black text-white">{teamsPrice}</span>
                       <span className="text-xs font-mono text-zinc-400">/ seat / mo</span>
                     </div>
-                    {billingCycle === 'annual' && (
-                      <div className="text-[10px] font-mono text-zinc-500 mt-0.5">$143 / seat billed yearly</div>
-                    )}
+                    <div className="text-[11px] font-mono text-emerald-300/90 mt-0.5">
+                      or {teamsBdtPrice}/seat {billingCycle === 'annual' ? '(৳11,400/yr · $143/yr)' : 'BDT'}
+                    </div>
                   </div>
 
                   <ul className="space-y-2 pt-2 border-t border-white/[0.08] text-xs text-zinc-300">

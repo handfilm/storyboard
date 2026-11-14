@@ -83,6 +83,7 @@ import {
   exportPngSequenceZip,
   RenderTelemetry
 } from '../services/videoExportEngine';
+import { resolveExportEntitlementPolicy } from '../services/proSuiteEngine';
 import { getLightingPresetById } from '../data/lightingPresets';
 
 export type StagePanelType = 'TACTILE_STAGE' | 'SPLIT' | 'OPTICAL' | 'SEQUENCER' | 'MULTICAM';
@@ -2005,6 +2006,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       statusText: `RENDERING SHOT 01/${String(Math.max(1, scopeEndIdx - scopeStartIdx + 1)).padStart(2, '0')}...`
                     });
                     try {
+                      const policy = resolveExportEntitlementPolicy(useLicenseStore.getState().license);
                       const pipelineOpts = {
                         projectTitle:
                           renderScope === 'reel'
@@ -2016,8 +2018,11 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                         selectionMode: 'range' as const,
                         rangeStart: scopeStartIdx + 1,
                         rangeEnd: scopeEndIdx + 1,
-                        resolutionPreset: '1080p_standard' as const,
+                        resolutionPreset: policy.hasProOrTrial
+                          ? ('1080p_standard' as const)
+                          : ('720p_free' as const),
                         bitrateProfile: 'broadcast' as const,
+                        applyFreeWatermark: policy.watermarkRequired,
                         burnInTitles: true,
                         cleanPlates: false,
                         simulateFlare: true,

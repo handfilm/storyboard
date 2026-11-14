@@ -243,6 +243,17 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
   const [simulateFlare, setSimulateFlare] = useState<boolean>(true);
   const [includeAudio, setIncludeAudio] = useState<boolean>(true);
 
+  // Sync MP4 render presets cleanly when async license hydration completes or tier changes
+  useEffect(() => {
+    if (!exportPolicy.hasProOrTrial) {
+      if (resolutionPreset !== '720p_free') setResolutionPreset('720p_free');
+      if (targetFps === 60) setTargetFps(24);
+      if (transparentAlpha) setTransparentAlpha(false);
+    } else if (resolutionPreset === '720p_free') {
+      setResolutionPreset(aspectRatio === '9:16' ? '9_16_vertical' : '4k_scope');
+    }
+  }, [exportPolicy.hasProOrTrial, aspectRatio]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 4. Custom Output Filename
   const [customFilename, setCustomFilename] = useState<string>('');
 
@@ -372,11 +383,13 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
       const cleanProject = projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
       const timeStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       setCustomFilename(`HANDFILM_${cleanProject}_Master_${timeStr}`);
-      if (aspectRatio === '9:16') {
+      if (!exportPolicy.hasProOrTrial) {
+        setResolutionPreset('720p_free');
+      } else if (aspectRatio === '9:16') {
         setResolutionPreset('9_16_vertical');
       }
     }
-  }, [isOpen, currentSlideIndex, totalCount, projectTitle, aspectRatio]);
+  }, [isOpen, currentSlideIndex, totalCount, projectTitle, aspectRatio, exportPolicy.hasProOrTrial]);
 
   // Global Keyboard Shortcuts (Escape to Close)
   useEffect(() => {

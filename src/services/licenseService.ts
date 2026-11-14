@@ -263,18 +263,21 @@ async function syncSupabasePaymentTransaction(tx?: PaymentTransactionRecord | nu
     const { data } = await sb.auth.getUser();
     const user = data?.user;
     if (!user?.id) return;
-    await sb.from('payment_transactions').insert({
-      id: tx.id,
-      user_id: user.id,
-      email: user.email || tx.email,
-      provider: tx.provider,
-      transaction_id: tx.transactionId,
-      plan: tx.proTier,
-      billing_cycle: tx.plan,
-      amount: tx.amount,
-      currency: tx.currency,
-      status: tx.status
-    });
+    await sb.from('payment_transactions').upsert(
+      {
+        id: tx.id,
+        user_id: user.id,
+        email: user.email || tx.email,
+        provider: tx.provider,
+        transaction_id: tx.transactionId,
+        plan: tx.proTier,
+        billing_cycle: tx.plan,
+        amount: tx.amount,
+        currency: tx.currency,
+        status: tx.status
+      },
+      { onConflict: 'id', ignoreDuplicates: true }
+    );
   } catch {
     // Best-effort client replication
   }
@@ -462,6 +465,7 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
               email: sbSession.user.email,
               name: sbSession.user.user_metadata?.full_name || sbSession.user.email.split('@')[0],
               supabaseAccessToken: sbSession.access_token,
+              supabaseUserId: sbSession.user.id,
               deviceId,
               deviceLabel,
               platform
@@ -500,14 +504,16 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
     set({ isLoading: true, error: null, deviceLimitConflict: null });
     const { deviceId, deviceLabel, platform } = getOrCreateDeviceFingerprint();
     try {
+      let supabaseUserId: string | undefined;
       const sb = getSupabaseClient();
       if (sb) {
-        await sb.auth.signUp({ email, password }).catch(() => null);
+        const sbRes = await sb.auth.signUp({ email, password }).catch(() => null);
+        supabaseUserId = sbRes?.data?.user?.id || undefined;
       }
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId },
-        body: JSON.stringify({ email, password, name, deviceId, deviceLabel, platform })
+        body: JSON.stringify({ email, password, name, deviceId, deviceLabel, platform, supabaseUserId })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
@@ -515,6 +521,10 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
         return false;
       }
       writeStoredToken(data.sessionToken);
+      void syncSupabaseProfilePlan('trial', {
+        trialStartedAt: data.license?.trialStartedAt,
+        trialEndsAt: data.license?.trialEndsAt
+      });
       set({
         isLoading: false,
         sessionToken: data.sessionToken,
@@ -534,14 +544,16 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
     set({ isLoading: true, error: null, deviceLimitConflict: null });
     const { deviceId, deviceLabel, platform } = getOrCreateDeviceFingerprint();
     try {
+      let supabaseUserId: string | undefined;
       const sb = getSupabaseClient();
       if (sb) {
-        await sb.auth.signInWithPassword({ email, password }).catch(() => null);
+        const sbRes = await sb.auth.signInWithPassword({ email, password }).catch(() => null);
+        supabaseUserId = sbRes?.data?.user?.id || undefined;
       }
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId },
-        body: JSON.stringify({ email, password, deviceId, deviceLabel, platform })
+        body: JSON.stringify({ email, password, deviceId, deviceLabel, platform, supabaseUserId })
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 403 && data?.code === 'DEVICE_LIMIT_REACHED') {
@@ -753,9 +765,16 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
     }
     set({ isLoading: true, error: null });
     try {
+      let supabaseUserId: string | undefined;
+      const sb = getSupabaseClient();
+      if (sb) {
+        const sbUser = await sb.auth.getUser().catch(() => null);
+        supabaseUserId = sbUser?.data?.user?.id || undefined;
+      }
       const res = await fetch('/api/billing/activate-trial', {
         method: 'POST',
-        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' })
+        headers: getLicenseAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ supabaseUserId })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
@@ -822,8 +841,12 @@ export const useLicenseStore = create<LicenseStoreState>((set, get) => ({
 
     if (paymentFlag === 'success') {
       const provider = (params.get('provider') || '').toUpperCase();
-      const tier = (params.get('tier') || 'pro').toUpperCase();
-      await get().syncLicenseStatus();
+      const rawTier = (params.get('tier') || 'pro').toLowerCase();
+      const tierKey: ProTierName =
+        rawTier === 'ultra' || rawTier === 'teams' ? rawTier : 'pro';
+      const tier = tierKey.toUpperCase();
+      const synced = await get().syncLicenseStatus();
+      await syncSupabaseProfilePlan(tierKey, { trialEndsAt: synced?.proExpiresAt });
       set({
         isOnboardingModalOpen: true,
         onboardingStep: 3,

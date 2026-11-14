@@ -57,9 +57,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [currency, setCurrency] = useState<PaymentCurrency>(() => {
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-      return /Dhaka|Asia\/Dacca/i.test(tz) ? 'BDT' : 'BDT';
+      return /Dhaka|Asia\/Dacca/i.test(tz) ? 'BDT' : 'USD';
     } catch {
-      return 'BDT';
+      return 'USD';
     }
   });
 
@@ -71,6 +71,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const [pendingPaypalOrderId, setPendingPaypalOrderId] = useState<string | null>(null);
   const [pendingPaypalApproveUrl, setPendingPaypalApproveUrl] = useState<string | null>(null);
+  const [pendingBdtGatewayUrl, setPendingBdtGatewayUrl] = useState<{ provider: 'bKash' | 'Nagad'; url: string } | null>(null);
 
   const [localError, setLocalError] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
@@ -81,10 +82,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setLocalStatus(null);
     setPendingPaypalOrderId(null);
     setPendingPaypalApproveUrl(null);
+    setPendingBdtGatewayUrl(null);
     void fetchPaymentGatewayConfig().then((cfg) => {
       if (cfg) setGatewayConfig(cfg);
     });
   }, [isOpen, fetchPaymentGatewayConfig]);
+
+  const isInsideIframe = typeof window !== 'undefined' && window.top !== window.self;
 
   if (!isOpen || typeof document === 'undefined') return null;
 
@@ -96,11 +100,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleBkashPay = async () => {
     setLocalError(null);
+    setPendingBdtGatewayUrl(null);
     setLocalStatus('Initializing bKash Tokenized Checkout...');
     const res = await startBkashCheckout({ plan: billingCycle, planTier });
     if (res.ok && res.checkoutUrl) {
-      setLocalStatus('Redirecting to bKash Secure Payment Gateway...');
-      window.location.assign(res.checkoutUrl);
+      if (isInsideIframe) {
+        setPendingBdtGatewayUrl({ provider: 'bKash', url: res.checkoutUrl });
+        setLocalStatus('bKash checkout session ready. Open secure gateway below to approve.');
+      } else {
+        setLocalStatus('Redirecting to bKash Secure Payment Gateway...');
+        window.location.assign(res.checkoutUrl);
+      }
       return;
     }
     setLocalStatus(null);
@@ -115,11 +125,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleNagadPay = async () => {
     setLocalError(null);
+    setPendingBdtGatewayUrl(null);
     setLocalStatus('Signing Nagad RSA Checkout Payload...');
     const res = await startNagadCheckout({ plan: billingCycle, planTier });
     if (res.ok && res.checkoutUrl) {
-      setLocalStatus('Redirecting to Nagad PGW Checkout...');
-      window.location.assign(res.checkoutUrl);
+      if (isInsideIframe) {
+        setPendingBdtGatewayUrl({ provider: 'Nagad', url: res.checkoutUrl });
+        setLocalStatus('Nagad PGW checkout session ready. Open secure gateway below to approve.');
+      } else {
+        setLocalStatus('Redirecting to Nagad PGW Checkout...');
+        window.location.assign(res.checkoutUrl);
+      }
       return;
     }
     setLocalStatus(null);
@@ -139,8 +155,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (res.ok && res.orderId) {
       setPendingPaypalOrderId(res.orderId);
       setPendingPaypalApproveUrl(res.approveUrl || null);
-      setLocalStatus('PayPal Order created. Complete approval then click Capture Order.');
-      if (res.approveUrl) {
+      setLocalStatus('PayPal Order created. Complete approval then click Capture & Verify Payment.');
+      if (res.approveUrl && !isInsideIframe) {
         window.location.assign(res.approveUrl);
       }
       return;
@@ -367,6 +383,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <ArrowRight className="w-4 h-4" />
                     </div>
                   </button>
+
+                  {pendingBdtGatewayUrl && (
+                    <div className="sm:col-span-2 p-3 rounded bg-[#09090B] border border-white/[0.12] flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11px] font-mono text-zinc-300">
+                        {pendingBdtGatewayUrl.provider} session created. Continue in secure checkout tab:
+                      </span>
+                      <a
+                        href={pendingBdtGatewayUrl.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-9 px-3.5 rounded bg-[#F59E0B] hover:bg-amber-400 text-[#0B0B0D] font-space-grotesk font-black text-xs uppercase flex items-center gap-1.5"
+                      >
+                        <span>Open {pendingBdtGatewayUrl.provider} Checkout</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <form onSubmit={handleManualVerify} className="space-y-3 p-4 rounded-md bg-[#121216] border border-emerald-500/35">

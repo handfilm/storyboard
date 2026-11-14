@@ -40,6 +40,7 @@ export interface ActiveDeviceRecord {
 
 export interface StoredUserAccount {
   id: string;
+  supabaseUserId?: string;
   email: string;
   name: string;
   provider: 'email' | 'google' | 'supabase';
@@ -219,6 +220,38 @@ export function createLicenseSecurityModule(appRootDir: string) {
       .slice(0, 25);
   };
 
+  const syncSupabaseTrialActivation = async (user: StoredUserAccount): Promise<void> => {
+    const supabaseUrl = String(process.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+    if (!supabaseUrl || !serviceKey) return;
+
+    const profileId = user.supabaseUserId || user.id;
+    const headers = {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    };
+
+    try {
+      await fetch(`${supabaseUrl}/rest/v1/profiles`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          id: profileId,
+          email: user.email,
+          full_name: user.name,
+          plan: 'trial',
+          trial_started_at: new Date(user.trialStartedAt).toISOString(),
+          trial_ends_at: new Date(user.trialEndsAt).toISOString(),
+          updated_at: new Date().toISOString()
+        })
+      }).catch(() => {});
+    } catch {
+      // Non-blocking best-effort cloud DB replication
+    }
+  };
+
   const syncSupabaseFulfillment = async (
     user: StoredUserAccount,
     tx: PaymentTransactionRecord
@@ -227,6 +260,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
     const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
     if (!supabaseUrl || !serviceKey) return;
 
+    const profileId = user.supabaseUserId || user.id;
     const headers = {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
@@ -240,7 +274,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
         headers,
         body: JSON.stringify({
           id: tx.id,
-          user_id: user.id,
+          user_id: profileId,
           email: user.email,
           provider: tx.provider,
           transaction_id: tx.transactionId,
@@ -257,7 +291,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          id: user.id,
+          id: profileId,
           email: user.email,
           full_name: user.name,
           plan: user.proTier || 'pro',
@@ -791,8 +825,13 @@ export function createLicenseSecurityModule(appRootDir: string) {
         const now = Date.now();
         const { hash, salt } = hashPassword(password);
         const userId = `usr_${crypto.randomBytes(12).toString('hex')}`;
+        const supabaseUserId =
+          typeof req.body?.supabaseUserId === 'string' && req.body.supabaseUserId.trim().length > 0
+            ? req.body.supabaseUserId.trim().slice(0, 80)
+            : undefined;
         const newUser: StoredUserAccount = {
           id: userId,
+          ...(supabaseUserId ? { supabaseUserId } : {}),
           email,
           name: sanitizeDisplayName(req.body?.name, email),
           provider: 'email',
@@ -817,6 +856,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
 
         db.users[userId] = newUser;
         saveDb(db);
+        void syncSupabaseTrialActivation(newUser);
 
         const sessionToken = issueSessionToken(userId, deviceId);
         const license = buildSignedLicenseResponse(newUser, deviceId);
@@ -869,6 +909,13 @@ export function createLicenseSecurityModule(appRootDir: string) {
           });
         }
 
+        const incomingSbId =
+          typeof req.body?.supabaseUserId === 'string' && req.body.supabaseUserId.trim().length > 0
+            ? req.body.supabaseUserId.trim().slice(0, 80)
+            : '';
+        if (incomingSbId && !user.supabaseUserId) {
+          user.supabaseUserId = incomingSbId;
+        }
         saveDb(db);
         const sessionToken = issueSessionToken(user.id, deviceId);
         const license = buildSignedLicenseResponse(user, deviceId);
@@ -897,6 +944,10 @@ export function createLicenseSecurityModule(appRootDir: string) {
         let email = sanitizeEmail(req.body?.email);
         let name = sanitizeDisplayName(req.body?.name, email || 'director@handfilm.studio');
         let provider: 'google' | 'supabase' = 'google';
+        let supabaseSub =
+          typeof req.body?.supabaseUserId === 'string' && req.body.supabaseUserId.trim().length > 0
+            ? req.body.supabaseUserId.trim().slice(0, 80)
+            : '';
 
         const supabaseToken = String(req.body?.supabaseAccessToken || '').trim();
         if (supabaseToken) {
@@ -905,6 +956,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
             email = verified.email;
             name = verified.name;
             provider = 'supabase';
+            if (verified.sub) supabaseSub = verified.sub;
           }
         }
 
@@ -923,6 +975,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
           const userId = `usr_${crypto.randomBytes(12).toString('hex')}`;
           user = {
             id: userId,
+            ...(supabaseSub ? { supabaseUserId: supabaseSub } : {}),
             email,
             name,
             provider,
@@ -935,6 +988,8 @@ export function createLicenseSecurityModule(appRootDir: string) {
             activeDevices: []
           };
           db.users[userId] = user;
+        } else if (supabaseSub && !user.supabaseUserId) {
+          user.supabaseUserId = supabaseSub;
         }
 
         const bindResult = bindDeviceToAccount(user, deviceId, deviceLabel, platform);
@@ -1070,7 +1125,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
     });
 
     // 7b. Activate / Confirm 30-Day Server-Timestamped Trial without extending expired trials
-    app.post('/api/billing/activate-trial', billingLimiter, (req, res) => {
+    app.post('/api/billing/activate-trial', billingLimiter, async (req, res) => {
       const resolved = resolveSessionFromRequest(req);
       if (!resolved) {
         return res.status(401).json({
@@ -1082,6 +1137,14 @@ export function createLicenseSecurityModule(appRootDir: string) {
       const serverNow = Date.now();
       const db = loadDb();
       const user = db.users[resolved.user.id];
+      const incomingSbId =
+        typeof req.body?.supabaseUserId === 'string' && req.body.supabaseUserId.trim().length > 0
+          ? req.body.supabaseUserId.trim().slice(0, 80)
+          : '';
+      if (incomingSbId && !user.supabaseUserId) {
+        user.supabaseUserId = incomingSbId;
+        saveDb(db);
+      }
       const license = buildSignedLicenseResponse(user, resolved.deviceId);
       if (license.tier === 'free' && serverNow >= user.trialEndsAt) {
         return res.status(402).json({
@@ -1091,6 +1154,7 @@ export function createLicenseSecurityModule(appRootDir: string) {
           license
         });
       }
+      await syncSupabaseTrialActivation(user);
       res.json({
         success: true,
         mode: 'trial_active',

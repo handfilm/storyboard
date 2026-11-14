@@ -829,11 +829,12 @@ export default function App() {
                 verticalOffset: stylePatch.verticalOffset,
                 horizontalOffset: stylePatch.horizontalOffset ?? 0,
                 safeGuard: Boolean(stylePatch.safeGuard),
-                ...(stylePatch.directorRole ? { directorRole: stylePatch.directorRole } : {}),
-                ...(stylePatch.opticalFinish ? { opticalFinish: stylePatch.opticalFinish } : {}),
+                ...(stylePatch.directorRole ? { directorRole: stylePatch.directorRole } : { directorRole: undefined }),
+                ...(stylePatch.opticalFinish ? { opticalFinish: stylePatch.opticalFinish } : { opticalFinish: undefined }),
                 entranceAnim: stylePatch.entranceAnim,
                 exitAnim: stylePatch.exitAnim,
                 ...(stylePatch.keyframes ? { keyframes: { ...stylePatch.keyframes } } : {}),
+                layers: undefined,
                 styleConfig: { ...stylePatch.styleConfig }
               }
             : {

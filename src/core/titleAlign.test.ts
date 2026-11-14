@@ -439,9 +439,28 @@ test('Zero-Slider [ TITLE FX ] Cinema Typography & Framing Deck structure, Safe 
     "id: 'scrim'",
     "id: 'kinetic'",
     'title-fx-open-drawer',
-    'title-fx-sync-all'
+    'title-fx-sync-all',
+    'SAVE TO ALL',
+    'ArrowUp',
+    'ArrowDown',
+    'ArrowLeft',
+    'ArrowRight',
+    'e.shiftKey ? 2 : 12'
   ]) {
     assert.ok(topBarSrc.includes(needle), `Missing Title FX Deck control needle: ${needle}`);
+  }
+
+  for (const needle of [
+    'quick-hud-nudge-up',
+    'quick-hud-nudge-down',
+    'quick-hud-nudge-left',
+    'quick-hud-nudge-right',
+    'quick-hud-nudge-reset',
+    'quick-hud-save-all',
+    'SAVE TO ALL',
+    'e.shiftKey ? 2 : 12'
+  ]) {
+    assert.ok(overlaySrc.includes(needle), `Missing StageTextOverlay Quick Deck needle: ${needle}`);
   }
 
   // Safe Guard bounds & clamping logic
@@ -466,17 +485,23 @@ test('Zero-Slider [ TITLE FX ] Cinema Typography & Framing Deck structure, Safe 
   assert.strictEqual(safeLr.clampedHorizontalOffset, 0);
   assert.strictEqual(safeLr.clampedVerticalOffset, 8);
 
-  // Tactile store actions: Nudge, Safe Guard, Director Role, Optical Finish, Swatch, SYNC ALL
+  // Tactile store actions: Nudge (12px & 2px), Safe Guard, Director Role, Optical Finish, Swatch, SAVE TO ALL
   const store = useStudioStore.getState();
   store.setActiveShotIndex(0);
-  store.updateShotTitleData(0, { banglaTitle: 'শট এক', englishSubtitle: 'SHOT ONE' });
-  store.updateShotTitleData(1, { banglaTitle: 'শট দুই', englishSubtitle: 'SHOT TWO' });
+  store.updateShotTitleData(0, { banglaTitle: 'শট এক', englishSubtitle: 'SHOT ONE', eyebrowText: 'CH 01' });
+  store.updateShotTitleData(1, { banglaTitle: 'শট দুই', englishSubtitle: 'SHOT TWO', eyebrowText: 'CH 02' });
 
   store.resetTitleOffset();
   store.nudgeTitleOffset(12, -12);
   let state = useStudioStore.getState();
   assert.strictEqual(state.project.shots[0]?.titleData?.horizontalOffset, 12);
   assert.strictEqual(state.project.shots[0]?.titleData?.verticalOffset, -12);
+
+  // Shift-key 2px micro-precision nudge
+  store.nudgeTitleOffset(2, -2);
+  state = useStudioStore.getState();
+  assert.strictEqual(state.project.shots[0]?.titleData?.horizontalOffset, 14);
+  assert.strictEqual(state.project.shots[0]?.titleData?.verticalOffset, -14);
 
   store.toggleTitleSafeGuard();
   state = useStudioStore.getState();
@@ -502,16 +527,19 @@ test('Zero-Slider [ TITLE FX ] Cinema Typography & Framing Deck structure, Safe 
   assert.strictEqual(state.project.shots[0]?.titleData?.opticalFinish, 'halation');
   assert.strictEqual(state.project.shots[0]?.titleData?.styleConfig?.glowIntensity, 1.45);
 
-  // SYNC ALL propagates visual/framing deck fields without overwriting Shot 1's unique titles
+  // SAVE TO ALL propagates grid, film role, and optical settings without overwriting Shot 1's unique titles
   store.copyTitleStyleToAllShots(0);
   state = useStudioStore.getState();
   assert.strictEqual(state.project.shots[1]?.titleData?.presetId, 'pure-white');
+  assert.strictEqual(state.project.shots[1]?.titleData?.zone9, 'lower-left');
   assert.strictEqual(state.project.shots[1]?.titleData?.directorRole, 'lower-3rd');
   assert.strictEqual(state.project.shots[1]?.titleData?.opticalFinish, 'halation');
   assert.strictEqual(state.project.shots[1]?.titleData?.safeGuard, true);
   assert.strictEqual(state.project.shots[1]?.titleData?.horizontalOffset, 12);
+  assert.strictEqual(state.project.shots[1]?.titleData?.verticalOffset, -12);
   assert.strictEqual(state.project.shots[1]?.titleData?.banglaTitle, 'শট দুই');
   assert.strictEqual(state.project.shots[1]?.titleData?.englishSubtitle, 'SHOT TWO');
+  assert.strictEqual(state.project.shots[1]?.titleData?.eyebrowText, 'CH 02');
 
   // Restore clean defaults
   store.resetTitleOffset();

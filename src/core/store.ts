@@ -29,6 +29,7 @@ import {
   getKineticEntranceForAlign,
   getZone9Metadata,
   isValidTitleZone9,
+  resolveSpatialTitleChoreography,
   zone9ToAlign
 } from '../services/titleChoreographyEngine';
 import {
@@ -988,11 +989,21 @@ export const useStudioStore = create<StudioState>()(
         targetIdx = state.activeShotIndex;
         const shot = state.project.shots?.[targetIdx];
         const currentData = resolveShotTitleData(shot, targetIdx, state.titleConfig, state.titleAlign);
+        const isSafe = Boolean(currentData.safeGuard ?? state.titleConfig.safeGuard);
         const zone =
           currentData.zone9 && currentData.zone9 !== 'AUTO' && isValidTitleZone9(currentData.zone9)
             ? currentData.zone9
-            : 'center-hero';
-        const isSafe = Boolean(currentData.safeGuard ?? state.titleConfig.safeGuard);
+            : resolveSpatialTitleChoreography({
+                titleAlign: currentData.alignment ?? state.titleAlign,
+                zone9: currentData.zone9 ?? state.titleZone,
+                layoutMode: currentData.styleConfig?.layoutMode,
+                shotIndex: targetIdx,
+                shotType: shot?.shotType,
+                panX: shot?.panX,
+                panY: shot?.panY,
+                smartCropMode: shot?.smartCropMode,
+                safeGuard: isSafe
+              }).zone9;
         const clamped = clampTitleOffsetsForSafeGuard(
           zone,
           (currentData.horizontalOffset ?? 0) + dx,
@@ -1707,7 +1718,13 @@ export const useStudioStore = create<StudioState>()(
             ? Math.max(0, Math.min(state.project.shots.length - 1, sourceIndex))
             : state.activeShotIndex;
         const sourceShot = state.project.shots[resolvedSourceIdx];
-        const sourceData = resolveShotTitleData(sourceShot, resolvedSourceIdx);
+        const sourceData = resolveShotTitleData(
+          sourceShot,
+          resolvedSourceIdx,
+          state.titleConfig,
+          state.titleAlign
+        );
+        const resolvedZone9 = sourceData.zone9 ?? state.titleZone ?? 'AUTO';
         const clonedStyle = sourceData.styleConfig
           ? {
               ...sourceData.styleConfig,
@@ -1722,7 +1739,7 @@ export const useStudioStore = create<StudioState>()(
           enabled: sourceData.enabled,
           presetId: sourceData.presetId,
           alignment: sourceData.alignment,
-          ...(sourceData.zone9 ? { zone9: sourceData.zone9 } : {}),
+          zone9: resolvedZone9,
           ...(sourceData.kineticEntrance ? { kineticEntrance: sourceData.kineticEntrance } : {}),
           fontScale: sourceData.fontScale,
           glowIntensity: sourceData.glowIntensity,
@@ -1738,6 +1755,28 @@ export const useStudioStore = create<StudioState>()(
           styleConfig: clonedStyle
         };
 
+        state.titleZone = resolvedZone9;
+        state.titleAlign = sourceData.alignment;
+        state.titlePosition = titleAlignToPosition(sourceData.alignment);
+        state.titleConfig.titleSize = sourceData.fontScale;
+        state.titleConfig.glowIntensity = sourceData.glowIntensity;
+        state.titleConfig.tracking = sourceData.letterTracking;
+        state.titleConfig.verticalOffset = sourceData.verticalOffset;
+        state.titleConfig.horizontalOffset = sourceData.horizontalOffset ?? 0;
+        state.titleConfig.safeGuard = Boolean(sourceData.safeGuard);
+        state.titleConfig.directorRole = sourceData.directorRole;
+        state.titleConfig.opticalFinish = sourceData.opticalFinish;
+        state.titleConfig.activePresetConfig = clonedStyle;
+        if (
+          sourceData.presetId === 'molten-gold' ||
+          sourceData.presetId === 'titanium-silver' ||
+          sourceData.presetId === 'neon-crimson' ||
+          sourceData.presetId === 'pure-white' ||
+          sourceData.presetId === 'amber'
+        ) {
+          state.titleConfig.preset = sourceData.presetId;
+        }
+
         state.project.shots.forEach((shot, idx) => {
           const existingData = resolveShotTitleData(shot, idx);
           const perShotStyle: TitlePresetConfig = {
@@ -1749,9 +1788,11 @@ export const useStudioStore = create<StudioState>()(
           };
           shot.titleData = {
             ...copiedStylePatch!,
+            eyebrowText: existingData.eyebrowText,
             banglaTitle: existingData.banglaTitle,
             englishSubtitle: existingData.englishSubtitle,
             captionNote: existingData.captionNote,
+            creditsText: existingData.creditsText,
             styleConfig: perShotStyle
           };
           shot.activeTitlePreset = copiedStylePatch!.presetId;

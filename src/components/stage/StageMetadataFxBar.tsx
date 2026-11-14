@@ -152,6 +152,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   const [isMatrixOpen, setIsMatrixOpen] = useState(false);
   const [isMatrixPinned, setIsMatrixPinned] = useState(false);
   const [syncAllConfirmed, setSyncAllConfirmed] = useState(false);
+  const [isShiftModifier, setIsShiftModifier] = useState(false);
 
   const zoomBtnRef = useRef<HTMLButtonElement | null>(null);
   const titleFxBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -235,12 +236,18 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
   useEffect(() => {
     if (!isTitleFxOpen) {
       setIsSafeGuardGuideHover(false);
+      setIsShiftModifier(false);
       return;
     }
     const raf = window.requestAnimationFrame(() => {
       titleFxDeckRef.current?.focus({ preventScroll: true });
     });
+    const syncShift = (e: KeyboardEvent) => {
+      setIsShiftModifier(e.shiftKey);
+    };
+    const resetShift = () => setIsShiftModifier(false);
     const onKeyDown = (e: KeyboardEvent) => {
+      setIsShiftModifier(e.shiftKey);
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
         return;
@@ -301,9 +308,13 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
       }
     };
     window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', syncShift, true);
+    window.addEventListener('blur', resetShift);
     return () => {
       window.cancelAnimationFrame(raf);
       window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keyup', syncShift, true);
+      window.removeEventListener('blur', resetShift);
     };
   }, [
     isTitleFxOpen,
@@ -1092,8 +1103,20 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
 
               {/* Micro-Nudge D-Pad (±12px click, ±2px Shift+click) */}
               <div className="flex flex-col items-center justify-between border-x border-white/[0.06] px-1.5">
-                <div className="w-full flex items-center justify-between text-[7.5px] text-[#8E8E93]">
-                  <span>NUDGE</span>
+                <div className="w-full flex items-center justify-between text-[7.5px] text-[#8E8E93] gap-1">
+                  <span className="flex items-center gap-1">
+                    <span>NUDGE</span>
+                    <span
+                      className={`px-1 rounded text-[6.5px] font-bold leading-tight ${
+                        isShiftModifier
+                          ? 'bg-[#F59E0B] text-[#0B0B0D]'
+                          : 'bg-[#0B0B0D] text-[#8E8E93]'
+                      }`}
+                      title="Click: 12px · Shift+Click: 2px precision"
+                    >
+                      {isShiftModifier ? '2px' : '12px'}
+                    </span>
+                  </span>
                   <span className="text-[#F59E0B] tabular-nums">
                     {choreography.clampedHorizontalOffset >= 0 ? '+' : ''}
                     {choreography.clampedHorizontalOffset},{choreography.clampedVerticalOffset >= 0 ? '+' : ''}
@@ -1105,6 +1128,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
                   <button
                     type="button"
                     data-testid="title-fx-nudge-up"
+                    aria-label="Nudge title up 12px (Shift+Click 2px)"
                     onClick={(e) => nudgeTitleOffset(0, -(e.shiftKey ? 2 : 12))}
                     className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
                     title="Nudge Up 12px (Shift: 2px)"
@@ -1115,6 +1139,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
                   <button
                     type="button"
                     data-testid="title-fx-nudge-left"
+                    aria-label="Nudge title left 12px (Shift+Click 2px)"
                     onClick={(e) => nudgeTitleOffset(-(e.shiftKey ? 2 : 12), 0)}
                     className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
                     title="Nudge Left 12px (Shift: 2px)"
@@ -1124,6 +1149,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
                   <button
                     type="button"
                     data-testid="title-fx-nudge-reset"
+                    aria-label="Reset title nudge to 0,0"
                     onClick={resetTitleOffset}
                     className={`h-[20px] rounded border text-[7px] font-bold flex items-center justify-center cursor-pointer transition-colors ${
                       horizontalOffset === 0 && verticalOffset === 0
@@ -1137,6 +1163,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
                   <button
                     type="button"
                     data-testid="title-fx-nudge-right"
+                    aria-label="Nudge title right 12px (Shift+Click 2px)"
                     onClick={(e) => nudgeTitleOffset(e.shiftKey ? 2 : 12, 0)}
                     className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
                     title="Nudge Right 12px (Shift: 2px)"
@@ -1147,6 +1174,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
                   <button
                     type="button"
                     data-testid="title-fx-nudge-down"
+                    aria-label="Nudge title down 12px (Shift+Click 2px)"
                     onClick={(e) => nudgeTitleOffset(0, e.shiftKey ? 2 : 12)}
                     className="h-[20px] rounded bg-[#0B0B0D] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer transition-colors"
                     title="Nudge Down 12px (Shift: 2px)"
@@ -1368,7 +1396,7 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
               </div>
             </div>
 
-            {/* ROW 4: Bilingual Typography Drawer + SYNC ALL Multi-Shot Propagate */}
+            {/* ROW 4: Bilingual Typography Drawer + SAVE TO ALL Multi-Shot Propagate */}
             <div className="flex items-center gap-1.5 pt-0.5">
               <button
                 type="button"
@@ -1385,16 +1413,17 @@ export const StageMetadataFxBar: React.FC<StageMetadataFxBarProps> = ({
               <button
                 type="button"
                 data-testid="title-fx-sync-all"
+                aria-label="Save current grid, film role, and optical settings to all shots"
                 onClick={handleSyncAllShots}
                 className={`py-1.5 px-2 rounded border font-bold text-[8px] flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap shrink-0 ${
                   syncAllConfirmed
                     ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D] shadow-[0_0_12px_rgba(245,158,11,0.45)]'
                     : 'bg-[#141417] hover:bg-[#F59E0B]/15 border-[#F59E0B]/50 text-[#F59E0B]'
                 }`}
-                title="Propagate current title style, safe-zone lock, and optical finish across all shots"
+                title="Capture current grid, film role, and optical settings and apply instantly to all shots"
               >
                 {syncAllConfirmed ? <Check className="w-2.5 h-2.5" /> : <CopyCheck className="w-2.5 h-2.5" />}
-                <span>{syncAllConfirmed ? 'SYNCED' : 'SYNC ALL'}</span>
+                <span>{syncAllConfirmed ? 'SAVED' : 'SAVE TO ALL'}</span>
               </button>
             </div>
           </div>

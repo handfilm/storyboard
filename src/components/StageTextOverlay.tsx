@@ -37,7 +37,15 @@ import {
   DEFAULT_TITLE_KEYFRAMES,
   segmentTextGraphemes
 } from '../constants/titleTemplates';
-import { Sliders } from 'lucide-react';
+import {
+  Sliders,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  CopyCheck,
+  Check
+} from 'lucide-react';
 
 export type StageTitleVariant =
   | 'center'
@@ -191,9 +199,19 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
   const setTitleTracking = useStudioStore((s) => s.setTitleTracking);
   const setTitleOpticalFinish = useStudioStore((s) => s.setTitleOpticalFinish);
   const nudgeTitleOffset = useStudioStore((s) => s.nudgeTitleOffset);
+  const resetTitleOffset = useStudioStore((s) => s.resetTitleOffset);
   const toggleTitleSafeGuard = useStudioStore((s) => s.toggleTitleSafeGuard);
+  const copyTitleStyleToAllShots = useStudioStore((s) => s.copyTitleStyleToAllShots);
 
   const [showQuickHud, setShowQuickHud] = useState(false);
+  const [quickSaveConfirmed, setQuickSaveConfirmed] = useState(false);
+  const quickSaveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (quickSaveTimerRef.current) window.clearTimeout(quickSaveTimerRef.current);
+    };
+  }, []);
 
   // Direct double-click inline canvas editing state
   const [editingField, setEditingField] = useState<'bangla' | 'english' | null>(null);
@@ -1212,20 +1230,101 @@ export const StageTextOverlay: React.FC<StageTextOverlayProps> = ({
                 ))}
               </div>
 
-              <div className="flex items-center justify-between gap-1">
-                <div className="flex gap-1">
-                  <button type="button" onClick={(e) => nudgeTitleOffset(-(e.shiftKey ? 2 : 12), 0)} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">←</button>
-                  <button type="button" onClick={(e) => nudgeTitleOffset(0, -(e.shiftKey ? 2 : 12))} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">↑</button>
-                  <button type="button" onClick={(e) => nudgeTitleOffset(0, e.shiftKey ? 2 : 12)} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">↓</button>
-                  <button type="button" onClick={(e) => nudgeTitleOffset(e.shiftKey ? 2 : 12, 0)} className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F4F4F5] cursor-pointer">→</button>
+              <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-white/[0.06]">
+                <div className="grid grid-cols-3 gap-0.5 w-[72px]">
+                  <span />
+                  <button
+                    type="button"
+                    data-testid="quick-hud-nudge-up"
+                    aria-label="Nudge title up 12px (Shift+Click 2px)"
+                    onClick={(e) => nudgeTitleOffset(0, -(e.shiftKey ? 2 : 12))}
+                    className="h-[19px] rounded bg-[#141417] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer"
+                    title="Nudge Up 12px (Shift: 2px)"
+                  >
+                    <ArrowUp className="w-2.5 h-2.5" />
+                  </button>
+                  <span />
+                  <button
+                    type="button"
+                    data-testid="quick-hud-nudge-left"
+                    aria-label="Nudge title left 12px (Shift+Click 2px)"
+                    onClick={(e) => nudgeTitleOffset(-(e.shiftKey ? 2 : 12), 0)}
+                    className="h-[19px] rounded bg-[#141417] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer"
+                    title="Nudge Left 12px (Shift: 2px)"
+                  >
+                    <ArrowLeft className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="quick-hud-nudge-reset"
+                    aria-label="Reset title nudge to 0,0"
+                    onClick={resetTitleOffset}
+                    className={`h-[19px] rounded border text-[7px] font-bold flex items-center justify-center cursor-pointer ${
+                      effectiveHorizontalOffset === 0 && effectiveVerticalOffset === 0
+                        ? 'bg-[#1C1C22] border-white/[0.07] text-[#8E8E93]'
+                        : 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F59E0B]'
+                    }`}
+                    title="Reset X/Y Nudge to 0,0"
+                  >
+                    0,0
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="quick-hud-nudge-right"
+                    aria-label="Nudge title right 12px (Shift+Click 2px)"
+                    onClick={(e) => nudgeTitleOffset(e.shiftKey ? 2 : 12, 0)}
+                    className="h-[19px] rounded bg-[#141417] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer"
+                    title="Nudge Right 12px (Shift: 2px)"
+                  >
+                    <ArrowRight className="w-2.5 h-2.5" />
+                  </button>
+                  <span />
+                  <button
+                    type="button"
+                    data-testid="quick-hud-nudge-down"
+                    aria-label="Nudge title down 12px (Shift+Click 2px)"
+                    onClick={(e) => nudgeTitleOffset(0, e.shiftKey ? 2 : 12)}
+                    className="h-[19px] rounded bg-[#141417] border border-white/[0.08] hover:border-[#F59E0B] text-[#F4F4F5] hover:text-[#F59E0B] flex items-center justify-center cursor-pointer"
+                    title="Nudge Down 12px (Shift: 2px)"
+                  >
+                    <ArrowDown className="w-2.5 h-2.5" />
+                  </button>
+                  <span />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setTitleTracking(tracking >= 0.2 ? 0.12 : 0.24)}
-                  className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F59E0B] text-[8px] cursor-pointer"
-                >
-                  TRK {tracking.toFixed(2)}em
-                </button>
+
+                <div className="flex-1 flex flex-col gap-1 items-end">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[7.5px] text-[#8E8E93] tabular-nums">
+                      {effectiveHorizontalOffset >= 0 ? '+' : ''}{effectiveHorizontalOffset},{effectiveVerticalOffset >= 0 ? '+' : ''}{effectiveVerticalOffset}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTitleTracking(tracking >= 0.2 ? 0.12 : 0.24)}
+                      className="px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[#F59E0B] text-[8px] cursor-pointer"
+                    >
+                      TRK {tracking.toFixed(2)}em
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="quick-hud-save-all"
+                    onClick={() => {
+                      copyTitleStyleToAllShots(shotIndex);
+                      setQuickSaveConfirmed(true);
+                      if (quickSaveTimerRef.current) window.clearTimeout(quickSaveTimerRef.current);
+                      quickSaveTimerRef.current = window.setTimeout(() => setQuickSaveConfirmed(false), 1600);
+                    }}
+                    className={`w-full py-1 px-2 rounded border font-bold text-[8px] flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                      quickSaveConfirmed
+                        ? 'bg-[#F59E0B] border-[#F59E0B] text-[#0B0B0D]'
+                        : 'bg-[#141417] hover:bg-[#F59E0B]/15 border-[#F59E0B]/50 text-[#F59E0B]'
+                    }`}
+                    title="Save current grid, film role, and optical settings to all shots"
+                  >
+                    {quickSaveConfirmed ? <Check className="w-2.5 h-2.5" /> : <CopyCheck className="w-2.5 h-2.5" />}
+                    <span>{quickSaveConfirmed ? 'SAVED' : 'SAVE TO ALL'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
